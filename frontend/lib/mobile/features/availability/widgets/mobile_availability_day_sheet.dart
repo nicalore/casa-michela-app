@@ -12,7 +12,10 @@ import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_card_delete_buttons.dart';
 import '../../../shared/widgets/mobile_danger_button.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
+import '../../../shared/widgets/mobile_opening_hours.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
+import '../../../shared/widgets/mobile_tour.dart';
+import '../mobile_availability_tour.dart';
 import '../mobile_availability_week.dart';
 
 const double _blockRadius = 20;
@@ -23,6 +26,10 @@ const double _rowHeight = 42;
 // Locked slots fade through their colours: an Opacity trips Impeller's check.
 const double _lockedFade = 0.5;
 const double _actionSize = 40;
+
+const EdgeInsets _tourBinInflate = EdgeInsets.all(2);
+const EdgeInsets _tourButtonInflate = EdgeInsets.all(5);
+const double _tourButtonRadius = 23;
 
 // Returned by the day sheet; the page confirms and carries it out.
 sealed class MobileDaySheetAction
@@ -64,15 +71,39 @@ String _deleteAllLabel(TimeBucket band)
   };
 }
 
+// [taxCode] starts the sheet's tour once the sheet is up.
 Future<void> showMobileAvailabilityDaySheet({
   required BuildContext context,
   required MobileAvailabilityDay day,
   required bool editable,
   required Future<void> Function(BuildContext sheet, MobileDaySheetAction action) onAction,
+  String? taxCode,
 })
 {
   // With one band holding slots, its own deletion already empties the day.
   final bool wholeDay = day.canDelete && day.bands.where((band) => band.slots.isNotEmpty).length > 1;
+
+  // A tour lights the first bin and the first band's deletion.
+  final List<MobileAvailabilityBand> bands = day.shownBands;
+  final int binBand = bands.indexWhere((band) => band.canDelete);
+  final int allBand = bands.indexWhere((band) => band.canDelete && band.slots.length > 1);
+
+  final Set<DaySheetMark> present = {
+    if (binBand >= 0) DaySheetMark.bin,
+    if (allBand >= 0) DaySheetMark.band,
+    if (editable && wholeDay) DaySheetMark.day,
+    if (editable) DaySheetMark.edit,
+  };
+
+  Widget lit(DaySheetMark mark, Widget child)
+  {
+    return MobileTourTarget(
+      id: daySheetTourTarget(mark),
+      inflate: _tourButtonInflate,
+      radius: _tourButtonRadius,
+      child: child,
+    );
+  }
 
   return showMobileSheet<void>(
     context: context,
@@ -80,10 +111,18 @@ Future<void> showMobileAvailabilityDaySheet({
       eyebrow: 'Disponibilità',
       title: formatAvailableDayLabel(day.date),
       body: [
-        const SizedBox(height: 14),
-        for (final (i, band) in day.shownBands.indexed) ...[
+        MobileTourOnRise(
+          onRisen: taxCode == null ? null : () => startDaySheetTour(taxCode: taxCode, present: present),
+          child: const SizedBox(height: 14),
+        ),
+        for (final (i, band) in bands.indexed) ...[
           if (i > 0) const SizedBox(height: _blockGap),
-          _BandBlock(band: band, onAction: (action) => onAction(context, action)),
+          _BandBlock(
+            band: band,
+            onAction: (action) => onAction(context, action),
+            litBin: i == binBand,
+            litAll: i == allBand,
+          ),
         ],
       ],
       footer: editable
@@ -91,17 +130,23 @@ Future<void> showMobileAvailabilityDaySheet({
               padding: const EdgeInsets.only(top: 18),
               child: Column(
                 children: [
-                  MobileGoldButton(
-                    label: 'Modifica',
-                    icon: Icons.edit_outlined,
-                    onPressed: () => onAction(context, const MobileEditDay()),
+                  lit(
+                    DaySheetMark.edit,
+                    MobileGoldButton(
+                      label: 'Modifica',
+                      icon: Icons.edit_outlined,
+                      onPressed: () => onAction(context, const MobileEditDay()),
+                    ),
                   ),
                   if (wholeDay) ...[
                     const SizedBox(height: 12),
-                    MobileDangerButton(
-                      label: 'Elimina la giornata',
-                      icon: Icons.delete_outline_rounded,
-                      onPressed: () => onAction(context, const MobileDeleteDay()),
+                    lit(
+                      DaySheetMark.day,
+                      MobileDangerButton(
+                        label: 'Elimina la giornata',
+                        icon: Icons.delete_outline_rounded,
+                        onPressed: () => onAction(context, const MobileDeleteDay()),
+                      ),
                     ),
                   ],
                 ],
@@ -117,7 +162,11 @@ class _BandBlock extends StatelessWidget
   final MobileAvailabilityBand band;
   final ValueChanged<MobileDaySheetAction> onAction;
 
-  const _BandBlock({required this.band, required this.onAction});
+  // For a tour: this band's first bin, and its deletion.
+  final bool litBin;
+  final bool litAll;
+
+  const _BandBlock({required this.band, required this.onAction, this.litBin = false, this.litAll = false});
 
   Widget _buildHead()
   {
@@ -145,40 +194,45 @@ class _BandBlock extends StatelessWidget
 
   Widget _buildOpenings()
   {
-    final TextStyle hours = GoogleFonts.plusJakartaSans(
-      fontSize: 11.5,
-      fontWeight: FontWeight.w600,
-      color: MobilePalette.mutedText,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-
     return Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 8),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 10,
-        runSpacing: 4,
-        children: [
-          Text(
-            'Apertura'.toUpperCase(),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-              color: MobilePalette.mutedText.withValues(alpha: 0.8),
-            ),
-          ),
+      child: MobileOpeningHours(
+        openings: [
           for (final (mode, window) in band.openings)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(lessonModeIcon(mode), size: 14, color: MobilePalette.mutedText),
-                const SizedBox(width: 4),
-                Text(formatMinutesRange(window.startMinutes, window.endMinutes), style: hours),
-              ],
-            ),
+            (mode, formatMinutesRange(window.startMinutes, window.endMinutes)),
         ],
+        labelStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 9.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1,
+          color: MobilePalette.mutedText.withValues(alpha: 0.8),
+        ),
+        hoursStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
+          color: MobilePalette.mutedText,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+        iconSize: 14,
+        iconColor: MobilePalette.mutedText,
+        iconGap: 4,
+        gap: 10,
       ),
+    );
+  }
+
+  Widget _litAll(Widget child)
+  {
+    if (!litAll)
+    {
+      return child;
+    }
+
+    return MobileTourTarget(
+      id: daySheetTourTarget(DaySheetMark.band),
+      inflate: _tourButtonInflate,
+      radius: _tourButtonRadius,
+      child: child,
     );
   }
 
@@ -199,12 +253,13 @@ class _BandBlock extends StatelessWidget
           if (band.slots.isEmpty)
             const _Divided(child: _Empty())
           else
-            for (final slot in band.slots)
+            for (final (i, slot) in band.slots.indexed)
               _Divided(
                 child: _SlotRow(
                   slot: slot,
                   locked: band.isLocked,
                   onDelete: band.canDelete ? () => onAction(MobileDeleteSlot(slot)) : null,
+                  lit: litBin && i == 0,
                 ),
               ),
           if (band.isOpen) _buildOpenings(),
@@ -214,9 +269,11 @@ class _BandBlock extends StatelessWidget
               child: Padding(
                 // Square with the block's left padding.
                 padding: const EdgeInsets.fromLTRB(0, 10, 6, 6),
-                child: MobileCardDeleteButton(
-                  label: _deleteAllLabel(band.band),
-                  onPressed: () => onAction(MobileDeleteBand(band)),
+                child: _litAll(
+                  MobileCardDeleteButton(
+                    label: _deleteAllLabel(band.band),
+                    onPressed: () => onAction(MobileDeleteBand(band)),
+                  ),
                 ),
               ),
             ),
@@ -253,7 +310,10 @@ class _SlotRow extends StatelessWidget
   final bool locked;
   final VoidCallback? onDelete;
 
-  const _SlotRow({required this.slot, required this.locked, required this.onDelete});
+  // For a tour to light the bin.
+  final bool lit;
+
+  const _SlotRow({required this.slot, required this.locked, required this.onDelete, this.lit = false});
 
   @override
   Widget build(BuildContext context)
@@ -299,6 +359,13 @@ class _SlotRow extends StatelessWidget
         Expanded(child: facts),
         if (onDelete == null)
           const SizedBox(width: _actionSize)
+        else if (lit)
+          MobileTourTarget(
+            id: daySheetTourTarget(DaySheetMark.bin),
+            inflate: _tourBinInflate,
+            radius: _tourButtonRadius,
+            child: MobileCardBinButton(onPressed: onDelete, extent: _actionSize),
+          )
         else
           MobileCardBinButton(onPressed: onDelete, extent: _actionSize),
       ],

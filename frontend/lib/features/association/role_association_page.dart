@@ -93,7 +93,7 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
         visitedSections.contains(_hoursIndex) ? const CombinedHoursView() : const SizedBox.shrink(),
         if (widget.role != _teacherRole) ...[
           visitedSections.contains(_subjectsIndex)
-              ? PupilSubjectsTab(canReport: canSpeakFor(widget.role))
+              ? const PupilSubjectsTab()
               : const SizedBox.shrink(),
           visitedSections.contains(_teachersIndex)
               ? PupilTeachersTab(role: widget.role, canReport: canSpeakFor(widget.role))

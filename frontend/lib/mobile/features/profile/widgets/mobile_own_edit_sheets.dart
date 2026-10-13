@@ -44,6 +44,7 @@ class _EditSheet extends StatelessWidget
 {
   final String eyebrow;
   final String title;
+  final String? subtitle;
   final List<Widget> fields;
   final bool busy;
   final VoidCallback onSave;
@@ -51,6 +52,7 @@ class _EditSheet extends StatelessWidget
   const _EditSheet({
     required this.eyebrow,
     required this.title,
+    this.subtitle,
     required this.fields,
     required this.busy,
     required this.onSave,
@@ -65,6 +67,7 @@ class _EditSheet extends StatelessWidget
       child: MobileSheet(
         eyebrow: eyebrow,
         title: title,
+        subtitle: subtitle,
         aboveKeyboard: true,
         body: [
           const SizedBox(height: 20),
@@ -262,6 +265,7 @@ class _StudiesSheetState extends State<_StudiesSheet>
     return _EditSheet(
       eyebrow: 'Studi',
       title: 'Modifica studi',
+      subtitle: 'Queste informazioni saranno visibili a studenti e genitori.',
       busy: _busy,
       onSave: _save,
       fields: [

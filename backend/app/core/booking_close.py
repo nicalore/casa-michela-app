@@ -58,6 +58,21 @@ def bands_of(start_time: time, end_time: time) -> set[TimeBandEnum]:
     }
 
 
+# From then on nobody but an administrator may take the hours back.
+def first_close(day: date, start_time: time, end_time: time) -> datetime:
+    return min(closes_at(day, band) for band in bands_of(start_time, end_time))
+
+
+# Three days ahead always reach the next close of some band.
+def next_close(now: datetime) -> datetime:
+    return min(
+        moment
+        for offset in range(3)
+        for band in TimeBandEnum
+        if (moment := closes_at(now.date() + timedelta(days=offset), band)) > now
+    )
+
+
 def assert_ready_to_publish(day: date, band: TimeBandEnum, now: datetime) -> None:
     if has_closed(day, band, now):
         return

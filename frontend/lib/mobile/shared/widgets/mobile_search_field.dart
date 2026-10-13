@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../mobile_palette.dart';
 
 const String kMobileNoSearchMatch = 'Nessun elemento trovato per questa ricerca.';
 
 const double _height = 46;
 const double _radius = 18;
 
-const double _fillAlpha = 0.45;
+// Thinner on the sea, the hint drops below 4.5:1 near the deep water.
+const double _fillAlpha = 0.75;
 const double _edgeAlpha = 0.6;
 
 class MobileSearchField extends StatelessWidget
@@ -39,7 +41,7 @@ class MobileSearchField extends StatelessWidget
       height: _height,
       padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: onGlass ? 0.75 : _fillAlpha),
+        color: Colors.white.withValues(alpha: _fillAlpha),
         borderRadius: BorderRadius.circular(_radius),
         border: Border.all(
           color: onGlass
@@ -72,7 +74,7 @@ class MobileSearchField extends StatelessWidget
                 hintStyle: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.trialInk.withValues(alpha: 0.45),
+                  color: MobilePalette.mutedText,
                 ),
               ),
             ),
@@ -86,10 +88,10 @@ class MobileSearchField extends StatelessWidget
                     onTap: _clear,
                     child: Padding(
                       padding: const EdgeInsets.only(left: 8),
-                      child: Icon(
+                      child: const Icon(
                         Icons.close_rounded,
                         size: 18,
-                        color: AppTheme.trialInk.withValues(alpha: 0.45),
+                        color: MobilePalette.mutedText,
                       ),
                     ),
                   ),

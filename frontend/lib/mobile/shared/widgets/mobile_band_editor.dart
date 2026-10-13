@@ -13,6 +13,7 @@ import '../mobile_palette.dart';
 import 'mobile_card_delete_buttons.dart';
 import 'mobile_slot_button.dart';
 import 'mobile_time_field.dart';
+import 'mobile_tour.dart';
 
 const double _radius = 20;
 const double _rowGap = 12;
@@ -25,6 +26,30 @@ const double _spentAlpha = 0.32;
 const List<BoxShadow> _cardShadow = [
   BoxShadow(color: Color(0x14122438), offset: Offset(0, 6), blurRadius: 18),
 ];
+
+const EdgeInsets _tourYesNoInflate = EdgeInsets.all(4);
+const double _tourYesNoRadius = 16;
+const EdgeInsets _tourHoursInflate = EdgeInsets.fromLTRB(6, 4, 6, 6);
+const double _tourHoursRadius = 18;
+const EdgeInsets _tourBinInflate = EdgeInsets.all(-1);
+const double _tourBinRadius = 21;
+const EdgeInsets _tourAddInflate = EdgeInsets.all(4);
+const double _tourAddRadius = 18;
+
+enum MobileBandPart { yesNo, hours, add, bin }
+
+// What a tour lights of a band, by id, null where nothing; [onUsed] tells it what was touched.
+class MobileBandTour
+{
+  final String? yesNo;
+  final String? hours;
+  final String? add;
+  final String? bin;
+
+  final ValueChanged<MobileBandPart> onUsed;
+
+  const MobileBandTour({this.yesNo, this.hours, this.add, this.bin, required this.onUsed});
+}
 
 class MobileBandEditor<T> extends StatefulWidget
 {
@@ -41,7 +66,12 @@ class MobileBandEditor<T> extends StatefulWidget
 
   final String offLabel;
 
+  // Its band chosen elsewhere, as where a lesson moves: no yes/no.
+  final bool fixed;
+
   final VoidCallback onChanged;
+
+  final MobileBandTour? tour;
 
   const MobileBandEditor({
     super.key,
@@ -52,7 +82,9 @@ class MobileBandEditor<T> extends StatefulWidget
     required this.shutLabel,
     this.held = const [],
     required this.offLabel,
+    this.fixed = false,
     required this.onChanged,
+    this.tour,
   });
 
   @override
@@ -71,10 +103,17 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
 
   BandSchedule<T> get _schedule => widget.schedule;
 
-  void _change(void Function() change)
+  void _change(void Function() change, MobileBandPart part)
   {
     change();
     widget.onChanged();
+    widget.tour?.onUsed(part);
+  }
+
+  // Wrapped whenever a tour is given, lit or not, so lighting never builds a part anew.
+  Widget _lit(String? id, EdgeInsets inflate, double radius, Widget child)
+  {
+    return widget.tour == null ? child : MobileTourTarget(id: id, inflate: inflate, radius: radius, child: child);
   }
 
   void _remove(BandStretch<T> stretch)
@@ -91,7 +130,7 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
 
     if (index >= 0)
     {
-      _change(() => _schedule.removeAt(_bucket, index));
+      _change(() => _schedule.removeAt(_bucket, index), MobileBandPart.bin);
     }
   }
 
@@ -204,7 +243,10 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
         return;
       }
 
-      _change(() => _schedule.move(_bucket, at, timeOfDayFromMinutes(start), timeOfDayFromMinutes(end)));
+      _change(
+        () => _schedule.move(_bucket, at, timeOfDayFromMinutes(start), timeOfDayFromMinutes(end)),
+        MobileBandPart.hours,
+      );
     }
 
     // Going past the other end carries it along at the same length.
@@ -232,28 +274,45 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: MobileTimeField(
-              label: 'Dalle',
-              minutes: stretch.startMinutes,
-              min: first,
-              max: last - kMinimumBandMinutes,
-              onChanged: moveStart,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: MobileTimeField(
-              label: 'Alle',
-              minutes: stretch.endMinutes,
-              min: first + kMinimumBandMinutes,
-              max: last,
-              onChanged: moveEnd,
+            child: _lit(
+              widget.tour?.hours,
+              _tourHoursInflate,
+              _tourHoursRadius,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: MobileTimeField(
+                      label: 'Dalle',
+                      minutes: stretch.startMinutes,
+                      min: first,
+                      max: last - kMinimumBandMinutes,
+                      onChanged: moveStart,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: MobileTimeField(
+                      label: 'Alle',
+                      minutes: stretch.endMinutes,
+                      min: first + kMinimumBandMinutes,
+                      max: last,
+                      onChanged: moveEnd,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           // A lone stretch is cleared with "No"; the bin shows from the second.
           if (stretches.length > 1) ...[
             const SizedBox(width: 6),
-            MobileCardBinButton(onPressed: leaving ? null : () => _remove(stretch)),
+            _lit(
+              widget.tour?.bin,
+              _tourBinInflate,
+              _tourBinRadius,
+              MobileCardBinButton(onPressed: leaving ? null : () => _remove(stretch)),
+            ),
           ],
         ],
       ),
@@ -298,11 +357,18 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildHead(
-          trailing: _YesNo(
-            yes: given,
-            onYes: () => _change(() => _schedule.toggle(_bucket, window.start, window.end)),
-            onNo: () => _change(() => _schedule.toggle(_bucket, null, null)),
-          ),
+          trailing: widget.fixed
+              ? null
+              : _lit(
+                  widget.tour?.yesNo,
+                  _tourYesNoInflate,
+                  _tourYesNoRadius,
+                  _YesNo(
+                    yes: given,
+                    onYes: () => _change(() => _schedule.toggle(_bucket, window.start, window.end), MobileBandPart.yesNo),
+                    onNo: () => _change(() => _schedule.toggle(_bucket, null, null), MobileBandPart.yesNo),
+                  ),
+                ),
         ),
         _buildOpening(window),
         AnimatedSwitcher(
@@ -323,7 +389,8 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
           offLabel: widget.offLabel,
           onAdd: !given || _schedule.firstGap(_bucket, window) == null
               ? null
-              : () => _change(() => _schedule.addStretch(_bucket, window)),
+              : () => _change(() => _schedule.addStretch(_bucket, window), MobileBandPart.add),
+          lit: (button) => _lit(widget.tour?.add, _tourAddInflate, _tourAddRadius, button),
         ),
       ],
     );
@@ -577,7 +644,9 @@ class _Foot extends StatelessWidget
   // Null while the opening has no quarter hour left.
   final VoidCallback? onAdd;
 
-  const _Foot({required this.given, required this.offLabel, required this.onAdd});
+  final Widget Function(Widget button) lit;
+
+  const _Foot({required this.given, required this.offLabel, required this.onAdd, required this.lit});
 
   @override
   Widget build(BuildContext context)
@@ -614,12 +683,14 @@ class _Foot extends StatelessWidget
         curve: Curves.easeOut,
         builder: (context, alpha, _) => Padding(
           padding: const EdgeInsets.only(top: 14),
-          child: MobileSlotButton(
-            label: 'Aggiungi orario',
-            icon: Icons.add_rounded,
-            onPressed: onAdd,
-            onLight: true,
-            alpha: alpha,
+          child: lit(
+            MobileSlotButton(
+              label: 'Aggiungi orario',
+              icon: Icons.add_rounded,
+              onPressed: onAdd,
+              onLight: true,
+              alpha: alpha,
+            ),
           ),
         ),
       );

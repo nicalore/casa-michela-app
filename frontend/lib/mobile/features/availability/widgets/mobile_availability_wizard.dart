@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/time_bucket.dart';
@@ -15,8 +17,10 @@ import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 import '../../../shared/widgets/mobile_band_editor.dart';
 import '../../../shared/widgets/mobile_day_picker.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import '../../../shared/widgets/mobile_wizard_parts.dart';
 import '../mobile_availability_draft.dart';
+import '../mobile_availability_tour.dart';
 
 const Duration _turn = Duration(milliseconds: 340);
 const Curve _turnCurve = Curves.easeInOutCubic;
@@ -25,6 +29,17 @@ const double _blockGap = 12;
 
 // Assumed page height until measured.
 const double _unmeasured = 360;
+
+// A page settles within a tolerance, never exactly on its index.
+const double _settled = 0.001;
+
+// The hours step moves on once the hours have rested this long.
+const Duration _hoursRest = Duration(milliseconds: 700);
+
+const EdgeInsets _tourDaysInflate = EdgeInsets.fromLTRB(8, -6, 8, 8);
+const double _tourDaysRadius = 18;
+const EdgeInsets _tourButtonInflate = EdgeInsets.all(5);
+const double _tourButtonRadius = 23;
 
 // True once something was saved; not drag-dismissible, which would lose the input.
 Future<bool> showMobileAvailabilityWizard({
@@ -72,15 +87,141 @@ class _WizardState extends State<_Wizard>
 
   bool _busy = false;
 
+  final WizardTourPulse _tourPulse = WizardTourPulse();
+  Timer? _hoursQuiet;
+
   MobileAvailabilityDraft get _draft => widget.draft;
+
+  @override
+  void initState()
+  {
+    super.initState();
+    _pages.addListener(_onPages);
+    mobileTourChanges.addListener(_tourLater);
+    _tourLater();
+  }
 
   @override
   void dispose()
   {
+    _hoursQuiet?.cancel();
+    mobileTourChanges.removeListener(_tourLater);
+    _pages.removeListener(_onPages);
     _pages.dispose();
     _heights.dispose();
 
+    // Not while the tree is locked: a tour ends, and redraws, on hearing it.
+    final WizardTourPulse pulse = _tourPulse;
+
+    SchedulerBinding.instance.addPostFrameCallback((_)
+    {
+      pulse.leave();
+      pulse.dispose();
+    });
+
     super.dispose();
+  }
+
+  void _tourLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  void _onPages()
+  {
+    final double page = _page;
+    final List<_Page> pages = _pageList;
+    final bool settled = (page - page.round()).abs() < _settled && page.round() < pages.length;
+
+    _tourPulse.rest(settled ? pages[page.round()].key : null);
+
+    if (settled)
+    {
+      _tourLater();
+    }
+  }
+
+  // Once the sheet stands still on a page, the marks of that page never seen.
+  Future<void> _tourCheck() async
+  {
+    if (!mounted || _busy || isMobileTourShown)
+    {
+      return;
+    }
+
+    if (isMobileSheetMoving(context))
+    {
+      _tourLater();
+
+      return;
+    }
+
+    final double page = _page;
+    final List<_Page> pages = _pageList;
+
+    if ((page - page.round()).abs() >= _settled || page.round() != _step || _step >= pages.length)
+    {
+      return;
+    }
+
+    final _Page current = pages[_step];
+
+    _tourPulse.rest(current.key);
+
+    await startWizardTour(
+      draft: _draft,
+      step: current.step,
+      page: current.key,
+      isLast: () => mounted && _isLast(_pageList.length),
+      pulse: _tourPulse,
+    );
+  }
+
+  void _tourUse(WizardMark mark)
+  {
+    _tourPulse.use(mark);
+    _tourLater();
+  }
+
+  void _onBandUsed(MobileBandPart part)
+  {
+    if (part == MobileBandPart.hours)
+    {
+      _hoursQuiet?.cancel();
+      _hoursQuiet = Timer(_hoursRest, _hoursRested);
+
+      return;
+    }
+
+    _tourUse(switch (part)
+    {
+      MobileBandPart.yesNo => WizardMark.yesNo,
+      MobileBandPart.add => WizardMark.add,
+      MobileBandPart.bin => WizardMark.bin,
+      MobileBandPart.hours => WizardMark.hours,
+    });
+  }
+
+  // Not while an hour is being typed: it counts once confirmed.
+  void _hoursRested()
+  {
+    if (!mounted)
+    {
+      return;
+    }
+
+    final BuildContext? focused = FocusManager.instance.primaryFocus?.context;
+
+    if (focused != null && focused.findAncestorStateOfType<EditableTextState>() != null)
+    {
+      _hoursQuiet = Timer(_hoursRest, _hoursRested);
+
+      return;
+    }
+
+    _tourUse(WizardMark.hours);
   }
 
   // No steps until days are chosen: the days page stands alone.
@@ -216,25 +357,37 @@ class _WizardState extends State<_Wizard>
     return mode == kOnlineMode ? kOwnOnlineGuide : kOwnPresenceGuide;
   }
 
-  List<Widget> _buildDays()
+  List<Widget> _buildDays(String page)
   {
     return [
       MobileWizardGuide(question: _guideFor(null).question, hint: _guideFor(null).hint),
-      MobileDayPicker(
-        days: _draft.availableDays,
-        isOffered: _draft.isOffered,
-        isPicked: _draft.isPicked,
-        refusalFor: _draft.refusalFor,
-        summary: _draft.days.length > 1
-            ? availabilityDaysSummary(_draft.days.length, split: _draft.groups.length > 1)
-            : null,
-        onToggle: (day) => setState(() => _draft.toggle(day)),
+      MobileTourTarget(
+        id: wizardTourTarget(WizardMark.days, page),
+        inflate: _tourDaysInflate,
+        radius: _tourDaysRadius,
+        child: MobileDayPicker(
+          days: _draft.availableDays,
+          isOffered: _draft.isOffered,
+          isPicked: _draft.isPicked,
+          refusalFor: _draft.refusalFor,
+          summary: _draft.days.length > 1
+              ? availabilityDaysSummary(_draft.days.length, split: _draft.groups.length > 1)
+              : null,
+          onToggle: (day)
+          {
+            setState(() => _draft.toggle(day));
+            _tourUse(WizardMark.days);
+          },
+          onRefused: (_) => _tourUse(WizardMark.days),
+        ),
       ),
     ];
   }
 
-  List<Widget> _buildMode(MobileWizardStep step)
+  List<Widget> _buildMode(MobileWizardStep step, String page)
   {
+    final TimeBucket? addBand = wizardTourAddBand(_draft, step);
+
     return [
       MobileWizardGuide(question: _guideFor(step.mode).question, hint: _guideFor(step.mode).hint),
       // Days with different openings get separate steps, each naming its days.
@@ -251,6 +404,13 @@ class _WizardState extends State<_Wizard>
           held: _draft.isEditing ? _draft.frozen[step.mode]![bucket]! : const [],
           offLabel: kNotAvailable,
           onChanged: () => setState(() {}),
+          tour: MobileBandTour(
+            yesNo: wizardTourTarget(WizardMark.yesNo, page),
+            hours: wizardTourTarget(WizardMark.hours, page),
+            add: bucket == addBand ? wizardTourTarget(WizardMark.add, page) : null,
+            bin: wizardTourTarget(WizardMark.bin, page),
+            onUsed: _onBandUsed,
+          ),
         ),
       ],
     ];
@@ -268,7 +428,7 @@ class _WizardState extends State<_Wizard>
           padding: const EdgeInsets.fromLTRB(MobileSheet.sidePadding, 20, MobileSheet.sidePadding, 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: step == null ? _buildDays() : _buildMode(step),
+            children: step == null ? _buildDays(page.key) : _buildMode(step, page.key),
           ),
         ),
       ),
@@ -308,10 +468,12 @@ class _WizardState extends State<_Wizard>
     );
   }
 
-  Widget _buildFooter(int count)
+  Widget _buildFooter(List<_Page> pages)
   {
+    final int count = pages.length;
     final bool last = _isLast(count);
     final String label = last ? (_draft.isEditing ? 'Salva' : 'Crea') : 'Avanti';
+    final WizardMark done = _draft.isEditing ? WizardMark.save : WizardMark.create;
 
     final VoidCallback? back = _step > 0 ? () => _turnTo(_step - 1) : null;
 
@@ -321,11 +483,16 @@ class _WizardState extends State<_Wizard>
         children: [
           MobileWizardBackSlot(onBack: back, busy: _busy),
           Expanded(
-            child: MobileGoldButton(
-              label: label,
-              icon: last ? Icons.check_rounded : Icons.arrow_forward_rounded,
-              busy: _busy,
-              onPressed: () => _next(count),
+            child: MobileTourTarget(
+              id: last && _step < count ? wizardTourTarget(done, pages[_step].key) : null,
+              inflate: _tourButtonInflate,
+              radius: _tourButtonRadius,
+              child: MobileGoldButton(
+                label: label,
+                icon: last ? Icons.check_rounded : Icons.arrow_forward_rounded,
+                busy: _busy,
+                onPressed: () => _next(count),
+              ),
             ),
           ),
         ],
@@ -345,7 +512,7 @@ class _WizardState extends State<_Wizard>
       aboveKeyboard: true,
       subhead: MobileWizardDots(count: pages.length, position: _pages, fallback: _step),
       content: _buildPager(pages),
-      footer: _buildFooter(pages.length),
+      footer: _buildFooter(pages),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -10,9 +11,18 @@ import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
+import '../../../shared/widgets/mobile_tour.dart';
+import '../mobile_subjects_tour.dart';
 
 // Past this many programmes the list gets a search field, as on the desktop.
 const int _searchFrom = 12;
+
+const EdgeInsets _tourListInflate = EdgeInsets.fromLTRB(8, -8, 8, 4);
+const double _tourListRadius = 18;
+const EdgeInsets _tourPartInflate = EdgeInsets.symmetric(horizontal: 8, vertical: 4);
+const double _tourPartRadius = 14;
+const EdgeInsets _tourButtonInflate = EdgeInsets.all(5);
+const double _tourButtonRadius = 23;
 
 // Worded as on the desktop.
 String programsSummary(int chosen, int total)
@@ -21,6 +31,7 @@ String programsSummary(int chosen, int total)
 }
 
 // Null when dismissed; confirming none gives a held discipline up, as on the desktop.
+// [taxCode] lets the sheet's tour start once it is up.
 Future<Set<int>?> showMobileProgramsSheet({
   required BuildContext context,
   required String subjectName,
@@ -28,6 +39,7 @@ Future<Set<int>?> showMobileProgramsSheet({
   required List<StudyProgramItem> programs,
   required Set<int> initialSelected,
   required Future<void> Function(BuildContext sheet)? onRemove,
+  String? taxCode,
 })
 {
   return showMobileSheet<Set<int>>(
@@ -38,6 +50,7 @@ Future<Set<int>?> showMobileProgramsSheet({
       programs: programs,
       initialSelected: initialSelected,
       onRemove: onRemove,
+      taxCode: taxCode,
     ),
   );
 }
@@ -49,6 +62,7 @@ class _ProgramsSheet extends StatefulWidget
   final List<StudyProgramItem> programs;
   final Set<int> initialSelected;
   final Future<void> Function(BuildContext sheet)? onRemove;
+  final String? taxCode;
 
   const _ProgramsSheet({
     required this.subjectName,
@@ -56,6 +70,7 @@ class _ProgramsSheet extends StatefulWidget
     required this.programs,
     required this.initialSelected,
     required this.onRemove,
+    required this.taxCode,
   });
 
   @override
@@ -74,6 +89,34 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
   {
     super.initState();
     _selected = Set<int>.from(widget.initialSelected);
+    _tourLater();
+  }
+
+  void _tourLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  // Once the sheet stands still.
+  void _tourCheck()
+  {
+    final String? taxCode = widget.taxCode;
+
+    if (!mounted || taxCode == null || isMobileTourShown)
+    {
+      return;
+    }
+
+    if (isMobileSheetMoving(context))
+    {
+      _tourLater();
+
+      return;
+    }
+
+    startProgramsTour(taxCode: taxCode, held: widget.onRemove != null);
   }
 
   @override
@@ -143,7 +186,8 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
     });
   }
 
-  Widget _buildGroup(String title, List<StudyProgramItem> group)
+  // The first group's head and rows are what a tour lights.
+  Widget _buildGroup(String title, List<StudyProgramItem> group, {required bool first})
   {
     final int chosen = group.where((program) => _selected.contains(program.id)).length;
     final bool all = chosen == group.length;
@@ -152,31 +196,47 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 18),
-        MobileSelectGroupHead(
-          title: title,
-          trailing: [
-            Text(
-              '$chosen/${group.length}',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: MobilePalette.mutedText,
+        MobileTourTarget(
+          id: first ? programsTourTarget(ProgramsMark.sector) : null,
+          inflate: _tourPartInflate,
+          radius: _tourPartRadius,
+          child: MobileSelectGroupHead(
+            title: title,
+            trailing: [
+              Text(
+                '$chosen/${group.length}',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: MobilePalette.mutedText,
+                ),
               ),
-            ),
-            MobileSelectAllToggle(
-              selected: all,
-              partial: chosen > 0 && !all,
-              onTap: () => _toggleGroup(group),
-            ),
-          ],
+              MobileSelectAllToggle(
+                selected: all,
+                partial: chosen > 0 && !all,
+                onTap: () => _toggleGroup(group),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 4),
-        for (final program in group)
-          MobileSelectRow(
-            title: program.name,
-            selected: _selected.contains(program.id),
-            onTap: () => _toggle(program.id),
+        MobileTourTarget(
+          id: first ? programsTourTarget(ProgramsMark.single) : null,
+          inflate: _tourPartInflate,
+          radius: _tourPartRadius,
+          clipped: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final program in group)
+                MobileSelectRow(
+                  title: program.name,
+                  selected: _selected.contains(program.id),
+                  onTap: () => _toggle(program.id),
+                ),
+            ],
           ),
+        ),
       ],
     );
   }
@@ -226,35 +286,56 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
             ),
           )
         else
-          for (final entry in groups.entries) _buildGroup(entry.key, entry.value),
+          MobileTourTarget(
+            id: programsTourTarget(ProgramsMark.list),
+            inflate: _tourListInflate,
+            radius: _tourListRadius,
+            clipped: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (i, entry) in groups.entries.indexed) _buildGroup(entry.key, entry.value, first: i == 0),
+              ],
+            ),
+          ),
       ],
       footer: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 22),
-          MobileGoldButton(
-            label: 'Conferma',
-            icon: Icons.check_rounded,
-            onPressed: ()
-            {
-              final Future<void> Function(BuildContext sheet)? remove = widget.onRemove;
-
-              if (_selected.isEmpty && remove != null)
+          MobileTourTarget(
+            id: programsTourTarget(ProgramsMark.confirm),
+            inflate: _tourButtonInflate,
+            radius: _tourButtonRadius,
+            child: MobileGoldButton(
+              label: 'Conferma',
+              icon: Icons.check_rounded,
+              onPressed: ()
               {
-                remove(context);
+                final Future<void> Function(BuildContext sheet)? remove = widget.onRemove;
 
-                return;
-              }
+                if (_selected.isEmpty && remove != null)
+                {
+                  remove(context);
 
-              finishMobileSheet(context, _selected);
-            },
+                  return;
+                }
+
+                finishMobileSheet(context, _selected);
+              },
+            ),
           ),
           if (widget.onRemove != null) ...[
             const SizedBox(height: 12),
-            MobileDangerButton(
-              label: 'Rimuovi disciplina',
-              icon: Icons.delete_outline_rounded,
-              onPressed: () => widget.onRemove!(context),
+            MobileTourTarget(
+              id: programsTourTarget(ProgramsMark.remove),
+              inflate: _tourButtonInflate,
+              radius: _tourButtonRadius,
+              child: MobileDangerButton(
+                label: 'Rimuovi disciplina',
+                icon: Icons.delete_outline_rounded,
+                onPressed: () => widget.onRemove!(context),
+              ),
             ),
           ],
         ],

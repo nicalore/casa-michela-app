@@ -26,6 +26,7 @@ import '../models/booking_summary_item.dart';
 import '../models/presence_group.dart';
 import '../models/presence_item.dart';
 import '../models/subject_request.dart';
+import 'calendar_lesson_block.dart' show lessonModeIcon;
 import 'person_avatar.dart';
 import 'subject_request_tile.dart';
 import 'subject_request_wizard.dart';
@@ -422,8 +423,6 @@ class _ModeColumn extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final online = mode == kOnlineMode;
-
     final slots = group.slotsFor(mode);
     final requests = group.requestsFor(mode);
 
@@ -439,7 +438,7 @@ class _ModeColumn extends StatelessWidget
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              online ? Icons.videocam_outlined : Icons.home_work_outlined,
+              lessonModeIcon(mode),
               size: 15,
               color: AppTheme.trialMutedText,
             ),

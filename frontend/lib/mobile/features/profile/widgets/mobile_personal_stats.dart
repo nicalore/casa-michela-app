@@ -27,6 +27,7 @@ import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_choice_sheet.dart';
 import '../../../shared/widgets/mobile_filter_chip.dart';
 import '../../../shared/widgets/mobile_load_switcher.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import 'mobile_card_grid.dart';
 import 'mobile_detail_card.dart';
 import 'mobile_trend_chart.dart';
@@ -34,6 +35,9 @@ import 'mobile_trend_chart.dart';
 // Room for "100.0%", and for the usual hours badges; a longer one widens its own slot.
 const double _shareSlot = 44;
 const double _badgeSlot = 72;
+
+const EdgeInsets _tourChipInflate = EdgeInsets.all(5);
+const double _tourChipRadius = 21;
 
 // Room for "10°".
 const double _positionSlot = 30;
@@ -189,7 +193,10 @@ class MobileTeacherStats extends StatelessWidget
 
   final double margin;
 
-  const MobileTeacherStats({super.key, required this.controller, required this.margin});
+  // Both filters marked for a tour.
+  final String? tourFilters;
+
+  const MobileTeacherStats({super.key, required this.controller, required this.margin, this.tourFilters});
 
   @override
   Widget build(BuildContext context)
@@ -197,6 +204,7 @@ class MobileTeacherStats extends StatelessWidget
     return _StatsBlock(
       controller: controller,
       margin: margin,
+      tourFilters: tourFilters,
       icon: Icons.event_available_rounded,
       title: kTeacherStatsTitle,
       figures: (statistics) => _TeacherFigures(statistics: statistics),
@@ -222,7 +230,10 @@ class MobilePupilStats extends StatelessWidget
 
   final double margin;
 
-  const MobilePupilStats({super.key, required this.controller, required this.margin});
+  // Both filters marked for a tour.
+  final String? tourFilters;
+
+  const MobilePupilStats({super.key, required this.controller, required this.margin, this.tourFilters});
 
   @override
   Widget build(BuildContext context)
@@ -230,6 +241,7 @@ class MobilePupilStats extends StatelessWidget
     return _StatsBlock(
       controller: controller,
       margin: margin,
+      tourFilters: tourFilters,
       icon: Icons.event_seat_rounded,
       title: kPupilStatsTitle,
       figures: (statistics) => _PupilFigures(statistics: statistics, online: controller.shownMode == kOnlineMode),
@@ -259,9 +271,12 @@ class _StatsBlock<T> extends StatefulWidget
   final Widget Function(T statistics) figures;
   final List<Widget> Function(T statistics) rankings;
 
+  final String? tourFilters;
+
   const _StatsBlock({
     required this.controller,
     required this.margin,
+    required this.tourFilters,
     required this.icon,
     required this.title,
     required this.figures,
@@ -380,17 +395,27 @@ class _StatsBlockState<T> extends State<_StatsBlock<T>>
           margin: margin,
           chips: [
             // Always set to something, so like an order they never light up.
-            MobileFilterChip(
-              icon: Icons.devices_outlined,
-              label: modeLabel(controller.mode),
-              active: false,
-              onTap: () => _pickMode(context),
+            MobileTourTarget(
+              id: widget.tourFilters,
+              inflate: _tourChipInflate,
+              radius: _tourChipRadius,
+              child: MobileFilterChip(
+                icon: Icons.devices_outlined,
+                label: modeLabel(controller.mode),
+                active: false,
+                onTap: () => _pickMode(context),
+              ),
             ),
-            MobileFilterChip(
-              icon: Icons.event_note_rounded,
-              label: statsPeriodLabel(controller.period),
-              active: false,
-              onTap: () => _pickPeriod(context),
+            MobileTourTarget(
+              id: widget.tourFilters,
+              inflate: _tourChipInflate,
+              radius: _tourChipRadius,
+              child: MobileFilterChip(
+                icon: Icons.event_note_rounded,
+                label: statsPeriodLabel(controller.period),
+                active: false,
+                onTap: () => _pickPeriod(context),
+              ),
             ),
           ],
         ),

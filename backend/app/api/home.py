@@ -426,8 +426,14 @@ async def get_student_month(
         .limit(1),
     )
 
+    own = figures[identity.tax_code]
+
+    # Paid for by whoever answers for the pupil, who never reads the tariff.
+    if guardian is not None:
+        own = own.model_copy(update={"homework_tariff": None})
+
     return StudentMonthSummaryResponse(
-        figures=figures[identity.tax_code],
+        figures=own,
         has_parental_responsibility=guardian is not None,
     )
 

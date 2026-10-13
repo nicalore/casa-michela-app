@@ -26,6 +26,9 @@ class MobileDismissButton extends StatefulWidget
     required this.onPressed,
   });
 
+  // For what draws around it, as a tour's hole.
+  static const double radius = _radius;
+
   @override
   State<MobileDismissButton> createState() => _MobileDismissButtonState();
 }

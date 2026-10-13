@@ -35,6 +35,9 @@ class MobileAvailabilityBand
   bool get isShown => isOpen || slots.isNotEmpty;
 
   bool get canDelete => !isLocked && slots.isNotEmpty;
+
+  // Its slots in their mode's colours; once locked they turn grey.
+  bool get showsColours => !isLocked && slots.isNotEmpty;
 }
 
 class MobileAvailabilityDay

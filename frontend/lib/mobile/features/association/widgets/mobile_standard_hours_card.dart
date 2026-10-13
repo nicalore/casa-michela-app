@@ -35,16 +35,21 @@ class MobileStandardHoursCard extends StatelessWidget
     return MobileGlassPanel(
       padding: table.padding,
       borderRadius: BorderRadius.circular(_radius),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          table.head(labelWidth),
-          table.rule(strong: true),
-          for (var weekday = 1; weekday <= 7; weekday++) ...[
-            if (weekday > 1) table.rule(),
-            standardRow(table, schedule, weekday, labelWidth),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            table.head(
+              labelWidth,
+              inline: table.headingsFit(context, width: constraints.maxWidth, labelWidth: labelWidth),
+            ),
+            table.rule(strong: true),
+            for (var weekday = 1; weekday <= 7; weekday++) ...[
+              if (weekday > 1) table.rule(),
+              standardRow(table, schedule, weekday, labelWidth),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

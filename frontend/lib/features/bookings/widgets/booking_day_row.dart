@@ -15,6 +15,7 @@ import '../../lessons/models/presence_group.dart';
 import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
+import '../../lessons/widgets/calendar_lesson_block.dart' show lessonModeIcon;
 import '../utils/booking_strings.dart' show deleteBand, moveBandLessons;
 
 const double _radius = 24;
@@ -671,8 +672,6 @@ class _ModeBlockState extends State<_ModeBlock>
 
   String get _mode => widget.mode;
 
-  bool get _online => _mode == kOnlineMode;
-
   List<PresenceItem> get _slots => widget.group.slotsFor(_mode, band: widget.band);
 
   List<BookingSummaryItem> get _lessons => widget.group.requestsFor(_mode, band: widget.band);
@@ -714,7 +713,7 @@ class _ModeBlockState extends State<_ModeBlock>
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          _online ? Icons.videocam_outlined : Icons.home_work_outlined,
+          lessonModeIcon(_mode),
           size: _modeHeadingHeight,
           color: AppTheme.trialMutedText,
         ),

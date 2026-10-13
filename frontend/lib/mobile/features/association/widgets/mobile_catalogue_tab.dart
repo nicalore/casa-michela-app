@@ -14,6 +14,7 @@ import '../../../shared/widgets/mobile_load_switcher.dart';
 import '../../../shared/widgets/mobile_nav_sheet.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_swipe_page.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_catalogue.dart';
 import 'mobile_association_status.dart';
 import 'mobile_missing_subject_sheet.dart';
@@ -38,8 +39,8 @@ class MobileCatalogueTab extends StatefulWidget
 {
   final MobileCatalogue catalogue;
 
-  // False for a pupil a parent answers for: no report button.
-  final bool canReport;
+  // The report button's, for a tour.
+  final String? tourReport;
 
   final double margin;
   final bool tablet;
@@ -48,7 +49,7 @@ class MobileCatalogueTab extends StatefulWidget
   const MobileCatalogueTab({
     super.key,
     required this.catalogue,
-    required this.canReport,
+    this.tourReport,
     required this.margin,
     required this.tablet,
     required this.landscape,
@@ -104,8 +105,7 @@ class _MobileCatalogueTabState extends State<MobileCatalogueTab>
   Widget build(BuildContext context)
   {
     final double bar = MobileNavSheet.collapsedHeightFor(context);
-    final double bottom =
-        bar + _handleClearance + (widget.canReport ? _reportLift + _reportHeight : 0);
+    final double bottom = bar + _handleClearance + _reportLift + _reportHeight;
 
     return Stack(
       children: [
@@ -135,13 +135,12 @@ class _MobileCatalogueTabState extends State<MobileCatalogueTab>
           ),
         ),
         // Part of the tab from its first frame: it slides with the page, never rises.
-        if (widget.canReport)
-          Positioned(
-            left: widget.margin,
-            right: widget.margin,
-            bottom: bar + _reportLift,
-            child: _ReportButton(tablet: widget.tablet),
-          ),
+        Positioned(
+          left: widget.margin,
+          right: widget.margin,
+          bottom: bar + _reportLift,
+          child: _ReportButton(tablet: widget.tablet, tourId: widget.tourReport),
+        ),
       ],
     );
   }
@@ -150,16 +149,22 @@ class _MobileCatalogueTabState extends State<MobileCatalogueTab>
 class _ReportButton extends StatelessWidget
 {
   final bool tablet;
+  final String? tourId;
 
-  const _ReportButton({required this.tablet});
+  const _ReportButton({required this.tablet, this.tourId});
 
   @override
   Widget build(BuildContext context)
   {
-    final Widget button = MobileDismissButton(
-      label: kMissingSubjectAction,
-      icon: Icons.flag_rounded,
-      onPressed: () => showMobileMissingSubjectSheet(context),
+    // Hugging it: it floats over the subjects, which a wider hole showed around it.
+    final Widget button = MobileTourTarget(
+      id: tourId,
+      radius: MobileDismissButton.radius,
+      child: MobileDismissButton(
+        label: kMissingSubjectAction,
+        icon: Icons.flag_rounded,
+        onPressed: () => showMobileMissingSubjectSheet(context),
+      ),
     );
 
     return tablet

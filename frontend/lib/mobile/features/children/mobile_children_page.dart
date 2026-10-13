@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -14,10 +15,13 @@ import '../../../features/people/widgets/person_detail_widgets.dart' show Person
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
+import '../../shared/widgets/mobile_filter_chip.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
+import '../../shared/widgets/mobile_tour.dart';
+import '../profile/mobile_own_tour.dart';
 import '../profile/widgets/mobile_card_grid.dart';
 import '../profile/widgets/mobile_detail_card.dart';
 import '../profile/widgets/mobile_memberships.dart';
@@ -38,6 +42,9 @@ const double _tabletMargin = 44;
 const double _tilesGap = 6;
 const double _tilesStripGap = 6;
 
+const double _chipsGap = 12;
+const double _chipsStripGap = 14;
+
 const double _stripGap = 18;
 const double _phoneFace = 60;
 const double _tabletFace = 76;
@@ -49,6 +56,10 @@ const double _shadowRoom = 16;
 
 // Pages end this far above the sheet they scroll under.
 const double _handleClearance = 16;
+
+// The statistics' chips run to the screen's edges; the hole keeps to the cards.
+const double _tourStatsInflate = 8;
+const double _tourStatsRadius = 26;
 
 // Every child has every section, as on the desktop, so switching child keeps the page.
 const List<OwnPageSection> _sections = OwnPageSection.values;
@@ -80,19 +91,74 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
   // One controller moved from child to child, so period and ranking are kept.
   MobilePupilStatsController? _stats;
 
+  // Set once the page is in place; from then on every load and closed sheet looks for the tour.
+  bool _settledIn = false;
+
   @override
   void initState()
   {
     super.initState();
     _load().whenComplete(MobileHoldScope.hold(context));
+    mobileTourChanges.addListener(_tourLater);
+    MobileNavSheet.hidden.addListener(_tourLater);
+  }
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    if (!_settledIn && mobileTourSettled(context))
+    {
+      _settledIn = true;
+      _tourLater();
+    }
   }
 
   @override
   void dispose()
   {
+    mobileTourChanges.removeListener(_tourLater);
+    MobileNavSheet.hidden.removeListener(_tourLater);
     _pages.dispose();
     _stats?.dispose();
     super.dispose();
+  }
+
+  // Asks for the frame too: the page may be still.
+  void _tourLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  // On the first page, once a child shows.
+  Future<void> _tourCheck() async
+  {
+    final PersonItem? child = _failed ? null : _child;
+
+    if (!mounted ||
+        !_settledIn ||
+        child == null ||
+        isMobileTourShown ||
+        MobileNavSheet.hidden.value ||
+        !_pages.hasClients ||
+        (_pages.page ?? 0) != 0)
+    {
+      return;
+    }
+
+    await startMobileTourOnce(
+      taxCode: widget.user.taxCode,
+      tour: childrenTour(
+        pages: _pages,
+        sections: [for (final section in _sections) section.name],
+        genders: [for (final PersonItem each in _children) each.gender],
+        shown: child.gender,
+        pupil: _isPupil(child),
+      ),
+    );
   }
 
   Future<void> _load({bool quiet = false}) async
@@ -131,6 +197,8 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
       {
         _stats?.follow(child.fiscalCode);
       }
+
+      _tourLater();
     }
     catch (e, stackTrace)
     {
@@ -211,6 +279,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
       labels: [for (final section in _sections) section.label],
       controller: _pages,
       scrollMargin: margin,
+      tourTargets: [for (final section in _sections) childrenTourTab(section.name)],
     );
 
     final Widget header = Column(
@@ -220,18 +289,17 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
           padding: EdgeInsets.fromLTRB(margin, 4, margin, 0),
           child: _buildTitle(child, tablet: tablet),
         ),
-        // Edge to edge: the row scrolls past the margin.
+        // Edge to edge: the row scrolls past the margin. Phones show the child as a chip.
         _grow(
           several && !rail
               ? Padding(
-                  padding: const EdgeInsets.only(top: _tilesGap),
-                  child: MobileChildTiles(
-                    children: _children,
-                    shown: child,
-                    onShow: _show,
-                    tablet: tablet,
-                    margin: margin,
-                  ),
+                  padding: EdgeInsets.only(top: tablet ? _tilesGap : _chipsGap),
+                  child: tablet
+                      ? MobileChildTiles(children: _children, shown: child, onShow: _show, margin: margin)
+                      : MobileFilterChips(
+                          margin: margin,
+                          chips: [MobileChildChip(children: _children, shown: child, onShow: _show, eyebrow: _title)],
+                        ),
                 )
               : null,
         ),
@@ -239,7 +307,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
           child == null || rail
               ? null
               : Padding(
-                  padding: EdgeInsets.only(top: several ? _tilesStripGap : _stripGap),
+                  padding: EdgeInsets.only(top: several ? (tablet ? _tilesStripGap : _chipsStripGap) : _stripGap),
                   child: strip,
                 ),
         ),
@@ -470,7 +538,17 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
       case OwnPageSection.stats:
         return [
           if (_isPupil(child))
-            MobilePupilStats(controller: _statsOf(child), margin: margin)
+            MobileTourTarget(
+              id: kChildrenTourStats,
+              inflate: EdgeInsets.fromLTRB(
+                _tourStatsInflate - margin,
+                _tourStatsInflate,
+                _tourStatsInflate - margin,
+                _tourStatsInflate,
+              ),
+              radius: _tourStatsRadius,
+              child: MobilePupilStats(controller: _statsOf(child), margin: margin, tourFilters: kChildrenTourFilters),
+            )
           else
             inset(const _Status('Nessun dato')),
         ];
@@ -488,10 +566,15 @@ class _ReportButton extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final Widget button = MobileDismissButton(
-      label: 'Segnala dato mancante / errato',
-      icon: Icons.flag_rounded,
-      onPressed: onTap,
+    // Hugging it: it floats over the cards, which a wider hole showed around it.
+    final Widget button = MobileTourTarget(
+      id: kChildrenTourReport,
+      radius: MobileDismissButton.radius,
+      child: MobileDismissButton(
+        label: 'Segnala dato mancante / errato',
+        icon: Icons.flag_rounded,
+        onPressed: onTap,
+      ),
     );
 
     return tablet

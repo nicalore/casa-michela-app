@@ -16,7 +16,7 @@ from app.models.subject_requested import SubjectRequested
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.booking import BookingBase, BookingCreate, BookingUpdate
-from app.services.collaboration import assert_admin_may_name, resume_collaboration
+from app.services.collaboration import assert_admin_may_name
 from app.services.lesson_guard import (
     find_booking_lessons,
     find_scheduled_booking_ids,
@@ -307,10 +307,6 @@ class BookingService:
 
         async with integrity_guard(self.repository.session, _CREATE_ERROR):
             await self.repository.create(booking)
-            await resume_collaboration(
-                self.repository.session,
-                presence.student_tax_code,
-            )
             await self.repository.commit()
 
         return booking

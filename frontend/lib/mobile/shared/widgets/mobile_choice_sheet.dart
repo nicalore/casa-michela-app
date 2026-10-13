@@ -4,12 +4,17 @@ import 'package:flutter/material.dart';
 
 import 'mobile_choice_tile.dart';
 import 'mobile_sheet.dart';
+import 'mobile_tour.dart';
 
 const double _topGap = 16;
 const double _tileGap = 8;
 
 // A one-line MobileChoiceTile.
 const double _tileHeight = 56;
+
+// Around the tiles, less the last one's gap below.
+const EdgeInsets _tourInflate = EdgeInsets.fromLTRB(5, 5, 5, 5 - _tileGap);
+const double _tourRadius = 21;
 
 class MobileChoice<T>
 {
@@ -23,23 +28,30 @@ class MobileChoice<T>
 }
 
 // Null when dismissed; a tap on a choice picks it and closes.
+// [tourChoices]: the choices marked for a tour. [onShown]: told once the sheet stands still, with how to close it.
 Future<MobileChoice<T>?> showMobileChoiceSheet<T>({
   required BuildContext context,
   required String eyebrow,
   required String title,
   required List<MobileChoice<T>> choices,
   required T value,
+  String? tourChoices,
+  void Function(VoidCallback close)? onShown,
 })
 {
   return showMobileSheet<MobileChoice<T>>(
     context: context,
-    builder: (context) => MobileSheet(
-      eyebrow: eyebrow,
-      title: title,
-      content: _ChoiceList<T>(
-        choices: choices,
-        chosen: choices.indexWhere((choice) => choice.value == value),
-        onPick: (choice) => finishMobileSheet(context, choice),
+    builder: (context) => MobileTourOnRise(
+      onRisen: onShown == null ? null : () => onShown(() => closeMobileSheet(context)),
+      child: MobileSheet(
+        eyebrow: eyebrow,
+        title: title,
+        content: _ChoiceList<T>(
+          choices: choices,
+          chosen: choices.indexWhere((choice) => choice.value == value),
+          onPick: (choice) => finishMobileSheet(context, choice),
+          tourChoices: tourChoices,
+        ),
       ),
     ),
   );
@@ -50,8 +62,9 @@ class _ChoiceList<T> extends StatefulWidget
   final List<MobileChoice<T>> choices;
   final int chosen;
   final ValueChanged<MobileChoice<T>> onPick;
+  final String? tourChoices;
 
-  const _ChoiceList({required this.choices, required this.chosen, required this.onPick});
+  const _ChoiceList({required this.choices, required this.chosen, required this.onPick, required this.tourChoices});
 
   @override
   State<_ChoiceList<T>> createState() => _ChoiceListState<T>();
@@ -96,15 +109,29 @@ class _ChoiceListState<T> extends State<_ChoiceList<T>>
           shrinkWrap: true,
           padding: const EdgeInsets.fromLTRB(MobileSheet.sidePadding, _topGap, MobileSheet.sidePadding, 0),
           children: [
-            for (final (i, choice) in widget.choices.indexed)
-              Padding(
-                padding: const EdgeInsets.only(bottom: _tileGap),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => widget.onPick(choice),
-                  child: MobileChoiceTile(leading: choice.leading, label: choice.label, chosen: i == widget.chosen),
-                ),
+            MobileTourTarget(
+              id: widget.tourChoices,
+              inflate: _tourInflate,
+              radius: _tourRadius,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (i, choice) in widget.choices.indexed)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: _tileGap),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => widget.onPick(choice),
+                        child: MobileChoiceTile(
+                          leading: choice.leading,
+                          label: choice.label,
+                          chosen: i == widget.chosen,
+                        ),
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
         );
       },

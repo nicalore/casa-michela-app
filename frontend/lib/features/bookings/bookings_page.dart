@@ -576,10 +576,10 @@ class _BookingsPageState extends State<BookingsPage>
         title: title,
         count: move.bookings.length,
         days: days,
-        onMove: (target, option, start, end) async
+        onMove: (target, option, hours) async
         {
           Navigator.pop(dialogContext);
-          await _moveLessons(target.day, lane, group, move, option, start, end);
+          await _moveLessons(target.day, lane, group, move, option, hours);
         },
       ),
     );
@@ -604,14 +604,19 @@ class _BookingsPageState extends State<BookingsPage>
     PresenceGroup group,
     BookingMove move,
     MoveOption option,
-    TimeOfDay? start,
-    TimeOfDay? end,
+    List<(TimeOfDay, TimeOfDay)> hours,
   ) async
   {
     final bool moved = await write(
       call: () => _apiService.replaceLessonRequestDays(
         studentTaxCode: lane.pupil.fiscalCode,
-        days: _planner.moveRequest(from: group, move: move, day: day, option: option, start: start, end: end),
+        days: _planner.moveRequest(
+          from: group,
+          move: move,
+          day: day,
+          option: option,
+          hours: hours,
+        ),
       ),
       apply: (written) => _presences = [
         for (final presence in _presences)

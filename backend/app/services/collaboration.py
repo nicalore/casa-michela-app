@@ -1,13 +1,14 @@
 from collections.abc import Collection
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Final
 
 from fastapi import HTTPException, status
-from sqlalchemy import ColumnElement, and_, or_, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.rbac import IdentityContext
+from app.core.booking_close import first_close
 from app.core.booking_window import now_in_rome
 from app.models.availability import Availability
 from app.models.booking import mark_swept
@@ -63,19 +64,90 @@ async def _member(session: AsyncSession, tax_code: str) -> Member | None:
     )
 
 
-# Booking or giving hours resumes collaboration, enrolled only; the caller commits.
-async def resume_collaboration(session: AsyncSession, tax_code: str) -> None:
-    member = await _member(session, tax_code)
+# Newcomers start paused: their first hours kept until the close bring them in.
+def new_member(tax_code: str) -> Member:
+    return Member(
+        tax_code=tax_code,
+        collaborating_active=False,
+        collaboration_paused_at=func.now(),
+    )
 
-    if (
-        member is None
-        or member.collaborating_active
-        or not RoleService.is_enrolled(member)
+
+# Hours entered since the pause count once their bookings close; maps owner to pause.
+async def _due_back(
+    session: AsyncSession,
+    now: datetime,
+    tax_code: str | None,
+) -> dict[str, datetime]:
+    due: dict[str, datetime] = {}
+
+    for model, owner in (
+        (Presence, Presence.student_tax_code),
+        (Availability, Availability.teacher_tax_code),
     ):
+        query = (
+            select(
+                owner,
+                Member.collaboration_paused_at,
+                model.date,
+                model.start_time,
+                model.end_time,
+            )
+            .join(Member, Member.tax_code == owner)
+            .where(
+                Member.collaborating_active.is_(False),
+                model.created_at >= Member.collaboration_paused_at,
+            )
+        )
+
+        if tax_code is not None:
+            query = query.where(owner == tax_code)
+
+        for owner_tax_code, paused_at, day, start_time, end_time in (
+            await session.execute(query)
+        ):
+            if first_close(day, start_time, end_time) <= now:
+                due[owner_tax_code] = paused_at
+
+    return due
+
+
+# Locked and checked again: a pause in between keeps the person out.
+async def _resume(session: AsyncSession, due: dict[str, datetime]) -> None:
+    if not due:
         return
 
-    member.collaborating_active = True
+    members = await session.scalars(
+        select(Member)
+        .options(selectinload(Member.memberships))
+        .where(Member.tax_code.in_(due))
+        .order_by(Member.tax_code)
+        .with_for_update(of=Member)
+        .execution_options(populate_existing=True),
+    )
+
+    for member in members:
+        if (
+            not member.collaborating_active
+            and member.collaboration_paused_at == due[member.tax_code]
+            and RoleService.is_enrolled(member)
+        ):
+            member.collaborating_active = True
+
     await session.flush()
+
+
+# Enrolled only, for hours already closed when entered; the caller commits.
+async def settle_collaboration(session: AsyncSession, tax_code: str) -> None:
+    await _resume(session, await _due_back(session, now_in_rome(), tax_code))
+
+
+# Run at every close; the caller commits.
+async def settle_collaborations(
+    session: AsyncSession,
+    now: datetime | None = None,
+) -> None:
+    await _resume(session, await _due_back(session, now or now_in_rome(), None))
 
 
 # Not begun yet: today's later hours count as ahead.
@@ -177,3 +249,11 @@ async def drop_hours_ahead(session: AsyncSession, tax_code: str) -> None:
         tax_code,
         {availability.date for availability in availabilities},
     )
+
+
+# Only hours entered from now on can bring the person back; the caller commits.
+async def stop_collaboration(session: AsyncSession, member: Member) -> None:
+    member.collaborating_active = False
+    member.collaboration_paused_at = func.now()
+
+    await drop_hours_ahead(session, member.tax_code)

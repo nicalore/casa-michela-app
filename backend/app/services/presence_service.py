@@ -18,7 +18,7 @@ from app.models.presence import Presence
 from app.models.student import Student
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.presence import PresenceCreate, PresenceUpdate
-from app.services.collaboration import assert_admin_may_name, resume_collaboration
+from app.services.collaboration import assert_admin_may_name, settle_collaboration
 from app.services.lesson_guard import (
     find_presence_lessons,
     find_student_day_lessons,
@@ -367,7 +367,7 @@ class PresenceService:
         )
 
         await self.repository.create(presence)
-        await resume_collaboration(self.repository.session, student_tax_code)
+        await settle_collaboration(self.repository.session, student_tax_code)
 
         return presence
 

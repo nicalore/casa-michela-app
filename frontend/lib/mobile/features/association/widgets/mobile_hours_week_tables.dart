@@ -10,11 +10,16 @@ import '../../../../features/association/tabs/opening_hours/hours_strings.dart';
 import '../../../../features/association/tabs/opening_hours/mode_hours_parts.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import 'mobile_hours_parts.dart';
 import 'mobile_hours_table.dart';
 import 'mobile_standard_hours_card.dart';
 
 const double _radius = 22;
+
+const EdgeInsets _tourMarkInflate = EdgeInsets.all(5);
+const double _tourMarkRadius = 14;
+const EdgeInsets _tourPanelInflate = EdgeInsets.all(5);
 
 // Room for today's rim between the rows and the glass.
 const double _weekInset = 10;
@@ -40,6 +45,11 @@ class MobileHoursWeekTables extends StatefulWidget
 
   final double gap;
 
+  // For a tour to light the week's panel, the standard's, and the week's first variation mark.
+  final String? tourWeek;
+  final String? tourStandard;
+  final String? tourMark;
+
   const MobileHoursWeekTables({
     super.key,
     required this.days,
@@ -52,6 +62,9 @@ class MobileHoursWeekTables extends StatefulWidget
     required this.scheduleReady,
     this.scheduleFailure,
     required this.gap,
+    this.tourWeek,
+    this.tourStandard,
+    this.tourMark,
   });
 
   @override
@@ -135,7 +148,28 @@ class _MobileHoursWeekTablesState extends State<MobileHoursWeekTables> with Sing
 
   bool _isToday(List<CombinedDay> days, int index) => index >= 0 && index < days.length && isSameDate(days[index].date, widget.today);
 
-  Widget? _reasons(CombinedDay day, {required bool past})
+  // A mark beside its hours, where no reason stands under the row.
+  bool _marksInline(CombinedDay day, String mode)
+  {
+    final ModeDayHours hours = day.of(mode);
+
+    return !hours.isClosed && hours.note == null && hours.bands.any((band) => band.isOverride);
+  }
+
+  // The first day of the week showing a variation mark, inline or by its reason.
+  int _firstMarked(List<CombinedDay> days)
+  {
+    return days.indexWhere((day)
+    {
+      final bool kept = !day.date.isBefore(widget.first) && !day.date.isAfter(widget.last);
+
+      return kept &&
+          !day.isClosedAllDay &&
+          kHoursModes.any((mode) => _marksInline(day, mode) || day.of(mode).note != null);
+    });
+  }
+
+  Widget? _reasons(CombinedDay day, {required bool past, String? tourMark})
   {
     final List<(String, Color)> lines = [];
 
@@ -177,7 +211,12 @@ class _MobileHoursWeekTablesState extends State<MobileHoursWeekTables> with Sing
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
-                  child: Icon(kVariationIcon, size: 15, color: ink),
+                  child: MobileTourTarget(
+                    id: i == 0 ? tourMark : null,
+                    inflate: _tourMarkInflate,
+                    radius: _tourMarkRadius,
+                    child: Icon(kVariationIcon, size: 15, color: ink),
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -205,6 +244,10 @@ class _MobileHoursWeekTablesState extends State<MobileHoursWeekTables> with Sing
     final bool past = day.date.isBefore(widget.today);
     final bool kept = !day.date.isBefore(widget.first) && !day.date.isAfter(widget.last);
 
+    // Lit on the first mark of the week, beside the hours before the reasons under them.
+    final String? mark = index == _firstMarked(days) ? widget.tourMark : null;
+    final String? inlineMode = kHoursModes.where((mode) => _marksInline(day, mode)).firstOrNull;
+
     final List<Widget> cells;
 
     if (!kept)
@@ -219,9 +262,16 @@ class _MobileHoursWeekTablesState extends State<MobileHoursWeekTables> with Sing
     {
       cells = [
         for (final mode in kHoursModes)
-          day.of(mode).isClosed
-              ? _table.closed(decided: day.of(mode).isOverrideClosure)
-              : _table.bands(mode, day.of(mode).bands, past: past, marked: day.of(mode).note == null),
+          if (day.of(mode).isClosed)
+            _table.closed(decided: day.of(mode).isOverrideClosure)
+          else
+            _table.bands(
+              mode,
+              day.of(mode).bands,
+              past: past,
+              marked: day.of(mode).note == null,
+              tourMark: mode == inlineMode ? mark : null,
+            ),
       ];
     }
 
@@ -231,7 +281,7 @@ class _MobileHoursWeekTablesState extends State<MobileHoursWeekTables> with Sing
         labelWidth: labelWidth,
         label: _table.label(_weekLabel(day.date), past: past || !kept),
         cells: cells,
-        below: kept ? _reasons(day, past: past) : null,
+        below: kept ? _reasons(day, past: past, tourMark: inlineMode == null ? mark : null) : null,
       ),
     );
 
@@ -420,9 +470,23 @@ class _MobileHoursWeekTablesState extends State<MobileHoursWeekTables> with Sing
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _panel(weekCover)),
+              Expanded(
+                child: MobileTourTarget(
+                  id: widget.tourWeek,
+                  inflate: _tourPanelInflate,
+                  radius: _radius + _tourPanelInflate.left,
+                  child: _panel(weekCover),
+                ),
+              ),
               SizedBox(width: widget.gap),
-              Expanded(child: _panel(standardCover)),
+              Expanded(
+                child: MobileTourTarget(
+                  id: widget.tourStandard,
+                  inflate: _tourPanelInflate,
+                  radius: _radius + _tourPanelInflate.left,
+                  child: _panel(standardCover),
+                ),
+              ),
             ],
           ),
         ),

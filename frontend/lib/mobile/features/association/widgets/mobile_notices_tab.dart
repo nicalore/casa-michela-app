@@ -13,6 +13,7 @@ import '../../../../features/association/notices/notice_strings.dart';
 import '../../../../shared/utils/day_marks.dart';
 import '../../../../shared/widgets/filter_menu.dart' show SortCriterion;
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_choice_sheet.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
 import '../../../shared/widgets/mobile_filter_chip.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
@@ -20,9 +21,9 @@ import '../../../shared/widgets/mobile_load_switcher.dart';
 import '../../../shared/widgets/mobile_month_picker.dart';
 import '../../../shared/widgets/mobile_nav_sheet.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
-import '../../../shared/widgets/mobile_sheet.dart';
 import '../../../shared/widgets/mobile_swipe_page.dart';
-import '../../settings/widgets/mobile_choice_tile.dart';
+import '../../../shared/widgets/mobile_tour.dart';
+import '../mobile_association_tour.dart';
 import '../mobile_notices_board.dart';
 import 'mobile_association_status.dart';
 import 'mobile_notice_sheet.dart';
@@ -33,8 +34,6 @@ const double _topRoom = 16;
 // Pages end this far above the sheet they scroll under.
 const double _handleClearance = 16;
 
-const double _chipsHeight = 32;
-const double _chipGap = 8;
 const double _cardGap = 10;
 const double _columnGap = 12;
 
@@ -53,6 +52,12 @@ const Duration _rimFade = Duration(milliseconds: 300);
 // How long the picked day's cards keep their gold rim.
 const Duration _flashDuration = Duration(milliseconds: 1400);
 
+// The search and the chips lit as one; the chips run to the screen's edges.
+const double _tourTopInflate = 8;
+const double _tourTopRadius = 24;
+const EdgeInsets _tourCardInflate = EdgeInsets.all(5);
+const double _tourCardRadius = _radius + 5;
+
 class MobileNoticesTab extends StatefulWidget
 {
   final MobileNoticesBoard board;
@@ -62,12 +67,16 @@ class MobileNoticesTab extends StatefulWidget
   // The time now; a probe fixes it.
   final DateTime Function() clock;
 
+  // Told once the day picker has risen, for its tour.
+  final VoidCallback? onPickerShown;
+
   const MobileNoticesTab({
     super.key,
     required this.board,
     required this.margin,
     required this.tablet,
     this.clock = romeNow,
+    this.onPickerShown,
   });
 
   @override
@@ -112,29 +121,20 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
 
   Future<void> _pickOrder() async
   {
-    final bool? oldestFirst = await showMobileSheet<bool>(
+    final MobileChoice<bool>? picked = await showMobileChoiceSheet(
       context: context,
-      builder: (context) => MobileSheet(
-        eyebrow: kAssociationNoticesLabel,
-        title: kNoticesSortTitle,
-        body: [
-          const SizedBox(height: 16),
-          for (final (sort, oldest) in const [(SortCriterion.dateDesc, false), (SortCriterion.dateAsc, true)])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => finishMobileSheet(context, oldest),
-                child: MobileChoiceTile(label: sort.label, chosen: oldest == _board.oldestFirst),
-              ),
-            ),
-        ],
-      ),
+      eyebrow: kAssociationNoticesLabel,
+      title: kNoticesSortTitle,
+      choices: [
+        for (final (sort, oldest) in const [(SortCriterion.dateDesc, false), (SortCriterion.dateAsc, true)])
+          MobileChoice(value: oldest, label: sort.label),
+      ],
+      value: _board.oldestFirst,
     );
 
-    if (oldestFirst != null)
+    if (picked != null)
     {
-      _board.orderOldestFirst(oldestFirst);
+      _board.orderOldestFirst(picked.value);
     }
   }
 
@@ -153,6 +153,8 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
       first: _board.firstDay(today),
       last: today,
       loadMarks: _board.marks,
+      tourDays: kAssociationTourPickerDays,
+      onShown: widget.onPickerShown,
     );
 
     if (picked == null || !mounted)
@@ -253,38 +255,38 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
   {
     final SortCriterion order = _board.oldestFirst ? SortCriterion.dateAsc : SortCriterion.dateDesc;
 
-    return SizedBox(
-      height: _chipsHeight,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: widget.margin),
-        children: [
-          // An order is no filter: the chip never lights up.
-          MobileFilterChip(
-            icon: Icons.swap_vert_rounded,
-            label: order.label,
-            active: false,
-            onTap: _pickOrder,
-          ),
-          const SizedBox(width: _chipGap),
-          MobileFilterChip(
-            icon: Icons.calendar_month_rounded,
-            label: kPickDayLabel,
-            active: false,
-            onTap: _pickDay,
-          ),
-        ],
-      ),
+    return MobileFilterChips(
+      margin: widget.margin,
+      chips: [
+        // An order is no filter: the chip never lights up.
+        MobileFilterChip(
+          icon: Icons.swap_vert_rounded,
+          label: order.label,
+          active: false,
+          onTap: _pickOrder,
+        ),
+        MobileFilterChip(
+          icon: Icons.calendar_month_rounded,
+          label: kPickDayLabel,
+          active: false,
+          onTap: _pickDay,
+        ),
+      ],
     );
   }
 
-  Widget _card(NoticeSummaryItem notice)
+  Widget _card(NoticeSummaryItem notice, {bool lit = false})
   {
-    return _NoticeCard(
-      key: _cardKeys.putIfAbsent(notice.id, GlobalKey.new),
-      notice: notice,
-      highlighted: _flashDay != null && noticeDayOf(notice) == _flashDay,
-      onTap: () => _open(notice),
+    return MobileTourTarget(
+      id: lit ? associationTourMark(AssociationMark.pinned) : null,
+      inflate: _tourCardInflate,
+      radius: _tourCardRadius,
+      child: _NoticeCard(
+        key: _cardKeys.putIfAbsent(notice.id, GlobalKey.new),
+        notice: notice,
+        highlighted: _flashDay != null && noticeDayOf(notice) == _flashDay,
+        onTap: () => _open(notice),
+      ),
     );
   }
 
@@ -311,11 +313,14 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
     final List<Widget> out = [];
     List<NoticeSummaryItem> run = [];
 
+    // A tour lights the first pinned one.
+    final int? firstPinned = notices.where((notice) => notice.pinned).firstOrNull?.id;
+
     void close()
     {
       if (run.isNotEmpty)
       {
-        out.add(_Grid(cards: [for (final notice in run) _card(notice)], columns: columns));
+        out.add(_Grid(cards: [for (final notice in run) _card(notice, lit: notice.id == firstPinned)], columns: columns));
         run = [];
       }
     }
@@ -396,30 +401,46 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.only(top: _topRoom, bottom: bottom),
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: widget.margin),
-              child: MobileSearchField(
-                controller: _board.search,
-                hintText: kSearchNoticeHint,
-                onChanged: (_) => _board.searched(),
+            MobileTourTarget(
+              id: kAssociationTourTop,
+              inflate: EdgeInsets.fromLTRB(
+                _tourTopInflate - widget.margin,
+                _tourTopInflate,
+                _tourTopInflate - widget.margin,
+                _tourTopInflate,
               ),
-            ),
-            const SizedBox(height: 12),
-            // One child: every card is laid out, so a picked day can be reached.
-            ListenableBuilder(
-              listenable: _board,
-              builder: (context, _) => Column(
+              radius: _tourTopRadius,
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildChips(),
-                  const SizedBox(height: 18),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: widget.margin),
-                    child: _buildBody(),
+                    child: MobileSearchField(
+                      controller: _board.search,
+                      hintText: kSearchNoticeHint,
+                      onChanged: (_) => _board.searched(),
+                    ),
                   ),
+                  const SizedBox(height: 12),
+                  ListenableBuilder(listenable: _board, builder: (context, _) => _buildChips()),
                 ],
               ),
             ),
+            const SizedBox(height: 18),
+            // One child: every card is laid out, so a picked day can be reached.
+            ListenableBuilder(
+              listenable: _board,
+              builder: (context, _) => Padding(
+                padding: EdgeInsets.symmetric(horizontal: widget.margin),
+                child: MobileTourTarget(
+                  id: kAssociationTourNotices,
+                  inflate: _tourCardInflate,
+                  radius: _tourCardRadius,
+                  child: _buildBody(),
+                ),
+              ),
+            ),
+            const MobileTourRunway(),
           ],
         ),
       ),

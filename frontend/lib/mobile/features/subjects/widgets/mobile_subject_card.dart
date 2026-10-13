@@ -3,16 +3,22 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_action_circle.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 
 const EdgeInsets _padding = EdgeInsets.fromLTRB(16, 12, 12, 12);
 
-const double _heldAlpha = MobileGlassPanel.cardAlpha;
+// As the availability day card's round button on a phone.
+const double _addSize = 36;
 
-// Not held yet: the same glass, thinner.
-const double _openAlpha = 0.5;
+const EdgeInsets _tourAddInflate = EdgeInsets.all(5);
 
-const double _addSize = 32;
+// The + taking every programme, also drawn in a tour's text, where a larger [iconShare] keeps it legible.
+Widget mobileSubjectAddCircle(double size, {double iconShare = 23 / 36})
+{
+  return MobileActionCircle(icon: Icons.add_rounded, size: size, iconSize: size * iconShare);
+}
 
 class MobileSubjectCard extends StatelessWidget
 {
@@ -29,6 +35,9 @@ class MobileSubjectCard extends StatelessWidget
   // The + takes every programme; the row opens the sheet to pick them, as on desktop.
   final VoidCallback? onAdd;
 
+  // For a tour to light the +.
+  final String? addTourId;
+
   const MobileSubjectCard({
     super.key,
     required this.name,
@@ -36,6 +45,7 @@ class MobileSubjectCard extends StatelessWidget
     required this.held,
     this.onTap,
     this.onAdd,
+    this.addTourId,
   });
 
   Widget _buildTrailing()
@@ -56,21 +66,17 @@ class MobileSubjectCard extends StatelessWidget
       return const SizedBox.shrink();
     }
 
-    return Semantics(
-      button: true,
-      label: 'Tutti i percorsi',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onAdd,
-        child: Container(
-          width: _addSize,
-          height: _addSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppTheme.trialGoldSurface,
-            border: Border.all(color: AppTheme.trialGold.withValues(alpha: 0.6), width: 1.5),
-          ),
-          child: const Icon(Icons.add_rounded, size: 19, color: AppTheme.modifiedAccent),
+    return MobileTourTarget(
+      id: addTourId,
+      inflate: _tourAddInflate,
+      radius: _addSize / 2 + _tourAddInflate.left,
+      child: Semantics(
+        button: true,
+        label: 'Tutti i percorsi',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onAdd,
+          child: mobileSubjectAddCircle(_addSize),
         ),
       ),
     );
@@ -85,7 +91,6 @@ class MobileSubjectCard extends StatelessWidget
       child: MobileGlassPanel(
         padding: _padding,
         borderRadius: BorderRadius.circular(radius),
-        whiteAlpha: held ? _heldAlpha : _openAlpha,
         child: Row(
           children: [
             Expanded(

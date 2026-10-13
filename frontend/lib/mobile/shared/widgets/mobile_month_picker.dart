@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -6,6 +7,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../shared/utils/day_marks.dart';
 import '../mobile_palette.dart';
 import 'mobile_sheet.dart';
+import 'mobile_tour.dart';
 
 const double _rowHeight = 48;
 const double _dayDiameter = 38;
@@ -17,6 +19,10 @@ const Color _closedDay = Color(0xFF7F909B);
 
 const Duration _turnDuration = Duration(milliseconds: 300);
 
+const EdgeInsets _tourDaysInflate = EdgeInsets.fromLTRB(4, 2, 4, 2);
+const double _tourDaysRadius = 18;
+
+// [tourDays]: the days' grid marked for a tour. [onShown]: told once the sheet has risen and stands still.
 Future<DateTime?> showMobileMonthPicker({
   required BuildContext context,
   required DateTime selected,
@@ -24,6 +30,8 @@ Future<DateTime?> showMobileMonthPicker({
   required DateTime first,
   required DateTime last,
   DayMarksLoader? loadMarks,
+  String? tourDays,
+  VoidCallback? onShown,
 })
 {
   return showMobileSheet<DateTime>(
@@ -34,6 +42,8 @@ Future<DateTime?> showMobileMonthPicker({
       first: _dateOnly(first),
       last: _dateOnly(last),
       loadMarks: loadMarks,
+      tourDays: tourDays,
+      onShown: onShown,
     ),
   );
 }
@@ -49,6 +59,8 @@ class _MonthPicker extends StatefulWidget
   final DateTime first;
   final DateTime last;
   final DayMarksLoader? loadMarks;
+  final String? tourDays;
+  final VoidCallback? onShown;
 
   const _MonthPicker({
     required this.selected,
@@ -56,6 +68,8 @@ class _MonthPicker extends StatefulWidget
     required this.first,
     required this.last,
     required this.loadMarks,
+    required this.tourDays,
+    required this.onShown,
   });
 
   @override
@@ -78,6 +92,36 @@ class _MonthPickerState extends State<_MonthPicker>
   {
     super.initState();
     _read(_monthAt(_index));
+
+    if (widget.onShown != null)
+    {
+      _shownLater();
+    }
+  }
+
+  void _shownLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _shown())
+      ..scheduleFrame();
+  }
+
+  // Told only once it stands still, so a tour can measure it.
+  void _shown()
+  {
+    if (!mounted)
+    {
+      return;
+    }
+
+    if (isMobileSheetMoving(context))
+    {
+      _shownLater();
+
+      return;
+    }
+
+    widget.onShown?.call();
   }
 
   @override
@@ -238,17 +282,22 @@ class _MonthPickerState extends State<_MonthPicker>
               ],
             ),
             const SizedBox(height: 6),
-            SizedBox(
-              height: 6 * _rowHeight,
-              child: PageView.builder(
-                controller: _pages,
-                itemCount: _count,
-                onPageChanged: (index)
-                {
-                  setState(() => _index = index);
-                  _read(_monthAt(index));
-                },
-                itemBuilder: (context, index) => _buildMonth(_monthAt(index)),
+            MobileTourTarget(
+              id: widget.tourDays,
+              inflate: _tourDaysInflate,
+              radius: _tourDaysRadius,
+              child: SizedBox(
+                height: 6 * _rowHeight,
+                child: PageView.builder(
+                  controller: _pages,
+                  itemCount: _count,
+                  onPageChanged: (index)
+                  {
+                    setState(() => _index = index);
+                    _read(_monthAt(index));
+                  },
+                  itemBuilder: (context, index) => _buildMonth(_monthAt(index)),
+                ),
               ),
             ),
           ],

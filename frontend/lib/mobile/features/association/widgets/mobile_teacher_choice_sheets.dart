@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../features/association/association_strings.dart';
 import '../../../../features/association/models/subject_taxonomy.dart';
 import '../../../../features/association/teacher_opinions.dart';
 import '../../../../features/people/models/teacher_subject_item.dart';
@@ -11,36 +10,6 @@ import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
-import '../../settings/widgets/mobile_choice_tile.dart';
-
-const double _tileGap = 8;
-
-// Null when dismissed; a tap on an order chooses it and closes.
-Future<TeacherSort?> showMobileTeacherSortSheet({
-  required BuildContext context,
-  required TeacherSort current,
-})
-{
-  return showMobileSheet<TeacherSort>(
-    context: context,
-    builder: (context) => MobileSheet(
-      eyebrow: kAssociationTeachersLabel,
-      title: kTeachersSortHint,
-      body: [
-        const SizedBox(height: 16),
-        for (final sort in TeacherSort.values)
-          Padding(
-            padding: const EdgeInsets.only(bottom: _tileGap),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => finishMobileSheet(context, sort),
-              child: MobileChoiceTile(label: sort.label, chosen: sort == current),
-            ),
-          ),
-      ],
-    ),
-  );
-}
 
 // Null when dismissed; the choice applies only through "Applica", as on the desktop.
 Future<Set<int>?> showMobileSubjectFilterSheet({

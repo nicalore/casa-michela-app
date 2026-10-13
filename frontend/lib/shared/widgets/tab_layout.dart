@@ -18,6 +18,8 @@ const double _actionFontSize = 14;
 const double _filterSpacing = 12;
 const double _countFontSize = 17;
 
+const double _footerGap = 28;
+
 void sortByCriterion<T>(
   List<T> items,
   SortCriterion sort, {
@@ -32,6 +34,26 @@ void sortByCriterion<T>(
     SortCriterion.dateAsc => createdAt(a).compareTo(createdAt(b)),
     SortCriterion.dateDesc => createdAt(b).compareTo(createdAt(a)),
   });
+}
+
+Widget tabActionButton({
+  required String label,
+  required VoidCallback onPressed,
+  IconData icon = Icons.add_rounded,
+  LinearGradient gradient = AppTheme.brandGradient,
+  Color accent = AppTheme.trialTealDeep,
+})
+{
+  return AppGradientButton(
+    label: label,
+    icon: icon,
+    gradient: gradient,
+    accent: accent,
+    height: _actionHeight,
+    radius: _actionRadius,
+    fontSize: _actionFontSize,
+    onPressed: onPressed,
+  );
 }
 
 List<Widget> entityTabHeader({
@@ -59,14 +81,11 @@ List<Widget> entityTabHeader({
         hintText: searchHint,
       ),
       action: actionLabel != null && onAction != null
-          ? AppGradientButton(
+          ? tabActionButton(
               label: actionLabel,
               icon: actionIcon,
               gradient: actionGradient,
               accent: actionAccent,
-              height: _actionHeight,
-              radius: _actionRadius,
-              fontSize: _actionFontSize,
               onPressed: onAction,
             )
           : null,
@@ -150,7 +169,10 @@ class TabContent extends StatelessWidget
   final List<Widget> header;
   final Widget body;
 
-  const TabContent({super.key, required this.header, required this.body});
+  // Centred after the body, scrolling with it.
+  final Widget? footer;
+
+  const TabContent({super.key, required this.header, required this.body, this.footer});
 
   List<Widget> get _head
   {
@@ -160,11 +182,21 @@ class TabContent extends StatelessWidget
     ];
   }
 
-  Widget get _body
+  List<Widget> get _body
   {
     final Widget body = this.body;
+    final Widget? footer = this.footer;
 
-    return body is EntityCardGrid ? body.sliver : SliverToBoxAdapter(child: body);
+    return [
+      body is EntityCardGrid ? body.sliver : SliverToBoxAdapter(child: body),
+      if (footer != null)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(top: _footerGap),
+            child: Center(child: PageTransitionItem.wave(child: footer)),
+          ),
+        ),
+    ];
   }
 
   @override
@@ -183,7 +215,7 @@ class TabContent extends StatelessWidget
                   children: _head,
                 ),
               ),
-              _body,
+              ..._body,
             ],
           );
         }
@@ -192,7 +224,7 @@ class TabContent extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ..._head,
-            Expanded(child: PageTransitionScrollView.slivers(slivers: [_body])),
+            Expanded(child: PageTransitionScrollView.slivers(slivers: _body)),
           ],
         );
       },

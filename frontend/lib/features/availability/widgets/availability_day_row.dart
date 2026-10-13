@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_tooltip.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/utils/opening_window.dart';
+import '../../lessons/widgets/calendar_lesson_block.dart' show lessonModeIcon;
 
 const double _radius = 24;
 const EdgeInsets _padding = EdgeInsets.fromLTRB(26, 24, 26, 24);
@@ -481,7 +482,6 @@ class _BandCellState extends State<_BandCell>
 
   Widget _buildGroup(String mode, bool locked)
   {
-    final bool online = mode == kOnlineMode;
     final List<AvailabilityItem> held = widget.slots.where((slot) => slot.mode == mode).toList();
 
     final Widget content;
@@ -518,7 +518,7 @@ class _BandCellState extends State<_BandCell>
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              online ? Icons.videocam_outlined : Icons.home_work_outlined,
+              lessonModeIcon(mode),
               size: _modeHeadingHeight,
               color: AppTheme.trialMutedText,
             ),

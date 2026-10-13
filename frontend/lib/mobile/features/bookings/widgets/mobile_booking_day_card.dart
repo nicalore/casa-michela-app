@@ -13,12 +13,41 @@ import '../../../shared/widgets/mobile_current_card.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
 import '../../../shared/widgets/mobile_slot_button.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_booking_day.dart';
 import 'mobile_booking_parts.dart';
 
 const double _radius = 22;
 
 const double _closedAlpha = 0.43;
+
+const EdgeInsets _tourAddsInflate = EdgeInsets.all(5);
+const double _tourAddsRadius = 22;
+// Snug: the band's name ends 5 before it.
+const EdgeInsets _tourLockInflate = EdgeInsets.all(3);
+const EdgeInsets _tourButtonInflate = EdgeInsets.all(6);
+const EdgeInsets _tourHoursInflate = EdgeInsets.all(5);
+const double _tourHoursRadius = 19;
+const EdgeInsets _tourRowInflate = EdgeInsets.all(4);
+const double _tourLessonRadius = 20;
+const double _tourAddLessonRadius = 18;
+
+// Past half the side, so both come out round.
+const double _tourRoundRadius = 30;
+
+// What a tour lights of a mode: lock, name with hours, round button, a lesson by index, the add lesson button.
+typedef MobileBookingModeTour = ({
+  String? lock,
+  String? hours,
+  String? edit,
+  (int, String)? lesson,
+  String? addLesson,
+});
+
+Widget _lit(String? id, EdgeInsets inflate, double radius, Widget child)
+{
+  return MobileTourTarget(id: id, inflate: inflate, radius: radius, child: child);
+}
 
 // Past days use muted colours at full alpha: an Opacity over glass trips Impeller.
 
@@ -33,6 +62,10 @@ class MobileBookingDayCard extends StatelessWidget
   final ValueChanged<String> onAdd;
   final ValueChanged<MobileBookingMode> onAddLesson;
 
+  // For a tour: the add buttons, and the parts of the modes' lines, by the mode's index.
+  final String? tourAdds;
+  final Map<int, MobileBookingModeTour> tourModes;
+
   const MobileBookingDayCard({
     super.key,
     required this.day,
@@ -41,6 +74,8 @@ class MobileBookingDayCard extends StatelessWidget
     required this.onModeActions,
     required this.onAdd,
     required this.onAddLesson,
+    this.tourAdds,
+    this.tourModes = const {},
   });
 
   Color get _rule => AppTheme.trialInk.withValues(alpha: 0.1);
@@ -130,6 +165,7 @@ class MobileBookingDayCard extends StatelessWidget
             mode: mode,
             past: day.isPast,
             tablet: tablet,
+            tour: tourModes[i],
             onOpenLesson: onOpenLesson,
             onActions: () => onModeActions(mode),
             onAddLesson: () => onAddLesson(mode),
@@ -154,13 +190,18 @@ class MobileBookingDayCard extends StatelessWidget
             Expanded(
               child: Align(
                 alignment: Alignment.centerRight,
-                child: Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final mode in adds) MobileAddModeButton(mode: mode, tablet: tablet, onTap: () => onAdd(mode)),
-                  ],
+                child: _lit(
+                  tourAdds,
+                  _tourAddsInflate,
+                  _tourAddsRadius,
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final mode in adds) MobileAddModeButton(mode: mode, tablet: tablet, onTap: () => onAdd(mode)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -196,6 +237,7 @@ class _ModeBlock extends StatelessWidget
   final MobileBookingMode mode;
   final bool past;
   final bool tablet;
+  final MobileBookingModeTour? tour;
   final ValueChanged<MobileBookingLesson> onOpenLesson;
   final VoidCallback onActions;
   final VoidCallback onAddLesson;
@@ -204,6 +246,7 @@ class _ModeBlock extends StatelessWidget
     required this.mode,
     required this.past,
     required this.tablet,
+    required this.tour,
     required this.onOpenLesson,
     required this.onActions,
     required this.onAddLesson,
@@ -237,7 +280,12 @@ class _ModeBlock extends StatelessWidget
         // Past days too, as on the desktop; never for who only reads.
         if (mode.hasClosed) ...[
           const SizedBox(width: 5),
-          Icon(Icons.lock_outline_rounded, size: tablet ? 15 : 14, color: MobilePalette.mutedText),
+          _lit(
+            tour?.lock,
+            _tourLockInflate,
+            _tourRoundRadius,
+            Icon(Icons.lock_outline_rounded, size: tablet ? 15 : 14, color: MobilePalette.mutedText),
+          ),
         ],
       ],
     );
@@ -252,42 +300,62 @@ class _ModeBlock extends StatelessWidget
           child: Row(
             children: [
               Expanded(
-                child: inline
-                    // Phone spacing fits the "IN PRESENZA" + "POMERIGGIO" label and its hours.
-                    ? Wrap(
-                        spacing: tablet ? 10 : 8,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [name, _buildChip(mode.slots.single)],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          name,
-                          const SizedBox(height: 8),
-                          Wrap(spacing: 8, runSpacing: 8, children: [for (final slot in mode.slots) _buildChip(slot)]),
-                        ],
-                      ),
+                // Hugging the name and its hours, for a tour to light them alone.
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  heightFactor: 1,
+                  child: _lit(
+                    tour?.hours,
+                    _tourHoursInflate,
+                    _tourHoursRadius,
+                    inline
+                        // Phone spacing fits the "IN PRESENZA" + "POMERIGGIO" label and its hours.
+                        ? Wrap(
+                            spacing: tablet ? 10 : 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [name, _buildChip(mode.slots.single)],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              name,
+                              const SizedBox(height: 8),
+                              Wrap(spacing: 8, runSpacing: 8, children: [for (final slot in mode.slots) _buildChip(slot)]),
+                            ],
+                          ),
+                  ),
+                ),
               ),
               if (_hasActions) ...[
                 SizedBox(width: tablet ? 8 : 6),
-                _MoreButton(tablet: tablet, onTap: onActions),
+                _MoreButton(tablet: tablet, tourId: tour?.edit, onTap: onActions),
               ],
             ],
           ),
         ),
         for (final (index, lesson) in mode.lessons.indexed) ...[
           SizedBox(height: 8 + (index == 0 ? lead : 0)),
-          _LessonRow(
-            lesson: lesson,
-            muted: past || lesson.closed,
-            tablet: tablet,
-            onTap: () => onOpenLesson(lesson),
+          _lit(
+            tour?.lesson?.$1 == index ? tour?.lesson?.$2 : null,
+            _tourRowInflate,
+            _tourLessonRadius,
+            _LessonRow(
+              lesson: lesson,
+              muted: past || lesson.closed,
+              tablet: tablet,
+              onTap: () => onOpenLesson(lesson),
+            ),
           ),
         ],
         if (mode.canAddLesson) ...[
           SizedBox(height: 10 + (mode.lessons.isEmpty ? lead : 0)),
-          MobileSlotButton(label: 'Aggiungi lezione', icon: Icons.add_rounded, onPressed: onAddLesson, onLight: true),
+          _lit(
+            tour?.addLesson,
+            _tourRowInflate,
+            _tourAddLessonRadius,
+            MobileSlotButton(label: 'Aggiungi lezione', icon: Icons.add_rounded, onPressed: onAddLesson, onLight: true),
+          ),
         ],
       ],
     );
@@ -374,9 +442,10 @@ class _LessonRow extends StatelessWidget
 class _MoreButton extends StatelessWidget
 {
   final bool tablet;
+  final String? tourId;
   final VoidCallback onTap;
 
-  const _MoreButton({required this.tablet, required this.onTap});
+  const _MoreButton({required this.tablet, required this.tourId, required this.onTap});
 
   static double height(bool tablet) => tablet ? 46 : 42;
 
@@ -394,10 +463,15 @@ class _MoreButton extends StatelessWidget
           height: height(tablet),
           child: Align(
             alignment: Alignment.centerRight,
-            child: MobileActionCircle(
-              icon: Icons.edit_calendar_rounded,
-              size: tablet ? 44 : 40,
-              iconSize: tablet ? 23 : 21,
+            child: _lit(
+              tourId,
+              _tourButtonInflate,
+              _tourRoundRadius,
+              MobileActionCircle(
+                icon: Icons.edit_calendar_rounded,
+                size: tablet ? 44 : 40,
+                iconSize: tablet ? 23 : 21,
+              ),
             ),
           ),
         ),

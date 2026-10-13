@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/settings/utils/settings_strings.dart';
+import '../../../shared/widgets/mobile_choice_tile.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../profile/widgets/mobile_detail_card.dart';
-import 'mobile_choice_tile.dart';
 
 const double _cardGap = 12;
 const double _tileGap = 10;
@@ -136,22 +136,24 @@ class _ThemeChoices extends StatelessWidget
   {
     final List<AppearanceOption> options = kThemeSetting.options;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < options.length; i++) ...[
-          if (i > 0) const SizedBox(width: _cardGap),
-          Expanded(
-            child: MobileThemeTile(
-              label: options[i].label,
-              dark: i > 0,
-              chosen: i == 0,
-              available: options[i].available,
-              previewHeight: previewHeight,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < options.length; i++) ...[
+            if (i > 0) const SizedBox(width: _cardGap),
+            Expanded(
+              child: MobileThemeTile(
+                label: options[i].label,
+                dark: i > 0,
+                chosen: i == 0,
+                available: options[i].available,
+                previewHeight: previewHeight,
+              ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

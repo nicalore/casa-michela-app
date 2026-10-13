@@ -30,9 +30,6 @@ router = APIRouter(
 )
 
 _REPORTER_ROLES: Final[tuple[str, ...]] = ("STUDENT", "PARENT")
-_FORBIDDEN_REPORTER_ERROR: Final[str] = (
-    "Non hai i permessi per accedere a questa risorsa"
-)
 
 _REPORT_SENT_MESSAGE: Final[str] = "Segnalazione inviata correttamente"
 _REPORT_EMAIL_ERROR: Final[str] = "Impossibile inviare la mail tramite Resend: {error}"
@@ -112,6 +109,7 @@ def _report_description(description: str | None) -> str:
     )
 
 
+# Any pupil may report, a parent answering for them or not.
 # The reporter's own address is the reply-to, so a plain reply reaches them.
 @router.post(
     "/report-missing",
@@ -122,13 +120,6 @@ async def report_missing_subject(
     identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
-    # A pupil somebody answers for has their parents report, unless let alone.
-    if "PARENT" not in identity.roles and not identity.acts_for_self:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=_FORBIDDEN_REPORTER_ERROR,
-        )
-
     person = await db.get_one(Person, identity.tax_code)
     full_name = f"{person.first_name} {person.last_name}"
 

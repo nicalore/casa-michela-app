@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../../core/constants/field_limits.dart';
 import '../../../../core/utils/time_bucket.dart';
@@ -20,11 +21,33 @@ import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 import '../../../shared/widgets/mobile_text_field.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import '../../../shared/widgets/mobile_wizard_parts.dart';
+import '../mobile_bookings_tour.dart';
 import 'mobile_booking_parts.dart';
 
 const Duration _turn = Duration(milliseconds: 340);
 const Curve _turnCurve = Curves.easeInOutCubic;
+
+// A page settles within a tolerance, never exactly on its index.
+const double _settled = 0.001;
+
+const EdgeInsets _tourInflate = EdgeInsets.all(5);
+const double _tourRadius = 20;
+
+// What a tour explains on each page, in its order.
+const Map<SubjectRequestStep, List<SubjectFlowMark>> _tourMarks = {
+  SubjectRequestStep.disciplines: [SubjectFlowMark.disciplines],
+  SubjectRequestStep.what: [SubjectFlowMark.kinds, SubjectFlowMark.topic, SubjectFlowMark.next],
+  SubjectRequestStep.duration: [SubjectFlowMark.durations, SubjectFlowMark.count],
+  SubjectRequestStep.teachers: [SubjectFlowMark.teachers, SubjectFlowMark.search],
+  SubjectRequestStep.notes: [SubjectFlowMark.notes, SubjectFlowMark.add, SubjectFlowMark.save],
+};
+
+Widget _lit(SubjectFlowMark mark, Widget child)
+{
+  return MobileTourTarget(id: subjectFlowTourTarget(mark), inflate: _tourInflate, radius: _tourRadius, child: child);
+}
 
 // Mirrors the desktop's subject wizard.
 class MobileSubjectFlow
@@ -57,6 +80,9 @@ class MobileSubjectFlow
   // The settled step; the controller tracks a swipe in progress.
   int step = 0;
 
+  // Whose tour explains the flow, null for none.
+  final String? tourFor;
+
   MobileSubjectFlow({
     required SubjectRequestDraft from,
     this.replacing,
@@ -69,6 +95,7 @@ class MobileSubjectFlow
     required this.studyProgramId,
     required this.bands,
     required this.minutesByDisciplineTakenByOthers,
+    this.tourFor,
   }) : draft = from.copy()
   {
     final Set<String> codes = {for (final teacher in offered) teacher.fiscalCode};
@@ -301,22 +328,30 @@ class MobileSubjectFlow
   List<Widget> _disciplines(VoidCallback onChanged)
   {
     return [
-      for (final discipline in disciplineChoices)
-        MobileSelectRow(
-          key: ValueKey(discipline.id),
-          title: discipline.name,
-          subtitle: descriptionOrNull(discipline.description),
-          selected: draft.associationSubjectIds.contains(discipline.id),
-          onTap: ()
-          {
-            if (!draft.associationSubjectIds.remove(discipline.id))
-            {
-              draft.associationSubjectIds.add(discipline.id);
-            }
+      _lit(
+        SubjectFlowMark.disciplines,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final discipline in disciplineChoices)
+              MobileSelectRow(
+                key: ValueKey(discipline.id),
+                title: discipline.name,
+                subtitle: descriptionOrNull(discipline.description),
+                selected: draft.associationSubjectIds.contains(discipline.id),
+                onTap: ()
+                {
+                  if (!draft.associationSubjectIds.remove(discipline.id))
+                  {
+                    draft.associationSubjectIds.add(discipline.id);
+                  }
 
-            onChanged();
-          },
+                  onChanged();
+                },
+              ),
+          ],
         ),
+      ),
     ];
   }
 
@@ -324,33 +359,39 @@ class MobileSubjectFlow
   {
     return [
       const MobileFieldHead(kLessonKindLabel),
-      Wrap(
-        spacing: kMobileChipGap,
-        runSpacing: kMobileChipGap,
-        children: [
-          for (final option in bookingTagOptions)
-            MobileSelectChip(
-              label: option.label,
-              selected: draft.tags.contains(option.value),
-              onTap: ()
-              {
-                if (!draft.tags.remove(option.value))
+      _lit(
+        SubjectFlowMark.kinds,
+        Wrap(
+          spacing: kMobileChipGap,
+          runSpacing: kMobileChipGap,
+          children: [
+            for (final option in bookingTagOptions)
+              MobileSelectChip(
+                label: option.label,
+                selected: draft.tags.contains(option.value),
+                onTap: ()
                 {
-                  draft.tags.add(option.value);
-                }
+                  if (!draft.tags.remove(option.value))
+                  {
+                    draft.tags.add(option.value);
+                  }
 
-                onChanged();
-              },
-            ),
-        ],
+                  onChanged();
+                },
+              ),
+          ],
+        ),
       ),
       const SizedBox(height: 20),
-      MobileTextField(
-        controller: topic,
-        label: kTopicLabel,
-        hintText: kTopicHint,
-        maxLength: FieldLimits.topic,
-        textCapitalization: TextCapitalization.sentences,
+      _lit(
+        SubjectFlowMark.topic,
+        MobileTextField(
+          controller: topic,
+          label: kTopicLabel,
+          hintText: kTopicHint,
+          maxLength: FieldLimits.topic,
+          textCapitalization: TextCapitalization.sentences,
+        ),
       ),
     ];
   }
@@ -364,22 +405,26 @@ class MobileSubjectFlow
         kDurationLabel,
         count: available == null ? null : '${formatMinutes(minutesTaken)} di ${formatMinutes(available)}',
         over: exceeds,
+        countTourTarget: subjectFlowTourTarget(SubjectFlowMark.count),
       ),
-      Wrap(
-        spacing: kMobileChipGap,
-        runSpacing: kMobileChipGap,
-        children: [
-          for (final minutes in bookingDurationOptions)
-            MobileSelectChip(
-              label: formatMinutes(minutes),
-              selected: draft.duration == minutes,
-              onTap: ()
-              {
-                draft.duration = minutes;
-                onChanged();
-              },
-            ),
-        ],
+      _lit(
+        SubjectFlowMark.durations,
+        Wrap(
+          spacing: kMobileChipGap,
+          runSpacing: kMobileChipGap,
+          children: [
+            for (final minutes in bookingDurationOptions)
+              MobileSelectChip(
+                label: formatMinutes(minutes),
+                selected: draft.duration == minutes,
+                onTap: ()
+                {
+                  draft.duration = minutes;
+                  onChanged();
+                },
+              ),
+          ],
+        ),
       ),
     ];
   }
@@ -403,49 +448,67 @@ class MobileSubjectFlow
         preferredTeachersLabel(pupil.gender),
         count: '${chosen.length} di ${SubjectRequestDraft.maxPreferredTeachers}',
       ),
-      MobileSearchField(
-        controller: search,
-        hintText: _full ? kTeachersFull : kSearchTeacher,
-        onChanged: (_) => onChanged(),
-        onGlass: true,
+      _lit(
+        SubjectFlowMark.search,
+        MobileSearchField(
+          controller: search,
+          hintText: _full ? kTeachersFull : kSearchTeacher,
+          onChanged: (_) => onChanged(),
+          onGlass: true,
+        ),
       ),
       const SizedBox(height: 12),
       if (shown.isEmpty) MobileQuietLine(_full ? kTeachersFullNoMatch : kNoTeacherMatch),
-      for (final teacher in shown)
-        MobileSelectRow(
-          key: ValueKey(teacher.fiscalCode),
-          title: '${teacher.firstName} ${teacher.lastName}',
-          leading: MobileTeacherFace(teacher: teacher, size: tablet ? 64 : 56),
-          selected: chosen.contains(teacher.fiscalCode),
-          onTap: ()
-          {
-            if (chosen.contains(teacher.fiscalCode))
-            {
-              chosen.remove(teacher.fiscalCode);
-            }
-            else if (!_full)
-            {
-              chosen.add(teacher.fiscalCode);
-            }
+      // Cut to the page: the list may run longer than the screen.
+      MobileTourTarget(
+        id: shown.isEmpty ? null : subjectFlowTourTarget(SubjectFlowMark.teachers),
+        inflate: _tourInflate,
+        radius: _tourRadius,
+        clipped: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final teacher in shown)
+              MobileSelectRow(
+                key: ValueKey(teacher.fiscalCode),
+                title: '${teacher.firstName} ${teacher.lastName}',
+                leading: MobileTeacherFace(teacher: teacher, size: tablet ? 64 : 56),
+                selected: chosen.contains(teacher.fiscalCode),
+                onTap: ()
+                {
+                  if (chosen.contains(teacher.fiscalCode))
+                  {
+                    chosen.remove(teacher.fiscalCode);
+                  }
+                  else if (!_full)
+                  {
+                    chosen.add(teacher.fiscalCode);
+                  }
 
-            onChanged();
-          },
+                  onChanged();
+                },
+              ),
+          ],
         ),
+      ),
     ];
   }
 
   List<Widget> _notes()
   {
     return [
-      MobileTextField(
-        controller: notes,
-        label: kTeacherNotesLabel,
-        hintText: kTeacherNotesHint,
-        maxLength: FieldLimits.notes,
-        minLines: 3,
-        maxLines: 4,
-        textCapitalization: TextCapitalization.sentences,
-        textInputAction: TextInputAction.newline,
+      _lit(
+        SubjectFlowMark.notes,
+        MobileTextField(
+          controller: notes,
+          label: kTeacherNotesLabel,
+          hintText: kTeacherNotesHint,
+          maxLength: FieldLimits.notes,
+          minLines: 3,
+          maxLines: 4,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.newline,
+        ),
       ),
     ];
   }
@@ -515,6 +578,7 @@ MobileSheet mobileSubjectFlowSheet({
         flow.step = index;
         onChanged();
       },
+      blockedReason: (index) => flow.blockedReason(steps[index]),
     ),
     footer: Padding(
       padding: const EdgeInsets.only(top: 18),
@@ -525,11 +589,16 @@ MobileSheet mobileSubjectFlowSheet({
             children: [
               MobileWizardBackSlot(onBack: back, busy: busy),
               Expanded(
-                child: MobileGoldButton(
-                  label: last ? (flow.isEditing ? 'Salva' : 'Aggiungi') : 'Avanti',
-                  icon: last ? Icons.check_rounded : Icons.arrow_forward_rounded,
-                  busy: busy,
-                  onPressed: next,
+                child: MobileTourTarget(
+                  id: kSubjectFlowTourFooter,
+                  inflate: const EdgeInsets.all(4),
+                  radius: 22,
+                  child: MobileGoldButton(
+                    label: last ? (flow.isEditing ? 'Salva' : 'Aggiungi') : 'Avanti',
+                    icon: last ? Icons.check_rounded : Icons.arrow_forward_rounded,
+                    busy: busy,
+                    onPressed: next,
+                  ),
                 ),
               ),
             ],
@@ -597,11 +666,110 @@ class _MobileSubjectPageState extends State<MobileSubjectPage>
 {
   bool _busy = false;
 
+  final SubjectFlowTourPulse _tourPulse = SubjectFlowTourPulse();
+
+  MobileSubjectFlow get _flow => widget.flow;
+
+  @override
+  void initState()
+  {
+    super.initState();
+
+    if (_flow.tourFor != null)
+    {
+      _flow.pages.addListener(_onPages);
+      mobileTourChanges.addListener(_tourLater);
+      _tourLater();
+    }
+  }
+
   @override
   void dispose()
   {
+    mobileTourChanges.removeListener(_tourLater);
+    _flow.pages.removeListener(_onPages);
     widget.flow.dispose();
+
+    // Not while the tree is locked: a tour ends, and redraws, on hearing it.
+    final SubjectFlowTourPulse pulse = _tourPulse;
+
+    SchedulerBinding.instance.addPostFrameCallback((_)
+    {
+      pulse.leave();
+      pulse.dispose();
+    });
+
     super.dispose();
+  }
+
+  String _keyOf(int index) => 'subject/${_flow.steps[index].name}';
+
+  double get _page
+  {
+    final PageController pages = _flow.pages;
+
+    return pages.hasClients && pages.position.haveDimensions ? pages.page ?? _flow.step.toDouble() : _flow.step.toDouble();
+  }
+
+  void _tourLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  void _onPages()
+  {
+    final double page = _page;
+    final bool settled = (page - page.round()).abs() < _settled && page.round() < _flow.steps.length;
+
+    _tourPulse.rest(settled ? _keyOf(page.round()) : null);
+
+    if (settled)
+    {
+      _tourLater();
+    }
+  }
+
+  // Once the sheet stands still on a page, its parts never explained; the intro on the first page.
+  Future<void> _tourCheck() async
+  {
+    final String? taxCode = _flow.tourFor;
+    final double page = _page;
+
+    if (!mounted || taxCode == null || _busy || isMobileTourShown)
+    {
+      return;
+    }
+
+    if (isMobileSheetMoving(context))
+    {
+      _tourLater();
+
+      return;
+    }
+
+    final int index = page.round();
+
+    if ((page - index).abs() >= _settled || index != _flow.step || index >= _flow.steps.length)
+    {
+      return;
+    }
+
+    final String key = _keyOf(index);
+
+    _tourPulse.rest(key);
+
+    await startSubjectFlowTour(
+      taxCode: taxCode,
+      marks: _tourMarks[_flow.steps[index]] ?? const [],
+      page: key,
+      first: index == 0,
+      editing: _flow.isEditing,
+      online: _flow.mode == kOnlineMode,
+      pupil: BookingTourPupil.of(self: _flow.isSelf, gender: _flow.pupil.gender),
+      pulse: _tourPulse,
+    );
   }
 
   Future<void> _done() async

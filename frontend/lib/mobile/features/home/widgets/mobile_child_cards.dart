@@ -11,6 +11,7 @@ import '../../../../features/people/models/person_face.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_pupil_day.dart';
 
 const double _iconColumn = 44;
@@ -20,6 +21,10 @@ const double _cellGap = 12;
 const double _valueSize = 25;
 
 const EdgeInsets _cardPadding = EdgeInsets.fromLTRB(16, 14, 18, 16);
+
+// Up to the card's edges and to the divider between the halves.
+const EdgeInsets _tourHalfInflate = EdgeInsets.fromLTRB(10, 10, 10, 12);
+const double _tourHalfRadius = 16;
 const BorderRadius _cardRadius = BorderRadius.all(Radius.circular(24));
 
 // An icon for a fact (closed), none for a failed reading.
@@ -156,6 +161,9 @@ class MobileChildRowCard extends StatelessWidget
   final MobileChildMonth? month;
   final MobileCardNote? monthNote;
 
+  // For a tour to light the two halves.
+  final (String, String)? tourTargets;
+
   const MobileChildRowCard({
     super.key,
     required this.face,
@@ -164,6 +172,7 @@ class MobileChildRowCard extends StatelessWidget
     this.dayNote,
     this.month,
     this.monthNote,
+    this.tourTargets,
   });
 
   Widget _today()
@@ -192,6 +201,16 @@ class MobileChildRowCard extends StatelessWidget
       final MobileChildMonth month => _Figures(month.figures),
       null => const SizedBox(),
     };
+  }
+
+  Widget _lit(String? id, Widget child)
+  {
+    if (id == null)
+    {
+      return child;
+    }
+
+    return MobileTourTarget(id: id, inflate: _tourHalfInflate, radius: _tourHalfRadius, child: child);
   }
 
   Widget _half(String title, Widget child)
@@ -226,11 +245,11 @@ class MobileChildRowCard extends StatelessWidget
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _half(titles.$1, _today())),
+              Expanded(child: _lit(tourTargets?.$1, _half(titles.$1, _today()))),
               const SizedBox(width: _dividerLeft),
               Container(width: 1, color: AppTheme.trialInk.withValues(alpha: 0.08)),
               const SizedBox(width: _dividerRight),
-              Expanded(child: _half(titles.$2, _month())),
+              Expanded(child: _lit(tourTargets?.$2, _half(titles.$2, _month()))),
             ],
           ),
         ),

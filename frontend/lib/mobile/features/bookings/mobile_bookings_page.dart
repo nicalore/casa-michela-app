@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -33,6 +34,7 @@ import '../../../features/people/models/person_item.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_confirm_sheet.dart';
+import '../../shared/widgets/mobile_filter_chip.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
 import '../../shared/widgets/mobile_info_button.dart';
 import '../../shared/widgets/mobile_info_sheet.dart';
@@ -42,16 +44,17 @@ import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
+import '../../shared/widgets/mobile_tour.dart';
 import '../children/widgets/mobile_child_tiles.dart';
 import 'mobile_booking_day.dart';
 import 'mobile_booking_draft.dart';
+import 'mobile_bookings_tour.dart';
 import 'widgets/mobile_booking_day_card.dart';
 import 'widgets/mobile_booking_sheets.dart';
 import 'widgets/mobile_booking_wizard.dart';
 import 'widgets/mobile_move_sheet.dart';
 import 'widgets/mobile_subject_flow.dart';
 
-const String _slug = 'bookings';
 const String _title = 'Prenotazioni';
 
 const String _parentRole = 'PARENT';
@@ -63,10 +66,17 @@ const double _phoneMargin = 20;
 const double _tabletMargin = 44;
 
 const double _tilesGap = 6;
+const double _chipsGap = 12;
+const double _chipsStripGap = 14;
 const double _stripGap = 18;
 const double _cardGap = 12;
 
 const double _topRoom = 16;
+
+const EdgeInsets _tourInfoInflate = EdgeInsets.all(6);
+const double _tourInfoRadius = 30;
+const EdgeInsets _tourChipInflate = EdgeInsets.all(5);
+const double _tourChipRadius = 21;
 
 // Pages end this far above the sheet they scroll under.
 const double _handleClearance = 16;
@@ -88,6 +98,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
 {
   final ApiService _apiService = ApiService();
   final PageController _pages = PageController();
+  final BookingSheetTourLink _sheetLink = BookingSheetTourLink();
 
   late DateTime _now = widget.clock();
 
@@ -96,7 +107,9 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
   bool _loading = true;
   bool _failed = false;
 
-  bool _introduced = false;
+  // Set once the page is in place; from then on every load and page change looks for a tour.
+  bool _toured = false;
+  int? _pageSeen;
 
   // Bumped on every fetch so a stale response is dropped.
   int _request = 0;
@@ -124,6 +137,8 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
   int get _weekCount => _readOnly && !isNextWeekUnlocked(_now) ? 1 : _weeks.length;
 
   String? _named(PersonItem pupil) => _isParent ? pupil.firstName : null;
+
+  String get _tourFor => widget.user.taxCode;
 
   DateTime get _monday => startOfWeek(DateTime(_now.year, _now.month, _now.day));
 
@@ -156,6 +171,9 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
     super.initState();
     _load().whenComplete(MobileHoldScope.hold(context));
     _tick();
+    _pages.addListener(_onPage);
+    MobileNavSheet.hidden.addListener(_onSheets);
+    mobileTourChanges.addListener(_tourLater);
   }
 
   @override
@@ -163,10 +181,10 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
   {
     super.didChangeDependencies();
 
-    if (!_introduced && !MobileHoldScope.waitingOf(context))
+    if (!_toured && mobileTourSettled(context))
     {
-      _introduced = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _introduceOnce());
+      _toured = true;
+      _tourLater();
     }
   }
 
@@ -174,7 +192,10 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
   void dispose()
   {
     _clock?.cancel();
+    MobileNavSheet.hidden.removeListener(_onSheets);
+    mobileTourChanges.removeListener(_tourLater);
     _pages.dispose();
+    _sheetLink.dispose();
 
     super.dispose();
   }
@@ -200,25 +221,129 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
         _load(quiet: true);
       }
 
+      // A band closing at its deadline may show the first lock.
+      _tourLater();
+
       _tick();
     });
   }
 
-  // The intro explains the deadlines: read-only viewers skip it.
-  Future<void> _introduceOnce()
+  // Also when a tour ends, so marks appearing together come one after the other.
+  void _tourLater()
   {
-    if (!mounted || _readOnly)
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  void _onPage()
+  {
+    final double page = _pages.page ?? 0;
+
+    if ((page - page.round()).abs() < 0.001 && page.round() != _pageSeen)
     {
-      return Future<void>.value();
+      _pageSeen = page.round();
+      _tourLater();
+    }
+  }
+
+  // A sheet closing, as the wizard after a save, may leave a new mark on the page.
+  void _onSheets()
+  {
+    if (!MobileNavSheet.hidden.value)
+    {
+      _tourLater();
+    }
+  }
+
+  // The main tour on the first visit, then a one-step tour for each mark it could not show.
+  // A student reads their own; one who only looks, a shorter one.
+  Future<void> _tourCheck() async
+  {
+    final PersonItem? pupil = _pupil;
+
+    if (!mounted ||
+        !_toured ||
+        pupil == null ||
+        _loading ||
+        _failed ||
+        isMobileTourShown ||
+        MobileNavSheet.hidden.value ||
+        !_pages.hasClients)
+    {
+      return;
     }
 
-    return showMobileInfoSheetOnce(
-      context: context,
-      taxCode: widget.user.taxCode,
-      slug: _slug,
-      title: _title,
-      paragraphs: const [kBookingDeadlines],
-    );
+    final String taxCode = widget.user.taxCode;
+    final int page = (_pages.page ?? 0).round();
+    final List<List<MobileBookingDay>> weeks = [_week(0, pupil), if (isNextWeekUnlocked(_now)) _week(1, pupil)];
+    final List<BookingTourPicks> picks = [for (final week in weeks) bookingTourPicks(week)];
+    final Set<BookingMark> thisWeek = picks.first.marks;
+    final Set<BookingMark> nextWeek = picks.length > 1 ? picks[1].marks : const {};
+
+    void openLesson(int page)
+    {
+      final (int, int, int)? at = page < picks.length ? picks[page].lesson : null;
+
+      if (mounted && at != null)
+      {
+        final MobileBookingDay day = weeks[page][at.$1];
+
+        _openLesson(day, pupil, day.modes[at.$2].lessons[at.$3]);
+      }
+    }
+
+    bool lessonEditable(int page) => page < picks.length && picks[page].lessonEditable;
+
+    if (!await isMobileTourSeen(
+      taxCode: taxCode,
+      tour: bookingsMainTour(_pages, self: !_isParent, readOnly: _readOnly),
+    ))
+    {
+      if (mounted && page == 0)
+      {
+        await startMobileTourOnce(
+          taxCode: taxCode,
+          tour: bookingsTour(
+            pages: _pages,
+            genders: [for (final child in _pupils) child.gender],
+            shown: pupil.gender,
+            thisWeek: thisWeek,
+            nextWeek: nextWeek,
+            sheet: _sheetLink,
+            openLesson: openLesson,
+            lessonEditable: lessonEditable,
+            self: !_isParent,
+            readOnly: _readOnly,
+          ),
+        );
+      }
+
+      return;
+    }
+
+    final Set<BookingMark> here = page == 0 ? thisWeek : nextWeek;
+
+    for (final BookingMark mark in BookingMark.values)
+    {
+      final MobileTour tour = bookingsMarkTour(
+        mark,
+        page,
+        sheet: _sheetLink,
+        openLesson: () => openLesson(page),
+        lessonEditable: lessonEditable(page),
+      );
+
+      if (here.contains(mark) && !await isMobileTourSeen(taxCode: taxCode, tour: tour))
+      {
+        if (mounted)
+        {
+          await startMobileTourOnce(taxCode: taxCode, tour: tour);
+        }
+
+        return;
+      }
+    }
   }
 
   // Own record or the children's: the full register is admin-only.
@@ -286,6 +411,8 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
           _shown = _pupils.isEmpty ? null : _pupils.first.fiscalCode;
         }
       });
+
+      _tourLater();
     }
     catch (e, stackTrace)
     {
@@ -353,7 +480,12 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
       onlyFreeBands: onlyFreeBands,
     );
 
-    final bool done = await showMobileBookingWizard(context: from ?? context, draft: draft, catalogue: _catalogue);
+    final bool done = await showMobileBookingWizard(
+      context: from ?? context,
+      draft: draft,
+      catalogue: _catalogue,
+      tourFor: _tourFor,
+    );
 
     if (done && from != null && from.mounted)
     {
@@ -377,6 +509,8 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
       pupil: pupil,
       named: _isParent,
       movable: _planner.canMoveLesson(day.date, group, lesson.booking),
+      tourFor: _tourFor,
+      tourLink: _sheetLink,
       onAction: (sheet, action) async
       {
         if (group == null)
@@ -426,6 +560,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
       pupil: pupil,
       named: _isParent,
       moveAllRefusal: _planner.blockMoveRefusal(day.date, group, mode.mode, mode.band),
+      tourFor: _tourFor,
       onAction: (sheet, action) async
       {
         if (group == null)
@@ -584,6 +719,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
           if (offer.band == band) offer,
       ],
       minutesByDisciplineTakenByOthers: group.minutesByDiscipline(mode, band: band, skip: booking),
+      tourFor: _tourFor,
     );
 
     final bool saved = await showMobileSubjectSheet(
@@ -661,6 +797,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
       subtitle: _named(pupil),
       count: move.bookings.length,
       days: _planner.moveDays(day.date, pupil.fiscalCode, move),
+      tourFor: _tourFor,
     );
 
     if (!mounted || choice == null)
@@ -684,8 +821,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
           move: move,
           day: choice.day.day,
           option: choice.option,
-          start: choice.start,
-          end: choice.end,
+          hours: choice.hours,
         ),
       );
       moved = true;
@@ -724,8 +860,13 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
         ),
         if (!_readOnly) ...[
           const SizedBox(width: 14),
-          MobileInfoButton(
-            onTap: () => showMobileInfoSheet(context: context, title: _title, paragraphs: const [kBookingDeadlines]),
+          MobileTourTarget(
+            id: kBookingsTourInfo,
+            inflate: _tourInfoInflate,
+            radius: _tourInfoRadius,
+            child: MobileInfoButton(
+              onTap: () => showMobileInfoSheet(context: context, title: _title, paragraphs: const [kBookingDeadlines]),
+            ),
           ),
         ],
       ],
@@ -768,13 +909,16 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
 
     if (index == 1 && !isNextWeekUnlocked(_now))
     {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildWeekHead(dates),
-          const SizedBox(height: 18),
-          const _LockedWeek(),
-        ],
+      return _lit(
+        index,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildWeekHead(dates),
+            const SizedBox(height: 18),
+            const _LockedWeek(),
+          ],
+        ),
       );
     }
 
@@ -800,24 +944,61 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
             ? bookedForYouDays(booked, thisWeek: thisWeek)
             : ownBookedDays(booked, thisWeek: thisWeek);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildWeekHead(dates, summary: summary),
-        const SizedBox(height: 16),
-        for (final (i, day) in days.indexed) ...[
-          if (i > 0) const SizedBox(height: _cardGap),
-          MobileBookingDayCard(
-            key: ValueKey(day.date),
-            day: day,
-            tablet: tablet,
-            onOpenLesson: (lesson) => _openLesson(day, pupil, lesson),
-            onModeActions: (mode) => _openMode(day, pupil, mode),
-            onAdd: (mode) => _openWizard(day, pupil, mode, onlyFreeBands: true),
-            onAddLesson: (mode) => _openWizard(day, pupil, mode.mode, openOnSubjects: true, band: mode.band),
-          ),
+    // A tour lights the first of each mark, and a line of each mode.
+    final BookingTourPicks picks = bookingTourPicks(days);
+
+    String? mark(BookingMark mark, (int, int)? pick, int day, int mode) =>
+        pick == (day, mode) ? bookingsTourMark(mark, index) : null;
+
+    Map<int, MobileBookingModeTour> modesOf(int day) => {
+          for (var j = 0; j < days[day].modes.length; j++)
+            j: (
+              lock: mark(BookingMark.lock, picks.lock, day, j),
+              hours: picks.hours.contains((day, j)) ? bookingsTourMark(BookingMark.hours, index) : null,
+              edit: mark(BookingMark.edit, picks.edit, day, j),
+              lesson: switch (picks.lesson)
+              {
+                (final int at, final int mode, final int lesson) when at == day && mode == j =>
+                  (lesson, bookingsTourMark(BookingMark.lesson, index)),
+                _ => null,
+              },
+              addLesson: mark(BookingMark.addLesson, picks.addLesson, day, j),
+            ),
+        };
+
+    return _lit(
+      index,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildWeekHead(dates, summary: summary),
+          const SizedBox(height: 16),
+          for (final (i, day) in days.indexed) ...[
+            if (i > 0) const SizedBox(height: _cardGap),
+            MobileBookingDayCard(
+              key: ValueKey(day.date),
+              day: day,
+              tablet: tablet,
+              onOpenLesson: (lesson) => _openLesson(day, pupil, lesson),
+              onModeActions: (mode) => _openMode(day, pupil, mode),
+              onAdd: (mode) => _openWizard(day, pupil, mode, onlyFreeBands: true),
+              onAddLesson: (mode) => _openWizard(day, pupil, mode.mode, openOnSubjects: true, band: mode.band),
+              tourAdds: picks.add == i ? bookingsTourMark(BookingMark.add, index) : null,
+              tourModes: modesOf(i),
+            ),
+          ],
         ],
-      ],
+      ),
+    );
+  }
+
+  Widget _lit(int index, Widget week)
+  {
+    return MobileTourTarget(
+      id: bookingsTourWeek(index),
+      inflate: kBookingsTourWeekInflate,
+      radius: kBookingsTourWeekRadius,
+      child: week,
     );
   }
 
@@ -833,13 +1014,25 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
           clipBehavior: Clip.none,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(left, _topRoom, right, bottom),
-          child: MobileLoadSwitcher(child: child),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              MobileLoadSwitcher(child: child),
+              const MobileTourRunway(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _show(PersonItem pupil) => setState(() => _shown = pupil.fiscalCode);
+  // Another child's weeks may show marks never explained.
+  void _show(PersonItem pupil)
+  {
+    setState(() => _shown = pupil.fiscalCode);
+    _tourLater();
+  }
 
   @override
   Widget build(BuildContext context)
@@ -855,8 +1048,18 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
     final bool several = pupil != null && _pupils.length > 1;
     final bool rail = lying && several;
 
+    // Phones show the child as a chip; tablets keep the tiles.
+    final bool tiles = tablet && several && !rail;
+    final bool chip = !tablet && several;
+
     final int weekCount = _weekCount;
-    final Widget? strip = weekCount > 1 ? MobilePageStrip(labels: _weeks, controller: _pages) : null;
+    final Widget? strip = weekCount > 1
+        ? MobilePageStrip(
+            labels: _weeks,
+            controller: _pages,
+            tourTargets: [bookingsTourTab(0), bookingsTourTab(1)],
+          )
+        : null;
 
     final Widget header = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -865,14 +1068,35 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
           padding: EdgeInsets.fromLTRB(margin, 4, margin, 0),
           child: _buildTitle(tablet: tablet),
         ),
-        if (several && !rail)
+        if (tiles)
           Padding(
             padding: const EdgeInsets.only(top: _tilesGap),
-            child: MobileChildTiles(children: _pupils, shown: pupil, onShow: _show, tablet: tablet, margin: margin),
+            child: MobileChildTiles(
+              children: _pupils,
+              shown: pupil,
+              onShow: _show,
+              margin: margin,
+              tourTarget: kBookingsTourChildren,
+            ),
+          ),
+        if (chip)
+          Padding(
+            padding: const EdgeInsets.only(top: _chipsGap),
+            child: MobileFilterChips(
+              margin: margin,
+              chips: [
+                MobileTourTarget(
+                  id: kBookingsTourChildren,
+                  inflate: _tourChipInflate,
+                  radius: _tourChipRadius,
+                  child: MobileChildChip(children: _pupils, shown: pupil, onShow: _show, eyebrow: _title),
+                ),
+              ],
+            ),
           ),
         if (!rail && strip != null)
           Padding(
-            padding: EdgeInsets.fromLTRB(margin, several ? _tilesGap : _stripGap, margin, 0),
+            padding: EdgeInsets.fromLTRB(margin, tiles ? _tilesGap : (chip ? _chipsStripGap : _stripGap), margin, 0),
             child: strip,
           )
         else
@@ -916,7 +1140,13 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
                     top: 0,
                     bottom: 0,
                     width: MobileChildRail.width,
-                    child: MobileChildRail(children: _pupils, shown: pupil, onShow: _show, bottom: bottom),
+                    child: MobileChildRail(
+                      children: _pupils,
+                      shown: pupil,
+                      onShow: _show,
+                      bottom: bottom,
+                      tourTarget: kBookingsTourChildren,
+                    ),
                   ),
                 ],
               )

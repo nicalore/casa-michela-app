@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -16,6 +17,7 @@ import '../../../features/auth/models/me_response.dart';
 import '../../../features/calendar/utils/calendar_strings.dart';
 import '../../../features/calendar/utils/day_marks_loader.dart';
 import '../../../features/calendar/utils/teacher_band_call.dart';
+import '../../../features/calendar/widgets/teacher_note_dialog.dart' show lessonHasBegun;
 import '../../../features/lessons/models/activity_item.dart';
 import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/models/calendar_publication_item.dart';
@@ -29,11 +31,11 @@ import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_date_capsule.dart';
-import '../../shared/widgets/mobile_info_button.dart';
-import '../../shared/widgets/mobile_info_sheet.dart';
 import '../../shared/widgets/mobile_month_picker.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
+import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_calendar_day.dart';
+import 'mobile_calendar_tour.dart';
 import 'widgets/mobile_calendar_notice.dart';
 import 'widgets/mobile_calendar_timeline.dart';
 import 'widgets/mobile_convocation_card.dart';
@@ -41,9 +43,6 @@ import 'widgets/mobile_lesson_card.dart';
 import 'widgets/mobile_lesson_sheet.dart';
 
 const String _title = 'Calendario';
-
-// Same "seen" flag for every role: the sentence is the same.
-const String _slug = 'calendar';
 
 const double _phoneMargin = 20;
 const double _tabletMargin = 44;
@@ -60,6 +59,18 @@ const double _topRoom = 16;
 
 // Fraction down the visible area where the present lands on open.
 const double _nowAlignment = 0.4;
+
+const Duration _pageTurn = Duration(milliseconds: 320);
+
+// A page settles within a tolerance, never exactly on its index.
+const double _settled = 0.001;
+
+const EdgeInsets _tourBandsInflate = EdgeInsets.fromLTRB(10, 2, 10, 0);
+const double _tourBandsRadius = 22;
+const EdgeInsets _tourDayInflate = EdgeInsets.all(5);
+const double _tourDayRadius = 30;
+const EdgeInsets _tourCardInflate = EdgeInsets.all(5);
+const double _tourCardRadius = 27;
 
 // Never past today: only published days are shown.
 class MobileCalendarPage extends StatefulWidget
@@ -101,7 +112,12 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
   bool _revealed = false;
 
-  bool _introduced = false;
+  // Set once the page is in place; from then on every load, band change and closed sheet looks for a tour.
+  bool _toured = false;
+  int? _pageSeen;
+
+  // Not disposed: a sheet closing after the page still tells it.
+  final LessonSheetTourLink _sheetLink = LessonSheetTourLink();
 
   // Drops taps while a lesson's student is being fetched.
   bool _opening = false;
@@ -131,23 +147,184 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
     _tick();
     _load().whenComplete(MobileHoldScope.hold(context));
+    _pageController.addListener(_onPage);
+    MobileNavSheet.hidden.addListener(_onSheets);
+    mobileTourChanges.addListener(_tourLater);
+    _sheetLink.addListener(_onLessonSheet);
   }
 
   @override
   void didChangeDependencies()
   {
     super.didChangeDependencies();
-    _introduce();
+
+    if (!_toured && mobileTourSettled(context))
+    {
+      _toured = true;
+      _tourLater();
+    }
   }
 
   @override
   void dispose()
   {
     _timer?.cancel();
+    _sheetLink.removeListener(_onLessonSheet);
+    mobileTourChanges.removeListener(_tourLater);
+    MobileNavSheet.hidden.removeListener(_onSheets);
     _clock.dispose();
     _pageController.dispose();
 
     super.dispose();
+  }
+
+  // Asks for the frame too: the page may be still.
+  void _tourLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  void _onPage()
+  {
+    final double page = _pageController.page ?? 0;
+
+    if ((page - page.round()).abs() < _settled && page.round() != _pageSeen)
+    {
+      _pageSeen = page.round();
+      _tourLater();
+    }
+  }
+
+  void _onSheets()
+  {
+    if (!MobileNavSheet.hidden.value)
+    {
+      _tourLater();
+    }
+  }
+
+  // The earliest lesson of a band the teacher is convened in, which a tour lights.
+  LessonItem? _firstLessonOf(MobileCalendarBand band)
+  {
+    if (band.state != MobileCalendarBandState.convened || band.call.lessons.isEmpty)
+    {
+      return null;
+    }
+
+    return band.call.lessons.reduce((a, b) => b.startMinutes < a.startMinutes ? b : a);
+  }
+
+  // The band in sight if the teacher is convened there, else the first one with a lesson.
+  TimeBucket? _calledBand(MobileCalendarDay data, int page)
+  {
+    final TimeBucket here = TimeBucket.values[page];
+
+    if (_firstLessonOf(data.bandOf(here)) != null)
+    {
+      return here;
+    }
+
+    return TimeBucket.values.where((band) => _firstLessonOf(data.bandOf(band)) != null).firstOrNull;
+  }
+
+  // The bands and the day picker on the first visit; the call and a lesson the first time one is shown.
+  Future<void> _tourCheck() async
+  {
+    final MobileCalendarDay? data = _data;
+
+    if (!mounted ||
+        !_toured ||
+        _loading ||
+        _failed ||
+        data == null ||
+        isMobileTourShown ||
+        MobileNavSheet.hidden.value ||
+        !_pageController.hasClients)
+    {
+      return;
+    }
+
+    final double page = _pageController.page ?? _pageController.initialPage.toDouble();
+
+    if ((page - page.round()).abs() >= _settled)
+    {
+      return;
+    }
+
+    final String taxCode = widget.user.taxCode;
+    final bool main = !await isCalendarMainTourSeen(taxCode);
+    final bool call = !await isCalendarCallTourSeen(taxCode);
+    final TimeBucket? band = call ? _calledBand(data, page.round()) : null;
+
+    if (!mounted || (!main && band == null))
+    {
+      return;
+    }
+
+    // Shown where the call is.
+    if (band != null && band.index != page.round())
+    {
+      _pageController.animateToPage(band.index, duration: _pageTurn, curve: Curves.easeInOutCubic);
+
+      return;
+    }
+
+    final LessonItem? lesson = band == null ? null : _firstLessonOf(data.bandOf(band));
+
+    await startMobileTourOnce(
+      taxCode: taxCode,
+      tour: calendarTour(
+        main: main,
+        band: band,
+        sheetMarks: band == null ? const {} : await unseenLessonSheetMarks(taxCode),
+        sheet: _sheetLink,
+        student: !_day.isBefore(_today),
+        note: lesson != null && lessonHasBegun(lesson, _clock.value),
+      ),
+    );
+  }
+
+  // A lesson's sheet up outside a tour: its parts never seen, the first time they show.
+  void _onLessonSheet()
+  {
+    if (!_sheetLink.open)
+    {
+      return;
+    }
+
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _sheetTourCheck())
+      ..scheduleFrame();
+  }
+
+  Future<void> _sheetTourCheck() async
+  {
+    if (!mounted || isMobileTourShown || !_sheetLink.open)
+    {
+      return;
+    }
+
+    final Set<LessonSheetMark> marks = await unseenLessonSheetMarks(widget.user.taxCode);
+
+    if (!mounted || marks.isEmpty || isMobileTourShown || !_sheetLink.open)
+    {
+      return;
+    }
+
+    final MobileTour tour = calendarTour(
+      main: false,
+      band: null,
+      sheetMarks: marks,
+      sheet: _sheetLink,
+      opened: true,
+    );
+
+    if (tour.steps.any((step) => step.isPresent))
+    {
+      await startMobileTourOnce(taxCode: widget.user.taxCode, tour: tour);
+    }
   }
 
   // Wakes on the minute, not every 60 s from whenever the page opened.
@@ -222,6 +399,8 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
         _revealed = true;
         WidgetsBinding.instance.addPostFrameCallback((_) => _revealNow());
       }
+
+      _tourLater();
     }
     catch (e, stackTrace)
     {
@@ -344,14 +523,23 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       ministrySubjects: _ministrySubjects,
       student: person,
       withStudent: !past,
+      tourLink: _sheetLink,
     );
   }
 
-  List<MobileCalendarEntry> _entriesOf(TeacherBandCall call)
+  List<MobileCalendarEntry> _entriesOf(MobileCalendarBand band)
   {
+    final TeacherBandCall call = band.call;
+    final LessonItem? first = _firstLessonOf(band);
+
     return [
       for (final lesson in call.lessons)
-        MobileCalendarEntry.lesson(lesson, _ministrySubjects, onTap: () => _openLesson(lesson)),
+        MobileCalendarEntry.lesson(
+          lesson,
+          _ministrySubjects,
+          onTap: () => _openLesson(lesson),
+          tourId: identical(lesson, first) ? calendarTourLesson(band.band) : null,
+        ),
       for (final activity in call.activities)
         MobileCalendarEntry.activity(
           activity,
@@ -360,61 +548,22 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
     ];
   }
 
-  String get _dayLabel
-  {
-    final String label = formatWeekdayColumnLabel(_day);
+  String _withYear(String label) => _day.year == _today.year ? label : '$label ${_day.year}';
 
-    return _day.year == _today.year ? label : '$label ${_day.year}';
-  }
+  String get _dayLabel => _withYear(formatWeekdayColumnLabel(_day));
 
   Widget _buildTitle({required bool tablet})
   {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            _title,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: tablet ? 36 : 30,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              height: 1.05,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        MobileInfoButton(
-          onTap: () => showMobileInfoSheet(context: context, title: _title, paragraphs: [_hint]),
-        ),
-      ],
+    return Text(
+      _title,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: tablet ? 36 : 30,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.5,
+        height: 1.05,
+        color: Colors.white,
+      ),
     );
-  }
-
-  String get _hint => lessonDetailsHint(verb: 'tocca');
-
-  void _introduce()
-  {
-    if (_introduced || MobileHoldScope.waitingOf(context))
-    {
-      return;
-    }
-
-    _introduced = true;
-
-    WidgetsBinding.instance.addPostFrameCallback((_)
-    {
-      if (mounted)
-      {
-        showMobileInfoSheetOnce(
-          context: context,
-          taxCode: widget.user.taxCode,
-          slug: _slug,
-          title: _title,
-          paragraphs: [_hint],
-        );
-      }
-    });
   }
 
   Future<void> _pickDay() async
@@ -426,6 +575,8 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       first: oldestKeptDay(_today),
       last: _today,
       loadMarks: (from, to) => loadDayMarks(from, to, published: true),
+      tourDays: kCalendarTourPickerDays,
+      onShown: () => startMobileTourOnce(taxCode: widget.user.taxCode, tour: calendarPickerTour()),
     );
 
     if (picked != null && mounted)
@@ -483,13 +634,18 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       );
     }
 
-    final List<MobileCalendarEntry> entries = _entriesOf(shown.call);
+    final List<MobileCalendarEntry> entries = _entriesOf(shown);
     final bool pastDay = _day.isBefore(_today);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        MobileConvocationCard(call: shown.call, feminine: _feminine, tablet: tablet, stretched: wide),
+        MobileTourTarget(
+          id: calendarTourCard(band),
+          inflate: _tourCardInflate,
+          radius: _tourCardRadius,
+          child: MobileConvocationCard(call: shown.call, feminine: _feminine, tablet: tablet, stretched: wide),
+        ),
         const SizedBox(height: _cardGap),
         ValueListenableBuilder<DateTime>(
           valueListenable: _clock,
@@ -546,13 +702,19 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
         children: [
           _buildTitle(tablet: tablet),
           const SizedBox(height: _headerGap),
-          MobileDateCapsule(
-            label: _dayLabel,
-            current: _isToday,
-            tablet: tablet,
-            onBack: !_isFirstDay && !_loading ? () => _goToDay(addDays(_day, -1)) : null,
-            onForward: !_isToday && !_loading ? () => _goToDay(addDays(_day, 1)) : null,
-            onPick: _pickDay,
+          MobileTourTarget(
+            id: kCalendarTourDay,
+            inflate: _tourDayInflate,
+            radius: _tourDayRadius,
+            child: MobileDateCapsule(
+              label: _dayLabel,
+              widestLabel: _withYear(kWidestDayLabel),
+              current: _isToday,
+              tablet: tablet,
+              onBack: !_isFirstDay && !_loading ? () => _goToDay(addDays(_day, -1)) : null,
+              onForward: !_isToday && !_loading ? () => _goToDay(addDays(_day, 1)) : null,
+              onPick: _pickDay,
+            ),
           ),
           TweenAnimationBuilder<double>(
             tween: Tween<double>(end: folded ? 0 : 1),
@@ -567,9 +729,16 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: _stripGap),
-                MobilePageStrip(
-                  labels: [for (final band in TimeBucket.values) bandLabel(band)],
-                  controller: _pageController,
+                // Lit with all it shows below, down to the screen's bottom.
+                MobileTourTarget(
+                  id: kCalendarTourBands,
+                  inflate: _tourBandsInflate,
+                  radius: _tourBandsRadius,
+                  toBottom: true,
+                  child: MobilePageStrip(
+                    labels: [for (final band in TimeBucket.values) bandLabel(band)],
+                    controller: _pageController,
+                  ),
                 ),
               ],
             ),

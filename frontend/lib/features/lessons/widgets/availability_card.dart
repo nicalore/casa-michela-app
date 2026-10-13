@@ -15,6 +15,7 @@ import '../models/availability_group.dart';
 import '../models/availability_item.dart';
 import '../utils/booking_window.dart';
 import '../utils/opening_window.dart';
+import 'calendar_lesson_block.dart' show lessonModeIcon;
 import 'person_avatar.dart';
 
 const double _dialogButtonHeight = 52;
@@ -171,7 +172,7 @@ class _ModeColumn extends StatelessWidget
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              online ? Icons.videocam_outlined : Icons.home_work_outlined,
+              lessonModeIcon(mode),
               size: 15,
               color: AppTheme.trialMutedText,
             ),

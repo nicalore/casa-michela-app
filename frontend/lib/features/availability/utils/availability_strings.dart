@@ -133,5 +133,5 @@ String availabilitySaved({required bool clearing, required bool editing, require
     return 'Disponibilità modificata con successo!';
   }
 
-  return days == 1 ? 'Disponibilità creata con successo!' : '$days disponibilità create con successo!';
+  return days == 1 ? 'Disponibilità creata con successo!' : 'Disponibilità create con successo!';
 }

@@ -19,11 +19,15 @@ const double _decisionShare = 0.9;
 // A flick faster than this commits on its own.
 const double _flickVelocity = 700;
 
-// Keeps the card's shadow inside the clip.
-const double _shadowSlack = 60;
+// Far past the card's shadow, on the sides with nothing to cross.
+const double _openSlack = 1000;
 
-// Half the gap to the next card: bleed into the gap, never onto the neighbour.
-const double _gapSlack = 6;
+// A tour's hint: towards the removal, short of committing, and back.
+const double _hintShare = 0.85;
+const Duration _hintOut = Duration(milliseconds: 650);
+const Duration _hintHold = Duration(milliseconds: 700);
+const Duration _hintBack = Duration(milliseconds: 450);
+const Duration _hintRest = Duration(milliseconds: 900);
 
 // Rightwards only: Dismissible claims both directions and swallows the page swipe.
 class _RightwardDragRecognizer extends HorizontalDragGestureRecognizer
@@ -88,6 +92,12 @@ class MobileRemovableRow extends StatefulWidget
   // Removal confirmed elsewhere: the row leaves as after a slide.
   final bool leaving;
 
+  // Slides part way and back, over and over, to show the gesture.
+  final bool hinting;
+
+  // How far the card beside it on the right is, which the slide must not cross; null when none.
+  final double? sideGap;
+
   const MobileRemovableRow({
     super.key,
     required this.child,
@@ -95,6 +105,8 @@ class MobileRemovableRow extends StatefulWidget
     required this.onRemoved,
     this.gap = 0,
     this.leaving = false,
+    this.hinting = false,
+    this.sideGap,
   });
 
   @override
@@ -122,6 +134,11 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
   {
     super.initState();
     _controller = AnimationController(vsync: this, duration: _settleDuration);
+
+    if (widget.hinting)
+    {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _hint());
+    }
   }
 
   @override
@@ -132,6 +149,35 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
     if (widget.leaving && !oldWidget.leaving && !_asking)
     {
       _leave();
+    }
+
+    if (widget.hinting && !oldWidget.hinting)
+    {
+      _hint();
+    }
+  }
+
+  bool get _mayHint => mounted && widget.hinting && !_leaving && !_asking;
+
+  Future<void> _hint() async
+  {
+    while (_mayHint)
+    {
+      await _animateTo(math.min(_width * _threshold, _thresholdCap) * _hintShare, _hintOut);
+      await Future<void>.delayed(_hintHold);
+
+      if (!_mayHint)
+      {
+        break;
+      }
+
+      await _animateTo(0, _hintBack);
+      await Future<void>.delayed(_hintRest);
+    }
+
+    if (mounted && !_leaving && !_asking && _offset > 0)
+    {
+      await _animateTo(0);
     }
   }
 
@@ -156,14 +202,19 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
       ..reset()
       ..addListener(follow);
 
-    return _controller.forward().whenComplete(() => _controller.removeListener(follow));
+    // Stopped by a new run or a drag, it still lets its caller go on, and its listener go.
+    final TickerFuture run = _controller.forward();
+
+    run.whenCompleteOrCancel(() => _controller.removeListener(follow));
+
+    return run.orCancel.catchError((Object _) {}, test: (error) => error is TickerCanceled);
   }
 
-  Future<void> _animateTo(double target)
+  Future<void> _animateTo(double target, [Duration duration = _settleDuration])
   {
     final double from = _offset;
 
-    return _run(_settleDuration, Curves.easeOutCubic, (t) => _offset = from + (target - from) * t);
+    return _run(duration, Curves.easeOutCubic, (t) => _offset = from + (target - from) * t);
   }
 
   Future<void> _collapse()
@@ -252,7 +303,8 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
     await _leave();
   }
 
-  // Clip only while sliding: never cross a neighbour, keep the whole shadow at rest.
+  // Clip only while sliding, and only where a card stands beside it: the shadow stays whole.
+  // A tour's hint goes under the card's own corners, inside the lit hole.
   Widget _clipped(Widget child)
   {
     if (_offset <= 0)
@@ -260,7 +312,20 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
       return child;
     }
 
-    return ClipRect(clipper: const _CellClipper(), child: child);
+    if (widget.hinting)
+    {
+      return ClipRRect(borderRadius: BorderRadius.circular(MobileSubjectCard.radius), child: child);
+    }
+
+    final double? sideGap = widget.sideGap;
+
+    // Past the last column only the screen's edge cuts it.
+    if (sideGap == null)
+    {
+      return child;
+    }
+
+    return ClipPath(clipper: _CellClipper(sideGap), child: child);
   }
 
   Widget _red({required double height, double iconOpacity = 1})
@@ -346,21 +411,26 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
   }
 }
 
-class _CellClipper extends CustomClipper<Rect>
+// Hides the card under the one beside it, in that card's shape; the shadow around stays whole.
+class _CellClipper extends CustomClipper<Path>
 {
-  const _CellClipper();
+  final double sideGap;
+
+  const _CellClipper(this.sideGap);
 
   @override
-  Rect getClip(Size size)
+  Path getClip(Size size)
   {
-    return Rect.fromLTRB(
-      -_gapSlack,
-      -_shadowSlack,
-      size.width + _gapSlack,
-      size.height + _shadowSlack,
-    );
+    return Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Rect.fromLTRB(-_openSlack, -_openSlack, size.width + _openSlack, size.height + _openSlack))
+      ..addRRect(RRect.fromRectAndCorners(
+        Rect.fromLTRB(size.width + sideGap, 0, size.width + _openSlack, size.height),
+        topLeft: const Radius.circular(MobileSubjectCard.radius),
+        bottomLeft: const Radius.circular(MobileSubjectCard.radius),
+      ));
   }
 
   @override
-  bool shouldReclip(_CellClipper oldClipper) => false;
+  bool shouldReclip(_CellClipper oldClipper) => oldClipper.sideGap != sideGap;
 }

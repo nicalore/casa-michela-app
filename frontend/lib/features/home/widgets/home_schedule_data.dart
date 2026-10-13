@@ -95,6 +95,7 @@ String homeSubjectsLabel(int count) => count == 1 ? '1 materia' : '$count materi
 const String kAvailableLead = 'Disponibile';
 const String kBookedLead = 'Prenotato';
 const String kConvenedLead = 'Convocato';
+const String kLessonLead = 'Lezione';
 
 List<HomeSlot> presenceSlots(List<PresenceItem> presences, {required bool named})
 {

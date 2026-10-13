@@ -3,7 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../features/people/models/person_item.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
+import '../../../shared/widgets/mobile_choice_sheet.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
+import '../../../shared/widgets/mobile_filter_chip.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 
 const double _radius = 22;
 const double _border = 1;
@@ -16,18 +19,18 @@ const double _tileBottom = 14;
 const double _sidePadding = 8;
 const double _nameGap = 12;
 
-const double _capsuleFace = 48;
-const double _capsulePad = 6;
-const double _capsuleNameGap = 12;
-const double _capsuleEnd = 20;
-const double _capsuleGap = 10;
-
 const double _bleed = 8;
 
-TextStyle _nameStyle({required bool tablet})
+// Clear of the current tile's rim, which stands outside it.
+const EdgeInsets _tourInflate = EdgeInsets.all(6);
+
+const String _sheetTitle = 'Figli';
+const double _sheetFace = 40;
+
+TextStyle _nameStyle()
 {
   return GoogleFonts.plusJakartaSans(
-    fontSize: tablet ? 17 : 15,
+    fontSize: 17,
     fontWeight: FontWeight.w800,
     letterSpacing: -0.1,
     // Explicit, so the theme's line height does not break the row's measure.
@@ -36,23 +39,105 @@ TextStyle _nameStyle({required bool tablet})
   );
 }
 
+// Keyed by the child, as the tile it holds.
+Widget _lit(String? id, PersonItem child, Widget tile)
+{
+  return MobileTourTarget(
+    key: ValueKey(child.fiscalCode),
+    id: id,
+    inflate: _tourInflate,
+    radius: _radius + _tourInflate.left,
+    child: tile,
+  );
+}
+
+// Phones: the child shown as a chip, the others in a sheet.
+class MobileChildChip extends StatelessWidget
+{
+  final List<PersonItem> children;
+  final PersonItem shown;
+  final ValueChanged<PersonItem> onShow;
+
+  // The page's name, above the sheet's title.
+  final String eyebrow;
+
+  const MobileChildChip({
+    super.key,
+    required this.children,
+    required this.shown,
+    required this.onShow,
+    required this.eyebrow,
+  });
+
+  Future<void> _pick(BuildContext context) async
+  {
+    final MobileChoice<String>? picked = await showMobileChoiceSheet(
+      context: context,
+      eyebrow: eyebrow,
+      title: _sheetTitle,
+      choices: [
+        for (final child in children)
+          MobileChoice(
+            value: child.fiscalCode,
+            label: child.firstName,
+            leading: MobileAvatar(
+              firstName: child.firstName,
+              lastName: child.lastName,
+              imageUrl: child.profileImageUrl,
+              size: _sheetFace,
+              gold: child.fiscalCode == shown.fiscalCode,
+            ),
+          ),
+      ],
+      value: shown.fiscalCode,
+    );
+
+    if (picked == null || !context.mounted)
+    {
+      return;
+    }
+
+    for (final child in children)
+    {
+      if (child.fiscalCode == picked.value)
+      {
+        onShow(child);
+      }
+    }
+  }
+
+  // Which child, not a filter: the chip never lights up.
+  @override
+  Widget build(BuildContext context)
+  {
+    return MobileFilterChip(
+      icon: Icons.face_rounded,
+      label: shown.firstName,
+      active: false,
+      onTap: () => _pick(context),
+    );
+  }
+}
+
+// Tablets standing up: one tile per child in a row.
 class MobileChildTiles extends StatefulWidget
 {
   final List<PersonItem> children;
   final PersonItem shown;
   final ValueChanged<PersonItem> onShow;
 
-  final bool tablet;
-
   final double margin;
+
+  // Every tile carries it, for a tour to light them all.
+  final String? tourTarget;
 
   const MobileChildTiles({
     super.key,
     required this.children,
     required this.shown,
     required this.onShow,
-    required this.tablet,
     required this.margin,
+    this.tourTarget,
   });
 
   @override
@@ -70,13 +155,6 @@ class _MobileChildTilesState extends State<MobileChildTiles>
     super.dispose();
   }
 
-  double get _spacing => widget.tablet ? _gap : _capsuleGap;
-
-  double _extentOf(int index)
-  {
-    return widget.tablet ? _tileWidth : MobileChildTile.capsuleWidth(context, widget.children[index]);
-  }
-
   // Not ensureVisible: it would also scroll the page the row sits in.
   void _reveal(int index)
   {
@@ -85,15 +163,10 @@ class _MobileChildTilesState extends State<MobileChildTiles>
       return;
     }
 
-    double start = 0;
-
-    for (var i = 0; i < index; i++)
-    {
-      start += _extentOf(i) + _spacing;
-    }
+    final double start = index * (_tileWidth + _gap);
 
     final ScrollPosition position = _scroll.position;
-    final double end = start + _extentOf(index) + widget.margin * 2;
+    final double end = start + _tileWidth + widget.margin * 2;
     double target = position.pixels;
 
     if (target > start)
@@ -123,13 +196,8 @@ class _MobileChildTilesState extends State<MobileChildTiles>
 
   double _heightOf(BuildContext context)
   {
-    if (!widget.tablet)
-    {
-      return MobileChildTile.capsuleHeight;
-    }
-
     final TextPainter name = TextPainter(
-      text: TextSpan(text: 'Ag', style: _nameStyle(tablet: true)),
+      text: TextSpan(text: 'Ag', style: _nameStyle()),
       textDirection: TextDirection.ltr,
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
@@ -149,17 +217,19 @@ class _MobileChildTilesState extends State<MobileChildTiles>
         clipBehavior: Clip.none,
         padding: EdgeInsets.symmetric(horizontal: widget.margin, vertical: _bleed),
         itemCount: widget.children.length,
-        separatorBuilder: (context, index) => SizedBox(width: _spacing),
+        separatorBuilder: (context, index) => const SizedBox(width: _gap),
         itemBuilder: (context, index)
         {
           final PersonItem child = widget.children[index];
 
-          return MobileChildTile(
-            key: ValueKey(child.fiscalCode),
-            child: child,
-            current: child.fiscalCode == widget.shown.fiscalCode,
-            tablet: widget.tablet,
-            onTap: () => _show(index),
+          return _lit(
+            widget.tourTarget,
+            child,
+            MobileChildTile(
+              child: child,
+              current: child.fiscalCode == widget.shown.fiscalCode,
+              onTap: () => _show(index),
+            ),
           );
         },
       ),
@@ -179,12 +249,16 @@ class MobileChildRail extends StatefulWidget
 
   final double bottom;
 
+  // Every tile carries it, for a tour to light them all.
+  final String? tourTarget;
+
   const MobileChildRail({
     super.key,
     required this.children,
     required this.shown,
     required this.onShow,
     required this.bottom,
+    this.tourTarget,
   });
 
   @override
@@ -214,12 +288,14 @@ class _MobileChildRailState extends State<MobileChildRail>
         children: [
           for (final (i, child) in widget.children.indexed) ...[
             if (i > 0) const SizedBox(height: _gap),
-            MobileChildTile(
-              key: ValueKey(child.fiscalCode),
-              child: child,
-              current: child.fiscalCode == widget.shown.fiscalCode,
-              tablet: true,
-              onTap: () => widget.onShow(child),
+            _lit(
+              widget.tourTarget,
+              child,
+              MobileChildTile(
+                child: child,
+                current: child.fiscalCode == widget.shown.fiscalCode,
+                onTap: () => widget.onShow(child),
+              ),
             ),
           ],
         ],
@@ -289,35 +365,14 @@ class MobileChildTile extends StatelessWidget
 {
   final PersonItem child;
   final bool current;
-  final bool tablet;
   final VoidCallback onTap;
 
   const MobileChildTile({
     super.key,
     required this.child,
     required this.current,
-    required this.tablet,
     required this.onTap,
   });
-
-  static const double capsuleHeight = _capsuleFace + _capsulePad * 2 + _border * 2;
-
-  // Must match the capsule's layout: face, gap, name and ends.
-  static double capsuleWidth(BuildContext context, PersonItem child)
-  {
-    final TextPainter name = TextPainter(
-      text: TextSpan(text: child.firstName, style: _nameStyle(tablet: false)),
-      textDirection: TextDirection.ltr,
-      textScaler: MediaQuery.textScalerOf(context),
-      maxLines: 1,
-    )..layout();
-
-    final double width = _border * 2 + _capsulePad + _capsuleFace + _capsuleNameGap + name.width.ceilToDouble() + _capsuleEnd;
-
-    name.dispose();
-
-    return width;
-  }
 
   Widget _buildTile()
   {
@@ -341,34 +396,8 @@ class MobileChildTile extends StatelessWidget
             child.firstName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: _nameStyle(tablet: true),
+            style: _nameStyle(),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCapsule()
-  {
-    const BorderRadius radius = BorderRadius.all(Radius.circular(capsuleHeight / 2));
-
-    return Container(
-      height: capsuleHeight,
-      padding: const EdgeInsets.fromLTRB(_capsulePad, _capsulePad, _capsuleEnd, _capsulePad),
-      decoration: _glass(radius),
-      foregroundDecoration: _rim(radius),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          MobileAvatar(
-            firstName: child.firstName,
-            lastName: child.lastName,
-            imageUrl: child.profileImageUrl,
-            size: _capsuleFace,
-            gold: current,
-          ),
-          const SizedBox(width: _capsuleNameGap),
-          Text(child.firstName, maxLines: 1, style: _nameStyle(tablet: false)),
         ],
       ),
     );
@@ -394,7 +423,7 @@ class MobileChildTile extends StatelessWidget
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: tablet ? _buildTile() : _buildCapsule(),
+        child: _buildTile(),
       ),
     );
   }

@@ -22,10 +22,6 @@ import '../widgets/association_subject_card.dart';
 
 const String kSubjectsCatalogueIntro =
     'Di seguito trovi tutte le discipline che vengono insegnate in Associazione. '
-    'Se manca una disciplina che ti interessa, faccelo sapere!';
-
-const String kSubjectsCatalogueIntroWithReport =
-    'Di seguito trovi tutte le discipline che vengono insegnate in Associazione. '
     'Se manca una disciplina che ti interessa, faccelo sapere tramite il bottone qui sotto!';
 
 const String kSubjectsSearchHint = 'Cerca disciplina...';
@@ -46,10 +42,7 @@ const double _footerWidth = 576;
 
 class PupilSubjectsTab extends StatefulWidget
 {
-  // False for a pupil a parent answers for: no report button.
-  final bool canReport;
-
-  const PupilSubjectsTab({super.key, required this.canReport});
+  const PupilSubjectsTab({super.key});
 
   @override
   State<PupilSubjectsTab> createState() => _PupilSubjectsTabState();
@@ -147,7 +140,7 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
     return Padding(
       padding: const EdgeInsets.only(bottom: 28),
       child: Text(
-        widget.canReport ? kSubjectsCatalogueIntroWithReport : kSubjectsCatalogueIntro,
+        kSubjectsCatalogueIntro,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 16,
           fontWeight: FontWeight.w500,
@@ -175,11 +168,6 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
           searchController: _searchController,
           onSearchChanged: (value) => setState(() => _searchText = value),
           searchHint: kSubjectsSearchHint,
-          actionLabel: widget.canReport ? kMissingSubjectAction : null,
-          actionIcon: Icons.flag_rounded,
-          actionGradient: AppTheme.dismissGradient,
-          actionAccent: AppTheme.trialViolet,
-          onAction: widget.canReport ? _openReportDialog : null,
           sort: _sortBy,
           onSortChanged: (value) => setState(() => _sortBy = value),
           sortCriteria: const [SortCriterion.nameAsc, SortCriterion.nameDesc],
@@ -205,6 +193,13 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
         children: [
           for (final subject in subjects) AssociationSubjectCard(subject: subject),
         ],
+      ),
+      footer: tabActionButton(
+        label: kMissingSubjectAction,
+        icon: Icons.flag_rounded,
+        gradient: AppTheme.dismissGradient,
+        accent: AppTheme.trialViolet,
+        onPressed: _openReportDialog,
       ),
     );
   }

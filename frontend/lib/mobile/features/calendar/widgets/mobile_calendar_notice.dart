@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 
@@ -42,7 +43,7 @@ class MobileCalendarNotice extends StatelessWidget
           ),
           const SizedBox(height: 14),
           Text(
-            title,
+            withoutOrphans(title),
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 19,
@@ -54,7 +55,7 @@ class MobileCalendarNotice extends StatelessWidget
           if (message != null && message.isNotEmpty) ...[
             const SizedBox(height: 7),
             Text(
-              message,
+              withoutOrphans(message),
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14.5,

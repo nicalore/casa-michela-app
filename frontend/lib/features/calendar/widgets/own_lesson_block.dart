@@ -73,7 +73,7 @@ class _BlockFrame extends StatefulWidget
   final bool isPast;
   final bool isCurrent;
 
-  final bool isShared;
+  // final bool isShared;
 
   final VoidCallback? onTap;
 
@@ -87,7 +87,7 @@ class _BlockFrame extends StatefulWidget
     required this.details,
     required this.isPast,
     this.isCurrent = false,
-    this.isShared = false,
+    // this.isShared = false,
     required this.onTap,
     required this.body,
   });
@@ -177,13 +177,13 @@ class _BlockFrameState extends State<_BlockFrame>
                                     const SizedBox(width: 6),
                                     const _CurrentBadge(),
                                   ],
-                                  if (!narrow && widget.isShared) ...[
-                                    const SizedBox(width: 4),
-                                    const AppTooltip(
-                                      message: kSharedLessonLabel,
-                                      child: Icon(kSharedLessonIcon, size: 15, color: AppTheme.trialMutedText),
-                                    ),
-                                  ],
+                                  // if (!narrow && widget.isShared) ...[
+                                  //   const SizedBox(width: 4),
+                                  //   const AppTooltip(
+                                  //     message: kSharedLessonLabel,
+                                  //     child: Icon(kSharedLessonIcon, size: 15, color: AppTheme.trialMutedText),
+                                  //   ),
+                                  // ],
                                   if (!narrow && widget.isPast) ...[
                                     const SizedBox(width: 4),
                                     const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
@@ -349,7 +349,8 @@ class OwnLessonBlock extends StatelessWidget
       details: _hasTooltip ? _details(about) : null,
       isPast: isPast,
       isCurrent: isCurrent,
-      isShared: _byStudent && lesson.isShared,
+      // Co-presence hidden from students and parents for now.
+      // isShared: _byStudent && lesson.isShared,
       onTap: onTap,
       body: (narrow) => _buildBody(about, narrow: narrow),
     );

@@ -17,6 +17,9 @@ class BandOffer
   const BandOffer({required this.band, required this.hours, required this.minutes, required this.takenByOthers});
 
   int get left => minutes - takenByOthers;
+
+  // Each range on its own, in clock order.
+  List<String> get ranges => hours.split(' · ');
 }
 
 // [isOpen] leaves out bands a subject may no longer move into.

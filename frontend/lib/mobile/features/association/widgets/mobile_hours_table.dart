@@ -10,9 +10,14 @@ import '../../../../features/association/tabs/opening_hours/mode_hours_parts.dar
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import 'mobile_hours_parts.dart';
 
 const double _columnGap = 14;
+
+const EdgeInsets _tourMarkInflate = EdgeInsets.all(5);
+const double _tourMarkRadius = 14;
+const double _headingGap = 5;
 
 class MobileHoursTable
 {
@@ -69,36 +74,60 @@ class MobileHoursTable
     return widest.ceilToDouble();
   }
 
-  Widget head(double labelWidth)
+  TextStyle _headingStyle(String mode) => GoogleFonts.plusJakartaSans(
+        fontSize: tablet ? 10.5 : 10,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.7,
+        color: hoursInk(mode),
+      );
+
+  double get _headingIconSize => tablet ? 16 : 15;
+
+  // Whether each mode's label fits beside its icon in a table [width] wide.
+  bool headingsFit(BuildContext context, {required double width, required double labelWidth})
+  {
+    final double column = (width - labelWidth - 2 * _columnGap) / 2;
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+    final TextStyle ambient = DefaultTextStyle.of(context).style;
+
+    return kHoursModes.every((mode)
+    {
+      final painter = TextPainter(
+        text: TextSpan(text: modeLabel(mode).toUpperCase(), style: ambient.merge(_headingStyle(mode))),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+
+      final double needed = _headingIconSize + _headingGap + painter.width;
+      painter.dispose();
+
+      return needed <= column;
+    });
+  }
+
+  // [inline] off on a narrow phone: the icon stands over its label, in both columns alike.
+  Widget head(double labelWidth, {bool inline = true})
   {
     Widget heading(String mode)
     {
+      final Widget icon = Icon(lessonModeIcon(mode), size: _headingIconSize, color: hoursInk(mode));
+      final Widget text = Text(modeLabel(mode).toUpperCase(), maxLines: 2, style: _headingStyle(mode));
+
       return Expanded(
-        child: Row(
-          children: [
-            Icon(lessonModeIcon(mode), size: tablet ? 16 : 15, color: hoursInk(mode)),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                modeLabel(mode).toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: tablet ? 10.5 : 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.7,
-                  color: hoursInk(mode),
-                ),
+        child: inline
+            ? Row(children: [icon, const SizedBox(width: _headingGap), Flexible(child: text)])
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [icon, const SizedBox(height: 3), text],
               ),
-            ),
-          ],
-        ),
       );
     }
 
     return Padding(
       padding: const EdgeInsets.only(top: 2, bottom: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(width: labelWidth),
           const SizedBox(width: _columnGap),
@@ -156,14 +185,16 @@ class MobileHoursTable
 
   Widget closed({bool decided = false}) => Text(kClosedLabel, style: closedStyle(decided: decided));
 
-  // [marked] off when the variation's mark stands by its reason instead.
-  Widget bands(String mode, List<OpeningDayItem> bands, {bool past = false, bool marked = true})
+  // [marked] off when the variation's mark stands by its reason instead. [tourMark]: lit on the first mark.
+  Widget bands(String mode, List<OpeningDayItem> bands, {bool past = false, bool marked = true, String? tourMark})
   {
+    final int first = bands.indexWhere((band) => band.isOverride);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final band in bands)
+        for (final (i, band) in bands.indexed)
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -173,7 +204,12 @@ class MobileHoursTable
                 Text(bandHours(band), maxLines: 1, style: hoursStyle(mode, past: past)),
                 if (marked && band.isOverride) ...[
                   const SizedBox(width: 5),
-                  Icon(kVariationIcon, size: tablet ? 15 : 14, color: hoursInk(mode, past: past)),
+                  MobileTourTarget(
+                    id: i == first ? tourMark : null,
+                    inflate: _tourMarkInflate,
+                    radius: _tourMarkRadius,
+                    child: Icon(kVariationIcon, size: tablet ? 15 : 14, color: hoursInk(mode, past: past)),
+                  ),
                 ],
               ],
             ),

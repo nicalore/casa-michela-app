@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -8,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Date,
+    DateTime,
     ForeignKey,
     String,
 )
@@ -75,6 +76,12 @@ class Member(UpdatedAtMixin, Base):
         nullable=False,
         default=True,
         server_default="true",
+    )
+
+    # Only hours entered since then can bring the person back.
+    collaboration_paused_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     payment_method: Mapped[PaymentMethodEnum | None] = mapped_column(

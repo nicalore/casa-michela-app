@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -21,12 +22,15 @@ import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
+import '../../shared/widgets/mobile_tour.dart';
 import '../profile/widgets/mobile_detail_card.dart';
+import 'mobile_settings_tour.dart';
 import 'widgets/mobile_about.dart';
 import 'widgets/mobile_appearance_cards.dart';
 import 'widgets/mobile_password_sheet.dart';
 import 'widgets/mobile_problem_report_sheet.dart';
 import 'widgets/mobile_sessions.dart';
+import 'widgets/mobile_tutorial_sheet.dart';
 
 const double _phoneMargin = 20;
 const double _tabletMargin = 44;
@@ -76,18 +80,51 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
   bool _revokingOthers = false;
   bool _savingRegulation = false;
 
+  // Set once the shell has stopped moving the page in.
+  bool _settledIn = false;
+
   @override
   void initState()
   {
     super.initState();
     _loadSessions();
+    mobileTourChanges.addListener(_tourLater);
+    MobileNavSheet.hidden.addListener(_tourLater);
+  }
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    if (!_settledIn && mobileTourSettled(context))
+    {
+      _settledIn = true;
+      _tourLater();
+    }
   }
 
   @override
   void dispose()
   {
+    mobileTourChanges.removeListener(_tourLater);
+    MobileNavSheet.hidden.removeListener(_tourLater);
     _pages.dispose();
     super.dispose();
+  }
+
+  // Asks for the frame too: the page may be still.
+  void _tourLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_)
+      {
+        if (mounted && _settledIn && !isMobileTourShown && !MobileNavSheet.hidden.value)
+        {
+          startMobileTourOnce(taxCode: widget.user.taxCode, tour: settingsTour());
+        }
+      })
+      ..scheduleFrame();
   }
 
   Future<void> _loadSessions({bool quiet = false}) async
@@ -328,7 +365,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
         ),
         const SizedBox(height: _stripGap),
         MobilePageStrip(
-          labels: const [kAppearanceSection, kAccessSection, kDevicesSection, kInfoSection],
+          labels: const [kAppearanceSection, kAccessSection, kDevicesSection, kSystemSection, kInfoSection],
           controller: _pages,
           scrollMargin: margin,
         ),
@@ -356,6 +393,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
             page([MobileAppearanceCards(tablet: tablet)]),
             page(_buildAccess(tablet: tablet), onRefresh: _refreshAccount),
             page(_buildDevices(tablet: tablet), onRefresh: () => _loadSessions(quiet: true)),
+            page([MobileSystemCard(onTutorial: () => showMobileTutorialSheet(context: context, user: widget.user))]),
             page(_buildInfo(tablet: tablet)),
           ],
         ),

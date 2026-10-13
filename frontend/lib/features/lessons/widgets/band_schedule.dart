@@ -343,6 +343,9 @@ class BandScheduleField<T> extends StatelessWidget
   // null: every band.
   final List<TimeBucket>? bands;
 
+  // Its band chosen elsewhere, as where a lesson moves: no Sì/No.
+  final bool fixed;
+
   const BandScheduleField({
     super.key,
     required this.schedule,
@@ -355,6 +358,7 @@ class BandScheduleField<T> extends StatelessWidget
     this.frozen = const {},
     this.addLabel = 'AGGIUNGI ORARIO',
     this.bands,
+    this.fixed = false,
   });
 
   void _report(void Function() change)
@@ -479,7 +483,7 @@ class BandScheduleField<T> extends StatelessWidget
       trueLabel: 'Sì',
       falseLabel: 'No',
       trailing: stretches.length == 1
-          ? null
+          ? (fixed ? const SizedBox.shrink() : null)
           : FadeHoverIconButton(
               icon: Icons.delete_outline_rounded,
               color: AppTheme.trialDanger,

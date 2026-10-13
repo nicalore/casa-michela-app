@@ -1,12 +1,24 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../shared/utils/day_marks.dart';
 import '../mobile_palette.dart';
 
+// Measured: the widest day label of a year in Plus Jakarta Sans.
+const String kWidestDayLabel = 'Domenica 20 settembre';
+
+const double _sidePadding = 10;
+const double _iconSize = 20;
+const double _iconGap = 8;
+
 class MobileDateCapsule extends StatelessWidget
 {
   final String label;
+
+  // The widest label the capsule may show, so every label keeps one size.
+  final String? widestLabel;
   final bool current;
   final bool tablet;
 
@@ -19,6 +31,7 @@ class MobileDateCapsule extends StatelessWidget
   const MobileDateCapsule({
     super.key,
     required this.label,
+    this.widestLabel,
     required this.current,
     required this.tablet,
     required this.onBack,
@@ -27,6 +40,45 @@ class MobileDateCapsule extends StatelessWidget
   });
 
   static final Color _divider = Colors.white.withValues(alpha: 0.18);
+
+  TextStyle _labelStyle(double fontSize)
+  {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.1,
+      color: Colors.white,
+    );
+  }
+
+  // Shrinks the type where the widest label would not fit beside the icon.
+  double _fontSize(BuildContext context, double room)
+  {
+    final double base = tablet ? 18 : 16;
+    final TextStyle style = DefaultTextStyle.of(context).style.merge(_labelStyle(base));
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+
+    double widthOf(String text)
+    {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+
+      final double width = painter.width;
+      painter.dispose();
+
+      return width;
+    }
+
+    final String? widestLabel = this.widestLabel;
+    final double widest = math.max(widthOf(label), widestLabel == null ? 0 : widthOf(widestLabel));
+    final double textRoom = room - _iconSize - _iconGap;
+
+    return widest <= textRoom ? base : (base * textRoom / widest * 10).floorToDouble() / 10;
+  }
 
   Widget _buildArrow(IconData icon, VoidCallback? onTap, {required bool leading})
   {
@@ -82,26 +134,27 @@ class MobileDateCapsule extends StatelessWidget
                 behavior: HitTestBehavior.opaque,
                 onTap: onPick,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.calendar_month_rounded, size: 20, color: Colors.white.withValues(alpha: 0.92)),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: tablet ? 18 : 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.1,
-                            color: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: _sidePadding),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.calendar_month_rounded,
+                          size: _iconSize,
+                          color: Colors.white.withValues(alpha: 0.92),
+                        ),
+                        const SizedBox(width: _iconGap),
+                        Flexible(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _labelStyle(_fontSize(context, constraints.maxWidth)),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

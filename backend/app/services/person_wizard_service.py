@@ -9,7 +9,7 @@ from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.course import Course
 from app.models.course_participant import CourseParticipant
 from app.models.early_exit_schedule import EarlyExitSchedule
-from app.models.member import Member, PaymentMethodEnum
+from app.models.member import PaymentMethodEnum
 from app.models.membership import Membership
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
@@ -24,6 +24,7 @@ from app.models.teacher import Teacher
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.schemas.person_wizard import PersonWizardPayload
+from app.services.collaboration import new_member
 from app.services.role_service import RoleService
 
 _ROLE_PARENT: Final[str] = "GENITORE"
@@ -156,7 +157,7 @@ async def create_person_from_wizard(
     needs_member = any(role in roles for role in _MEMBER_ROLES)
 
     if needs_member:
-        member = Member(tax_code=person.tax_code)
+        member = new_member(person.tax_code)
         db.add(member)
 
         if payload.member_data:

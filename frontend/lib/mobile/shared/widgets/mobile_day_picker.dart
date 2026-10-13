@@ -26,6 +26,9 @@ class MobileDayPicker extends StatelessWidget
 
   final ValueChanged<DateTime> onToggle;
 
+  // Told once a struck day's reason is shown.
+  final ValueChanged<DateTime>? onRefused;
+
   const MobileDayPicker({
     super.key,
     required this.days,
@@ -34,6 +37,7 @@ class MobileDayPicker extends StatelessWidget
     required this.refusalFor,
     this.summary,
     required this.onToggle,
+    this.onRefused,
   });
 
   List<DateTime> get _mondays
@@ -163,7 +167,18 @@ class MobileDayPicker extends StatelessWidget
       enabled: offered,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => offered ? onToggle(day) : MobileNotice.show(context, refusalFor(day), error: true),
+        onTap: ()
+        {
+          if (offered)
+          {
+            onToggle(day);
+
+            return;
+          }
+
+          MobileNotice.show(context, refusalFor(day), error: true);
+          onRefused?.call(day);
+        },
         child: tile,
       ),
     );

@@ -157,7 +157,19 @@ MobileDayBand _bandFrom(
   );
 }
 
-// Worded as the calendar's convocation card.
+// The mode is left to the detail, so the title never repeats it.
+String _convenedTitle(TeacherBandCall call, {required bool feminine})
+{
+  if (inBuildingSpan(call) != null)
+  {
+    return convocationTitle(call, feminine: feminine);
+  }
+
+  final ModeSpan? online = call.byMode.firstOrNull;
+
+  return online == null ? kLessonLead : '$kLessonLead ${homeLineRange(online.startMinutes, online.endMinutes)}';
+}
+
 MobileLineEntry _convenedEntry(TeacherBandCall call, {required bool feminine})
 {
   final String detail = [
@@ -166,7 +178,7 @@ MobileLineEntry _convenedEntry(TeacherBandCall call, {required bool feminine})
   ].join(' · ');
 
   return MobileLineEntry(
-    convocationTitle(call, feminine: feminine),
+    _convenedTitle(call, feminine: feminine),
     mode: inBuildingSpan(call) == null ? kOnlineMode : kPresenceMode,
     detail: detail,
   );

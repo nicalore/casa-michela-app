@@ -84,7 +84,7 @@ Color lessonAccent(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccent
 Color lessonSurface(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface;
 
 IconData lessonModeIcon(String mode) =>
-    mode == kOnlineMode ? Icons.videocam_outlined : Icons.home_work_outlined;
+    mode == kOnlineMode ? Icons.videocam_outlined : Icons.house_outlined;
 
 String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeacher})
 {

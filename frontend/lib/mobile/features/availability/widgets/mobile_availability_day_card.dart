@@ -14,6 +14,7 @@ import '../../../shared/widgets/mobile_action_circle.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_availability_week.dart';
 
 const double _radius = 22;
@@ -30,6 +31,14 @@ const double _wideMinTileWidth = 56;
 const double _labelGap = 6;
 const double _lockGap = 4;
 const double _lockSize = 12;
+
+const EdgeInsets _tourButtonInflate = EdgeInsets.all(6);
+const EdgeInsets _tourLockInflate = EdgeInsets.all(5);
+// Snug: the next band's slots sit two rule gaps below.
+const EdgeInsets _tourChipsInflate = EdgeInsets.all(3);
+
+// Past half the side, so both come out round.
+const double _tourRadius = 30;
 const double _ruleGap = 7;
 const double _stackGap = 4;
 
@@ -112,12 +121,20 @@ class MobileAvailabilityDayCard extends StatelessWidget
   final VoidCallback? onOpen;
   final VoidCallback? onAdd;
 
+  // For a tour to light the round button, the card's first lock and its coloured slots.
+  final String? tourButton;
+  final String? tourLock;
+  final String? tourSlots;
+
   const MobileAvailabilityDayCard({
     super.key,
     required this.day,
     required this.wide,
     this.onOpen,
     this.onAdd,
+    this.tourButton,
+    this.tourLock,
+    this.tourSlots,
   });
 
   bool get _opens => day.isEditable && day.hasSlots && onOpen != null;
@@ -163,6 +180,19 @@ class MobileAvailabilityDayCard extends StatelessWidget
     );
   }
 
+  MobileAvailabilityBand? get _firstLocked
+  {
+    for (final MobileAvailabilityBand band in day.bands)
+    {
+      if (band.showsLock)
+      {
+        return band;
+      }
+    }
+
+    return null;
+  }
+
   Widget _buildLabel(_Sizes sizes, MobileAvailabilityBand band)
   {
     return Row(
@@ -171,10 +201,14 @@ class MobileAvailabilityDayCard extends StatelessWidget
         Text(_bandName(band.band), maxLines: 1, softWrap: false, style: sizes.labelStyle),
         if (band.showsLock) ...[
           const SizedBox(width: _lockGap),
-          Icon(
-            Icons.lock_outline_rounded,
-            size: _lockSize,
-            color: MobilePalette.mutedText.withValues(alpha: 0.85),
+          _lit(
+            band == _firstLocked ? tourLock : null,
+            _tourLockInflate,
+            Icon(
+              Icons.lock_outline_rounded,
+              size: _lockSize,
+              color: MobilePalette.mutedText.withValues(alpha: 0.85),
+            ),
           ),
         ],
       ],
@@ -188,20 +222,28 @@ class MobileAvailabilityDayCard extends StatelessWidget
         _SlotChip(slot: slot, sizes: sizes, locked: band.isLocked),
     ];
 
-    if (column)
-    {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final (i, chip) in chips.indexed) ...[
-            if (i > 0) const SizedBox(height: _chipGap),
-            chip,
-          ],
-        ],
-      );
-    }
-
-    return Wrap(spacing: _chipGap, runSpacing: _chipGap, children: chips);
+    // A band's slots lit as one, hugging them: one rim each would cross the next, 5 below.
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      widthFactor: 1,
+      heightFactor: 1,
+      child: _lit(
+        band.showsColours ? tourSlots : null,
+        _tourChipsInflate,
+        column
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final (i, chip) in chips.indexed) ...[
+                    if (i > 0) const SizedBox(height: _chipGap),
+                    chip,
+                  ],
+                ],
+              )
+            : Wrap(spacing: _chipGap, runSpacing: _chipGap, children: chips),
+        radius: _chipRadius + _tourChipsInflate.left,
+      ),
+    );
   }
 
   Widget _buildContent(_Sizes sizes, MobileAvailabilityBand band, {bool column = false})
@@ -340,16 +382,34 @@ class MobileAvailabilityDayCard extends StatelessWidget
         _textWidth(_hours(slot), sizes.chipStyle(AppTheme.trialInk), scaler);
   }
 
+  Widget _lit(String? id, EdgeInsets inflate, Widget child, {double radius = _tourRadius})
+  {
+    if (id == null)
+    {
+      return child;
+    }
+
+    return MobileTourTarget(id: id, inflate: inflate, radius: radius, child: child);
+  }
+
   Widget _buildTrailing(_Sizes sizes)
   {
     if (_opens)
     {
-      return MobileActionCircle(icon: Icons.edit_calendar_rounded, size: sizes.button, iconSize: wide ? 21 : 19);
+      return _lit(
+        tourButton,
+        _tourButtonInflate,
+        MobileActionCircle(icon: Icons.edit_calendar_rounded, size: sizes.button, iconSize: wide ? 21 : 19),
+      );
     }
 
     if (_adds)
     {
-      return MobileActionCircle(icon: Icons.add_rounded, size: sizes.button, iconSize: wide ? 25 : 23);
+      return _lit(
+        tourButton,
+        _tourButtonInflate,
+        MobileActionCircle(icon: Icons.add_rounded, size: sizes.button, iconSize: wide ? 25 : 23),
+      );
     }
 
     return const SizedBox.shrink();

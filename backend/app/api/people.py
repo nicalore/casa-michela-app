@@ -2013,16 +2013,19 @@ async def get_person(
         return household
 
     # A parent's record lists only their enrolled children; pupils never see their
-    # own certifications.
+    # own certifications, nor their tariff when a parent answers for them.
     if code == identity.tax_code:
-        own = household.model_copy(
-            update={
-                "certification_types": [],
-                "certification_other_detail": None,
-                "certification_dsa_detail": None,
-                "mandatory_psych_meetings_acknowledged": None,
-            }
-        )
+        hidden: dict[str, Any] = {
+            "certification_types": [],
+            "certification_other_detail": None,
+            "certification_dsa_detail": None,
+            "mandatory_psych_meetings_acknowledged": None,
+        }
+
+        if RoleService.is_answered_for(person):
+            hidden["homework_tariff"] = None
+
+        own = household.model_copy(update=hidden)
 
         return _with_children(own, identity.child_tax_codes)
 

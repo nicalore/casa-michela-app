@@ -9,8 +9,8 @@ import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
-import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_opening_hours.dart';
 import '../../../shared/widgets/mobile_pill.dart';
 import '../mobile_home_day.dart';
 
@@ -427,38 +427,27 @@ class _Openings extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 10,
-      runSpacing: 4,
-      children: [
-        Text(
-          'Apertura'.toUpperCase(),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1,
-            color: Colors.white.withValues(alpha: 0.55),
-          ),
-        ),
+    return MobileOpeningHours(
+      openings: [
         for (final opening in openings)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(lessonModeIcon(opening.mode), size: 16, color: Colors.white.withValues(alpha: 0.7)),
-              const SizedBox(width: 5),
-              Text(
-                formatMinutesRange(opening.startMinutes, opening.endMinutes),
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
+          (opening.mode, formatMinutesRange(opening.startMinutes, opening.endMinutes)),
       ],
+      labelStyle: GoogleFonts.plusJakartaSans(
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1,
+        color: Colors.white.withValues(alpha: 0.55),
+      ),
+      hoursStyle: GoogleFonts.plusJakartaSans(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: Colors.white.withValues(alpha: 0.6),
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+      iconSize: 16,
+      iconColor: Colors.white.withValues(alpha: 0.7),
+      iconGap: 5,
+      gap: 10,
     );
   }
 }

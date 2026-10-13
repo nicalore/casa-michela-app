@@ -5,6 +5,7 @@ import '../../../features/association/teacher_opinions.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../features/people/models/teacher_subject_item.dart';
 import '../../../services/api_service.dart';
+import 'mobile_association_tour.dart';
 
 // Held by the page so a swipe away and back keeps the tab's state.
 class MobileTeachersDirectory extends ChangeNotifier
@@ -80,14 +81,12 @@ class MobileTeachersDirectory extends ChangeNotifier
     notifyListeners();
   }
 
-  String get intro
+  // As the tours name whoever the opinions are given for.
+  AssociationReader get reader
   {
-    if (!canReport || _pupils.isEmpty)
-    {
-      return teachersIntro(verb: 'Toccando');
-    }
+    final List<String?> genders = [for (final pupil in _pupils) pupil.gender];
 
-    return teachersIntro(verb: 'Toccando', whoGotOn: whoGotOn(_pupils, parent: parent));
+    return parent ? AssociationReader.parent(genders) : AssociationReader.student(genders);
   }
 
   bool isDisliked(PersonItem teacher) => _pupils.any((pupil) => pupil.dislikes(teacher));

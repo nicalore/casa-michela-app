@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -11,8 +12,6 @@ import '../../../features/association/tabs/opening_hours/calendar_bounds.dart';
 import '../../../features/association/tabs/opening_hours/combined_hours.dart';
 import '../../../features/association/tabs/opening_hours/hours_strings.dart';
 import '../../../features/association/tabs/opening_hours/hours_week_nav.dart';
-import '../../../features/association/tabs/pupil_subjects_tab.dart'
-    show kSubjectsCatalogueIntro, kSubjectsCatalogueIntroWithReport;
 import '../../../features/association/teacher_opinions.dart' show canSpeakFor;
 import '../../../features/calendar/utils/day_marks_loader.dart';
 import '../../../services/api_service.dart';
@@ -20,13 +19,13 @@ import '../../layout/mobile_breakpoints.dart';
 import '../../shared/mobile_palette.dart';
 import '../../shared/widgets/mobile_date_capsule.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
-import '../../shared/widgets/mobile_info_button.dart';
-import '../../shared/widgets/mobile_info_sheet.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_month_picker.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
+import '../../shared/widgets/mobile_tour.dart';
+import 'mobile_association_tour.dart';
 import 'mobile_catalogue.dart';
 import 'mobile_notices_board.dart';
 import 'mobile_teachers_directory.dart';
@@ -60,19 +59,34 @@ const double _handleClearance = 16;
 // Room between the strip's rule and the first card.
 const double _topRoom = 16;
 
+// Cards are lit a little larger than themselves; the capsule and the ribbon too.
+const EdgeInsets _tourCardInflate = EdgeInsets.all(5);
+const double _tourCardRadius = 27;
+const EdgeInsets _tourWeekInflate = EdgeInsets.all(5);
+const double _tourWeekRadius = 30;
+const EdgeInsets _tourDaysInflate = EdgeInsets.all(6);
+const double _tourDaysRadius = 24;
+// Joined with the table's hole, which is grown by 5: no wider than it.
+const EdgeInsets _tourHeadingInflate = EdgeInsets.fromLTRB(0, 10, 0, 6);
+const double _tourHeadingRadius = 16;
+
+// Above a heading that does not open the page, as _Heading leaves it.
+const double _headingTop = 30;
+const double _tabletHeadingTop = 34;
+
+// A page settles within a tolerance, never exactly on its index.
+const double _settled = 0.001;
+
 enum _Tab
 {
-  hours(kAssociationHoursLabel, null),
-  subjects(kAssociationSubjectsLabel, 'association-subjects'),
-  teachers(kAssociationTeachersLabel, 'association-teachers'),
-  notices(kAssociationNoticesLabel, null);
+  hours(kAssociationHoursLabel),
+  subjects(kAssociationSubjectsLabel),
+  teachers(kAssociationTeachersLabel),
+  notices(kAssociationNoticesLabel);
 
   final String label;
 
-  // The intro's "seen" flag; null for a tab without one.
-  final String? slug;
-
-  const _Tab(this.label, this.slug);
+  const _Tab(this.label);
 }
 
 class MobileAssociationPage extends StatefulWidget
@@ -103,12 +117,15 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
 
   late final bool _canReport = widget.role != _teacherRole && canSpeakFor(widget.role);
 
+  late final bool _isParent = widget.role == _parentRole;
+
+
+  // Set once the shell has stopped moving the page in.
+  bool _settledIn = false;
+
   MobileCatalogue? _catalogue;
   MobileTeachersDirectory? _directory;
   MobileNoticesBoard? _board;
-
-  // Offered on this visit; the stored flag decides whether they rise.
-  final Set<_Tab> _introduced = {};
 
   late DateTime _selected = _today;
   late DateTime _weekStart = startOfWeek(_selected);
@@ -118,6 +135,9 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
 
   // Rows of both modes for the week shown.
   List<OpeningDayItem> _weekRows = const [];
+
+  // The card shown while the next week loads, so it never leaves.
+  CombinedDay? _keptDay;
 
   bool _loadingOutlook = true;
   bool _outlookFailed = false;
@@ -152,12 +172,31 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
       _boardOf.ensureLoaded(),
     ]).whenComplete(MobileHoldScope.hold(context));
 
-    _pages.addListener(_introduceOnce);
+    _pages.addListener(_onPage);
+    _boardOf.addListener(_tourLater);
+    mobileTourChanges.addListener(_tourLater);
+    MobileNavSheet.hidden.addListener(_tourLater);
+  }
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    if (!_settledIn && mobileTourSettled(context))
+    {
+      _settledIn = true;
+      _tourLater();
+    }
   }
 
   @override
   void dispose()
   {
+    _board?.removeListener(_tourLater);
+    mobileTourChanges.removeListener(_tourLater);
+    MobileNavSheet.hidden.removeListener(_tourLater);
+
     _pages.dispose();
     _catalogue?.dispose();
     _directory?.dispose();
@@ -172,67 +211,112 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
 
   MobileTeachersDirectory get _directoryOf
   {
+    // The tour waits for those it names.
     return _directory ??= MobileTeachersDirectory(
-      parent: widget.role == _parentRole,
+      parent: _isParent,
       canReport: _canReport,
-    )..addListener(_introduceOnce);
+    )..addListener(_tourLater);
   }
 
-  String _introOf(_Tab tab)
+  // Asks for the frame too: the page may be still.
+  void _tourLater()
   {
-    return switch (tab)
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  int? _restingPage;
+
+  void _onPage()
+  {
+    final double page = _page;
+
+    if ((page - page.round()).abs() < _settled && page.round() != _restingPage)
     {
-      _Tab.subjects => _canReport ? kSubjectsCatalogueIntroWithReport : kSubjectsCatalogueIntro,
-      _Tab.teachers => _directoryOf.intro,
-      _Tab.hours || _Tab.notices => '',
-    };
-  }
-
-  void _showIntro(_Tab tab)
-  {
-    showMobileInfoSheet(context: context, title: tab.label, paragraphs: [_introOf(tab)]);
-  }
-
-  // Only when resting on a tab; the teachers' intro waits for the directory.
-  void _introduceOnce()
-  {
-    if (!mounted || !_pages.hasClients || !_pages.position.haveDimensions)
-    {
-      return;
+      _restingPage = page.round();
+      _tourLater();
     }
+  }
 
-    final double page = _pages.page ?? 0;
-    final int index = page.round();
+  // A parent or a student, with the subjects and the teachers; a teacher has neither.
+  AssociationReader? get _reader => _tabs.contains(_Tab.teachers) ? _directoryOf.reader : null;
 
-    if ((page - index).abs() > 0.001 || index >= _tabs.length)
-    {
-      return;
-    }
+  bool get _hasVariations => CombinedVariation.from(_variations, startsOnOrBefore: _windowEnd).isNotEmpty;
 
-    final _Tab tab = _tabs[index];
-    final String? slug = tab.slug;
+  // The main tour on the first visit to the hours; later a one-step tour for a mark it could not show.
+  Future<void> _tourCheck() async
+  {
     final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
 
-    if (slug == null || taxCode == null || _introduced.contains(tab))
+    if (!mounted ||
+        !_settledIn ||
+        taxCode == null ||
+        _loadingWeek ||
+        _loadingOutlook ||
+        (_tabs.contains(_Tab.teachers) && _directoryOf.loading) ||
+        isMobileTourShown ||
+        MobileNavSheet.hidden.value ||
+        !_pages.hasClients ||
+        (_page - _page.round()).abs() >= _settled)
     {
       return;
     }
 
-    if (tab == _Tab.teachers && _directoryOf.loading)
+    final int page = _page.round();
+    final bool tablet = MobileBreakpoints.of(context).isTablet;
+
+    if (!await isMobileTourSeen(taxCode: taxCode, tour: associationMainTour(_pages, reader: _reader)))
+    {
+      if (mounted && page == 0)
+      {
+        await startMobileTourOnce(
+          taxCode: taxCode,
+          tour: associationTour(
+            pages: _pages,
+            tablet: tablet,
+            variations: !_outlookFailed && _hasVariations,
+            pinned: () => _boardOf.shown.any((notice) => notice.pinned),
+            reader: _reader,
+          ),
+        );
+      }
+
+      return;
+    }
+
+    final AssociationMark? mark = switch (_tabs[page])
+    {
+      _Tab.hours => AssociationMark.variation,
+      _Tab.notices => AssociationMark.pinned,
+      _Tab.subjects || _Tab.teachers => null,
+    };
+
+    if (mark == null)
     {
       return;
     }
 
-    _introduced.add(tab);
+    final MobileTour tour = associationMarkTour(mark);
 
-    // Seen flag per role: a parent and a pupil read different words.
-    showMobileInfoSheetOnce(
-      context: context,
-      taxCode: taxCode,
-      slug: '$slug-${widget.role.toLowerCase()}',
-      title: tab.label,
-      paragraphs: [_introOf(tab)],
-    );
+    if (isMobileTourTargetShown(associationTourMark(mark)) && !await isMobileTourSeen(taxCode: taxCode, tour: tour))
+    {
+      if (mounted)
+      {
+        await startMobileTourOnce(taxCode: taxCode, tour: tour);
+      }
+    }
+  }
+
+  // Once the notices' day picker has risen, the first time.
+  void _pickerShown()
+  {
+    final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
+
+    if (taxCode != null)
+    {
+      startMobileTourOnce(taxCode: taxCode, tour: associationPickerTour());
+    }
   }
 
   Future<void> _loadWeek({bool quiet = false}) async
@@ -258,6 +342,8 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
         _loadingWeek = false;
         _weekFailed = false;
       });
+
+      _tourLater();
     }
     catch (e, stackTrace)
     {
@@ -301,6 +387,8 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
         _loadingOutlook = false;
         _outlookFailed = false;
       });
+
+      _tourLater();
     }
     catch (e, stackTrace)
     {
@@ -344,6 +432,11 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
 
     setState(()
     {
+      if (newWeek && !_loadingWeek)
+      {
+        _keptDay = _weekFailed ? null : CombinedDay.read(_weekRows, _selected, isLoading: false);
+      }
+
       _selected = target;
 
       if (newWeek)
@@ -358,6 +451,9 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
     {
       _loadWeek();
     }
+
+    // Another day may show a variation's mark.
+    _tourLater();
   }
 
   void _stepWeek(int by) => _showDay(addDays(_selected, 7 * by));
@@ -403,30 +499,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
       ),
     );
 
-    if (!_tabs.any((tab) => tab.slug != null))
-    {
-      return title;
-    }
-
-    return Row(
-      children: [
-        Expanded(child: title),
-        const SizedBox(width: 14),
-        AnimatedBuilder(
-          animation: _pages,
-          builder: (context, button)
-          {
-            final double shown = _introShare();
-
-            return IgnorePointer(
-              ignoring: shown < 0.5,
-              child: Transform.scale(scale: shown, child: button),
-            );
-          },
-          child: MobileInfoButton(onTap: () => _showIntro(_tabs[_page.round()])),
-        ),
-      ],
-    );
+    return title;
   }
 
   double get _page
@@ -436,33 +509,22 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
         : _pages.initialPage.toDouble();
   }
 
-  double _introShare()
-  {
-    final double page = _page;
-    double share = 0;
-
-    for (var i = 0; i < _tabs.length; i++)
-    {
-      if (_tabs[i].slug != null)
-      {
-        share += (1 - (page - i).abs()).clamp(0.0, 1.0);
-      }
-    }
-
-    return share.clamp(0.0, 1.0);
-  }
-
   Widget _buildCapsule({required bool tablet})
   {
     final DateTime today = _today;
 
-    return MobileDateCapsule(
-      label: hoursWeekLabel(_weekStart),
-      current: isSameDate(_weekStart, startOfWeek(today)),
-      tablet: tablet,
-      onBack: !isOldestKeptWeek(_weekStart, today) && !_loadingWeek ? () => _stepWeek(-1) : null,
-      onForward: !isLastCalendarWeek(_weekStart, today) && !_loadingWeek ? () => _stepWeek(1) : null,
-      onPick: _pickDay,
+    return MobileTourTarget(
+      id: kAssociationTourWeek,
+      inflate: _tourWeekInflate,
+      radius: _tourWeekRadius,
+      child: MobileDateCapsule(
+        label: hoursWeekLabel(_weekStart),
+        current: isSameDate(_weekStart, startOfWeek(today)),
+        tablet: tablet,
+        onBack: !isOldestKeptWeek(_weekStart, today) && !_loadingWeek ? () => _stepWeek(-1) : null,
+        onForward: !isLastCalendarWeek(_weekStart, today) && !_loadingWeek ? () => _stepWeek(1) : null,
+        onPick: _pickDay,
+      ),
     );
   }
 
@@ -470,33 +532,46 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
   {
     final DateTime today = _today;
 
-    return MobileWeekRibbon(
-      days: days,
-      selected: _selected,
-      today: today,
-      first: oldestKeptDay(today),
-      last: calendarHorizon(today),
-      tablet: tablet,
-      onSelect: _showDay,
+    return MobileTourTarget(
+      id: kAssociationTourDays,
+      inflate: _tourDaysInflate,
+      radius: _tourDaysRadius,
+      child: MobileWeekRibbon(
+        days: days,
+        selected: _selected,
+        today: today,
+        first: oldestKeptDay(today),
+        last: calendarHorizon(today),
+        tablet: tablet,
+        onSelect: _showDay,
+      ),
     );
   }
 
   Widget _buildDay(List<CombinedDay> days, {required bool tablet})
   {
-    if (_loadingWeek)
-    {
-      return const MobileWaiting();
-    }
-
     if (_weekFailed)
     {
       return const MobileAssociationStatus(kWeekHoursLoadFailed);
     }
 
-    return MobileHoursDayCard(
-      day: days.firstWhere((day) => isSameDate(day.date, _selected)),
-      today: _today,
-      tablet: tablet,
+    final CombinedDay? day = _loadingWeek ? _keptDay : days.firstWhere((day) => isSameDate(day.date, _selected));
+
+    if (day == null)
+    {
+      return const MobileWaiting();
+    }
+
+    return MobileTourTarget(
+      id: kAssociationTourDay,
+      inflate: _tourCardInflate,
+      radius: _tourCardRadius,
+      child: MobileHoursDayCard(
+        day: day,
+        today: _today,
+        tablet: tablet,
+        tourMark: associationTourMark(AssociationMark.variation),
+      ),
     );
   }
 
@@ -509,7 +584,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
       const SizedBox(height: _ribbonGap),
       _buildRibbon(days, tablet: tablet),
       const SizedBox(height: _ribbonGap),
-      MobileLoadSwitcher(child: _buildDay(days, tablet: tablet)),
+      _buildDay(days, tablet: tablet),
     ];
   }
 
@@ -523,17 +598,31 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
       ];
     }
 
+    // A tour lights the heading with its card.
     return [
-      const _Heading(kStandardHoursTitle, tablet: false),
+      const SizedBox(height: _headingTop),
+      MobileTourTarget(
+        id: kAssociationTourStandard,
+        inflate: _tourCardInflate,
+        radius: _tourCardRadius,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _Heading(kStandardHoursTitle, tablet: false, first: true),
+            MobileLoadSwitcher(
+              child: _loadingOutlook
+                  ? const MobileWaiting()
+                  : MobileStandardHoursCard(schedule: _schedule, tablet: false),
+            ),
+          ],
+        ),
+      ),
       MobileLoadSwitcher(
         child: _loadingOutlook
-            ? const MobileWaiting()
+            ? null
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  MobileStandardHoursCard(schedule: _schedule, tablet: false),
-                  ..._buildVariations(tablet: false, columns: 1),
-                ],
+                children: _buildVariations(tablet: false, columns: 1),
               ),
       ),
     ];
@@ -547,28 +636,47 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
 
     Widget card(CombinedVariation run) => MobileVariationCard(run: run, labelWidth: labelWidth, tablet: tablet);
 
+    if (runs.isEmpty)
+    {
+      return [
+        _Heading(kUpcomingVariationsTitle, tablet: tablet),
+        _EmptyCard(kNoUpcomingVariations, tablet: tablet),
+      ];
+    }
+
+    // A tour lights the heading with its cards.
     return [
-      _Heading(kUpcomingVariationsTitle, tablet: tablet),
-      if (runs.isEmpty)
-        _EmptyCard(kNoUpcomingVariations, tablet: tablet)
-      else
-        for (var from = 0; from < runs.length; from += columns) ...[
-          if (from > 0) SizedBox(height: gap),
-          if (columns == 1)
-            card(runs[from])
-          else
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var column = 0; column < columns; column++) ...[
-                    if (column > 0) SizedBox(width: gap),
-                    Expanded(child: from + column < runs.length ? card(runs[from + column]) : const SizedBox.shrink()),
-                  ],
-                ],
-              ),
-            ),
-        ],
+      SizedBox(height: tablet ? _tabletHeadingTop : _headingTop),
+      MobileTourTarget(
+        id: kAssociationTourVariations,
+        inflate: _tourCardInflate,
+        radius: _tourCardRadius,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Heading(kUpcomingVariationsTitle, tablet: tablet, first: true),
+            for (var from = 0; from < runs.length; from += columns) ...[
+              if (from > 0) SizedBox(height: gap),
+              if (columns == 1)
+                card(runs[from])
+              else
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var column = 0; column < columns; column++) ...[
+                        if (column > 0) SizedBox(width: gap),
+                        Expanded(
+                          child: from + column < runs.length ? card(runs[from + column]) : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
     ];
   }
 
@@ -594,7 +702,19 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
           children: [
             Expanded(child: _buildCapsule(tablet: true)),
             const SizedBox(width: _tabletGap),
-            const Expanded(child: _Heading(kStandardHoursTitle, tablet: true, first: true, bottom: 0)),
+            // Lit with the standard's table below it, as one.
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                widthFactor: 1,
+                child: MobileTourTarget(
+                  id: kAssociationTourStandard,
+                  inflate: _tourHeadingInflate,
+                  radius: _tourHeadingRadius,
+                  child: const _Heading(kStandardHoursTitle, tablet: true, first: true, bottom: 0),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: _ribbonGap),
@@ -609,6 +729,9 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
           scheduleReady: !_loadingOutlook,
           scheduleFailure: !_loadingOutlook && _outlookFailed ? kVariationsLoadFailed : null,
           gap: _tabletGap,
+          tourWeek: kAssociationTourDay,
+          tourStandard: kAssociationTourStandard,
+          tourMark: associationTourMark(AssociationMark.variation),
         ),
         MobileLoadSwitcher(
           child: _loadingOutlook || _outlookFailed
@@ -644,6 +767,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
           comingSoon: _comingSoon,
           controller: _pages,
           scrollMargin: margin,
+          tourTargets: [for (var i = 0; i < _tabs.length; i++) associationTourTab(i)],
         ),
       ],
     );
@@ -666,7 +790,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
               ),
             _Tab.subjects => MobileCatalogueTab(
                 catalogue: _catalogueOf,
-                canReport: _canReport,
+                tourReport: kAssociationTourReport,
                 margin: margin,
                 tablet: tablet,
                 landscape: landscape,
@@ -675,12 +799,14 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
                 directory: _directoryOf,
                 margin: margin,
                 tablet: tablet,
+                tourTop: kAssociationTourTeachersTop,
               ),
             _Tab.notices => MobileNoticesTab(
                 board: _boardOf,
                 margin: margin,
                 tablet: tablet,
                 clock: widget.clock,
+                onPickerShown: _pickerShown,
               ),
           },
         ),
@@ -700,7 +826,13 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
           clipBehavior: Clip.none,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(side, _topRoom, side, bottom),
-          child: child,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              child,
+              const MobileTourRunway(),
+            ],
+          ),
         ),
       ),
     );

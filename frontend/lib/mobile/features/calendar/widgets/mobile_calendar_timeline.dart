@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/utils/week_range.dart';
-import '../../../../features/lessons/utils/opening_window.dart' show kOnlineMode;
 import '../../../../features/lessons/utils/timeline_geometry.dart';
 import '../../../shared/mobile_palette.dart';
 import 'mobile_lesson_card.dart';
@@ -27,7 +26,6 @@ const double _tabletPersonGap = 18;
 const double _laneHeadGap = 18;
 
 
-const double _stretchBleed = 5;
 const double _trackPad = 12;
 const double _axisHeight = 34;
 const double _axisGap = 8;
@@ -35,17 +33,13 @@ const double _blockInset = 3;
 
 typedef _Placed = ({MobileCalendarEntry entry, int lane, int lanes});
 
-typedef MobileCalendarStretch = ({String mode, int startMinutes, int endMinutes});
-
 class MobileCalendarColumn
 {
   final List<MobileCalendarEntry> entries;
 
-  final List<MobileCalendarStretch> stretches;
-
   final Widget? head;
 
-  const MobileCalendarColumn({required this.entries, this.stretches = const [], this.head});
+  const MobileCalendarColumn({required this.entries, this.head});
 }
 
 TextStyle _labelStyle({required bool half})
@@ -91,30 +85,6 @@ class MobileNowPill extends StatelessWidget
           fontWeight: FontWeight.w800,
           color: Colors.white,
           fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
-  }
-}
-
-class _Stretch extends StatelessWidget
-{
-  final String mode;
-
-  const _Stretch(this.mode);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final bool online = mode == kOnlineMode;
-    final Color tint = online ? MobilePalette.onlineOnSea : Colors.white;
-
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: tint.withValues(alpha: online ? 0.16 : 0.11),
-          borderRadius: const BorderRadius.all(Radius.circular(18)),
-          border: Border.all(color: tint.withValues(alpha: 0.22)),
         ),
       ),
     );
@@ -261,16 +231,6 @@ class MobileCalendarTimeline extends StatelessWidget
                     ),
                   ),
               ],
-              for (final (i, column) in columns.indexed)
-                for (final stretch in column.stretches)
-                  if (intersectSpan(stretch.startMinutes, stretch.endMinutes, window.$1, window.$2) case final span?)
-                    Positioned(
-                      left: left(i) - _stretchBleed,
-                      width: width + 2 * _stretchBleed,
-                      top: y(span.$1) - _stretchBleed + _cardInset,
-                      height: y(span.$2) - y(span.$1) + 2 * (_stretchBleed - _cardInset),
-                      child: _Stretch(stretch.mode),
-                    ),
               if (now != null)
                 Positioned(
                   left: gutter + 2,
@@ -436,19 +396,9 @@ class MobileCalendarTrack extends StatelessWidget
                     ),
                   ),
               ],
-              for (final (i, lane) in lanes.indexed) ...[
+              for (final (i, lane) in lanes.indexed)
                 if (lane.head case final head?)
                   Positioned(left: 0, width: headWidth, top: tops[i], height: heightOf(i), child: head),
-                for (final stretch in lane.stretches)
-                  if (intersectSpan(stretch.startMinutes, stretch.endMinutes, window.$1, window.$2) case final span?)
-                    Positioned(
-                      left: x(span.$1) - _stretchBleed + _blockInset,
-                      width: x(span.$2) - x(span.$1) + 2 * (_stretchBleed - _blockInset),
-                      top: tops[i] - _stretchBleed,
-                      height: heightOf(i) + 2 * _stretchBleed,
-                      child: _Stretch(stretch.mode),
-                    ),
-              ],
               if (now != null)
                 Positioned(
                   left: x(now) - _nowStroke / 2,

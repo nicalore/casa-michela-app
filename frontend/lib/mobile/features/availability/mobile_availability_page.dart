@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -25,13 +26,14 @@ import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
+import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_availability_draft.dart';
+import 'mobile_availability_tour.dart';
 import 'mobile_availability_week.dart';
 import 'widgets/mobile_availability_day_card.dart';
 import 'widgets/mobile_availability_day_sheet.dart';
 import 'widgets/mobile_availability_wizard.dart';
 
-const String _slug = 'availability';
 const String _title = 'Disponibilità';
 
 const List<String> _pages = ['Questa settimana', 'Settimana prossima'];
@@ -48,10 +50,16 @@ const double _handleClearance = 16;
 // Room between the strip's rule and the week's dates.
 const double _topRoom = 16;
 
+const EdgeInsets _tourInfoInflate = EdgeInsets.all(6);
+const double _tourInfoRadius = 30;
+
 // Next week is fetched too and shows once it unlocks on Friday at 20:00.
 class MobileAvailabilityPage extends StatefulWidget
 {
-  const MobileAvailabilityPage({super.key});
+  // Rome's time now; a test fixes it.
+  final DateTime Function() clock;
+
+  const MobileAvailabilityPage({super.key, this.clock = romeNow});
 
   @override
   State<MobileAvailabilityPage> createState() => _MobileAvailabilityPageState();
@@ -62,7 +70,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   final ApiService _apiService = ApiService();
   final PageController _pageController = PageController();
 
-  DateTime _now = romeNow();
+  late DateTime _now = widget.clock();
 
   Timer? _clock;
 
@@ -70,7 +78,9 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   bool _failed = false;
   bool _deleting = false;
 
-  bool _introduced = false;
+  // Set once the page is in place; from then on every load and page change looks for a tour.
+  bool _toured = false;
+  int? _pageSeen;
 
   String? _taxCode;
 
@@ -88,6 +98,9 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
     super.initState();
     _load().whenComplete(MobileHoldScope.hold(context));
     _tick();
+    _pageController.addListener(_onPage);
+    MobileNavSheet.hidden.addListener(_onSheets);
+    mobileTourChanges.addListener(_tourLater);
   }
 
   @override
@@ -95,10 +108,10 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   {
     super.didChangeDependencies();
 
-    if (!_introduced && !MobileHoldScope.waitingOf(context))
+    if (!_toured && mobileTourSettled(context))
     {
-      _introduced = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _introduceOnce());
+      _toured = true;
+      _tourLater();
     }
   }
 
@@ -106,15 +119,97 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   void dispose()
   {
     _clock?.cancel();
+    MobileNavSheet.hidden.removeListener(_onSheets);
+    mobileTourChanges.removeListener(_tourLater);
     _pageController.dispose();
 
     super.dispose();
   }
 
+  // Also when a tour ends, so marks appearing together come one after the other.
+  void _tourLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  void _onPage()
+  {
+    final double page = _pageController.page ?? 0;
+
+    if ((page - page.round()).abs() < 0.001 && page.round() != _pageSeen)
+    {
+      _pageSeen = page.round();
+      _tourLater();
+    }
+  }
+
+  // A sheet closing, as the wizard after a save, may leave a new button on the page.
+  void _onSheets()
+  {
+    if (!MobileNavSheet.hidden.value)
+    {
+      _tourLater();
+    }
+  }
+
+  // The main tour on the first visit, then a one-step tour for each mark it could not show.
+  Future<void> _tourCheck() async
+  {
+    final String? taxCode = _taxCode;
+
+    if (!mounted ||
+        !_toured ||
+        taxCode == null ||
+        _loading ||
+        _failed ||
+        isMobileTourShown ||
+        MobileNavSheet.hidden.value ||
+        !_pageController.hasClients)
+    {
+      return;
+    }
+
+    final int page = (_pageController.page ?? 0).round();
+    final Set<AvailabilityMark> thisWeek = availabilityMarks(_week(0));
+    final Set<AvailabilityMark> nextWeek = isNextWeekUnlocked(_now) ? availabilityMarks(_week(1)) : const {};
+
+    if (!await isMobileTourSeen(taxCode: taxCode, tour: availabilityMainTour(_pageController)))
+    {
+      if (mounted && page == 0)
+      {
+        await startMobileTourOnce(
+          taxCode: taxCode,
+          tour: availabilityTour(pages: _pageController, thisWeek: thisWeek, nextWeek: nextWeek),
+        );
+      }
+
+      return;
+    }
+
+    final Set<AvailabilityMark> here = page == 0 ? thisWeek : nextWeek;
+
+    for (final AvailabilityMark mark in AvailabilityMark.values)
+    {
+      final MobileTour tour = availabilityMarkTour(mark, page);
+
+      if (here.contains(mark) && !await isMobileTourSeen(taxCode: taxCode, tour: tour))
+      {
+        if (mounted)
+        {
+          await startMobileTourOnce(taxCode: taxCode, tour: tour);
+        }
+
+        return;
+      }
+    }
+  }
+
   // Wakes on the minute so bands lock at their deadline; Monday means a new week's data.
   void _tick()
   {
-    final DateTime now = romeNow();
+    final DateTime now = widget.clock();
 
     _clock = Timer(Duration(seconds: 60 - now.second, milliseconds: -now.millisecond), ()
     {
@@ -125,33 +220,18 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
 
       final DateTime before = _monday;
 
-      setState(() => _now = romeNow());
+      setState(() => _now = widget.clock());
 
       if (!isSameDate(before, _monday))
       {
         _load(quiet: true);
       }
 
+      // A band closing at its deadline may show the first lock.
+      _tourLater();
+
       _tick();
     });
-  }
-
-  Future<void> _introduceOnce()
-  {
-    final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
-
-    if (taxCode == null || !mounted)
-    {
-      return Future<void>.value();
-    }
-
-    return showMobileInfoSheetOnce(
-      context: context,
-      taxCode: taxCode,
-      slug: _slug,
-      title: _title,
-      paragraphs: const [kAvailabilityDeadlines],
-    );
   }
 
   Future<void> _load({bool quiet = false}) async
@@ -188,6 +268,8 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
         _loading = false;
         _failed = false;
       });
+
+      _tourLater();
     }
     catch (e, stackTrace)
     {
@@ -245,7 +327,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
           taxCode: taxCode,
           availabilities: _availabilities,
           openingDays: _openingDays,
-          now: romeNow(),
+          now: widget.clock(),
           day: day,
         ));
   }
@@ -256,7 +338,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
           taxCode: taxCode,
           availabilities: _availabilities,
           openingDays: _openingDays,
-          now: romeNow(),
+          now: widget.clock(),
           day: day,
         ));
   }
@@ -267,6 +349,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
       context: context,
       day: day,
       editable: day.isEditable,
+      taxCode: _taxCode,
       onAction: (sheet, action) => switch (action)
       {
         MobileDeleteSlot(:final slot) => _confirmDeletion(sheet, day, [slot]),
@@ -371,11 +454,16 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
           ),
         ),
         const SizedBox(width: 14),
-        MobileInfoButton(
-          onTap: () => showMobileInfoSheet(
-            context: context,
-            title: _title,
-            paragraphs: const [kAvailabilityDeadlines],
+        MobileTourTarget(
+          id: kAvailabilityTourInfo,
+          inflate: _tourInfoInflate,
+          radius: _tourInfoRadius,
+          child: MobileInfoButton(
+            onTap: () => showMobileInfoSheet(
+              context: context,
+              title: _title,
+              paragraphs: const [kAvailabilityDeadlines],
+            ),
           ),
         ),
       ],
@@ -418,13 +506,16 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
 
     if (index == 1 && !isNextWeekUnlocked(_now))
     {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildWeekHead(days),
-          const SizedBox(height: 18),
-          const _LockedWeek(),
-        ],
+      return _lit(
+        index,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildWeekHead(days),
+            const SizedBox(height: 18),
+            const _LockedWeek(),
+          ],
+        ),
       );
     }
 
@@ -438,25 +529,48 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
       return const _Status('Non è stato possibile caricare le disponibilità.');
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildWeekHead(
-          days,
-          summary: availabilitySummary(days.where((day) => day.hasSlots).length, thisWeek: index == 0),
-        ),
-        const SizedBox(height: 16),
-        for (final (i, day) in days.indexed) ...[
-          if (i > 0) const SizedBox(height: _cardGap),
-          MobileAvailabilityDayCard(
-            key: ValueKey(day.date),
-            day: day,
-            wide: tablet,
-            onOpen: () => _openDay(day),
-            onAdd: () => _addOn(day.date),
+    // A tour lights the first button of each kind, the first lock, and every coloured slot.
+    final int firstAdd = days.indexWhere((day) => day.isEditable && !day.hasSlots);
+    final int firstEdit = days.indexWhere((day) => day.isEditable && day.hasSlots);
+    final int firstLock = days.indexWhere((day) => !day.isClosed && day.bands.any((band) => band.showsLock));
+
+    return _lit(
+      index,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildWeekHead(
+            days,
+            summary: availabilitySummary(days.where((day) => day.hasSlots).length, thisWeek: index == 0),
           ),
+          const SizedBox(height: 16),
+          for (final (i, day) in days.indexed) ...[
+            if (i > 0) const SizedBox(height: _cardGap),
+            MobileAvailabilityDayCard(
+              key: ValueKey(day.date),
+              day: day,
+              wide: tablet,
+              onOpen: () => _openDay(day),
+              onAdd: () => _addOn(day.date),
+              tourButton: i == firstAdd
+                  ? availabilityTourMark(AvailabilityMark.add, index)
+                  : (i == firstEdit ? availabilityTourMark(AvailabilityMark.edit, index) : null),
+              tourLock: i == firstLock ? availabilityTourMark(AvailabilityMark.lock, index) : null,
+              tourSlots: availabilityTourMark(AvailabilityMark.slots, index),
+            ),
+          ],
         ],
-      ],
+      ),
+    );
+  }
+
+  Widget _lit(int index, Widget week)
+  {
+    return MobileTourTarget(
+      id: availabilityTourWeek(index),
+      inflate: kAvailabilityTourWeekInflate,
+      radius: kAvailabilityTourWeekRadius,
+      child: week,
     );
   }
 
@@ -474,7 +588,11 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
         children: [
           _buildTitle(tablet: tablet),
           const SizedBox(height: _headerGap),
-          MobilePageStrip(labels: _pages, controller: _pageController),
+          MobilePageStrip(
+            labels: _pages,
+            controller: _pageController,
+            tourTargets: [availabilityTourTab(0), availabilityTourTab(1)],
+          ),
         ],
       ),
     );
@@ -506,7 +624,14 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
           clipBehavior: Clip.none,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(side, _topRoom, side, bottom),
-          child: MobileLoadSwitcher(child: child),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              MobileLoadSwitcher(child: child),
+              const MobileTourRunway(),
+            ],
+          ),
         ),
       ),
     );

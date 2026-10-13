@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -25,16 +26,17 @@ import '../../../features/people/models/person_face.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
-import '../../shared/widgets/mobile_choice_chips.dart';
+import '../../shared/widgets/mobile_choice_sheet.dart';
 import '../../shared/widgets/mobile_date_capsule.dart';
-import '../../shared/widgets/mobile_info_button.dart';
-import '../../shared/widgets/mobile_info_sheet.dart';
+import '../../shared/widgets/mobile_filter_chip.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_month_picker.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
+import '../../shared/widgets/mobile_tour.dart';
 import '../children/widgets/mobile_child_tiles.dart';
+import 'mobile_calendar_tour.dart';
 import 'mobile_pupil_calendar_day.dart';
 import 'widgets/mobile_calendar_notice.dart';
 import 'widgets/mobile_calendar_timeline.dart';
@@ -46,7 +48,6 @@ import 'widgets/mobile_presence_card.dart';
 const String _title = 'Calendario';
 
 // Same "seen" flag for every role: the sentence is the same.
-const String _slug = 'calendar';
 
 const String _parentRole = 'PARENT';
 const String _pupilRole = 'Studente';
@@ -76,6 +77,21 @@ const double _topRoom = 16;
 
 // Fraction down the visible area where the present lands on open.
 const double _nowAlignment = 0.4;
+
+const Duration _pageTurn = Duration(milliseconds: 320);
+
+// A page settles within a tolerance, never exactly on its index.
+const double _settled = 0.001;
+
+const EdgeInsets _tourBandsInflate = EdgeInsets.fromLTRB(10, 2, 10, 0);
+const double _tourBandsRadius = 22;
+const EdgeInsets _tourDayInflate = EdgeInsets.all(5);
+const double _tourDayRadius = 30;
+const EdgeInsets _tourChipInflate = EdgeInsets.all(5);
+const double _tourChipRadius = 21;
+const EdgeInsets _tourCardInflate = EdgeInsets.all(5);
+const double _tourCardRadius = 27;
+const double _tourHeadRadius = 23;
 
 // Never past today: only published days are shown.
 class MobilePupilCalendarPage extends StatefulWidget
@@ -123,10 +139,22 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
   bool _revealed = false;
 
-  bool _introduced = false;
-
   // Drops taps while a lesson's teacher is being fetched.
   bool _opening = false;
+
+  // Set once the page is in place; from then on every load, band change and closed sheet looks for a tour.
+  bool _toured = false;
+  int? _pageSeen;
+
+  // Not disposed: a sheet closing after the page still tells it.
+  final LessonSheetTourLink _sheetLink = LessonSheetTourLink();
+
+  // The child of the lesson whose sheet is up.
+  PersonItem? _sheetPupil;
+
+  // The layouts' sheet up and still, and how to close it.
+  final ValueNotifier<bool> _layoutsUp = ValueNotifier(false);
+  VoidCallback? _closeLayouts;
 
   final GlobalKey _nowKey = GlobalKey();
   final GlobalKey<NestedScrollViewState> _nestedKey = GlobalKey();
@@ -165,23 +193,230 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
     _tick();
     _load().whenComplete(MobileHoldScope.hold(context));
+
+    _pageController.addListener(_onPage);
+    MobileNavSheet.hidden.addListener(_onSheets);
+    mobileTourChanges.addListener(_tourLater);
+    _sheetLink.addListener(_onLessonSheet);
   }
 
   @override
   void didChangeDependencies()
   {
     super.didChangeDependencies();
-    _introduce();
+
+    if (!_toured && mobileTourSettled(context))
+    {
+      _toured = true;
+      _tourLater();
+    }
   }
 
   @override
   void dispose()
   {
     _timer?.cancel();
+    _sheetLink.removeListener(_onLessonSheet);
+    mobileTourChanges.removeListener(_tourLater);
+    MobileNavSheet.hidden.removeListener(_onSheets);
     _clock.dispose();
     _pageController.dispose();
+    _layoutsUp.dispose();
 
     super.dispose();
+  }
+
+  // Asks for the frame too: the page may be still.
+  void _tourLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  void _onPage()
+  {
+    final double page = _pageController.page ?? 0;
+
+    if ((page - page.round()).abs() < _settled && page.round() != _pageSeen)
+    {
+      _pageSeen = page.round();
+      _tourLater();
+    }
+  }
+
+  void _onSheets()
+  {
+    if (!MobileNavSheet.hidden.value)
+    {
+      _tourLater();
+    }
+  }
+
+  // The earliest lesson of the first child shown having one, in a published band; which a tour lights.
+  (LessonItem, PersonItem)? _litLessonIn(MobilePupilCalendarDay data, TimeBucket band, List<PersonItem> pupils)
+  {
+    final MobilePupilBand shown = data.bandOf(band);
+
+    if (data.closed || shown.opening == null || !shown.settled)
+    {
+      return null;
+    }
+
+    for (final PersonItem pupil in pupils)
+    {
+      final List<LessonItem> lessons = shown.of(pupil.fiscalCode).lessons;
+
+      if (lessons.isNotEmpty)
+      {
+        return (lessons.reduce((a, b) => b.startMinutes < a.startMinutes ? b : a), pupil);
+      }
+    }
+
+    return null;
+  }
+
+  // The band in sight if it shows a lesson of the children shown, else the first that does.
+  TimeBucket? _litBand(MobilePupilCalendarDay data, List<PersonItem> pupils, int page)
+  {
+    bool lit(TimeBucket band) => _litLessonIn(data, band, pupils) != null;
+
+    final TimeBucket here = TimeBucket.values[page];
+
+    return lit(here) ? here : TimeBucket.values.where(lit).firstOrNull;
+  }
+
+  // The bands, the child picker and the day on the first visit; a published band's parts the first time one shows.
+  Future<void> _tourCheck() async
+  {
+    final MobilePupilCalendarDay? data = _data;
+
+    if (!mounted ||
+        !_toured ||
+        _loading ||
+        _failed ||
+        data == null ||
+        isMobileTourShown ||
+        MobileNavSheet.hidden.value ||
+        !_pageController.hasClients)
+    {
+      return;
+    }
+
+    final double page = _pageController.page ?? _pageController.initialPage.toDouble();
+
+    if ((page - page.round()).abs() >= _settled)
+    {
+      return;
+    }
+
+    final String taxCode = widget.user.taxCode;
+    final bool main = !await isPupilCalendarMainTourSeen(taxCode, self: !_isParent);
+    final bool published = !await isPupilCalendarBandTourSeen(taxCode, self: !_isParent);
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    final bool tablet = MobileBreakpoints.of(context).isTablet;
+    final List<PersonItem> pupils = _shownPupils(tablet: tablet);
+    final TimeBucket? band = published ? _litBand(data, pupils, page.round()) : null;
+
+    if (!main && band == null)
+    {
+      return;
+    }
+
+    // Shown where the lesson is.
+    if (band != null && band.index != page.round())
+    {
+      _pageController.animateToPage(band.index, duration: _pageTurn, curve: Curves.easeInOutCubic);
+
+      return;
+    }
+
+    final List<PupilBandPresence> presences = [
+      if (band != null)
+        for (final PersonItem pupil in pupils) data.bandOf(band).of(pupil.fiscalCode),
+    ];
+    final (LessonItem, PersonItem)? lit = band == null ? null : _litLessonIn(data, band, pupils);
+    final Set<PupilLessonSheetMark> sheetMarks = band == null ? const {} : await unseenPupilLessonSheetMarks(taxCode);
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    await startMobileTourOnce(
+      taxCode: taxCode,
+      tour: pupilCalendarTour(
+        main: main,
+        genders: _together(tablet: tablet) ? null : [for (final PersonItem pupil in _pupils) pupil.gender],
+        band: band,
+        shownGenders: [for (final PersonItem pupil in pupils) pupil.gender],
+        online: presences.isNotEmpty &&
+            presences.every(
+              (presence) => presence.isEmpty || presence.byMode.every((span) => span.mode != kPresenceMode),
+            ),
+        lessonGender: lit?.$2.gender,
+        layouts: _layoutsUp,
+        openLayouts: _pickLayout,
+        closeLayouts: () => _closeLayouts?.call(),
+        sheetMarks: sheetMarks,
+        sheet: _sheetLink,
+        self: !_isParent,
+      ),
+    );
+  }
+
+  // A lesson's sheet up outside a tour: its parts never seen, the first time they show.
+  void _onLessonSheet()
+  {
+    if (!_sheetLink.open)
+    {
+      return;
+    }
+
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _sheetTourCheck())
+      ..scheduleFrame();
+  }
+
+  Future<void> _sheetTourCheck() async
+  {
+    if (!mounted || isMobileTourShown || !_sheetLink.open)
+    {
+      return;
+    }
+
+    final Set<PupilLessonSheetMark> marks = await unseenPupilLessonSheetMarks(widget.user.taxCode);
+
+    if (!mounted || marks.isEmpty || isMobileTourShown || !_sheetLink.open)
+    {
+      return;
+    }
+
+    final MobileTour tour = pupilCalendarTour(
+      main: false,
+      genders: null,
+      band: null,
+      shownGenders: const [],
+      online: false,
+      lessonGender: _sheetPupil?.gender,
+      layouts: _layoutsUp,
+      openLayouts: _pickLayout,
+      closeLayouts: () => _closeLayouts?.call(),
+      sheetMarks: marks,
+      sheet: _sheetLink,
+      opened: true,
+      self: !_isParent,
+    );
+
+    if (tour.steps.any((step) => step.isPresent))
+    {
+      await startMobileTourOnce(taxCode: widget.user.taxCode, tour: tour);
+    }
   }
 
   // Wakes on the minute, not every 60 s from whenever the page opened.
@@ -277,6 +512,8 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
         _revealed = true;
         WidgetsBinding.instance.addPostFrameCallback((_) => _revealNow());
       }
+
+      _tourLater();
     }
     catch (e, stackTrace)
     {
@@ -363,6 +600,37 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     _load();
   }
 
+  Future<void> _pickLayout() async
+  {
+    final MobileChoice<CalendarLayout>? picked = await showMobileChoiceSheet(
+      context: context,
+      eyebrow: _title,
+      title: 'Disposizione',
+      choices: [for (final layout in CalendarLayout.values) MobileChoice(value: layout, label: layout.label)],
+      value: _layout,
+      tourChoices: kPupilCalendarTourLayouts,
+      onShown: (close)
+      {
+        _closeLayouts = close;
+        _layoutsUp.value = true;
+      },
+    );
+
+    _closeLayouts = null;
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    _layoutsUp.value = false;
+
+    if (picked != null)
+    {
+      setState(() => _layout = picked.value);
+    }
+  }
+
   Future<void> _pickDay() async
   {
     final DateTime? picked = await showMobileMonthPicker(
@@ -372,6 +640,8 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
       first: oldestKeptDay(_today),
       last: _today,
       loadMarks: (from, to) => loadDayMarks(from, to, published: true),
+      tourDays: kCalendarTourPickerDays,
+      onShown: () => startMobileTourOnce(taxCode: widget.user.taxCode, tour: calendarPickerTour()),
     );
 
     if (picked != null && mounted)
@@ -405,40 +675,42 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
       return;
     }
 
+    _sheetPupil = pupil;
+
     await showMobilePupilLessonSheet(
       context: context,
       lesson: lesson,
       ministrySubjects: _ministrySubjects,
       teacher: teacher,
       pupilName: _isParent ? pupil.firstName : null,
+      tourLink: _sheetLink,
     );
   }
 
-  List<MobileCalendarEntry> _entriesOf(PupilBandPresence presence, PersonItem pupil)
+  List<MobileCalendarEntry> _entriesOf(PupilBandPresence presence, PersonItem pupil, _BandTour tour)
   {
     return [
       for (final lesson in presence.lessons)
-        MobileCalendarEntry.pupilLesson(lesson, _ministrySubjects, onTap: () => _openLesson(lesson, pupil)),
+        MobileCalendarEntry.pupilLesson(
+          lesson,
+          _ministrySubjects,
+          onTap: () => _openLesson(lesson, pupil),
+          tourId: identical(lesson, tour.lesson) ? tour.lessonId : null,
+        ),
     ];
   }
 
-  MobileCalendarColumn _columnOf(PupilBandPresence presence, PersonItem pupil, {Widget? head})
+  MobileCalendarColumn _columnOf(PupilBandPresence presence, PersonItem pupil, _BandTour tour, {Widget? head})
   {
     return MobileCalendarColumn(
-      entries: _entriesOf(presence, pupil),
-      stretches: [
-        for (final row in presence.presences) (mode: row.mode, startMinutes: row.startMinutes, endMinutes: row.endMinutes),
-      ],
+      entries: _entriesOf(presence, pupil, tour),
       head: head,
     );
   }
 
-  String get _dayLabel
-  {
-    final String label = formatWeekdayColumnLabel(_day);
+  String _withYear(String label) => _day.year == _today.year ? label : '$label ${_day.year}';
 
-    return _day.year == _today.year ? label : '$label ${_day.year}';
-  }
+  String get _dayLabel => _withYear(formatWeekdayColumnLabel(_day));
 
   Widget _buildTitle({required bool tablet})
   {
@@ -456,38 +728,8 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
             ),
           ),
         ),
-        const SizedBox(width: 14),
-        MobileInfoButton(
-          onTap: () => showMobileInfoSheet(context: context, title: _title, paragraphs: [_hint]),
-        ),
       ],
     );
-  }
-
-  String get _hint => lessonDetailsHint(verb: 'tocca');
-
-  void _introduce()
-  {
-    if (_introduced || MobileHoldScope.waitingOf(context))
-    {
-      return;
-    }
-
-    _introduced = true;
-
-    WidgetsBinding.instance.addPostFrameCallback((_)
-    {
-      if (mounted)
-      {
-        showMobileInfoSheetOnce(
-          context: context,
-          taxCode: widget.user.taxCode,
-          slug: _slug,
-          title: _title,
-          paragraphs: [_hint],
-        );
-      }
-    });
   }
 
   Widget _buildBand(TimeBucket band, {required bool tablet, required bool lying})
@@ -544,6 +786,11 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     }
 
     final bool pastDay = _day.isBefore(_today);
+    final _BandTour tour = (
+      cards: pupilCalendarTourCards(band),
+      lesson: _litLessonIn(data, band, pupils)?.$1,
+      lessonId: calendarTourLesson(band),
+    );
 
     return ValueListenableBuilder<DateTime>(
       valueListenable: _clock,
@@ -559,10 +806,10 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
         if (pupils.length == 1)
         {
-          return _buildOne(pupils.single, presences.single, window, present, tablet: tablet, lying: lying);
+          return _buildOne(pupils.single, presences.single, window, present, tour, tablet: tablet, lying: lying);
         }
 
-        return _buildTogether(pupils, presences, window, nothing, present, tablet: tablet, lying: lying);
+        return _buildTogether(pupils, presences, window, nothing, present, tour, tablet: tablet, lying: lying);
       },
     );
   }
@@ -571,7 +818,8 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     PersonItem pupil,
     PupilBandPresence presence,
     (int, int) window,
-    _Present present, {
+    _Present present,
+    _BandTour tour, {
     required bool tablet,
     required bool lying,
   })
@@ -581,7 +829,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     if (_layout == CalendarLayout.byLesson)
     {
       lessons = MobileLessonList(
-        entries: _entriesOf(presence, pupil),
+        entries: _entriesOf(presence, pupil, tour),
         nowMinutes: present.nowMinutes,
         pastDay: present.pastDay,
         tablet: tablet,
@@ -592,7 +840,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     {
       lessons = MobileCalendarTrack(
         window: window,
-        lanes: [_columnOf(presence, pupil)],
+        lanes: [_columnOf(presence, pupil, tour)],
         nowMinutes: present.nowMinutes,
         pastDay: present.pastDay,
         nowKey: present.nowKey,
@@ -602,7 +850,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     {
       lessons = MobileCalendarTimeline(
         window: window,
-        columns: [_columnOf(presence, pupil)],
+        columns: [_columnOf(presence, pupil, tour)],
         nowMinutes: present.nowMinutes,
         pastDay: present.pastDay,
         tablet: tablet,
@@ -613,7 +861,12 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        MobilePresenceCard(presence: presence, tablet: tablet, stretched: lying),
+        MobileTourTarget(
+          id: tour.cards,
+          inflate: _tourCardInflate,
+          radius: _tourCardRadius,
+          child: MobilePresenceCard(presence: presence, tablet: tablet, stretched: lying),
+        ),
         const SizedBox(height: _cardGap),
         lessons,
       ],
@@ -625,14 +878,25 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     List<PupilBandPresence> presences,
     (int, int) window,
     String nothing,
-    _Present present, {
+    _Present present,
+    _BandTour tour, {
     required bool tablet,
     required bool lying,
   })
   {
-    MobilePupilHead headOf(int i)
+    Widget headOf(int i)
     {
-      return MobilePupilHead(name: pupils[i].firstName, presence: presences[i], nothingTitle: nothing, tablet: tablet);
+      return MobileTourTarget(
+        id: tour.cards,
+        inflate: _tourCardInflate,
+        radius: _tourHeadRadius,
+        child: MobilePupilHead(
+          name: pupils[i].firstName,
+          presence: presences[i],
+          nothingTitle: nothing,
+          tablet: tablet,
+        ),
+      );
     }
 
     Widget heads()
@@ -661,7 +925,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
             window: window,
             lanes: [
               for (final (i, pupil) in pupils.indexed)
-                _columnOf(presences[i], pupil, head: MobilePupilLaneName(name: pupil.firstName)),
+                _columnOf(presences[i], pupil, tour, head: MobilePupilLaneName(name: pupil.firstName)),
             ],
             nowMinutes: present.nowMinutes,
             pastDay: present.pastDay,
@@ -675,7 +939,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     if (_layout == CalendarLayout.byHour)
     {
       final List<MobileCalendarColumn> columns = [
-        for (final (i, pupil) in pupils.indexed) _columnOf(presences[i], pupil, head: headOf(i)),
+        for (final (i, pupil) in pupils.indexed) _columnOf(presences[i], pupil, tour, head: headOf(i)),
       ];
 
       return MobileCalendarTimeline(
@@ -690,13 +954,13 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
     final int keyed = [
       for (final (i, pupil) in pupils.indexed)
-        MobileLessonList.showsNow(_entriesOf(presences[i], pupil), present.nowMinutes, pastDay: present.pastDay),
+        MobileLessonList.showsNow(_entriesOf(presences[i], pupil, tour), present.nowMinutes, pastDay: present.pastDay),
     ].indexOf(true);
 
     Widget listOf(int i)
     {
       return MobileLessonList(
-        entries: _entriesOf(presences[i], pupils[i]),
+        entries: _entriesOf(presences[i], pupils[i], tour),
         nowMinutes: present.nowMinutes,
         pastDay: present.pastDay,
         tablet: tablet,
@@ -729,7 +993,17 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
       children: [
         for (final (i, pupil) in pupils.indexed) ...[
           if (i > 0) const SizedBox(height: _pupilGap),
-          MobilePupilLine(name: pupil.firstName, presence: presences[i], nothingTitle: nothing, tablet: tablet),
+          MobileTourTarget(
+            id: tour.cards,
+            inflate: _tourCardInflate,
+            radius: _tourHeadRadius,
+            child: MobilePupilLine(
+              name: pupil.firstName,
+              presence: presences[i],
+              nothingTitle: nothing,
+              tablet: tablet,
+            ),
+          ),
           if (!presences[i].isEmpty) ...[
             const SizedBox(height: 12),
             listOf(i),
@@ -758,18 +1032,27 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
     final bool rail = lying && shown != null;
 
+    // Phones show the child as a chip beside the layout's; tablets keep the tiles.
+    final bool tiles = tablet && shown != null && !rail;
+
     final Widget controls = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: EdgeInsets.symmetric(horizontal: margin),
-          child: MobileDateCapsule(
-            label: _dayLabel,
-            current: _isToday,
-            tablet: tablet,
-            onBack: !_isFirstDay && !_loading ? () => _goToDay(addDays(_day, -1)) : null,
-            onForward: !_isToday && !_loading ? () => _goToDay(addDays(_day, 1)) : null,
-            onPick: _pickDay,
+          child: MobileTourTarget(
+            id: kPupilCalendarTourDay,
+            inflate: _tourDayInflate,
+            radius: _tourDayRadius,
+            child: MobileDateCapsule(
+              label: _dayLabel,
+              widestLabel: _withYear(kWidestDayLabel),
+              current: _isToday,
+              tablet: tablet,
+              onBack: !_isFirstDay && !_loading ? () => _goToDay(addDays(_day, -1)) : null,
+              onForward: !_isToday && !_loading ? () => _goToDay(addDays(_day, 1)) : null,
+              onPick: _pickDay,
+            ),
           ),
         ),
         TweenAnimationBuilder<double>(
@@ -785,19 +1068,42 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: _chipsGap),
-              MobileChoiceChips(
-                choices: [
-                  for (final layout in CalendarLayout.values) MobileChoice(value: layout.name, label: layout.label),
-                ],
-                value: _layout.name,
-                onChanged: (value) => setState(() => _layout = CalendarLayout.values.byName(value!)),
+              MobileFilterChips(
                 margin: margin,
+                chips: [
+                  if (shown != null && !tablet)
+                    MobileTourTarget(
+                      id: kPupilCalendarTourChildren,
+                      inflate: _tourChipInflate,
+                      radius: _tourChipRadius,
+                      child: MobileChildChip(children: _pupils, shown: shown, onShow: _show, eyebrow: _title),
+                    ),
+                  // A way of showing the day, not a filter: the chip never lights up.
+                  MobileTourTarget(
+                    id: kPupilCalendarTourLayout,
+                    inflate: _tourChipInflate,
+                    radius: _tourChipRadius,
+                    child: MobileFilterChip(
+                      icon: Icons.view_agenda_outlined,
+                      label: _layout.label,
+                      active: false,
+                      onTap: _pickLayout,
+                    ),
+                  ),
+                ],
               ),
               Padding(
                 padding: EdgeInsets.fromLTRB(margin, _stripGap, margin, 0),
-                child: MobilePageStrip(
-                  labels: [for (final band in TimeBucket.values) bandLabel(band)],
-                  controller: _pageController,
+                // Lit with all it shows below, down to the screen's bottom.
+                child: MobileTourTarget(
+                  id: kPupilCalendarTourBands,
+                  inflate: _tourBandsInflate,
+                  radius: _tourBandsRadius,
+                  toBottom: true,
+                  child: MobilePageStrip(
+                    labels: [for (final band in TimeBucket.values) bandLabel(band)],
+                    controller: _pageController,
+                  ),
                 ),
               ),
             ],
@@ -813,12 +1119,18 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
           padding: EdgeInsets.fromLTRB(margin, 4, margin, 0),
           child: _buildTitle(tablet: tablet),
         ),
-        if (shown != null && !rail)
+        if (tiles)
           Padding(
             padding: const EdgeInsets.only(top: _tilesGap),
-            child: MobileChildTiles(children: _pupils, shown: shown, onShow: _show, tablet: tablet, margin: margin),
+            child: MobileChildTiles(
+              children: _pupils,
+              shown: shown,
+              onShow: _show,
+              margin: margin,
+              tourTarget: kPupilCalendarTourChildren,
+            ),
           ),
-        SizedBox(height: shown != null && !rail ? _tilesGap : _headerGap),
+        SizedBox(height: tiles ? _tilesGap : _headerGap),
         if (!rail) controls,
       ],
     );
@@ -856,7 +1168,13 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
                     top: 0,
                     bottom: 0,
                     width: MobileChildRail.width,
-                    child: MobileChildRail(children: _pupils, shown: shown, onShow: _show, bottom: bottom),
+                    child: MobileChildRail(
+                      children: _pupils,
+                      shown: shown,
+                      onShow: _show,
+                      bottom: bottom,
+                      tourTarget: kPupilCalendarTourChildren,
+                    ),
                   ),
                 ],
               )
@@ -899,6 +1217,9 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 }
 
 typedef _Present = ({int? nowMinutes, bool pastDay, Key? nowKey});
+
+// What a tour lights in a band: the children's summary, and its lesson.
+typedef _BandTour = ({String cards, LessonItem? lesson, String lessonId});
 
 class _Status extends StatelessWidget
 {

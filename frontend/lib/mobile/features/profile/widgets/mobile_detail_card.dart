@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 
 const double _radius = 22;
 const EdgeInsets _padding = EdgeInsets.fromLTRB(16, 14, 16, 16);
@@ -15,6 +16,10 @@ const double _editSize = 38;
 
 const double _headGap = 8;
 const double _rowPadding = 9;
+
+// Out to the card's own padding, so a span reads as the card's part.
+const EdgeInsets _tourSpanInflate = EdgeInsets.symmetric(horizontal: 10);
+const double _tourSpanRadius = 12;
 
 class MobileDetailCard extends StatelessWidget
 {
@@ -184,11 +189,16 @@ class MobileCardBadge extends StatelessWidget
 }
 
 // Label above value, so long values never wrap beside a label at any text size.
+// Rows [from, to) a tour lights as one part.
+typedef MobileRowsSpan = ({int from, int to, String id});
+
 class MobileDetailRows extends StatelessWidget
 {
   final List<DetailRowData> rows;
 
-  const MobileDetailRows({super.key, required this.rows});
+  final List<MobileRowsSpan> tourSpans;
+
+  const MobileDetailRows({super.key, required this.rows, this.tourSpans = const []});
 
   // Padding included, so the whole row answers.
   static Widget _tappable(VoidCallback? onTap, Widget row)
@@ -204,29 +214,59 @@ class MobileDetailRows extends StatelessWidget
     );
   }
 
+  Widget _buildRow(int i)
+  {
+    return _tappable(
+      rows[i].onTap,
+      DecoratedBox(
+        decoration: BoxDecoration(
+          border: i == 0
+              ? null
+              : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.09))),
+        ),
+        child: Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 2 : _rowPadding, bottom: _rowPadding),
+          child: _Row(data: rows[i]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < rows.length; i++)
-          _tappable(
-            rows[i].onTap,
-            DecoratedBox(
-              decoration: BoxDecoration(
-                border: i == 0
-                    ? null
-                    : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.09))),
-              ),
-              child: Padding(
-                padding: EdgeInsets.only(top: i == 0 ? 2 : _rowPadding, bottom: _rowPadding),
-                child: _Row(data: rows[i]),
-              ),
-            ),
+    final List<Widget> children = [];
+
+    for (var i = 0; i < rows.length;)
+    {
+      final MobileRowsSpan? span = tourSpans.where((span) => span.from == i && span.to > i).firstOrNull;
+
+      if (span == null)
+      {
+        children.add(_buildRow(i));
+        i += 1;
+
+        continue;
+      }
+
+      final int to = span.to.clamp(i + 1, rows.length);
+
+      children.add(
+        MobileTourTarget(
+          id: span.id,
+          inflate: _tourSpanInflate,
+          radius: _tourSpanRadius,
+          clipped: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [for (var j = i; j < to; j++) _buildRow(j)],
           ),
-      ],
-    );
+        ),
+      );
+      i = to;
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
   }
 }
 

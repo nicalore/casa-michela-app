@@ -547,13 +547,13 @@ class BookingMovePlanner
   }
 
   // Lessons keep their stored ids so the server moves them; closed bands are left out and kept.
+  // [hours]: the first one is the grown row's, if the option grows one; the others are new rows.
   List<Map<String, dynamic>> moveRequest({
     required PresenceGroup from,
     required BookingMove move,
     required DateTime day,
     required MoveOption option,
-    TimeOfDay? start,
-    TimeOfDay? end,
+    List<(TimeOfDay, TimeOfDay)> hours = const [],
   })
   {
     final PresenceGroup? there = isSameDate(day, from.date) ? from : groupOn(day, from.studentTaxCode);
@@ -576,8 +576,8 @@ class BookingMovePlanner
           }
 
           block.slots.add(
-            row.id == kept?.id && start != null && end != null
-                ? _slotJson(start, end, row: row)
+            row.id == kept?.id && hours.isNotEmpty
+                ? _slotJson(hours.first.$1, hours.first.$2, row: row)
                 : _slotJson(row.startTime, row.endTime, row: row),
           );
 
@@ -598,7 +598,7 @@ class BookingMovePlanner
 
     final _Block target = blockOf(there, day, option.mode);
 
-    if (kept == null && start != null && end != null)
+    for (final (start, end) in kept == null ? hours : hours.skip(1))
     {
       target.slots.add(_slotJson(start, end));
     }

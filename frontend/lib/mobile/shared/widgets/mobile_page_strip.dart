@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../mobile_palette.dart';
 import 'mobile_pill.dart';
+import 'mobile_tour.dart';
 
 const double _fontSize = 15;
 const double _gap = 20;
@@ -15,6 +16,9 @@ const double _underlineGap = 7;
 const Duration _switchDuration = Duration(milliseconds: 320);
 
 const double _fadeWidth = 44;
+
+const EdgeInsets _tourInflate = EdgeInsets.symmetric(horizontal: 10, vertical: 8);
+const double _tourRadius = 12;
 
 const LinearGradient _goldRule = LinearGradient(
   colors: [AppTheme.trialGold, Color(0xFFF3C766)],
@@ -42,6 +46,9 @@ class MobilePageStrip extends StatefulWidget
 
   final bool onLight;
 
+  // One per label, for a tour to light it.
+  final List<String>? tourTargets;
+
   const MobilePageStrip({
     super.key,
     required this.labels,
@@ -49,6 +56,7 @@ class MobilePageStrip extends StatefulWidget
     this.comingSoon = const [],
     this.scrollMargin,
     this.onLight = false,
+    this.tourTargets,
   });
 
   @override
@@ -185,6 +193,18 @@ class _MobilePageStripState extends State<MobilePageStrip>
     return (from, to, from == to ? 0 : ((page - from) / (to - from)).clamp(0.0, 1.0));
   }
 
+  Widget _tourTarget(int index, Widget child)
+  {
+    final List<String>? ids = widget.tourTargets;
+
+    if (ids == null)
+    {
+      return child;
+    }
+
+    return MobileTourTarget(id: ids[index], inflate: _tourInflate, radius: _tourRadius, child: child);
+  }
+
   // Measured over the ambient style, whose letter spacing the drawn names inherit.
   double _widthOf(String text, TextStyle ambient, TextScaler scaler)
   {
@@ -233,17 +253,20 @@ class _MobilePageStripState extends State<MobilePageStrip>
                 children: [
                   for (var i = 0; i < widget.labels.length; i++) ...[
                     if (i > 0) const SizedBox(width: _gap),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _go(i),
-                      child: Text(
-                        widget.labels[i],
-                        style: _labelStyle(
-                          Color.lerp(
-                            unlit,
-                            lit,
-                            i == from ? 1 - t : (i == to ? t : 0),
-                          )!,
+                    _tourTarget(
+                      i,
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _go(i),
+                        child: Text(
+                          widget.labels[i],
+                          style: _labelStyle(
+                            Color.lerp(
+                              unlit,
+                              lit,
+                              i == from ? 1 - t : (i == to ? t : 0),
+                            )!,
+                          ),
                         ),
                       ),
                     ),
@@ -337,11 +360,7 @@ class _FadingEdges extends StatelessWidget
         final bool before = measured && pixels > scroll.position.minScrollExtent;
         final bool after = measured && pixels < scroll.position.maxScrollExtent;
 
-        if (!before && !after)
-        {
-          return child!;
-        }
-
+        // Always there, even with nothing to fade: put in later, it built the scroll view anew, back at its start.
         return ShaderMask(
           blendMode: BlendMode.dstIn,
           shaderCallback: (bounds)

@@ -7,12 +7,14 @@ import '../../../../features/association/teacher_opinions.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
+import '../../../shared/widgets/mobile_choice_sheet.dart';
 import '../../../shared/widgets/mobile_filter_chip.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_load_switcher.dart';
 import '../../../shared/widgets/mobile_nav_sheet.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_swipe_page.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_teachers_directory.dart';
 import 'mobile_association_status.dart';
 import 'mobile_teacher_choice_sheets.dart';
@@ -25,9 +27,6 @@ const double _topRoom = 16;
 // Pages end this far above the sheet they scroll under.
 const double _handleClearance = 16;
 
-const double _chipsHeight = 32;
-const double _chipGap = 8;
-
 const double _rowGap = 9;
 const double _columnGap = 12;
 
@@ -37,6 +36,10 @@ const int _maxColumns = 3;
 
 const double _faceSize = 46;
 
+// The search and the chips lit as one, the chips' row running edge to edge.
+const double _tourTopInflate = 8;
+const double _tourTopRadius = 24;
+
 class MobileTeachersTab extends StatefulWidget
 {
   final MobileTeachersDirectory directory;
@@ -44,11 +47,15 @@ class MobileTeachersTab extends StatefulWidget
   final double margin;
   final bool tablet;
 
+  // The search and the chips', for a tour.
+  final String? tourTop;
+
   const MobileTeachersTab({
     super.key,
     required this.directory,
     required this.margin,
     required this.tablet,
+    this.tourTop,
   });
 
   @override
@@ -70,11 +77,17 @@ class _MobileTeachersTabState extends State<MobileTeachersTab>
 
   Future<void> _pickSort() async
   {
-    final TeacherSort? sort = await showMobileTeacherSortSheet(context: context, current: _directory.sort);
+    final MobileChoice<TeacherSort>? picked = await showMobileChoiceSheet(
+      context: context,
+      eyebrow: kAssociationTeachersLabel,
+      title: kTeachersSortHint,
+      choices: [for (final sort in TeacherSort.values) MobileChoice(value: sort, label: sort.label)],
+      value: _directory.sort,
+    );
 
-    if (sort != null)
+    if (picked != null)
     {
-      _directory.sortBy(sort);
+      _directory.sortBy(picked.value);
     }
   }
 
@@ -101,36 +114,30 @@ class _MobileTeachersTabState extends State<MobileTeachersTab>
   {
     final int chosen = _directory.subjectIds.length;
 
-    return SizedBox(
-      height: _chipsHeight,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: widget.margin),
-        children: [
+    return MobileFilterChips(
+      margin: widget.margin,
+      chips: [
+        // An order is no filter: the chip never lights up.
+        MobileFilterChip(
+          icon: Icons.swap_vert_rounded,
+          label: _directory.sort.label,
+          active: false,
+          onTap: _pickSort,
+        ),
+        MobileFilterChip(
+          icon: Icons.auto_stories_rounded,
+          label: chosen == 0 ? kSubjectsFilterLabel : '$kSubjectsFilterLabel · $chosen',
+          active: chosen > 0,
+          onTap: _pickSubjects,
+        ),
+        if (_directory.canReport)
           MobileFilterChip(
-            icon: Icons.swap_vert_rounded,
-            label: _directory.sort.label,
-            active: _directory.sort != TeacherSort.nameAsc,
-            onTap: _pickSort,
+            icon: Icons.thumb_down_rounded,
+            label: kOnlyDislikedLabel,
+            active: _directory.onlyDisliked,
+            onTap: _directory.toggleOnlyDisliked,
           ),
-          const SizedBox(width: _chipGap),
-          MobileFilterChip(
-            icon: Icons.auto_stories_rounded,
-            label: chosen == 0 ? kSubjectsFilterLabel : '$kSubjectsFilterLabel · $chosen',
-            active: chosen > 0,
-            onTap: _pickSubjects,
-          ),
-          if (_directory.canReport) ...[
-            const SizedBox(width: _chipGap),
-            MobileFilterChip(
-              icon: Icons.thumb_down_rounded,
-              label: kOnlyDislikedLabel,
-              active: _directory.onlyDisliked,
-              onTap: _directory.toggleOnlyDisliked,
-            ),
-          ],
-        ],
-      ),
+      ],
     );
   }
 
@@ -194,28 +201,44 @@ class _MobileTeachersTabState extends State<MobileTeachersTab>
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.only(top: _topRoom, bottom: bottom),
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: widget.margin),
-              child: MobileSearchField(
-                controller: _directory.search,
-                hintText: kTeachersSearchHint,
-                onChanged: (_) => _directory.searched(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ListenableBuilder(
-              listenable: _directory,
-              builder: (context, _) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildChips(),
-                  const SizedBox(height: 18),
-                  Padding(
+            // One child, as the chips were laid out with the rows: scrolled down, they are kept.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                MobileTourTarget(
+                  id: widget.tourTop,
+                  inflate: EdgeInsets.fromLTRB(
+                    _tourTopInflate - widget.margin,
+                    _tourTopInflate,
+                    _tourTopInflate - widget.margin,
+                    _tourTopInflate,
+                  ),
+                  radius: _tourTopRadius,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: widget.margin),
+                        child: MobileSearchField(
+                          controller: _directory.search,
+                          hintText: kTeachersSearchHint,
+                          onChanged: (_) => _directory.searched(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ListenableBuilder(listenable: _directory, builder: (context, _) => _buildChips()),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                ListenableBuilder(
+                  listenable: _directory,
+                  builder: (context, _) => Padding(
                     padding: EdgeInsets.symmetric(horizontal: widget.margin),
                     child: _buildBody(),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
@@ -296,7 +319,7 @@ class _TeacherRow extends StatelessWidget
                 children: [
                   Text(
                     '${teacher.firstName} ${teacher.lastName}',
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15.5,

@@ -11,14 +11,12 @@ import '../../../features/association/models/study_program_item.dart';
 import '../../../features/association/models/subject_taxonomy.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../features/people/models/teacher_subject_item.dart';
-import '../../../features/people/teacher_subjects_page.dart' show kTeacherSubjectsIntro;
 import '../../../features/people/widgets/competence_picker.dart' show kServicesFilterValue;
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
-import '../../shared/widgets/mobile_choice_chips.dart';
+import '../../shared/widgets/mobile_choice_sheet.dart';
 import '../../shared/widgets/mobile_confirm_sheet.dart';
-import '../../shared/widgets/mobile_info_button.dart';
-import '../../shared/widgets/mobile_info_sheet.dart';
+import '../../shared/widgets/mobile_filter_chip.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
@@ -26,13 +24,14 @@ import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
 import '../../shared/widgets/mobile_search_field.dart';
+import '../../shared/widgets/mobile_tour.dart';
+import 'mobile_subjects_tour.dart';
 import 'widgets/mobile_programs_sheet.dart';
 import 'widgets/mobile_reflow_slot.dart';
 import 'widgets/mobile_removable_row.dart';
 import 'widgets/mobile_service_sheet.dart';
 import 'widgets/mobile_subject_card.dart';
 
-const String _slug = 'subjects';
 const String _title = 'Discipline';
 
 // Mobile-only copy: the swipe has no desktop counterpart.
@@ -60,6 +59,17 @@ const double _handleClearance = 16;
 // Room above the first card for its shadow.
 const double _shadowRoom = 20;
 
+const Duration _pageTurn = Duration(milliseconds: 320);
+
+// A page settles within a tolerance, never exactly on its index.
+const double _settled = 0.001;
+
+const double _tourListInflate = 10;
+const double _tourListRadius = 30;
+const double _tourFiltersInflate = 8;
+const double _tourFiltersRadius = 24;
+const double _tourCardInflate = 5;
+
 class _Entry
 {
   final String name;
@@ -72,7 +82,9 @@ class _Entry
 
   bool get isService => subjectId == null;
 
-  Key get key => isService ? ValueKey('service-$name') : ValueKey('subject-$subjectId');
+  String get tourId => isService ? 'service-$name' : 'subject-$subjectId';
+
+  Key get key => ValueKey(tourId);
 }
 
 class _Filters
@@ -128,7 +140,18 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   bool _failed = false;
   bool _saving = false;
 
-  bool _introduced = false;
+  // Set once the page is in place; from then on every load, page change and closed sheet looks for a tour.
+  bool _toured = false;
+  int? _pageSeen;
+
+  // Just taken: a tour shows where it went, the first time.
+  Key? _moved;
+
+  // A held discipline's sheet just closed: a tour shows the swipe, the first time.
+  bool _afterHeldSheet = false;
+
+  // The row showing the swipe while its tour is up.
+  Key? _hinted;
 
   String? _taxCode;
   DateTime? _updatedAt;
@@ -154,6 +177,9 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   {
     super.initState();
     _load().whenComplete(MobileHoldScope.hold(context));
+    _pageController.addListener(_onPage);
+    MobileNavSheet.hidden.addListener(_onSheets);
+    mobileTourChanges.addListener(_onTours);
   }
 
   @override
@@ -161,38 +187,165 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   {
     super.didChangeDependencies();
 
-    if (!_introduced && widget.heading == null && !MobileHoldScope.waitingOf(context))
+    // Not in the first access, which has its own steps.
+    if (!_toured && widget.heading == null && mobileTourSettled(context))
     {
-      _introduced = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _introduceOnce());
+      _toured = true;
+      _tourLater();
     }
   }
 
   @override
   void dispose()
   {
+    mobileTourChanges.removeListener(_onTours);
+    MobileNavSheet.hidden.removeListener(_onSheets);
     _pageController.dispose();
     _filters.dispose();
 
     super.dispose();
   }
 
-  Future<void> _introduceOnce()
-  {
-    final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
+  void _tourLater() => WidgetsBinding.instance.addPostFrameCallback((_) => _tourCheck());
 
-    if (taxCode == null || !mounted)
+  void _onPage()
+  {
+    final double page = _pageController.page ?? 0;
+
+    if ((page - page.round()).abs() < _settled && page.round() != _pageSeen)
     {
-      return Future<void>.value();
+      _pageSeen = page.round();
+      _tourLater();
+    }
+  }
+
+  void _onSheets()
+  {
+    if (!MobileNavSheet.hidden.value)
+    {
+      _tourLater();
+    }
+  }
+
+  // A tour ending may let the next one come, and stops the swipe shown.
+  void _onTours()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (!mounted || isMobileTourShown)
+      {
+        return;
+      }
+
+      if (_hinted != null)
+      {
+        setState(() => _hinted = null);
+      }
+
+      _tourCheck();
+    });
+  }
+
+  List<_Entry> get _shownHeld => _heldEntries.where(_filters.keeps).toList();
+
+  // The first discipline's + rather than a service's, which has no programmes.
+  _Entry? get _firstAddable
+  {
+    final List<_Entry> shown = _openEntries.where(_filters.keeps).toList();
+
+    return shown.where((entry) => !entry.isService).firstOrNull ?? shown.firstOrNull;
+  }
+
+  // The main tour on the first visit; then where a discipline just taken went, and the swipe after a held one's sheet.
+  Future<void> _tourCheck() async
+  {
+    final String? taxCode = _taxCode;
+
+    if (!mounted ||
+        !_toured ||
+        taxCode == null ||
+        _loading ||
+        _failed ||
+        _saving ||
+        _leaving.isNotEmpty ||
+        isMobileTourShown ||
+        MobileNavSheet.hidden.value ||
+        !_pageController.hasClients)
+    {
+      return;
     }
 
-    return showMobileInfoSheetOnce(
-      context: context,
-      taxCode: taxCode,
-      slug: _slug,
-      title: _title,
-      paragraphs: const [kTeacherSubjectsIntro, kMobileSlideToRemove],
-    );
+    final double page = _pageController.page ?? 0;
+
+    if ((page - page.round()).abs() >= _settled)
+    {
+      return;
+    }
+
+    final bool onHeld = page.round() == 0;
+
+    if (!await isMobileTourSeen(taxCode: taxCode, tour: subjectsMainTour(_pageController)))
+    {
+      if (mounted && onHeld)
+      {
+        await startMobileTourOnce(
+          taxCode: taxCode,
+          tour: subjectsTour(pages: _pageController, canAdd: () => _firstAddable != null),
+        );
+      }
+
+      return;
+    }
+
+    final Key? movedKey = _moved;
+
+    if (movedKey != null)
+    {
+      final _Entry? moved = _shownHeld.where((entry) => entry.key == movedKey).firstOrNull;
+      final bool seen = moved == null || await isMobileTourSeen(taxCode: taxCode, tour: subjectsMovedTour(moved.tourId));
+
+      if (!mounted)
+      {
+        return;
+      }
+
+      if (moved != null && !seen)
+      {
+        // Shown in the list it went to.
+        if (!onHeld)
+        {
+          _pageController.animateToPage(0, duration: _pageTurn, curve: Curves.easeInOutCubic);
+
+          return;
+        }
+
+        _moved = null;
+        await startMobileTourOnce(taxCode: taxCode, tour: subjectsMovedTour(moved.tourId));
+
+        return;
+      }
+
+      _moved = null;
+    }
+
+    if (_afterHeldSheet && onHeld)
+    {
+      _afterHeldSheet = false;
+
+      final _Entry? first = _shownHeld.firstOrNull;
+
+      if (first == null || await isMobileTourSeen(taxCode: taxCode, tour: subjectsSwipeTour(first.tourId)))
+      {
+        return;
+      }
+
+      await startMobileTourOnce(taxCode: taxCode, tour: subjectsSwipeTour(first.tourId));
+
+      if (mounted && isMobileTourShown)
+      {
+        setState(() => _hinted = first.key);
+      }
+    }
   }
 
   Future<void> _load({bool quiet = false}) async
@@ -239,6 +392,8 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
         _loading = false;
         _failed = false;
       });
+
+      _tourLater();
     }
     catch (e, stackTrace)
     {
@@ -309,14 +464,17 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     return entries..sort((a, b) => a.name.compareTo(b.name));
   }
 
-  Future<void> _saveCompetences(Map<int, List<int>> programs, List<String> services) async
+  // True once saved.
+  Future<bool> _saveCompetences(Map<int, List<int>> programs, List<String> services) async
   {
     final String? taxCode = _taxCode;
 
     if (_saving || taxCode == null)
     {
-      return;
+      return false;
     }
+
+    bool saved = false;
 
     setState(() => _saving = true);
 
@@ -331,6 +489,8 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
         services,
         _updatedAt,
       );
+
+      saved = true;
 
       if (mounted)
       {
@@ -354,6 +514,18 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
     // Reload either way: the next save must send the server's fresh updated_at.
     await _load(quiet: true);
+
+    return saved;
+  }
+
+  // A discipline or service just taken: its tour follows the first time.
+  void _taken(_Entry entry, bool saved)
+  {
+    if (saved && mounted)
+    {
+      _moved = entry.key;
+      _tourLater();
+    }
   }
 
   Future<void> _editPrograms(_Entry entry, {required bool held})
@@ -373,18 +545,31 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
       initialSelected:
           current?.studyProgramIds.toSet() ?? {for (final program in programs) program.id},
       onRemove: held ? (sheet) => _removeFrom(sheet, entry) : null,
+      taxCode: widget.heading == null ? _taxCode : null,
     ).then((chosen) async
     {
+      // Leaving a held one's sheet, the swipe is shown once the page is quiet.
+      if (held)
+      {
+        _afterHeldSheet = true;
+        _tourLater();
+      }
+
       // Empty cancels a new discipline; a held one is given up from the sheet.
       if (chosen == null || chosen.isEmpty || !mounted)
       {
         return;
       }
 
-      await _saveCompetences(
+      final bool saved = await _saveCompetences(
         {..._heldPrograms, subjectId: chosen.toList()},
         _heldServices,
       );
+
+      if (!held)
+      {
+        _taken(entry, saved);
+      }
     });
   }
 
@@ -415,7 +600,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
     if (taken == true && mounted)
     {
-      await _addService(entry.name);
+      await _addService(entry);
     }
   }
 
@@ -465,24 +650,27 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     return gone.future.timeout(const Duration(seconds: 1), onTimeout: () {});
   }
 
-  Future<void> _takeOnEverything(_Entry entry)
+  Future<void> _takeOnEverything(_Entry entry) async
   {
     final int subjectId = entry.subjectId!;
     final List<StudyProgramItem> programs = _programsBySubjectId[subjectId] ?? const [];
 
-    return _saveCompetences(
-      {..._heldPrograms, subjectId: [for (final program in programs) program.id]},
-      _heldServices,
+    _taken(
+      entry,
+      await _saveCompetences(
+        {..._heldPrograms, subjectId: [for (final program in programs) program.id]},
+        _heldServices,
+      ),
     );
   }
 
-  Future<void> _addService(String name)
+  Future<void> _addService(_Entry entry) async
   {
-    final List<String> services = [..._heldServices, name];
+    final List<String> services = [..._heldServices, entry.name];
 
     setState(() => _heldServices = services);
 
-    return _saveCompetences(_heldPrograms, services);
+    _taken(entry, await _saveCompetences(_heldPrograms, services));
   }
 
   TextSpan _warning(String before, String name, String after)
@@ -533,9 +721,11 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     });
 
     _saveCompetences(programs, services);
+    _tourLater();
   }
 
-  Widget _buildCard(_Entry entry, {required bool held, double gap = 0})
+  // [lit] marks the + a tour lights.
+  Widget _buildCard(_Entry entry, {required bool held, double gap = 0, double? sideGap, bool lit = false})
   {
     final MobileSubjectCard card = MobileSubjectCard(
       name: entry.name,
@@ -546,7 +736,8 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
           : () => _editPrograms(entry, held: held),
       onAdd: held
           ? null
-          : (entry.isService ? () => _addService(entry.name) : () => _takeOnEverything(entry)),
+          : (entry.isService ? () => _addService(entry) : () => _takeOnEverything(entry)),
+      addTourId: lit ? kSubjectsTourAdd : null,
     );
 
     if (!held)
@@ -554,13 +745,21 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
       return Padding(padding: EdgeInsets.only(bottom: gap), child: card);
     }
 
-    return MobileRemovableRow(
+    // Keyed outside, so the row keeps its state as the target wraps it.
+    return MobileTourTarget(
       key: entry.key,
-      onConfirm: () => _confirmRemoval(context, entry),
-      onRemoved: () => _remove(entry),
-      gap: gap,
-      leaving: _leaving.contains(entry.key),
-      child: card,
+      id: subjectsTourCard(entry.tourId),
+      inflate: EdgeInsets.fromLTRB(_tourCardInflate, _tourCardInflate, _tourCardInflate, _tourCardInflate - gap),
+      radius: MobileSubjectCard.radius + _tourCardInflate,
+      child: MobileRemovableRow(
+        onConfirm: () => _confirmRemoval(context, entry),
+        onRemoved: () => _remove(entry),
+        gap: gap,
+        leaving: _leaving.contains(entry.key),
+        hinting: _hinted == entry.key,
+        sideGap: sideGap,
+        child: card,
+      ),
     );
   }
 
@@ -594,6 +793,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     }
 
     final List<_Entry> shown = entries.where(_filters.keeps).toList();
+    final _Entry? addable = held ? null : _firstAddable;
 
     if (shown.isEmpty)
     {
@@ -609,7 +809,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
     if (columns > 1)
     {
-      return _buildGrid(shown, held: held, columns: columns);
+      return _buildGrid(shown, held: held, columns: columns, addable: addable);
     }
 
     // Each row owns the gap below it, so a removed row closes it up as it goes.
@@ -617,13 +817,13 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (i, entry) in shown.indexed)
-          _buildCard(entry, held: held, gap: i < shown.length - 1 ? _rowGap : 0),
+          _buildCard(entry, held: held, gap: i < shown.length - 1 ? _rowGap : 0, lit: entry.key == addable?.key),
       ],
     );
   }
 
   // One Wrap rather than a Row per line, so a card keeps its element as it moves up a line.
-  Widget _buildGrid(List<_Entry> shown, {required bool held, required int columns})
+  Widget _buildGrid(List<_Entry> shown, {required bool held, required int columns, _Entry? addable})
   {
     return LayoutBuilder(
       builder: (context, constraints)
@@ -635,13 +835,21 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
           spacing: _columnGap,
           runSpacing: _rowGap,
           children: [
-            for (final entry in shown)
+            for (final (i, entry) in shown.indexed)
               MobileReflowSlot(
                 key: entry.key,
                 // Only the list removals happen in; the other gains cards out of sight.
                 generation: held ? _removals : 0,
                 spacing: _columnGap,
-                child: SizedBox(width: width, child: _buildCard(entry, held: held)),
+                child: SizedBox(
+                  width: width,
+                  child: _buildCard(
+                    entry,
+                    held: held,
+                    sideGap: i % columns < columns - 1 && i < shown.length - 1 ? _columnGap : null,
+                    lit: entry.key == addable?.key,
+                  ),
+                ),
               ),
           ],
         );
@@ -649,13 +857,30 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     );
   }
 
-  List<MobileChoice> get _areaChoices
+  // A null value keeps every area.
+  List<MobileChoice<String?>> get _areaChoices
   {
     return [
       const MobileChoice(value: null, label: 'Tutte le aree'),
-      for (final area in subjectAreas) MobileChoice(value: area.value, label: area.compactLabel),
+      for (final area in subjectAreas) MobileChoice(value: area.value, label: area.label),
       const MobileChoice(value: kServicesFilterValue, label: 'Servizi'),
     ];
+  }
+
+  Future<void> _pickArea() async
+  {
+    final MobileChoice<String?>? picked = await showMobileChoiceSheet(
+      context: context,
+      eyebrow: _title,
+      title: 'Filtra per area',
+      choices: _areaChoices,
+      value: _filters.area,
+    );
+
+    if (picked != null && mounted)
+    {
+      setState(() => _filters.area = picked.value);
+    }
   }
 
   Widget _buildSearch()
@@ -669,40 +894,32 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
   Widget _buildChips({required double margin})
   {
-    return MobileChoiceChips(
-      choices: _areaChoices,
-      value: _filters.area,
+    final String? area = _filters.area;
+
+    return MobileFilterChips(
       margin: margin,
-      // Pressing the filter already on does nothing: only "Tutte le aree" clears.
-      onChanged: (value) => setState(() => _filters.area = value),
+      chips: [
+        MobileFilterChip(
+          icon: Icons.category_rounded,
+          label: _areaChoices.firstWhere((choice) => choice.value == area).label,
+          active: area != null,
+          onTap: _pickArea,
+        ),
+      ],
     );
   }
 
   Widget _buildTitle({required bool tablet})
   {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            _title,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: tablet ? 36 : 30,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              height: 1.05,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        MobileInfoButton(
-          onTap: () => showMobileInfoSheet(
-            context: context,
-            title: _title,
-            paragraphs: const [kTeacherSubjectsIntro, kMobileSlideToRemove],
-          ),
-        ),
-      ],
+    return Text(
+      _title,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: tablet ? 36 : 30,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.5,
+        height: 1.05,
+        color: Colors.white,
+      ),
     );
   }
 
@@ -737,14 +954,31 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
               MobilePageStrip(
                 labels: [_label(0, held.length), _label(1, open.length)],
                 controller: _pageController,
+                tourTargets: [subjectsTourTab(0), subjectsTourTab(1)],
               ),
               const SizedBox(height: _headerGap),
-              _buildSearch(),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        _buildChips(margin: margin),
+        // The search and the chips lit as one; the chips run to the screen's edges.
+        MobileTourTarget(
+          id: kSubjectsTourFilters,
+          inflate: EdgeInsets.fromLTRB(
+            _tourFiltersInflate - margin,
+            _tourFiltersInflate,
+            _tourFiltersInflate - margin,
+            _tourFiltersInflate,
+          ),
+          radius: _tourFiltersRadius,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(padding: EdgeInsets.symmetric(horizontal: margin), child: _buildSearch()),
+              const SizedBox(height: 12),
+              _buildChips(margin: margin),
+            ],
+          ),
+        ),
       ],
     );
 
@@ -759,11 +993,13 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
               _buildBody(held, held: true, columns: columns),
               side: margin,
               bottom: bottom,
+              tourId: kSubjectsTourHeld,
             ),
             _scrollable(
               _buildBody(open, held: false, columns: columns),
               side: margin,
               bottom: bottom,
+              tourId: kSubjectsTourOpen,
             ),
           ],
         ),
@@ -772,7 +1008,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   }
 
   // Margin inside the scroll view so card shadows are not clipped while paging.
-  Widget _scrollable(Widget child, {required double side, required double bottom})
+  Widget _scrollable(Widget child, {required double side, required double bottom, required String tourId})
   {
     return MobileSwipePage(
       child: RefreshIndicator(
@@ -783,7 +1019,19 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
           clipBehavior: Clip.none,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(side, _shadowRoom, side, bottom),
-          child: MobileLoadSwitcher(child: child),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              MobileTourTarget(
+                id: tourId,
+                inflate: const EdgeInsets.all(_tourListInflate),
+                radius: _tourListRadius,
+                child: MobileLoadSwitcher(child: child),
+              ),
+              const MobileTourRunway(),
+            ],
+          ),
         ),
       ),
     );

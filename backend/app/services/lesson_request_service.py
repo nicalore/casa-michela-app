@@ -28,7 +28,7 @@ from app.schemas.lesson_request import (
 )
 from app.schemas.presence import PresenceCreate
 from app.services.booking_service import BookingService
-from app.services.collaboration import assert_admin_may_name, resume_collaboration
+from app.services.collaboration import assert_admin_may_name, settle_collaboration
 from app.services.lesson_guard import find_student_day_lessons
 from app.services.presence_service import PresenceService
 from app.services.pupil_lock import lock_pupil
@@ -311,7 +311,7 @@ class LessonRequestService:
                         for presence in plan.dropped:
                             await self.session.delete(presence)
 
-                await resume_collaboration(self.session, student_tax_code)
+                await settle_collaboration(self.session, student_tax_code)
                 await self.session.flush()
                 await self.session.commit()
 

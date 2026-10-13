@@ -8,9 +8,13 @@ import '../../../../features/association/tabs/opening_hours/mode_hours_parts.dar
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import 'mobile_hours_parts.dart';
 
 const double _radius = 22;
+
+const EdgeInsets _tourMarkInflate = EdgeInsets.all(5);
+const double _tourMarkRadius = 14;
 
 class MobileHoursDayCard extends StatelessWidget
 {
@@ -18,14 +22,39 @@ class MobileHoursDayCard extends StatelessWidget
   final DateTime today;
   final bool tablet;
 
+  // For a tour to light the first variation mark.
+  final String? tourMark;
+
   const MobileHoursDayCard({
     super.key,
     required this.day,
     required this.today,
     required this.tablet,
+    this.tourMark,
   });
 
   bool get _past => day.date.isBefore(today);
+
+  // The mode whose first marked hours a tour lights.
+  String? get _markedMode
+  {
+    if (day.isClosedAllDay)
+    {
+      return null;
+    }
+
+    for (final mode in kHoursModes)
+    {
+      final ModeDayHours hours = day.of(mode);
+
+      if (!hours.isClosed && hours.bands.any((band) => band.isOverride))
+      {
+        return mode;
+      }
+    }
+
+    return null;
+  }
 
   String get _title
   {
@@ -93,6 +122,7 @@ class MobileHoursDayCard extends StatelessWidget
   {
     final ModeDayHours hours = day.of(mode);
     final String? note = hours.note;
+    final int marked = mode == _markedMode ? hours.bands.indexWhere((band) => band.isOverride) : -1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +132,7 @@ class MobileHoursDayCard extends StatelessWidget
         if (hours.isClosed)
           _buildClosed(decided: hours.isOverrideClosure)
         else
-          for (final band in hours.bands)
+          for (final (i, band) in hours.bands.indexed)
             // Shrinks rather than wraps under large system text.
             FittedBox(
               fit: BoxFit.scaleDown,
@@ -123,7 +153,12 @@ class MobileHoursDayCard extends StatelessWidget
                   ),
                   if (band.isOverride) ...[
                     const SizedBox(width: 6),
-                    Icon(kVariationIcon, size: tablet ? 18 : 16, color: hoursInk(mode, past: _past)),
+                    MobileTourTarget(
+                      id: i == marked ? tourMark : null,
+                      inflate: _tourMarkInflate,
+                      radius: _tourMarkRadius,
+                      child: Icon(kVariationIcon, size: tablet ? 18 : 16, color: hoursInk(mode, past: _past)),
+                    ),
                   ],
                 ],
               ),
@@ -143,13 +178,7 @@ class MobileHoursDayCard extends StatelessWidget
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.event_busy_rounded, size: tablet ? 22 : 20, color: MobilePalette.mutedText),
-              const SizedBox(width: 10),
-              _buildClosed(decided: day.isOverrideClosedAllDay),
-            ],
-          ),
+          _buildClosed(decided: day.isOverrideClosedAllDay),
           if (note != null) _buildNote(note),
         ],
       );

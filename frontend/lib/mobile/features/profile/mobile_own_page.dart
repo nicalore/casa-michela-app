@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -18,7 +19,9 @@ import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
+import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_face_editor.dart';
+import 'mobile_own_tour.dart';
 import 'widgets/mobile_card_grid.dart';
 import 'widgets/mobile_detail_card.dart';
 import 'widgets/mobile_memberships.dart';
@@ -49,7 +52,18 @@ const double _shadowRoom = 16;
 const double _handleClearance = 16;
 
 const String _teacherRole = 'DOCENTE';
+
+// Of the account, not of the person: a teacher's parent kept for paperwork wears none.
+const String _parentAccountRole = 'PARENT';
+const String _studentAccountRole = 'STUDENT';
 const String _pupilRole = 'STUDENTE';
+
+// Parts are lit a little larger than themselves.
+const EdgeInsets _tourInflate = EdgeInsets.all(5);
+const double _tourCardRadius = 27;
+const double _tourRoundRadius = 40;
+const double _tourStatsInflate = 8;
+const double _tourStatsRadius = 26;
 
 class MobileOwnPage extends StatefulWidget
 {
@@ -78,16 +92,35 @@ class _MobileOwnPageState extends State<MobileOwnPage>
 
   bool _faceBusy = false;
 
+  // Set once the shell has stopped moving the page in.
+  bool _settledIn = false;
+
   @override
   void initState()
   {
     super.initState();
     _load().then((_) => _loadStats()).whenComplete(MobileHoldScope.hold(context));
+    mobileTourChanges.addListener(_tourLater);
+    MobileNavSheet.hidden.addListener(_tourLater);
+  }
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    if (!_settledIn && mobileTourSettled(context))
+    {
+      _settledIn = true;
+      _tourLater();
+    }
   }
 
   @override
   void dispose()
   {
+    mobileTourChanges.removeListener(_tourLater);
+    MobileNavSheet.hidden.removeListener(_tourLater);
     _pages.dispose();
     _teacherStats?.dispose();
     _pupilStats?.dispose();
@@ -113,6 +146,8 @@ class _MobileOwnPageState extends State<MobileOwnPage>
         _loading = false;
         _failed = false;
       });
+
+      _tourLater();
     }
     catch (e, stackTrace)
     {
@@ -130,6 +165,44 @@ class _MobileOwnPageState extends State<MobileOwnPage>
         _failed = !quiet || _person == null;
       });
     }
+  }
+
+  // Asks for the frame too: the page may be still.
+  void _tourLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  // The page shows the person whatever role is worn: a teacher's tour, else a student's, else a parent's.
+  Future<void> _tourCheck() async
+  {
+    final PersonItem? person = _person;
+    final List<String> roles = widget.user.availableRoles;
+
+    if (!mounted ||
+        !_settledIn ||
+        person == null ||
+        !(_isTeacher(person) || roles.contains(_studentAccountRole) || roles.contains(_parentAccountRole)) ||
+        isMobileTourShown ||
+        MobileNavSheet.hidden.value ||
+        !_pages.hasClients ||
+        (_pages.page ?? 0) != 0)
+    {
+      return;
+    }
+
+    final List<String> sections = [for (final section in ownPageSectionsOf(person)) section.name];
+
+    await startMobileTourOnce(
+      taxCode: widget.user.taxCode,
+      tour: _isTeacher(person)
+          ? ownTour(pages: _pages, title: widget.user.firstName, sections: sections)
+          : roles.contains(_studentAccountRole)
+              ? studentOwnTour(pages: _pages, title: widget.user.firstName, sections: sections)
+              : parentOwnTour(title: widget.user.firstName),
+    );
   }
 
   Future<void> _refresh()
@@ -249,6 +322,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
                         labels: [for (final section in sections) section.label],
                         controller: _pages,
                         scrollMargin: margin,
+                        tourTargets: [for (final section in sections) ownTourTab(section.name)],
                       ),
                     ),
                   ],
@@ -303,6 +377,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
             child: MobileRiseIn(
               child: _ReportButton(
                 tablet: tablet,
+                tourId: kOwnTourReport,
                 onTap: () => showMobileReportSheet(
                   context: context,
                   person: person,
@@ -361,11 +436,16 @@ class _MobileOwnPageState extends State<MobileOwnPage>
           ),
         ),
         const SizedBox(width: 14),
-        MobileOwnFace(
-          user: widget.user,
-          size: tablet ? _tabletFace : _phoneFace,
-          busy: _faceBusy,
-          onTap: _editFace,
+        MobileTourTarget(
+          id: kOwnTourFace,
+          inflate: _tourInflate,
+          radius: _tourRoundRadius,
+          child: MobileOwnFace(
+            user: widget.user,
+            size: tablet ? _tabletFace : _phoneFace,
+            busy: _faceBusy,
+            onTap: _editFace,
+          ),
         ),
       ],
     );
@@ -379,11 +459,15 @@ class _MobileOwnPageState extends State<MobileOwnPage>
         color: AppTheme.trialGold,
         backgroundColor: AppTheme.trialDeepWater,
         onRefresh: _refresh,
-        child: ListView(
+        // Not lazy: a lazy list guesses its length from what it built, and the tour scrolls by it.
+        child: SingleChildScrollView(
           clipBehavior: Clip.none,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.only(top: _shadowRoom, bottom: bottom),
-          children: children,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [...children, const MobileTourRunway()],
+          ),
         ),
       ),
     );
@@ -447,11 +531,41 @@ class _MobileOwnPageState extends State<MobileOwnPage>
       case OwnPageSection.stats:
         return [
           if (_isTeacher(person))
-            MobileTeacherStats(controller: _teacherStatsOf(person), margin: margin),
+            // The chips run to the screen's edges; the hole keeps to the cards.
+            MobileTourTarget(
+              id: kOwnTourStats,
+              inflate: EdgeInsets.fromLTRB(
+                _tourStatsInflate - margin,
+                _tourStatsInflate,
+                _tourStatsInflate - margin,
+                _tourStatsInflate,
+              ),
+              radius: _tourStatsRadius,
+              child: MobileTeacherStats(
+                controller: _teacherStatsOf(person),
+                margin: margin,
+                tourFilters: kOwnTourFilters,
+              ),
+            ),
           if (_isTeacher(person) && _isPupil(person))
             const SizedBox(height: _statsGap),
+          // Lit by the student's tour; a teacher's lights their own block alone.
           if (_isPupil(person))
-            MobilePupilStats(controller: _pupilStatsOf(person), margin: margin),
+            MobileTourTarget(
+              id: _isTeacher(person) ? null : kOwnTourStats,
+              inflate: EdgeInsets.fromLTRB(
+                _tourStatsInflate - margin,
+                _tourStatsInflate,
+                _tourStatsInflate - margin,
+                _tourStatsInflate,
+              ),
+              radius: _tourStatsRadius,
+              child: MobilePupilStats(
+                controller: _pupilStatsOf(person),
+                margin: margin,
+                tourFilters: _isTeacher(person) ? null : kOwnTourFilters,
+              ),
+            ),
         ];
 
       // Read-only, as on the desktop.
@@ -476,10 +590,15 @@ class _MobileOwnPageState extends State<MobileOwnPage>
     final bool studies =
         _isTeacher(person) && card.title == teacherDetailsCard(person, forOwner: true).title;
 
-    return MobileDetailCard.of(
-      card,
-      onEdit: studies ? () => _editStudies(person) : null,
-      editLabel: studies ? 'Modifica studi' : null,
+    return MobileTourTarget(
+      id: studies ? kOwnTourStudies : null,
+      inflate: _tourInflate,
+      radius: _tourCardRadius,
+      child: MobileDetailCard.of(
+        card,
+        onEdit: studies ? () => _editStudies(person) : null,
+        editLabel: studies ? 'Modifica studi' : null,
+      ),
     );
   }
 }
@@ -487,17 +606,23 @@ class _MobileOwnPageState extends State<MobileOwnPage>
 class _ReportButton extends StatelessWidget
 {
   final bool tablet;
+  final String tourId;
   final VoidCallback onTap;
 
-  const _ReportButton({required this.tablet, required this.onTap});
+  const _ReportButton({required this.tablet, required this.tourId, required this.onTap});
 
   @override
   Widget build(BuildContext context)
   {
-    final Widget button = MobileDismissButton(
-      label: 'Segnala dato mancante / errato',
-      icon: Icons.flag_rounded,
-      onPressed: onTap,
+    // Hugging it: it floats over the cards, which a wider hole showed around it.
+    final Widget button = MobileTourTarget(
+      id: tourId,
+      radius: MobileDismissButton.radius,
+      child: MobileDismissButton(
+        label: 'Segnala dato mancante / errato',
+        icon: Icons.flag_rounded,
+        onPressed: onTap,
+      ),
     );
 
     return tablet

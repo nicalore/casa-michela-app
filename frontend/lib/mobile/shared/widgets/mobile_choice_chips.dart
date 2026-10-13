@@ -3,23 +3,18 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../mobile_palette.dart';
+import 'mobile_choice_sheet.dart';
+import 'mobile_tour.dart';
 
 const double _height = 32;
 const double _gap = 8;
 const double _chipPadding = 13;
 
-// A null value is the row's "all" entry.
-class MobileChoice
-{
-  final String? value;
-  final String label;
-
-  const MobileChoice({required this.value, required this.label});
-}
+const EdgeInsets _tourInflate = EdgeInsets.all(4);
 
 class MobileChoiceChips extends StatefulWidget
 {
-  final List<MobileChoice> choices;
+  final List<MobileChoice<String?>> choices;
   final String? value;
   final ValueChanged<String?> onChanged;
 
@@ -29,6 +24,9 @@ class MobileChoiceChips extends StatefulWidget
   // Inside a card or a sheet rather than on the sea.
   final bool onLight;
 
+  // One per choice, for a tour to light it.
+  final List<String>? tourTargets;
+
   const MobileChoiceChips({
     super.key,
     required this.choices,
@@ -36,6 +34,7 @@ class MobileChoiceChips extends StatefulWidget
     required this.onChanged,
     required this.margin,
     this.onLight = false,
+    this.tourTargets,
   });
 
   @override
@@ -106,14 +105,23 @@ class _MobileChoiceChipsState extends State<MobileChoiceChips>
         separatorBuilder: (context, index) => const SizedBox(width: _gap),
         itemBuilder: (context, index)
         {
-          final MobileChoice choice = widget.choices[index];
+          final MobileChoice<String?> choice = widget.choices[index];
 
-          return _Chip(
+          final Widget chip = _Chip(
             label: choice.label,
             selected: choice.value == widget.value,
             onLight: widget.onLight,
             onTap: () => widget.onChanged(choice.value),
           );
+
+          final List<String>? ids = widget.tourTargets;
+
+          if (ids == null)
+          {
+            return chip;
+          }
+
+          return MobileTourTarget(id: ids[index], inflate: _tourInflate, radius: _height / 2 + _tourInflate.left, child: chip);
         },
       ),
     );

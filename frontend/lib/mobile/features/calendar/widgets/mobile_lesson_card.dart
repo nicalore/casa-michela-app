@@ -15,8 +15,11 @@ import '../../../../features/lessons/widgets/calendar_activity_block.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 
 const double _radius = 14;
+
+const EdgeInsets _tourInflate = EdgeInsets.all(4);
 
 const double _barLeft = 8;
 const double _barWidth = 4;
@@ -76,6 +79,9 @@ class MobileCalendarEntry
 
   final VoidCallback onTap;
 
+  // For a tour to light the card.
+  final String? tourId;
+
   const MobileCalendarEntry({
     required this.startMinutes,
     required this.endMinutes,
@@ -90,12 +96,14 @@ class MobileCalendarEntry
     this.shared = false,
     this.brief = false,
     required this.onTap,
+    this.tourId,
   });
 
   factory MobileCalendarEntry.lesson(
     LessonItem lesson,
     List<MinistrySubjectItem> ministrySubjects, {
     required VoidCallback onTap,
+    String? tourId,
   })
   {
     final about = lessonAbout(lesson, ministrySubjects);
@@ -111,6 +119,7 @@ class MobileCalendarEntry
       disciplines: about.disciplines,
       modeWord: lesson.mode == kOnlineMode ? modeLabel(kOnlineMode) : null,
       onTap: onTap,
+      tourId: tourId,
     );
   }
 
@@ -118,6 +127,7 @@ class MobileCalendarEntry
     LessonItem lesson,
     List<MinistrySubjectItem> ministrySubjects, {
     required VoidCallback onTap,
+    String? tourId,
   })
   {
     final about = lessonAbout(lesson, ministrySubjects);
@@ -136,9 +146,11 @@ class MobileCalendarEntry
         label: lessonWhere(lesson).label,
         accent: lessonWhereAccent(lesson),
       ),
-      shared: lesson.isShared,
+      // Co-presence hidden from students and parents for now.
+      // shared: lesson.isShared,
       brief: lesson.minutes <= kMinimumBandMinutes,
       onTap: onTap,
+      tourId: tourId,
     );
   }
 
@@ -213,28 +225,33 @@ class MobileLessonCard extends StatelessWidget
 
     const BorderRadius radius = BorderRadius.all(Radius.circular(_radius));
 
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: entry.onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: entry.surface,
-            borderRadius: radius,
-            boxShadow: _shadow,
-          ),
-          foregroundDecoration: running ? _runningRim : null,
-          child: CustomPaint(
-            painter: _CardPainter(
-              accent: past ? _pastAccent : entry.accent,
-              elapsed: running ? elapsed : null,
-              horizontal: horizontal,
-              timeInset: timeInset,
+    return MobileTourTarget(
+      id: entry.tourId,
+      inflate: _tourInflate,
+      radius: _radius + _tourInflate.left,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: entry.onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              color: entry.surface,
+              borderRadius: radius,
+              boxShadow: _shadow,
             ),
-            child: Padding(
-              padding: _padding,
-              child: _CardBody(entry: entry, past: past, inColumn: inColumn, scale: scale),
+            foregroundDecoration: running ? _runningRim : null,
+            child: CustomPaint(
+              painter: _CardPainter(
+                accent: past ? _pastAccent : entry.accent,
+                elapsed: running ? elapsed : null,
+                horizontal: horizontal,
+                timeInset: timeInset,
+              ),
+              child: Padding(
+                padding: _padding,
+                child: _CardBody(entry: entry, past: past, inColumn: inColumn, scale: scale),
+              ),
             ),
           ),
         ),
@@ -643,7 +660,7 @@ class MobileLessonListCard extends StatelessWidget
     final String? disciplines = entry.disciplines;
     final MobileLessonWhere? where = entry.where;
 
-    return Semantics(
+    final Widget card = Semantics(
       button: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -744,6 +761,13 @@ class MobileLessonListCard extends StatelessWidget
           ),
         ),
       ),
+    );
+
+    return MobileTourTarget(
+      id: entry.tourId,
+      inflate: _tourInflate,
+      radius: _radius + _tourInflate.left,
+      child: card,
     );
   }
 }

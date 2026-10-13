@@ -9,11 +9,12 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
-import '../../../shared/widgets/band_time_range_slider.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/booking_window.dart';
+import '../../lessons/utils/booking_wizard_strings.dart' show hoursOverlap;
 import '../../lessons/utils/opening_window.dart';
+import '../../lessons/widgets/band_schedule.dart';
 
 const double _width = 560;
 const double _buttonHeight = 52;
@@ -103,6 +104,52 @@ String moveNothingChosen(int count) => 'Scegli dove spostare ${count == 1 ? 'la 
 
 String moveTooShort(int needed) => 'Le ore devono coprire le lezioni (${formatMinutes(needed)}).';
 
+// The row's hours to start from, as a band's only stretch; the row grown, if any, stays its stretch's.
+BandSchedule<PresenceItem> moveScheduleFor(MoveOption option)
+{
+  final BandSchedule<PresenceItem> schedule = BandSchedule<PresenceItem>();
+  final OpeningWindow? window = option.window;
+
+  if (option.asksHours && window != null)
+  {
+    final (start, end) = moveHoursFor(window, option.needed, row: option.slot);
+
+    schedule.addStored(option.band, BandStretch(startTime: start, endTime: end, existing: option.slot));
+  }
+
+  return schedule;
+}
+
+// Why the hours cannot go, or null.
+String? moveHoursRefusal(BandSchedule<PresenceItem> schedule, MoveOption option)
+{
+  if (schedule.overlapping != null)
+  {
+    return hoursOverlap(option.mode, option.band);
+  }
+
+  if (schedule.minutesIn(option.band) < option.needed)
+  {
+    return moveTooShort(option.needed);
+  }
+
+  return null;
+}
+
+// As the planner takes them: touching stretches as one, the row grown first.
+List<(TimeOfDay, TimeOfDay)> moveHoursOf(BandSchedule<PresenceItem> schedule, TimeBucket band)
+{
+  final List<BandStretch<PresenceItem>> stretches = schedule.fused().of(band);
+
+  return [
+    for (final stretch in [
+      ...stretches.where((stretch) => stretch.existing != null),
+      ...stretches.where((stretch) => stretch.existing == null),
+    ])
+      (stretch.startTime, stretch.endTime),
+  ];
+}
+
 Widget _hint(String text)
 {
   return Text(
@@ -114,36 +161,6 @@ Widget _hint(String text)
       color: AppTheme.trialMutedText,
     ),
   );
-}
-
-Widget _slider({
-  required TimeBucket band,
-  required OpeningWindow window,
-  required TimeOfDay? start,
-  required TimeOfDay? end,
-  required void Function(TimeOfDay? start, TimeOfDay? end) onChanged,
-})
-{
-  return BandTimeRangeSlider(
-    bucket: band,
-    startTime: start,
-    endTime: end,
-    windowStartMinutes: window.startMinutes,
-    windowEndMinutes: window.endMinutes,
-    minimumMinutes: kMinimumBandMinutes,
-    trailing: const SizedBox.shrink(),
-    onChanged: onChanged,
-  );
-}
-
-int _minutesBetween(TimeOfDay? start, TimeOfDay? end)
-{
-  if (start == null || end == null)
-  {
-    return 0;
-  }
-
-  return minutesOfTimeOfDay(end) - minutesOfTimeOfDay(start);
 }
 
 Widget _footer({required VoidCallback onMove})
@@ -168,8 +185,8 @@ class MoveLessonDialog extends StatefulWidget
 
   final List<MoveDay> days;
 
-  // start and end are null unless hours were asked.
-  final void Function(MoveDay day, MoveOption option, TimeOfDay? start, TimeOfDay? end) onMove;
+  // [hours] is empty unless hours were asked.
+  final void Function(MoveDay day, MoveOption option, List<(TimeOfDay, TimeOfDay)> hours) onMove;
 
   const MoveLessonDialog({
     super.key,
@@ -189,8 +206,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
   MoveDay? _day;
   MoveOption? _chosen;
 
-  TimeOfDay? _start;
-  TimeOfDay? _end;
+  BandSchedule<PresenceItem> _hours = BandSchedule<PresenceItem>();
 
   @override
   void initState()
@@ -224,8 +240,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
     {
       _day = day;
       _chosen = null;
-      _start = null;
-      _end = null;
+      _hours = BandSchedule<PresenceItem>();
     });
   }
 
@@ -234,20 +249,11 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
     setState(()
     {
       _chosen = option;
-      _start = null;
-      _end = null;
-
-      final OpeningWindow? window = option?.window;
-
-      if (option != null && option.asksHours && window != null)
-      {
-        final (start, end) = moveHoursFor(window, option.needed, row: option.slot);
-
-        _start = start;
-        _end = end;
-      }
+      _hours = option == null ? BandSchedule<PresenceItem>() : moveScheduleFor(option);
     });
   }
+
+  bool _asks(MoveOption option) => option.asksHours && option.window != null;
 
   String? get _blockedReason
   {
@@ -260,12 +266,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
       return moveNothingChosen(widget.count);
     }
 
-    if (chosen.asksHours && _minutesBetween(_start, _end) < chosen.needed)
-    {
-      return moveTooShort(chosen.needed);
-    }
-
-    return null;
+    return _asks(chosen) ? moveHoursRefusal(_hours, chosen) : null;
   }
 
   List<Widget> _buildOptions(List<MoveOption> options)
@@ -290,20 +291,16 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
             ),
         ],
       ),
-      if (chosen != null && chosen.asksHours && window != null) ...[
+      if (chosen != null && _asks(chosen) && window != null) ...[
         const SizedBox(height: 20),
         _hint(chosen.isNew ? kMoveAddHours : kMoveStretchHours),
         const SizedBox(height: 12),
-        _slider(
-          band: chosen.band,
-          window: window,
-          start: _start,
-          end: _end,
-          onChanged: (start, end) => setState(()
-          {
-            _start = start;
-            _end = end;
-          }),
+        BandScheduleField<PresenceItem>(
+          schedule: _hours,
+          windowFor: (band) => band == chosen.band ? window : null,
+          bands: [chosen.band],
+          fixed: true,
+          onChanged: () => setState(() {}),
         ),
       ],
     ];
@@ -334,7 +331,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
 
           if (day != null && chosen != null)
           {
-            widget.onMove(day, chosen, _start, _end);
+            widget.onMove(day, chosen, _asks(chosen) ? moveHoursOf(_hours, chosen.band) : const []);
           }
         },
       ),

@@ -18,7 +18,7 @@ from app.repositories.calendar_activity_repository import (
     CalendarActivityRepository,
 )
 from app.schemas.availability import AvailabilityCreate, AvailabilityUpdate
-from app.services.collaboration import assert_admin_may_name, resume_collaboration
+from app.services.collaboration import assert_admin_may_name, settle_collaboration
 from app.services.lesson_guard import (
     find_availability_lessons,
 )
@@ -270,7 +270,7 @@ class AvailabilityService:
 
         async with integrity_guard(self.repository.session, _CREATE_ERROR):
             await self.repository.create(availability)
-            await resume_collaboration(self.repository.session, teacher_tax_code)
+            await settle_collaboration(self.repository.session, teacher_tax_code)
             await self.repository.commit()
 
         return availability

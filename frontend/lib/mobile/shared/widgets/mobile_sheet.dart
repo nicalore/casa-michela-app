@@ -7,9 +7,11 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../mobile_line_breaks.dart';
 import '../mobile_palette.dart';
 import 'mobile_glass_panel.dart';
 import 'mobile_nav_sheet.dart';
+import 'mobile_tour.dart';
 
 const double _grabberWidth = 38;
 const double _grabberHeight = 5;
@@ -156,6 +158,23 @@ void returnToMobileSheetPage(BuildContext context)
   }
 }
 
+// False while a later page covers the one holding [context]: covered pages stay built, offstage.
+bool isMobileSheetPageOnTop(BuildContext context)
+{
+  final _HostScope? scope = context.getInheritedWidgetOfExactType<_HostScope>();
+
+  return scope == null || !scope.host.mounted || scope.depth == scope.host._pages.length - 1;
+}
+
+// True while the sheet holding [context] rises or turns between pages.
+bool isMobileSheetMoving(BuildContext context)
+{
+  final Animation<double>? rise = ModalRoute.of(context)?.animation;
+  final _HostScope? scope = context.getInheritedWidgetOfExactType<_HostScope>();
+
+  return (rise != null && !rise.isCompleted) || (scope != null && scope.host.moving);
+}
+
 class _HostScope extends InheritedWidget
 {
   final _SheetHostState host;
@@ -226,6 +245,8 @@ class _SheetHostState extends State<_SheetHost> with SingleTickerProviderStateMi
       answer: answer,
     );
   }
+
+  bool get moving => _preparing != null || _turn.isAnimating;
 
   Future<T?> push<T>(WidgetBuilder builder) async
   {
@@ -612,7 +633,12 @@ class MobileSheet extends StatelessWidget
           ),
         ),
         const SizedBox(width: 12),
-        MobileSheetCloseButton(onTap: () => backMobileSheet(context)),
+        MobileTourTarget(
+          id: kMobileTourSheetClose,
+          inflate: const EdgeInsets.all(5),
+          radius: 30,
+          child: MobileSheetCloseButton(onTap: () => backMobileSheet(context)),
+        ),
       ],
     );
   }
@@ -1097,6 +1123,20 @@ class MobileSheetCloseButton extends StatelessWidget
 
   const MobileSheetCloseButton({super.key, required this.onTap});
 
+  // As drawn in a tour's text: light as on the sheet, unlike the banner's own close button.
+  static Widget glyph(double size)
+  {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color.alphaBlend(AppTheme.trialInk.withValues(alpha: 0.07), Colors.white),
+      ),
+      child: Icon(Icons.close_rounded, size: size * 0.6, color: AppTheme.trialInk.withValues(alpha: 0.7)),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -1157,7 +1197,7 @@ class MobileSheetText extends StatelessWidget
   Widget build(BuildContext context)
   {
     return Text(
-      text,
+      withoutOrphans(text),
       style: GoogleFonts.plusJakartaSans(
         fontSize: 14.5,
         fontWeight: FontWeight.w500,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -16,10 +17,16 @@ import '../../../shared/widgets/mobile_dismiss_button.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import '../../profile/widgets/mobile_detail_card.dart' show MobileDetailRows, mobileFactValueStyle;
 import '../mobile_booking_day.dart';
+import '../mobile_bookings_tour.dart';
 
 const String _empty = '—';
+
+const EdgeInsets _tourCardInflate = EdgeInsets.all(4);
+const EdgeInsets _tourButtonsInflate = EdgeInsets.all(6);
+const double _tourButtonsRadius = 24;
 
 // Carried out by the page from the sheet still open, so a further step turns that sheet.
 sealed class MobileBookingAction
@@ -83,6 +90,8 @@ Future<void> showMobileLessonSheet({
   required bool named,
   required bool movable,
   required Future<void> Function(BuildContext sheet, MobileBookingAction action) onAction,
+  String? tourFor,
+  BookingSheetTourLink? tourLink,
 })
 {
   final bool editable = !day.isPast && lesson.editable;
@@ -120,49 +129,70 @@ Future<void> showMobileLessonSheet({
     {
       void act(MobileBookingAction action) => onAction(context, action);
 
+      final String? taxCode = tourFor;
+
       return MobileSheet(
         eyebrow: 'Lezione ${modeLabel(lesson.slot.mode).toLowerCase()}',
         title: lesson.title,
         subtitle: _whoAndWhen(pupil, day, named: named),
         body: [
-          const SizedBox(height: 16),
-          MobileSheetCard(child: MobileDetailRows(rows: rows)),
+          MobileTourOnRise(
+            onRisen: taxCode == null
+                ? null
+                : () => startLessonSheetTour(
+                      taxCode: taxCode,
+                      present: {LessonSheetMark.details, if (editable) LessonSheetMark.actions},
+                    ),
+            child: _TourLinked(link: tourLink, editable: editable, child: const SizedBox(height: 16)),
+          ),
+          MobileTourTarget(
+            id: lessonSheetTourTarget(LessonSheetMark.details),
+            inflate: _tourCardInflate,
+            radius: MobileSheetCard.radius + _tourCardInflate.left,
+            clipped: true,
+            child: MobileSheetCard(child: MobileDetailRows(rows: rows)),
+          ),
           const SizedBox(height: 6),
         ],
         footer: !editable
             ? null
             : Padding(
                 padding: const EdgeInsets.only(top: 18),
-                child: Column(
-                  children: [
-                    MobileGoldButton(
-                      label: 'Modifica',
-                      icon: Icons.edit_outlined,
-                      onPressed: () => act(const MobileEditLesson()),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        if (movable) ...[
+                child: MobileTourTarget(
+                  id: lessonSheetTourTarget(LessonSheetMark.actions),
+                  inflate: _tourButtonsInflate,
+                  radius: _tourButtonsRadius,
+                  child: Column(
+                    children: [
+                      MobileGoldButton(
+                        label: 'Modifica',
+                        icon: Icons.edit_outlined,
+                        onPressed: () => act(const MobileEditLesson()),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          if (movable) ...[
+                            Expanded(
+                              child: MobileDismissButton(
+                                label: 'Sposta',
+                                icon: Icons.swap_horiz_rounded,
+                                onPressed: () => act(const MobileMoveLesson()),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
                           Expanded(
-                            child: MobileDismissButton(
-                              label: 'Sposta',
-                              icon: Icons.swap_horiz_rounded,
-                              onPressed: () => act(const MobileMoveLesson()),
+                            child: MobileDangerButton(
+                              label: 'Elimina',
+                              icon: Icons.delete_outline_rounded,
+                              onPressed: () => act(const MobileDeleteLesson()),
                             ),
                           ),
-                          const SizedBox(width: 12),
                         ],
-                        Expanded(
-                          child: MobileDangerButton(
-                            label: 'Elimina',
-                            icon: Icons.delete_outline_rounded,
-                            onPressed: () => act(const MobileDeleteLesson()),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
       );
@@ -178,8 +208,11 @@ Future<void> showMobileModeSheet({
   required bool named,
   required String? moveAllRefusal,
   required Future<void> Function(BuildContext sheet, MobileBookingAction action) onAction,
+  String? tourFor,
 })
 {
+  final String? taxCode = tourFor;
+
   return showMobileSheet<void>(
     context: context,
     builder: (context)
@@ -222,24 +255,33 @@ Future<void> showMobileModeSheet({
         title: '${modeLabel(mode.mode)} · ${bandLabel(mode.band)}',
         subtitle: mode.slots.map((slot) => formatTimeRange(slot.startTime, slot.endTime)).join(' · '),
         body: [
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.all(Radius.circular(MobileSheetCard.radius)),
-              boxShadow: [BoxShadow(color: Color(0x12122438), offset: Offset(0, 4), blurRadius: 14)],
-            ),
-            child: Column(
-              children: [
-                for (final (i, row) in rows.indexed)
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: i == 0 ? null : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.08))),
+          MobileTourOnRise(
+            onRisen: taxCode == null || rows.isEmpty ? null : () => startModeSheetTour(taxCode: taxCode),
+            child: const SizedBox(height: 16),
+          ),
+          MobileTourTarget(
+            id: kBookingsTourModeActions,
+            inflate: _tourCardInflate,
+            radius: MobileSheetCard.radius + _tourCardInflate.left,
+            clipped: true,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.all(Radius.circular(MobileSheetCard.radius)),
+                boxShadow: [BoxShadow(color: Color(0x12122438), offset: Offset(0, 4), blurRadius: 14)],
+              ),
+              child: Column(
+                children: [
+                  for (final (i, row) in rows.indexed)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: i == 0 ? null : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.08))),
+                      ),
+                      child: row,
                     ),
-                    child: row,
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -302,4 +344,75 @@ class _ActionRow extends StatelessWidget
       ),
     );
   }
+}
+
+// Tells a page's tour once the sheet stands still, and when it is gone.
+class _TourLinked extends StatefulWidget
+{
+  final BookingSheetTourLink? link;
+  final bool editable;
+  final Widget child;
+
+  const _TourLinked({required this.link, required this.editable, required this.child});
+
+  @override
+  State<_TourLinked> createState() => _TourLinkedState();
+}
+
+class _TourLinkedState extends State<_TourLinked>
+{
+  bool _risen = false;
+
+  @override
+  void initState()
+  {
+    super.initState();
+
+    if (widget.link != null)
+    {
+      _riseLater();
+    }
+  }
+
+  @override
+  void dispose()
+  {
+    final BookingSheetTourLink? link = widget.link;
+
+    // Not while the tree is locked: a tour moves on, and redraws, on hearing it.
+    if (link != null && _risen)
+    {
+      SchedulerBinding.instance.addPostFrameCallback((_) => link.fall());
+    }
+
+    super.dispose();
+  }
+
+  void _riseLater()
+  {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _rise())
+      ..scheduleFrame();
+  }
+
+  void _rise()
+  {
+    if (!mounted)
+    {
+      return;
+    }
+
+    if (isMobileSheetMoving(context))
+    {
+      _riseLater();
+
+      return;
+    }
+
+    _risen = true;
+    widget.link?.rise(editable: widget.editable, close: () => closeMobileSheet(context));
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

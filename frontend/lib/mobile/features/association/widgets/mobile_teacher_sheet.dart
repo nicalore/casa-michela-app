@@ -8,13 +8,16 @@ import '../../../../features/association/teacher_opinions.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../../features/people/models/teacher_subject_item.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart' show DetailRowData;
+import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/app_check_mark.dart' show kPickedSurface;
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
 import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
+import '../../../shared/widgets/mobile_tour.dart';
 import '../../profile/widgets/mobile_detail_card.dart';
+import '../mobile_association_tour.dart';
 import '../mobile_teachers_directory.dart';
 
 const String _empty = '—';
@@ -27,6 +30,8 @@ const double _tagGap = 7;
 
 const double _chipHeight = 40;
 const double _checkSize = 22;
+
+const EdgeInsets _tourCardInflate = EdgeInsets.all(4);
 
 Future<void> showMobileTeacherSheet({
   required BuildContext context,
@@ -56,6 +61,27 @@ class _TeacherSheetState extends State<_TeacherSheet>
   bool _saving = false;
 
   PersonItem get _teacher => widget.teacher;
+
+  void _tour()
+  {
+    final String? taxCode = ApiService().lastKnownIdentity?.taxCode;
+
+    if (taxCode != null)
+    {
+      startMobileTourOnce(taxCode: taxCode, tour: associationTeacherSheetTour(widget.directory.reader));
+    }
+  }
+
+  Widget _lit(String id, Widget card)
+  {
+    return MobileTourTarget(
+      id: id,
+      inflate: _tourCardInflate,
+      radius: MobileSheetCard.radius + _tourCardInflate.left,
+      clipped: true,
+      child: card,
+    );
+  }
 
   // Saved at once, as on the desktop; taps while one is saving are dropped.
   Future<void> _toggle(OpinionPupil pupil) async
@@ -253,13 +279,13 @@ class _TeacherSheetState extends State<_TeacherSheet>
             size: _faceSize,
           ),
           body: [
-            const SizedBox(height: 18),
-            _buildProfile(),
+            MobileTourOnRise(onRisen: _tour, child: const SizedBox(height: 18)),
+            _lit(kAssociationTourTeacherProfile, _buildProfile()),
             const SizedBox(height: _cardGap),
-            _buildSubjects(),
+            _lit(kAssociationTourTeacherSubjects, _buildSubjects()),
             if (pupils.isNotEmpty) ...[
               const SizedBox(height: _cardGap),
-              _buildOpinion(pupils),
+              _lit(kAssociationTourTeacherOpinion, _buildOpinion(pupils)),
             ],
             const SizedBox(height: 4),
           ],

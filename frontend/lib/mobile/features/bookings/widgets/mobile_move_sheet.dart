@@ -1,25 +1,41 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/bookings/widgets/move_lesson_dialog.dart';
+import '../../../../features/lessons/models/presence_item.dart';
 import '../../../../features/lessons/utils/booking_window.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
-import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
+import '../../../../features/lessons/widgets/band_schedule.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_band_editor.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
-import '../../../shared/widgets/mobile_time_field.dart';
+import '../../../shared/widgets/mobile_tour.dart';
+import '../mobile_bookings_tour.dart';
 import 'mobile_booking_parts.dart';
 
 const Duration _move = Duration(milliseconds: 200);
 
-typedef MobileMoveChoice = ({MoveDay day, MoveOption option, TimeOfDay? start, TimeOfDay? end});
+// A tour counts the hours as changed once they rest this long.
+const Duration _hoursRest = Duration(milliseconds: 700);
 
+const EdgeInsets _tourInflate = EdgeInsets.all(6);
+const double _tourDaysRadius = 20;
+const double _tourOptionsRadius = 25;
+const EdgeInsets _tourButtonInflate = EdgeInsets.all(4);
+const double _tourButtonRadius = 22;
+
+// [hours]: the stretches in the band moved to, the row grown first; empty when none were asked.
+typedef MobileMoveChoice = ({MoveDay day, MoveOption option, List<(TimeOfDay, TimeOfDay)> hours});
+
+// [tourFor]: whose tour explains the sheet, null for none.
 Future<MobileMoveChoice?> showMobileMoveSheet({
   required BuildContext context,
   required DateTime from,
@@ -27,11 +43,19 @@ Future<MobileMoveChoice?> showMobileMoveSheet({
   String? subtitle,
   required int count,
   required List<MoveDay> days,
+  String? tourFor,
 })
 {
   return showMobileSheet<MobileMoveChoice>(
     context: context,
-    builder: (context) => _MoveSheet(from: from, title: title, subtitle: subtitle, count: count, days: days),
+    builder: (context) => _MoveSheet(
+      from: from,
+      title: title,
+      subtitle: subtitle,
+      count: count,
+      days: days,
+      tourFor: tourFor,
+    ),
   );
 }
 
@@ -42,6 +66,7 @@ class _MoveSheet extends StatefulWidget
   final String? subtitle;
   final int count;
   final List<MoveDay> days;
+  final String? tourFor;
 
   const _MoveSheet({
     required this.from,
@@ -49,6 +74,7 @@ class _MoveSheet extends StatefulWidget
     this.subtitle,
     required this.count,
     required this.days,
+    required this.tourFor,
   });
 
   @override
@@ -60,8 +86,10 @@ class _MoveSheetState extends State<_MoveSheet>
   MoveDay? _day;
   MoveOption? _chosen;
 
-  int? _start;
-  int? _end;
+  BandSchedule<PresenceItem> _hours = BandSchedule<PresenceItem>();
+
+  final MoveTourPulse _tourPulse = MoveTourPulse();
+  Timer? _hoursQuiet;
 
   @override
   void initState()
@@ -70,6 +98,109 @@ class _MoveSheetState extends State<_MoveSheet>
 
     _day = widget.days.where((day) => isSameDate(day.day, widget.from) && day.refusal == null).firstOrNull ??
         widget.days.where((day) => day.viable).firstOrNull;
+
+    mobileTourChanges.addListener(_tourLater);
+    _tourLater();
+  }
+
+  @override
+  void dispose()
+  {
+    _hoursQuiet?.cancel();
+    mobileTourChanges.removeListener(_tourLater);
+
+    // Not while the tree is locked: a tour ends, and redraws, on hearing it.
+    final MoveTourPulse pulse = _tourPulse;
+
+    SchedulerBinding.instance.addPostFrameCallback((_)
+    {
+      pulse.leave();
+      pulse.dispose();
+    });
+
+    super.dispose();
+  }
+
+  bool _asksHours(MoveOption? option) => option != null && option.asksHours && option.window != null;
+
+  void _tourLater()
+  {
+    if (widget.tourFor == null)
+    {
+      return;
+    }
+
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _tourCheck())
+      ..scheduleFrame();
+  }
+
+  // Once the sheet stands still, the parts never explained; the hours come when an option shows them.
+  Future<void> _tourCheck() async
+  {
+    final String? taxCode = widget.tourFor;
+
+    if (!mounted || taxCode == null || isMobileTourShown)
+    {
+      return;
+    }
+
+    if (isMobileSheetMoving(context))
+    {
+      _tourLater();
+
+      return;
+    }
+
+    await startMoveTour(
+      taxCode: taxCode,
+      pulse: _tourPulse,
+      hasOptions: () => mounted && (_day?.options.isNotEmpty ?? false),
+      hours: () => mounted && _asksHours(_chosen),
+      hoursMayCome: () => mounted && (_day?.options.any((option) => option.refusal == null && _asksHours(option)) ?? false),
+      bins: () => mounted && _asksHours(_chosen) && _hours.of(_chosen!.band).length > 1,
+    );
+  }
+
+  void _tourUse(MoveMark mark)
+  {
+    _tourPulse.use(mark);
+    _tourLater();
+  }
+
+  void _onBandUsed(MobileBandPart part)
+  {
+    if (part == MobileBandPart.hours)
+    {
+      _hoursQuiet?.cancel();
+      _hoursQuiet = Timer(_hoursRest, _hoursRested);
+    }
+
+    // A second stretch brings the bins: explained then, if never before.
+    if (part == MobileBandPart.add)
+    {
+      _tourLater();
+    }
+  }
+
+  // Not while an hour is being typed: it counts once confirmed.
+  void _hoursRested()
+  {
+    if (!mounted)
+    {
+      return;
+    }
+
+    final BuildContext? focused = FocusManager.instance.primaryFocus?.context;
+
+    if (focused != null && focused.findAncestorStateOfType<EditableTextState>() != null)
+    {
+      _hoursQuiet = Timer(_hoursRest, _hoursRested);
+
+      return;
+    }
+
+    _tourUse(MoveMark.hours);
   }
 
   void _chooseDay(MoveDay day)
@@ -87,9 +218,10 @@ class _MoveSheetState extends State<_MoveSheet>
     {
       _day = day;
       _chosen = null;
-      _start = null;
-      _end = null;
+      _hours = BandSchedule<PresenceItem>();
     });
+
+    _tourUse(MoveMark.days);
   }
 
   void _choose(MoveOption option)
@@ -106,19 +238,10 @@ class _MoveSheetState extends State<_MoveSheet>
     setState(()
     {
       _chosen = option;
-      _start = null;
-      _end = null;
-
-      final OpeningWindow? window = option.window;
-
-      if (option.asksHours && window != null)
-      {
-        final (start, end) = moveHoursFor(window, option.needed, row: option.slot);
-
-        _start = minutesOfTimeOfDay(start);
-        _end = minutesOfTimeOfDay(end);
-      }
+      _hours = moveScheduleFor(option);
     });
+
+    _tourUse(MoveMark.options);
   }
 
   void _confirm()
@@ -133,12 +256,12 @@ class _MoveSheetState extends State<_MoveSheet>
       return;
     }
 
-    final int? start = _start;
-    final int? end = _end;
+    final bool asked = _asksHours(chosen);
+    final String? refusal = asked ? moveHoursRefusal(_hours, chosen) : null;
 
-    if (chosen.asksHours && (start == null || end == null || end - start < chosen.needed))
+    if (refusal != null)
     {
-      MobileNotice.show(context, moveTooShort(chosen.needed), error: true);
+      MobileNotice.show(context, refusal, error: true);
 
       return;
     }
@@ -146,8 +269,7 @@ class _MoveSheetState extends State<_MoveSheet>
     finishMobileSheet<MobileMoveChoice>(context, (
       day: day,
       option: chosen,
-      start: start == null ? null : timeOfDayFromMinutes(start),
-      end: end == null ? null : timeOfDayFromMinutes(end),
+      hours: asked ? moveHoursOf(_hours, chosen.band) : const [],
     ));
   }
 
@@ -250,75 +372,23 @@ class _MoveSheetState extends State<_MoveSheet>
 
   Widget _buildHours(MoveOption option, OpeningWindow window)
   {
-    final int start = _start ?? window.startMinutes;
-    final int end = _end ?? window.endMinutes;
-
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.fromLTRB(14, 8, 12, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.trialInk.withValues(alpha: 0.06)),
-        boxShadow: const [BoxShadow(color: Color(0x14122438), offset: Offset(0, 6), blurRadius: 18)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: 34,
-            child: Row(
-              children: [
-                Text(
-                  bandLabel(option.band).toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1,
-                    color: MobilePalette.mutedText,
-                  ),
-                ),
-                const Spacer(),
-                Icon(lessonModeIcon(option.mode), size: 15, color: MobilePalette.mutedText),
-                const SizedBox(width: 4),
-                Text(
-                  formatMinutesRange(window.startMinutes, window.endMinutes),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: MobilePalette.mutedText,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(height: 1, margin: const EdgeInsets.only(top: 4, bottom: 12), color: AppTheme.trialInk.withValues(alpha: 0.08)),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: MobileTimeField(
-                  label: 'Dalle',
-                  minutes: start,
-                  min: window.startMinutes,
-                  max: end - kMinimumBandMinutes,
-                  onChanged: (value) => setState(() => _start = value),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: MobileTimeField(
-                  label: 'Alle',
-                  minutes: end,
-                  min: start + kMinimumBandMinutes,
-                  max: window.endMinutes,
-                  onChanged: (value) => setState(() => _end = value),
-                ),
-              ),
-            ],
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: MobileBandEditor<PresenceItem>(
+        schedule: _hours,
+        mode: option.mode,
+        bucket: option.band,
+        window: window,
+        shutLabel: '',
+        offLabel: '',
+        fixed: true,
+        onChanged: () => setState(() {}),
+        tour: MobileBandTour(
+          hours: moveTourTarget(MoveMark.hours),
+          add: moveTourTarget(MoveMark.add),
+          bin: moveTourTarget(MoveMark.bin),
+          onUsed: _onBandUsed,
+        ),
       ),
     );
   }
@@ -338,10 +408,19 @@ class _MoveSheetState extends State<_MoveSheet>
       body: [
         const SizedBox(height: 18),
         const MobileFieldHead(kMoveDayLabel),
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          children: [for (final option in widget.days) _buildDay(option)],
+        // Hugging the days, not the sheet's width.
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: MobileTourTarget(
+            id: moveTourTarget(MoveMark.days),
+            inflate: _tourInflate,
+            radius: _tourDaysRadius,
+            child: Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [for (final option in widget.days) _buildDay(option)],
+            ),
+          ),
         ),
         AnimatedSize(
           duration: _move,
@@ -355,16 +434,24 @@ class _MoveSheetState extends State<_MoveSheet>
                   children: [
                     const SizedBox(height: 20),
                     const MobileFieldHead(kMoveTargetLabel),
-                    Wrap(
-                      spacing: kMobileChipGap,
-                      runSpacing: kMobileChipGap,
-                      children: [for (final option in day.options) _buildOption(option)],
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: MobileTourTarget(
+                        id: moveTourTarget(MoveMark.options),
+                        inflate: _tourInflate,
+                        radius: _tourOptionsRadius,
+                        child: Wrap(
+                          spacing: kMobileChipGap,
+                          runSpacing: kMobileChipGap,
+                          children: [for (final option in day.options) _buildOption(option)],
+                        ),
+                      ),
                     ),
                   ],
                 ),
         ),
         _Unfold(
-          child: chosen != null && chosen.asksHours && window != null
+          child: chosen != null && _asksHours(chosen) && window != null
               ? Column(
                   key: const ValueKey('hours'),
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -380,7 +467,12 @@ class _MoveSheetState extends State<_MoveSheet>
       ],
       footer: Padding(
         padding: const EdgeInsets.only(top: 18),
-        child: MobileGoldButton(label: 'Sposta', icon: Icons.swap_horiz_rounded, onPressed: _confirm),
+        child: MobileTourTarget(
+          id: moveTourTarget(MoveMark.confirm),
+          inflate: _tourButtonInflate,
+          radius: _tourButtonRadius,
+          child: MobileGoldButton(label: 'Sposta', icon: Icons.swap_horiz_rounded, onPressed: _confirm),
+        ),
       ),
     );
   }
