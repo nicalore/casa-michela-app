@@ -18,14 +18,11 @@ class HoursGridDay
   // A mode left out does not concern this day.
   final Map<String, Widget> modes;
 
-  final VoidCallback? onTap;
-
   const HoursGridDay({
     required this.title,
     this.subtitle,
     this.isToday = false,
     required this.modes,
-    this.onTap,
   });
 
   String get fullTitle => subtitle == null ? title : '$title $subtitle';
@@ -112,7 +109,7 @@ class HoursGrid extends StatelessWidget
     {
       final inset = (day?.isToday ?? false) ? TodayFrame.rim : 0.0;
 
-      return _tappable(day, Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: inset),
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: _cellPadding - inset, vertical: _cellPadding),
@@ -122,7 +119,7 @@ class HoursGrid extends StatelessWidget
               : null,
           child: child,
         ),
-      ));
+      );
     }
 
     final table = Table(
@@ -227,41 +224,20 @@ class HoursGrid extends StatelessWidget
 
     if (day.isToday)
     {
-      return _tappable(
-        day,
-        TodayFrame(
-          radius: 16,
-          child: Padding(padding: const EdgeInsets.all(_tilePadding - TodayFrame.rim), child: content),
-        ),
+      return TodayFrame(
+        radius: 16,
+        child: Padding(padding: const EdgeInsets.all(_tilePadding - TodayFrame.rim), child: content),
       );
     }
 
-    return _tappable(
-      day,
-      Container(
-        padding: const EdgeInsets.all(_tilePadding),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppTheme.trialLine),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: content,
+    return Container(
+      padding: const EdgeInsets.all(_tilePadding),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppTheme.trialLine),
+        borderRadius: BorderRadius.circular(16),
       ),
-    );
-  }
-
-  static Widget _tappable(HoursGridDay? day, Widget child)
-  {
-    final onTap = day?.onTap;
-
-    if (onTap == null)
-    {
-      return child;
-    }
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: child),
+      child: content,
     );
   }
 
@@ -301,15 +277,12 @@ class HoursGrid extends StatelessWidget
         for (final (i, day) in days.indexed) ...[
           if (i > 0) const SizedBox(height: 8),
           if (day.isToday)
-            _tappable(
-              day,
-              TodayFrame(
-                radius: 12,
-                child: Padding(padding: const EdgeInsets.all(12 - TodayFrame.rim), child: line(day)),
-              ),
+            TodayFrame(
+              radius: 12,
+              child: Padding(padding: const EdgeInsets.all(12 - TodayFrame.rim), child: line(day)),
             )
           else
-            _tappable(day, Padding(padding: const EdgeInsets.all(12), child: line(day))),
+            Padding(padding: const EdgeInsets.all(12), child: line(day)),
         ],
       ],
     );

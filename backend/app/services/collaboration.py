@@ -1,4 +1,4 @@
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from datetime import date, datetime, time
 from typing import Final
 
@@ -19,7 +19,7 @@ from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.repositories.calendar_activity_repository import (
     CalendarActivityRepository,
 )
-from app.services.availability_cleanup import lessons_standing_on
+from app.services.availability_cleanup import PurgedHours, lessons_standing_on
 from app.services.pupil_lock import lock_pupil
 from app.services.role_service import RoleService
 from app.services.schedule_cascade import unassign, unschedule
@@ -195,10 +195,10 @@ async def _drop_idle_rooms(
     await session.flush()
 
 
-# Drops presences and availabilities ahead, with their lessons; the caller commits.
-async def drop_hours_ahead(session: AsyncSession, tax_code: str) -> None:
-    await lock_pupil(session, tax_code)
-
+async def _hours_ahead(
+    session: AsyncSession,
+    tax_code: str,
+) -> tuple[Sequence[Availability], Sequence[Presence]]:
     now = now_in_rome()
     today, clock = now.date(), now.time()
 
@@ -218,6 +218,27 @@ async def drop_hours_ahead(session: AsyncSession, tax_code: str) -> None:
             ),
         )
     ).all()
+
+    return availabilities, presences
+
+
+# What switching the collaboration off would drop.
+async def count_hours_ahead(session: AsyncSession, tax_code: str) -> PurgedHours:
+    availabilities, presences = await _hours_ahead(session, tax_code)
+    lessons = await lessons_standing_on(
+        session,
+        {availability.id for availability in availabilities},
+        {presence.id for presence in presences},
+    )
+
+    return PurgedHours(len(availabilities), len(presences), len(lessons))
+
+
+# Drops presences and availabilities ahead, with their lessons; the caller commits.
+async def drop_hours_ahead(session: AsyncSession, tax_code: str) -> None:
+    await lock_pupil(session, tax_code)
+
+    availabilities, presences = await _hours_ahead(session, tax_code)
 
     if not availabilities and not presences:
         return

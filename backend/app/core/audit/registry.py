@@ -239,6 +239,10 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Enrollment revocation",
         path_params=("tax_code",),
     ),
+    ("PUT", "/people/{tax_code}/collaboration"): AuditRule(
+        "Collaboration change",
+        path_params=("tax_code",),
+    ),
     ("PUT", "/people/{tax_code}/teacher-competences"): AuditRule(
         "Teacher competences modification",
         path_params=("tax_code",),

@@ -2860,17 +2860,9 @@ async def update_person_memberships(
             detail=_MEMBERSHIP_ALREADY_REVOKED_ERROR,
         )
 
-    was_collaborating = member.collaborating_active
-
-    if payload.collaborating_active is not None:
-        member.collaborating_active = payload.collaborating_active
-
     member.updated_at = datetime.now(UTC)
 
     await _rewrite_memberships(db, person.tax_code, payload.memberships)
-
-    if was_collaborating and not member.collaborating_active:
-        await stop_collaboration(db, member)
 
     await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
 

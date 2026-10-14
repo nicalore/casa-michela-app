@@ -30,6 +30,7 @@ from app.api import (
     opening_days,
     people,
     person_accounts,
+    person_collaboration,
     presences,
     room_supervisions,
     rooms,
@@ -130,6 +131,7 @@ app.include_router(ministry_subjects.router)
 app.include_router(opening_days.router)
 app.include_router(people.router)
 app.include_router(person_accounts.router)
+app.include_router(person_collaboration.router)
 app.include_router(methodological_notes.router)
 app.include_router(technical_notes.router)
 app.include_router(teacher_notes.router)

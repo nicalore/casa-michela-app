@@ -458,8 +458,6 @@ class MembershipUpdateItem(BaseModel):
 
 
 class PersonMembershipsUpdate(BaseModel):
-    # Set only from the memberships menu; the person form leaves it out.
-    collaborating_active: bool | None = None
     memberships: list[MembershipUpdateItem]
 
     payment_method: str | None = None

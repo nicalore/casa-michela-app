@@ -25,7 +25,8 @@ from app.services.calendar_snapshot import snapshot_of
 # Single rule, written once, for what a change of opening hours does to a
 # published calendar: moved hours send the band back to draft; removed hours delete it.
 
-_LOST_ERROR: Final[str] = "write_would_take_away"
+# Shared with every write refused until its losses are confirmed.
+LOST_ERROR: Final[str] = "write_would_take_away"
 
 _ONE_LOST: Final[str] = (
     "Il calendario del {days} è pubblicato. Salvando, le lezioni che docenti, "
@@ -98,7 +99,7 @@ class WriteWouldTakeAway(HTTPException):
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "error": _LOST_ERROR,
+                "error": LOST_ERROR,
                 "message": " ".join(said),
                 "lost": [
                     {

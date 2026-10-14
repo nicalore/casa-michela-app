@@ -160,52 +160,72 @@ mixin PersonAccountActions<T extends StatefulWidget> on State<T>
     required String confirmLabel,
     required IconData confirmIcon,
     required bool danger,
-  }) async
+  })
   {
-    final confirmed = await showBlurredDialog<bool>(
-      context: context,
-      barrierLabel: 'ConfirmAccountAction',
-      builder: (dialogContext) => AppDialogStack(
-        eyebrow: eyebrow,
-        title: 'Confermi?',
-        showClose: false,
-        maxWidth: _confirmWidth,
-        footer: AppDialogFooter(
-          secondary: AppGradientButton(
-            label: 'ANNULLA',
-            icon: Icons.close_rounded,
-            gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
-            height: kPersonDialogButtonHeight,
-            fontSize: kPersonDialogButtonFontSize,
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-          ),
-          primary: AppGradientButton(
-            label: confirmLabel,
-            icon: confirmIcon,
-            gradient: danger ? AppTheme.dangerGradient : AppTheme.brandGradient,
-            accent: danger ? AppTheme.trialDanger : AppTheme.trialTealDeep,
-            height: kPersonDialogButtonHeight,
-            fontSize: kPersonDialogButtonFontSize,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-          ),
+    return askPersonConfirmation(
+      context,
+      eyebrow: eyebrow,
+      message: message,
+      confirmLabel: confirmLabel,
+      confirmIcon: confirmIcon,
+      danger: danger,
+    );
+  }
+}
+
+// «Confermi?» with ANNULLA and the given action; true only when confirmed.
+Future<bool> askPersonConfirmation(
+  BuildContext context, {
+  required String eyebrow,
+  required List<InlineSpan> message,
+  required String confirmLabel,
+  required IconData confirmIcon,
+  required bool danger,
+}) async
+{
+  final confirmed = await showBlurredDialog<bool>(
+    context: context,
+    barrierLabel: 'ConfirmPersonAction',
+    builder: (dialogContext) => AppDialogStack(
+      eyebrow: eyebrow,
+      title: 'Confermi?',
+      showClose: false,
+      maxWidth: _confirmWidth,
+      footer: AppDialogFooter(
+        secondary: AppGradientButton(
+          label: 'ANNULLA',
+          icon: Icons.close_rounded,
+          gradient: AppTheme.dismissGradient,
+          accent: AppTheme.trialViolet,
+          height: kPersonDialogButtonHeight,
+          fontSize: kPersonDialogButtonFontSize,
+          onPressed: () => Navigator.of(dialogContext).pop(false),
         ),
-        children: [
-          AppDialogPill(
-            child: Text.rich(
-              TextSpan(children: message),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                height: 1.45,
-                color: AppTheme.trialInk,
-              ),
+        primary: AppGradientButton(
+          label: confirmLabel,
+          icon: confirmIcon,
+          gradient: danger ? AppTheme.dangerGradient : AppTheme.brandGradient,
+          accent: danger ? AppTheme.trialDanger : AppTheme.trialTealDeep,
+          height: kPersonDialogButtonHeight,
+          fontSize: kPersonDialogButtonFontSize,
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+        ),
+      ),
+      children: [
+        AppDialogPill(
+          child: Text.rich(
+            TextSpan(children: message),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              color: AppTheme.trialInk,
             ),
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  );
 
-    return confirmed == true;
-  }
+  return confirmed == true;
 }

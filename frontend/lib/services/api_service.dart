@@ -2889,7 +2889,6 @@ class ApiService
 
   Future<void> updatePersonMemberships(
     String fiscalCode,
-    bool collaboratingActive,
     List<Map<String, dynamic>> memberships,
     DateTime? expectedUpdatedAt,
   ) async
@@ -2899,7 +2898,6 @@ class ApiService
       await _dio.put(
         '/people/$fiscalCode/memberships',
         data: {
-          'collaborating_active': collaboratingActive,
           'memberships': memberships,
           if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
         },
@@ -2908,6 +2906,26 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore imprevisto durante l\'aggiornamento delle iscrizioni. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetPeople();
+    }
+  }
+
+  // Switching off with hours ahead is refused with WriteWouldTakeAway until confirmed.
+  Future<void> setCollaboration(String fiscalCode, {required bool active, bool confirm = false}) async
+  {
+    try
+    {
+      await _dio.put(
+        '/people/$fiscalCode/collaboration',
+        data: {'active': active, 'confirm': confirm},
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
     }
     finally
     {

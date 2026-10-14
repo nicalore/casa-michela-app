@@ -9,27 +9,40 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
-import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
-import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/card_scroll_area.dart';
+import '../../association/tabs/opening_hours/hours_grid.dart' show TodayFrame;
 import '../models/membership_item.dart';
 import '../models/person_item.dart';
+import '../widgets/collaboration_badge.dart';
 import '../widgets/membership_edit_row.dart';
 import '../widgets/person_detail_widgets.dart';
 
-const double _statusCardWidth = 500;
-
 const double _cardsWidth = 1600;
 
-const Color _collaboratingSurface = Color(0xFFE8F7F5);
+const double _cardPadding = 26;
+const double _cardRadius = 32;
+const double _headerHeight = 64;
+const double _headerGap = 18;
+const double _rowRadius = 20;
+const double _currentPaddingH = 24;
+const double _currentPaddingV = 15;
+const double _tableHeadHeight = 38;
+const double _tableRowHeight = 46;
+const double _tablePaddingH = 24;
+const double _tableBorder = 1.5;
+
 const Color _revokedSurface = Color(0xFFFBEDEA);
+const Color _revokedRowSurface = Color(0xFFFDF4F2);
+const Color _tableHeadSurface = Color(0xFFF5F8F8);
+const Color _tableRule = Color(0xFFEDF2F1);
 
 const Map<String, String> _revocationLabels = {
   MembershipItem.revocationExpulsion: 'Espulsione',
@@ -48,16 +61,27 @@ String membershipStatusLabel({required bool isEnrolled, required bool isFemale})
       : (isFemale ? 'Non iscritta' : 'Non iscritto');
 }
 
-String collaborationStatusLabel({required bool isActive, required bool isFemale})
-{
-  return isActive
-      ? (isFemale ? 'Collaboratrice attiva' : 'Collaboratore attivo')
-      : 'Non collaborante';
-}
-
 String revokedMembershipLabel(MembershipItem membership)
 {
   return 'Iscrizione revocata (${_revocationLabels[membership.revocation] ?? membership.revocation})';
+}
+
+TextStyle _labelStyle(double size)
+{
+  return GoogleFonts.plusJakartaSans(
+    fontSize: size,
+    fontWeight: FontWeight.w600,
+    color: AppTheme.trialMutedText,
+  );
+}
+
+TextStyle _valueStyle(double size, {bool strong = false, Color? color})
+{
+  return GoogleFonts.plusJakartaSans(
+    fontSize: size,
+    fontWeight: strong ? FontWeight.w800 : FontWeight.w700,
+    color: color ?? (strong ? AppTheme.trialOcean : AppTheme.trialInk),
+  );
 }
 
 // A membership counts as running until the renewal window has passed, not on the end date itself.
@@ -68,16 +92,20 @@ class PersonMembershipsTab extends StatelessWidget
   // Null for read-only viewers (e.g. a parent): hides the edit button.
   final VoidCallback? onUpdate;
 
+  // After the collaboration badge changed it; a quiet refresh keeps the badge on screen.
+  final VoidCallback? onCollaborationChanged;
+
   // Revoking your own membership is not allowed, so the button is hidden.
   final bool isOwnProfile;
 
-  // Rendered under the actions, inside the scroll.
+  // Rendered under the card, inside the scroll.
   final Widget? footer;
 
   const PersonMembershipsTab({
     super.key,
     required this.person,
     this.onUpdate,
+    this.onCollaborationChanged,
     this.isOwnProfile = false,
     this.footer,
   });
@@ -100,136 +128,14 @@ class PersonMembershipsTab extends StatelessWidget
     );
   }
 
-  Widget _buildStatusCard({
-    required bool isEnrolled,
-    required bool isFemale,
-    required bool isActiveCollaborator,
-    required bool showCollaboration,
-  })
+  // Null when there is nothing to act on: a revoked membership is frozen.
+  Widget? _buildActions(BuildContext context, {required bool isRevoked, required bool hasAny})
   {
-    final statusText = membershipStatusLabel(isEnrolled: isEnrolled, isFemale: isFemale);
+    if (onUpdate == null || isRevoked || !hasAny)
+    {
+      return null;
+    }
 
-    final collaborationText =
-        collaborationStatusLabel(isActive: isActiveCollaborator, isFemale: isFemale);
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _statusCardWidth),
-        child: SelectionArea(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isEnrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                      color: isEnrolled ? AppTheme.trialSeaGreen : AppTheme.trialDanger,
-                      size: 30,
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        statusText,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.trialOcean,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (showCollaboration) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isActiveCollaborator ? _collaboratingSurface : AppTheme.trialPaper,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isActiveCollaborator
-                              ? Icons.handshake_rounded
-                              : Icons.work_off_rounded,
-                          color: isActiveCollaborator
-                              ? AppTheme.trialTealDeep
-                              : AppTheme.trialMutedText,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            collaborationText,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: isActiveCollaborator
-                                  ? AppTheme.trialTealDeep
-                                  : AppTheme.trialMutedText,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMembershipCard(MembershipItem membership, {required bool isCurrent})
-  {
-    final isRevoked = membership.isRevoked;
-    final deadline = membership.endDate.add(Duration(days: membership.renewalPeriodDays));
-
-    return AppCard(
-      title: 'Anno ${membership.year}',
-      compact: true,
-      leading: AppCardBadge(
-        icon: isCurrent ? Icons.workspace_premium_rounded : Icons.history_rounded,
-        compact: true,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isRevoked) ...[
-            Center(child: _RevokedNotice(text: revokedMembershipLabel(membership))),
-            const SizedBox(height: 20),
-          ],
-          PersonFactsRow(
-            facts: [
-              PersonFact('Data inizio', _dateFormat.format(membership.startDate)),
-              PersonFact('Data fine', _dateFormat.format(membership.endDate)),
-              if (isCurrent)
-                PersonFact(
-                  'Rinnovo entro',
-                  isRevoked ? missingValue : _dateFormat.format(deadline),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActions(BuildContext context)
-  {
     final Widget edit = AppGradientButton(
       label: 'MODIFICA ISCRIZIONI',
       icon: Icons.edit_rounded,
@@ -259,6 +165,240 @@ class PersonMembershipsTab extends StatelessWidget
     );
   }
 
+  Widget _buildStatus({required bool isEnrolled, required bool isFemale})
+  {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isEnrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
+          color: isEnrolled ? AppTheme.trialSeaGreen : AppTheme.trialDanger,
+          size: 30,
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            membershipStatusLabel(isEnrolled: isEnrolled, isFemale: isFemale),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.trialOcean,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Only the administrator's editable view shows the collaboration.
+  Widget? _buildBadge({required bool isEnrolled, required bool isRevoked, required bool isFemale})
+  {
+    if (onUpdate == null)
+    {
+      return null;
+    }
+
+    final bool locked = isRevoked || !isEnrolled;
+
+    return SelectionContainer.disabled(
+      child: CollaborationBadge(
+        person: person,
+        // Collaboration only counts while the membership is running.
+        isActive: isEnrolled && (person.isActiveCollaborator ?? false),
+        lockedTip: locked
+            ? collaborationLockedTip(isRevoked: isRevoked, isFemale: isFemale)
+            : null,
+        onChanged: onCollaborationChanged ?? onUpdate,
+      ),
+    );
+  }
+
+  // Without buttons the status sits in the middle of the card.
+  Widget _buildHeader(BuildContext context, MembershipItem? latest)
+  {
+    final bool isRevoked = latest != null && latest.isRevoked;
+    final bool isEnrolled = person.isEnrolled;
+    final bool isFemale = person.gender == 'F';
+
+    final List<Widget> status = [
+      _buildStatus(isEnrolled: isEnrolled, isFemale: isFemale),
+      ?_buildBadge(isEnrolled: isEnrolled, isRevoked: isRevoked, isFemale: isFemale),
+      if (latest != null && latest.isRevoked) _RevokedNotice(text: revokedMembershipLabel(latest)),
+    ];
+
+    final Widget? actions = _buildActions(context, isRevoked: isRevoked, hasAny: latest != null);
+
+    if (actions == null)
+    {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: _headerHeight),
+        child: Center(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: _headerGap,
+            runSpacing: 12,
+            children: status,
+          ),
+        ),
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: _headerHeight),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: _headerGap,
+        runSpacing: 16,
+        children: [
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: _headerGap,
+            runSpacing: 12,
+            children: status,
+          ),
+          SelectionContainer.disabled(child: actions),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEyebrow(String text)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        text.toUpperCase(),
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.6,
+          color: AppTheme.trialMutedText,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrent(MembershipItem membership)
+  {
+    final deadline = membership.endDate.add(Duration(days: membership.renewalPeriodDays));
+
+    Widget fact(String label, String value, {bool strong = false})
+    {
+      return Expanded(
+        child: Column(
+          children: [
+            Text(label, textAlign: TextAlign.center, style: _labelStyle(14)),
+            const SizedBox(height: 5),
+            Text(value, textAlign: TextAlign.center, style: _valueStyle(strong ? 20 : 18, strong: strong)),
+          ],
+        ),
+      );
+    }
+
+    return TodayFrame(
+      radius: _rowRadius,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: _currentPaddingH - TodayFrame.rim,
+          vertical: _currentPaddingV - TodayFrame.rim,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            fact('Anno', '${membership.year}', strong: true),
+            fact('Data inizio', _dateFormat.format(membership.startDate)),
+            fact('Data fine', _dateFormat.format(membership.endDate)),
+            fact('Rinnovo entro', _dateFormat.format(deadline)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPastTable(List<MembershipItem> past)
+  {
+    Widget cell(Widget child) => Expanded(child: Center(child: child));
+
+    Widget row(MembershipItem membership, {required bool first})
+    {
+      final bool revoked = membership.isRevoked;
+      final Color? tint = revoked ? AppTheme.trialDanger : null;
+
+      return Container(
+        height: _tableRowHeight,
+        color: revoked ? _revokedRowSurface : null,
+        padding: const EdgeInsets.symmetric(horizontal: _tablePaddingH - _tableBorder),
+        child: Stack(
+          children: [
+            if (!first)
+              const Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: Divider(height: 1, thickness: 1, color: _tableRule),
+              ),
+            Row(
+              children: [
+                cell(
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (revoked) ...[
+                        AppTooltip(
+                          message: revokedMembershipLabel(membership),
+                          child: const Icon(Icons.gavel_rounded, size: 17, color: AppTheme.trialDanger),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Flexible(
+                        child: Text('${membership.year}', style: _valueStyle(17, strong: true, color: tint)),
+                      ),
+                    ],
+                  ),
+                ),
+                cell(Text(_dateFormat.format(membership.startDate), style: _valueStyle(17, color: tint))),
+                cell(Text(_dateFormat.format(membership.endDate), style: _valueStyle(17, color: tint))),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(_rowRadius),
+        border: Border.all(color: AppTheme.trialLine, width: _tableBorder),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_rowRadius - _tableBorder),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              height: _tableHeadHeight,
+              padding: const EdgeInsets.symmetric(horizontal: _tablePaddingH - _tableBorder),
+              decoration: const BoxDecoration(
+                color: _tableHeadSurface,
+                border: Border(bottom: BorderSide(color: AppTheme.trialLine)),
+              ),
+              child: Row(
+                children: [
+                  cell(Text('Anno', style: _labelStyle(13))),
+                  cell(Text('Data inizio', style: _labelStyle(13))),
+                  cell(Text('Data fine', style: _labelStyle(13))),
+                ],
+              ),
+            ),
+            for (var i = 0; i < past.length; i++) row(past[i], first: i == 0),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -267,14 +407,41 @@ class PersonMembershipsTab extends StatelessWidget
 
     final latest = memberships.isNotEmpty ? memberships.first : null;
 
-    final isRevoked = latest != null && latest.isRevoked;
-    final isEnrolled = person.isEnrolled;
-
     // Only the most recent membership can be the running one.
-    final currentMembership = isEnrolled ? latest : null;
-    final pastMemberships = isEnrolled ? memberships.skip(1).toList() : memberships;
+    final currentMembership = person.isEnrolled ? latest : null;
+    final pastMemberships = person.isEnrolled ? memberships.skip(1).toList() : memberships;
 
-    final isFemale = person.gender == 'F';
+    final Widget card = Container(
+      padding: const EdgeInsets.all(_cardPadding),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_cardRadius),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: SelectionArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(context, latest),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+            ),
+            if (currentMembership != null) ...[
+              _buildEyebrow('Iscrizione attuale'),
+              _buildCurrent(currentMembership),
+              if (pastMemberships.isNotEmpty) const SizedBox(height: 24),
+            ],
+            if (pastMemberships.isNotEmpty) ...[
+              _buildEyebrow('Iscrizioni passate'),
+              _buildPastTable(pastMemberships),
+            ],
+            if (latest == null) const PersonEmptyState(message: kNoMembershipsMessage),
+          ],
+        ),
+      ),
+    );
 
     return ScrollEdgeFade(
       child: SingleChildScrollView(
@@ -285,35 +452,7 @@ class PersonMembershipsTab extends StatelessWidget
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
-                _buildStatusCard(
-                  isEnrolled: isEnrolled,
-                  isFemale: isFemale,
-                  // Collaboration only counts while the membership is running.
-                  isActiveCollaborator: isEnrolled && (person.isActiveCollaborator ?? false),
-                  // Only the administrator's editable view shows it.
-                  showCollaboration: onUpdate != null,
-                ),
-                const SizedBox(height: kPersonSectionGap),
-                if (currentMembership != null) ...[
-                  const PersonSectionTitle('Iscrizione attuale'),
-                  const SizedBox(height: kPersonTitleGap),
-                  _buildMembershipCard(currentMembership, isCurrent: true),
-                  const SizedBox(height: kPersonSectionGap),
-                ],
-                if (pastMemberships.isNotEmpty) ...[
-                  const PersonSectionTitle('Iscrizioni passate'),
-                  const SizedBox(height: kPersonTitleGap),
-                  for (var i = 0; i < pastMemberships.length; i++) ...[
-                    if (i > 0) const SizedBox(height: kPersonCardGap),
-                    _buildMembershipCard(pastMemberships[i], isCurrent: false),
-                  ],
-                ],
-                if (currentMembership == null && pastMemberships.isEmpty)
-                  const PersonEmptyState(message: kNoMembershipsMessage),
-                if (!isRevoked && latest != null && onUpdate != null) ...[
-                  const SizedBox(height: kPersonSectionGap),
-                  Center(child: _buildActions(context)),
-                ],
+                card,
                 if (footer != null) ...[
                   const SizedBox(height: kPersonSectionGap),
                   footer!,
@@ -337,10 +476,11 @@ class _RevokedNotice extends StatelessWidget
   Widget build(BuildContext context)
   {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: _revokedSurface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(17),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -552,15 +692,12 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
   final List<_MembershipRowData> _rows = [];
   final Map<String, String> _errors = {};
 
-  late bool _isActiveCollaborator;
   bool _isSaving = false;
 
   @override
   void initState()
   {
     super.initState();
-
-    _isActiveCollaborator = widget.person.isActiveCollaborator ?? false;
 
     for (final membership in widget.person.memberships ?? <MembershipItem>[])
     {
@@ -710,30 +847,6 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     return payload;
   }
 
-  bool _hasRunningMembership(List<Map<String, dynamic>> payload)
-  {
-    for (final membership in payload)
-    {
-      if (membership['revocation'] != MembershipItem.revocationNone)
-      {
-        continue;
-      }
-
-      final endDate = DateTime.tryParse(membership['end_date'] as String);
-
-      if (endDate != null &&
-          MembershipItem.isWithinRenewalWindow(
-            endDate,
-            membership['renewal_period_days'] as int,
-          ))
-      {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
   Future<void> _save() async
   {
     if (_rows.isEmpty)
@@ -761,25 +874,12 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
 
     final payload = _buildPayload();
 
-    if (_isActiveCollaborator && !_hasRunningMembership(payload))
-    {
-      CustomSnackBar.show(
-        context: context,
-        message: 'Impossibile impostare "Collaboratore attivo" senza '
-            "un'iscrizione in corso.",
-        isError: true,
-      );
-
-      return;
-    }
-
     setState(() => _isSaving = true);
 
     try
     {
       await _apiService.updatePersonMemberships(
         widget.person.fiscalCode,
-        _isActiveCollaborator,
         payload,
         widget.person.memberUpdatedAt,
       );
@@ -830,23 +930,6 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
         ),
       ),
       children: [
-        AppDialogPill(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const AppFieldLabel('Collaboratore attivo'),
-              const SizedBox(height: 12),
-              AppSegmentedSwitch(
-                value: _isActiveCollaborator,
-                trueLabel: 'Sì',
-                falseLabel: 'No',
-                hugContent: true,
-                onChanged: (value) => setState(() => _isActiveCollaborator = value),
-              ),
-            ],
-          ),
-        ),
         AppDialogPill(
           expand: true,
           child: Column(

@@ -111,13 +111,17 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return _currentUser!.taxCode.toUpperCase() == _person!.fiscalCode.toUpperCase();
   }
 
-  Future<void> _fetchPersonData() async
+  // Quiet: the page stays as it is until the record arrives, and a failure keeps it.
+  Future<void> _fetchPersonData({bool quiet = false}) async
   {
-    setState(()
+    if (!quiet)
     {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+      setState(()
+      {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try
     {
@@ -143,7 +147,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
     catch (e)
     {
-      if (mounted)
+      if (mounted && !quiet)
       {
         setState(()
         {
@@ -208,6 +212,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         view: PersonMembershipsTab(
           person: person,
           onUpdate: _fetchPersonData,
+          onCollaborationChanged: () => _fetchPersonData(quiet: true),
           isOwnProfile: _isOwnProfile,
         ),
       ));

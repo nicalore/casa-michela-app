@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -30,6 +31,20 @@ final GlobalKey dialogBackdropKey = GlobalKey(debugLabel: 'dialogBackdrop');
 
 // True from a dialog's push until it is gone, closing animation included.
 bool get isBlurredDialogOpen => _BlurredDialogRoute._open.isNotEmpty;
+
+// Completes once every blurred dialog is gone, closing animation included.
+Future<void> blurredDialogsGone()
+{
+  if (_BlurredDialogRoute._open.isEmpty)
+  {
+    return Future.value();
+  }
+
+  final Completer<void> gone = Completer<void>();
+  _BlurredDialogRoute._waiting.add(gone);
+
+  return gone.future;
+}
 
 Future<T?> showBlurredDialog<T>({
   required BuildContext context,
@@ -66,6 +81,8 @@ class _BlurredDialogRoute<T> extends PopupRoute<T>
 
   static final List<_BlurredDialogRoute<dynamic>> _open = [];
 
+  static final List<Completer<void>> _waiting = [];
+
   _BlurredDialogRoute({
     required this.builder,
     required this.label,
@@ -93,6 +110,17 @@ class _BlurredDialogRoute<T> extends PopupRoute<T>
   void dispose()
   {
     _open.remove(this);
+
+    if (_open.isEmpty)
+    {
+      for (final Completer<void> gone in _waiting)
+      {
+        gone.complete();
+      }
+
+      _waiting.clear();
+    }
+
     super.dispose();
   }
 

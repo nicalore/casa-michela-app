@@ -26,8 +26,6 @@ class CombinedWeekCard extends StatelessWidget
   final VoidCallback onNextWeek;
   final ValueChanged<DateTime> onPickDay;
 
-  final ValueChanged<DateTime>? onDayTap;
-
   const CombinedWeekCard({
     super.key,
     required this.weekStart,
@@ -36,7 +34,6 @@ class CombinedWeekCard extends StatelessWidget
     required this.onPreviousWeek,
     required this.onNextWeek,
     required this.onPickDay,
-    this.onDayTap,
   });
 
   HoursWeekNav _weekNav({required bool stacked})
@@ -93,14 +90,11 @@ class CombinedWeekCard extends StatelessWidget
 
   HoursGridDay _gridDay(CombinedDay day)
   {
-    final onDayTap = this.onDayTap;
-
     return HoursGridDay(
       title: weekdayFullName(day.date.weekday),
       subtitle: formatDayMonthFull(day.date),
       isToday: isSameDate(day.date, romeNow()),
       modes: {for (final mode in kHoursModes) mode: _modeHours(day.of(mode))},
-      onTap: onDayTap == null ? null : () => onDayTap(day.date),
     );
   }
 

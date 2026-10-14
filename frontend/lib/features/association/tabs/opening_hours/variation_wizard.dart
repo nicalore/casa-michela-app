@@ -41,14 +41,11 @@ class VariationWizard extends StatefulWidget
 
   final CombinedVariation? initial;
 
-  final DateTime? day;
-
   const VariationWizard({
     super.key,
     required this.standardTemplates,
     required this.onSaved,
     this.initial,
-    this.day,
   });
 
   @override
@@ -82,12 +79,6 @@ class _VariationWizardState extends State<VariationWizard>
   void initState()
   {
     super.initState();
-
-    if (widget.day case final day?)
-    {
-      _fromCtrl.text = formatDateString(day);
-      _toCtrl.text = formatDateString(day);
-    }
 
     final initial = widget.initial;
 

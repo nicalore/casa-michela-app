@@ -221,7 +221,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
     );
   }
 
-  void _openVariationWizard({CombinedVariation? initial, DateTime? day})
+  void _openVariationWizard({CombinedVariation? initial})
   {
     showBlurredDialog(
       context: context,
@@ -229,19 +229,9 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       builder: (_) => VariationWizard(
         standardTemplates: widget.weeklyTemplates,
         initial: initial,
-        day: day,
         onSaved: _reloadAll,
       ),
     );
-  }
-
-  void _openDay(DateTime day)
-  {
-    final run = CombinedVariation.from(_upcomingVariations)
-        .where((run) => !run.isHoliday && !day.isBefore(run.start) && !day.isAfter(run.end))
-        .firstOrNull;
-
-    _openVariationWizard(initial: run, day: run == null ? day : null);
   }
 
   // Must go through the server: deleting rows locally would leave days with no hours.
@@ -393,7 +383,6 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
               onPreviousWeek: _goToPreviousWeek,
               onNextWeek: _goToNextWeek,
               onPickDay: _goToWeekOf,
-              onDayTap: _isAdmin ? _openDay : null,
             ),
           ),
           const SizedBox(height: kHoursCardGap),
