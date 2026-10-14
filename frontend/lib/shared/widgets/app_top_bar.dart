@@ -18,6 +18,7 @@ import 'app_section_rail.dart';
 import 'app_top_nav.dart';
 import 'birthday_confetti.dart';
 import 'desktop_tour.dart';
+import 'halloween_bats.dart';
 import 'overflow_tooltip_text.dart';
 import 'page_transition.dart';
 import 'role_switch_dialog.dart';
@@ -652,24 +653,31 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  // Always in the stack, empty on an ordinary day: a layer coming and going would re-pair the bar.
-  // The source stops short of the pill's rounded ends.
-  Widget _buildConfetti(AppWindowSize size, double width)
+  // The bar in page coordinates, stopping short of the pill's rounded ends.
+  Rect _celebrationSource(AppWindowSize size, double width)
   {
     final double margin = AppBreakpoints.pageMargin(size);
     final double top = _topMarginFor(size);
     final double height = _barHeightFor(size);
 
+    return Rect.fromLTRB(margin + height / 2, top, width - margin - height / 2, top + height);
+  }
+
+  // Always in the stack, empty on an ordinary day: a layer coming and going would re-pair the bar.
+  Widget _buildConfetti(AppWindowSize size, double width)
+  {
     return Positioned.fill(
-      child: BirthdayConfetti(
-        user: _user!,
-        source: Rect.fromLTRB(
-          margin + height / 2,
-          top,
-          width - margin - height / 2,
-          top + height,
-        ),
-      ),
+      child: BirthdayConfetti(user: _user!, source: _celebrationSource(size, width)),
+    );
+  }
+
+  // Only the homes fly them.
+  Widget _buildBats(AppWindowSize size, double width)
+  {
+    return Positioned.fill(
+      child: homeByRole.containsValue(widget.currentRoute)
+          ? HalloweenBats(user: _user!, source: _celebrationSource(size, width))
+          : const SizedBox.shrink(),
     );
   }
 
@@ -754,6 +762,7 @@ class _AppTopBarState extends State<AppTopBar>
                 ),
               ),
               _buildConfetti(size, constraints.maxWidth),
+              _buildBats(size, constraints.maxWidth),
               _buildBar(size),
               _buildMenu(size),
               _buildDrawer(size),

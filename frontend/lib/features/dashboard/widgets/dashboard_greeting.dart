@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/birthday.dart';
+import '../../../core/utils/halloween.dart';
 import '../../../core/utils/rome_clock.dart';
 
 const int _morningStart = 6;
@@ -14,6 +15,11 @@ String greetingLineFor({required String firstName, DateTime? birthDate, required
   if (isBirthdayToday(birthDate, now))
   {
     return 'Buon compleanno, $firstName!';
+  }
+
+  if (isHalloweenToday(now))
+  {
+    return 'Dolcetto o scherzetto, $firstName?';
   }
 
   final hour = now.hour;
@@ -59,14 +65,14 @@ class DashboardGreeting extends StatelessWidget
     this.alignment = Alignment.centerLeft,
   });
 
-  String _greeting()
-  {
-    return greetingLineFor(firstName: firstName, birthDate: birthDate, now: romeNow());
-  }
-
   @override
   Widget build(BuildContext context)
   {
+    final DateTime now = romeNow();
+    final LinearGradient gradient = text == null && isHalloweenFor(birthDate, now)
+        ? AppTheme.halloweenGreetingGradient
+        : AppTheme.greetingGradient;
+
     return Align(
       alignment: alignment,
       child: FittedBox(
@@ -75,9 +81,9 @@ class DashboardGreeting extends StatelessWidget
         // box and erases descenders.
         child: ShaderMask(
           blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => AppTheme.greetingGradient.createShader(bounds),
+          shaderCallback: (bounds) => gradient.createShader(bounds),
           child: Text(
-            text ?? _greeting(),
+            text ?? greetingLineFor(firstName: firstName, birthDate: birthDate, now: now),
             style: GoogleFonts.plusJakartaSans(
               fontSize: fontSize,
               fontWeight: FontWeight.w700,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/halloween.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../features/dashboard/widgets/dashboard_greeting.dart';
@@ -85,7 +86,7 @@ class MobileHomeFrame extends StatelessWidget
             fontWeight: FontWeight.w800,
             letterSpacing: -0.4,
             height: 1.05,
-            color: Colors.white,
+            color: isHalloweenFor(birthDate, now) ? AppTheme.halloweenPumpkinLight : Colors.white,
           ),
         ),
       ],

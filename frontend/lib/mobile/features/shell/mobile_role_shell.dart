@@ -7,6 +7,7 @@ import '../../../features/auth/models/me_response.dart';
 import '../../../services/api_service.dart';
 import '../../shared/navigation/mobile_destinations.dart';
 import '../../shared/widgets/mobile_birthday_confetti.dart';
+import '../../shared/widgets/mobile_halloween_bats.dart';
 import '../../shared/widgets/mobile_handover.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
@@ -453,6 +454,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
               ),
               // Outside the page switcher, so a page change never restarts the shower.
               const MobileBirthdayConfetti(),
+              MobileHalloweenBats(onHome: _destination == kMobileHomeSlug),
               MobileHandoverBar(
                 head: MobileNavHead(destination: current),
                 child: MobileNavSheet(

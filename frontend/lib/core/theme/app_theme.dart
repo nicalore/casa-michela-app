@@ -82,6 +82,16 @@ abstract final class AppTheme
     stops: [0.15, 0.95],
   );
 
+  static const Color halloweenPumpkin = Color(0xFFD9650F);
+
+  // The pumpkin lightened for the dark mobile backdrop.
+  static const Color halloweenPumpkinLight = Color(0xFFFFA24C);
+
+  static const LinearGradient halloweenGreetingGradient = LinearGradient(
+    colors: [halloweenPumpkin, trialViolet],
+    stops: [0.15, 0.95],
+  );
+
   static const LinearGradient dangerGradient = LinearGradient(
     colors: [trialDanger, trialDangerLight],
     stops: [0.15, 0.95],
