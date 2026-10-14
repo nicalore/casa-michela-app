@@ -45,6 +45,40 @@ abstract final class AppTheme
 
   static const Color todaySurface = Color(0xFFEAF7F5);
 
+  // Statistics charts: the greeting's ocean and violet, never presence teal or online gold.
+  static const Color chartOcean = Color(0xFF4077B3);
+  static const Color chartViolet = trialViolet;
+  static const Color chartNavy = trialOcean;
+  static const Color chartLilac = Color(0xFFAE8ED0);
+
+  // A lone series runs from ocean to violet, as the greeting does.
+  static const LinearGradient chartLineGradient = LinearGradient(colors: [chartOcean, chartViolet]);
+
+  static const LinearGradient chartBarGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [chartViolet, chartNavy],
+  );
+
+  // Ocean and violet lightened for the dark tooltip surface.
+  static const Color chartOceanOnDark = Color(0xFFA8D0FA);
+  static const Color chartVioletOnDark = Color(0xFFA97CD9);
+
+  // Slices that stand for "none" or "other".
+  static const Color chartGray = slate400;
+  static const Color chartGrayLight = Color(0xFFCBD5E1);
+
+  // Ordered categories (age groups), lightest first.
+  static const List<Color> chartRamp = [
+    Color(0xFF77B5FB),
+    Color(0xFF6F9AE4),
+    Color(0xFF687FCC),
+    Color(0xFF6165B3),
+    Color(0xFF584C98),
+    Color(0xFF4E347D),
+    Color(0xFF421B62),
+  ];
+
   // Legacy blue palette, still read by pages not yet on the trial colours.
 
   static const Color primary = Color(0xFF003C82);

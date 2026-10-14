@@ -1,7 +1,7 @@
 from collections import Counter, defaultdict
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -28,6 +28,7 @@ from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
+from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_publication import CalendarPublication
 from app.models.course_participant import CourseParticipant
 from app.models.lesson import Lesson
@@ -37,6 +38,7 @@ from app.models.member import Member
 from app.models.membership import Membership
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
+from app.models.opening_day import OpeningDay
 from app.models.person import Person
 from app.models.presence import Presence
 from app.models.psychologist import Psychologist
@@ -65,6 +67,7 @@ from app.schemas.statistics import (
     MemberTrendItem,
     MonthlyCountItem,
     PersonHoursItem,
+    PresenceDayItem,
     RequestedSubjectItem,
     RequestedSubjectRankings,
     RetentionRateItem,
@@ -74,6 +77,7 @@ from app.schemas.statistics import (
     SubjectDistributionItem,
     SubjectHoursItem,
     SubjectHoursRankings,
+    TeacherActivityDayItem,
     TeacherAppreciationItem,
     TeacherAppreciationRankingResponse,
     TeacherAppreciationStatisticsResponse,
@@ -1552,6 +1556,146 @@ async def get_teacher_availability_statistics(
     )
 
 
+async def _open_days(
+    db: AsyncSession,
+    start: date,
+    end: date,
+    mode: str,
+) -> set[date]:
+    return set(
+        await db.scalars(
+            select(OpeningDay.date).where(
+                OpeningDay.mode == mode,
+                OpeningDay.start_time.is_not(None),
+                OpeningDay.date >= start,
+                OpeningDay.date < end,
+            ),
+        ),
+    )
+
+
+def _union_minutes(spans: Iterable[tuple[time, time]]) -> int:
+    total = 0
+    current: tuple[time, time] | None = None
+
+    for start, end in sorted(spans):
+        if current is not None and start <= current[1]:
+            current = (current[0], max(current[1], end))
+            continue
+
+        if current is not None:
+            total += minutes_between(*current)
+
+        current = (start, end)
+
+    if current is not None:
+        total += minutes_between(*current)
+
+    return total
+
+
+# One point per open day; convened = lessons or activities in a published band.
+@router.get(
+    "/teachers/activity-trend",
+    response_model=list[TeacherActivityDayItem],
+)
+async def get_teacher_activity_trend(
+    db: DbSession,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+    mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
+) -> list[TeacherActivityDayItem]:
+    start, end = _elapsed_window(_stats_window(months, year, month))
+    now = now_in_rome()
+    published = await _published_bands(db, start, end)
+
+    available = {
+        row.date: row.teachers
+        for row in await db.execute(
+            select(
+                Availability.date,
+                func.count(func.distinct(Availability.teacher_tax_code)).label(
+                    "teachers",
+                ),
+            )
+            .where(
+                Availability.mode == mode.value,
+                Availability.date >= start,
+                Availability.date < end,
+            )
+            .group_by(Availability.date),
+        )
+    }
+
+    convened: dict[date, set[str]] = defaultdict(set)
+
+    # Per teacher and day: two lessons at once are one stretch of their time.
+    taught: dict[tuple[date, str], list[tuple[time, time]]] = defaultdict(list)
+
+    for row in await db.execute(
+        select(
+            Lesson.date,
+            Lesson.band,
+            Lesson.start_time,
+            Lesson.end_time,
+            Availability.teacher_tax_code,
+        )
+        .join(Availability, Availability.id == Lesson.availability_id)
+        .where(
+            Lesson.teacher_mode == mode.value,
+            Lesson.date >= start,
+            Lesson.date < end,
+        ),
+    ):
+        if (row.date, row.band) not in published:
+            continue
+
+        convened[row.date].add(row.teacher_tax_code)
+
+        if _is_over(row.date, row.end_time, now):
+            taught[(row.date, row.teacher_tax_code)].append(
+                (row.start_time, row.end_time),
+            )
+
+    for row in await db.execute(
+        select(
+            CalendarActivity.date,
+            CalendarActivity.band,
+            Availability.teacher_tax_code,
+        )
+        .join(Availability, Availability.id == CalendarActivity.availability_id)
+        .where(
+            CalendarActivity.teacher_mode == mode.value,
+            CalendarActivity.date >= start,
+            CalendarActivity.date < end,
+        ),
+    ):
+        if (row.date, row.band) in published:
+            convened[row.date].add(row.teacher_tax_code)
+
+    lesson_minutes: Counter[date] = Counter()
+
+    for (day, _teacher), spans in taught.items():
+        lesson_minutes[day] += _union_minutes(spans)
+
+    days = (
+        await _open_days(db, start, end, mode.value)
+        | available.keys()
+        | convened.keys()
+    )
+
+    return [
+        TeacherActivityDayItem(
+            date=day,
+            available=available.get(day, 0),
+            convened=len(convened.get(day, ())),
+            lesson_minutes=lesson_minutes[day],
+        )
+        for day in sorted(days)
+    ]
+
+
 # Standard competition ranking (ties share a place); None for an unscored teacher.
 def _rank_among(scores: Mapping[str, int], tax_code: str) -> int | None:
     if tax_code not in scores:
@@ -1919,6 +2063,26 @@ async def _ranked_people(
     return items[:_TOP_PEOPLE_LIMIT]
 
 
+async def _published_bands(
+    db: AsyncSession,
+    start: date,
+    end: date,
+) -> set[tuple[date, str]]:
+    return {
+        (row.date, row.band)
+        for row in await db.execute(
+            select(CalendarPublication.date, CalendarPublication.band).where(
+                CalendarPublication.date >= start,
+                CalendarPublication.date < end,
+            ),
+        )
+    }
+
+
+def _is_over(day: date, end_time: time, now: datetime) -> bool:
+    return day < now.date() or (day == now.date() and end_time <= now.time())
+
+
 # Lessons over in the published calendar, as the home month counts them.
 async def _lessons_over(
     db: AsyncSession,
@@ -1932,23 +2096,12 @@ async def _lessons_over(
         await db.execute(stmt.where(Lesson.date >= start, Lesson.date < end))
     ).all()
 
-    published = {
-        (row.date, row.band)
-        for row in await db.execute(
-            select(CalendarPublication.date, CalendarPublication.band).where(
-                CalendarPublication.date >= start,
-                CalendarPublication.date < end,
-            ),
-        )
-    }
-
-    def is_over(day: date, end_time: time) -> bool:
-        return day < now.date() or (day == now.date() and end_time <= now.time())
+    published = await _published_bands(db, start, end)
 
     return [
         row
         for row in rows
-        if (row.date, row.band) in published and is_over(row.date, row.end_time)
+        if (row.date, row.band) in published and _is_over(row.date, row.end_time, now)
     ]
 
 
@@ -2128,10 +2281,11 @@ async def get_student_presence_statistics(
             select(
                 func.count(),
                 func.count(func.distinct(days.c.date)),
+                func.count(func.distinct(days.c.student_tax_code)),
             ).select_from(days)
         )
     ).one()
-    total_presence_days, distinct_dates = totals_row
+    total_presence_days, distinct_dates, student_count = totals_row
 
     # Averaged over days somebody came, not over calendar days.
     daily_average = (
@@ -2161,7 +2315,7 @@ async def get_student_presence_statistics(
 
     return StudentPresenceStatisticsResponse(
         daily_average=round(daily_average, 1),
-        total_presence_days=total_presence_days,
+        student_count=student_count,
         top_students=[
             StudentPresenceRankItem(
                 student=_person_option_of(row),
@@ -2176,6 +2330,38 @@ async def get_student_presence_statistics(
             limit=_TOP_SUBJECTS_LIMIT,
         ),
     )
+
+
+# One point per open day: the pupils with a presence that day.
+@router.get(
+    "/students/presence-trend",
+    response_model=list[PresenceDayItem],
+)
+async def get_student_presence_trend(
+    db: DbSession,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+    mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
+) -> list[PresenceDayItem]:
+    window = _stats_window(months, year, month)
+    days = _presence_days_stmt(window, mode.value).subquery()
+
+    counts = {
+        row.date: row.students
+        for row in await db.execute(
+            select(days.c.date, func.count().label("students")).group_by(
+                days.c.date,
+            ),
+        )
+    }
+
+    open_days = await _open_days(db, *_elapsed_window(window), mode.value)
+
+    return [
+        PresenceDayItem(date=day, student_count=counts.get(day, 0))
+        for day in sorted(open_days | counts.keys())
+    ]
 
 
 @router.get(

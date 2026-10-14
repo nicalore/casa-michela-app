@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel
 
 from app.schemas.person import PersonOption
@@ -144,7 +146,9 @@ class RequestedSubjectRankings(BaseModel):
 class StudentPresenceStatisticsResponse(BaseModel):
     # Averaged over days with at least one presence.
     daily_average: float
-    total_presence_days: int
+
+    # Students with at least one presence in the period.
+    student_count: int
     top_students: list[StudentPresenceRankItem]
     requested: RequestedSubjectRankings
 
@@ -153,6 +157,18 @@ class MonthlyCountItem(BaseModel):
     year: int
     month: int
     count: int
+
+
+class TeacherActivityDayItem(BaseModel):
+    date: date
+    available: int
+    convened: int
+    lesson_minutes: int
+
+
+class PresenceDayItem(BaseModel):
+    date: date
+    student_count: int
 
 
 class SubjectHoursItem(BaseModel):

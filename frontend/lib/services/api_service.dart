@@ -36,6 +36,7 @@ import '../features/people/models/certification_distribution_item.dart';
 import '../features/people/models/city_distribution_item.dart';
 import '../features/people/models/course_distribution_item.dart';
 import '../features/people/models/current_totals_item.dart';
+import '../features/people/models/daily_trend_items.dart';
 import '../features/people/models/education_distribution_item.dart';
 import '../features/people/models/member_trend_item.dart';
 import '../features/people/models/person_account_item.dart';
@@ -3382,6 +3383,58 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Impossibile recuperare le statistiche sulle presenze. Riprova più tardi.');
+    }
+  }
+
+  Future<List<TeacherActivityDayItem>> getTeacherActivityTrend({
+    int? months,
+    int? year,
+    int? month,
+    String mode = 'presence',
+  }) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/teachers/activity-trend',
+        queryParameters: {
+          'months': ?months,
+          'year': ?year,
+          'month': ?month,
+          'mode': mode,
+        },
+      );
+      return parseList(response.data, TeacherActivityDayItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile recuperare l'andamento dei docenti. Riprova più tardi.");
+    }
+  }
+
+  Future<List<PresenceDayItem>> getStudentPresenceTrend({
+    int? months,
+    int? year,
+    int? month,
+    String mode = 'presence',
+  }) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/students/presence-trend',
+        queryParameters: {
+          'months': ?months,
+          'year': ?year,
+          'month': ?month,
+          'mode': mode,
+        },
+      );
+      return parseList(response.data, PresenceDayItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile recuperare l'andamento delle presenze. Riprova più tardi.");
     }
   }
 

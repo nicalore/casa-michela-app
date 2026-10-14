@@ -225,8 +225,8 @@ class _TrendPainter extends CustomPainter
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppTheme.trialTurquoise.withValues(alpha: 0.32),
-            AppTheme.trialTurquoise.withValues(alpha: 0),
+            AppTheme.chartViolet.withValues(alpha: 0.24),
+            AppTheme.chartViolet.withValues(alpha: 0),
           ],
         ).createShader(Rect.fromLTWH(0, _top, size.width, height)),
     );
@@ -234,7 +234,7 @@ class _TrendPainter extends CustomPainter
     canvas.drawPath(
       line,
       Paint()
-        ..color = AppTheme.trialTealDeep
+        ..color = AppTheme.chartViolet
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5
         ..strokeJoin = StrokeJoin.round,
@@ -242,7 +242,7 @@ class _TrendPainter extends CustomPainter
 
     final Paint fill = Paint()..color = Colors.white;
     final Paint ring = Paint()
-      ..color = AppTheme.trialTealDeep
+      ..color = AppTheme.chartViolet
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 

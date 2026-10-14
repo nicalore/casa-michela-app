@@ -30,6 +30,7 @@ import 'widgets/availability_statistics_card.dart';
 import 'widgets/bar_chart.dart';
 import 'widgets/discipline_trend_card.dart';
 import 'widgets/chart_common.dart';
+import 'widgets/daily_trend_cards.dart';
 import 'widgets/pie_chart.dart';
 import 'widgets/presence_statistics_card.dart';
 import 'widgets/stat_filters.dart';
@@ -64,6 +65,28 @@ const Map<String, int> _ageGroupOrder = {
   '36-50': 6,
   '> 50': 7,
 };
+
+// Fixed per category, so a slice keeps its colour whichever others are present.
+const Map<String, Color> _certificationColors = {
+  'DSA': AppTheme.chartOcean,
+  'BES': AppTheme.chartViolet,
+  'ADHD': AppTheme.chartNavy,
+  'Altro': AppTheme.chartGray,
+  'Nessuna': AppTheme.chartGrayLight,
+};
+
+const Map<String, Color> _areaColors = {
+  'SCIENCES': AppTheme.chartOcean,
+  'HUMANITIES': AppTheme.chartViolet,
+  'LINGUISTICS': AppTheme.chartNavy,
+};
+
+Color _ageGroupColor(String ageGroup)
+{
+  final order = _ageGroupOrder[ageGroup];
+
+  return order == null ? AppTheme.chartGray : AppTheme.chartRamp[order - 1];
+}
 
 List<AgeDistributionItem> _sortedByAgeGroup(List<AgeDistributionItem> items)
 {
@@ -801,6 +824,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         data: _ageData
             .map((item) => ChartDatum(label: item.ageGroup, count: item.count))
             .toList(),
+        colors: [for (final item in _ageData) _ageGroupColor(item.ageGroup)],
       ),
     );
   }
@@ -846,6 +870,9 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         data: _certificationData
             .map((item) => ChartDatum(label: item.label, count: item.count))
             .toList(),
+        colors: [
+          for (final item in _certificationData) _certificationColors[item.label] ?? AppTheme.chartGray,
+        ],
       ),
     );
   }
@@ -862,6 +889,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         data: areas
             .map((item) => ChartDatum(label: subjectAreaLabel(item.area), count: item.count))
             .toList(),
+        colors: [for (final item in areas) _areaColors[item.area] ?? AppTheme.chartGray],
       ),
     );
   }
@@ -1140,6 +1168,17 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
 
     return [
       if (stats != null) _buildTeacherSubjectsCard(stats),
+      if (appreciation != null)
+        TeacherAppreciationCard(
+          ranking: appreciation,
+          period: _appreciationPeriod,
+          isLoading: _isAppreciationLoading,
+          onPeriodChanged: (value)
+          {
+            setState(() => _appreciationPeriod = value);
+            _loadTeacherAppreciationData();
+          },
+        ),
       if (availability != null)
         TeacherAvailabilityCard(
           statistics: availability,
@@ -1157,17 +1196,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             _loadTeacherAvailabilityData();
           },
         ),
-      if (appreciation != null)
-        TeacherAppreciationCard(
-          ranking: appreciation,
-          period: _appreciationPeriod,
-          isLoading: _isAppreciationLoading,
-          onPeriodChanged: (value)
-          {
-            setState(() => _appreciationPeriod = value);
-            _loadTeacherAppreciationData();
-          },
-        ),
+      const TeacherActivityTrendCard(),
     ];
   }
 
@@ -1220,6 +1249,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                 _loadStudentPresenceData();
               },
             ),
+          const PresenceTrendCard(),
           if (_disciplines.isNotEmpty)
             DisciplineTrendCard(disciplines: _disciplines),
         ];

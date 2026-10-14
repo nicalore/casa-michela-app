@@ -4,6 +4,7 @@ import '../../../../../shared/widgets/app_filter_pill.dart';
 import '../../../../../shared/widgets/filter_menu.dart';
 import '../../../../lessons/utils/opening_window.dart';
 import '../../../models/student_presence_statistics_item.dart';
+import 'daily_trend.dart';
 import 'stats_data.dart';
 
 const double _menuWidth = 160;
@@ -40,6 +41,22 @@ AppFilterPill<String> resolutionPill({
     options: resolutionOptions(),
     onChanged: onChanged,
     menuWidth: _menuWidth,
+  );
+}
+
+AppFilterPill<String> trendResolutionPill({
+  required String value,
+  required ValueChanged<String> onChanged,
+})
+{
+  return AppFilterPill<String>.setting(
+    prefix: 'Vista',
+    hint: 'Vista',
+    icon: Icons.calendar_view_month_rounded,
+    value: value,
+    options: trendResolutionOptions(),
+    onChanged: onChanged,
+    menuWidth: 190,
   );
 }
 

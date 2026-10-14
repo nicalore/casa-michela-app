@@ -93,13 +93,15 @@ class StudentPresenceStatisticsItem
 {
   // Averaged over days with at least one presence, not over every calendar day.
   final double dailyAverage;
-  final int totalPresenceDays;
+
+  // Students with at least one presence in the period.
+  final int studentCount;
   final List<StudentPresenceRankItem> topStudents;
   final RequestedSubjectRankings requested;
 
   const StudentPresenceStatisticsItem({
     required this.dailyAverage,
-    required this.totalPresenceDays,
+    required this.studentCount,
     required this.topStudents,
     required this.requested,
   });
@@ -108,7 +110,7 @@ class StudentPresenceStatisticsItem
   {
     return StudentPresenceStatisticsItem(
       dailyAverage: parseDouble(json['daily_average']),
-      totalPresenceDays: json['total_presence_days'] as int,
+      studentCount: json['student_count'] as int,
       topStudents: parseList(json['top_students'], StudentPresenceRankItem.fromJson),
       requested: RequestedSubjectRankings.fromJson(json['requested'] as Map<String, dynamic>),
     );

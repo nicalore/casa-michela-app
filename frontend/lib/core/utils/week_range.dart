@@ -144,15 +144,21 @@ List<DateTime?> monthGridDays(DateTime month)
   ];
 }
 
-// "Dal 20 al 22 agosto", collapsing the repeated month.
+// Days read with a leading vowel (uno, otto, undici) take the elided article.
+bool _elides(int day) => day == 1 || day == 8 || day == 11;
+
+// "Dal 20 al 22 agosto", "Dall'1 all'8 agosto", collapsing the repeated month.
 String formatDateSpan(DateTime start, DateTime end)
 {
+  final from = _elides(start.day) ? "Dall'" : 'Dal ';
+  final to = _elides(end.day) ? "all'" : 'al ';
+
   if (start.month == end.month && start.year == end.year)
   {
-    return 'Dal ${start.day} al ${formatDayMonthFull(end)}';
+    return '$from${start.day} $to${formatDayMonthFull(end)}';
   }
 
-  return 'Dal ${formatDayMonthFull(start)} al ${formatDayMonthFull(end)}';
+  return '$from${formatDayMonthFull(start)} $to${formatDayMonthFull(end)}';
 }
 
 // "09:00", display-only; json_parsing's formatTimeOfDay makes "09:00:00" for the backend.

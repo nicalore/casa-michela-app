@@ -1,3 +1,13 @@
+import 'package:flutter/painting.dart';
+
+import '../../../../../core/theme/app_theme.dart';
+
+// The line gradient's colour at a fraction of the plot width, for the markers on it.
+Color chartLineColorAt(double fraction)
+{
+  return Color.lerp(AppTheme.chartOcean, AppTheme.chartViolet, fraction.clamp(0.0, 1.0))!;
+}
+
 class ChartDatum
 {
   final String label;

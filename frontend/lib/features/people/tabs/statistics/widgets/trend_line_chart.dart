@@ -241,8 +241,8 @@ class _TrendLineChartPainter extends CustomPainter
       Paint()
         ..shader = LinearGradient(
           colors: [
-            AppTheme.trialTurquoise.withValues(alpha: 0.22),
-            AppTheme.trialTurquoise.withValues(alpha: 0.0),
+            AppTheme.chartOcean.withValues(alpha: 0.18),
+            AppTheme.chartOcean.withValues(alpha: 0.0),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -296,7 +296,7 @@ class _TrendLineChartPainter extends CustomPainter
     canvas.drawPath(
       linePath,
       Paint()
-        ..shader = AppTheme.brandGradient.createShader(
+        ..shader = AppTheme.chartLineGradient.createShader(
           Rect.fromLTWH(_chartPaddingLeft, 0, chartWidth, chartHeight),
         )
         ..strokeWidth = 3
@@ -309,7 +309,8 @@ class _TrendLineChartPainter extends CustomPainter
 
     for (final point in points)
     {
-      canvas.drawCircle(point, 5, Paint()..color = AppTheme.trialTealDeep);
+      final color = chartLineColorAt((point.dx - _chartPaddingLeft) / chartWidth);
+      canvas.drawCircle(point, 5, Paint()..color = color);
       canvas.drawCircle(point, 3, Paint()..color = Colors.white);
     }
 

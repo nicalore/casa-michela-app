@@ -137,8 +137,8 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
                 ),
                 const StatDivider(),
                 _figure(
-                  widget._online ? 'Giorni di presenza online nel periodo' : 'Giorni di presenza nel periodo',
-                  '${widget.statistics.totalPresenceDays}',
+                  widget._online ? 'Studenti unici online nel periodo' : 'Studenti unici nel periodo',
+                  '${widget.statistics.studentCount}',
                 ),
               ],
             ),

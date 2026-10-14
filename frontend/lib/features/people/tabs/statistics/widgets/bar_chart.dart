@@ -8,15 +8,11 @@ import '../../../../../core/theme/app_theme.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
-const LinearGradient _barGradient = LinearGradient(
-  begin: Alignment.topCenter,
-  end: Alignment.bottomCenter,
-  colors: [AppTheme.trialTurquoise, AppTheme.trialTealDeep],
-);
+const LinearGradient _barGradient = AppTheme.chartBarGradient;
 
-const Color _hoveredBarColor = AppTheme.trialGold;
+const Color _hoveredBarColor = AppTheme.chartLilac;
 
-// Gold rises inside the bar: a teal-to-gold colour lerp passes through a dull olive.
+// The highlight rises inside the bar: a lerp between two hues passes through a dull mix.
 const Duration _hoverFill = Duration(milliseconds: 200);
 
 // The Y axis is painted outside the scrollable area so labels stay visible.

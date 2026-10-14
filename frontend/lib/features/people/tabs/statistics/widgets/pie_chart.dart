@@ -9,20 +9,9 @@ import '../../../../../shared/widgets/scroll_edge_fade.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
-// Cycled when there are more slices than colours.
-const List<Color> _sliceColors = [
-  AppTheme.trialTealDeep,
-  AppTheme.trialTurquoise,
-  AppTheme.trialOcean,
-  AppTheme.trialGold,
-  AppTheme.trialSeaGreen,
-  AppTheme.trialViolet,
-  AppTheme.trialDeepWater,
-];
-
 const double _ringThickness = 30.0;
 
-// Hover growth: gold cannot mark hover here because it is one of the slices.
+// Hover growth: no colour is free to mark it, any of them may be a slice.
 const double _hoveredExtraThickness = 8.0;
 
 // Angular gap between slices, in radians. Dropped for a single slice, which
@@ -38,7 +27,10 @@ class PieChart extends StatefulWidget
 {
   final List<ChartDatum> data;
 
-  const PieChart({super.key, required this.data});
+  // One per datum, chosen by the caller so a category keeps its colour.
+  final List<Color> colors;
+
+  const PieChart({super.key, required this.data, required this.colors}) : assert(data.length == colors.length);
 
   @override
   State<PieChart> createState() => _PieChartState();
@@ -134,7 +126,7 @@ class _PieChartState extends State<PieChart>
               width: 14,
               height: 14,
               decoration: BoxDecoration(
-                color: _sliceColors[index % _sliceColors.length],
+                color: widget.colors[index],
                 shape: BoxShape.circle,
               ),
             ),
@@ -206,6 +198,7 @@ class _PieChartState extends State<PieChart>
                         size: Size.infinite,
                         painter: _PieChartPainter(
                           data: widget.data,
+                          colors: widget.colors,
                           total: total,
                           center: center,
                           radius: radius,
@@ -249,6 +242,7 @@ class _PieChartState extends State<PieChart>
 class _PieChartPainter extends CustomPainter
 {
   final List<ChartDatum> data;
+  final List<Color> colors;
   final int total;
   final Offset center;
   final double radius;
@@ -256,6 +250,7 @@ class _PieChartPainter extends CustomPainter
 
   _PieChartPainter({
     required this.data,
+    required this.colors,
     required this.total,
     required this.center,
     required this.radius,
@@ -283,7 +278,7 @@ class _PieChartPainter extends CustomPainter
         math.max(0, sweepAngle - gap),
         false,
         Paint()
-          ..color = _sliceColors[i % _sliceColors.length]
+          ..color = colors[i]
           ..style = PaintingStyle.stroke
           ..strokeWidth = i == hoveredIndex
               ? _ringThickness + _hoveredExtraThickness
@@ -298,6 +293,6 @@ class _PieChartPainter extends CustomPainter
   @override
   bool shouldRepaint(covariant _PieChartPainter oldDelegate)
   {
-    return oldDelegate.hoveredIndex != hoveredIndex || oldDelegate.data != data;
+    return oldDelegate.hoveredIndex != hoveredIndex || oldDelegate.data != data || oldDelegate.colors != colors;
   }
 }

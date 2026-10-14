@@ -11,17 +11,22 @@ enum _PopupPart { balloon, arrow }
 class ChartValuePopup extends StatelessWidget
 {
   final Offset target;
-  final String text;
+  final String? text;
+
+  // Several lines instead of [text].
+  final Widget? content;
+
   final bool isVisible;
   final double verticalOffset;
 
   const ChartValuePopup({
     super.key,
     required this.target,
-    required this.text,
+    this.text,
+    this.content,
     required this.isVisible,
     this.verticalOffset = 10,
-  });
+  }) : assert((text == null) != (content == null));
 
   @override
   Widget build(BuildContext context)
@@ -58,7 +63,7 @@ class ChartValuePopup extends StatelessWidget
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: AppTheme.tooltipDecoration,
-                        child: Text(text, style: AppTheme.tooltipTextStyle),
+                        child: content ?? Text(text!, style: AppTheme.tooltipTextStyle),
                       ),
                     ),
                     LayoutId(
