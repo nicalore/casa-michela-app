@@ -6,7 +6,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
-import '../../../shared/widgets/card_scroll_area.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -16,11 +15,11 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/ministry_subject_item.dart';
-import '../../association/models/subject_taxonomy.dart';
 import 'subject_pick_row.dart';
 import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
 import '../models/band_offer.dart';
+import '../models/booking_summary_item.dart';
 import '../models/subject_request.dart';
 import '../utils/booking_wizard_strings.dart';
 import '../utils/opening_window.dart';
@@ -65,8 +64,6 @@ class SubjectRequestWizard extends StatefulWidget
   // More than one adds a step to choose the band; empty: no limit to check.
   final List<BandOffer> bands;
 
-  final Map<int, int> minutesByDisciplineTakenByOthers;
-
   final Future<bool> Function(SubjectRequestDraft draft) onSave;
 
   // A subject still being booked, which can be taken back out.
@@ -86,7 +83,6 @@ class SubjectRequestWizard extends StatefulWidget
     this.studentGender,
     this.isEditing = false,
     this.bands = const [],
-    this.minutesByDisciplineTakenByOthers = const {},
   });
 
   @override
@@ -125,7 +121,6 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
   List<_Step> get _stepList => [
         if (_choosesBand) _Step.band,
-        if (_disciplineChoices.isNotEmpty) _Step.disciplines,
         if (_draft.asksForTopicAndTag) _Step.what,
         _Step.duration,
         _Step.teachers,
@@ -133,6 +128,8 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       ];
 
   int get _steps => _stepList.length;
+
+  String? get _discipline => dividedDisciplineName(widget.ministrySubjects, _draft.ministrySubjectId, _draft.associationSubjectIds);
 
   @override
   void dispose()
@@ -163,11 +160,6 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       return kPickBandToGoOn;
     }
 
-    if (step == _Step.disciplines && _draft.associationSubjectIds.isEmpty)
-    {
-      return kPickDisciplineToGoOn;
-    }
-
     if (step == _Step.what && _draft.tags.isEmpty)
     {
       return kPickKindToGoOn;
@@ -189,61 +181,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       );
     }
 
-    if (step == _Step.duration)
-    {
-      final over = _disciplineOverCeiling;
-
-      if (over != null)
-      {
-        return disciplineOverCeiling(_disciplineName(over.$1), over.$2, maxDailyMinutesPerDiscipline);
-      }
-    }
-
     return null;
-  }
-
-  (int, int)? get _disciplineOverCeiling
-  {
-    final duration = _draft.duration;
-
-    if (duration == null)
-    {
-      return null;
-    }
-
-    for (final discipline in _draft.disciplineIds)
-    {
-      final minutes =
-          (widget.minutesByDisciplineTakenByOthers[discipline] ?? 0) + duration;
-
-      if (minutes > maxDailyMinutesPerDiscipline)
-      {
-        return (discipline, minutes);
-      }
-    }
-
-    return null;
-  }
-
-  String _disciplineName(int id)
-  {
-    if (_draft.associationSubjectId == id && _draft.associationSubjectName != null)
-    {
-      return _draft.associationSubjectName!;
-    }
-
-    for (final subject in widget.ministrySubjects)
-    {
-      for (final discipline in subject.associationSubjects)
-      {
-        if (discipline.id == id)
-        {
-          return discipline.name;
-        }
-      }
-    }
-
-    return 'La disciplina';
   }
 
   String? get _saveBlockedReason
@@ -310,26 +248,6 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     );
   }
 
-  List<AssociationSubjectOption> get _disciplineChoices
-  {
-    if (!_draft.asksForDisciplines)
-    {
-      return const [];
-    }
-
-    for (final subject in widget.ministrySubjects)
-    {
-      if (subject.id == _draft.ministrySubjectId)
-      {
-        return subject.associationSubjects.length > 1
-            ? subject.associationSubjects
-            : const [];
-      }
-    }
-
-    return const [];
-  }
-
   Widget _buildBandStep()
   {
     return Column(
@@ -346,44 +264,6 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
             onSelected: (_) => setState(() => _draft.band = offer.band),
             onEditDisciplines: () {},
           ),
-      ],
-    );
-  }
-
-  Widget _buildDisciplinesStep()
-  {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        CardScrollArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final discipline in _disciplineChoices)
-                SubjectPickRow(
-                  key: ValueKey(discipline.id),
-                  name: discipline.name,
-                  subtitle: descriptionOrNull(discipline.description) ?? '',
-                  selected: _draft.associationSubjectIds.contains(discipline.id),
-                  hasChoice: false,
-                  onSelected: (selected) => setState(()
-                  {
-                    if (selected)
-                    {
-                      _draft.associationSubjectIds.add(discipline.id);
-
-                      return;
-                    }
-
-                    _draft.associationSubjectIds.remove(discipline.id);
-                  }),
-                  onEditDisciplines: () {},
-                ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -523,7 +403,6 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     return switch (_stepList[_step])
     {
       _Step.band => AppDialogPill(expand: true, child: _buildBandStep()),
-      _Step.disciplines => AppDialogPill(expand: true, child: _buildDisciplinesStep()),
       _Step.what => AppDialogPill(expand: true, child: _buildSubjectStep()),
       _Step.duration => AppDialogPill(expand: true, child: _buildDurationStep()),
       _Step.teachers => _buildTeachersStep(),
@@ -570,14 +449,24 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
           AppDialogPill(
             child: Text.rich(
               TextSpan(
-                children: [
-                  const TextSpan(text: kSubjectRemovalBefore),
-                  TextSpan(
-                    text: _draft.displayName,
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-                  ),
-                  const TextSpan(text: kSubjectRemovalAfter),
-                ],
+                children: switch (_discipline)
+                {
+                  final String discipline => [
+                      TextSpan(
+                        text: disciplineLabel(_draft.displayName, discipline),
+                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                      ),
+                      const TextSpan(text: kDisciplineRemovalAfter),
+                    ],
+                  null => [
+                      const TextSpan(text: kSubjectRemovalBefore),
+                      TextSpan(
+                        text: _draft.displayName,
+                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                      ),
+                      const TextSpan(text: kSubjectRemovalAfter),
+                    ],
+                },
               ),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
@@ -604,9 +493,16 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       onPressed: _save,
     );
 
+    final String? discipline = _discipline;
+
+    // A subject divided in disciplines: the discipline is the title, its subject goes in the eyebrow.
     return AppDialogStack(
-      eyebrow: 'Passo ${_step + 1} di $_steps · ${modeLabel(widget.mode).toLowerCase()}',
-      title: widget.isEditing ? kEditSubjectTitle : kAddSubjectTitle,
+      eyebrow: [
+        'Passo ${_step + 1} di $_steps',
+        if (discipline != null) _draft.displayName,
+        modeLabel(widget.mode).toLowerCase(),
+      ].join(' · '),
+      title: discipline ?? (widget.isEditing ? kEditSubjectTitle : kAddSubjectTitle),
       maxWidth: _stackWidth,
       footer: widget.onRemove == null
           ? AppDialogFooter.single(save)

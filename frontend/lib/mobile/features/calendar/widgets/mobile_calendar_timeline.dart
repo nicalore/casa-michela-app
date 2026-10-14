@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/lessons/utils/timeline_geometry.dart';
+import '../../../../features/lessons/widgets/calendar_lesson_block.dart' show NowGlide, cardShare;
 import '../../../shared/mobile_palette.dart';
 import 'mobile_lesson_card.dart';
 
@@ -27,6 +28,12 @@ const double _laneHeadGap = 18;
 
 
 const double _trackPad = 12;
+
+// Scrolling sideways: room for the first and last hour labels.
+const double _scrollPad = 24;
+
+// Narrowest a quarter hour gets on the lying track: the half-hour labels still fit.
+const double _minTrackQuarter = 22;
 const double _axisHeight = 34;
 const double _axisGap = 8;
 const double _blockInset = 3;
@@ -96,14 +103,14 @@ bool _showsNow(int? nowMinutes, (int, int) window)
   return nowMinutes != null && nowMinutes >= window.$1 && nowMinutes < window.$2;
 }
 
-double _elapsed(MobileCalendarEntry entry, int? nowMinutes)
+// Over the cards' faces only, stepping across their [inset] gaps: never between two lessons.
+double _nowAt(double Function(int minutes) at, int minutes, (int, int) window, double inset)
 {
-  if (nowMinutes == null)
-  {
-    return 0;
-  }
+  final int quarter = math.min(window.$2 - kQuarterHour, minutes ~/ kQuarterHour * kQuarterHour);
+  final double from = at(quarter) + inset;
+  final double to = at(quarter + kQuarterHour) - inset;
 
-  return ((nowMinutes - entry.startMinutes) / entry.minutes).clamp(0.0, 1.0);
+  return from + (minutes - quarter).clamp(0, kQuarterHour) / kQuarterHour * math.max(0.0, to - from);
 }
 
 // Overlap chains share columns: 15-16, 15:30-16:30 and 16-17 make two.
@@ -181,13 +188,44 @@ class MobileCalendarTimeline extends StatelessWidget
   // Half the tallest label, so the first and last are not cut.
   static const double _edge = 10;
 
+  double _cardWidth(_Placed item, double columnWidth) => (columnWidth - (item.lanes - 1) * _columnGap) / item.lanes;
+
+  bool _inColumn(_Placed item) => (item.lanes > 1 || columns.length > 1) && !tablet;
+
+  // To scale, stretched where a card needs more room to write every line.
+  TimeScale _scaleFor(List<List<_Placed>> placed, double columnWidth, double perMinute, TextScaler scaler)
+  {
+    return TimeScale.elastic(
+      start: window.$1,
+      end: window.$2,
+      extent: perMinute * (window.$2 - window.$1),
+      minQuarter: perMinute * kQuarterHour,
+      needs: [
+        for (final items in placed)
+          for (final item in items)
+            (
+              startMinutes: item.entry.startMinutes,
+              endMinutes: item.entry.endMinutes,
+              size: 2 * _cardInset +
+                  mobileCardHeight(
+                    item.entry,
+                    width: _cardWidth(item, columnWidth),
+                    scaler: scaler,
+                    past: item.entry.timeAt(nowMinutes, pastDay: pastDay) == MobileEntryTime.past,
+                    inColumn: _inColumn(item),
+                    scale: tablet ? kMobileTabletCardScale : kMobilePhoneCardScale,
+                  ),
+            ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
-    final double textScale = math.max(1, MediaQuery.textScalerOf(context).scale(1));
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+    final double textScale = math.max(1, scaler.scale(1));
     final double perMinute = (tablet ? _tabletHourHeight : _phoneHourHeight) * textScale / 60;
-
-    double y(int minutes) => _edge + (minutes - window.$1) * perMinute;
 
     final double gutter = (tablet ? 50 : 44) * textScale;
     final double lineStart = gutter + 8;
@@ -195,62 +233,80 @@ class MobileCalendarTimeline extends StatelessWidget
 
     final int? now = _showsNow(nowMinutes, window) ? nowMinutes : null;
 
-    final Widget timeline = SizedBox(
-      height: y(window.$2) + _edge,
-      child: LayoutBuilder(
+    // Heights are measured: rebuilt once the fonts arrive.
+    final Widget timeline = ListenableBuilder(
+      listenable: PaintingBinding.instance.systemFonts,
+      builder: (context, _) => LayoutBuilder(
         builder: (context, constraints)
         {
           final double width = (constraints.maxWidth - trackStart - (columns.length - 1) * _personGap) / columns.length;
+          final List<List<_Placed>> placed = [for (final column in columns) _placeInColumns(column.entries)];
+          final TimeScale scale = _scaleFor(placed, width, perMinute, scaler);
+
+          double y(int minutes) => _edge + scale.at(minutes);
 
           double left(int column) => trackStart + column * (width + _personGap);
 
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              for (final minute in _marks(window)) ...[
-                Positioned(
-                  left: lineStart,
-                  right: 0,
-                  top: y(minute),
-                  height: 1,
-                  child: ColoredBox(color: _gridColor(half: minute % 60 != 0)),
-                ),
-                if (now == null || (y(now) - y(minute)).abs() >= 19)
+          final double? nowY = now == null ? null : _nowAt(y, now, window, _cardInset);
+
+          return SizedBox(
+            height: y(window.$2) + _edge,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (final minute in _marks(window)) ...[
                   Positioned(
-                    left: 0,
-                    width: gutter,
+                    left: lineStart,
+                    right: 0,
                     top: y(minute),
-                    child: FractionalTranslation(
-                      translation: const Offset(0, -0.5),
-                      child: Text(
-                        formatTimeOfDayShort(timeOfDayFromMinutes(minute)),
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        style: _labelStyle(half: minute % 60 != 0),
+                    height: 1,
+                    child: ColoredBox(color: _gridColor(half: minute % 60 != 0)),
+                  ),
+                  if (nowY == null || (nowY - y(minute)).abs() >= 19)
+                    Positioned(
+                      left: 0,
+                      width: gutter,
+                      top: y(minute),
+                      child: FractionalTranslation(
+                        translation: const Offset(0, -0.5),
+                        child: Text(
+                          formatTimeOfDayShort(timeOfDayFromMinutes(minute)),
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          style: _labelStyle(half: minute % 60 != 0),
+                        ),
+                      ),
+                    ),
+                ],
+                if (now != null && nowY != null)
+                  NowGlide(
+                    minutes: now,
+                    target: nowY,
+                    builder: (context, top) => Positioned(
+                      left: gutter + 2,
+                      right: 0,
+                      top: top - _nowStroke / 2,
+                      height: _nowStroke,
+                      child: const ColoredBox(color: MobilePalette.nowLine),
+                    ),
+                  ),
+                for (final (i, items) in placed.indexed)
+                  for (final item in items) _buildCard(item, y, left(i), width, nowY),
+                if (now != null && nowY != null)
+                  NowGlide(
+                    minutes: now,
+                    target: nowY,
+                    builder: (context, top) => Positioned(
+                      right: constraints.maxWidth - gutter - 4,
+                      top: top,
+                      child: FractionalTranslation(
+                        translation: const Offset(0, -0.5),
+                        child: MobileNowPill(key: nowKey, minutes: now),
                       ),
                     ),
                   ),
               ],
-              if (now != null)
-                Positioned(
-                  left: gutter + 2,
-                  right: 0,
-                  top: y(now) - _nowStroke / 2,
-                  height: _nowStroke,
-                  child: const ColoredBox(color: MobilePalette.nowLine),
-                ),
-              for (final (i, column) in columns.indexed)
-                for (final item in _placeInColumns(column.entries)) _buildCard(item, y, left(i), width),
-              if (now != null)
-                Positioned(
-                  right: constraints.maxWidth - gutter - 4,
-                  top: y(now),
-                  child: FractionalTranslation(
-                    translation: const Offset(0, -0.5),
-                    child: MobileNowPill(key: nowKey, minutes: now),
-                  ),
-                ),
-            ],
+            ),
           );
         },
       ),
@@ -284,23 +340,24 @@ class MobileCalendarTimeline extends StatelessWidget
     );
   }
 
-  Widget _buildCard(_Placed item, double Function(int) y, double columnStart, double columnWidth)
+  Widget _buildCard(_Placed item, double Function(int) y, double columnStart, double columnWidth, double? nowY)
   {
     final MobileCalendarEntry entry = item.entry;
-    final double width = (columnWidth - (item.lanes - 1) * _columnGap) / item.lanes;
+    final double width = _cardWidth(item, columnWidth);
+    final double top = y(entry.startMinutes) + _cardInset;
+    final double bottom = y(entry.endMinutes) - _cardInset;
 
     return Positioned(
       left: columnStart + item.lane * (width + _columnGap),
       width: width,
-      top: y(entry.startMinutes) + _cardInset,
-      height: y(entry.endMinutes) - y(entry.startMinutes) - 2 * _cardInset,
+      top: top,
+      height: bottom - top,
       child: MobileLessonCard(
         entry: entry,
         time: entry.timeAt(nowMinutes, pastDay: pastDay),
-        elapsed: _elapsed(entry, nowMinutes),
+        elapsed: nowY == null ? 0 : cardShare(nowY, top, bottom),
         // Tablet columns are wide enough for the full card.
-        inColumn: (item.lanes > 1 || columns.length > 1) && !tablet,
-        timeInset: _cardInset,
+        inColumn: _inColumn(item),
         scale: tablet ? kMobileTabletCardScale : kMobilePhoneCardScale,
       ),
     );
@@ -331,10 +388,50 @@ class MobileCalendarTrack extends StatelessWidget
     this.headWidth = 0,
   });
 
+  // The narrowest card that writes every line within [height].
+  double _widthFor(MobileCalendarEntry entry, double height, TextScaler scaler)
+  {
+    final bool past = entry.timeAt(nowMinutes, pastDay: pastDay) == MobileEntryTime.past;
+
+    bool fits(double width) =>
+        mobileCardHeight(entry, width: width, scaler: scaler, past: past, scale: kMobileTabletCardScale) <= height;
+
+    // Never so narrow that the hours lose their end or their length.
+    var low = mobileCardHoursWidth(entry, scaler: scaler, past: past, scale: kMobileTabletCardScale);
+    var high = math.max(low, 520.0);
+
+    if (fits(low))
+    {
+      return low;
+    }
+
+    if (!fits(high))
+    {
+      return high;
+    }
+
+    for (var step = 0; step < 10; step++)
+    {
+      final double middle = (low + high) / 2;
+
+      if (fits(middle))
+      {
+        high = middle;
+      }
+      else
+      {
+        low = middle;
+      }
+    }
+
+    return high;
+  }
+
   @override
   Widget build(BuildContext context)
   {
-    final double textScale = math.max(1, MediaQuery.textScalerOf(context).scale(1));
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+    final double textScale = math.max(1, scaler.scale(1));
     final bool headed = headWidth > 0;
     final double blockHeight = _blockHeight * textScale;
 
@@ -361,78 +458,137 @@ class MobileCalendarTrack extends StatelessWidget
     final int? now = _showsNow(nowMinutes, window) ? nowMinutes : null;
     final double height = reached - _tabletPersonGap + _axisGap;
 
-    return SizedBox(
-      height: height,
-      child: LayoutBuilder(
+    // Widths are measured: rebuilt once the fonts arrive.
+    return ListenableBuilder(
+      listenable: PaintingBinding.instance.systemFonts,
+      builder: (context, _) => LayoutBuilder(
         builder: (context, constraints)
         {
-          final double start = headed ? headWidth + _laneHeadGap + _trackPad : _trackPad;
-          final double perMinute = (constraints.maxWidth - start - _trackPad) / (window.$2 - window.$1);
+          final double headRoom = headed ? headWidth + _laneHeadGap : 0;
+          final double room = math.max(0, constraints.maxWidth - headRoom - 2 * _trackPad);
 
-          double x(int minutes) => start + (minutes - window.$1) * perMinute;
+          final TimeScale scale = TimeScale.elastic(
+            start: window.$1,
+            end: window.$2,
+            extent: room,
+            minQuarter: _minTrackQuarter,
+            needs: [
+              for (final lane in lanes)
+                for (final entry in lane.entries)
+                  (
+                    startMinutes: entry.startMinutes,
+                    endMinutes: entry.endMinutes,
+                    size: _widthFor(entry, blockHeight, scaler) + 2 * _blockInset,
+                  ),
+            ],
+          );
 
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              for (final minute in _marks(window)) ...[
-                Positioned(
-                  left: x(minute),
-                  width: 1,
-                  top: _axisHeight,
-                  bottom: 0,
-                  child: ColoredBox(color: _gridColor(half: minute % 60 != 0)),
-                ),
-                if (now == null || (x(now) - x(minute)).abs() >= 46)
+          final bool scrolls = scale.extent > room + 0.5;
+          final double pad = scrolls ? _scrollPad : _trackPad;
+
+          double x(int minutes) => pad + scale.at(minutes);
+
+          final double? nowX = now == null ? null : _nowAt(x, now, window, _blockInset);
+
+          final Widget track = SizedBox(
+            width: scale.extent + 2 * pad,
+            height: height,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (final minute in _marks(window)) ...[
                   Positioned(
                     left: x(minute),
-                    top: 8,
-                    child: FractionalTranslation(
-                      translation: const Offset(-0.5, 0),
-                      child: Text(
-                        formatTimeOfDayShort(timeOfDayFromMinutes(minute)),
-                        maxLines: 1,
-                        style: _labelStyle(half: minute % 60 != 0),
+                    width: 1,
+                    top: _axisHeight,
+                    bottom: 0,
+                    child: ColoredBox(color: _gridColor(half: minute % 60 != 0)),
+                  ),
+                  if ((nowX == null || (nowX - x(minute)).abs() >= 46) &&
+                      (minute % 60 == 0 || x(minute) - x(minute - 30) >= 44))
+                    Positioned(
+                      left: x(minute),
+                      top: 8,
+                      child: FractionalTranslation(
+                        translation: const Offset(-0.5, 0),
+                        child: Text(
+                          formatTimeOfDayShort(timeOfDayFromMinutes(minute)),
+                          maxLines: 1,
+                          style: _labelStyle(half: minute % 60 != 0),
+                        ),
+                      ),
+                    ),
+                ],
+                if (now != null && nowX != null)
+                  NowGlide(
+                    minutes: now,
+                    target: nowX,
+                    builder: (context, left) => Positioned(
+                      left: left - _nowStroke / 2,
+                      width: _nowStroke,
+                      top: _axisHeight - 4,
+                      bottom: 0,
+                      child: const ColoredBox(color: MobilePalette.nowLine),
+                    ),
+                  ),
+                for (final (i, lane) in lanes.indexed)
+                  for (final (j, entry) in lane.entries.indexed)
+                    Positioned(
+                      left: x(entry.startMinutes) + _blockInset,
+                      width: math.max(1, x(entry.endMinutes) - x(entry.startMinutes) - 2 * _blockInset),
+                      top: tops[i] + subLanes[i].laneOf[j] * (blockHeight + _laneGap),
+                      height: blockHeight,
+                      child: MobileLessonCard(
+                        entry: entry,
+                        time: entry.timeAt(nowMinutes, pastDay: pastDay),
+                        elapsed: nowX == null
+                            ? 0
+                            : cardShare(nowX, x(entry.startMinutes) + _blockInset, x(entry.endMinutes) - _blockInset),
+                        horizontal: true,
+                        scale: kMobileTabletCardScale,
+                      ),
+                    ),
+                if (now != null && nowX != null)
+                  NowGlide(
+                    minutes: now,
+                    target: nowX,
+                    builder: (context, left) => Positioned(
+                      left: left,
+                      top: 6,
+                      child: FractionalTranslation(
+                        translation: const Offset(-0.5, 0),
+                        child: MobileNowPill(key: nowKey, minutes: now),
                       ),
                     ),
                   ),
               ],
-              for (final (i, lane) in lanes.indexed)
-                if (lane.head case final head?)
-                  Positioned(left: 0, width: headWidth, top: tops[i], height: heightOf(i), child: head),
-              if (now != null)
-                Positioned(
-                  left: x(now) - _nowStroke / 2,
-                  width: _nowStroke,
-                  top: _axisHeight - 4,
-                  bottom: 0,
-                  child: const ColoredBox(color: MobilePalette.nowLine),
-                ),
-              for (final (i, lane) in lanes.indexed)
-                for (final (j, entry) in lane.entries.indexed)
-                  Positioned(
-                    left: x(entry.startMinutes) + _blockInset,
-                    width: math.max(1, x(entry.endMinutes) - x(entry.startMinutes) - 2 * _blockInset),
-                    top: tops[i] + subLanes[i].laneOf[j] * (blockHeight + _laneGap),
-                    height: blockHeight,
-                    child: MobileLessonCard(
-                      entry: entry,
-                      time: entry.timeAt(nowMinutes, pastDay: pastDay),
-                      elapsed: _elapsed(entry, nowMinutes),
-                      horizontal: true,
-                      timeInset: _blockInset,
-                      scale: kMobileTabletCardScale,
+            ),
+          );
+
+          return SizedBox(
+            height: height,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (headed)
+                  SizedBox(
+                    width: headRoom,
+                    height: height,
+                    child: Stack(
+                      children: [
+                        for (final (i, lane) in lanes.indexed)
+                          if (lane.head case final head?)
+                            Positioned(left: 0, width: headWidth, top: tops[i], height: heightOf(i), child: head),
+                      ],
                     ),
                   ),
-              if (now != null)
-                Positioned(
-                  left: x(now),
-                  top: 6,
-                  child: FractionalTranslation(
-                    translation: const Offset(-0.5, 0),
-                    child: MobileNowPill(key: nowKey, minutes: now),
-                  ),
+                Expanded(
+                  child: scrolls
+                      ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: track)
+                      : Align(alignment: Alignment.topLeft, child: track),
                 ),
-            ],
+              ],
+            ),
           );
         },
       ),

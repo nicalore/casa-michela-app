@@ -19,6 +19,7 @@ import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
 import 'calendar_activity_block.dart';
 import 'calendar_lesson_block.dart';
+import 'lesson_captions.dart';
 import 'person_avatar.dart';
 import 'teacher_exclusion_overlay.dart';
 
@@ -27,6 +28,12 @@ const double kTimelineLeadingWidth = 216;
 const double kTimelineAxisHeight = 34;
 
 const double kMinPixelsPerMinute = 1.1;
+
+// Narrowest a quarter hour gets on an elastic axis: the hour labels still fit.
+const double kMinQuarterWidth = 16;
+
+// Under the last row, for the sideways scrollbar.
+const double _scrollbarRoom = 14;
 
 const double _autoScrollMargin = 56;
 const double _autoScrollStep = 8;
@@ -113,13 +120,18 @@ class _AxisLabel extends StatelessWidget
   final int minute;
   final bool isHour;
 
-  const _AxisLabel({required this.metrics, required this.minute, required this.isHour});
+  // Scrolling, the first and last labels would be cut at the edges.
+  final bool keepsInside;
+
+  const _AxisLabel({required this.metrics, required this.minute, required this.isHour, this.keepsInside = false});
 
   @override
   Widget build(BuildContext context)
   {
+    final centred = metrics.xOf(minute) - 24;
+
     return Positioned(
-      left: metrics.xOf(minute) - 24,
+      left: keepsInside ? centred.clamp(0.0, math.max(0.0, metrics.trackWidth - 48)) : centred,
       width: 48,
       bottom: 6,
       child: Center(
@@ -174,11 +186,19 @@ class _TimelineDivisionsPainter extends CustomPainter
   @override
   bool shouldRepaint(_TimelineDivisionsPainter oldDelegate)
   {
-    return oldDelegate.metrics.windowStartMinutes != metrics.windowStartMinutes ||
-        oldDelegate.metrics.windowEndMinutes != metrics.windowEndMinutes ||
-        oldDelegate.metrics.trackWidth != metrics.trackWidth ||
-        oldDelegate.metrics.trackHeight != metrics.trackHeight;
+    return !oldDelegate.metrics.sameAxis(metrics) || oldDelegate.metrics.trackHeight != metrics.trackHeight;
   }
+}
+
+// Over the blocks' faces only, stepping across their side gaps: never between two lessons.
+double nowLineX(TimelineMetrics metrics, int minutes)
+{
+  final last = metrics.windowEndMinutes - kQuarterHour;
+  final quarter = math.min(last, minutes ~/ kQuarterHour * kQuarterHour);
+  final left = metrics.xOf(quarter) + kBlockSideGap;
+  final right = metrics.xOf(quarter + kQuarterHour) - kBlockSideGap;
+
+  return left + (minutes - quarter).clamp(0, kQuarterHour) / kQuarterHour * math.max(0.0, right - left);
 }
 
 class CalendarNowLine extends StatelessWidget
@@ -195,8 +215,10 @@ class CalendarNowLine extends StatelessWidget
     return Positioned.fill(
       child: IgnorePointer(
         child: RepaintBoundary(
-          child: CustomPaint(
-            painter: _NowLinePainter(metrics: metrics, minutes: minutes),
+          child: NowGlide(
+            minutes: minutes,
+            target: nowLineX(metrics, minutes),
+            builder: (context, x) => CustomPaint(painter: _NowLinePainter(x: x)),
           ),
         ),
       ),
@@ -208,16 +230,13 @@ const double _nowHeadRadius = 4;
 
 class _NowLinePainter extends CustomPainter
 {
-  final TimelineMetrics metrics;
-  final int minutes;
+  final double x;
 
-  const _NowLinePainter({required this.metrics, required this.minutes});
+  const _NowLinePainter({required this.x});
 
   @override
   void paint(Canvas canvas, Size size)
   {
-    final x = metrics.xOf(minutes);
-
     final stroke = Paint()
       ..color = AppTheme.trialDanger
       ..strokeWidth = 1.5;
@@ -231,14 +250,7 @@ class _NowLinePainter extends CustomPainter
   }
 
   @override
-  bool shouldRepaint(_NowLinePainter oldDelegate)
-  {
-    return oldDelegate.minutes != minutes ||
-        oldDelegate.metrics.windowStartMinutes != metrics.windowStartMinutes ||
-        oldDelegate.metrics.windowEndMinutes != metrics.windowEndMinutes ||
-        oldDelegate.metrics.trackWidth != metrics.trackWidth ||
-        oldDelegate.metrics.trackHeight != metrics.trackHeight;
-  }
+  bool shouldRepaint(_NowLinePainter oldDelegate) => oldDelegate.x != x;
 }
 
 class _TimelineGridPainter extends CustomPainter
@@ -280,10 +292,7 @@ class _TimelineGridPainter extends CustomPainter
   @override
   bool shouldRepaint(_TimelineGridPainter oldDelegate)
   {
-    return oldDelegate.metrics.windowStartMinutes != metrics.windowStartMinutes ||
-        oldDelegate.metrics.windowEndMinutes != metrics.windowEndMinutes ||
-        oldDelegate.metrics.trackWidth != metrics.trackWidth ||
-        oldDelegate.metrics.rowCount != metrics.rowCount;
+    return !oldDelegate.metrics.sameAxis(metrics) || !listEquals(oldDelegate.metrics.rowHeights, metrics.rowHeights);
   }
 }
 
@@ -291,7 +300,9 @@ class _TimelineAxis extends StatelessWidget
 {
   final TimelineMetrics metrics;
 
-  const _TimelineAxis({required this.metrics});
+  final bool keepsInside;
+
+  const _TimelineAxis({required this.metrics, this.keepsInside = false});
 
   @override
   Widget build(BuildContext context)
@@ -301,22 +312,23 @@ class _TimelineAxis extends StatelessWidget
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          if (metrics.pixelsPerMinute * 30 >= 44)
-            for (final minute in metrics.halfTicks())
+          for (final minute in metrics.halfTicks())
+            if (metrics.roomAround(minute, 30) >= 44)
               _AxisLabel(
                 metrics: metrics,
                 minute: minute,
                 isHour: false,
+                keepsInside: keepsInside,
               ),
           for (final minute in metrics.hourTicks())
-            _AxisLabel(metrics: metrics, minute: minute, isHour: true),
+            _AxisLabel(metrics: metrics, minute: minute, isHour: true, keepsInside: keepsInside),
         ],
       ),
     );
   }
 }
 
-typedef _DragOutline = ({List<(int, int)> windows, String mode, Set<String> preferred, Set<String> avoided});
+typedef _DragOutline = ({List<(int, int)> windows, String mode, Set<String> preferred, Set<String> avoided, int shortest});
 
 enum StretchReach
 {
@@ -461,9 +473,7 @@ class _PresenceBoundsPainter extends CustomPainter
   @override
   bool shouldRepaint(_PresenceBoundsPainter oldDelegate)
   {
-    return !listEquals(oldDelegate.windows, windows) ||
-        oldDelegate.metrics.windowStartMinutes != metrics.windowStartMinutes ||
-        oldDelegate.metrics.trackWidth != metrics.trackWidth;
+    return !listEquals(oldDelegate.windows, windows) || !oldDelegate.metrics.sameAxis(metrics);
   }
 }
 
@@ -954,6 +964,12 @@ class CalendarTimeline extends StatefulWidget
 
   final Set<int> pastLessonIds;
 
+  // Lessons under way, each with the share of its hours gone by.
+  final Map<int, double> elapsedLessons;
+
+  // Published: each row's block height, taller where a long line wraps.
+  final List<double>? blockHeights;
+
   final Map<String, LaneRoomLabel> roomByTeacher;
 
   final Set<String> excludedTeachers;
@@ -991,6 +1007,9 @@ class CalendarTimeline extends StatefulWidget
   final ScrollController? scrollController;
   final GlobalKey? viewportKey;
 
+  // Composing: where each lesson too narrow for its words writes them, under its row.
+  final Map<String, Map<int, CaptionSpot>> captions;
+
   const CalendarTimeline({
     super.key,
     required this.lanes,
@@ -1004,6 +1023,8 @@ class CalendarTimeline extends StatefulWidget
     this.warnedLessonIds = const {},
     this.preferredLessonIds = const {},
     this.pastLessonIds = const {},
+    this.elapsedLessons = const {},
+    this.blockHeights,
     this.roomByTeacher = const {},
     this.excludedTeachers = const {},
     this.onExcludedChanged,
@@ -1022,6 +1043,7 @@ class CalendarTimeline extends StatefulWidget
     this.carriedAt,
     this.scrollController,
     this.viewportKey,
+    this.captions = const {},
   });
 
   @override
@@ -1060,6 +1082,10 @@ class _CalendarTimelineState extends State<CalendarTimeline>
   int? _thrownAwayActivity;
 
   (int, int)? _lastPlanned;
+
+  final ValueNotifier<int?> _litLesson = ValueNotifier(null);
+
+  final ScrollController _sideways = ScrollController();
 
   @override
   void initState()
@@ -1142,6 +1168,8 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     _autoScroller?.stop();
     _preview.dispose();
     _ownCarriedAt.dispose();
+    _litLesson.dispose();
+    _sideways.dispose();
     super.dispose();
   }
 
@@ -1404,7 +1432,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       }
 
       final reachable = intersectWindows([span], outline.windows)
-          .any((shared) => shared.$2 - shared.$1 >= kMinimumBandMinutes);
+          .any((shared) => shared.$2 - shared.$1 >= outline.shortest);
 
       return reachable ? StretchReach.open : StretchReach.closed;
     }
@@ -1473,6 +1501,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       mode: outline.mode,
       preferred: outline.preferred,
       avoided: outline.avoided,
+      shortest: outline.shortest,
     );
   }
 
@@ -1488,7 +1517,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                   index,
                   key: ValueKey('offered-${lanes[index].personTaxCode}'),
                   child: Stack(
-                    children: _laneBackground(lanes[index], metrics.heightOfRow(index), outline, competent),
+                    children: _laneBackground(lanes[index], _bandHeight(index), outline, competent),
                   ),
                 ),
               Positioned.fill(
@@ -1503,34 +1532,105 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     );
   }
 
-  double _topOfSubLane(int subLane)
+  double _blockHeightOf(int row)
   {
-    return kTimelineRowPadding + subLane * (lessonBlockHeight(widget.view) + kTimelineSubLaneGap);
+    return widget.blockHeights?[row] ?? lessonBlockHeight(widget.view, composing: widget.isComposing);
   }
 
-  List<PlacedLesson> _lanePlacements(CalendarLane lane)
+  double _topOfSubLane(int row, int subLane)
   {
+    return kTimelineRowPadding + subLane * (_blockHeightOf(row) + kTimelineSubLaneGap);
+  }
+
+  int _captionLines(CalendarLane lane) => captionLinesOf(widget.captions[lane.personTaxCode]);
+
+  // The row without its captions: blocks, stretches and the ghost stay inside it.
+  double _bandHeight(int index)
+  {
+    return metrics.heightOfRow(index) - captionsExtent(_captionLines(lanes[index]));
+  }
+
+  bool _hasCaption(LessonItem lesson)
+  {
+    return widget.captions.values.any((spots) => spots.containsKey(lesson.id));
+  }
+
+  void _light(LessonItem lesson, bool isLit)
+  {
+    if (isLit)
+    {
+      _litLesson.value = lesson.id;
+    }
+    else if (_litLesson.value == lesson.id)
+    {
+      _litLesson.value = null;
+    }
+  }
+
+  VoidCallback? _tapOf(LessonItem lesson)
+  {
+    final tap = widget.onLessonTap;
+
+    return tap == null || lesson.isProvisional ? null : () => tap(lesson);
+  }
+
+  Widget _buildCaptions(int index)
+  {
+    final lane = lanes[index];
+    final spots = widget.captions[lane.personTaxCode] ?? const {};
+    final top = _bandHeight(index) - kTimelineRowPadding + kCaptionGap;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        for (final lesson in lane.lessons)
+          if (spots[lesson.id] case final spot?)
+            AnimatedPositioned(
+              key: ValueKey(lesson.id),
+              duration: _blockTravel,
+              curve: Curves.easeOutCubic,
+              left: spot.left,
+              top: top + spot.line * kCaptionLineHeight,
+              child: LessonCaption(
+                lesson: lesson,
+                spot: spot,
+                ministrySubjects: widget.ministrySubjects,
+                litLesson: _litLesson,
+                onHover: (isLit) => _light(lesson, isLit),
+                onTap: _tapOf(lesson),
+              ),
+            ),
+      ],
+    );
+  }
+
+  List<PlacedLesson> _lanePlacements(int row)
+  {
+    final lane = lanes[row];
+
     return [
       for (final lesson in lane.lessons)
         (
           item: lesson,
           left: metrics.xOf(lesson.startMinutes),
           width: metrics.widthOf(lesson.startMinutes, lesson.endMinutes),
-          top: _topOfSubLane(widget.subLaneOf[lesson.id] ?? 0),
+          top: _topOfSubLane(row, widget.subLaneOf[lesson.id] ?? 0),
         ),
     ];
   }
 
   // Sub-lane 0 is always free at an activity's hours: nothing can be written over it.
-  List<PlacedActivity> _laneActivities(CalendarLane lane)
+  List<PlacedActivity> _laneActivities(int row)
   {
+    final lane = lanes[row];
+
     return [
       for (final activity in lane.activities)
         (
           item: activity,
           left: metrics.xOf(activity.startMinutes),
           width: metrics.widthOf(activity.startMinutes, activity.endMinutes),
-          top: _topOfSubLane(0),
+          top: _topOfSubLane(row, 0),
         ),
     ];
   }
@@ -1569,6 +1669,24 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     );
   }
 
+  // Where the now line crosses the card, which the scale may not reach evenly.
+  double? _elapsedOf(LessonItem lesson)
+  {
+    final share = widget.elapsedLessons[lesson.id];
+    final now = widget.nowMinutes;
+
+    if (share == null || now == null)
+    {
+      return share;
+    }
+
+    return cardShare(
+      nowLineX(metrics, now),
+      metrics.xOf(lesson.startMinutes) + kBlockSideGap,
+      metrics.xOf(lesson.endMinutes) - kBlockSideGap,
+    );
+  }
+
   Widget _buildLessonBlock(PlacedLesson placed)
   {
     final lesson = placed.item;
@@ -1579,11 +1697,15 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       hasWarning: widget.warnedLessonIds.contains(lesson.id),
       isPreferred: widget.preferredLessonIds.contains(lesson.id),
       isPast: widget.pastLessonIds.contains(lesson.id),
+      elapsed: _elapsedOf(lesson),
       view: widget.view,
       ministrySubjects: widget.ministrySubjects,
-      onTap: widget.onLessonTap == null || lesson.isProvisional ? null : () => widget.onLessonTap!(lesson),
+      onTap: _tapOf(lesson),
       isMovable: !lesson.isLocked && !lesson.isProvisional && widget.onPlan != null,
       isComposing: widget.isComposing,
+      hasCaption: _hasCaption(lesson),
+      litLesson: _litLesson,
+      onHover: (isLit) => _light(lesson, isLit),
       carriedAt: _carriedAt,
       onDragChanged: (payload)
       {
@@ -1715,9 +1837,9 @@ class _CalendarTimelineState extends State<CalendarTimeline>
 
   double _ghostTop(int row, int subLane)
   {
-    final floor = metrics.heightOfRow(row) - kTimelineRowPadding - lessonBlockHeight(widget.view);
+    final floor = _bandHeight(row) - kTimelineRowPadding - _blockHeightOf(row);
 
-    return math.min(_topOfSubLane(subLane), math.max(kTimelineRowPadding, floor));
+    return math.min(_topOfSubLane(row, subLane), math.max(kTimelineRowPadding, floor));
   }
 
   bool _hourIsDrawnFor(LessonPlacement placement)
@@ -1783,7 +1905,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                   left: metrics.xOf(placement.startMinutes),
                   width: metrics.widthOf(placement.startMinutes, placement.endMinutes),
                   top: metrics.topOfRow(row) + _ghostTop(row, _ghostSubLane(lanes[row], placement)),
-                  height: lessonBlockHeight(widget.view),
+                  height: _blockHeightOf(row),
                   child: CalendarGhostBlock(
                     label: preview.isSaving ? 'Salvataggio…' : _ghostLabel(placement),
                     width: metrics.widthOf(placement.startMinutes, placement.endMinutes),
@@ -1868,9 +1990,9 @@ class _CalendarTimelineState extends State<CalendarTimeline>
             index,
             key: ValueKey('lessons-${lanes[index].personTaxCode}'),
             child: _LaneBlocks<LessonItem>(
-              blockHeight: lessonBlockHeight(widget.view),
+              blockHeight: _blockHeightOf(index),
               key: ValueKey(lanes[index].personTaxCode),
-              placed: _lanePlacements(lanes[index]),
+              placed: _lanePlacements(index),
               idOf: (lesson) => lesson.id,
               builder: _buildLessonBlock,
               thrownAway: _thrownAway,
@@ -1883,13 +2005,21 @@ class _CalendarTimelineState extends State<CalendarTimeline>
               index,
               key: ValueKey('activity-row-${lanes[index].personTaxCode}'),
               child: _LaneBlocks<ScheduledActivity>(
-                blockHeight: lessonBlockHeight(widget.view),
+                blockHeight: _blockHeightOf(index),
                 key: ValueKey('activities-${lanes[index].personTaxCode}'),
-                placed: _laneActivities(lanes[index]),
+                placed: _laneActivities(index),
                 idOf: (scheduled) => scheduled.id,
                 builder: _buildActivityBlock,
                 thrownAway: _thrownAwayActivity,
               ),
+            ),
+
+        for (var index = 0; index < lanes.length; index++)
+          if (_captionLines(lanes[index]) > 0)
+            _buildRowLayer(
+              index,
+              key: ValueKey('captions-${lanes[index].personTaxCode}'),
+              child: _buildCaptions(index),
             ),
 
         if (now != null) CalendarNowLine(metrics: metrics, minutes: now),
@@ -1899,68 +2029,101 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     );
   }
 
-  @override
-  Widget build(BuildContext context)
+  Widget _buildNames()
+  {
+    return SizedBox(
+      width: kTimelineLeadingWidth,
+      child: Column(
+        children: [
+          const SizedBox(height: kTimelineAxisHeight),
+          const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+          // A Stack, not a Column: names must animate with their rows when reordered.
+          SizedBox(
+            height: metrics.trackHeight,
+            child: Stack(
+              children: [
+                for (var index = 0; index < lanes.length; index++)
+                  _buildRowLayer(
+                    index,
+                    key: ValueKey('name-${lanes[index].personTaxCode}'),
+                    fades: false,
+                    child: _LaneHeader(
+                      lane: lanes[index],
+                      bandStart: bandStart,
+                      bandEnd: bandEnd,
+                      view: widget.view,
+                      room: widget.roomByTeacher[lanes[index].personTaxCode],
+                      carried: widget.carried,
+                      isExcluded: _isExcluded(lanes[index]),
+                      onToggleExcluded: _toggleExcluded(lanes[index]),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrack({required bool scrolls})
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const SizedBox(width: kTimelineLeadingWidth),
-            Expanded(child: _TimelineAxis(metrics: metrics)),
-          ],
-        ),
+        _TimelineAxis(metrics: metrics, keepsInside: scrolls),
         const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // A Stack, not a Column: names must animate with their rows when reordered.
-            SizedBox(
-              width: kTimelineLeadingWidth,
-              height: metrics.trackHeight,
-              child: Stack(
-                children: [
-                  for (var index = 0; index < lanes.length; index++)
-                    _buildRowLayer(
-                      index,
-                      key: ValueKey('name-${lanes[index].personTaxCode}'),
-                      fades: false,
-                      child: _LaneHeader(
-                        lane: lanes[index],
-                        bandStart: bandStart,
-                        bandEnd: bandEnd,
-                        view: widget.view,
-                        room: widget.roomByTeacher[lanes[index].personTaxCode],
-                        carried: widget.carried,
-                        isExcluded: _isExcluded(lanes[index]),
-                        onToggleExcluded: _toggleExcluded(lanes[index]),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SizedBox(
-                height: metrics.trackHeight,
-                child: _isReadOnly
-                    ? _buildTrackStack()
-                    : DragTarget<CalendarDragPayload>(
-                        onWillAcceptWithDetails: (_) => true,
-                        onMove: _onMove,
-                        onLeave: (_)
-                        {
-                          _endDrag();
-                          _carriedAt.value = CarriedPlacement.away;
-                        },
-                        onAcceptWithDetails: _onAccept,
-                        builder: (context, candidates, rejected) => _buildTrackStack(),
-                      ),
-              ),
-            ),
-          ],
+        SizedBox(
+          height: metrics.trackHeight,
+          child: _isReadOnly
+              ? _buildTrackStack()
+              : DragTarget<CalendarDragPayload>(
+                  onWillAcceptWithDetails: (_) => true,
+                  onMove: _onMove,
+                  onLeave: (_)
+                  {
+                    _endDrag();
+                    _carriedAt.value = CarriedPlacement.away;
+                  },
+                  onAcceptWithDetails: _onAccept,
+                  builder: (context, candidates, rejected) => _buildTrackStack(),
+                ),
         ),
       ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final scrolls = metrics.trackWidth > constraints.maxWidth - kTimelineLeadingWidth + 0.5;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildNames(),
+            Expanded(
+              child: scrolls
+                  ? Scrollbar(
+                      controller: _sideways,
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        controller: _sideways,
+                        scrollDirection: Axis.horizontal,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: _scrollbarRoom),
+                          child: SizedBox(width: metrics.trackWidth, child: _buildTrack(scrolls: true)),
+                        ),
+                      ),
+                    )
+                  : _buildTrack(scrolls: false),
+            ),
+          ],
+        );
+      },
     );
   }
 }

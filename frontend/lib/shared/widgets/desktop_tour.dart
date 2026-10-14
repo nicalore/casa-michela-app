@@ -315,6 +315,9 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
   int _step = 0;
   final List<int> _path = [];
 
+  // Counts the steps entered: the card's buttons answer only for the one they were drawn for.
+  int _visit = 0;
+
   // The hole as drawn, where it began its move, and where its part is now.
   Rect? _hole;
   Rect? _from;
@@ -412,6 +415,7 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
   {
     _listening?.removeListener(_onListened);
     _step = index;
+    _visit++;
 
     final DesktopTourStep step = _current;
 
@@ -534,6 +538,23 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     }
   }
 
+  // A click on a button fading out with the step left, or a second one before the card is redrawn, does nothing.
+  void _nextFrom(int visit)
+  {
+    if (!_closing && visit == _visit)
+    {
+      _next();
+    }
+  }
+
+  void _backFrom(int visit)
+  {
+    if (!_closing && visit == _visit)
+    {
+      _back();
+    }
+  }
+
   void _next()
   {
     if (_step == widget.run.steps.length - 1)
@@ -602,6 +623,7 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     final Rect? place = step.targets.isEmpty ? null : _aim;
 
     final bool last = _step == steps.length - 1;
+    final int visit = _visit;
 
     final Widget bubble = _Bubble(
       step: _step,
@@ -610,8 +632,8 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
       title: widget.run.tour.title,
       text: step.text,
       onClose: () => _end(mark: true),
-      onBack: _path.isEmpty ? null : _back,
-      onNext: step.waitsForClick ? null : _next,
+      onBack: _path.isEmpty ? null : () => _backFrom(visit),
+      onNext: step.waitsForClick ? null : () => _nextFrom(visit),
       last: last,
     );
 
@@ -962,9 +984,13 @@ class _Bubble extends StatelessWidget
               duration: animates ? _fade : Duration.zero,
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
+              // The text going out takes no click: its buttons lie uncovered under a shorter one.
               layoutBuilder: (current, previous) => Stack(
                 alignment: Alignment.topLeft,
-                children: [...previous, ?current],
+                children: [
+                  for (final Widget child in previous) IgnorePointer(key: child.key, child: child),
+                  if (current != null) IgnorePointer(key: current.key, ignoring: false, child: current),
+                ],
               ),
               child: Padding(
                 key: ValueKey<int>(step),

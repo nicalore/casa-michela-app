@@ -47,12 +47,14 @@ import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
 import '../widgets/activity_dialog.dart';
 import '../widgets/activity_details_dialog.dart';
+import '../widgets/calendar_activity_block.dart';
 import '../widgets/calendar_booking_panel.dart';
 import '../widgets/calendar_day_agenda.dart';
 import '../widgets/calendar_lesson_block.dart';
 import '../widgets/calendar_lesson_board.dart';
 import '../widgets/calendar_publish_dialogs.dart';
 import '../widgets/calendar_timeline.dart';
+import '../widgets/lesson_captions.dart';
 import '../widgets/lesson_details_dialog.dart';
 import '../widgets/lesson_plan_wizard.dart';
 import '../widgets/lessons_closed_day.dart';
@@ -566,6 +568,23 @@ class _CalendarTabState extends State<CalendarTab>
       for (final lane in lanes)
         for (final lesson in lane.lessons)
           if (isLessonPast(lesson, _now)) lesson.id,
+    };
+  }
+
+  // Lessons under way, each with the share of its hours gone by.
+  Map<int, double> _elapsedLessons(List<CalendarLane> lanes)
+  {
+    final now = _nowMinutes;
+
+    if (!_isSettled || now == null)
+    {
+      return const {};
+    }
+
+    return {
+      for (final lane in lanes)
+        for (final lesson in lane.lessons)
+          if (isLessonRunning(lesson, _now)) lesson.id: (now - lesson.startMinutes) / lesson.minutes,
     };
   }
 
@@ -1768,10 +1787,11 @@ class _CalendarTabState extends State<CalendarTab>
     );
   }
 
-  ({Map<int, int> subLaneOf, List<double> rowHeights}) _stackLanes(List<CalendarLane> lanes)
+  ({Map<int, int> subLaneOf, List<double> rowHeights, List<int> laneCounts}) _stackLanes(List<CalendarLane> lanes)
   {
     final subLaneOf = <int, int>{};
     final rowHeights = <double>[];
+    final laneCounts = <int>[];
 
     for (final lane in lanes)
     {
@@ -1782,7 +1802,8 @@ class _CalendarTabState extends State<CalendarTab>
         subLaneOf[lane.lessons[index].id] = stacking.laneOf[index];
       }
 
-      rowHeights.add(timelineRowHeight(stacking.laneCount, _view));
+      laneCounts.add(stacking.laneCount);
+      rowHeights.add(timelineRowHeight(stacking.laneCount, _isSettled ? _view : CalendarView.byTeacher, composing: !_isSettled));
     }
 
     _subLaneMemory
@@ -1791,7 +1812,96 @@ class _CalendarTabState extends State<CalendarTab>
 
     _shrunkFrom.removeWhere((id, _) => !subLaneOf.containsKey(id));
 
-    return (subLaneOf: subLaneOf, rowHeights: rowHeights);
+    return (subLaneOf: subLaneOf, rowHeights: rowHeights, laneCounts: laneCounts);
+  }
+
+  // Published: each row's blocks as tall as the one whose long lines wrap the most.
+  List<double> _blockHeightsFor(List<CalendarLane> lanes, TimelineMetrics metrics)
+  {
+    return [
+      for (final lane in lanes)
+        lane.lessons.fold(
+          lessonBlockHeight(_view, composing: false),
+          (tallest, lesson) => math.max(
+            tallest,
+            publishedLessonBlockHeight(
+              context,
+              lesson,
+              metrics.widthOf(lesson.startMinutes, lesson.endMinutes),
+              view: _view,
+              ministrySubjects: widget.ministrySubjects,
+            ),
+          ),
+        ),
+    ];
+  }
+
+  // Published: the scale gives each block the room to write its lines whole.
+  TimelineMetrics _publishedMetrics(List<CalendarLane> lanes, (int, int) window, double trackWidth, List<double> rowHeights)
+  {
+    final marked = _markedLessons(lanes);
+    final past = _pastLessons(lanes);
+
+    final scale = TimeScale.elastic(
+      start: window.$1,
+      end: window.$2,
+      extent: trackWidth,
+      minQuarter: kMinQuarterWidth,
+      needs: [
+        for (final lane in lanes) ...[
+          for (final lesson in lane.lessons)
+            (
+              startMinutes: lesson.startMinutes,
+              endMinutes: lesson.endMinutes,
+              size: publishedLessonBlockWidth(
+                context,
+                lesson,
+                view: _view,
+                ministrySubjects: widget.ministrySubjects,
+                past: past.contains(lesson.id),
+                warned: marked.warned.contains(lesson.id),
+                preferred: marked.preferred.contains(lesson.id),
+              ),
+            ),
+          for (final activity in lane.activities)
+            (
+              startMinutes: activity.startMinutes,
+              endMinutes: activity.endMinutes,
+              size: activityBlockWidth(context, activity),
+            ),
+        ],
+      ],
+    );
+
+    return TimelineMetrics.scaled(scale: scale, rowHeights: rowHeights);
+  }
+
+  // Composing: lessons whose block would cut its words write them on a line under the row.
+  Map<String, Map<int, CaptionSpot>> _captionsFor(List<CalendarLane> lanes, TimelineMetrics metrics)
+  {
+    final marked = _markedLessons(lanes);
+
+    return {
+      for (final lane in lanes)
+        lane.personTaxCode: placeLessonCaptions(
+          [
+            for (final lesson in lane.lessons)
+              if (composingBlockCutsText(
+                context,
+                lesson,
+                metrics.widthOf(lesson.startMinutes, lesson.endMinutes),
+                ministrySubjects: widget.ministrySubjects,
+                warned: marked.warned.contains(lesson.id),
+                preferred: marked.preferred.contains(lesson.id),
+              ))
+                lesson,
+          ],
+          xOf: metrics.xOf,
+          trackWidth: metrics.trackWidth,
+          widthOf: (lesson) => lessonCaptionWidth(context, lesson, widget.ministrySubjects),
+          linesOf: (lesson, width) => lessonCaptionLines(context, lesson, widget.ministrySubjects, width),
+        ),
+    };
   }
 
   Widget _buildTrack(List<CalendarLane> lanes, CalendarDayIndex index, (int, int) window, double width)
@@ -1808,7 +1918,19 @@ class _CalendarTabState extends State<CalendarTab>
       rowHeights: rowHeights,
     );
 
-    if (metrics.pixelsPerMinute < kMinPixelsPerMinute)
+    List<double>? blockHeights;
+
+    if (_isSettled)
+    {
+      metrics = _publishedMetrics(lanes, window, trackWidth, rowHeights);
+
+      final heights = blockHeights = _blockHeightsFor(lanes, metrics);
+
+      metrics = metrics.withRowHeights([
+        for (var i = 0; i < lanes.length; i++) timelineRowHeightOf(stacking.laneCounts[i], heights[i]),
+      ]);
+    }
+    else if (metrics.pixelsPerMinute < kMinPixelsPerMinute)
     {
       final content = timelineWindow(
         bandStartMinutes: _bandStart,
@@ -1827,6 +1949,16 @@ class _CalendarTabState extends State<CalendarTab>
       }
     }
 
+    final captions = _isSettled ? const <String, Map<int, CaptionSpot>>{} : _captionsFor(lanes, metrics);
+
+    if (captions.values.any((spots) => spots.isNotEmpty))
+    {
+      metrics = metrics.withRowHeights([
+        for (var i = 0; i < lanes.length; i++)
+          rowHeights[i] + captionsExtent(captionLinesOf(captions[lanes[i].personTaxCode])),
+      ]);
+    }
+
     final now = _nowMinutes;
     final showsNow = now != null && now >= metrics.windowStartMinutes && now <= metrics.windowEndMinutes;
 
@@ -1843,6 +1975,8 @@ class _CalendarTabState extends State<CalendarTab>
         warnedLessonIds: marked.warned,
         preferredLessonIds: marked.preferred,
         pastLessonIds: _pastLessons(lanes),
+        elapsedLessons: _elapsedLessons(lanes),
+        blockHeights: blockHeights,
         roomByTeacher: _roomLabelsFor(lanes),
         nowMinutes: showsNow ? now : null,
         onLessonTap: _openPublishedLesson,
@@ -1882,6 +2016,7 @@ class _CalendarTabState extends State<CalendarTab>
       onExcludedChanged: widget.isReadOnly || widget.onExcludeTeacher == null ? null : _setExcluded,
       scrollController: _trackController,
       viewportKey: _viewportKey,
+      captions: captions,
     );
   }
 
@@ -1923,6 +2058,7 @@ class _CalendarTabState extends State<CalendarTab>
       warnedLessonIds: marked.warned,
       preferredLessonIds: marked.preferred,
       pastLessonIds: _pastLessons(lanes),
+      elapsedLessons: _elapsedLessons(lanes),
       roomByTeacher: _roomLabelsFor(lanes),
       onLessonTap: _openPublishedLesson,
       onActivityTap: _openPublishedActivity,
@@ -1950,20 +2086,24 @@ class _CalendarTabState extends State<CalendarTab>
       return _buildClosedBand();
     }
 
-    return LayoutBuilder(
-      key: _viewportKey,
-      builder: (context, constraints)
-      {
-        return Scrollbar(
-          controller: _trackController,
-          child: ScrollEdgeFade(
-            child: SingleChildScrollView(
-              controller: _trackController,
-              child: _buildTrack(lanes, index, window, constraints.maxWidth),
+    // Widths are measured: rebuilt once the fonts arrive.
+    return ListenableBuilder(
+      listenable: PaintingBinding.instance.systemFonts,
+      builder: (context, _) => LayoutBuilder(
+        key: _viewportKey,
+        builder: (context, constraints)
+        {
+          return Scrollbar(
+            controller: _trackController,
+            child: ScrollEdgeFade(
+              child: SingleChildScrollView(
+                controller: _trackController,
+                child: _buildTrack(lanes, index, window, constraints.maxWidth),
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -2657,11 +2797,11 @@ class _CalendarTabState extends State<CalendarTab>
       bandStart: _bandStart,
       bandEnd: _bandEnd,
       view: _view,
-      isComposing: !_isSettled,
       ministrySubjects: widget.ministrySubjects,
       warnedLessonIds: marked.warned,
       preferredLessonIds: marked.preferred,
       pastLessonIds: _pastLessons(lanes),
+      elapsedLessons: _elapsedLessons(lanes),
       roomByTeacher: _isSettled ? _roomLabelsFor(lanes) : const {},
       excludedTeachers: _isSettled ? const {} : widget.excludedTeachers,
       onExcludedChanged: _isSettled || widget.isReadOnly || widget.onExcludeTeacher == null

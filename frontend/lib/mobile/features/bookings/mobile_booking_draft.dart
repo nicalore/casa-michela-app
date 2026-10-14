@@ -14,7 +14,6 @@ import '../../../features/lessons/utils/booking_window.dart';
 import '../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../features/lessons/utils/opening_window.dart';
 import '../../../features/lessons/widgets/band_schedule.dart';
-import '../../../features/lessons/widgets/booking_fields_section.dart' show maxDailyMinutesPerDiscipline;
 import '../../../features/lessons/widgets/subject_request_tile.dart' show ministrySubjectName;
 import '../../../features/people/models/person_item.dart';
 
@@ -445,27 +444,6 @@ class MobileBookingDraft
     ];
   }
 
-  // Per band, as the server caps it: [band] null sums the whole mode.
-  Map<int, int> minutesByDiscipline(MobileBookingGroup group, {TimeBucket? band, SubjectRequestDraft? skip})
-  {
-    final Map<int, int> minutes = {};
-
-    for (final request in [...requestsOf(group), ...frozenRequests])
-    {
-      if (identical(request, skip) || (band != null && request.band != band))
-      {
-        continue;
-      }
-
-      for (final discipline in request.disciplineIds)
-      {
-        minutes[discipline] = (minutes[discipline] ?? 0) + (request.duration ?? 0);
-      }
-    }
-
-    return minutes;
-  }
-
   String? noTimeLeftIn(MobileBookingGroup group, TimeBucket band)
   {
     final BandOffer? offer = bandOffers(group).where((offer) => offer.band == band).firstOrNull;
@@ -530,30 +508,6 @@ class MobileBookingDraft
     return ' (${group.days.map(formatAvailableDayShortLabel).join(', ')})';
   }
 
-  String _disciplineName(int id, MobileBookingGroup group)
-  {
-    for (final subject in ministrySubjects)
-    {
-      for (final discipline in subject.associationSubjects)
-      {
-        if (discipline.id == id)
-        {
-          return discipline.name;
-        }
-      }
-    }
-
-    for (final request in requestsOf(group))
-    {
-      if (request.associationSubjectId == id && request.associationSubjectName != null)
-      {
-        return request.associationSubjectName!;
-      }
-    }
-
-    return 'Una disciplina';
-  }
-
   // The desktop's refusal message; null when saving would go.
   String? get problem
   {
@@ -611,22 +565,6 @@ class MobileBookingDraft
         if (request.asksForTopicAndTag && request.tags.isEmpty)
         {
           return lessonKindMissing(request.displayName, label);
-        }
-      }
-
-      for (final band in hours.bands)
-      {
-        for (final entry in minutesByDiscipline(group, band: band).entries)
-        {
-          if (entry.value > maxDailyMinutesPerDiscipline)
-          {
-            return disciplineOverBand(
-              _disciplineName(entry.key, group),
-              entry.value,
-              maxDailyMinutesPerDiscipline,
-              '${modeLabel(mode).toLowerCase()} ${ofBandLabel(band)}$days',
-            );
-          }
         }
       }
 

@@ -34,11 +34,10 @@ import '../utils/booking_wizard_strings.dart';
 import '../utils/opening_window.dart';
 import '../utils/study_program_lookup.dart';
 import 'band_schedule.dart';
-import 'booking_fields_section.dart' show maxDailyMinutesPerDiscipline;
 import 'lesson_day_field.dart';
 import 'lessons_form_fields.dart';
 import 'subject_pick_row.dart';
-import 'subject_request_tile.dart' show disciplineNames, ministrySubjectName;
+import 'subject_request_tile.dart' show ministrySubjectName;
 import 'subject_request_wizard.dart';
 
 const double _dialogButtonHeight = 52;
@@ -180,6 +179,9 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   // One per subjects card: two cards of a mode can be on screen while the carousel turns.
   final Map<String, ScrollController> _subjectScrollControllers = {};
+
+  // Per subjects card, the subject whose disciplines are listed under it.
+  final Map<String, int> _openSubject = {};
 
   // Rows and lessons in closed bands, which the server refuses to change: shown, never edited.
   final Map<String, Map<TimeBucket, List<BandStretch<PresenceItem>>>> _frozen = {
@@ -362,8 +364,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   _DayGroup get _editedGroup => _groups.single;
 
   _Answers _answersOf(_DayGroup group) => _answersByGroup.putIfAbsent(group.key, _Answers.new);
-
-  Iterable<_Answers> get _allAnswers => _answersByGroup.values;
 
   // Alike by construction; the intersection is just the safe way to read it.
   OpeningWindow? _sharedWindow(_DayGroup group, String mode, TimeBucket bucket)
@@ -806,27 +806,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     ];
   }
 
-  // Per band, as the server caps it; a null [band] sums the whole mode.
-  Map<int, int> _minutesByDiscipline(_DayGroup group, String mode, {TimeBucket? band, SubjectRequestDraft? skip})
-  {
-    final minutes = <int, int>{};
-
-    for (final request in [..._answersOf(group).requests[mode]!, ..._frozenRequests[mode]!])
-    {
-      if (identical(request, skip) || (band != null && request.band != band))
-      {
-        continue;
-      }
-
-      for (final discipline in request.disciplineIds)
-      {
-        minutes[discipline] = (minutes[discipline] ?? 0) + (request.duration ?? 0);
-      }
-    }
-
-    return minutes;
-  }
-
   void _resetForm()
   {
     setState(()
@@ -947,22 +926,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         }
 
         final BandSchedule<PresenceItem> hours = answers.hours[mode]!;
-
-        for (final band in hours.bands)
-        {
-          for (final entry in _minutesByDiscipline(group, mode, band: band).entries)
-          {
-            if (entry.value > maxDailyMinutesPerDiscipline)
-            {
-              return disciplineOverBand(
-                _disciplineName(entry.key),
-                entry.value,
-                maxDailyMinutesPerDiscipline,
-                '${modeLabel(mode).toLowerCase()} ${ofBandLabel(band)}$days',
-              );
-            }
-          }
-        }
 
         for (final band in TimeBucket.values)
         {
@@ -1407,28 +1370,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     );
   }
 
-  String _summaryOf(SubjectRequestDraft request, {bool withBand = false})
-  {
-    final parts = <String>[];
-    final TimeBucket? band = request.band;
-
-    if (withBand && band != null)
-    {
-      parts.add(bandLabel(band));
-    }
-
-    if (request.asksForDisciplines && _hasSeveralDisciplines(request))
-    {
-      parts.add(disciplineNames(widget.ministrySubjects, request).join(', '));
-    }
-
-    if (request.duration != null)
-    {
-      parts.add(formatMinutes(request.duration!));
-    }
-
-    return parts.join(' · ');
-  }
+  String _summaryOf(SubjectRequestDraft request) => request.duration == null ? '' : formatMinutes(request.duration!);
 
   String _sayBoth(String? asked, String? description)
   {
@@ -1436,50 +1378,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       if (asked != null && asked.isNotEmpty) asked,
       ?descriptionOrNull(description),
     ].join(' · ');
-  }
-
-  String _disciplineName(int id)
-  {
-    for (final subject in widget.ministrySubjects)
-    {
-      for (final discipline in subject.associationSubjects)
-      {
-        if (discipline.id == id)
-        {
-          return discipline.name;
-        }
-      }
-    }
-
-    for (final answers in _allAnswers)
-    {
-      for (final requests in answers.requests.values)
-      {
-        for (final request in requests)
-        {
-          if (request.associationSubjectId == id &&
-              request.associationSubjectName != null)
-          {
-            return request.associationSubjectName!;
-          }
-        }
-      }
-    }
-
-    return 'Una disciplina';
-  }
-
-  bool _hasSeveralDisciplines(SubjectRequestDraft request)
-  {
-    for (final subject in widget.ministrySubjects)
-    {
-      if (subject.id == request.ministrySubjectId)
-      {
-        return subject.associationSubjects.length > 1;
-      }
-    }
-
-    return false;
   }
 
   Widget _buildEmptyCategory(String message) => Padding(
@@ -1590,7 +1488,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
     final subjects = all
         .where((subject) => _matchesQuery(subject.name, mode, _ministryCategory))
-        .where((subject) => _listed(group, mode, band, (request) => request.ministrySubjectId == subject.id))
+        .where((subject) => _offersSome(group, mode, band, subject))
         .toList();
 
     return Column(
@@ -1601,21 +1499,127 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         if (subjects.isEmpty)
           _buildEmptyCategory(kSubjectNoMatch[_ministryCategory]),
         for (final subject in subjects)
-          _buildPickRow(
-            group: group,
-            mode: mode,
-            band: band,
-            name: subject.name,
-            matches: (request) => request.ministrySubjectId == subject.id,
-            onPick: () => SubjectRequestDraft(
-              kind: BookingRequestKind.ministrySubject,
-              ministrySubjectId: subject.id,
-              associationSubjectIds: {
-                if (subject.associationSubjects.length == 1)
-                  subject.associationSubjects.single.id,
-              },
-            )..ministrySubjectName = subject.name,
-          ),
+          if (subject.associationSubjects.length > 1)
+            _buildSubjectGroup(group, mode, band, subject)
+          else
+            _buildPickRow(
+              group: group,
+              mode: mode,
+              band: band,
+              name: subject.name,
+              matches: (request) => request.ministrySubjectId == subject.id,
+              onPick: () => SubjectRequestDraft(
+                kind: BookingRequestKind.ministrySubject,
+                ministrySubjectId: subject.id,
+                associationSubjectIds: {
+                  if (subject.associationSubjects.length == 1)
+                    subject.associationSubjects.single.id,
+                },
+              )..ministrySubjectName = subject.name,
+            ),
+      ],
+    );
+  }
+
+  SubjectRequestDraft? _bookedDiscipline(_DayGroup group, String mode, TimeBucket band, int subject, int discipline)
+  {
+    return _chosen(
+      group,
+      mode,
+      band,
+      (request) =>
+          request.kind == BookingRequestKind.ministrySubject &&
+          request.ministrySubjectId == subject &&
+          request.associationSubjectIds.contains(discipline),
+    );
+  }
+
+  // Adding to a band lists only the disciplines still free.
+  bool _offersSome(_DayGroup group, String mode, TimeBucket band, MinistrySubjectItem subject)
+  {
+    return !widget.openOnSubjects ||
+        subject.associationSubjects
+            .any((discipline) => _bookedDiscipline(group, mode, band, subject.id, discipline.id)?.existing == null);
+  }
+
+  void _pickDiscipline(
+    _DayGroup group,
+    String mode,
+    TimeBucket band,
+    MinistrySubjectItem subject,
+    AssociationSubjectOption discipline,
+  )
+  {
+    if (_bandOffers(group, mode).where((offer) => offer.band == band).firstOrNull case final offer?
+        when offer.left <= 0)
+    {
+      CustomSnackBar.show(context: context, message: bandTimeAllTaken(mode, band), isError: true);
+
+      return;
+    }
+
+    _openRequestWizard(
+      group,
+      mode,
+      band,
+      SubjectRequestDraft(
+        kind: BookingRequestKind.ministrySubject,
+        ministrySubjectId: subject.id,
+        associationSubjectIds: {discipline.id},
+      )..ministrySubjectName = subject.name,
+    );
+  }
+
+  // A subject divided in disciplines opens in place: only its disciplines take a tick.
+  Widget _buildSubjectGroup(_DayGroup group, String mode, TimeBucket band, MinistrySubjectItem subject)
+  {
+    final String card = '$mode/${band.name}';
+    final bool open = _openSubject[card] == subject.id;
+
+    return SubjectGroupRow(
+      key: ValueKey(subject.id),
+      name: subject.name,
+      booked: [
+        for (final discipline in subject.associationSubjects)
+          if (_bookedDiscipline(group, mode, band, subject.id, discipline.id) != null) discipline.name,
+      ],
+      open: open,
+      onToggle: () => setState(()
+      {
+        if (open)
+        {
+          _openSubject.remove(card);
+        }
+        else
+        {
+          _openSubject[card] = subject.id;
+        }
+      }),
+      children: [
+        for (final discipline in subject.associationSubjects)
+          if (_bookedDiscipline(group, mode, band, subject.id, discipline.id) case final SubjectRequestDraft request?)
+            if (!widget.openOnSubjects || request.existing == null)
+              SubjectPickRow(
+                key: ValueKey(discipline.id),
+                name: discipline.name,
+                subtitle: _summaryOf(request),
+                selected: true,
+                hasChoice: false,
+                onSelected: (_) => _editRequest(group, mode, band, request),
+                onEditDisciplines: () {},
+              )
+            else
+              const SizedBox.shrink()
+          else
+            SubjectPickRow(
+              key: ValueKey(discipline.id),
+              name: discipline.name,
+              subtitle: descriptionOrNull(discipline.description) ?? '',
+              selected: false,
+              hasChoice: false,
+              onSelected: (_) => _pickDiscipline(group, mode, band, subject, discipline),
+              onEditDisciplines: () {},
+            ),
       ],
     );
   }
@@ -1751,12 +1755,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           for (final offer in _bandOffers(group, mode, skip: editing ? draft : null))
             if (offer.band == band) offer,
         ],
-        minutesByDisciplineTakenByOthers: _minutesByDiscipline(
-          group,
-          mode,
-          band: band,
-          skip: editing ? draft : null,
-        ),
         onSave: (saved) async
         {
           setState(()

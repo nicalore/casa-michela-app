@@ -335,16 +335,19 @@ class CarriedRequest
   });
 }
 
-({String mode, Set<String> preferred, Set<String> avoided}) dragOutline(CalendarDragPayload payload)
+// [shortest]: the least time a stretch must share with the pupil's hours to take the lesson.
+({String mode, Set<String> preferred, Set<String> avoided, int shortest}) dragOutline(CalendarDragPayload payload)
 {
   var mode = kPresenceMode;
   final preferred = <String>{};
   final avoided = <String>{};
+  final durations = <int>[];
 
   void take(BookingSummaryItem booking)
   {
     preferred.addAll(booking.preferredTeacherTaxCodes);
     avoided.addAll(booking.notPreferredTeacherTaxCodes);
+    durations.add(booking.duration);
   }
 
   switch (payload)
@@ -365,7 +368,12 @@ class CarriedRequest
       break;
   }
 
-  return (mode: mode, preferred: preferred, avoided: avoided);
+  return (
+    mode: mode,
+    preferred: preferred,
+    avoided: avoided,
+    shortest: durations.isEmpty ? kMinimumLessonMinutes : _shortestFor(durations),
+  );
 }
 
 // Every span lying in a window of both lists.
@@ -575,6 +583,12 @@ AvailabilityItem? resolveAvailability({
   return online;
 }
 
+// The shortest a lesson of these bookings may be: a quarter of an hour only for a quarter-hour booking.
+int _shortestFor(Iterable<int> bookingMinutes)
+{
+  return bookingMinutes.fold(kQuarterLessonMinutes, (shortest, minutes) => math.max(shortest, minimumLessonMinutes(minutes)));
+}
+
 String? _refuseHours({
   required CalendarDayIndex index,
   required List<SchedulableBooking> bookings,
@@ -587,7 +601,7 @@ String? _refuseHours({
     return kNoBookingRefusal;
   }
 
-  if (endMinutes - startMinutes < kMinimumBandMinutes)
+  if (endMinutes - startMinutes < _shortestFor(bookings.map((entry) => entry.booking.duration)))
   {
     return kTooShortRefusal;
   }
@@ -804,7 +818,7 @@ String? _refuseBudget({
     if (leftOut.isNotEmpty && otherParts.length + 1 < kMaxLessonParts)
     {
       // Keep room for the disciplines this part leaves out to fit a second part.
-      final ceiling = available - kMinimumBandMinutes;
+      final ceiling = available - kMinimumLessonMinutes;
 
       if (endMinutes - startMinutes > ceiling)
       {
@@ -1041,6 +1055,7 @@ String noTeacherReason(CalendarDayIndex index, SchedulableBooking entry, Set<int
 bool canPlanSomething(CalendarDayIndex index, SchedulableBooking entry)
 {
   final stretches = entry.windowsIn(index.bandStart, index.bandEnd);
+  final shortest = minimumLessonMinutes(entry.booking.duration);
 
   final wanted = entry.requestedDisciplineIds.isEmpty
       ? <Set<int>>[const {}]
@@ -1056,20 +1071,20 @@ bool canPlanSomething(CalendarDayIndex index, SchedulableBooking entry)
 
       for (final window in intersectWindows(offered, stretches))
       {
-        if (window.$2 - window.$1 < kMinimumBandMinutes)
+        if (window.$2 - window.$1 < shortest)
         {
           continue;
         }
 
         for (final disciplineIds in wanted)
         {
-          for (var start = snapToQuarter(window.$1); start + kMinimumBandMinutes <= window.$2; start += kQuarterHour)
+          for (var start = snapToQuarter(window.$1); start + shortest <= window.$2; start += kQuarterHour)
           {
             final placement = validatePlacement(
               index: index,
               teacherTaxCode: lane.teacherTaxCode,
               startMinutes: start,
-              endMinutes: start + kMinimumBandMinutes,
+              endMinutes: start + shortest,
               bookings: [entry],
               disciplineIds: disciplineIds,
             );
@@ -1227,7 +1242,7 @@ LessonPlacement planDrop(CalendarDayIndex index, BookingDragPayload drag, String
     index: index,
     teacherTaxCode: teacherTaxCode,
     startMinutes: startMinutes,
-    endMinutes: startMinutes + (minutes < kMinimumBandMinutes ? drag.minutes : minutes),
+    endMinutes: startMinutes + (minutes < minimumLessonMinutes(entry.booking.duration) ? drag.minutes : minutes),
     bookings: [entry],
     disciplineIds: drag.disciplineIds,
   );
@@ -1400,7 +1415,7 @@ int resizeCeiling(CalendarDayIndex index, LessonItem lesson)
 
     if (leftOut.isNotEmpty && others.length + 1 < kMaxLessonParts)
     {
-      available -= kMinimumBandMinutes;
+      available -= kMinimumLessonMinutes;
     }
 
     if (ceiling < 0 || available < ceiling)
@@ -1409,17 +1424,22 @@ int resizeCeiling(CalendarDayIndex index, LessonItem lesson)
     }
   }
 
-  return ceiling < kMinimumBandMinutes ? kMinimumBandMinutes : ceiling;
+  final shortest = _shortestOf(lesson);
+
+  return ceiling < shortest ? shortest : ceiling;
 }
+
+int _shortestOf(LessonItem lesson) => _shortestFor(lesson.bookings.map((entry) => entry.booking.duration));
 
 LessonPlacement planResizeWithin(CalendarDayIndex index, LessonItem lesson, int startMinutes, int endMinutes)
 {
   final ceiling = resizeCeiling(index, lesson);
+  final shortest = _shortestOf(lesson);
 
   if (endMinutes == lesson.endMinutes)
   {
     final earliest = endMinutes - ceiling;
-    final latest = endMinutes - kMinimumBandMinutes;
+    final latest = endMinutes - shortest;
 
     return planResize(index, lesson, startMinutes.clamp(earliest, latest), endMinutes);
   }
@@ -1428,7 +1448,7 @@ LessonPlacement planResizeWithin(CalendarDayIndex index, LessonItem lesson, int 
     index,
     lesson,
     startMinutes,
-    endMinutes.clamp(startMinutes + kMinimumBandMinutes, startMinutes + ceiling),
+    endMinutes.clamp(startMinutes + shortest, startMinutes + ceiling),
   );
 }
 
@@ -1485,7 +1505,7 @@ LessonPlacement? planSplitRemainder(
     minutes = math.min(minutes, math.min(unspent, room));
   }
 
-  if (minutes < kMinimumBandMinutes)
+  if (minutes < kMinimumLessonMinutes)
   {
     return null;
   }

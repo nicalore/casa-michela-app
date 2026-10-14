@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../lessons/utils/timeline_geometry.dart';
 import '../../lessons/widgets/calendar_lane_panel.dart' show CalendarLaneEmpty;
+import '../../lessons/widgets/calendar_lesson_block.dart' show ElapsedShare;
 import 'own_day_timeline.dart' show TimelineEntry;
-import 'own_lesson_block.dart';
 
 const double _rowGap = 10;
 const double _columnGap = 10;
@@ -52,18 +52,33 @@ class OwnLessonList extends StatelessWidget
     return clusters;
   }
 
-  // Pixels per minute; the shortest block keeps its full height.
-  static double _scaleOf(_Cluster row)
+  static ({List<int> laneOf, int laneCount}) _lanesOf(_Cluster row)
   {
+    return assignSubLanes([for (final entry in row.entries) (entry.startMinutes, entry.endMinutes)]);
+  }
+
+  // Each card's width in a row [width] wide.
+  static double _cardWidthIn(_Cluster row, double width)
+  {
+    final count = _lanesOf(row).laneCount;
+
+    return (width - (count - 1) * _columnGap) / count;
+  }
+
+  // Pixels per minute: the shortest card keeps its full height, any card the height its lines need.
+  static double _scaleOf(_Cluster row, double width)
+  {
+    final cardWidth = _cardWidthIn(row, width);
+
     return row.entries
-        .map((entry) => kOwnBlockHeight / math.max(1, entry.endMinutes - entry.startMinutes))
+        .map((entry) => entry.heightAt(cardWidth) / math.max(1, entry.endMinutes - entry.startMinutes))
         .reduce(math.max);
   }
 
-  static double _heightOf(_Cluster row) => (row.endMinutes - row.startMinutes) * _scaleOf(row);
+  static double _heightOf(_Cluster row, double width) => (row.endMinutes - row.startMinutes) * _scaleOf(row, width);
 
   // Only between rows: a lesson under way is framed, not crossed.
-  double? _gapLineTop(List<_Cluster> rows)
+  double? _gapLineTop(List<_Cluster> rows, double width)
   {
     final now = nowMinutes;
 
@@ -86,7 +101,7 @@ class OwnLessonList extends StatelessWidget
         return null;
       }
 
-      top += _heightOf(row) + _rowGap;
+      top += _heightOf(row, width) + _rowGap;
     }
 
     return null;
@@ -104,32 +119,38 @@ class OwnLessonList extends StatelessWidget
     );
   }
 
-  Widget _buildRow(_Cluster row)
+  Widget _blockOf(TimelineEntry entry)
   {
-    final scale = _scaleOf(row);
-    final lanes = assignSubLanes([for (final entry in row.entries) (entry.startMinutes, entry.endMinutes)]);
+    final now = nowMinutes;
+
+    if (now == null || now < entry.startMinutes || now >= entry.endMinutes)
+    {
+      return entry.block;
+    }
+
+    return ElapsedShare(share: (now - entry.startMinutes) / (entry.endMinutes - entry.startMinutes), child: entry.block);
+  }
+
+  Widget _buildRow(_Cluster row, double rowWidth)
+  {
+    final scale = _scaleOf(row, rowWidth);
+    final lanes = _lanesOf(row);
+    final width = _cardWidthIn(row, rowWidth);
 
     return SizedBox(
-      height: _heightOf(row),
-      child: LayoutBuilder(
-        builder: (context, constraints)
-        {
-          final width = (constraints.maxWidth - (lanes.laneCount - 1) * _columnGap) / lanes.laneCount;
-
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              for (var index = 0; index < row.entries.length; index++)
-                Positioned(
-                  left: lanes.laneOf[index] * (width + _columnGap),
-                  width: width,
-                  top: (row.entries[index].startMinutes - row.startMinutes) * scale,
-                  height: (row.entries[index].endMinutes - row.entries[index].startMinutes) * scale,
-                  child: row.entries[index].block,
-                ),
-            ],
-          );
-        },
+      height: _heightOf(row, rowWidth),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var index = 0; index < row.entries.length; index++)
+            Positioned(
+              left: lanes.laneOf[index] * (width + _columnGap),
+              width: width,
+              top: (row.entries[index].startMinutes - row.startMinutes) * scale,
+              height: (row.entries[index].endMinutes - row.entries[index].startMinutes) * scale,
+              child: _blockOf(row.entries[index]),
+            ),
+        ],
       ),
     );
   }
@@ -144,7 +165,14 @@ class OwnLessonList extends StatelessWidget
       return const CalendarLaneEmpty();
     }
 
-    final gapTop = _gapLineTop(rows);
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildRows(rows, constraints.maxWidth),
+    );
+  }
+
+  Widget _buildRows(List<_Cluster> rows, double width)
+  {
+    final gapTop = _gapLineTop(rows, width);
 
     return Stack(
       clipBehavior: Clip.none,
@@ -154,7 +182,7 @@ class OwnLessonList extends StatelessWidget
           children: [
             for (var index = 0; index < rows.length; index++) ...[
               if (index > 0) const SizedBox(height: _rowGap),
-              _buildRow(rows[index]),
+              _buildRow(rows[index], width),
             ],
           ],
         ),

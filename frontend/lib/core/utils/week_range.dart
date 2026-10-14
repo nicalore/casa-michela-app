@@ -9,6 +9,12 @@ const int kQuarterHour = 15;
 // The shortest stretch a pupil can give; the database refuses less.
 const int kMinimumBandMinutes = 30;
 
+// A lesson lasts half an hour at least; a quarter of an hour only when that is its whole booking.
+const int kMinimumLessonMinutes = kMinimumBandMinutes;
+const int kQuarterLessonMinutes = kQuarterHour;
+
+int minimumLessonMinutes(int bookingMinutes) => bookingMinutes < kMinimumLessonMinutes ? bookingMinutes : kMinimumLessonMinutes;
+
 // The association's day in minutes from midnight: 06:00 to 23:00.
 const int kDayStartMinutes = 6 * 60;
 const int kDayEndMinutes = 23 * 60;

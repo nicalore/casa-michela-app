@@ -1,9 +1,10 @@
 from datetime import date, datetime, time
-from typing import Final
+from typing import ClassVar, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.time_band import TimeBandEnum
+from app.core.time_step import QUARTER_LESSON_MINUTES
 from app.schemas.association_subject import AssociationSubjectOption
 from app.schemas.booking import BookingResponse
 from app.schemas.opening_day import OpeningModeEnum
@@ -15,12 +16,17 @@ _NO_BOOKING_ERROR: Final[str] = (
     "Una lezione deve avere almeno una prenotazione."
 )
 
+_LESSON_TOO_SHORT_ERROR: Final[str] = "Una lezione dura almeno un quarto d'ora."
+
 
 def _drop_duplicates[T](values: list[T]) -> list[T]:
     return list(dict.fromkeys(values))
 
 
 class LessonBase(TimeBandMixin):
+    _minimum_minutes: ClassVar[int] = QUARTER_LESSON_MINUTES
+    _too_short_error: ClassVar[str] = _LESSON_TOO_SHORT_ERROR
+
     availability_id: int
 
     booking_ids: list[int] = Field(..., min_length=1)

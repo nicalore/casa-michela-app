@@ -524,7 +524,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
             await _editLesson(sheet, day, pupil, lesson);
 
           case MobileMoveLesson():
-            await _move(sheet, day, pupil, BookingMove.one(group, lesson.slot, lesson.booking), title: lesson.title);
+            await _move(sheet, day, pupil, BookingMove.one(group, lesson.slot, lesson.booking), title: lesson.named);
 
           case MobileDeleteLesson():
             final String mode = lesson.slot.mode;
@@ -533,10 +533,13 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
             // The last lesson of a band takes the band's hours with it.
             final bool last = group.requestsFor(mode, band: band).length == 1;
 
+            final warning = lessonDeletionWarning(lesson.named, mode, last: last, divided: lesson.divided, band: band);
+
             await _confirmDeletion(
               sheet,
               day,
-              lessonDeletionWarning(lesson.title, mode, last: last, band: band),
+              warning.text,
+              bold: warning.bold,
               delete: () => last
                   ? _clear(group, [mode], band: band, done: modeBookingDeleted(mode, band: band))
                   : _deleteLesson(lesson.booking),
@@ -609,6 +612,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
     BuildContext sheet,
     MobileBookingDay day,
     String warning, {
+    String? bold,
     required Future<void> Function() delete,
   }) async
   {
@@ -616,7 +620,12 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
       context: sheet,
       eyebrow: formatAvailableDayLabel(day.date),
       title: 'Confermi?',
-      message: TextSpan(text: warning),
+      message: TextSpan(
+        children: [
+          if (bold != null) TextSpan(text: bold, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800)),
+          TextSpan(text: warning),
+        ],
+      ),
       confirmLabel: 'Elimina',
       confirmIcon: Icons.delete_outline_rounded,
     );
@@ -718,7 +727,6 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
         for (final offer in groupBandOffers(group, mode, skip: booking, isOpen: (other) => !haveBookingsClosed(day.date, other, now)))
           if (offer.band == band) offer,
       ],
-      minutesByDisciplineTakenByOthers: group.minutesByDiscipline(mode, band: band, skip: booking),
       tourFor: _tourFor,
     );
 

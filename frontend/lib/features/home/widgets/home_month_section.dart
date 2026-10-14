@@ -125,7 +125,7 @@ String? _weeklyWarning(TeacherMonthSummaryItem month)
 
   if (current != null && current.isShort)
   {
-    return 'Questa settimana: ${current.given}\u00a0su\u00a0${current.needed}';
+    return '${current.given}\u00a0su\u00a0${current.needed}';
   }
 
   final int short = month.shortWeekCount;

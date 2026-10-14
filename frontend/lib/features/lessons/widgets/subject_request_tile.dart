@@ -188,13 +188,17 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
     return ministrySubjectName(widget.ministrySubjects, widget.draft.ministrySubjectId);
   }
 
+  // A subject divided in disciplines is named by its discipline.
+  String? get _discipline =>
+      dividedDisciplineName(widget.ministrySubjects, widget.draft.ministrySubjectId, widget.draft.associationSubjectIds);
+
   String get _summary
   {
     final disciplines = disciplineNames(widget.ministrySubjects, widget.draft);
 
     final pieces = <String>[
-      if (widget.draft.duration != null) formatMinutes(widget.draft.duration!),
       if (disciplines.isNotEmpty) disciplines.join(', '),
+      if (widget.draft.duration != null) formatMinutes(widget.draft.duration!),
     ];
 
     return pieces.join(' · ');
@@ -206,7 +210,7 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
       context: context,
       barrierLabel: 'SubjectRequestDetails',
       builder: (dialogContext) => _SubjectRequestDetailsDialog(
-        title: _title,
+        title: _discipline ?? _title,
         draft: widget.draft,
         ministrySubjects: widget.ministrySubjects,
         teachers: widget.teachers,
@@ -340,10 +344,11 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
   {
     String said(String value) => value.trim().isEmpty ? _empty : value.trim();
 
-    final disciplines = disciplineNames(ministrySubjects, draft);
+    final bool divided =
+        dividedDisciplineName(ministrySubjects, draft.ministrySubjectId, draft.associationSubjectIds) != null;
 
     return [
-      ('Discipline', disciplines.length > 1 ? disciplines.join(', ') : _empty),
+      if (divided) ('Materia', ministrySubjectName(ministrySubjects, draft.ministrySubjectId)),
       ('Durata', draft.duration == null ? _empty : formatMinutes(draft.duration!)),
       ('Tipo di lezione', said(bookingTagLabels(draft.tags).join(', '))),
       ('Argomento', said(draft.topic)),

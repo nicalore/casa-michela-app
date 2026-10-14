@@ -172,6 +172,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
                 value: subject.id,
                 label: subject.name,
                 subtitle: schoolLevelShortLabel(subject.level),
+                groupRank: schoolLevelRank(subject.level),
               ))
           .toList(),
       initialSelectedIds: _selectedMinistrySubjectIds,

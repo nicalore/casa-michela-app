@@ -20,7 +20,12 @@ _ONE_REQUEST_KIND_ERROR: Final[str] = (
 )
 
 _NO_SUBJECTS_ERROR: Final[str] = (
-    "Seleziona almeno una disciplina per questa materia ministeriale."
+    "Seleziona una disciplina per questa materia ministeriale."
+)
+
+_SEVERAL_SUBJECTS_ERROR: Final[str] = (
+    "Una prenotazione riguarda una sola disciplina: per più discipline servono "
+    "prenotazioni separate."
 )
 
 _SUBJECTS_ON_WRONG_KIND_ERROR: Final[str] = (
@@ -35,7 +40,7 @@ _NO_TAGS_ERROR: Final[str] = "Indica almeno un tipo di lezione."
 
 
 class BookingBase(BaseModel):
-    duration: int = Field(..., ge=30, le=120)
+    duration: int = Field(..., ge=15, le=120)
 
     ministry_subject_id: int | None = None
     association_subject_ids: list[int] = Field(default_factory=list)
@@ -81,6 +86,9 @@ class BookingBase(BaseModel):
 
         if self.ministry_subject_id is not None and not self.association_subject_ids:
             raise ValueError(_NO_SUBJECTS_ERROR)
+
+        if len(set(self.association_subject_ids)) > 1:
+            raise ValueError(_SEVERAL_SUBJECTS_ERROR)
 
         if self.ministry_subject_id is None and self.association_subject_ids:
             raise ValueError(_SUBJECTS_ON_WRONG_KIND_ERROR)

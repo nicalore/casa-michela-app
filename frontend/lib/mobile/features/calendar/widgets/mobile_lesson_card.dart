@@ -29,8 +29,10 @@ const EdgeInsets _padding = EdgeInsets.fromLTRB(20, 9, 9, 8);
 
 const double _iconGap = 5;
 const double _checkGap = 4;
-const double _nameGap = 4;
-const double _lineGap = 3;
+const double _titleGap = 4;
+const double _subjectGap = 1;
+const double _personGap = 4;
+const double _whereGap = 2;
 const double _whereIconGap = 4;
 
 const Color _pastAccent = Color(0xFF93A3AD);
@@ -65,17 +67,16 @@ class MobileCalendarEntry
   final Color surface;
   final IconData icon;
 
+  // The discipline, or an activity's name.
   final String title;
   final String? subject;
-  final String? disciplines;
+  final String? person;
 
   final String? modeWord;
 
   final MobileLessonWhere? where;
 
   final bool shared;
-
-  final bool brief;
 
   final VoidCallback onTap;
 
@@ -90,11 +91,10 @@ class MobileCalendarEntry
     required this.icon,
     required this.title,
     this.subject,
-    this.disciplines,
+    this.person,
     this.modeWord,
     this.where,
     this.shared = false,
-    this.brief = false,
     required this.onTap,
     this.tourId,
   });
@@ -106,7 +106,7 @@ class MobileCalendarEntry
     String? tourId,
   })
   {
-    final about = lessonAbout(lesson, ministrySubjects);
+    final topic = lessonTopic(lesson, ministrySubjects);
 
     return MobileCalendarEntry(
       startMinutes: lesson.startMinutes,
@@ -114,9 +114,9 @@ class MobileCalendarEntry
       accent: lessonAccent(lesson.mode),
       surface: Colors.white,
       icon: lessonModeIcon(lesson.mode),
-      title: lessonTitle(lesson),
-      subject: about.subject,
-      disciplines: about.disciplines,
+      title: topic.discipline,
+      subject: topic.subject,
+      person: lessonTitle(lesson),
       modeWord: lesson.mode == kOnlineMode ? modeLabel(kOnlineMode) : null,
       onTap: onTap,
       tourId: tourId,
@@ -130,7 +130,7 @@ class MobileCalendarEntry
     String? tourId,
   })
   {
-    final about = lessonAbout(lesson, ministrySubjects);
+    final topic = lessonTopic(lesson, ministrySubjects);
 
     return MobileCalendarEntry(
       startMinutes: lesson.startMinutes,
@@ -138,9 +138,9 @@ class MobileCalendarEntry
       accent: lessonAccent(lesson.mode),
       surface: Colors.white,
       icon: lessonModeIcon(lesson.mode),
-      title: lessonTitle(lesson, view: CalendarView.byStudent),
-      subject: about.subject,
-      disciplines: about.disciplines,
+      title: topic.discipline,
+      subject: topic.subject,
+      person: lessonTitle(lesson, view: CalendarView.byStudent),
       where: (
         icon: lessonWhere(lesson).icon,
         label: lessonWhere(lesson).label,
@@ -148,7 +148,6 @@ class MobileCalendarEntry
       ),
       // Co-presence hidden from students and parents for now.
       // shared: lesson.isShared,
-      brief: lesson.minutes <= kMinimumBandMinutes,
       onTap: onTap,
       tourId: tourId,
     );
@@ -185,13 +184,42 @@ class MobileCalendarEntry
   }
 }
 
+// The height that writes every line of a card whole at [width]; the timeline gives it that.
+double mobileCardHeight(
+  MobileCalendarEntry entry, {
+  required double width,
+  required TextScaler scaler,
+  required bool past,
+  bool inColumn = false,
+  double scale = 1,
+})
+{
+  final body = _CardBody(entry: entry, past: past, inColumn: inColumn, scale: scale);
+
+  return _padding.vertical + body._lay(width - _padding.horizontal, double.infinity, scaler).height;
+}
+
+// The narrowest card that still writes its hours in their longest form, icon included.
+double mobileCardHoursWidth(
+  MobileCalendarEntry entry, {
+  required TextScaler scaler,
+  required bool past,
+  bool inColumn = false,
+  double scale = 1,
+})
+{
+  final body = _CardBody(entry: entry, past: past, inColumn: inColumn, scale: scale);
+
+  return _padding.horizontal + body._fullHoursWidth(scaler) + 1;
+}
+
 // Shows only whole lines: drops from the bottom and shortens the hours to fit.
 class MobileLessonCard extends StatelessWidget
 {
   final MobileCalendarEntry entry;
   final MobileEntryTime time;
 
-  // Share of the hours gone by, for a running entry.
+  // Share of the card the now line has crossed, for a running entry.
   final double elapsed;
 
   // Overlapping another: the range alone, no length, mode or icon.
@@ -199,9 +227,6 @@ class MobileLessonCard extends StatelessWidget
 
   // Landscape tablet track: time and the elapsed tint run left to right.
   final bool horizontal;
-
-  // Card offset from its hours at each end, so the elapsed tint meets the now line.
-  final double timeInset;
 
   // Type size on a tablet.
   final double scale;
@@ -213,7 +238,6 @@ class MobileLessonCard extends StatelessWidget
     this.elapsed = 0,
     this.inColumn = false,
     this.horizontal = false,
-    this.timeInset = 0,
     this.scale = 1,
   });
 
@@ -241,12 +265,18 @@ class MobileLessonCard extends StatelessWidget
               boxShadow: _shadow,
             ),
             foregroundDecoration: running ? _runningRim : null,
-            child: CustomPaint(
-              painter: _CardPainter(
-                accent: past ? _pastAccent : entry.accent,
-                elapsed: running ? elapsed : null,
-                horizontal: horizontal,
-                timeInset: timeInset,
+            // The tint glides with the now line to each new minute.
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(end: elapsed),
+              duration: nowGlideOf(context),
+              curve: kNowGlideCurve,
+              builder: (context, reached, child) => CustomPaint(
+                painter: _CardPainter(
+                  accent: past ? _pastAccent : entry.accent,
+                  elapsed: running ? reached : null,
+                  horizontal: horizontal,
+                ),
+                child: child,
               ),
               child: Padding(
                 padding: _padding,
@@ -265,13 +295,11 @@ class _CardPainter extends CustomPainter
   final Color accent;
   final double? elapsed;
   final bool horizontal;
-  final double timeInset;
 
   const _CardPainter({
     required this.accent,
     required this.elapsed,
     required this.horizontal,
-    required this.timeInset,
   });
 
   @override
@@ -292,7 +320,7 @@ class _CardPainter extends CustomPainter
     }
 
     final double extent = horizontal ? size.width : size.height;
-    final double reached = elapsed * (extent + 2 * timeInset) - timeInset;
+    final double reached = elapsed * extent;
 
     canvas.save();
     canvas.clipRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(_radius)));
@@ -318,8 +346,7 @@ class _CardPainter extends CustomPainter
   {
     return accent != oldDelegate.accent ||
         elapsed != oldDelegate.elapsed ||
-        horizontal != oldDelegate.horizontal ||
-        timeInset != oldDelegate.timeInset;
+        horizontal != oldDelegate.horizontal;
   }
 }
 
@@ -337,59 +364,34 @@ class _CardBody extends StatelessWidget
     required this.scale,
   });
 
-  TextStyle get _hoursStyle => GoogleFonts.plusJakartaSans(
-        fontSize: 12.5 * scale,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.2,
-        height: 1.25,
-        color: past ? _pastAccent : entry.accent,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      );
+  TextStyle get _hoursStyle => _cardHoursStyle(scale: scale, color: past ? _pastAccent : entry.accent);
 
-  TextStyle get _nameStyle => GoogleFonts.plusJakartaSans(
-        fontSize: (inColumn ? 15 : 15.5) * scale,
-        fontWeight: FontWeight.w800,
-        height: 1.2,
-        color: past ? MobilePalette.mutedText : AppTheme.trialOcean,
-      );
+  TextStyle get _titleStyle => _cardTitleStyle(scale: scale, past: past, inColumn: inColumn);
 
-  TextStyle get _subjectStyle => GoogleFonts.plusJakartaSans(
-        fontSize: 13 * scale,
-        fontWeight: FontWeight.w700,
-        height: 1.25,
-        color: past ? MobilePalette.mutedText : AppTheme.trialInk,
-      );
+  TextStyle get _subjectStyle => _cardSubjectStyle(scale: scale, past: past);
 
-  TextStyle get _disciplinesStyle => GoogleFonts.plusJakartaSans(
-        fontSize: 12 * scale,
-        fontWeight: FontWeight.w600,
-        height: 1.25,
-        color: MobilePalette.mutedText,
-      );
+  TextStyle get _personStyle => _cardPersonStyle(scale: scale);
 
-  TextStyle _whereStyle(Color accent) => GoogleFonts.plusJakartaSans(
-        fontSize: 12 * scale,
-        fontWeight: FontWeight.w700,
-        height: 1.25,
-        color: past ? _pastAccent : accent,
-      );
+  TextStyle _whereStyle(Color accent) => _cardWhereStyle(scale: scale, color: past ? _pastAccent : accent);
 
   // Longest first; the last always fits somewhere.
-  List<String> get _hourForms
+  List<List<String>> get _hourForms
   {
     final String range = formatMinutesRange(entry.startMinutes, entry.endMinutes);
 
     return [
-      if (!inColumn && !entry.brief) [range, formatMinutes(entry.minutes), ?entry.modeWord].join(' · '),
-      range,
-      formatTimeOfDayShort(timeOfDayFromMinutes(entry.startMinutes)),
+      if (!inColumn) [range, formatMinutes(entry.minutes), ?entry.modeWord],
+      [range],
+      [formatTimeOfDayShort(timeOfDayFromMinutes(entry.startMinutes))],
     ];
   }
 
-  static TextPainter _measure(String text, TextStyle style, TextScaler scaler, {int maxLines = 1, double? width})
+  TextSpan _hoursSpan(List<String> parts) => lessonHoursSpan(parts, _hoursStyle);
+
+  static TextPainter _measure(InlineSpan span, TextScaler scaler, {int maxLines = 1, double? width})
   {
     return TextPainter(
-      text: TextSpan(text: text, style: style),
+      text: span,
       textDirection: TextDirection.ltr,
       textScaler: scaler,
       maxLines: maxLines,
@@ -399,7 +401,7 @@ class _CardBody extends StatelessWidget
 
   static double _height(String text, TextStyle style, TextScaler scaler, {int maxLines = 1, required double width})
   {
-    final TextPainter painter = _measure(text, style, scaler, maxLines: maxLines, width: width);
+    final TextPainter painter = _measure(TextSpan(text: text, style: style), scaler, maxLines: maxLines, width: width);
     final double height = painter.height;
 
     painter.dispose();
@@ -407,15 +409,17 @@ class _CardBody extends StatelessWidget
     return height;
   }
 
-  static double _width(String text, TextStyle style, TextScaler scaler)
+  static double _spanWidth(InlineSpan span, TextScaler scaler)
   {
-    final TextPainter painter = _measure(text, style, scaler);
+    final TextPainter painter = _measure(span, scaler);
     final double width = painter.width;
 
     painter.dispose();
 
     return width;
   }
+
+  static double _width(String text, TextStyle style, TextScaler scaler) => _spanWidth(TextSpan(text: text, style: style), scaler);
 
   // Whole lines of [text] that fit in [room], and their height.
   static (int, double) _fit(String text, TextStyle style, TextScaler scaler, {required double width, required double room})
@@ -447,9 +451,17 @@ class _CardBody extends StatelessWidget
     return (count, height);
   }
 
-  (String, bool) _pickHours(double width, TextScaler scaler, {required bool narrow})
+  double _fullHoursWidth(TextScaler scaler)
   {
-    final List<String> forms = _hourForms;
+    final double check = (past ? 17 * scale + _checkGap : 0) + (entry.shared ? 16 * scale + _checkGap : 0);
+    final double icon = inColumn ? 0 : 15 * scale + _iconGap;
+
+    return math.max(_narrowWidth, _spanWidth(_hoursSpan(_hourForms.first), scaler) + icon + check);
+  }
+
+  (List<String>, bool) _pickHours(double width, TextScaler scaler, {required bool narrow})
+  {
+    final List<List<String>> forms = _hourForms;
     // Icons keep their size whatever the text scale.
     final double check = narrow ? 0 : (past ? 17 * scale + _checkGap : 0) + (entry.shared ? 16 * scale + _checkGap : 0);
     final double icon = 15 * scale + _iconGap;
@@ -458,7 +470,7 @@ class _CardBody extends StatelessWidget
     {
       for (final form in forms)
       {
-        if (_width(form, _hoursStyle, scaler) + icon + check <= width)
+        if (_spanWidth(_hoursSpan(form), scaler) + icon + check <= width)
         {
           return (form, true);
         }
@@ -467,7 +479,7 @@ class _CardBody extends StatelessWidget
 
     for (final form in forms)
     {
-      if (_width(form, _hoursStyle, scaler) + check <= width)
+      if (_spanWidth(_hoursSpan(form), scaler) + check <= width)
       {
         return (form, false);
       }
@@ -489,6 +501,91 @@ class _CardBody extends StatelessWidget
     return style.copyWith(fontSize: style.fontSize! * math.max(_minWordFit, width / widest * 0.98));
   }
 
+  // One optional line under the title: its style and how many of its lines fit.
+  (TextStyle, int, double) _optional(String? text, TextStyle style, TextScaler scaler, double width, double room)
+  {
+    if (text == null)
+    {
+      return (style, 0, 0.0);
+    }
+
+    final TextStyle fitted = _wholeWords(text, style, scaler, width);
+    final (int lines, double height) = _fit(text, fitted, scaler, width: width, room: room);
+
+    return (fitted, lines, height);
+  }
+
+  // Whole lines only, dropped from the bottom when [room] is short; words never split.
+  _CardLines _lay(double width, double room, TextScaler scaler)
+  {
+    final bool narrow = width < _narrowWidth;
+
+    final (List<String> hours, bool withIcon) = _pickHours(width, scaler, narrow: narrow);
+
+    // Icons keep their size at any text scale: below 1 they stand taller than the words.
+    final double hoursIcons = [
+      if (withIcon) 15 * scale,
+      if (entry.shared && !narrow) 16 * scale,
+      if (past && !narrow) 17 * scale,
+    ].fold(0.0, math.max);
+
+    double used = math.max(_height(hours.first, _hoursStyle, scaler, width: width), hoursIcons) + _titleGap;
+
+    // Hours and the first line of the title stay even when too tall, cut by the clip.
+    final TextStyle titleStyle = _wholeWords(entry.title, _titleStyle, scaler, width);
+    final (int titleFitting, double titleHeight) = _fit(entry.title, titleStyle, scaler, width: width, room: room - used);
+    final int titleLines = math.max(1, titleFitting);
+
+    used += titleFitting > 0 ? titleHeight : _height(entry.title, titleStyle, scaler, width: width);
+
+    final (TextStyle subjectStyle, int subjectLines, double subjectHeight) =
+        _optional(entry.subject, _subjectStyle, scaler, width, room - used - _subjectGap);
+
+    if (subjectLines > 0)
+    {
+      used += _subjectGap + subjectHeight;
+    }
+
+    final bool subjectCut = entry.subject != null && subjectLines == 0;
+
+    final (TextStyle personStyle, int personLines, double personHeight) = subjectCut
+        ? (_personStyle, 0, 0.0)
+        : _optional(entry.person, _personStyle, scaler, width, room - used - _personGap);
+
+    if (personLines > 0)
+    {
+      used += _personGap + personHeight;
+    }
+
+    // Last, as on the desktop, so it goes first.
+    final MobileLessonWhere? where = entry.where;
+    final double whereIcon = inColumn || narrow ? 0 : 14 * scale;
+    final double whereWidth = width - whereIcon - (whereIcon == 0 ? 0 : _whereIconGap);
+    final (TextStyle whereStyle, int whereLines, double whereHeight) = personLines == 0 && entry.person != null
+        ? (_whereStyle(entry.accent), 0, 0.0)
+        : _optional(where?.label, _whereStyle(where?.accent ?? entry.accent), scaler, whereWidth, room - used - _whereGap);
+
+    if (whereLines > 0)
+    {
+      used += _whereGap + math.max(whereHeight, whereIcon);
+    }
+
+    return (
+      hours: hours,
+      withIcon: withIcon,
+      titleStyle: titleStyle,
+      titleLines: titleLines,
+      subjectStyle: subjectStyle,
+      subjectLines: subjectLines,
+      personStyle: personStyle,
+      personLines: personLines,
+      whereStyle: whereStyle,
+      whereIcon: whereIcon,
+      whereLines: whereLines,
+      height: used,
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -498,67 +595,16 @@ class _CardBody extends StatelessWidget
       builder: (context, constraints)
       {
         final double width = constraints.maxWidth;
-        final double room = constraints.maxHeight;
         final bool narrow = width < _narrowWidth;
 
-        final (String hours, bool withIcon) = _pickHours(width, scaler, narrow: narrow);
+        final _CardLines lines = _lay(width, constraints.maxHeight, scaler);
+        final String? subject = entry.subject;
+        final String? person = entry.person;
+        final MobileLessonWhere? where = entry.where;
 
-        final String headline = entry.brief ? entry.subject ?? entry.title : entry.title;
-        final TextStyle nameStyle = _wholeWords(headline, _nameStyle, scaler, width);
-
-        double used = _height(hours, _hoursStyle, scaler, width: width) + _nameGap;
-
-        final int nameLines =
-            used + _height(headline, nameStyle, scaler, maxLines: 2, width: width) <= room ? 2 : 1;
-
-        used += _height(headline, nameStyle, scaler, maxLines: nameLines, width: width);
-
-        final String? subject = entry.brief ? null : entry.subject;
-        final TextStyle subjectStyle = subject == null ? _subjectStyle : _wholeWords(subject, _subjectStyle, scaler, width);
-        final (int subjectLines, double subjectHeight) = subject == null
-            ? (0, 0.0)
-            : _fit(subject, subjectStyle, scaler, width: width, room: room - used - _lineGap);
-        final bool showsSubject = subjectLines > 0;
-
-        if (showsSubject)
-        {
-          used += _lineGap + subjectHeight;
-        }
-
-        final String? disciplines = entry.brief ? null : entry.disciplines;
-        final (int fitting, double fittingHeight) = disciplines == null || !showsSubject || inColumn
-            ? (0, 0.0)
-            : _fit(disciplines, _disciplinesStyle, scaler, width: width, room: room - used - _lineGap);
-        // Narrow, a single line cut short: the words are too long to stack.
-        final int disciplineLines = narrow ? math.min(1, fitting) : fitting;
-        final double disciplineHeight = narrow && fitting > 1
-            ? _height(disciplines!, _disciplinesStyle, scaler, width: width)
-            : fittingHeight;
-        final bool showsDisciplines = disciplineLines > 0;
-
-        if (showsDisciplines)
-        {
-          used += _lineGap + disciplineHeight;
-        }
-
-        // Last, as on the desktop, so it goes first; a narrow card keeps it on one line.
-        final MobileLessonWhere? where = entry.brief ? null : entry.where;
-        final double whereIcon = inColumn || narrow ? 0 : 14 * scale;
-        final (int whereFitting, double _) = where == null
-            ? (0, 0.0)
-            : _fit(
-                where.label,
-                _whereStyle(where.accent),
-                scaler,
-                width: width - whereIcon - (whereIcon == 0 ? 0 : _whereIconGap),
-                room: room - used - _lineGap,
-              );
-        final int whereLines = narrow ? math.min(1, whereFitting) : whereFitting;
-        final bool showsWhere = where != null && whereLines > 0 && used + _lineGap + whereIcon <= room;
-
-        // Hours and name stay even when too tall, cut by the clip. No ambient
-        // style (theme letter spacing), so the lines match those measured above.
+        // No ambient style (theme letter spacing), so the lines match those measured above.
         return ClipRect(
+          clipper: const _CardFaceClip(),
           child: OverflowBox(
             alignment: Alignment.topLeft,
             minHeight: 0,
@@ -571,12 +617,12 @@ class _CardBody extends StatelessWidget
                 children: [
                   Row(
                     children: [
-                      if (withIcon) ...[
+                      if (lines.withIcon) ...[
                         Icon(entry.icon, size: 15 * scale, color: past ? _pastAccent : entry.accent),
                         const SizedBox(width: _iconGap),
                       ],
                       Expanded(
-                        child: Text(hours, maxLines: 1, overflow: TextOverflow.ellipsis, style: _hoursStyle),
+                        child: Text.rich(_hoursSpan(lines.hours), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
                       if (entry.shared && !narrow) ...[
                         const SizedBox(width: _checkGap),
@@ -588,34 +634,29 @@ class _CardBody extends StatelessWidget
                       ],
                     ],
                   ),
-                  const SizedBox(height: _nameGap),
+                  const SizedBox(height: _titleGap),
                   Text(
-                    headline,
-                    maxLines: nameLines,
+                    entry.title,
+                    maxLines: lines.titleLines,
                     overflow: TextOverflow.ellipsis,
-                    style: nameStyle,
+                    style: lines.titleStyle,
                   ),
-                  if (showsSubject && subject != null) ...[
-                    const SizedBox(height: _lineGap),
-                    Text(subject, maxLines: subjectLines, overflow: TextOverflow.ellipsis, style: subjectStyle),
+                  if (lines.subjectLines > 0 && subject != null) ...[
+                    const SizedBox(height: _subjectGap),
+                    Text(subject, maxLines: lines.subjectLines, overflow: TextOverflow.ellipsis, style: lines.subjectStyle),
                   ],
-                  if (showsDisciplines && disciplines != null) ...[
-                    const SizedBox(height: _lineGap),
-                    Text(
-                      disciplines,
-                      maxLines: disciplineLines,
-                      overflow: TextOverflow.ellipsis,
-                      style: _disciplinesStyle,
-                    ),
+                  if (lines.personLines > 0 && person != null) ...[
+                    const SizedBox(height: _personGap),
+                    Text(person, maxLines: lines.personLines, overflow: TextOverflow.ellipsis, style: lines.personStyle),
                   ],
-                  if (showsWhere) ...[
-                    const SizedBox(height: _lineGap),
+                  if (lines.whereLines > 0 && where != null) ...[
+                    const SizedBox(height: _whereGap),
                     _WhereLine(
                       where: where,
-                      style: _whereStyle(where.accent),
-                      iconSize: whereIcon,
+                      style: lines.whereStyle,
+                      iconSize: lines.whereIcon,
                       past: past,
-                      maxLines: whereLines,
+                      maxLines: lines.whereLines,
                     ),
                   ],
                 ],
@@ -627,6 +668,73 @@ class _CardBody extends StatelessWidget
     );
   }
 }
+
+// The card's whole face: the font's descenders reach below a 1.25 line, into the padding.
+class _CardFaceClip extends CustomClipper<Rect>
+{
+  const _CardFaceClip();
+
+  @override
+  Rect getClip(Size size)
+  {
+    return Rect.fromLTRB(-_padding.left, -_padding.top, size.width + _padding.right, size.height + _padding.bottom);
+  }
+
+  @override
+  bool shouldReclip(_CardFaceClip oldClipper) => false;
+}
+
+typedef _CardLines = ({
+  List<String> hours,
+  bool withIcon,
+  TextStyle titleStyle,
+  int titleLines,
+  TextStyle subjectStyle,
+  int subjectLines,
+  TextStyle personStyle,
+  int personLines,
+  TextStyle whereStyle,
+  double whereIcon,
+  int whereLines,
+  double height,
+});
+
+TextStyle _cardHoursStyle({required double scale, required Color color}) => GoogleFonts.plusJakartaSans(
+      fontSize: 12.5 * scale,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0.2,
+      height: 1.25,
+      color: color,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+TextStyle _cardTitleStyle({required double scale, required bool past, bool inColumn = false}) => GoogleFonts.plusJakartaSans(
+      fontSize: (inColumn ? 15 : 15.5) * scale,
+      fontWeight: FontWeight.w800,
+      height: 1.2,
+      color: past ? MobilePalette.mutedText : AppTheme.trialOcean,
+    );
+
+TextStyle _cardSubjectStyle({required double scale, required bool past}) => GoogleFonts.plusJakartaSans(
+      fontSize: 12.5 * scale,
+      fontWeight: FontWeight.w600,
+      height: 1.25,
+      color: past ? MobilePalette.mutedText : AppTheme.trialOcean,
+    );
+
+TextStyle _cardPersonStyle({required double scale}) => GoogleFonts.plusJakartaSans(
+      fontSize: 13 * scale,
+      fontWeight: FontWeight.w600,
+      height: 1.25,
+      color: MobilePalette.mutedText,
+    );
+
+TextStyle _cardWhereStyle({required double scale, required Color color}) => GoogleFonts.plusJakartaSans(
+      fontSize: 12 * scale,
+      fontWeight: FontWeight.w700,
+      height: 1.25,
+      color: color,
+    );
 
 // The "Per lezioni" card: never cut, as tall as its lines.
 class MobileLessonListCard extends StatelessWidget
@@ -651,13 +759,13 @@ class MobileLessonListCard extends StatelessWidget
 
     const BorderRadius radius = BorderRadius.all(Radius.circular(_radius));
 
-    final String head = [
+    final List<String> head = [
       formatMinutesRange(entry.startMinutes, entry.endMinutes),
       formatMinutes(entry.minutes),
       ?entry.modeWord,
-    ].join(' · ');
+    ];
     final String? subject = entry.subject;
-    final String? disciplines = entry.disciplines;
+    final String? person = entry.person;
     final MobileLessonWhere? where = entry.where;
 
     final Widget card = Semantics(
@@ -673,7 +781,7 @@ class MobileLessonListCard extends StatelessWidget
           ),
           foregroundDecoration: time == MobileEntryTime.running ? _runningRim : null,
           child: CustomPaint(
-            painter: _CardPainter(accent: accent, elapsed: null, horizontal: false, timeInset: 0),
+            painter: _CardPainter(accent: accent, elapsed: null, horizontal: false),
             child: Padding(
               padding: EdgeInsets.fromLTRB(20, 11 * scale, 12, 12 * scale),
               child: Column(
@@ -684,17 +792,10 @@ class MobileLessonListCard extends StatelessWidget
                       Icon(entry.icon, size: 15 * scale, color: accent),
                       const SizedBox(width: _iconGap),
                       Expanded(
-                        child: Text(
-                          head,
+                        child: Text.rich(
+                          lessonHoursSpan(head, _cardHoursStyle(scale: scale, color: accent)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12.5 * scale,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
-                            height: 1.25,
-                            color: accent,
-                          ),
                         ),
                       ),
                       if (entry.shared) ...[
@@ -707,50 +808,21 @@ class MobileLessonListCard extends StatelessWidget
                       ],
                     ],
                   ),
-                  const SizedBox(height: _nameGap),
-                  Text(
-                    entry.title,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15.5 * scale,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                      color: past ? MobilePalette.mutedText : AppTheme.trialOcean,
-                    ),
-                  ),
+                  const SizedBox(height: _titleGap),
+                  Text(entry.title, style: _cardTitleStyle(scale: scale, past: past)),
                   if (subject != null) ...[
-                    const SizedBox(height: _lineGap),
-                    Text(
-                      subject,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13 * scale,
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                        color: past ? MobilePalette.mutedText : AppTheme.trialInk,
-                      ),
-                    ),
+                    const SizedBox(height: _subjectGap),
+                    Text(subject, style: _cardSubjectStyle(scale: scale, past: past)),
                   ],
-                  if (disciplines != null) ...[
-                    const SizedBox(height: _lineGap),
-                    Text(
-                      disciplines,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12 * scale,
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
-                        color: MobilePalette.mutedText,
-                      ),
-                    ),
+                  if (person != null) ...[
+                    const SizedBox(height: _personGap),
+                    Text(person, style: _cardPersonStyle(scale: scale)),
                   ],
                   if (where != null) ...[
-                    const SizedBox(height: _lineGap),
+                    const SizedBox(height: _whereGap),
                     _WhereLine(
                       where: where,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12 * scale,
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                        color: past ? _pastAccent : where.accent,
-                      ),
+                      style: _cardWhereStyle(scale: scale, color: past ? _pastAccent : where.accent),
                       iconSize: 14 * scale,
                       past: past,
                     ),

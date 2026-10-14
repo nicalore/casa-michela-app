@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../utils/timeline_geometry.dart';
 import 'calendar_pdf_palette.dart';
 
 const double kNameColumnWidth = 128;
@@ -13,11 +14,9 @@ const double kBlockGap = 1.5;
 
 const double kBlockChrome = 2 * kBlockGap + 2 * 3;
 
-double atMinuteOfTrack(int minute, {required int windowStart, required int windowEnd, required double track})
+double atMinuteOfTrack(int minute, {required TimeScale scale, required double track})
 {
-  final clamped = minute.clamp(windowStart, windowEnd);
-
-  return track * (clamped - windowStart) / (windowEnd - windowStart);
+  return scale.extent <= 0 ? 0 : scale.at(minute) * track / scale.extent;
 }
 
 class CalendarPdfTrackRow extends pw.MultiChildWidget
@@ -28,8 +27,7 @@ class CalendarPdfTrackRow extends pw.MultiChildWidget
     required this.spans,
     required this.laneOf,
     required this.laneCount,
-    required this.windowStart,
-    required this.windowEnd,
+    required this.scale,
     required this.striped,
   }) : super(children: [name, ...blocks]);
 
@@ -42,8 +40,7 @@ class CalendarPdfTrackRow extends pw.MultiChildWidget
   final List<int> laneOf;
   final int laneCount;
 
-  final int windowStart;
-  final int windowEnd;
+  final TimeScale scale;
 
   final bool striped;
 
@@ -51,12 +48,7 @@ class CalendarPdfTrackRow extends pw.MultiChildWidget
 
   double _trackWidth(double width) => width - kNameColumnWidth;
 
-  double _atMinute(int minute, double track) => atMinuteOfTrack(
-        minute,
-        windowStart: windowStart,
-        windowEnd: windowEnd,
-        track: track,
-      );
+  double _atMinute(int minute, double track) => atMinuteOfTrack(minute, scale: scale, track: track);
 
   @override
   void layout(pw.Context context, pw.BoxConstraints constraints, {bool parentUsesSize = false})
@@ -158,7 +150,7 @@ class CalendarPdfTrackRow extends pw.MultiChildWidget
         ..fillPath();
     }
 
-    for (var minute = _firstMark(); minute < windowEnd; minute += 30)
+    for (var minute = _firstMark(); minute < scale.end; minute += 30)
     {
       final x = left + kNameColumnWidth + _atMinute(minute, track);
       final isHour = minute % 60 == 0;
@@ -181,8 +173,8 @@ class CalendarPdfTrackRow extends pw.MultiChildWidget
 
   int _firstMark()
   {
-    final remainder = windowStart % 30;
+    final remainder = scale.start % 30;
 
-    return remainder == 0 ? windowStart + 30 : windowStart + (30 - remainder);
+    return remainder == 0 ? scale.start + 30 : scale.start + (30 - remainder);
   }
 }

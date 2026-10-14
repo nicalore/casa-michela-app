@@ -1,5 +1,5 @@
 from datetime import time
-from typing import Annotated, Any, Final, Self
+from typing import Annotated, Any, ClassVar, Final, Self
 
 from pydantic import (
     AfterValidator,
@@ -114,10 +114,13 @@ class QuarterHourTimeRangeMixin(TimeRangeMixin):
 
 
 class TimeBandMixin(QuarterHourTimeRangeMixin):
+    _minimum_minutes: ClassVar[int] = MINIMUM_BAND_MINUTES
+    _too_short_error: ClassVar[str] = _BAND_TOO_SHORT_ERROR
+
     @model_validator(mode="after")
     def _band_is_long_enough(self) -> Self:
-        if minutes_between(self.start_time, self.end_time) < MINIMUM_BAND_MINUTES:
-            raise ValueError(_BAND_TOO_SHORT_ERROR)
+        if minutes_between(self.start_time, self.end_time) < self._minimum_minutes:
+            raise ValueError(self._too_short_error)
 
         return self
 

@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
+
 import '../../../core/utils/week_range.dart' show kQuarterHour;
 
 // A span is a pair of minutes since midnight, half-open like TimeBucket.
@@ -253,6 +255,165 @@ const int _noClaim = 1 << 20;
   return (start, end);
 }
 
+// Room an item wants along the axis, spread over its minutes.
+typedef TimeNeed = ({int startMinutes, int endMinutes, double size});
+
+// Size of each quarter hour along an axis from [start]; the last one may be shorter.
+class TimeScale
+{
+  final int start;
+  final int end;
+
+  final List<double> slices;
+
+  final List<double> _offsets;
+
+  TimeScale._(this.start, this.end, this.slices)
+      : _offsets = [0, for (var i = 0, sum = 0.0; i < slices.length; i++) sum += slices[i]];
+
+  static List<int> _sliceMinutes(int start, int end)
+  {
+    return [for (var minute = start; minute < end; minute += kQuarterHour) math.min(kQuarterHour, end - minute)];
+  }
+
+  factory TimeScale.even(int start, int end, double extent)
+  {
+    final minutes = _sliceMinutes(start, end);
+    final perMinute = end > start ? extent / (end - start) : 0.0;
+
+    return TimeScale._(start, end, [for (final length in minutes) length * perMinute]);
+  }
+
+  // Quarters an item needs grow, the rest shrink down to [minQuarter]; past that it outgrows [extent].
+  factory TimeScale.elastic({
+    required int start,
+    required int end,
+    required double extent,
+    required List<TimeNeed> needs,
+    required double minQuarter,
+  })
+  {
+    final minutes = _sliceMinutes(start, end);
+    final wanted = List<double>.filled(minutes.length, 0);
+
+    for (final need in needs)
+    {
+      final from = math.max(start, need.startMinutes);
+      final to = math.min(end, need.endMinutes);
+
+      if (to <= from)
+      {
+        continue;
+      }
+
+      final perMinute = need.size / (to - from);
+
+      for (var i = 0; i < minutes.length; i++)
+      {
+        final sliceStart = start + i * kQuarterHour;
+        final shared = math.min(to, sliceStart + minutes[i]) - math.max(from, sliceStart);
+
+        if (shared > 0)
+        {
+          wanted[i] = math.max(wanted[i], perMinute * shared);
+        }
+      }
+    }
+
+    double total(double perMinute)
+    {
+      var sum = 0.0;
+
+      for (var i = 0; i < minutes.length; i++)
+      {
+        sum += math.max(perMinute * minutes[i], wanted[i]);
+      }
+
+      return sum;
+    }
+
+    List<double> slicesAt(double perMinute) => [
+          for (var i = 0; i < minutes.length; i++) math.max(perMinute * minutes[i], wanted[i]),
+        ];
+
+    final even = end > start ? extent / (end - start) : 0.0;
+    final floor = minQuarter / kQuarterHour;
+
+    if (total(even) <= extent + 0.01)
+    {
+      return TimeScale._(start, end, slicesAt(even));
+    }
+
+    if (floor >= even || total(floor) >= extent)
+    {
+      return TimeScale._(start, end, slicesAt(floor));
+    }
+
+    var low = floor;
+    var high = even;
+
+    for (var step = 0; step < 40; step++)
+    {
+      final middle = (low + high) / 2;
+
+      if (total(middle) > extent)
+      {
+        high = middle;
+      }
+      else
+      {
+        low = middle;
+      }
+    }
+
+    return TimeScale._(start, end, slicesAt(low));
+  }
+
+  double get extent => _offsets.last;
+
+  double at(int minutes)
+  {
+    if (minutes <= start || slices.isEmpty)
+    {
+      return 0;
+    }
+
+    if (minutes >= end)
+    {
+      return extent;
+    }
+
+    final index = (minutes - start) ~/ kQuarterHour;
+    final into = minutes - start - index * kQuarterHour;
+    final length = math.min(kQuarterHour, end - start - index * kQuarterHour);
+
+    return _offsets[index] + slices[index] * into / length;
+  }
+
+  int minutesAt(double offset)
+  {
+    if (offset <= 0 || slices.isEmpty)
+    {
+      return start;
+    }
+
+    for (var i = 0; i < slices.length; i++)
+    {
+      if (offset < _offsets[i + 1])
+      {
+        final length = math.min(kQuarterHour, end - start - i * kQuarterHour);
+        final into = slices[i] <= 0 ? 0.0 : (offset - _offsets[i]) / slices[i] * length;
+
+        return start + i * kQuarterHour + into.round();
+      }
+    }
+
+    return end;
+  }
+
+  bool sameAs(TimeScale other) => start == other.start && end == other.end && listEquals(slices, other.slices);
+}
+
 // Built inside a LayoutBuilder; cheap enough to rebuild every frame.
 class TimelineMetrics
 {
@@ -265,12 +426,46 @@ class TimelineMetrics
   // Rows vary in height: a row with concurrent lessons needs extra sub-lanes.
   final List<double> rowHeights;
 
+  // Null for an even scale over [trackWidth].
+  final TimeScale? scale;
+
   const TimelineMetrics({
     required this.windowStartMinutes,
     required this.windowEndMinutes,
     required this.trackWidth,
     required this.rowHeights,
-  });
+  }) : scale = null;
+
+  TimelineMetrics.scaled({required TimeScale this.scale, required this.rowHeights})
+      : windowStartMinutes = scale.start,
+        windowEndMinutes = scale.end,
+        trackWidth = scale.extent;
+
+  TimelineMetrics withRowHeights(List<double> heights)
+  {
+    final scale = this.scale;
+
+    return scale == null
+        ? TimelineMetrics(
+            windowStartMinutes: windowStartMinutes,
+            windowEndMinutes: windowEndMinutes,
+            trackWidth: trackWidth,
+            rowHeights: heights,
+          )
+        : TimelineMetrics.scaled(scale: scale, rowHeights: heights);
+  }
+
+  // Same window, width and quarter sizes: painters need not repaint.
+  bool sameAxis(TimelineMetrics other)
+  {
+    final scale = this.scale;
+    final otherScale = other.scale;
+
+    return windowStartMinutes == other.windowStartMinutes &&
+        windowEndMinutes == other.windowEndMinutes &&
+        trackWidth == other.trackWidth &&
+        (scale == null ? otherScale == null : otherScale != null && scale.sameAs(otherScale));
+  }
 
   int get windowMinutes => windowEndMinutes - windowStartMinutes;
 
@@ -284,9 +479,22 @@ class TimelineMetrics
 
   double xOf(int minutes)
   {
+    final scale = this.scale;
+
+    if (scale != null)
+    {
+      return scale.at(minutes);
+    }
+
     final clamped = minutes.clamp(windowStartMinutes, windowEndMinutes);
 
     return (clamped - windowStartMinutes) * pixelsPerMinute;
+  }
+
+  // Room on the axis between [minute] and its neighbours [step] minutes away.
+  double roomAround(int minute, int step)
+  {
+    return math.min(xOf(minute) - xOf(minute - step), xOf(minute + step) - xOf(minute));
   }
 
   // Never zero: a zero-width block is a lesson that has vanished.
@@ -297,6 +505,13 @@ class TimelineMetrics
 
   int minutesAt(double x)
   {
+    final scale = this.scale;
+
+    if (scale != null)
+    {
+      return scale.minutesAt(x);
+    }
+
     if (pixelsPerMinute <= 0)
     {
       return windowStartMinutes;

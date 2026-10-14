@@ -249,6 +249,7 @@ class _PresenceCardState extends State<PresenceCard>
       barrierLabel: 'ConfirmSubjectDeletion',
       builder: (confirmContext) => _ConfirmSubjectDeletion(
         label: bookingTitle(booking, widget.ministrySubjects),
+        discipline: bookingDisciplineLabel(booking, widget.ministrySubjects),
         onConfirmed: () => widget.onDeleteSubject(booking, presenceId, (message)
         {
           if (mounted)
@@ -484,8 +485,8 @@ class _ModeColumn extends StatelessWidget
             requests.isEmpty
                 ? 'Nessuna materia'
                 : (requests.length == 1
-                    ? '1 materia · ${formatMinutes(group.minutesAskedFor(mode))}'
-                    : '${requests.length} materie · ${formatMinutes(group.minutesAskedFor(mode))}'),
+                    ? '1 prenotazione · ${formatMinutes(group.minutesAskedFor(mode))}'
+                    : '${requests.length} prenotazioni · ${formatMinutes(group.minutesAskedFor(mode))}'),
             maxLines: 1,
             style: _totalStyle,
           ),
@@ -743,8 +744,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
           for (final offer in groupBandOffers(group, mode, skip: existing))
             if (offer.band == _bandOf(existing)) offer,
         ],
-        minutesByDisciplineTakenByOthers:
-            group.minutesByDiscipline(mode, band: _bandOf(existing), skip: existing),
         onSave: (draft) => widget.onSaveSubject(existing, draft),
       ),
     );
@@ -904,10 +903,15 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
 class _ConfirmSubjectDeletion extends StatelessWidget
 {
   final String label;
+
+  // «Materia - Disciplina» for a subject divided in disciplines.
+  final String? discipline;
+
   final Future<bool> Function() onConfirmed;
 
   const _ConfirmSubjectDeletion({
     required this.label,
+    required this.discipline,
     required this.onConfirmed,
   });
 
@@ -948,12 +952,12 @@ class _ConfirmSubjectDeletion extends StatelessWidget
           child: Text.rich(
             TextSpan(
               children: [
-                const TextSpan(text: 'La materia '),
+                if (discipline == null) const TextSpan(text: 'La materia '),
                 TextSpan(
-                  text: label,
+                  text: discipline ?? label,
                   style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                 ),
-                const TextSpan(text: ' verrà tolta dalla richiesta.'),
+                TextSpan(text: discipline == null ? ' verrà tolta dalla richiesta.' : ' verrà rimossa dalla richiesta.'),
               ],
             ),
             style: GoogleFonts.plusJakartaSans(

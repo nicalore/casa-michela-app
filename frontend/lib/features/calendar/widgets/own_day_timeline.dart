@@ -21,11 +21,21 @@ const double kTimelineNameWidth = 160;
 
 typedef TimelineStretch = ({String mode, int startMinutes, int endMinutes});
 
-typedef TimelineEntry = ({int startMinutes, int endMinutes, Widget block});
+// [width] fits every line, long ones wrapped; [heightAt] is the card's height at a given width.
+typedef TimelineEntry = ({
+  int startMinutes,
+  int endMinutes,
+  double width,
+  double Function(double width) heightAt,
+  Widget block,
+});
 
 typedef TimelineLane = ({Widget? name, List<TimelineStretch> stretches, List<TimelineEntry> entries});
 
-class OwnDayTimeline extends StatelessWidget
+// Under the rows, for the sideways scrollbar.
+const double _scrollbarRoom = 14;
+
+class OwnDayTimeline extends StatefulWidget
 {
   final (int, int) window;
 
@@ -41,6 +51,25 @@ class OwnDayTimeline extends StatelessWidget
     required this.nowMinutes,
   });
 
+  @override
+  State<OwnDayTimeline> createState() => _OwnDayTimelineState();
+}
+
+class _OwnDayTimelineState extends State<OwnDayTimeline>
+{
+  final ScrollController _sideways = ScrollController();
+
+  (int, int) get window => widget.window;
+
+  List<TimelineLane> get lanes => widget.lanes;
+
+  @override
+  void dispose()
+  {
+    _sideways.dispose();
+    super.dispose();
+  }
+
   bool get _isNamed => lanes.any((lane) => lane.name != null);
 
   double _nameWidthIn(double maxWidth) => _isNamed ? math.min(kTimelineNameWidth, maxWidth * 0.22) : 0;
@@ -50,11 +79,26 @@ class OwnDayTimeline extends StatelessWidget
     return [for (final entry in lane.entries) (entry.startMinutes, entry.endMinutes)];
   }
 
-  static double _rowHeightOf(TimelineLane lane)
+  static double _rowHeightOf(TimelineLane lane, double blockHeight)
   {
     final subLanes = assignSubLanes(_spansOf(lane)).laneCount;
 
-    return 2 * _rowPadding + subLanes * kOwnBlockHeight + (subLanes - 1) * _subLaneGap;
+    return 2 * _rowPadding + subLanes * blockHeight + (subLanes - 1) * _subLaneGap;
+  }
+
+  // Each row's cards as tall as the one whose long lines wrap the most, at the width the scale gives.
+  static List<double> _blockHeightsOf(List<TimelineLane> lanes, TimelineMetrics metrics)
+  {
+    return [
+      for (final lane in lanes)
+        lane.entries.fold(
+          kOwnBlockHeight,
+          (tallest, entry) => math.max(
+            tallest,
+            entry.heightAt(metrics.widthOf(entry.startMinutes, entry.endMinutes) - 2 * kBlockSideGap),
+          ),
+        ),
+    ];
   }
 
   List<Widget> _buildAxis(TimelineMetrics metrics)
@@ -80,13 +124,31 @@ class OwnDayTimeline extends StatelessWidget
     }
 
     return [
-      if (metrics.pixelsPerMinute * 30 >= 44)
-        for (final minute in metrics.halfTicks()) label(minute, isHour: false),
+      for (final minute in metrics.halfTicks())
+        if (metrics.roomAround(minute, 30) >= 44) label(minute, isHour: false),
       for (final minute in metrics.hourTicks()) label(minute, isHour: true),
     ];
   }
 
-  List<Widget> _buildRow(TimelineMetrics metrics, int row, TimelineLane lane)
+  // The card under way learns where the now line crosses it, which the scale may not reach evenly.
+  Widget _blockOf(TimelineMetrics metrics, TimelineEntry entry, int? now)
+  {
+    if (now == null || now < entry.startMinutes || now >= entry.endMinutes)
+    {
+      return entry.block;
+    }
+
+    return ElapsedShare(
+      share: cardShare(
+        nowLineX(metrics, now),
+        metrics.xOf(entry.startMinutes) + kBlockSideGap,
+        metrics.xOf(entry.endMinutes) - kBlockSideGap,
+      ),
+      child: entry.block,
+    );
+  }
+
+  List<Widget> _buildRow(TimelineMetrics metrics, int row, TimelineLane lane, int? now, double blockHeight)
   {
     final top = metrics.topOfRow(row);
     final height = metrics.heightOfRow(row);
@@ -109,76 +171,129 @@ class OwnDayTimeline extends StatelessWidget
             1,
             metrics.widthOf(lane.entries[index].startMinutes, lane.entries[index].endMinutes) - 2 * kBlockSideGap,
           ),
-          top: top + _rowPadding + subLanes.laneOf[index] * (kOwnBlockHeight + _subLaneGap),
-          height: kOwnBlockHeight,
-          child: lane.entries[index].block,
+          top: top + _rowPadding + subLanes.laneOf[index] * (blockHeight + _subLaneGap),
+          height: blockHeight,
+          child: _blockOf(metrics, lane.entries[index], now),
         ),
     ];
+  }
+
+  Widget _buildTrack(TimelineMetrics metrics, int? now, List<double> blockHeights)
+  {
+    return SizedBox(
+      width: metrics.trackWidth + 2 * _trackInset,
+      height: _axisHeight + metrics.trackHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: _trackInset,
+            width: metrics.trackWidth,
+            top: 0,
+            height: _axisHeight,
+            child: Stack(clipBehavior: Clip.none, children: _buildAxis(metrics)),
+          ),
+          Positioned(
+            left: _trackInset,
+            width: metrics.trackWidth,
+            top: _axisHeight,
+            height: metrics.trackHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(painter: _GridPainter(metrics: metrics)),
+                  ),
+                ),
+                for (var row = 0; row < lanes.length; row++) ..._buildRow(metrics, row, lanes[row], now, blockHeights[row]),
+                if (now != null) CalendarNowLine(metrics: metrics, minutes: now),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    final rowHeights = [for (final lane in lanes) _rowHeightOf(lane)];
+    final rowHeights = [for (final lane in lanes) _rowHeightOf(lane, kOwnBlockHeight)];
 
-    final clock = nowMinutes;
-    final showsNow = clock != null && clock >= window.$1 && clock <= window.$2;
+    final clock = widget.nowMinutes;
+    final now = clock != null && clock >= window.$1 && clock <= window.$2 ? clock : null;
 
-    return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        final nameWidth = _nameWidthIn(constraints.maxWidth);
+    // Widths are measured: rebuilt once the fonts arrive.
+    return ListenableBuilder(
+      listenable: PaintingBinding.instance.systemFonts,
+      builder: (context, _) => LayoutBuilder(
+        builder: (context, constraints)
+        {
+          final nameWidth = _nameWidthIn(constraints.maxWidth);
+          final room = math.max(0.0, constraints.maxWidth - nameWidth - 2 * _trackInset);
 
-        final metrics = TimelineMetrics(
-          windowStartMinutes: window.$1,
-          windowEndMinutes: window.$2,
-          trackWidth: math.max(0, constraints.maxWidth - nameWidth - 2 * _trackInset),
-          rowHeights: rowHeights,
-        );
+          final scaled = TimelineMetrics.scaled(
+            scale: TimeScale.elastic(
+              start: window.$1,
+              end: window.$2,
+              extent: room,
+              minQuarter: kMinQuarterWidth,
+              needs: [
+                for (final lane in lanes)
+                  for (final entry in lane.entries)
+                    (startMinutes: entry.startMinutes, endMinutes: entry.endMinutes, size: entry.width),
+              ],
+            ),
+            rowHeights: rowHeights,
+          );
 
-        return SizedBox(
-          height: _axisHeight + metrics.trackHeight,
-          child: Stack(
-            clipBehavior: Clip.none,
+          final blockHeights = _blockHeightsOf(lanes, scaled);
+          final metrics = scaled.withRowHeights([
+            for (var row = 0; row < lanes.length; row++) _rowHeightOf(lanes[row], blockHeights[row]),
+          ]);
+
+          final scrolls = metrics.trackWidth > room + 0.5;
+          final track = _buildTrack(metrics, now, blockHeights);
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (var row = 0; row < lanes.length; row++)
-                if (lanes[row].name case final name?)
-                  Positioned(
-                    left: 0,
-                    width: nameWidth,
-                    top: _axisHeight + metrics.topOfRow(row),
-                    height: metrics.heightOfRow(row),
-                    child: name,
+              if (nameWidth > 0)
+                SizedBox(
+                  width: nameWidth,
+                  height: _axisHeight + metrics.trackHeight,
+                  child: Stack(
+                    children: [
+                      for (var row = 0; row < lanes.length; row++)
+                        if (lanes[row].name case final name?)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: _axisHeight + metrics.topOfRow(row),
+                            height: metrics.heightOfRow(row),
+                            child: name,
+                          ),
+                    ],
                   ),
-              Positioned(
-                left: nameWidth + _trackInset,
-                right: _trackInset,
-                top: 0,
-                height: _axisHeight,
-                child: Stack(clipBehavior: Clip.none, children: _buildAxis(metrics)),
-              ),
-              Positioned(
-                left: nameWidth + _trackInset,
-                right: _trackInset,
-                top: _axisHeight,
-                height: metrics.trackHeight,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: CustomPaint(painter: _GridPainter(metrics: metrics)),
-                      ),
-                    ),
-                    for (var row = 0; row < lanes.length; row++) ..._buildRow(metrics, row, lanes[row]),
-                    if (showsNow) CalendarNowLine(metrics: metrics, minutes: clock),
-                  ],
                 ),
+              Expanded(
+                child: scrolls
+                    ? Scrollbar(
+                        controller: _sideways,
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          controller: _sideways,
+                          scrollDirection: Axis.horizontal,
+                          child: Padding(padding: const EdgeInsets.only(bottom: _scrollbarRoom), child: track),
+                        ),
+                      )
+                    : track,
               ),
             ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -266,9 +381,6 @@ class _GridPainter extends CustomPainter
   @override
   bool shouldRepaint(_GridPainter oldDelegate)
   {
-    return oldDelegate.metrics.windowStartMinutes != metrics.windowStartMinutes ||
-        oldDelegate.metrics.windowEndMinutes != metrics.windowEndMinutes ||
-        oldDelegate.metrics.trackWidth != metrics.trackWidth ||
-        oldDelegate.metrics.rowCount != metrics.rowCount;
+    return !oldDelegate.metrics.sameAxis(metrics) || oldDelegate.metrics.rowCount != metrics.rowCount;
   }
 }

@@ -30,6 +30,7 @@ async def _scene(
     student_mode: str = "presence",
     presence_start: time = time(14),
     presence_end: time = time(19),
+    booking_minutes: int = 120,
 ) -> _Scene:
     teacher = await make_teacher(db)
     student = await make_student(db)
@@ -42,7 +43,7 @@ async def _scene(
         start_time=presence_start,
         end_time=presence_end,
     )
-    booking = await make_booking(db, presence, duration=120)
+    booking = await make_booking(db, presence, duration=booking_minutes)
 
     return availability, booking, presence
 
@@ -90,10 +91,17 @@ async def test_a_plain_lesson_is_accepted(db: AsyncSession) -> None:
     await db.flush()
 
 
+async def test_a_quarter_of_an_hour_is_a_lesson(db: AsyncSession) -> None:
+    availability, booking, _ = await _scene(db, booking_minutes=15)
+
+    db.add(_lesson(availability, booking, time(15), time(15, 15)))
+    await db.flush()
+
+
 @pytest.mark.parametrize(
     ("start", "end"),
     [
-        (time(15), time(15, 15)),  # under half an hour
+        (time(15), time(15)),  # lasts nothing
         (time(15, 7), time(16, 7)),  # not on a quarter hour
         (time(16), time(15)),  # ends before it starts
     ],

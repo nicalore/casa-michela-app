@@ -391,11 +391,23 @@ class _LessonRow extends StatelessWidget
           child: Row(
             children: [
               Expanded(
+                // A subject divided in disciplines leads with the discipline, the subject small above it.
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (lesson.divided)
+                      Text(
+                        lesson.title.toUpperCase(),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: tablet ? 11.5 : 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
+                          height: 1.35,
+                          color: muted ? MobilePalette.mutedText : AppTheme.trialTealDeep,
+                        ),
+                      ),
                     Text(
-                      lesson.title,
+                      lesson.divided ? lesson.disciplines.join(', ') : lesson.title,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: titleSize,
                         fontWeight: FontWeight.w800,
@@ -403,16 +415,6 @@ class _LessonRow extends StatelessWidget
                         color: muted ? MobilePalette.mutedText : AppTheme.trialOcean,
                       ),
                     ),
-                    if (lesson.disciplines.isNotEmpty)
-                      Text(
-                        lesson.disciplines.join(' · '),
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: tablet ? 13.5 : 12.5,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                          color: MobilePalette.mutedText,
-                        ),
-                      ),
                   ],
                 ),
               ),

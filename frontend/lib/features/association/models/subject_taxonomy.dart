@@ -90,6 +90,14 @@ String schoolLevelShortLabel(String value)
   return value;
 }
 
+// School order; unknown levels go last.
+int schoolLevelRank(String value)
+{
+  final int rank = schoolLevels.indexWhere((level) => level.value == value);
+
+  return rank < 0 ? schoolLevels.length : rank;
+}
+
 // Values must stay aligned with HighSchoolTrackEnum on the backend; the server derives the years of a fixed track.
 class HighSchoolTrack
 {

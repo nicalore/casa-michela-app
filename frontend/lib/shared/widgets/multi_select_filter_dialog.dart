@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_dialog_footer.dart';
 import 'app_dialog_stack.dart';
+import 'app_field_label.dart';
 import 'app_gradient_button.dart';
 import 'app_text_field.dart';
 import 'overflow_tooltip_text.dart';
@@ -26,6 +27,23 @@ const double _disabledOptionOpacity = 0.45;
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
+const double _chipSpacing = 8;
+const double _groupGap = 18;
+const double _groupHeadingGap = 9;
+const double _groupRuleGap = 10;
+const double _groupRuleThickness = 1.5;
+const double _groupRuleMinLength = 24;
+
+const double _deletableChipHeight = 36;
+const double _deleteButtonSize = 24;
+const Duration _deleteHoverFade = Duration(milliseconds: 150);
+
+// Opaque, so the delete button's hover fill lerps to it without a dark flash.
+final Color _deletableChipFill = Color.alphaBlend(
+  AppTheme.trialTurquoise.withValues(alpha: 0.12),
+  Colors.white,
+);
+
 TextStyle _subtitleTextStyle()
 {
   return GoogleFonts.plusJakartaSans(
@@ -42,7 +60,15 @@ class MultiSelectFilterOption<T extends Object>
 
   final String? subtitle;
 
-  const MultiSelectFilterOption({required this.value, required this.label, this.subtitle});
+  // Picked options are grouped by subtitle; groups follow this rank, then the subtitle.
+  final int groupRank;
+
+  const MultiSelectFilterOption({
+    required this.value,
+    required this.label,
+    this.subtitle,
+    this.groupRank = 0,
+  });
 }
 
 class MultiSelectFilterDialog<T extends Object> extends StatefulWidget
@@ -89,12 +115,37 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
     super.dispose();
   }
 
-  List<MultiSelectFilterOption<T>> get _selectedOptions
+  List<({String? heading, List<MultiSelectFilterOption<T>> options})> get _selectedGroups
   {
     final selected = widget.options.where((option) => _selected.contains(option.value)).toList();
-    selected.sort((a, b) => a.label.compareTo(b.label));
 
-    return selected;
+    selected.sort((a, b)
+    {
+      final int byRank = a.groupRank.compareTo(b.groupRank);
+
+      if (byRank != 0)
+      {
+        return byRank;
+      }
+
+      final int bySubtitle = (a.subtitle ?? '').compareTo(b.subtitle ?? '');
+
+      return bySubtitle != 0 ? bySubtitle : a.label.compareTo(b.label);
+    });
+
+    final groups = <({String? heading, List<MultiSelectFilterOption<T>> options})>[];
+
+    for (final option in selected)
+    {
+      if (groups.isEmpty || groups.last.heading != option.subtitle)
+      {
+        groups.add((heading: option.subtitle, options: []));
+      }
+
+      groups.last.options.add(option);
+    }
+
+    return groups;
   }
 
   List<MultiSelectFilterOption<T>> get _availableOptions =>
@@ -128,7 +179,7 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
   @override
   Widget build(BuildContext context)
   {
-    final selectedOptions = _selectedOptions;
+    final selectedGroups = _selectedGroups;
 
     return AppDialogStack(
       eyebrow: 'Filtro',
@@ -165,8 +216,8 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
                 subtitlePlacement: widget.subtitlePlacement,
                 onSelected: _addOption,
               ),
-              const SizedBox(height: 18),
-              if (selectedOptions.isEmpty)
+              const SizedBox(height: _groupGap),
+              if (selectedGroups.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
@@ -180,22 +231,69 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
                   ),
                 )
               else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: selectedOptions.map((option)
-                  {
-                    return AppDeletableChip(
-                      label: option.label,
-                      subtitle: option.subtitle,
-                      onDelete: () => _removeOption(option.value),
-                    );
-                  }).toList(),
-                ),
+                for (final (index, group) in selectedGroups.indexed)
+                  Padding(
+                    padding: EdgeInsets.only(top: index == 0 ? 0 : _groupGap),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (group.heading case final heading?) _GroupHeading(heading),
+                        Wrap(
+                          spacing: _chipSpacing,
+                          runSpacing: _chipSpacing,
+                          children: [
+                            for (final option in group.options)
+                              AppDeletableChip(
+                                label: option.label,
+                                onDelete: () => _removeOption(option.value),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _GroupHeading extends StatelessWidget
+{
+  final String text;
+
+  const _GroupHeading(this.text);
+
+  @override
+  Widget build(BuildContext context)
+  {
+    // A Flexible text would split the row in half with the rule, so the text gets a cap instead.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _groupHeadingGap),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth - _groupRuleGap - _groupRuleMinLength,
+              ),
+              child: AppEyebrow(text),
+            ),
+            const SizedBox(width: _groupRuleGap),
+            Expanded(
+              child: Container(
+                height: _groupRuleThickness,
+                decoration: BoxDecoration(
+                  color: AppTheme.trialLine,
+                  borderRadius: BorderRadius.circular(_groupRuleThickness),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -605,14 +703,11 @@ class AppDeletableChip extends StatefulWidget
 {
   final String label;
 
-  final String? subtitle;
-
   final VoidCallback onDelete;
 
   const AppDeletableChip({
     super.key,
     required this.label,
-    this.subtitle,
     required this.onDelete,
   });
 
@@ -622,85 +717,56 @@ class AppDeletableChip extends StatefulWidget
 
 class _AppDeletableChipState extends State<AppDeletableChip>
 {
-  bool _isHovered = false;
-
-  Widget _buildLabel()
-  {
-    final TextStyle style = GoogleFonts.plusJakartaSans(
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-      color: AppTheme.trialTealDeep,
-    );
-
-    final Widget name = OverflowTooltipText(text: widget.label, maxLines: 1, style: style);
-
-    final String? subtitle = widget.subtitle;
-
-    if (subtitle == null)
-    {
-      return name;
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 2),
-          child: Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: _subtitleTextStyle(),
-          ),
-        ),
-        name,
-      ],
-    );
-  }
+  bool _isDeleteHovered = false;
 
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.only(left: 16, right: 8, top: 8, bottom: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(
-            color: _isHovered ? AppTheme.trialGold : AppTheme.trialLine,
-            width: 1.5,
+    return Container(
+      height: _deletableChipHeight,
+      padding: const EdgeInsets.only(left: 14, right: 6),
+      decoration: BoxDecoration(
+        color: _deletableChipFill,
+        borderRadius: BorderRadius.circular(_deletableChipHeight / 2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: OverflowTooltipText(
+              text: widget.label,
+              maxLines: 1,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.trialTealDeep,
+              ),
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(child: _buildLabel()),
-            const SizedBox(width: 8),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: widget.onDelete,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.trialGoldSurface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    size: 16,
-                    color: AppTheme.trialTealDeep,
-                  ),
+          const SizedBox(width: 6),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) => setState(() => _isDeleteHovered = true),
+            onExit: (_) => setState(() => _isDeleteHovered = false),
+            child: GestureDetector(
+              onTap: widget.onDelete,
+              child: AnimatedContainer(
+                duration: _deleteHoverFade,
+                width: _deleteButtonSize,
+                height: _deleteButtonSize,
+                decoration: BoxDecoration(
+                  color: _isDeleteHovered ? AppTheme.trialGoldSurface : _deletableChipFill,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: AppTheme.trialTealDeep,
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

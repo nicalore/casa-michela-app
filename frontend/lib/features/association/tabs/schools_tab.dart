@@ -148,6 +148,7 @@ class _SchoolsTabState extends State<SchoolsTab>
                     minYear: program.minYear,
                     maxYear: program.maxYear,
                   ),
+                  groupRank: schoolLevelRank(program.level),
                 ))
             .toList(),
         initialSelected: _selectedProgramIds,

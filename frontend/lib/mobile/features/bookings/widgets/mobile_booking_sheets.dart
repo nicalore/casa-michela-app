@@ -112,7 +112,7 @@ Future<void> showMobileLessonSheet({
   }
 
   final List<DetailRowData> rows = [
-    if (lesson.disciplines.isNotEmpty) fact('Discipline', lesson.disciplines.join(', ')),
+    if (lesson.divided) fact('Materia', lesson.title),
     fact(kDurationLabel, formatMinutes(lesson.booking.duration)),
     fact(kLessonKindLabel, lesson.tags.join(', ')),
     fact('Argomento', lesson.topic),
@@ -133,7 +133,7 @@ Future<void> showMobileLessonSheet({
 
       return MobileSheet(
         eyebrow: 'Lezione ${modeLabel(lesson.slot.mode).toLowerCase()}',
-        title: lesson.title,
+        title: lesson.divided ? lesson.disciplines.join(', ') : lesson.title,
         subtitle: _whoAndWhen(pupil, day, named: named),
         body: [
           MobileTourOnRise(

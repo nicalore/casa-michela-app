@@ -63,28 +63,6 @@ class PresenceGroup
     return minutes;
   }
 
-  // An hour covering three disciplines counts as a full hour of each.
-  // [skip]: the booking being rewritten; [band]: one band, the cap's reach.
-  Map<int, int> minutesByDiscipline(String mode, {TimeBucket? band, BookingSummaryItem? skip})
-  {
-    final minutes = <int, int>{};
-
-    for (final request in requestsFor(mode, band: band))
-    {
-      if (skip != null && request.id == skip.id)
-      {
-        continue;
-      }
-
-      for (final discipline in request.disciplineIds)
-      {
-        minutes[discipline] = (minutes[discipline] ?? 0) + request.duration;
-      }
-    }
-
-    return minutes;
-  }
-
   int minutesOfferedIn(String mode, {TimeBucket? band})
   {
     var minutes = 0;

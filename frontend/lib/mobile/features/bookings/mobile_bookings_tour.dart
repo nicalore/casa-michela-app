@@ -697,6 +697,7 @@ enum BookingWizardMark
   band,
   left,
   list,
+  open,
   create,
   save,
   saveHours,
@@ -713,6 +714,7 @@ const Map<BookingWizardMark, int> _wizardVersions = {
   BookingWizardMark.band: 4,
   BookingWizardMark.left: 2,
   BookingWizardMark.list: 4,
+  BookingWizardMark.open: 3,
   BookingWizardMark.create: 2,
   BookingWizardMark.save: 3,
   BookingWizardMark.saveHours: 1,
@@ -777,6 +779,9 @@ String _wizardText(BookingWizardMark mark, {required bool online, required Booki
       'A destra trovi il totale delle ore di lezione che puoi ancora richiedere, calcolato sottraendo le ore già '
           'prenotate dal totale delle ore di $presence indicate.',
     BookingWizardMark.list => 'Da qui puoi selezionare le materie da prenotare.',
+    BookingWizardMark.open =>
+      "Questa materia è articolata in più aree disciplinari. Seleziona l'area per cui desideri prenotare una lezione. "
+          'Se hai bisogno di prenotare lezioni per più aree, puoi farlo separatamente, una alla volta.',
     BookingWizardMark.create =>
       'Quando hai selezionato tutte le materie che ti interessano, tocca «Crea» per concludere e salvare la prenotazione.',
     BookingWizardMark.save =>
@@ -853,6 +858,7 @@ Future<void> startBookingWizardTour({
         BookingWizardMark.band,
         BookingWizardMark.left,
         BookingWizardMark.list,
+        BookingWizardMark.open,
         BookingWizardMark.create,
         BookingWizardMark.save,
       ],
@@ -928,6 +934,14 @@ Future<void> startBookingWizardTour({
           tapEnds: true,
           seen: seen,
         ),
+      // A subject divided in disciplines, once its list is open under it.
+      BookingWizardMark.open => MobileTourStep(
+          text: text,
+          shown: [target],
+          reveal: target,
+          present: () => isMobileTourTargetShown(target),
+          seen: seen,
+        ),
       // Touched, it saves and closes the wizard.
       BookingWizardMark.create || BookingWizardMark.save || BookingWizardMark.saveHours => MobileTourStep(
           text: text,
@@ -956,11 +970,10 @@ Future<void> startBookingWizardTour({
 }
 
 // The subject's own steps, over the wizard or from a lesson's edit button: each part explained once, on its page.
-enum SubjectFlowMark { intro, disciplines, kinds, topic, next, durations, count, teachers, search, notes, add, save }
+enum SubjectFlowMark { intro, kinds, topic, next, durations, count, teachers, search, notes, add, save }
 
 const Map<SubjectFlowMark, int> _subjectVersions = {
   SubjectFlowMark.intro: 1,
-  SubjectFlowMark.disciplines: 1,
   SubjectFlowMark.kinds: 2,
   SubjectFlowMark.topic: 2,
   SubjectFlowMark.next: 2,
@@ -992,9 +1005,6 @@ String _subjectText(SubjectFlowMark mark, {required bool online, required Bookin
     SubjectFlowMark.intro =>
       'Quando selezioni una materia, ti vengono chieste alcune informazioni aggiuntive, necessarie per organizzare '
           'al meglio le lezioni.',
-    SubjectFlowMark.disciplines =>
-      'Le materie possono essere divise in più aree: in tal caso, è necessario selezionarne almeno una su cui deve '
-          'svolgersi la lezione.',
     SubjectFlowMark.kinds => 'Puoi selezionare uno o più tipi di lezione tra quelli indicati.',
     SubjectFlowMark.topic =>
       "Puoi indicare l'argomento da affrontare durante la lezione. Il campo è facoltativo, ma ti invitiamo a "
@@ -1059,7 +1069,6 @@ Future<void> startSubjectFlowTour({
     return switch (mark)
     {
       SubjectFlowMark.intro => MobileTourStep(text: text, lightsAll: true, seen: seen),
-      SubjectFlowMark.disciplines ||
       SubjectFlowMark.kinds ||
       SubjectFlowMark.durations ||
       SubjectFlowMark.teachers ||

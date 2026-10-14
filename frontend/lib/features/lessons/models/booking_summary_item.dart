@@ -21,6 +21,50 @@ String bookingTitle(BookingSummaryItem booking, List<MinistrySubjectItem> minist
   };
 }
 
+// A subject divided in disciplines is booked one discipline at a time: that discipline's name, null otherwise.
+String? dividedDisciplineName(List<MinistrySubjectItem> subjects, int? ministrySubjectId, Iterable<int> disciplineIds)
+{
+  if (disciplineIds.length != 1)
+  {
+    return null;
+  }
+
+  for (final subject in subjects)
+  {
+    if (subject.id == ministrySubjectId && subject.associationSubjects.length > 1)
+    {
+      for (final discipline in subject.associationSubjects)
+      {
+        if (discipline.id == disciplineIds.single)
+        {
+          return discipline.name;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+String disciplineLabel(String subject, String discipline) => '$subject - $discipline';
+
+// Names the discipline too when the subject has several, as in «Storia e geografia - Storia».
+String? bookingDisciplineLabel(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects)
+{
+  if (booking.kind != BookingRequestKind.ministrySubject)
+  {
+    return null;
+  }
+
+  final String? discipline = dividedDisciplineName(
+    ministrySubjects,
+    booking.ministrySubjectId,
+    booking.associationSubjects.map((subject) => subject.id),
+  );
+
+  return discipline == null ? null : disciplineLabel(bookingTitle(booking, ministrySubjects), discipline);
+}
+
 String _ministrySubjectName(List<MinistrySubjectItem> subjects, int? id)
 {
   for (final subject in subjects)

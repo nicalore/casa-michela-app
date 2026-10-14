@@ -5,8 +5,8 @@ import '../../../../core/constants/field_limits.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
-import '../../../../features/association/models/subject_taxonomy.dart';
 import '../../../../features/lessons/models/band_offer.dart';
+import '../../../../features/lessons/models/booking_summary_item.dart';
 import '../../../../features/lessons/models/subject_request.dart';
 import '../../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
@@ -37,7 +37,6 @@ const double _tourRadius = 20;
 
 // What a tour explains on each page, in its order.
 const Map<SubjectRequestStep, List<SubjectFlowMark>> _tourMarks = {
-  SubjectRequestStep.disciplines: [SubjectFlowMark.disciplines],
   SubjectRequestStep.what: [SubjectFlowMark.kinds, SubjectFlowMark.topic, SubjectFlowMark.next],
   SubjectRequestStep.duration: [SubjectFlowMark.durations, SubjectFlowMark.count],
   SubjectRequestStep.teachers: [SubjectFlowMark.teachers, SubjectFlowMark.search],
@@ -69,7 +68,6 @@ class MobileSubjectFlow
 
   // More than one adds a step to choose the band.
   final List<BandOffer> bands;
-  final Map<int, int> minutesByDisciplineTakenByOthers;
 
   final PageController pages = PageController();
 
@@ -94,7 +92,6 @@ class MobileSubjectFlow
     required this.offered,
     required this.studyProgramId,
     required this.bands,
-    required this.minutesByDisciplineTakenByOthers,
     this.tourFor,
   }) : draft = from.copy()
   {
@@ -119,25 +116,10 @@ class MobileSubjectFlow
 
   String get eyebrow => '${draft.displayName} · ${modeLabel(mode).toLowerCase()}';
 
-  String get title => isEditing ? kEditSubjectTitle : kAddSubjectTitle;
+  // A subject divided in disciplines is booked one discipline at a time: the title names it.
+  String? get discipline => dividedDisciplineName(ministrySubjects, draft.ministrySubjectId, draft.associationSubjectIds);
 
-  List<AssociationSubjectOption> get disciplineChoices
-  {
-    if (!draft.asksForDisciplines)
-    {
-      return const [];
-    }
-
-    for (final subject in ministrySubjects)
-    {
-      if (subject.id == draft.ministrySubjectId)
-      {
-        return subject.associationSubjects.length > 1 ? subject.associationSubjects : const [];
-      }
-    }
-
-    return const [];
-  }
+  String get title => discipline ?? (isEditing ? kEditSubjectTitle : kAddSubjectTitle);
 
   BandOffer? get _offer => bands.where((offer) => offer.band == draft.band).firstOrNull;
 
@@ -149,7 +131,6 @@ class MobileSubjectFlow
 
   List<SubjectRequestStep> get steps => [
         if (_choosesBand) SubjectRequestStep.band,
-        if (disciplineChoices.isNotEmpty) SubjectRequestStep.disciplines,
         if (draft.asksForTopicAndTag) SubjectRequestStep.what,
         SubjectRequestStep.duration,
         SubjectRequestStep.teachers,
@@ -165,58 +146,12 @@ class MobileSubjectFlow
     return available != null && minutesTaken > available;
   }
 
-  (int, int)? get _overCeiling
-  {
-    final int? duration = draft.duration;
-
-    if (duration == null)
-    {
-      return null;
-    }
-
-    for (final discipline in draft.disciplineIds)
-    {
-      final int minutes = (minutesByDisciplineTakenByOthers[discipline] ?? 0) + duration;
-
-      if (minutes > maxDailyMinutesPerDiscipline)
-      {
-        return (discipline, minutes);
-      }
-    }
-
-    return null;
-  }
-
-  String _disciplineName(int id)
-  {
-    if (draft.associationSubjectId == id && draft.associationSubjectName != null)
-    {
-      return draft.associationSubjectName!;
-    }
-
-    for (final subject in ministrySubjects)
-    {
-      for (final discipline in subject.associationSubjects)
-      {
-        if (discipline.id == id)
-        {
-          return discipline.name;
-        }
-      }
-    }
-
-    return 'La disciplina';
-  }
-
   String? blockedReason(SubjectRequestStep step)
   {
     switch (step)
     {
       case SubjectRequestStep.band:
         return draft.band == null ? kPickBandToGoOn : null;
-
-      case SubjectRequestStep.disciplines:
-        return draft.associationSubjectIds.isEmpty ? kPickDisciplineToGoOn : null;
 
       case SubjectRequestStep.what:
         return draft.tags.isEmpty ? kPickKindToGoOn : null;
@@ -236,11 +171,6 @@ class MobileSubjectFlow
             name: pupil.firstName,
             band: _choosesBand ? draft.band : null,
           );
-        }
-
-        if (_overCeiling case final (int, int) over)
-        {
-          return disciplineOverCeiling(_disciplineName(over.$1), over.$2, maxDailyMinutesPerDiscipline);
         }
 
         return null;
@@ -298,7 +228,6 @@ class MobileSubjectFlow
       ...switch (shown)
       {
         SubjectRequestStep.band => _bandChoices(onChanged),
-        SubjectRequestStep.disciplines => _disciplines(onChanged),
         SubjectRequestStep.what => _what(onChanged),
         SubjectRequestStep.duration => _duration(onChanged),
         SubjectRequestStep.teachers => _teacherList(tablet: tablet, onChanged: onChanged),
@@ -322,36 +251,6 @@ class MobileSubjectFlow
             onChanged();
           },
         ),
-    ];
-  }
-
-  List<Widget> _disciplines(VoidCallback onChanged)
-  {
-    return [
-      _lit(
-        SubjectFlowMark.disciplines,
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final discipline in disciplineChoices)
-              MobileSelectRow(
-                key: ValueKey(discipline.id),
-                title: discipline.name,
-                subtitle: descriptionOrNull(discipline.description),
-                selected: draft.associationSubjectIds.contains(discipline.id),
-                onTap: ()
-                {
-                  if (!draft.associationSubjectIds.remove(discipline.id))
-                  {
-                    draft.associationSubjectIds.add(discipline.id);
-                  }
-
-                  onChanged();
-                },
-              ),
-          ],
-        ),
-      ),
     ];
   }
 

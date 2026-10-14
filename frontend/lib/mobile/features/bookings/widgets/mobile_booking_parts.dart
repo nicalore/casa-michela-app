@@ -9,6 +9,7 @@ import '../../../../features/lessons/models/presence_item.dart';
 import '../../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/people/models/person_item.dart';
+import '../../../../shared/widgets/unfolding_rows.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
 import '../../../shared/widgets/mobile_tour.dart';
@@ -342,6 +343,109 @@ class MobileQuietLine extends StatelessWidget
           height: 1.4,
           color: MobilePalette.mutedText,
         ),
+      ),
+    );
+  }
+}
+
+const Duration _groupMove = Duration(milliseconds: 260);
+
+// A subject divided in disciplines: a tap unfolds them under it, each booked on its own.
+class MobileSubjectGroup extends StatelessWidget
+{
+  final String title;
+  final List<String> booked;
+  final bool open;
+  final VoidCallback onToggle;
+  final List<Widget> children;
+
+  const MobileSubjectGroup({
+    super.key,
+    required this.title,
+    required this.booked,
+    required this.open,
+    required this.onToggle,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return AnimatedContainer(
+      duration: _groupMove,
+      curve: Curves.easeOutCubic,
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: open ? 0.4 : 0),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            button: true,
+            expanded: open,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onToggle,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 50),
+                padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xB8FFFFFF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.trialInk.withValues(alpha: 0.06)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              height: 1.3,
+                              color: AppTheme.trialInk,
+                            ),
+                          ),
+                          if (booked.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                booked.join(', '),
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.35,
+                                  color: AppTheme.trialTealDeep,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    AnimatedRotation(
+                      turns: open ? 0.5 : 0,
+                      duration: _groupMove,
+                      curve: Curves.easeOutCubic,
+                      child: Icon(Icons.expand_more_rounded, size: 28, color: AppTheme.trialInk.withValues(alpha: 0.5)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          UnfoldingRows(
+            open: open,
+            animate: !MediaQuery.disableAnimationsOf(context),
+            padding: const EdgeInsets.fromLTRB(14, 8, 8, 2),
+            children: children,
+          ),
+        ],
       ),
     );
   }

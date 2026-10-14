@@ -67,14 +67,14 @@ String bookingDeletionWarning(DateTime day, {String? pupil, String? mode, TimeBu
   return '$whose di ${formatAvailableDayLabel(day).toLowerCase()} verrà eliminata definitivamente.';
 }
 
-// The last lesson of a band takes the band's hours with it.
-String lessonDeletionWarning(String label, String mode, {required bool last, TimeBucket? band})
+// The last lesson of a band takes the band's hours with it. [divided]: [label] is «Materia - Disciplina», in bold.
+({String? bold, String text}) lessonDeletionWarning(String label, String mode, {required bool last, bool divided = false, TimeBucket? band})
 {
   final String where = _whereIn(mode, band);
   final String stay = '${mode == kOnlineMode ? kOnScreen : 'in Associazione'}${band == null ? '' : ' ${ofBandLabel(band)}'}';
+  final String also = last ? ' Era l\'unica lezione $where, quindi verrà eliminata anche la presenza $stay.' : '';
 
-  return last
-      ? 'La materia $label verrà tolta dalla prenotazione. Era l\'unica lezione $where, '
-          'quindi verrà eliminata anche la presenza $stay.'
-      : 'La materia $label verrà tolta dalla prenotazione.';
+  return divided
+      ? (bold: label, text: ' verrà rimossa dalla prenotazione.$also')
+      : (bold: null, text: 'La materia $label verrà tolta dalla prenotazione.$also');
 }

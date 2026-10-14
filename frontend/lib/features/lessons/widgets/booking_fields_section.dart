@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
@@ -9,12 +10,8 @@ import '../../association/models/ministry_subject_item.dart';
 
 // Mirrors the backend's booking_duration_step check constraint.
 final List<int> bookingDurationOptions = [
-  for (var minutes = 30; minutes <= 120; minutes += 15) minutes,
+  for (var minutes = kQuarterHour; minutes <= 120; minutes += kQuarterHour) minutes,
 ];
-
-// Per-discipline daily ceiling per mode. The backend holds the same ceiling and
-// is what actually refuses; this only lets the window say so before the round trip.
-const int maxDailyMinutesPerDiscipline = 120;
 
 // Values must stay aligned with BookingTagEnum on the backend.
 class BookingTagOption

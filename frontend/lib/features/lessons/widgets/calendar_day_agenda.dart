@@ -23,8 +23,6 @@ class CalendarDayAgenda extends StatelessWidget
 
   final CalendarView view;
 
-  final bool isComposing;
-
   final List<MinistrySubjectItem> ministrySubjects;
 
   final int bandStart;
@@ -34,6 +32,9 @@ class CalendarDayAgenda extends StatelessWidget
   final Set<int> preferredLessonIds;
 
   final Set<int> pastLessonIds;
+
+  // Lessons under way, each with the share of its hours gone by.
+  final Map<int, double> elapsedLessons;
 
   final Map<String, LaneRoomLabel> roomByTeacher;
 
@@ -51,11 +52,11 @@ class CalendarDayAgenda extends StatelessWidget
     required this.bandStart,
     required this.bandEnd,
     this.view = CalendarView.byTeacher,
-    this.isComposing = false,
     this.ministrySubjects = const [],
     this.warnedLessonIds = const {},
     this.preferredLessonIds = const {},
     this.pastLessonIds = const {},
+    this.elapsedLessons = const {},
     this.roomByTeacher = const {},
     this.excludedTeachers = const {},
     this.onExcludedChanged,
@@ -107,13 +108,13 @@ class CalendarDayAgenda extends StatelessWidget
         (
           startMinutes: lesson.startMinutes,
           row: _AgendaRow(
-            isComposing: isComposing,
             lesson: lesson,
             view: view,
             ministrySubjects: ministrySubjects,
             hasWarning: warnedLessonIds.contains(lesson.id),
             isPreferred: preferredLessonIds.contains(lesson.id),
             isPast: pastLessonIds.contains(lesson.id),
+            elapsed: elapsedLessons[lesson.id],
             onTap: onLessonTap == null || lesson.isProvisional ? null : () => onLessonTap!(lesson),
           ),
         ),
@@ -199,8 +200,6 @@ class _AgendaRow extends StatefulWidget
 
   final CalendarView view;
 
-  final bool isComposing;
-
   final List<MinistrySubjectItem> ministrySubjects;
 
   final bool hasWarning;
@@ -208,16 +207,18 @@ class _AgendaRow extends StatefulWidget
 
   final bool isPast;
 
+  final double? elapsed;
+
   final VoidCallback? onTap;
 
   const _AgendaRow({
     required this.lesson,
     required this.view,
-    required this.isComposing,
     required this.ministrySubjects,
     required this.hasWarning,
     required this.isPreferred,
     this.isPast = false,
+    this.elapsed,
     this.onTap,
   });
 
@@ -231,11 +232,7 @@ class _AgendaRowState extends State<_AgendaRow>
 
   LessonItem get _lesson => widget.lesson;
 
-  String get _about => lessonAboutLine(
-        _lesson,
-        widget.ministrySubjects,
-        composing: widget.isComposing,
-      );
+  ({String discipline, String? subject}) get _topic => lessonTopic(_lesson, widget.ministrySubjects);
 
   Widget _buildWhere()
   {
@@ -251,8 +248,6 @@ class _AgendaRowState extends State<_AgendaRow>
         Expanded(
           child: Text(
             where.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
@@ -298,8 +293,6 @@ class _AgendaRowState extends State<_AgendaRow>
         Expanded(
           child: Text(
             '· ${formatMinutes(_lesson.minutes)}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -344,80 +337,91 @@ class _AgendaRowState extends State<_AgendaRow>
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _borderColor, width: 1.5),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 10,
-                bottom: 10,
-                left: _modeBarInset,
-                width: _modeBarWidth,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: lessonAccent(_lesson.mode),
-                    borderRadius: BorderRadius.circular(_modeBarWidth / 2),
+        child: CardGround(
+          elapsed: widget.elapsed,
+          surface: Colors.white,
+          radius: 14,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _borderColor, width: 1.5),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 10,
+                  bottom: 10,
+                  left: _modeBarInset,
+                  width: _modeBarWidth,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: lessonAccent(_lesson.mode),
+                      borderRadius: BorderRadius.circular(_modeBarWidth / 2),
+                    ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(_modeBarInset + _modeBarWidth + 9, 9, 10, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTopRow(),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                lessonTitle(_lesson, view: widget.view),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.2,
-                                  color: AppTheme.trialOcean,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(_modeBarInset + _modeBarWidth + 9, 9, 10, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTopRow(),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _topic.discipline,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.2,
+                                    color: AppTheme.trialOcean,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _about,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.2,
-                                  color: AppTheme.trialMutedText,
+                                if (_topic.subject case final subject?) ...[
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    subject,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.2,
+                                      color: AppTheme.trialOcean,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  lessonTitle(_lesson, view: widget.view),
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2,
+                                    color: kLessonPersonColor,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 3),
-                              _buildWhere(),
-                            ],
+                                const SizedBox(height: 3),
+                                _buildWhere(),
+                              ],
+                            ),
                           ),
-                        ),
-                        if (onTap != null) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.chevron_right_rounded, size: 20, color: AppTheme.trialMutedText),
+                          if (onTap != null) ...[
+                            const SizedBox(width: 6),
+                            const Icon(Icons.chevron_right_rounded, size: 20, color: AppTheme.trialMutedText),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -510,8 +514,6 @@ class _ActivityAgendaRowState extends State<_ActivityAgendaRow>
                         Expanded(
                           child: Text(
                             '· ${formatMinutes(_scheduled.minutes)}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -531,8 +533,6 @@ class _ActivityAgendaRowState extends State<_ActivityAgendaRow>
                             children: [
                               Text(
                                 _scheduled.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
@@ -544,8 +544,6 @@ class _ActivityAgendaRowState extends State<_ActivityAgendaRow>
                                 const SizedBox(height: 2),
                                 Text(
                                   description,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w600,

@@ -145,13 +145,6 @@ String durationMissing(String name, String label) => 'Indica la durata di $name 
 
 String lessonKindMissing(String name, String label) => 'Indica il tipo di lezione di $name ($label).';
 
-// [label] names the mode and the band, as "in presenza del pomeriggio".
-String disciplineOverBand(String discipline, int minutes, int ceiling, String label)
-{
-  return '$discipline ($label): ${formatMinutes(minutes)}. Non si possono richiedere più di '
-      '${formatMinutes(ceiling)} per fascia su una disciplina.';
-}
-
 String bandStayExceeded(TimeBucket band, String days, {required bool isSelf, required String whose})
 {
   final String asked = 'Il totale delle ore di lezione richieste ${ofBandLabel(band)}$days';
@@ -206,7 +199,6 @@ const String kEditSubjectTitle = 'Modifica materia';
 enum SubjectRequestStep
 {
   band,
-  disciplines,
   what,
   duration,
   teachers,
@@ -217,9 +209,6 @@ enum SubjectRequestStep
     return switch (this)
     {
       SubjectRequestStep.band => 'In quale fascia?',
-      SubjectRequestStep.disciplines => isSelf
-          ? 'Cosa devi studiare di questa materia?'
-          : 'Cosa deve studiare di questa materia?',
       SubjectRequestStep.what => isSelf ? 'Cosa devi fare durante la lezione?' : 'Cosa deve fare durante la lezione?',
       SubjectRequestStep.duration => 'Quanto deve durare la lezione?',
       SubjectRequestStep.teachers => 'Con quale docente?',
@@ -236,11 +225,10 @@ enum SubjectRequestStep
     return switch (this)
     {
       SubjectRequestStep.band => 'La lezione sarà pianificata solo negli orari della fascia che scegli.',
-      SubjectRequestStep.disciplines => 'Almeno uno.',
       SubjectRequestStep.what => 'Almeno una tipologia. Queste informazioni aiuteranno il docente a rendere '
           'la lezione più adatta alle ${isSelf ? 'tue esigenze' : 'esigenze $whose'}.',
-      SubjectRequestStep.duration => 'Non è possibile organizzare più di due ore di lezione al giorno per la '
-          'stessa materia. Se hai bisogno di altre ore, puoi richiedere una lezione online.',
+      SubjectRequestStep.duration => 'Ogni disciplina può essere prenotata da un minimo di 15 minuti a un massimo '
+          'di due ore. Se hai bisogno di altre ore, puoi richiedere una lezione online.',
       SubjectRequestStep.teachers => 'Se vuoi, puoi indicare fino a tre docenti '
           '${isSelf ? 'che preferisci' : 'preferiti $byWhom'}. '
           'Le preferenze indicate verranno tenute in considerazione, ma potrebbero non essere '
@@ -251,7 +239,6 @@ enum SubjectRequestStep
   }
 }
 
-const String kPickDisciplineToGoOn = 'Seleziona almeno una disciplina per andare avanti.';
 const String kPickKindToGoOn = 'Seleziona almeno un tipo di lezione per andare avanti.';
 const String kPickDurationToGoOn = 'Seleziona la durata per andare avanti.';
 
@@ -267,12 +254,6 @@ String bandTimeAllTaken(String mode, TimeBucket band)
   return 'Le ore ${modeLabel(mode).toLowerCase()} ${ofBandLabel(band)} sono già tutte occupate dalle altre lezioni.';
 }
 
-String disciplineOverCeiling(String discipline, int minutes, int ceiling)
-{
-  return '$discipline: ${formatMinutes(minutes)} in questa fascia. Su una stessa disciplina '
-      'non si può andare oltre ${formatMinutes(ceiling)} per fascia.';
-}
-
 const String kLessonKindLabel = 'Tipo di lezione';
 const String kTopicLabel = 'Argomento (opzionale)';
 const String kTopicHint = 'Es. Disequazioni di secondo grado';
@@ -284,6 +265,7 @@ const String kRemoveSubjectLink = 'Rimuovi materia';
 const String kRemovalEyebrow = 'Rimozione';
 const String kSubjectRemovalBefore = 'La materia ';
 const String kSubjectRemovalAfter = ' verrà rimossa.';
+const String kDisciplineRemovalAfter = ' verrà rimossa dalla prenotazione.';
 
 String preferredTeachersLabel(String? gender) => 'Mi sono ${gender == 'F' ? 'trovata' : 'trovato'} meglio con...';
 

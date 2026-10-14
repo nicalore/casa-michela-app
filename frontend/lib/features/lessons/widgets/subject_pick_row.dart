@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_check_mark.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -10,6 +11,7 @@ import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/unfolding_rows.dart';
 import '../../association/models/ministry_subject_item.dart';
 
 const double _dialogButtonHeight = 52;
@@ -272,6 +274,116 @@ class _SubjectDisciplinesDialogState extends State<SubjectDisciplinesDialog>
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+// A subject divided in disciplines: a click lists them under it, each booked on its own.
+class SubjectGroupRow extends StatefulWidget
+{
+  final String name;
+  final List<String> booked;
+  final bool open;
+  final VoidCallback onToggle;
+  final List<Widget> children;
+
+  const SubjectGroupRow({
+    super.key,
+    required this.name,
+    required this.booked,
+    required this.open,
+    required this.onToggle,
+    required this.children,
+  });
+
+  @override
+  State<SubjectGroupRow> createState() => _SubjectGroupRowState();
+}
+
+class _SubjectGroupRowState extends State<SubjectGroupRow>
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    const Duration move = Duration(milliseconds: 220);
+    final bool effects = VisualEffects.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.onToggle,
+            child: AnimatedContainer(
+              duration: _selectFade,
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              height: rowHeight,
+              decoration: BoxDecoration(
+                color: kPickedSurface.withValues(alpha: 0),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _hover ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.trialOcean,
+                          ),
+                        ),
+                        if (widget.booked.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.booked.join(', '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.trialTealDeep,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: widget.open ? 0.5 : 0,
+                    duration: effects ? move : Duration.zero,
+                    curve: Curves.easeOutCubic,
+                    child: Icon(Icons.expand_more_rounded, size: 26, color: AppTheme.trialOcean.withValues(alpha: 0.55)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        UnfoldingRows(
+          open: widget.open,
+          animate: effects,
+          padding: const EdgeInsets.only(left: 36),
+          children: widget.children,
         ),
       ],
     );

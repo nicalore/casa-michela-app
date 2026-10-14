@@ -338,33 +338,23 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   {
     return [
       for (final lesson in call.lessons)
-        (
-          startMinutes: lesson.startMinutes,
-          endMinutes: lesson.endMinutes,
-          block: OwnLessonBlock(
-            key: ValueKey('lesson-${lesson.id}'),
-            lesson: lesson,
-            ministrySubjects: _ministrySubjects,
-            view: CalendarView.byTeacher,
-            isPast: isLessonPast(lesson, _now),
-            isCurrent: !onTimeline && isLessonRunning(lesson, _now),
-            onTimeline: onTimeline,
-            onTap: () => _openLesson(lesson),
-          ),
-        ),
+        OwnLessonBlock(
+          key: ValueKey('lesson-${lesson.id}'),
+          lesson: lesson,
+          ministrySubjects: _ministrySubjects,
+          view: CalendarView.byTeacher,
+          isPast: isLessonPast(lesson, _now),
+          isCurrent: !onTimeline && isLessonRunning(lesson, _now),
+          onTap: () => _openLesson(lesson),
+        ).asEntry(context),
       for (final activity in call.activities)
-        (
-          startMinutes: activity.startMinutes,
-          endMinutes: activity.endMinutes,
-          block: OwnActivityBlock(
-            key: ValueKey('activity-${activity.id}'),
-            activity: activity,
-            isPast: _isOver(activity.endMinutes),
-            isCurrent: !onTimeline && _isRunning(activity.startMinutes, activity.endMinutes),
-            onTimeline: onTimeline,
-            onTap: () => _openActivity(activity.activity),
-          ),
-        ),
+        OwnActivityBlock(
+          key: ValueKey('activity-${activity.id}'),
+          activity: activity,
+          isPast: _isOver(activity.endMinutes),
+          isCurrent: !onTimeline && _isRunning(activity.startMinutes, activity.endMinutes),
+          onTap: () => _openActivity(activity.activity),
+        ).asEntry(context),
     ];
   }
 

@@ -111,13 +111,11 @@ class SchedulableBooking
 
   bool get isFullyCovered => uncoveredDisciplineIds.isEmpty && remainingMinutes <= 0;
 
-  bool get isPlaceable => !isLocked && !isFull && remainingMinutes >= kMinimumBandMinutes;
-
-  bool get canJoinAPart => !isLocked && parts.isNotEmpty;
+  bool get isPlaceable => !isLocked && !isFull && remainingMinutes >= minimumLessonMinutes(booking.duration);
 
   bool get canSplitFurther
   {
-    return !isLocked && parts.length + 2 <= kMaxLessonParts && remainingMinutes >= 2 * kMinimumBandMinutes;
+    return !isLocked && parts.length + 2 <= kMaxLessonParts && remainingMinutes >= 2 * kMinimumLessonMinutes;
   }
 
   int proposedMinutesFor(Set<int> disciplineIds)
@@ -129,14 +127,14 @@ class SchedulableBooking
       return remainingMinutes;
     }
 
-    final ceiling = remainingMinutes - kMinimumBandMinutes;
+    final ceiling = remainingMinutes - kMinimumLessonMinutes;
 
-    if (ceiling < kMinimumBandMinutes)
+    if (ceiling < kMinimumLessonMinutes)
     {
       return remainingMinutes;
     }
 
-    return snapQuarterDown(remainingMinutes ~/ 2).clamp(kMinimumBandMinutes, ceiling);
+    return snapQuarterDown(remainingMinutes ~/ 2).clamp(kMinimumLessonMinutes, ceiling);
   }
 }
 

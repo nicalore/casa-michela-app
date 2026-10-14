@@ -41,6 +41,11 @@ class MobileBookingLesson
     required this.editable,
   });
 
+  bool get divided => disciplines.isNotEmpty;
+
+  // «Materia - Disciplina» for a subject divided in disciplines.
+  String get named => divided ? disciplineLabel(title, disciplines.join(', ')) : title;
+
   String? get topic => _said(booking.topic);
 
   String? get notes => _said(booking.notes);

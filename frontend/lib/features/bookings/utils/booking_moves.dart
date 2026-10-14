@@ -12,7 +12,7 @@ import '../../lessons/utils/booking_window.dart';
 import '../../lessons/utils/booking_wizard_strings.dart' show bandBookedOtherWay;
 import '../../lessons/utils/opening_window.dart';
 import '../../../core/constants/field_limits.dart';
-import '../../lessons/widgets/booking_fields_section.dart' show bookingDurationOptions, maxDailyMinutesPerDiscipline;
+import '../../lessons/widgets/booking_fields_section.dart' show bookingDurationOptions;
 import '../widgets/move_lesson_dialog.dart' show MoveDay, MoveOption;
 import 'booking_replacement.dart' show withLeftOut;
 
@@ -100,15 +100,16 @@ class BookingMove
 
 int _lengthOf(PresenceItem row) => minutesOfTimeOfDay(row.endTime) - minutesOfTimeOfDay(row.startTime);
 
-const String _overTwoHours = 'Non è possibile garantire più di due ore di lezione per la stessa materia in una fascia oraria';
+const String _overTwoHours = 'Non è possibile garantire più di due ore di lezione per la stessa disciplina in una fascia oraria';
 
-// A band books each subject once, whatever was asked of it.
+// A band books each discipline of a subject once, whatever was asked of it.
 bool _sameSubject(BookingSummaryItem a, BookingSummaryItem b)
 {
   return a.kind == b.kind &&
       switch (a.kind)
       {
-        BookingRequestKind.ministrySubject => a.ministrySubjectId == b.ministrySubjectId,
+        BookingRequestKind.ministrySubject =>
+          a.ministrySubjectId == b.ministrySubjectId && a.disciplineIds.any(b.disciplineIds.contains),
         BookingRequestKind.associationSubject => a.associationSubject?.id == b.associationSubject?.id,
         BookingRequestKind.service => a.serviceName == b.serviceName,
       };
@@ -434,7 +435,6 @@ class BookingMovePlanner
       return null;
     }
 
-    final Map<int, int> taken = {...?group?.minutesByDiscipline(mode, band: band)};
     final List<BookingSummaryItem> staying = [
       for (final booking in group?.requestsFor(mode, band: band) ?? const <BookingSummaryItem>[])
         if (!move.carries(booking)) booking,
@@ -447,18 +447,6 @@ class BookingMovePlanner
       if (same != null && same.duration + booking.duration > bookingDurationOptions.last)
       {
         return _overTwoHours;
-      }
-
-      for (final discipline in booking.disciplineIds)
-      {
-        final int total = (taken[discipline] ?? 0) + booking.duration;
-
-        if (total > maxDailyMinutesPerDiscipline)
-        {
-          return _overTwoHours;
-        }
-
-        taken[discipline] = total;
       }
     }
 

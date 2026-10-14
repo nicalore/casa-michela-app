@@ -341,20 +341,15 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   {
     return [
       for (final lesson in presence.lessons)
-        (
-          startMinutes: lesson.startMinutes,
-          endMinutes: lesson.endMinutes,
-          block: OwnLessonBlock(
-            key: ValueKey('lesson-${lesson.id}'),
-            lesson: lesson,
-            ministrySubjects: _ministrySubjects,
-            view: CalendarView.byStudent,
-            isPast: isLessonPast(lesson, _now),
-            isCurrent: !onTimeline && isLessonRunning(lesson, _now),
-            onTimeline: onTimeline,
-            onTap: () => _openLesson(lesson),
-          ),
-        ),
+        OwnLessonBlock(
+          key: ValueKey('lesson-${lesson.id}'),
+          lesson: lesson,
+          ministrySubjects: _ministrySubjects,
+          view: CalendarView.byStudent,
+          isPast: isLessonPast(lesson, _now),
+          isCurrent: !onTimeline && isLessonRunning(lesson, _now),
+          onTap: () => _openLesson(lesson),
+        ).asEntry(context),
     ];
   }
 

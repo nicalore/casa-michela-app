@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'week_range.dart';
 
-export 'week_range.dart' show kMinimumBandMinutes, kQuarterHour, minutesOfTimeOfDay, timeOfDayFromMinutes;
+export 'week_range.dart' show kMinimumBandMinutes, kMinimumLessonMinutes, kQuarterHour, kQuarterLessonMinutes, minimumLessonMinutes, minutesOfTimeOfDay, timeOfDayFromMinutes;
 
 enum TimeBucket { morning, afternoon, evening }
 

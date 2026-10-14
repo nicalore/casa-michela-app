@@ -144,6 +144,8 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
   BookingSummaryItem get _booking => _entry.booking;
 
+  int get _shortest => minimumLessonMinutes(_booking.duration);
+
   String get _requestName
   {
     return switch (_booking.kind)
@@ -189,7 +191,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
     if (uncovered.isNotEmpty &&
         parts.length < kMaxLessonParts &&
-        widget.entry.remainingMinutes >= kMinimumBandMinutes)
+        widget.entry.remainingMinutes >= _shortest)
     {
       final draft = _draft(uncovered.toSet(), widget.entry.remainingMinutes, parts);
 
@@ -204,7 +206,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
   _Part? _draft(Set<int> disciplineIds, int wanted, List<_Part> siblings)
   {
-    final length = wanted < kMinimumBandMinutes ? kMinimumBandMinutes : wanted;
+    final length = wanted < _shortest ? _shortest : wanted;
 
     for (final slot in _slotsFor(disciplineIds))
     {
@@ -230,7 +232,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       disciplineIds: disciplineIds,
       availabilityId: null,
       startMinutes: _index.bandStart,
-      endMinutes: _index.bandStart + kMinimumBandMinutes,
+      endMinutes: _index.bandStart + _shortest,
     );
   }
 
@@ -251,7 +253,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
         for (final window in intersectWindows(offered, stretches))
         {
-          if (window.$2 - window.$1 < kMinimumBandMinutes)
+          if (window.$2 - window.$1 < _shortest)
           {
             continue;
           }
@@ -266,7 +268,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
           if (_firstValidStart(
                 slot: slot,
                 disciplineIds: disciplineIds,
-                length: kMinimumBandMinutes,
+                length: _shortest,
                 siblings: siblings,
                 lessonId: lessonId,
               ) ==
@@ -425,10 +427,10 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
     if (leftOut.isNotEmpty && _parts.length < kMaxLessonParts)
     {
-      ceiling -= kMinimumBandMinutes;
+      ceiling -= kMinimumLessonMinutes;
     }
 
-    return ceiling < kMinimumBandMinutes ? kMinimumBandMinutes : ceiling;
+    return ceiling < _shortest ? _shortest : ceiling;
   }
 
   void _place(_Part part, _Slot slot, {int? wanted})
@@ -437,7 +439,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     final ceiling = _ceilingFor(part);
     final asked = wanted ?? part.minutes;
 
-    final length = asked.clamp(kMinimumBandMinutes, room < ceiling ? room : ceiling);
+    final length = asked.clamp(_shortest, room < ceiling ? room : ceiling);
 
     final keeps = part.startMinutes >= slot.windowStart && part.startMinutes + length <= slot.windowEnd;
 
@@ -515,7 +517,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
                 ? {ordered.last}
                 : rest;
         final total = _booking.duration;
-        final half = snapQuarterDown(total ~/ 2).clamp(kMinimumBandMinutes, total - kMinimumBandMinutes);
+        final half = snapQuarterDown(total ~/ 2).clamp(kMinimumLessonMinutes, total - kMinimumLessonMinutes);
 
         first.endMinutes = first.startMinutes + half;
 
@@ -779,7 +781,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
   String _partName(int index) => index == 0 ? 'Prima parte' : 'Seconda parte';
 
-  bool get _canSplit => _booking.duration >= 2 * kMinimumBandMinutes;
+  bool get _canSplit => _booking.duration >= 2 * kMinimumLessonMinutes;
 
   Widget _buildDivision()
   {
@@ -997,7 +999,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
                   part.endMinutes = minutesOfTimeOfDay(end);
                 });
               },
-              minimumMinutes: kMinimumBandMinutes,
+              minimumMinutes: _shortest,
               maximumMinutes: _ceilingFor(part),
               windowStartMinutes: slot.windowStart,
               windowEndMinutes: slot.windowEnd,
@@ -1067,11 +1069,17 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     }
 
     final presenceLabel = mode == kOnlineMode ? 'Online' : 'Presente';
+    final String? discipline = dividedDisciplineName(
+      widget.ministrySubjects,
+      _booking.ministrySubjectId,
+      _booking.associationSubjects.map((subject) => subject.id),
+    );
 
     return Wrap(
       spacing: 18,
       runSpacing: 6,
       children: [
+        if (discipline != null) fact(Icons.menu_book_rounded, AppTheme.trialTealDeep, discipline),
         fact(Icons.schedule_rounded, AppTheme.trialTealDeep, '${formatMinutes(_booking.duration)} da pianificare'),
         fact(
           lessonModeIcon(mode),

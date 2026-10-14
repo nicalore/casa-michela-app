@@ -36,6 +36,7 @@ from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 
 if TYPE_CHECKING:
     from app.models.association_subject import AssociationSubject
+    from app.models.booking_disciplines import Request
     from app.models.booking_preferred_teacher import BookingPreferredTeacher
     from app.models.lesson_booking import LessonBooking
     from app.models.presence import Presence
@@ -59,7 +60,8 @@ _MINISTRY_REQUEST_WITHOUT_SUBJECTS_ERROR: Final[str] = (
 # Session info key: stretches the association's own sweeps take away.
 _SWEPT_KEY: Final[str] = "swept_presence_ids"
 
-# Max minutes per student per discipline in one band of a day, per mode.
+# Max minutes per student per discipline of a subject in one band of a day, per
+# mode. The same discipline under two subjects takes two hours under each.
 _MAX_DISCIPLINE_MINUTES_PER_BAND: Final[int] = 120
 
 _DISCIPLINE_OVER_BAND_LIMIT_ERROR: Final[str] = (
@@ -85,7 +87,7 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
     __table_args__ = (
         CheckConstraint("id > 0", name="positive_booking_id"),
         CheckConstraint(
-            "duration BETWEEN 30 AND 120 AND duration % 15 = 0",
+            "duration BETWEEN 15 AND 120 AND duration % 15 = 0",
             name="booking_duration_step",
         ),
         # Both columns null means a ministry-subject request; the child-table
@@ -380,13 +382,12 @@ def _validate_booking_duration_within_presence(
 
 
 def _add_minutes(
-    totals: dict[int, int],
-    disciplines: set[int],
+    totals: dict[Request, int],
+    requests: set[Request],
     duration: int,
 ) -> None:
-    # An hour covering N disciplines counts as a full hour of each.
-    for discipline in disciplines:
-        totals[discipline] = totals.get(discipline, 0) + duration
+    for request in requests:
+        totals[request] = totals.get(request, 0) + duration
 
 
 @event.listens_for(Session, "before_flush")
@@ -396,7 +397,7 @@ def _validate_discipline_minutes_within_day(
     _instances: object,
 ) -> None:
     from app.core.time_band import band_of
-    from app.models.booking_disciplines import disciplines_of, stored_disciplines
+    from app.models.booking_disciplines import requests_of, stored_requests
     from app.models.presence import Presence
 
     pending_presences = pending_instances(session, Presence)
@@ -481,12 +482,12 @@ def _validate_discipline_minutes_within_day(
             and booking_id not in deleted_booking_ids
         ]
 
-        stored = stored_disciplines(
+        stored = stored_requests(
             session,
             [booking_id for booking_id, _, _ in counted],
         )
 
-        minutes_by_band: dict[Any, dict[int, int]] = {}
+        minutes_by_band: dict[Any, dict[Request, int]] = {}
 
         for booking_id, duration, band in counted:
             _add_minutes(
@@ -501,7 +502,7 @@ def _validate_discipline_minutes_within_day(
             # A booking silent about its subjects still covers its stored ones.
             _add_minutes(
                 minutes_by_band.setdefault(band_of(presence.start_time), {}),
-                disciplines_of(session, booking, stored=stored),
+                requests_of(session, booking, stored=stored),
                 booking.duration,
             )
 

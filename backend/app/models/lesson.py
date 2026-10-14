@@ -81,7 +81,7 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
         CheckConstraint("end_time > start_time", name="lesson_end_after_start"),
         # Subsumes the check above, kept for its distinct error name.
         CheckConstraint(
-            "end_time - start_time >= INTERVAL '30 minutes'",
+            "end_time - start_time >= INTERVAL '15 minutes'",
             name="lesson_minimum_duration",
         ),
         CheckConstraint(

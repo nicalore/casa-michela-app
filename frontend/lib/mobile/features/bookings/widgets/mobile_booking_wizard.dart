@@ -19,7 +19,6 @@ import '../../../../features/lessons/models/subject_request.dart';
 import '../../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/utils/study_program_lookup.dart';
-import '../../../../features/lessons/widgets/subject_request_tile.dart' show disciplineNames;
 import '../../../../features/people/models/person_item.dart';
 import '../../../../services/api_service.dart';
 import '../../../shared/widgets/mobile_band_editor.dart';
@@ -55,6 +54,9 @@ const EdgeInsets _tourDaysInflate = EdgeInsets.fromLTRB(8, -6, 8, 8);
 const double _tourDaysRadius = 18;
 const EdgeInsets _tourListInflate = EdgeInsets.all(4);
 const double _tourListRadius = 18;
+
+const EdgeInsets _tourOpenInflate = EdgeInsets.all(4);
+const double _tourOpenRadius = 22;
 const EdgeInsets _tourFooterInflate = EdgeInsets.all(4);
 const double _tourFooterRadius = 22;
 
@@ -117,6 +119,9 @@ class _WizardState extends State<_Wizard>
   bool _busy = false;
 
   int _category = _ministryCategory;
+
+  // Per band, the subject whose disciplines are listed under it.
+  final Map<TimeBucket, int> _openSubject = {};
 
   bool _categoryForward = true;
 
@@ -529,34 +534,10 @@ class _WizardState extends State<_Wizard>
     return _catalogue.associationSubjects.where((discipline) => !covered.contains(discipline.id)).toList();
   }
 
-  bool _hasSeveralDisciplines(SubjectRequestDraft request)
-  {
-    for (final subject in _catalogue.ministrySubjects)
-    {
-      if (subject.id == request.ministrySubjectId)
-      {
-        return subject.associationSubjects.length > 1;
-      }
-    }
-
-    return false;
-  }
-
-  String _summaryOf(SubjectRequestDraft request, {bool withBand = false})
-  {
-    final TimeBucket? band = request.band;
-
-    return [
-      if (withBand && band != null) bandLabel(band),
-      if (request.asksForDisciplines && _hasSeveralDisciplines(request))
-        disciplineNames(_catalogue.ministrySubjects, request).join(', '),
-      if (request.duration != null) formatMinutes(request.duration!),
-    ].join(' · ');
-  }
-
   String? _subtitle(SubjectRequestDraft? chosen, String? description)
   {
-    final String summary = chosen == null ? '' : _summaryOf(chosen);
+    final int? duration = chosen?.duration;
+    final String summary = duration == null ? '' : formatMinutes(duration);
 
     final String said = [
       if (summary.isNotEmpty) summary,
@@ -584,7 +565,6 @@ class _WizardState extends State<_Wizard>
         for (final offer in _draft.bandOffers(group, skip: editing ? request : null))
           if (offer.band == band) offer,
       ],
-      minutesByDisciplineTakenByOthers: _draft.minutesByDiscipline(group, band: band, skip: editing ? request : null),
       tourFor: widget.tourFor,
     );
 
@@ -615,14 +595,24 @@ class _WizardState extends State<_Wizard>
       eyebrow: kRemovalEyebrow,
       title: 'Confermi?',
       message: TextSpan(
-        children: [
-          const TextSpan(text: kSubjectRemovalBefore),
-          TextSpan(
-            text: flow.draft.displayName,
-            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
-          ),
-          const TextSpan(text: kSubjectRemovalAfter),
-        ],
+        children: switch (flow.discipline)
+        {
+          final String discipline => [
+              TextSpan(
+                text: disciplineLabel(flow.draft.displayName, discipline),
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
+              ),
+              const TextSpan(text: kDisciplineRemovalAfter),
+            ],
+          null => [
+              const TextSpan(text: kSubjectRemovalBefore),
+              TextSpan(
+                text: flow.draft.displayName,
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
+              ),
+              const TextSpan(text: kSubjectRemovalAfter),
+            ],
+        },
       ),
       confirmLabel: 'Rimuovi',
       confirmIcon: Icons.delete_outline_rounded,
@@ -660,6 +650,110 @@ class _WizardState extends State<_Wizard>
     return !_draft.subjectsOnly || _chosen(group, band, matches)?.existing == null;
   }
 
+  SubjectRequestDraft? _bookedDiscipline(MobileBookingGroup group, TimeBucket band, int subject, int discipline)
+  {
+    return _chosen(
+      group,
+      band,
+      (request) =>
+          request.kind == BookingRequestKind.ministrySubject &&
+          request.ministrySubjectId == subject &&
+          request.associationSubjectIds.contains(discipline),
+    );
+  }
+
+  // Adding a lesson to a booked day lists only the disciplines still free.
+  bool _offersSome(MobileBookingGroup group, TimeBucket band, MinistrySubjectItem subject)
+  {
+    return !_draft.subjectsOnly ||
+        subject.associationSubjects.any((discipline) => _bookedDiscipline(group, band, subject.id, discipline.id)?.existing == null);
+  }
+
+  void _pickDiscipline(MobileBookingGroup group, TimeBucket band, MinistrySubjectItem subject, AssociationSubjectOption discipline)
+  {
+    final String? full = _draft.noTimeLeftIn(group, band);
+
+    if (full != null)
+    {
+      MobileNotice.show(context, full, error: true);
+
+      return;
+    }
+
+    _openFlow(
+      group,
+      band,
+      SubjectRequestDraft(
+        kind: BookingRequestKind.ministrySubject,
+        ministrySubjectId: subject.id,
+        associationSubjectIds: {discipline.id},
+      )..ministrySubjectName = subject.name,
+      editing: false,
+    );
+  }
+
+  // A subject divided in disciplines opens in place: each discipline is booked on its own.
+  Widget _subjectGroup(MobileBookingGroup group, TimeBucket band, MinistrySubjectItem subject, String page)
+  {
+    final bool open = _openSubject[band] == subject.id;
+
+    final Widget built = MobileSubjectGroup(
+      title: subject.name,
+      booked: [
+        for (final discipline in subject.associationSubjects)
+          if (_bookedDiscipline(group, band, subject.id, discipline.id) != null) discipline.name,
+      ],
+      open: open,
+      onToggle: ()
+      {
+        setState(()
+        {
+          if (open)
+          {
+            _openSubject.remove(band);
+          }
+          else
+          {
+            _openSubject[band] = subject.id;
+          }
+        });
+        _tourLater();
+      },
+      children: [
+        for (final discipline in subject.associationSubjects)
+          if (_bookedDiscipline(group, band, subject.id, discipline.id) case final SubjectRequestDraft request?)
+            if (!_draft.subjectsOnly || request.existing == null)
+              MobileSelectRow(
+                key: ValueKey(discipline.id),
+                title: discipline.name,
+                subtitle: request.duration == null ? null : formatMinutes(request.duration!),
+                selected: true,
+                onTap: () => _openFlow(group, band, request, editing: true),
+              )
+            else
+              const SizedBox.shrink()
+          else
+            MobileSelectRow(
+              key: ValueKey(discipline.id),
+              title: discipline.name,
+              subtitle: descriptionOrNull(discipline.description),
+              selected: false,
+              onTap: () => _pickDiscipline(group, band, subject, discipline),
+            ),
+      ],
+    );
+
+    // Always wrapped, lit only open: the group keeps its state, and its unfolding, either way.
+    return MobileTourTarget(
+      key: ValueKey(subject.id),
+      id: open ? bookingWizardTourTarget(BookingWizardMark.open, page) : null,
+      inflate: _tourOpenInflate,
+      radius: _tourOpenRadius,
+      clipped: true,
+      child: built,
+    );
+  }
+
   // A subject already chosen opens to be changed or removed, never dropped by a stray tap.
   Widget _pickRow(
     MobileBookingGroup group,
@@ -694,7 +788,7 @@ class _WizardState extends State<_Wizard>
 
   bool _matches(String name) => name.toLowerCase().contains(_searches[_category].text.trim().toLowerCase());
 
-  List<Widget> _buildCategory(MobileBookingGroup group, TimeBucket band)
+  List<Widget> _buildCategory(MobileBookingGroup group, TimeBucket band, String page)
   {
     final String whose = 'di ${_pupil.firstName}';
 
@@ -708,26 +802,28 @@ class _WizardState extends State<_Wizard>
           return [MobileQuietLine(noProgrammeSubjects(isSelf: _draft.isSelf, whose: whose))];
         }
 
-        final List<MinistrySubjectItem> shown = all
-            .where((subject) => _matches(subject.name) && _listed(group, band, (request) => request.ministrySubjectId == subject.id))
-            .toList();
+        final List<MinistrySubjectItem> shown =
+            all.where((subject) => _matches(subject.name) && _offersSome(group, band, subject)).toList();
 
         return [
           if (shown.isEmpty) MobileQuietLine(kSubjectNoMatch[_category]),
           for (final subject in shown)
-            _pickRow(
-              group,
-              band,
-              name: subject.name,
-              matches: (request) => request.ministrySubjectId == subject.id,
-              pick: () => SubjectRequestDraft(
-                kind: BookingRequestKind.ministrySubject,
-                ministrySubjectId: subject.id,
-                associationSubjectIds: {
-                  if (subject.associationSubjects.length == 1) subject.associationSubjects.single.id,
-                },
-              )..ministrySubjectName = subject.name,
-            ),
+            if (subject.associationSubjects.length > 1)
+              _subjectGroup(group, band, subject, page)
+            else
+              _pickRow(
+                group,
+                band,
+                name: subject.name,
+                matches: (request) => request.ministrySubjectId == subject.id,
+                pick: () => SubjectRequestDraft(
+                  kind: BookingRequestKind.ministrySubject,
+                  ministrySubjectId: subject.id,
+                  associationSubjectIds: {
+                    if (subject.associationSubjects.length == 1) subject.associationSubjects.single.id,
+                  },
+                )..ministrySubjectName = subject.name,
+              ),
         ];
 
       case _disciplineCategory:
@@ -842,7 +938,7 @@ class _WizardState extends State<_Wizard>
               clipped: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: _buildCategory(group, band),
+                children: _buildCategory(group, band, page),
               ),
             ),
           ],

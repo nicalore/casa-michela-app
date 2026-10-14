@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -28,6 +30,33 @@ String activityHours(ScheduledActivity scheduled)
 String activityDetails(ScheduledActivity scheduled)
 {
   return [scheduled.name, ?scheduled.description].join('\n');
+}
+
+TextStyle get _hoursStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.2,
+      height: 1.15,
+      color: kActivityAccent,
+    );
+
+TextStyle get _nameStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 13.5,
+      fontWeight: FontWeight.w700,
+      height: 1.15,
+      color: AppTheme.trialInk,
+    );
+
+// A long name may take its second line rather than widen the hour.
+const double _widestName = 180;
+
+// Published: the width that writes the hours and the name whole.
+double activityBlockWidth(BuildContext context, ScheduledActivity scheduled)
+{
+  final hours = 12 + 4 + blockLineWidth(context, activityHours(scheduled), _hoursStyle);
+  final name = math.min(_widestName, blockLineWidth(context, scheduled.name, _nameStyle));
+
+  return math.max(hours, name) + 2 * kBlockSideGap + 2 * 10 + 2 * 2 + 3 + 8 + 1;
 }
 
 class CalendarActivityBlock extends StatefulWidget
@@ -189,63 +218,54 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
             ),
             boxShadow: AppTheme.cardShadow,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 3,
-                height: double.infinity,
-                decoration: BoxDecoration(
-                  color: kActivityAccent,
-                  borderRadius: BorderRadius.circular(2),
+          child: BlockTexts(
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    color: kActivityAccent,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              SizedBox(width: _isNarrow ? 4 : 8),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        // The icon goes first: on a sliver of a block it would push past the edge.
-                        if (!_isNarrow) ...[
-                          Icon(kActivityIcon, size: 12, color: kActivityAccent),
-                          const SizedBox(width: 4),
-                        ],
-                        Expanded(
-                          child: Text(
-                            _isNarrow
-                                ? formatTimeOfDayShort(timeOfDayFromMinutes(_scheduled.startMinutes))
-                                : activityHours(_scheduled),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
-                              height: 1.15,
-                              color: kActivityAccent,
+                SizedBox(width: _isNarrow ? 4 : 8),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          // The icon goes first: on a sliver of a block it would push past the edge.
+                          if (!_isNarrow) ...[
+                            Icon(kActivityIcon, size: 12, color: kActivityAccent),
+                            const SizedBox(width: 4),
+                          ],
+                          Expanded(
+                            child: Text(
+                              _isNarrow
+                                  ? formatTimeOfDayShort(timeOfDayFromMinutes(_scheduled.startMinutes))
+                                  : activityHours(_scheduled),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _hoursStyle,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _scheduled.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        height: 1.15,
-                        color: AppTheme.trialInk,
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        _scheduled.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: _nameStyle,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

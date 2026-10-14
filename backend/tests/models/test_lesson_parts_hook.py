@@ -90,6 +90,37 @@ async def test_three_quarters_of_an_hour_cannot_be_split(db: AsyncSession) -> No
         await db.flush()
 
 
+async def test_a_quarter_of_an_hour_is_never_a_slice_of_a_longer_request(
+    db: AsyncSession,
+) -> None:
+    availability, booking = await _scene(db, duration=45)
+
+    db.add(_part(availability, booking, time(14), time(14, 15)))
+    db.add(_part(availability, booking, time(15), time(15, 30)))
+
+    with pytest.raises(ValueError, match="intera prenotazione"):
+        await db.flush()
+
+
+async def test_a_quarter_of_an_hour_request_is_a_quarter_hour_lesson(
+    db: AsyncSession,
+) -> None:
+    availability, booking = await _scene(db, duration=15)
+
+    db.add(_part(availability, booking, time(14), time(14, 15)))
+    await db.flush()
+
+
+async def test_a_quarter_of_an_hour_cannot_be_split(db: AsyncSession) -> None:
+    availability, booking = await _scene(db, duration=15)
+
+    db.add(_part(availability, booking, time(14), time(14, 15)))
+    db.add(_part(availability, booking, time(15), time(15, 15)))
+
+    with pytest.raises(ValueError, match="complessivamente"):
+        await db.flush()
+
+
 async def test_a_third_part_is_refused(db: AsyncSession) -> None:
     availability, booking = await _scene(db, duration=120)
 

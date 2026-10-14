@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
-import '../../../shared/widgets/app_tooltip.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../lessons/models/activity_item.dart';
 import '../../lessons/models/calendar_day.dart';
@@ -13,6 +12,7 @@ import '../../lessons/models/lesson_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/calendar_activity_block.dart';
 import '../../lessons/widgets/calendar_lesson_block.dart';
+import 'own_day_timeline.dart';
 
 // Taller than the admin's 60 to fit two lines of subject.
 const double kOwnBlockHeight = 104;
@@ -30,6 +30,25 @@ const double _barGap = 8;
 
 const double _textInset = 10;
 
+// Bar, insets, hovered border and the side gaps around a block on the timeline.
+const double _chrome = _barInset + _barWidth + _barGap + _textInset + 2 * _hoverBorder + 2 * kBlockSideGap + 1;
+
+const double _hoursIcon = 14;
+const double _hoursIconGap = 5;
+const double _pastMark = 4 + 16;
+
+const double _whereIcon = 13;
+const double _whereIconGap = 4;
+
+// A long activity name may take its second line rather than widen the hour.
+const double _widestActivityName = 180;
+
+// Bar, insets and the hovered border beside the words; padding and that border above and below.
+const double _frameSide = _barInset + _barWidth + _barGap + _textInset + 2 * _hoverBorder;
+const double _frameTop = 2 * 6 + 2 * _hoverBorder;
+
+const double _badgeFrame = 2 * 3 + 2 * 1;
+
 const IconData kSharedLessonIcon = Icons.people_alt_outlined;
 
 const String kSharedLessonLabel = 'In compresenza con un altro studente';
@@ -42,25 +61,52 @@ TextStyle _hoursStyle(Color accent) => GoogleFonts.plusJakartaSans(
       color: accent,
     );
 
-TextStyle get _nameStyle => GoogleFonts.plusJakartaSans(
+// The discipline, or an activity's name.
+TextStyle get _titleStyle => GoogleFonts.plusJakartaSans(
       fontSize: 15,
-      fontWeight: FontWeight.w700,
-      height: 1.2,
+      fontWeight: FontWeight.w800,
+      height: 1.15,
       color: AppTheme.trialOcean,
     );
 
 TextStyle get _subjectStyle => GoogleFonts.plusJakartaSans(
-      fontSize: 13,
-      fontWeight: FontWeight.w700,
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
       height: 1.2,
-      color: AppTheme.trialInk,
+      color: AppTheme.trialOcean,
     );
 
-TextStyle get _disciplinesStyle => GoogleFonts.plusJakartaSans(
-      fontSize: 11.5,
+TextStyle get _personStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 12.5,
       fontWeight: FontWeight.w600,
+      height: 1.2,
+      color: kLessonPersonColor,
+    );
+
+TextStyle get _badgeStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 9.5,
+      fontWeight: FontWeight.w700,
+      height: 1.2,
+      letterSpacing: 1.1,
+      color: AppTheme.modifiedAccent,
+    );
+
+// The hours row: the words, the icons beside them and, under way in the list, the badge.
+double _hoursRowHeight(BuildContext context, {required bool past, required bool current})
+{
+  return [
+    blockTextHeight(context, '0', _hoursStyle(AppTheme.trialInk), double.infinity),
+    _hoursIcon,
+    if (past) 16.0,
+    if (current) blockTextHeight(context, '0', _badgeStyle, double.infinity) + _badgeFrame,
+  ].reduce(math.max);
+}
+
+TextStyle _whereStyle(Color accent) => GoogleFonts.plusJakartaSans(
+      fontSize: 11.5,
+      fontWeight: FontWeight.w700,
       height: 1.25,
-      color: AppTheme.trialMutedText,
+      color: accent,
     );
 
 class _BlockFrame extends StatefulWidget
@@ -68,8 +114,7 @@ class _BlockFrame extends StatefulWidget
   final Color accent;
   final Color surface;
   final IconData icon;
-  final String hours;
-  final String? details;
+  final List<String> hours;
   final bool isPast;
   final bool isCurrent;
 
@@ -84,7 +129,6 @@ class _BlockFrame extends StatefulWidget
     required this.surface,
     required this.icon,
     required this.hours,
-    required this.details,
     required this.isPast,
     this.isCurrent = false,
     // this.isShared = false,
@@ -104,119 +148,109 @@ class _BlockFrameState extends State<_BlockFrame>
   Widget build(BuildContext context)
   {
     final accent = widget.accent;
-    final details = widget.details;
 
     final bool hovering = _isHovering && widget.onTap != null;
 
-    final Widget block = MouseRegion(
+    return MouseRegion(
         cursor: widget.onTap == null ? MouseCursor.defer : SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovering = true),
         onExit: (_) => setState(() => _isHovering = false),
         child: GestureDetector(
           onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            decoration: BoxDecoration(
-              color: widget.surface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: hovering ? AppTheme.trialGold : accent.withValues(alpha: 0.45),
-                width: hovering ? _hoverBorder : _restBorder,
+          child: CardGround(
+            elapsed: ElapsedShare.of(context),
+            surface: widget.surface,
+            radius: 10,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: hovering ? AppTheme.trialGold : accent.withValues(alpha: 0.45),
+                  width: hovering ? _hoverBorder : _restBorder,
+                ),
               ),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            // A Stack, not a Row: a flex would overflow at a few pixels wide.
-            child: LayoutBuilder(
-              builder: (context, constraints)
-              {
-                final narrow = constraints.maxWidth < _narrowFrom;
+              // A Stack, not a Row: a flex would overflow at a few pixels wide.
+              child: LayoutBuilder(
+                builder: (context, constraints)
+                {
+                  final narrow = constraints.maxWidth < _narrowFrom;
 
-                // A Positioned refuses a negative width.
-                final left = math.min(_barInset + _barWidth + _barGap, constraints.maxWidth);
-                final right = math.min(_textInset, constraints.maxWidth - left);
+                  // A Positioned refuses a negative width.
+                  final left = math.min(_barInset + _barWidth + _barGap, constraints.maxWidth);
+                  final right = math.min(_textInset, constraints.maxWidth - left);
 
-                return Stack(
-                  children: [
-                    Positioned(
-                      left: _barInset,
-                      top: 0,
-                      bottom: 0,
-                      width: _barWidth,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
+                  return Stack(
+                    children: [
+                      Positioned(
+                        left: _barInset,
+                        top: 0,
+                        bottom: 0,
+                        width: _barWidth,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
+                        ),
                       ),
-                    ),
-                    // Cut from the bottom when the body does not fit: never a debug overflow.
-                    Positioned.fill(
-                      left: left,
-                      right: right,
-                      child: Center(
-                        child: SingleChildScrollView(
-                          physics: const NeverScrollableScrollPhysics(),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                      // Cut from the bottom when the body does not fit: never a debug overflow.
+                      Positioned.fill(
+                        left: left,
+                        right: right,
+                        child: BlockTexts(
+                          child: Center(
+                            child: SingleChildScrollView(
+                              physics: const NeverScrollableScrollPhysics(),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (!narrow) ...[
-                                    Icon(widget.icon, size: 14, color: accent),
-                                    const SizedBox(width: 5),
-                                  ],
-                                  Expanded(
-                                    child: Text(
-                                      widget.hours,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: _hoursStyle(accent),
-                                    ),
+                                  Row(
+                                    children: [
+                                      if (!narrow) ...[
+                                        Icon(widget.icon, size: _hoursIcon, color: accent),
+                                        const SizedBox(width: _hoursIconGap),
+                                      ],
+                                      Expanded(
+                                        child: Text.rich(
+                                          lessonHoursSpan(widget.hours, _hoursStyle(accent)),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (!narrow && widget.isCurrent) ...[
+                                        const SizedBox(width: 6),
+                                        const _CurrentBadge(),
+                                      ],
+                                      // if (!narrow && widget.isShared) ...[
+                                      //   const SizedBox(width: 4),
+                                      //   const AppTooltip(
+                                      //     message: kSharedLessonLabel,
+                                      //     child: Icon(kSharedLessonIcon, size: 15, color: AppTheme.trialMutedText),
+                                      //   ),
+                                      // ],
+                                      if (!narrow && widget.isPast) ...[
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
+                                      ],
+                                    ],
                                   ),
-                                  if (!narrow && widget.isCurrent) ...[
-                                    const SizedBox(width: 6),
-                                    const _CurrentBadge(),
-                                  ],
-                                  // if (!narrow && widget.isShared) ...[
-                                  //   const SizedBox(width: 4),
-                                  //   const AppTooltip(
-                                  //     message: kSharedLessonLabel,
-                                  //     child: Icon(kSharedLessonIcon, size: 15, color: AppTheme.trialMutedText),
-                                  //   ),
-                                  // ],
-                                  if (!narrow && widget.isPast) ...[
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
-                                  ],
+                                  const SizedBox(height: 4),
+                                  widget.body(narrow),
                                 ],
                               ),
-                              const SizedBox(height: 5),
-                              widget.body(narrow),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              },
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
       );
-
-    if (details == null)
-    {
-      return block;
-    }
-
-    return AppTooltip(
-      message: details,
-      decoration: AppTheme.tooltipDecoration,
-      textStyle: AppTheme.tooltipTextStyle,
-      waitDuration: kCalendarTooltipWait,
-      child: block,
-    );
   }
 }
 
@@ -232,8 +266,6 @@ class OwnLessonBlock extends StatelessWidget
   // Under way, in the list: a badge instead of the now line across it.
   final bool isCurrent;
 
-  final bool onTimeline;
-
   final VoidCallback? onTap;
 
   const OwnLessonBlock({
@@ -243,15 +275,10 @@ class OwnLessonBlock extends StatelessWidget
     required this.view,
     required this.isPast,
     this.isCurrent = false,
-    this.onTimeline = true,
     this.onTap,
   });
 
   bool get _byStudent => view == CalendarView.byStudent;
-
-  bool get _isTight => onTimeline && lesson.minutes <= kMinimumBandMinutes;
-
-  bool get _hasTooltip => onTimeline && lesson.minutes < kTooltipBelowMinutes;
 
   String get _title => lessonTitle(lesson, view: view);
 
@@ -259,18 +286,66 @@ class OwnLessonBlock extends StatelessWidget
 
   Color get _whereAccent => lessonWhereAccent(lesson);
 
-  String get _hours
-  {
-    final range = formatTimeRange(lesson.startTime, lesson.endTime);
+  List<String> get _hours => [
+        formatTimeRange(lesson.startTime, lesson.endTime),
+        formatMinutes(lesson.minutes),
+        if (!_byStudent && lesson.mode == kOnlineMode) modeLabel(kOnlineMode),
+      ];
 
-    if (_isTight)
+  // On the timeline: the width that writes each line whole.
+  double neededWidth(BuildContext context)
+  {
+    final topic = lessonTopic(lesson, ministrySubjects);
+    final hours = blockSpanWidth(context, lessonHoursSpan(_hours, _hoursStyle(lessonAccent(lesson.mode))));
+    double capped(double width) => math.min(kWidestBlockLine, width);
+
+    final lines = [
+      _hoursIcon + _hoursIconGap + hours + (isPast ? _pastMark : 0),
+      capped(blockLineWidth(context, topic.discipline, _titleStyle)),
+      if (topic.subject case final subject?) capped(blockLineWidth(context, subject, _subjectStyle)),
+      capped(blockLineWidth(context, _title, _personStyle)),
+      if (_byStudent)
+        _whereIcon + _whereIconGap + capped(blockLineWidth(context, _where.label, _whereStyle(_whereAccent))),
+    ];
+
+    return lines.reduce(math.max) + _chrome;
+  }
+
+  // At [width], the card's own: every line written, long ones wrapped; never under the usual.
+  double heightAt(BuildContext context, double width)
+  {
+    final topic = lessonTopic(lesson, ministrySubjects);
+    final room = width - _frameSide;
+    final whereIcon = width < _narrowFrom ? 0.0 : _whereIcon + _whereIconGap;
+
+    double tall(String text, TextStyle style, [double inset = 0]) => blockTextHeight(context, text, style, room - inset);
+
+    var height = _hoursRowHeight(context, past: isPast, current: isCurrent) + 4 + tall(topic.discipline, _titleStyle);
+
+    if (topic.subject case final subject?)
     {
-      return range;
+      height += 1 + tall(subject, _subjectStyle);
     }
 
-    final length = '$range · ${formatMinutes(lesson.minutes)}';
+    height += 4 + tall(_title, _personStyle);
 
-    return !_byStudent && lesson.mode == kOnlineMode ? '$length · ${modeLabel(kOnlineMode)}' : length;
+    if (_byStudent)
+    {
+      height += 3 + math.max(whereIcon == 0 ? 0.0 : _whereIcon, tall(_where.label, _whereStyle(_whereAccent), whereIcon));
+    }
+
+    return math.max(kOwnBlockHeight, height + _frameTop);
+  }
+
+  TimelineEntry asEntry(BuildContext context)
+  {
+    return (
+      startMinutes: lesson.startMinutes,
+      endMinutes: lesson.endMinutes,
+      width: neededWidth(context),
+      heightAt: (width) => heightAt(context, width),
+      block: this,
+    );
   }
 
   Widget _buildWhere({required bool narrow})
@@ -278,56 +353,31 @@ class OwnLessonBlock extends StatelessWidget
     final accent = _whereAccent;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (!narrow) ...[
-          Icon(_where.icon, size: 13, color: accent),
-          const SizedBox(width: 4),
+          Icon(_where.icon, size: _whereIcon, color: accent),
+          const SizedBox(width: _whereIconGap),
         ],
-        Expanded(
-          child: Text(
-            _where.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: _disciplinesStyle.copyWith(fontWeight: FontWeight.w700, color: accent),
-          ),
-        ),
+        Expanded(child: Text(_where.label, style: _whereStyle(accent))),
       ],
     );
   }
 
-  String _details(({String subject, String? disciplines}) about)
-  {
-    return [
-      _title,
-      about.subject,
-      ?about.disciplines,
-      if (_byStudent) _where.label,
-    ].join('\n');
-  }
-
-  Widget _buildBody(({String subject, String? disciplines}) about, {required bool narrow})
+  Widget _buildBody(({String discipline, String? subject}) topic, {required bool narrow})
   {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          _title,
-          maxLines: _isTight && !_byStudent ? 2 : 1,
-          overflow: TextOverflow.ellipsis,
-          style: _nameStyle,
-        ),
-        const SizedBox(height: 3),
-        Text(about.subject, maxLines: 1, overflow: TextOverflow.ellipsis, style: _subjectStyle),
-        if (about.disciplines != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            about.disciplines!,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: _disciplinesStyle,
-          ),
+        // Long lines wrap: the row grows to take them.
+        Text(topic.discipline, style: _titleStyle),
+        if (topic.subject case final subject?) ...[
+          const SizedBox(height: 1),
+          Text(subject, style: _subjectStyle),
         ],
+        const SizedBox(height: 4),
+        Text(_title, style: _personStyle),
         if (_byStudent) ...[
           const SizedBox(height: 3),
           _buildWhere(narrow: narrow),
@@ -339,20 +389,19 @@ class OwnLessonBlock extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final about = lessonAbout(lesson, ministrySubjects);
+    final topic = lessonTopic(lesson, ministrySubjects);
 
     return _BlockFrame(
       accent: lessonAccent(lesson.mode),
       surface: Colors.white,
       icon: lessonModeIcon(lesson.mode),
       hours: _hours,
-      details: _hasTooltip ? _details(about) : null,
       isPast: isPast,
       isCurrent: isCurrent,
       // Co-presence hidden from students and parents for now.
       // isShared: _byStudent && lesson.isShared,
       onTap: onTap,
-      body: (narrow) => _buildBody(about, narrow: narrow),
+      body: (narrow) => _buildBody(topic, narrow: narrow),
     );
   }
 }
@@ -365,8 +414,6 @@ class OwnActivityBlock extends StatelessWidget
 
   final bool isCurrent;
 
-  final bool onTimeline;
-
   final VoidCallback? onTap;
 
   const OwnActivityBlock({
@@ -374,17 +421,40 @@ class OwnActivityBlock extends StatelessWidget
     required this.activity,
     required this.isPast,
     this.isCurrent = false,
-    this.onTimeline = true,
     this.onTap,
   });
 
-  String get _fullHours => '${activityHours(activity)} · ${formatMinutes(activity.minutes)}';
+  List<String> get _hours => [activityHours(activity), formatMinutes(activity.minutes)];
 
-  bool get _isTight => onTimeline && activity.minutes <= kMinimumBandMinutes;
+  // On the timeline: the width that writes the hours and the name whole.
+  double neededWidth(BuildContext context)
+  {
+    final line = blockSpanWidth(context, lessonHoursSpan(_hours, _hoursStyle(kActivityAccent)));
+    final hours = _hoursIcon + _hoursIconGap + line + (isPast ? _pastMark : 0);
+    final name = math.min(_widestActivityName, blockLineWidth(context, activity.name, _titleStyle));
 
-  String get _hours => _isTight ? activityHours(activity) : _fullHours;
+    return math.max(hours, name) + _chrome;
+  }
 
-  bool get _hasTooltip => onTimeline && activity.minutes < kTooltipBelowMinutes;
+  // At [width], the card's own: the name written whole, wrapped; never under the usual.
+  double heightAt(BuildContext context, double width)
+  {
+    final hours = _hoursRowHeight(context, past: isPast, current: isCurrent);
+    final name = blockTextHeight(context, activity.name, _titleStyle, width - _frameSide);
+
+    return math.max(kOwnBlockHeight, hours + 4 + name + _frameTop);
+  }
+
+  TimelineEntry asEntry(BuildContext context)
+  {
+    return (
+      startMinutes: activity.startMinutes,
+      endMinutes: activity.endMinutes,
+      width: neededWidth(context),
+      heightAt: (width) => heightAt(context, width),
+      block: this,
+    );
+  }
 
   @override
   Widget build(BuildContext context)
@@ -394,16 +464,10 @@ class OwnActivityBlock extends StatelessWidget
       surface: kActivitySurface,
       icon: kActivityIcon,
       hours: _hours,
-      details: _hasTooltip ? activityDetails(activity) : null,
       isPast: isPast,
       isCurrent: isCurrent,
       onTap: onTap,
-      body: (_) => Text(
-        activity.name,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: _nameStyle,
-      ),
+      body: (_) => Text(activity.name, style: _titleStyle),
     );
   }
 }
@@ -426,13 +490,7 @@ class _CurrentBadge extends StatelessWidget
         _currentLabel.toUpperCase(),
         maxLines: 1,
         softWrap: false,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 9.5,
-          fontWeight: FontWeight.w700,
-          height: 1.2,
-          letterSpacing: 1.1,
-          color: AppTheme.modifiedAccent,
-        ),
+        style: _badgeStyle,
       ),
     );
   }

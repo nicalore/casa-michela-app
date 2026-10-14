@@ -251,7 +251,7 @@ List<LessonVoice> lessonVoicesOf(LessonItem lesson, List<MinistrySubjectItem> mi
       label: 'Materia',
       value: perBooking((booking) => bookingTitle(booking, ministrySubjects)),
     ),
-    if (disciplines != null) LessonVoice(label: 'Discipline', value: disciplines),
+    if (disciplines != null) LessonVoice(label: disciplines.contains(', ') ? 'Discipline' : 'Disciplina', value: disciplines),
     LessonVoice(
       label: 'Tipo di lezione',
       value: perBooking((booking) => bookingTagLabels(booking.tags).join(', ')),
@@ -381,22 +381,6 @@ class _OwnLessonDialog extends StatelessWidget
   //   );
   // }
 
-  Widget _buildHeading(String text)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: _headingGap),
-      child: Text(
-        text.toUpperCase(),
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.4,
-          color: AppTheme.trialMutedText,
-        ),
-      ),
-    );
-  }
-
   Widget _buildNote(String text)
   {
     return Text(
@@ -411,30 +395,15 @@ class _OwnLessonDialog extends StatelessWidget
     );
   }
 
-  Widget _buildSection(String heading, Widget body)
+  Widget _buildLessonSection()
   {
-    return AppDialogPill(
-      expand: true,
+    return LessonDialogSection(
+      heading: withOther ? 'Lezione' : null,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeading(heading),
-          body,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLessonSection()
-  {
-    return _buildSection(
-      'Lezione',
-      Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _VoicesTable(voices: lessonVoicesOf(lesson, ministrySubjects, where: _byStudent)),
+          LessonVoicesTable(voices: lessonVoicesOf(lesson, ministrySubjects, where: _byStudent)),
           // Co-presence hidden from students and parents for now.
           // if (_byStudent && lesson.isShared) _buildSharedLine(),
         ],
@@ -446,11 +415,11 @@ class _OwnLessonDialog extends StatelessWidget
   {
     final person = other;
 
-    return _buildSection(
-      _byStudent ? 'Docente' : 'Studente',
-      person == null
+    return LessonDialogSection(
+      heading: _byStudent ? 'Docente' : 'Studente',
+      child: person == null
           ? _buildNote(_byStudent ? kTeacherFailedNote : kStudentFailedNote)
-          : _VoicesTable(
+          : LessonVoicesTable(
               voices: _byStudent ? teacherVoicesOf(person) : studentVoicesOf(person, notes: false),
             ),
     );
@@ -472,9 +441,9 @@ class _OwnLessonDialog extends StatelessWidget
       sensitive: true,
     );
 
-    return _buildSection(
-      'Osservazioni',
-      SelectionArea(
+    return LessonDialogSection(
+      heading: 'Osservazioni',
+      child: SelectionArea(
         child: wide
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -757,11 +726,51 @@ class _NotesColumnState extends State<_NotesColumn>
   }
 }
 
-class _VoicesTable extends StatelessWidget
+// A card of the lesson's window: its heading over the body.
+class LessonDialogSection extends StatelessWidget
+{
+  // Null for a card alone under the title, which already says what it is.
+  final String? heading;
+
+  final Widget child;
+
+  const LessonDialogSection({super.key, this.heading, required this.child});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return AppDialogPill(
+      expand: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (heading case final heading?)
+            Padding(
+              padding: const EdgeInsets.only(bottom: _headingGap),
+              child: Text(
+                heading.toUpperCase(),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.4,
+                  color: AppTheme.trialMutedText,
+                ),
+              ),
+            ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+// Labels in a column of their own, each value beside its label.
+class LessonVoicesTable extends StatelessWidget
 {
   final List<LessonVoice> voices;
 
-  const _VoicesTable({required this.voices});
+  const LessonVoicesTable({super.key, required this.voices});
 
   // Measured over the ambient style, as the labels are drawn.
   double _labelWidth(BuildContext context)

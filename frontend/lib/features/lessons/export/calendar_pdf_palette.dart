@@ -4,6 +4,7 @@ import 'package:pdf/pdf.dart';
 import '../../../core/theme/app_theme.dart';
 import '../utils/opening_window.dart';
 import '../widgets/calendar_activity_block.dart';
+import '../widgets/calendar_lesson_block.dart' show kLessonPersonColor;
 
 PdfColor _pdf(Color colour)
 {
@@ -21,6 +22,8 @@ final PdfColor kPdfViolet = _pdf(AppTheme.trialViolet);
 final PdfColor kPdfBody = _pdf(AppTheme.trialInk);
 
 final PdfColor kPdfMuted = _pdf(AppTheme.trialMutedText);
+
+final PdfColor kPdfPerson = _pdf(kLessonPersonColor);
 
 final PdfColor kPdfPresence = _pdf(AppTheme.trialTealDeep);
 final PdfColor kPdfPresenceSurface = _pdf(AppTheme.todaySurface);

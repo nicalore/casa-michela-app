@@ -4,8 +4,12 @@ from typing import Final
 
 _TIME_STEP_MINUTES: Final[int] = 15
 
-# Half an hour is the shortest stretch worth teaching in.
+# Half an hour is the shortest stretch a pupil stays for.
 MINIMUM_BAND_MINUTES: Final[int] = 30
+
+# A lesson lasts half an hour too, or a quarter hour when that is its whole booking.
+MINIMUM_LESSON_MINUTES: Final[int] = 30
+QUARTER_LESSON_MINUTES: Final[int] = 15
 
 _TIME_STEP_ERROR: Final[str] = (
     "L'orario deve essere espresso in multipli di 15 minuti."

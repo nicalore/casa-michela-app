@@ -478,7 +478,6 @@ class _BookingsPageState extends State<BookingsPage>
           for (final offer in groupBandOffers(group, slot.mode, skip: existing, isOpen: (band) => !haveBookingsClosed(group.date, band, _now)))
             if (offer.band == bucketFor(slot.startTime)) offer,
         ],
-        minutesByDisciplineTakenByOthers: group.minutesByDiscipline(slot.mode, band: bucketFor(slot.startTime), skip: existing),
         onSave: (draft) => _writeLesson(group, slot, existing, draft),
       ),
     );
@@ -634,7 +633,8 @@ class _BookingsPageState extends State<BookingsPage>
     }
   }
 
-  void _confirm(DateTime day, String warning, {required VoidCallback onConfirmed})
+  // [bold] leads the warning, as the name of what goes.
+  void _confirm(DateTime day, String warning, {String? bold, required VoidCallback onConfirmed})
   {
     showBlurredDialog<void>(
       context: context,
@@ -671,8 +671,13 @@ class _BookingsPageState extends State<BookingsPage>
         ),
         children: [
           AppDialogPill(
-            child: Text(
-              warning,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  if (bold != null) TextSpan(text: bold, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(text: warning),
+                ],
+              ),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -768,9 +773,19 @@ class _BookingsPageState extends State<BookingsPage>
     // The last lesson of a band takes the band's hours with it.
     final bool last = group.requestsFor(slot.mode, band: band).length == 1;
 
+    final String? divided = bookingDisciplineLabel(held.booking, _ministrySubjects);
+    final warning = lessonDeletionWarning(
+      divided ?? bookingTitle(held.booking, _ministrySubjects),
+      slot.mode,
+      last: last,
+      divided: divided != null,
+      band: band,
+    );
+
     _confirm(
       day,
-      lessonDeletionWarning(bookingTitle(held.booking, _ministrySubjects), slot.mode, last: last, band: band),
+      warning.text,
+      bold: warning.bold,
       onConfirmed: () => last
           ? _clear(group, [slot.mode], band: band, done: modeBookingDeleted(slot.mode, band: band))
           : _deleteLesson(slot, held.booking),

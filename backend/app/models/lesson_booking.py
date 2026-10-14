@@ -7,7 +7,7 @@ from sqlalchemy import ForeignKey, event, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from app.core.time_band import band_of
-from app.core.time_step import minutes_between
+from app.core.time_step import MINIMUM_LESSON_MINUTES, minutes_between
 from app.db.base import Base
 from app.models.flush_state import (
     FlushKey,
@@ -32,6 +32,11 @@ _TOO_MANY_LESSON_PARTS_ERROR: Final[str] = (
 _LESSON_PARTS_EXCEED_BOOKING_ERROR: Final[str] = (
     "Le lezioni collegate a una prenotazione non possono durare complessivamente "
     "più della prenotazione stessa"
+)
+
+_SHORT_PART_OF_A_LONGER_BOOKING_ERROR: Final[str] = (
+    "Una lezione dura almeno mezz'ora: un quarto d'ora solo quando è l'intera "
+    "prenotazione"
 )
 
 _LESSON_PARTS_ACROSS_BANDS_ERROR: Final[str] = (
@@ -195,3 +200,9 @@ def _validate_lesson_parts(
 
         if len({band for _, band in parts.values()}) > 1:
             raise ValueError(_LESSON_PARTS_ACROSS_BANDS_ERROR)
+
+        # Hours that run backwards are the database's to refuse.
+        if duration >= MINIMUM_LESSON_MINUTES and any(
+            0 < minutes < MINIMUM_LESSON_MINUTES for minutes, _ in parts.values()
+        ):
+            raise ValueError(_SHORT_PART_OF_A_LONGER_BOOKING_ERROR)

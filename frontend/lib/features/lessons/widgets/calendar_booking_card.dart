@@ -16,108 +16,6 @@ const double _cardRadius = 16;
 const double _modeBarWidth = 4;
 const double _modeBarInset = 9;
 
-const double _disciplineMaxWidth = 232;
-
-class DisciplineCard extends StatefulWidget
-{
-  final String label;
-  final bool isCovered;
-
-  final bool isDraggable;
-
-  final String? tooltip;
-
-  const DisciplineCard({
-    super.key,
-    required this.label,
-    required this.isCovered,
-    this.isDraggable = false,
-    this.tooltip,
-  });
-
-  @override
-  State<DisciplineCard> createState() => _DisciplineCardState();
-}
-
-class _DisciplineCardState extends State<DisciplineCard>
-{
-  bool _hover = false;
-
-  Color get _borderColor
-  {
-    if (widget.isDraggable)
-    {
-      return AppTheme.trialTurquoise.withValues(alpha: _hover ? 1 : 0.6);
-    }
-
-    return widget.isCovered ? AppTheme.closedLine : AppTheme.trialLine;
-  }
-
-  Color get _surfaceColor
-  {
-    if (widget.isCovered)
-    {
-      return AppTheme.closedSurface;
-    }
-
-    return _hover && widget.isDraggable ? AppTheme.todaySurface : Colors.white;
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final covered = widget.isCovered;
-    final draggable = widget.isDraggable;
-
-    final Widget card = AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      constraints: const BoxConstraints(maxWidth: _disciplineMaxWidth),
-      padding: EdgeInsets.fromLTRB(draggable ? 5 : 9, 6, 9, 6),
-      decoration: BoxDecoration(
-        color: _surfaceColor,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: _borderColor, width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (covered) ...[
-            const Icon(Icons.check_rounded, size: 13, color: AppTheme.trialMutedText),
-            const SizedBox(width: 5),
-          ]
-          else if (draggable) ...[
-            const Icon(Icons.drag_indicator, size: 14, color: AppTheme.trialTurquoise),
-            const SizedBox(width: 2),
-          ],
-          Flexible(
-            child: Text(
-              widget.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
-                color: covered ? AppTheme.trialMutedText : AppTheme.trialTealDeep,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    final tooltip = widget.tooltip;
-
-    return MouseRegion(
-      cursor: draggable ? SystemMouseCursors.grab : MouseCursor.defer,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: tooltip == null ? card : AppTooltip(message: tooltip, child: card),
-    );
-  }
-}
-
 class _CoverageBar extends StatelessWidget
 {
   final int scheduled;
@@ -265,7 +163,14 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
 
   BookingSummaryItem get _booking => widget.entry.booking;
 
-  String get _title => bookingTitle(_booking, widget.ministrySubjects);
+  String? get _discipline => dividedDisciplineName(
+        widget.ministrySubjects,
+        _booking.ministrySubjectId,
+        _booking.associationSubjects.map((subject) => subject.id),
+      );
+
+  // A subject divided in disciplines: the discipline leads, its subject goes under it.
+  String get _title => _discipline ?? bookingTitle(_booking, widget.ministrySubjects);
 
   String get _status
   {
@@ -324,7 +229,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
       return 'Sono già state pianificate due lezioni. Allungane una per pianificare i minuti rimanenti.';
     }
 
-    if (entry.remainingMinutes > 0 && entry.remainingMinutes < kMinimumBandMinutes)
+    if (entry.remainingMinutes > 0 && entry.remainingMinutes < minimumLessonMinutes(_booking.duration))
     {
       return 'Restano ${formatMinutes(entry.remainingMinutes)}. Una lezione dura almeno mezz\'ora: allunga una delle due '
           'già presenti.';
@@ -367,11 +272,6 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
         _booking.associationSubject == null ? const [] : [_booking.associationSubject!],
       BookingRequestKind.service => const [],
     };
-  }
-
-  List<AssociationSubjectOption> get _listedDisciplines
-  {
-    return _booking.kind == BookingRequestKind.ministrySubject ? _allDisciplines : const [];
   }
 
   Set<int> get _wholeCardDisciplines
@@ -468,16 +368,36 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
           const SizedBox(width: 4),
         ],
         Expanded(
-          child: Text(
-            _title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-              color: AppTheme.trialOcean,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                  color: AppTheme.trialOcean,
+                ),
+              ),
+              if (_discipline != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    bookingTitle(_booking, widget.ministrySubjects),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      color: AppTheme.trialMutedText,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(width: 8),
@@ -494,44 +414,13 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
     );
   }
 
-  Widget _buildDisciplines(List<AssociationSubjectOption> subjects, {required Set<int> covered, required bool canDrag})
-  {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'DISCIPLINE',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-            letterSpacing: 1.1,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final subject in subjects)
-              _buildDisciplineCard(subject, covered: covered.contains(subject.id), canDrag: canDrag),
-          ],
-        ),
-      ],
-    );
-  }
-
   VoidCallback? get _onClick => widget.entry.isLocked ? null : widget.onPlanRequested;
 
   @override
   Widget build(BuildContext context)
   {
     final entry = widget.entry;
-    final covered = entry.coveredDisciplineIds;
     final canDragCard = _canDrag && entry.isPlaceable;
-    final canDragOne = _canDrag && (entry.isPlaceable || entry.canJoinAPart);
-    final disciplines = _listedDisciplines;
     final note = _splitNote;
     final preferred = _namesOf(_booking.preferredTeacherTaxCodes);
     final notPreferred = _namesOf(_booking.notPreferredTeacherTaxCodes);
@@ -591,10 +480,6 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
                           color: entry.isFullyCovered ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
                         ),
                       ),
-                      if (disciplines.isNotEmpty) ...[
-                        const SizedBox(height: 11),
-                        _buildDisciplines(disciplines, covered: covered, canDrag: canDragOne),
-                      ],
                       if (preferred.isNotEmpty || notPreferred.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         _TeacherPreferences(preferred: preferred, notPreferred: notPreferred),
@@ -623,83 +508,5 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
     );
 
     return _wrapDraggable(card);
-  }
-
-  bool _saysMoreAlone(int id, {required bool covered})
-  {
-    final entry = widget.entry;
-
-    if (entry.canJoinAPart)
-    {
-      return true;
-    }
-
-    if (!covered && entry.uncoveredDisciplineIds.length <= 1)
-    {
-      return false;
-    }
-
-    return entry.uncoveredDisciplineIds.difference({id}).isEmpty ||
-        entry.remainingMinutes >= 2 * kMinimumBandMinutes;
-  }
-
-  String _dragHint(AssociationSubjectOption subject, {required bool covered})
-  {
-    final entry = widget.entry;
-
-    if (covered)
-    {
-      return '${subject.name} è già pianificata. $_verb per pianificarla anche in una '
-          'seconda lezione.';
-    }
-
-    if (!entry.isPlaceable)
-    {
-      return 'Sono già state pianificate tutte le ore di lezione per questa materia. '
-          '$_verb${subject.name} su una lezione già pianificata per unirla.';
-    }
-
-    if (entry.canJoinAPart)
-    {
-      return '$_verb${subject.name} su una lezione già in calendario per unirla, o su un\'ora '
-          'libera per creare una nuova lezione.';
-    }
-
-    return '$_verb${subject.name} sull\'orario: le altre discipline restano da pianificare.';
-  }
-
-  Widget _buildDisciplineCard(AssociationSubjectOption subject, {required bool covered, required bool canDrag})
-  {
-    final entry = widget.entry;
-    final draggable = canDrag && _saysMoreAlone(subject.id, covered: covered);
-
-    final Widget chip = DisciplineCard(
-      label: subject.name,
-      isCovered: covered,
-      isDraggable: draggable,
-      tooltip: draggable ? _dragHint(subject, covered: covered) : null,
-    );
-
-    if (!draggable)
-    {
-      return chip;
-    }
-
-    final payload = BookingDragPayload(
-      entry: entry,
-      disciplineIds: {subject.id},
-      minutes: entry.proposedMinutesFor({subject.id}),
-    );
-
-    return _draggableOf(
-      payload: payload,
-      feedback: CalendarDragFeedback(
-        title: subject.name,
-        mode: entry.presence.mode,
-        hours: formatMinutes(payload.minutes),
-        carriedAt: widget.carriedAt,
-      ),
-      child: chip,
-    );
   }
 }

@@ -80,6 +80,9 @@ const Duration _scrollBack = Duration(milliseconds: 420);
 const int _stillFrames = 3;
 const Duration _settleLongest = Duration(milliseconds: 900);
 
+// A tour waits this many frames at most for its first step's parts to stand still.
+const int _startLongest = 60;
+
 // How far into their move holes still count as setting off, a reveal joining them.
 const double _justSetOff = 0.2;
 
@@ -567,6 +570,9 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
   int _step = 0;
   bool _closing = false;
 
+  // Counts the steps entered: the banner's buttons answer only for the one they were drawn for.
+  int _visit = 0;
+
   // The steps shown so far, in order: going back walks it; and every one shown, for its seen mark.
   final List<int> _path = [];
   final Set<int> _visited = {};
@@ -611,6 +617,18 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
   bool _watchingFrames = false;
   List<Rect> _lastSeen = const [];
 
+  // The sizes of what the step's scroll is about, since its scroll was planned.
+  bool _planned = false;
+  List<Size>? _lastSizes;
+  bool _resized = false;
+  int _sizesStill = 0;
+
+  // A tour asked for, waiting for its first step's parts to stand still.
+  _Run? _waiting;
+  List<double>? _waitSeen;
+  int _waitStill = 0;
+  int _waitFrames = 0;
+
   // Set while the page a step's start changed still moves: the holes, the banner and the scroll then set off.
   VoidCallback? _settling;
   List<RRect> _lastStill = const [];
@@ -633,6 +651,9 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
   // Kept for the step just entered: its own scroll starts from where this one found the page.
   _PageScroll? _backTo;
+
+  // The view the tour last set scrolling, maybe still moving for a step already left.
+  ScrollableState? _driving;
 
   // Set when scrolling the part read cannot bring its end above a low banner: the banner goes up.
   bool _endUp = false;
@@ -735,8 +756,28 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
   {
     final _Run? run = _requested.value;
 
-    if (!mounted || run == null || _run != null || !widget.ready)
+    if (!mounted || run == null || _run != null || !widget.ready || _waiting == run)
     {
+      return;
+    }
+
+    _waiting = run;
+    _waitSeen = null;
+    _waitStill = 0;
+    _waitFrames = 0;
+    _awaitStill(run);
+  }
+
+  // Shown once what its first step lights stands still: a list a tap is still unfolding was measured half open.
+  void _awaitStill(_Run run)
+  {
+    if (!mounted || _requested.value != run || _run != null || !widget.ready)
+    {
+      if (_waiting == run)
+      {
+        _waiting = null;
+      }
+
       return;
     }
 
@@ -744,11 +785,65 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     if (start == null)
     {
+      _waiting = null;
       _requested.value = null;
 
       return;
     }
 
+    final List<double> seen = _stillness(run.tour.steps[start]);
+
+    _waitStill = listEquals(seen, _waitSeen) ? _waitStill + 1 : 0;
+    _waitSeen = seen;
+
+    if (_waitStill < _stillFrames && ++_waitFrames < _startLongest)
+    {
+      SchedulerBinding.instance
+        ..addPostFrameCallback((_) => _awaitStill(run))
+        ..scheduleFrame();
+
+      return;
+    }
+
+    _waiting = null;
+    _begin(run, start);
+  }
+
+  // Where the step's parts stand and how far their views run: a list's own height easing after rows unfold
+  // still grows the page the step scrolls.
+  List<double> _stillness(MobileTourStep step)
+  {
+    return [
+      for (final Rect part in _partsOf(step)) ...[part.left, part.top, part.right, part.bottom],
+      for (final String id in [...step.shown, ...step.touched])
+        for (final _MobileTourTargetState target in _MobileTourTargetState.findAll(id))
+          if (target._vertical?.position case final ScrollPosition view when view.hasContentDimensions)
+            ...[view.maxScrollExtent, view.viewportDimension],
+    ];
+  }
+
+  List<Rect> _partsOf(MobileTourStep step, {bool camera = false})
+  {
+    final RenderBox? layer = _frame;
+
+    if (layer == null)
+    {
+      return const [];
+    }
+
+    final List<String> ids = camera
+        ? [?step.reveal, if (step.scrolls) ...step.shown]
+        : [...step.shown, ...step.touched];
+
+    return [
+      for (final String id in ids)
+        for (final _MobileTourTargetState target in _MobileTourTargetState.findAll(id))
+          if (target.holeIn(layer, clip: false) case final RRect hole) hole.outerRect,
+    ];
+  }
+
+  void _begin(_Run run, int start)
+  {
     setState(()
     {
       _run = run;
@@ -797,17 +892,40 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     }
 
     final MobileTourStep step = _current;
-    final List<Rect> seen = [
-      for (final String id in [...step.shown, ...step.touched])
-        for (final _MobileTourTargetState target in _MobileTourTargetState.findAll(id))
-          if (target.holeIn(layer, clip: false) case final RRect hole) hole.outerRect,
-    ];
+    final List<Rect> seen = _partsOf(step);
 
     if (!listEquals(seen, _lastSeen))
     {
       _lastSeen = seen;
       _kick();
     }
+
+    // What the step's scroll is about growing or shrinking, as rows unfolding: once still, it is planned again.
+    final List<Size> sizes = [for (final Rect part in _partsOf(step, camera: true)) part.size];
+
+    if (!listEquals(sizes, _lastSizes))
+    {
+      _resized = _resized || (_planned && _lastSizes != null);
+      _lastSizes = sizes;
+      _sizesStill = 0;
+    }
+    else if (_resized && ++_sizesStill >= _stillFrames && !_move.isAnimating && _settling == null)
+    {
+      _resized = false;
+      _replan();
+    }
+  }
+
+  void _replan()
+  {
+    final String? camera = _camera(_current);
+    final ScrollableState? view = camera == null
+        ? null
+        : _MobileTourTargetState.findAll(camera).firstOrNull?._vertical;
+    final _PageScroll? held = _scrolled;
+
+    _backTo = held != null && held._alive && held.holds(view) ? held : null;
+    _bringIn();
   }
 
   int? _presentAfter(MobileTour tour, int index)
@@ -879,6 +997,23 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     return own is RenderBox && own.attached && own.hasSize ? own : null;
   }
 
+  // A tap on a button fading out with the step left, or a second one in the same frame, does nothing.
+  void _nextFrom(int visit)
+  {
+    if (_run != null && !_closing && visit == _visit)
+    {
+      _advance();
+    }
+  }
+
+  void _backFrom(int visit)
+  {
+    if (visit == _visit)
+    {
+      _back();
+    }
+  }
+
   void _back()
   {
     if (_run == null || _closing || _path.length < 2)
@@ -901,6 +1036,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     final MobileTourStep step = _run!.tour.steps[index];
     final MobileTourStep? left = first ? null : _current;
 
+    _visit++;
+
     // A page this step scrolls too is moved once, by the step's own scroll, not put back first.
     final bool goingBack = _unscroll(keepFor: _camera(step));
 
@@ -918,6 +1055,9 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     _carried = Offset.zero;
     _landing = null;
     _landingView = null;
+    _planned = false;
+    _lastSizes = null;
+    _resized = false;
     _settling = null;
     _settleCap?.cancel();
     _leftLead = null;
@@ -1014,6 +1154,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     {
       return;
     }
+
+    _planned = true;
 
     // The banner now holds this step's text: the window it leaves is its own.
     _measure(step);
@@ -1118,10 +1260,18 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     final double from = scroll.offset;
     final bool moves = (target - from).abs() >= 1;
 
+    // Already where this step wants it, but still carried on by an earlier step's scroll: it stops there.
+    if (!moves && scroll._innerView == _driving)
+    {
+      scroll.hold();
+    }
+
     if (moves)
     {
       final ScrollableState? view = _leadTarget(step)?._vertical;
       final double to = scroll.to(target, _revealDuration);
+
+      _driving = scroll._innerView;
 
       if (_from.isNotEmpty && _move.isAnimating && _move.value < _justSetOff && view != null && scroll.holds(view))
       {
@@ -1425,6 +1575,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     {
       _scrolled = _held(scroll);
       scroll.to(scroll.start + moved, clamped);
+      _driving = scroll._innerView;
     }
 
     // Its view ends before its end comes clear of a low banner: once scrolled, the banner makes way.
@@ -1478,6 +1629,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     if (scroll != null)
     {
       scroll.to(scroll.start, _scrollBack);
+      _driving = scroll._innerView;
       _kick(_scrollBack + _followWindow);
     }
 
@@ -1875,6 +2027,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     final int later = forward && _presentAfter(run.tour, _step) == null ? 0 : _countedLater;
     final int total = _path.length + later;
 
+    final int visit = _visit;
     final Widget banner = _TourBanner(
       key: _bannerKey,
       textKey: _bannerTextKey,
@@ -1883,8 +2036,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       glyphs: step.drawn,
       step: _step,
       onClose: () => _end(early: true),
-      onBack: _path.length > 1 ? _back : null,
-      onNext: forward ? _advance : null,
+      onBack: _path.length > 1 ? () => _backFrom(visit) : null,
+      onNext: forward ? () => _nextFrom(visit) : null,
       last: later == 0,
     );
 
@@ -2034,6 +2187,15 @@ class _PageScroll
       : start = start ?? _offset(_innerView.position, _outerView?.position);
 
   _PageScroll _from(double start) => _PageScroll._(_innerView, _outerView, start);
+
+  // Stops where it stands, as a finger would; a nested view's coordinator stops header and body together.
+  void hold()
+  {
+    if (_alive && inner.hasPixels)
+    {
+      inner.hold(() {}).cancel();
+    }
+  }
 
   static _PageScroll? of(BuildContext context)
   {
@@ -2412,9 +2574,13 @@ class _TourBanner extends StatelessWidget
                   switchInCurve: Curves.easeOutCubic,
                   // Runs in reverse on the way out, so it eases out too.
                   switchOutCurve: Curves.easeInCubic,
+                  // The text going out takes no touch: its buttons lie uncovered under a shorter one.
                   layoutBuilder: (current, previous) => Stack(
                     alignment: Alignment.topLeft,
-                    children: [...previous, ?current],
+                    children: [
+                      for (final Widget child in previous) IgnorePointer(key: child.key, child: child),
+                      if (current != null) IgnorePointer(key: current.key, ignoring: false, child: current),
+                    ],
                   ),
                   transitionBuilder: (child, animation) => FadeTransition(
                     opacity: animation,
