@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/rome_clock.dart';
@@ -6,8 +8,10 @@ import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/opening_day_item.dart';
+import '../../availability/availability_tour.dart';
 import '../../availability/utils/availability_strings.dart';
 import '../utils/booking_wizard_strings.dart' show hoursOverlap;
 import '../../people/edit/widgets/person_edit_guide.dart';
@@ -63,6 +67,7 @@ typedef AvailabilitySlotDelete = Future<bool> Function(
   AvailabilityItem item,
   Function(String) onError,
 );
+
 
 class AvailabilityWizardDialog extends StatefulWidget
 {
@@ -120,6 +125,9 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
   final DateTime _now = romeNow();
 
   bool _isSaving = false;
+
+  // A tour already asked for the next frame: changes in between ask no more.
+  bool _toursAsked = false;
 
   int _cardIndex = 0;
   bool _movingForward = true;
@@ -308,6 +316,9 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
   {
     super.initState();
 
+    desktopTourLit.addListener(_onTourLit);
+    _startTours();
+
     _selectedTeacherTaxCode = widget.ownTaxCode;
 
     final group = widget.existingGroup;
@@ -388,6 +399,8 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       _days = days;
       _reconcileBands();
     });
+
+    availabilityWizardDaysPicked.value++;
   }
 
   void _selectTeacher(String? taxCode)
@@ -449,6 +462,109 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       _movingForward = index > _cardIndex;
       _cardIndex = index;
     });
+
+    _startTours();
+  }
+
+  @override
+  void dispose()
+  {
+    desktopTourLit.removeListener(_onTourLit);
+    super.dispose();
+  }
+
+  // The switch's step moves on as soon as a «Sì» gives hours, not after the wait for tours.
+  void _tellHours()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
+        availabilityWizardHasHours.value = isDesktopTourTargetShown(kTourWizardHours);
+      }
+    });
+  }
+
+  // Each once, judged on what the frame shows: the dates, the first card with hours to give, then the parts
+  // that showed up only later. One at a time, in that order.
+  void _startTours()
+  {
+    if (!_isOwn || !mounted)
+    {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async
+    {
+      if (!mounted)
+      {
+        return;
+      }
+
+      availabilityWizardHasHours.value = isDesktopTourTargetShown(kTourWizardHours);
+
+      // Clicks while it gets ready may turn the card or save: then it is dropped.
+      final int index = _cardIndex;
+
+      bool still() => mounted && _cardIndex == index && !_isSaving;
+
+      if (_onAskedCard)
+      {
+        startAvailabilityTour(context, availabilityDaysTour, still: still);
+
+        return;
+      }
+
+      final DesktopTour hours = availabilityHoursTour(editing: _isEditing);
+
+      if (!await availabilityTourSeen(hours))
+      {
+        if (mounted)
+        {
+          startAvailabilityTour(context, hours, still: still);
+        }
+
+        return;
+      }
+
+      // The cursors, «Aggiungi orario» and the bin, each as it first shows up.
+      final DesktopTour? late = await availabilityLateWizardTour();
+
+      if (late != null && mounted)
+      {
+        startAvailabilityTour(context, late, still: still);
+      }
+    });
+
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  // After a change, at once: the tour waits for a drag to end, clicks held back meanwhile.
+  void _startToursSoon()
+  {
+    if (_toursAsked)
+    {
+      return;
+    }
+
+    _toursAsked = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      _toursAsked = false;
+      _startTours();
+    });
+
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  // A tour just ended may leave room for the one still due.
+  void _onTourLit()
+  {
+    if (mounted && desktopTourLit.value.isEmpty)
+    {
+      _startTours();
+    }
   }
 
   void _closeDialog()
@@ -706,7 +822,15 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       offLabel: kNotAvailable,
       disabledLabelFor: _isOwn ? (bucket) => _shutLabelFor(group, mode, bucket) : null,
       frozen: _isEditing ? _frozen[mode]! : const {},
-      onChanged: () => setState(() {}),
+      onChanged: ()
+      {
+        setState(() {});
+        _tellHours();
+        _startToursSoon();
+      },
+      tour: _isOwn
+          ? (yesNo: kTourWizardYesNo, hours: kTourWizardHours, add: kTourWizardAdd, bin: kTourWizardBin)
+          : null,
     );
   }
 
@@ -773,13 +897,16 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       onClose: _closeDialog,
       maxWidth: _stackMaxWidth,
       footer: AppDialogFooter.single(
-        AppGradientButton(
-          label: _isEditing ? 'SALVA' : 'CREA',
-          icon: Icons.check_rounded,
-          busy: _isSaving,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: _save,
+        DesktopTourTarget(
+          id: _isOwn ? kTourWizardSave : null,
+          child: AppGradientButton(
+            label: _isEditing ? 'SALVA' : 'CREA',
+            icon: Icons.check_rounded,
+            busy: _isSaving,
+            height: _dialogButtonHeight,
+            fontSize: _dialogButtonFontSize,
+            onPressed: _save,
+          ),
         ),
       ),
       children: [
@@ -802,9 +929,12 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
           forwardBlockedReason: _blockedReason,
           onBack: () => _goToCard(_cardIndex - 1),
           onForward: () => _goToCard(_cardIndex + 1),
-          child: AppDialogPill(
-            expand: true,
-            child: _onAskedCard ? _buildAsked() : _buildMode(_shownCard),
+          child: DesktopTourTarget(
+            id: _isOwn && _onAskedCard ? kTourWizardDays : null,
+            child: AppDialogPill(
+              expand: true,
+              child: _onAskedCard ? _buildAsked() : _buildMode(_shownCard),
+            ),
           ),
         ),
       ],

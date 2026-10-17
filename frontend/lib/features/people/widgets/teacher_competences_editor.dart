@@ -27,6 +27,8 @@ class TeacherCompetencesEditor extends StatefulWidget
 
   final ValueChanged<TeacherCompetencesDraft> onChanged;
 
+  final VoidCallback? onChosen;
+
   final Widget Function(BuildContext context, Widget filters, Widget list) builder;
 
   final bool scrollable;
@@ -38,6 +40,7 @@ class TeacherCompetencesEditor extends StatefulWidget
     required this.onChanged,
     required this.builder,
     this.scrollable = true,
+    this.onChosen,
   });
 
   @override
@@ -165,6 +168,7 @@ class _TeacherCompetencesEditorState extends State<TeacherCompetencesEditor>
         setState(() {});
         _publish();
       },
+      onChosen: widget.onChosen,
       builder: widget.builder,
     );
   }

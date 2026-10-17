@@ -12,10 +12,12 @@ import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/scroll_edge_fade.dart';
 import '../onboarding/onboarding_steps.dart';
+import 'children_tour.dart';
 import 'edit/person_edit_report_dialog.dart';
 import 'models/child_item.dart';
 import 'models/person_item.dart';
@@ -50,6 +52,12 @@ const int _infoIndex = 0;
 const int _membershipsIndex = 1;
 const int _schoolIndex = 2;
 const int _otherIndex = 3;
+const int _statsIndex = 4;
+
+// The sections by name, as the tour waits for them.
+const List<String> _entryNames = ['info', 'memberships', 'school', 'other', 'stats'];
+
+bool _isPupil(PersonItem child) => child.roles.map((role) => role.toUpperCase()).contains('STUDENTE');
 
 // Payments are not on the page, so not reportable.
 List<String> childReportableFields(PersonItem child)
@@ -97,13 +105,78 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
 
   PersonItem get _selectedChild => _children[_selectedSection ~/ _entries.length];
 
+  // The child the tour follows: the first with statistics, else the first.
+  int get _toured
+  {
+    final int pupil = _children.indexWhere(_isPupil);
+
+    return pupil < 0 ? 0 : pupil;
+  }
+
   @override
   void initState()
   {
     super.initState();
 
+    childrenPageSection.value = null;
     visitedSections.add(_selectedSection);
     _load();
+  }
+
+  // Told after the frame: a tour waiting for it redraws itself, which a build in progress forbids.
+  void _tellSection()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (!mounted || _children.isEmpty)
+      {
+        return;
+      }
+
+      final int child = _selectedSection ~/ _entries.length;
+
+      childrenPageSection.value = child == _toured ? _entryNames[_selectedSection % _entries.length] : null;
+    });
+  }
+
+  // Turns the followed child's sections by name, when the tour steps back.
+  void _show(String name)
+  {
+    final int entry = _entryNames.indexOf(name);
+
+    if (entry >= 0 && _children.isNotEmpty)
+    {
+      _selectSection(_toured * _entries.length + entry);
+    }
+  }
+
+  // Begun on the followed child's personal information.
+  Future<void> _startTour() async
+  {
+    if (_children.isEmpty || isDesktopTourShown)
+    {
+      return;
+    }
+
+    final PersonItem followed = _children[_toured];
+    final DesktopTour tour = childrenTour(
+      genders: [for (final child in _children) child.gender],
+      followed: followed.gender,
+      pupil: _isPupil(followed),
+      show: _show,
+    );
+
+    if (!await childrenTourSeen(tour) && mounted)
+    {
+      final int first = _toured * _entries.length;
+
+      if (_selectedSection != first)
+      {
+        _selectSection(first);
+      }
+
+      startChildrenTour(context, tour);
+    }
   }
 
   @override
@@ -149,6 +222,9 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
           visitedSections.add(0);
         }
       });
+
+      _tellSection();
+      _startTour();
     }
     catch (e, stackTrace)
     {
@@ -171,11 +247,19 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
   void _selectSection(int index)
   {
     openSection(index, () => _selectedSection = index);
+    _tellSection();
   }
 
   Widget _buildSection(PersonItem child, int entry)
   {
-    final Widget report = Center(child: _buildReportButton(child));
+    final bool toured = _children.indexOf(child) == _toured;
+
+    final Widget report = Center(
+      child: DesktopTourTarget(
+        id: toured && entry == _infoIndex ? kTourChildrenReport : null,
+        child: _buildReportButton(child),
+      ),
+    );
 
     return switch (entry)
     {
@@ -183,7 +267,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
       _membershipsIndex => PersonMembershipsTab(person: child, footer: report),
       _schoolIndex => PersonSchoolsTab(person: child, footer: report),
       _otherIndex => _ChildOtherInfoTab(person: child, footer: report),
-      _ => PersonPersonalStatsTab(person: child, footer: report),
+      _ => PersonPersonalStatsTab(person: child, footer: report, childTour: toured),
     };
   }
 
@@ -272,6 +356,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
                 groups: _sections,
                 selectedIndex: _selectedSection,
                 onSelected: _selectSection,
+                tours: {_toured * _entries.length + _statsIndex: kTourChildrenToStats},
               ),
             ),
           ),

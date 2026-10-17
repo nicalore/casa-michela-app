@@ -7,8 +7,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import '../../../shared/widgets/app_section_rail.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../models/person_item.dart';
+import '../own_tour.dart';
 import 'profile_avatar.dart';
 import 'role_chips_row.dart';
 
@@ -49,13 +51,16 @@ class PersonDetailHeader extends StatelessWidget
     if (onFaceChanged case final VoidCallback onChanged)
     {
       // Keyed on the version: a reload after a change fetches the face anew.
-      return ProfileAvatar(
-        key: ValueKey(imageVersion),
-        profileImageUrl: person.profileImageUrl,
-        firstName: person.firstName,
-        lastName: person.lastName,
-        size: size,
-        onImageUpdated: onChanged,
+      return DesktopTourTarget(
+        id: kTourOwnFace,
+        child: ProfileAvatar(
+          key: ValueKey(imageVersion),
+          profileImageUrl: person.profileImageUrl,
+          firstName: person.firstName,
+          lastName: person.lastName,
+          size: size,
+          onImageUpdated: onChanged,
+        ),
       );
     }
 

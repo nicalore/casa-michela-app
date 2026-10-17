@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/desktop_tour.dart';
 import '../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../shared/widgets/shared_components.dart';
 import '../../models/opening_day_item.dart';
@@ -36,6 +37,9 @@ class CombinedVariationsCard extends StatelessWidget
   final ValueChanged<CombinedVariation>? onEdit;
   final ValueChanged<CombinedVariation>? onDelete;
 
+  // Lit by a tour only with variations listed.
+  final String? tour;
+
   const CombinedVariationsCard({
     super.key,
     required this.upcomingVariations,
@@ -43,17 +47,23 @@ class CombinedVariationsCard extends StatelessWidget
     required this.isLoading,
     this.onEdit,
     this.onDelete,
+    this.tour,
   });
 
   @override
   Widget build(BuildContext context)
   {
-    return AppCard(
-      title: kUpcomingVariationsTitle,
-      compact: true,
-      selectable: false,
-      leading: const AppCardBadge(icon: kVariationIcon, compact: true),
-      child: _buildBody(context),
+    final bool listed = !isLoading && CombinedVariation.from(upcomingVariations, startsOnOrBefore: windowEnd).isNotEmpty;
+
+    return DesktopTourTarget(
+      id: listed ? tour : null,
+      child: AppCard(
+        title: kUpcomingVariationsTitle,
+        compact: true,
+        selectable: false,
+        leading: const AppCardBadge(icon: kVariationIcon, compact: true),
+        child: _buildBody(context),
+      ),
     );
   }
 

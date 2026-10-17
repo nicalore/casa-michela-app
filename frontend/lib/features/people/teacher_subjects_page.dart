@@ -13,6 +13,7 @@ import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import 'models/person_item.dart';
+import 'subjects_tour.dart';
 import 'tabs/person_subjects_tab.dart';
 
 const String _teacherRole = 'TEACHER';
@@ -71,6 +72,8 @@ class _TeacherSubjectsPageState extends State<TeacherSubjectsPage> with Destinat
         _isLoading = false;
         _failed = false;
       });
+
+      startSubjectsTour(context, subjectsPageTour);
     }
     catch (e, stackTrace)
     {

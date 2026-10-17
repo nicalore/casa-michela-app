@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
+import 'desktop_tour.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
 
@@ -59,12 +60,16 @@ class AppSectionRail extends StatelessWidget
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
+  // Entries a tour can light, by index.
+  final Map<int, String> tours;
+
   const AppSectionRail({
     super.key,
     required this.title,
     required this.groups,
     required this.selectedIndex,
     required this.onSelected,
+    this.tours = const {},
   });
 
   Widget _buildTitle()
@@ -105,12 +110,15 @@ class AppSectionRail extends StatelessWidget
       {
         final index = entryIndex++;
 
-        children.add(AppRailEntry(
-          label: entry,
-          nested: groupTitle != null,
-          selected: index == selectedIndex,
-          enabled: group.isAvailable(entry),
-          onTap: () => onSelected(index),
+        children.add(DesktopTourTarget(
+          id: tours[index],
+          child: AppRailEntry(
+            label: entry,
+            nested: groupTitle != null,
+            selected: index == selectedIndex,
+            enabled: group.isAvailable(entry),
+            onTap: () => onSelected(index),
+          ),
         ));
       }
     }

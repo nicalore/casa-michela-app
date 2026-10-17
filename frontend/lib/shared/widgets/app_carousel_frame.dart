@@ -6,6 +6,7 @@ import '../../core/platform/visual_effects.dart';
 import 'app_slide_switcher.dart';
 import 'app_tooltip.dart';
 import 'carousel_arrow_button.dart';
+import 'desktop_tour.dart';
 
 const Duration _transition = Duration(milliseconds: 300);
 
@@ -38,6 +39,9 @@ class AppCarouselFrame extends StatelessWidget
   final VoidCallback onBack;
   final VoidCallback onForward;
 
+  // The forward arrow, for a tour to light.
+  final String? forwardTour;
+
   const AppCarouselFrame({
     super.key,
     required this.index,
@@ -51,6 +55,7 @@ class AppCarouselFrame extends StatelessWidget
     this.forwardBlockedReason,
     required this.onBack,
     required this.onForward,
+    this.forwardTour,
   });
 
   Widget _slide(Widget child)
@@ -85,6 +90,8 @@ class AppCarouselFrame extends StatelessWidget
         child: forward,
       );
     }
+
+    forward = DesktopTourTarget(id: forwardTour, child: forward);
 
     final Widget card = _slide(child);
     final Widget? question = header == null ? null : _slide(header!);

@@ -1,9 +1,8 @@
-import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/desktop_tour.dart';
+import '../home/home_tour.dart';
 import 'widgets/student_list_panel.dart';
 import 'widgets/student_sheet.dart';
 
-const List<DesktopTourSide> _below = [DesktopTourSide.below];
 const List<DesktopTourSide> _beside = [DesktopTourSide.right, DesktopTourSide.below];
 const List<DesktopTourSide> _leftOf = [
   DesktopTourSide.left,
@@ -15,51 +14,13 @@ const List<DesktopTourSide> _leftOf = [
 // The pupil's cards are there only with a pupil open.
 bool _sheetShown() => isDesktopTourTargetShown(kTourStudentSchool);
 
-void _openMenu() => AppTopBar.userMenuOpen.value = true;
-void _closeMenu() => AppTopBar.userMenuOpen.value = false;
-
 DesktopTour psychologistHomeTour({required bool manyRoles})
 {
   return DesktopTour(
     slug: 'home.psychologist',
     title: 'Home',
     version: 3,
-    steps: [
-      const DesktopTourStep(
-        targets: [kTourTopBar],
-        text: "Attraverso questa barra puoi raggiungere tutti i menù dell'applicazione.",
-        sides: _below,
-        pad: 6,
-        radius: 46,
-      ),
-      DesktopTourStep(
-        targets: const [kTourTopBarRole],
-        text: "Qui puoi vedere il ruolo con cui stai utilizzando l'applicazione, che determina le funzionalità a "
-            'cui puoi accedere e le voci di menù che visualizzi. Cliccaci sopra.',
-        sides: _below,
-        radius: 16,
-        listen: AppTopBar.userMenuOpen,
-        reached: () => AppTopBar.userMenuOpen.value,
-      ),
-      DesktopTourStep(
-        targets: const [kTourTopBarMenu],
-        text: "Da qui puoi accedere alle tue informazioni personali e alle impostazioni dell'app. "
-            '${manyRoles ? 'Puoi inoltre cambiare ruolo e uscire dal tuo account.' : 'Puoi inoltre uscire dal tuo account.'}',
-        sides: const [DesktopTourSide.left, DesktopTourSide.below],
-        radius: 24,
-        undo: _closeMenu,
-      ),
-      const DesktopTourStep(
-        targets: [kTourTopBarSections],
-        text: "Qui trovi tutte le sezioni dell'applicazione: cliccane una per aprirla.",
-        sides: _below,
-        pad: 12,
-        radius: 18,
-        doneByLeaving: true,
-        enter: _closeMenu,
-        undo: _openMenu,
-      ),
-    ],
+    steps: homeBarTourSteps(manyRoles: manyRoles),
   );
 }
 
@@ -137,13 +98,14 @@ DesktopTour psychologistStudentsTour()
 // After the first note the psychologist writes.
 DesktopTour psychologistNoteTour()
 {
-  return const DesktopTour(
+  return DesktopTour(
     slug: 'students.psychologist.note',
     title: 'Studenti',
-    version: 3,
+    version: 4,
     steps: [
+      // Only on a student showing a note: never a step lighting nothing.
       DesktopTourStep(
-        targets: [kTourStudentNoteDate],
+        targets: const [kTourStudentNoteDate],
         text: 'Le osservazioni sono organizzate in ordine cronologico, come in un diario, per documentare '
             "l'evoluzione dello studente nel tempo. Puoi inserirne più di una, aggiungendo nuove osservazioni man mano "
             'che emergono nuove informazioni utili.',
@@ -151,13 +113,15 @@ DesktopTour psychologistNoteTour()
         radius: 12,
         reveal: true,
         revealing: kTourStudentNotes,
+        present: () => isDesktopTourTargetShown(kTourStudentNoteDate),
       ),
       DesktopTourStep(
-        targets: [kTourStudentNoteTools],
+        targets: const [kTourStudentNoteTools],
         text: "Puoi modificare o eliminare in ogni momento un'osservazione che hai inserito.",
-        sides: [DesktopTourSide.above, DesktopTourSide.left],
+        sides: const [DesktopTourSide.above, DesktopTourSide.left],
         pad: 6,
         radius: 16,
+        present: () => isDesktopTourTargetShown(kTourStudentNoteTools),
       ),
     ],
   );

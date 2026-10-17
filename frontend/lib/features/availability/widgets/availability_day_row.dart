@@ -7,10 +7,12 @@ import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/calendar_lesson_block.dart' show lessonModeIcon;
+import '../availability_tour.dart';
 
 const double _radius = 24;
 const EdgeInsets _padding = EdgeInsets.fromLTRB(26, 24, 26, 24);
@@ -58,6 +60,34 @@ const double _titleGap = 10;
 
 const List<String> _modes = [kPresenceMode, kOnlineMode];
 
+// What a day can show the tour; the page gives each mark to the first day having it.
+Set<AvailabilityTourMark> availabilityTourMarksOf({
+  required DateTime day,
+  required List<AvailabilityItem> slots,
+  required List<OpeningDayItem> openingDays,
+  required DateTime now,
+})
+{
+  bool open(TimeBucket bucket) => unionOpeningWindow(openingDays, day, bucket) != null;
+  bool closed(TimeBucket bucket) => haveBookingsClosed(day, bucket, now);
+
+  final bool editable = TimeBucket.values.any((bucket) => open(bucket) && !closed(bucket));
+  final bool heldEditable = slots.any((slot)
+  {
+    final TimeBucket? bucket = bucketFor(slot.startTime);
+
+    return bucket != null && open(bucket) && !closed(bucket);
+  });
+
+  return {
+    if (heldEditable) AvailabilityTourMark.modes,
+    if (editable && slots.isEmpty) AvailabilityTourMark.add,
+    if (editable && slots.isNotEmpty) AvailabilityTourMark.edit,
+    if (TimeBucket.values.any((bucket) => open(bucket) && closed(bucket))) AvailabilityTourMark.lock,
+    if (heldEditable) AvailabilityTourMark.bins,
+  };
+}
+
 class AvailabilityDayRow extends StatefulWidget
 {
   final DateTime day;
@@ -77,6 +107,9 @@ class AvailabilityDayRow extends StatefulWidget
   final void Function(TimeBucket band, List<AvailabilityItem> slots) onDeleteBand;
   final VoidCallback onDeleteDay;
 
+  // The tour's marks this row carries: for each, the first day showing it.
+  final Set<AvailabilityTourMark> tourMarks;
+
   const AvailabilityDayRow({
     super.key,
     required this.day,
@@ -89,6 +122,7 @@ class AvailabilityDayRow extends StatefulWidget
     required this.onDeleteSlot,
     required this.onDeleteBand,
     required this.onDeleteDay,
+    this.tourMarks = const {},
   });
 
   @override
@@ -98,6 +132,51 @@ class AvailabilityDayRow extends StatefulWidget
 class _AvailabilityDayRowState extends State<AvailabilityDayRow>
 {
   bool _hover = false;
+
+  // The tour shows the bins the mouse would.
+  bool _binsLit = false;
+
+  @override
+  void initState()
+  {
+    super.initState();
+    _binsLit = _isBinsLit;
+    desktopTourLit.addListener(_onLit);
+  }
+
+  @override
+  void didUpdateWidget(AvailabilityDayRow oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+    _binsLit = _isBinsLit;
+  }
+
+  @override
+  void dispose()
+  {
+    desktopTourLit.removeListener(_onLit);
+    super.dispose();
+  }
+
+  bool get _isBinsLit =>
+      widget.tourMarks.contains(AvailabilityTourMark.bins) && desktopTourLit.value.contains(kTourAvailabilityBins);
+
+  void _onLit()
+  {
+    if (_isBinsLit != _binsLit)
+    {
+      setState(() => _binsLit = _isBinsLit);
+    }
+  }
+
+  String? _tourId(AvailabilityTourMark mark, String id) => widget.tourMarks.contains(mark) ? id : null;
+
+  // The band whose colours the tour shows, and the one whose lock it shows.
+  TimeBucket? get _modesBand => TimeBucket.values
+      .where((bucket) => _isOpenIn(bucket) && !_hasClosed(bucket) && _slotsIn(bucket).isNotEmpty)
+      .firstOrNull;
+
+  TimeBucket? get _lockBand => TimeBucket.values.where((bucket) => _isOpenIn(bucket) && _hasClosed(bucket)).firstOrNull;
 
   bool _isOpenIn(TimeBucket bucket) => unionOpeningWindow(widget.openingDays, widget.day, bucket) != null;
 
@@ -165,7 +244,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
             if (_canDeleteDay) ...[
               const SizedBox(width: _binGap),
               _Bin(
-                visible: _hover,
+                visible: _hover || _binsLit,
                 tooltip: 'Elimina la giornata',
                 onTap: widget.onDeleteDay,
               ),
@@ -182,14 +261,19 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
     {
       final bool empty = widget.slots.isEmpty;
 
-      return AppGradientButton(
-        label: empty ? 'AGGIUNGI' : 'MODIFICA',
-        icon: empty ? Icons.add_rounded : Icons.edit_outlined,
-        height: _buttonHeight,
-        fontSize: _buttonFontSize,
-        radius: _buttonHeight / 2,
-        horizontalPadding: 18,
-        onPressed: widget.onOpen,
+      return DesktopTourTarget(
+        id: empty
+            ? _tourId(AvailabilityTourMark.add, kTourAvailabilityAdd)
+            : _tourId(AvailabilityTourMark.edit, kTourAvailabilityEdit),
+        child: AppGradientButton(
+          label: empty ? 'AGGIUNGI' : 'MODIFICA',
+          icon: empty ? Icons.add_rounded : Icons.edit_outlined,
+          height: _buttonHeight,
+          fontSize: _buttonFontSize,
+          radius: _buttonHeight / 2,
+          horizontalPadding: 18,
+          onPressed: widget.onOpen,
+        ),
       );
     }
 
@@ -234,6 +318,9 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
       hasClosed: _hasClosed(bucket),
       onDeleteSlot: widget.onDeleteSlot,
       onDeleteBand: widget.onDeleteBand,
+      showBins: _binsLit,
+      modesTour: bucket == _modesBand ? _tourId(AvailabilityTourMark.modes, kTourAvailabilityModes) : null,
+      lockTour: bucket == _lockBand ? _tourId(AvailabilityTourMark.lock, kTourAvailabilityLock) : null,
     );
   }
 
@@ -360,17 +447,20 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
       child: content,
     );
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: Container(
-        padding: const EdgeInsets.all(_rimWidth),
-        decoration: BoxDecoration(
-          gradient: widget.isToday ? AppTheme.greetingGradient : null,
-          borderRadius: BorderRadius.circular(_radius),
-          boxShadow: shut ? null : AppTheme.cardShadow,
+    return DesktopTourTarget(
+      id: _tourId(AvailabilityTourMark.bins, kTourAvailabilityBins),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: Container(
+          padding: const EdgeInsets.all(_rimWidth),
+          decoration: BoxDecoration(
+            gradient: widget.isToday ? AppTheme.greetingGradient : null,
+            borderRadius: BorderRadius.circular(_radius),
+            boxShadow: shut ? null : AppTheme.cardShadow,
+          ),
+          child: card,
         ),
-        child: card,
       ),
     );
   }
@@ -405,6 +495,11 @@ class _BandCell extends StatefulWidget
   final ValueChanged<AvailabilityItem> onDeleteSlot;
   final void Function(TimeBucket band, List<AvailabilityItem> slots) onDeleteBand;
 
+  // The tour shows every bin, and lights the cell or its lock.
+  final bool showBins;
+  final String? modesTour;
+  final String? lockTour;
+
   const _BandCell({
     required this.bucket,
     required this.day,
@@ -413,6 +508,9 @@ class _BandCell extends StatefulWidget
     required this.hasClosed,
     required this.onDeleteSlot,
     required this.onDeleteBand,
+    this.showBins = false,
+    this.modesTour,
+    this.lockTour,
   });
 
   bool get isOpen => openModes.isNotEmpty;
@@ -432,50 +530,56 @@ class _BandCellState extends State<_BandCell>
   {
     final bool locked = widget.hasClosed || !widget.isOpen;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                bandLabel(widget.bucket),
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  height: 1.25,
-                  color: AppTheme.trialOcean,
+    return DesktopTourTarget(
+      id: widget.modesTour,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  bandLabel(widget.bucket),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                    color: AppTheme.trialOcean,
+                  ),
                 ),
-              ),
-              if (widget.isOpen && widget.hasClosed) ...[
-                const SizedBox(width: 6),
-                AppTooltip(
-                  message: 'Disponibilità chiuse',
-                  child: const Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
-                ),
+                if (widget.isOpen && widget.hasClosed) ...[
+                  const SizedBox(width: 6),
+                  DesktopTourTarget(
+                    id: widget.lockTour,
+                    child: AppTooltip(
+                      message: 'Disponibilità chiuse',
+                      child: const Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
+                    ),
+                  ),
+                ],
+                if (_deletable) ...[
+                  const SizedBox(width: _binGap),
+                  _Bin(
+                    visible: _hover || widget.showBins,
+                    onTap: () => widget.onDeleteBand(widget.bucket, widget.slots),
+                  ),
+                ],
               ],
-              if (_deletable) ...[
-                const SizedBox(width: _binGap),
-                _Bin(
-                  visible: _hover,
-                  onTap: () => widget.onDeleteBand(widget.bucket, widget.slots),
-                ),
+            ),
+            const SizedBox(height: _titleGap),
+            if (!widget.isOpen && widget.slots.isEmpty)
+              const _Muted('Associazione chiusa')
+            else
+              for (final mode in _modes) ...[
+                if (mode != _modes.first) const SizedBox(height: _groupGap),
+                _buildGroup(mode, locked),
               ],
-            ],
-          ),
-          const SizedBox(height: _titleGap),
-          if (!widget.isOpen && widget.slots.isEmpty)
-            const _Muted('Associazione chiusa')
-          else
-            for (final mode in _modes) ...[
-              if (mode != _modes.first) const SizedBox(height: _groupGap),
-              _buildGroup(mode, locked),
-            ],
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -497,6 +601,7 @@ class _BandCellState extends State<_BandCell>
             _HoursChip(
               slot: slot,
               locked: locked || !widget.openModes.contains(mode),
+              showBin: widget.showBins,
               onDelete: locked ? null : () => widget.onDeleteSlot(slot),
             ),
         ],
@@ -549,9 +654,11 @@ class _HoursChip extends StatefulWidget
   final AvailabilityItem slot;
   final bool locked;
 
+  final bool showBin;
+
   final VoidCallback? onDelete;
 
-  const _HoursChip({required this.slot, required this.locked, this.onDelete});
+  const _HoursChip({required this.slot, required this.locked, this.showBin = false, this.onDelete});
 
   @override
   State<_HoursChip> createState() => _HoursChipState();
@@ -621,7 +728,7 @@ class _HoursChipState extends State<_HoursChip>
           Positioned(
             top: 0,
             right: 0,
-            child: _BinBadge(visible: _hover, onTap: onDelete),
+            child: _BinBadge(visible: _hover || widget.showBin, onTap: onDelete),
           ),
         ],
       ),

@@ -16,10 +16,14 @@ import '../../../shared/widgets/app_calendar_button.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
+import '../../notifications/notice_jump.dart';
+import '../../notifications/notice_seen.dart';
+import '../association_tour.dart';
 import 'notice_card.dart';
 import 'notice_composer_dialog.dart';
 import 'notice_details_dialog.dart';
@@ -28,6 +32,8 @@ import 'notice_item.dart';
 import 'notice_pin_dialog.dart';
 import 'notice_reading.dart';
 import 'notice_strings.dart';
+
+const String _adminRole = 'ADMIN';
 
 const double _cardGap = 14;
 const double _buttonWidth = 330;
@@ -53,7 +59,10 @@ class NoticesTab extends StatefulWidget
   // The role whose notices are read, without writing, pinning or filtering by author; null for administrators.
   final String? readerRole;
 
-  const NoticesTab({super.key, this.readerRole});
+  // After every read, the notices on screen: a reader's tour may start.
+  final VoidCallback? onShown;
+
+  const NoticesTab({super.key, this.readerRole, this.onShown});
 
   @override
   State<NoticesTab> createState() => _NoticesTabState();
@@ -86,12 +95,17 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
   void initState()
   {
     super.initState();
-    _load();
+    NoticeJumps.reading.asked.addListener(_onJump);
+
+    // Opened from a notification: the list first, then the notice over it.
+    final int? asked = _takeJump();
+    unawaited(_load().then((_) => _openAsked(asked)));
   }
 
   @override
   void dispose()
   {
+    NoticeJumps.reading.asked.removeListener(_onJump);
     _searchController.dispose();
     _scroll.dispose();
     _flashTimer?.cancel();
@@ -100,6 +114,29 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
 
   @override
   void onDestinationShown() => _load(quiet: true);
+
+  int? _takeJump() => NoticeJumps.reading.take(role: widget.readerRole ?? _adminRole);
+
+  // Already on screen: read again in full, so the notice opens over what is current.
+  void _onJump()
+  {
+    final int? asked = _takeJump();
+
+    if (asked != null)
+    {
+      unawaited(_load(quiet: true).then((_) => _openAsked(asked)));
+    }
+  }
+
+  Future<void> _openAsked(int? id) async
+  {
+    if (id == null || !mounted)
+    {
+      return;
+    }
+
+    await (_reading ? openNoticeReading(context, id) : _open(id));
+  }
 
   // quiet: a refresh over a list already shown, so a failure says nothing.
   Future<void> _load({bool quiet = false}) async
@@ -117,6 +154,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
           _notices = notices;
           _loaded = true;
         });
+        widget.onShown?.call();
       }
     }
     catch (error)
@@ -426,13 +464,14 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     );
   }
 
-  Future<void> _open(NoticeSummaryItem summary) async
+  Future<void> _open(int id) async
   {
     final NoticeItem notice;
 
     try
     {
-      notice = await _apiService.getNotice(summary.id);
+      notice = await _apiService.getNotice(id);
+      unawaited(noticeSeen(id));
     }
     catch (error)
     {
@@ -482,6 +521,16 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     );
   }
 
+  void _onPickerOpen(BuildContext context, bool open)
+  {
+    associationPickerOpen.value = open;
+
+    if (open)
+    {
+      startAssociationTour(context, associationPickerTour);
+    }
+  }
+
   void _compose()
   {
     showNoticeComposer(context, onSave: _create);
@@ -492,10 +541,13 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     return [
       PageTransitionItem(
         slot: PageTransitionItem.header,
-        child: AppSearchField(
-          controller: _searchController,
-          onChanged: (value) => setState(() => _searchText = value),
-          hintText: kSearchNoticeHint,
+        child: DesktopTourTarget(
+          id: _reading ? kTourAssociationSearch : null,
+          child: AppSearchField(
+            controller: _searchController,
+            onChanged: (value) => setState(() => _searchText = value),
+            hintText: kSearchNoticeHint,
+          ),
         ),
       ),
       const SizedBox(height: 28),
@@ -506,18 +558,30 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
           runSpacing: _filterSpacing,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            AppSortPill(
-              value: _sort,
-              criteria: const [SortCriterion.dateDesc, SortCriterion.dateAsc],
-              onChanged: (sort) => setState(() => _sort = sort),
-            ),
-            AppCalendarButton(
-              selected: _pickedDay ?? _today,
-              today: _today,
-              first: _firstDay,
-              last: _today,
-              onPicked: _goToDay,
-              loadMarks: _marks,
+            DesktopTourTarget(
+              id: _reading ? kTourAssociationFilters : null,
+              child: Wrap(
+                spacing: _filterSpacing,
+                runSpacing: _filterSpacing,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  AppSortPill(
+                    value: _sort,
+                    criteria: const [SortCriterion.dateDesc, SortCriterion.dateAsc],
+                    onChanged: (sort) => setState(() => _sort = sort),
+                  ),
+                  AppCalendarButton(
+                    selected: _pickedDay ?? _today,
+                    today: _today,
+                    first: _firstDay,
+                    last: _today,
+                    onPicked: _goToDay,
+                    loadMarks: _marks,
+                    tourDays: _reading ? kTourAssociationPickerDays : null,
+                    onOpen: _reading ? _onPickerOpen : null,
+                  ),
+                ],
+              ),
             ),
             if (!_reading) ...[
               const FilterGroupDivider(),
@@ -564,6 +628,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     }
 
     final List<_Entry> entries = _entries(notices);
+    final int? pinned = notices.where((notice) => notice.pinned).firstOrNull?.id;
 
     return SliverPadding(
       padding: EdgeInsets.fromLTRB(_shadowRoom, _shadowRoom, _shadowRoom, _reading ? _shadowRoom : _listBottomRoom),
@@ -573,14 +638,15 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
           slot: PageTransitionItem.list,
           child: Padding(
             padding: EdgeInsets.only(top: _gapAbove(entries, index)),
-            child: _entry(entries[index]),
+            child: _entry(entries[index], pinned: pinned),
           ),
         ),
       ),
     );
   }
 
-  Widget _entry(_Entry entry)
+  // [pinned]: the first pinned notice, lit by a reader's tour.
+  Widget _entry(_Entry entry, {int? pinned})
   {
     final NoticeSummaryItem? notice = entry.notice;
 
@@ -599,12 +665,15 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
       );
     }
 
-    return NoticeCard(
-      key: _cardKeys.putIfAbsent(notice.id, GlobalKey.new),
-      notice: notice,
-      highlighted: _flashDay != null && _dayOf(notice) == _flashDay,
-      onTap: () => _reading ? openNoticeReading(context, notice.id) : _open(notice),
-      onPin: _reading ? null : () => _togglePin(notice),
+    return DesktopTourTarget(
+      id: _reading && notice.id == pinned ? kTourAssociationPinned : null,
+      child: NoticeCard(
+        key: _cardKeys.putIfAbsent(notice.id, GlobalKey.new),
+        notice: notice,
+        highlighted: _flashDay != null && _dayOf(notice) == _flashDay,
+        onTap: () => _reading ? openNoticeReading(context, notice.id) : _open(notice.id),
+        onPin: _reading ? null : () => _togglePin(notice),
+      ),
     );
   }
 
@@ -673,7 +742,12 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ..._header(notices.length),
-                  Expanded(child: _roomy(PageTransitionScrollView.slivers(controller: _scroll, slivers: [_list(notices)]))),
+                  Expanded(
+                    child: DesktopTourTarget(
+                      id: _reading ? kTourAssociationNotices : null,
+                      child: _roomy(PageTransitionScrollView.slivers(controller: _scroll, slivers: [_list(notices)])),
+                    ),
+                  ),
                 ],
               );
 

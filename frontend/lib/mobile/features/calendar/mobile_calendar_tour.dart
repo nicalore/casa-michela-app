@@ -8,7 +8,7 @@ const String _title = 'Calendario';
 
 // Bump a version on every change to that tour.
 const String _slug = 'calendar';
-const int _version = 5;
+const int _version = 6;
 
 // The convocation and the tap on a lesson, the first time a call is shown.
 const String _callSlug = 'calendar.call';
@@ -19,11 +19,11 @@ const String kCalendarTourDay = 'calendar.day';
 
 // The day picker, the first time it opens.
 const String _pickerSlug = 'calendar.picker';
-const int _pickerVersion = 1;
+const int _pickerVersion = 2;
 
 const String kCalendarTourPickerDays = 'calendar.picker.days';
 
-const String _picker = 'Il pallino sotto una data indica la presenza di un calendario pubblicato in quella data.';
+const String _picker = 'Il pallino sotto una data indica la presenza di un calendario pubblicato in quel giorno.';
 
 String calendarTourCard(TimeBucket band) => 'calendar.card.${band.name}';
 String calendarTourLesson(TimeBucket band) => 'calendar.lesson.${band.name}';
@@ -36,7 +36,7 @@ const String _day =
 const String _card =
     'Qui puoi consultare un riepilogo della tua convocazione, con gli orari di inizio e fine, il numero di lezioni '
     'assegnate, gli studenti coinvolti e il totale delle ore previste. In basso, se sei in presenza, trovi la stanza '
-    "assegnata e l'eventuale nomina a responsabile di stanza.";
+    "assegnata e l'elenco dei responsabili di stanza.";
 const String _lesson = 'Tocca una lezione per vederne i dettagli.';
 
 // The lesson sheet's parts, each explained once, the first time it shows.

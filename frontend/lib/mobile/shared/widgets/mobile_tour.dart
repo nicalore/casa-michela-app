@@ -10,6 +10,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../features/settings/utils/settings_strings.dart';
 import '../../../services/seen_tours.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../mobile_line_breaks.dart';
@@ -20,9 +21,6 @@ import 'mobile_handover.dart';
 import 'mobile_load_switcher.dart';
 import 'mobile_nav_sheet.dart';
 import 'mobile_notice.dart';
-
-
-const String kMobileTourClosedEarly = 'Puoi riattivare il tutorial dalle impostazioni.';
 
 // Stands in a step's text where its glyph goes.
 const String kMobileTourGlyph = '\u{FFFC}';
@@ -79,6 +77,9 @@ const Duration _scrollBack = Duration(milliseconds: 420);
 // A step's start changing the page: its holes wait until they stand still this many frames, or this long.
 const int _stillFrames = 3;
 const Duration _settleLongest = Duration(milliseconds: 900);
+
+// Sizes measured on a moving page wobble in their last digits; less than this is no resize.
+const double _sizeTolerance = 0.5;
 
 // A tour waits this many frames at most for its first step's parts to stand still.
 const int _startLongest = 60;
@@ -903,7 +904,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     // What the step's scroll is about growing or shrinking, as rows unfolding: once still, it is planned again.
     final List<Size> sizes = [for (final Rect part in _partsOf(step, camera: true)) part.size];
 
-    if (!listEquals(sizes, _lastSizes))
+    if (!_sameSizes(sizes, _lastSizes))
     {
       _resized = _resized || (_planned && _lastSizes != null);
       _lastSizes = sizes;
@@ -914,6 +915,26 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       _resized = false;
       _replan();
     }
+  }
+
+  // Against the sizes last taken as changed, so a slow growth still adds up to one.
+  static bool _sameSizes(List<Size> now, List<Size>? before)
+  {
+    if (before == null || now.length != before.length)
+    {
+      return false;
+    }
+
+    for (var i = 0; i < now.length; i++)
+    {
+      if ((now[i].width - before[i].width).abs() >= _sizeTolerance ||
+          (now[i].height - before[i].height).abs() >= _sizeTolerance)
+      {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   void _replan()
@@ -1464,7 +1485,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     if (early)
     {
-      MobileNotice.show(context, kMobileTourClosedEarly);
+      MobileNotice.show(context, kTutorialClosedEarly);
     }
 
     // Left halfway, the steps already passed still count: only the rest comes again.

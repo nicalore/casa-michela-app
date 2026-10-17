@@ -8,6 +8,7 @@ import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
+import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../association/models/ministry_subject_item.dart';
 import '../association/models/opening_day_item.dart';
@@ -18,18 +19,23 @@ import '../lessons/models/calendar_day.dart';
 import '../lessons/models/calendar_publication_item.dart';
 import '../lessons/models/lesson_item.dart';
 import '../lessons/models/room_supervision_item.dart';
+import '../lessons/utils/calendar_jump.dart';
 import '../lessons/utils/opening_window.dart';
 import '../lessons/utils/timeline_geometry.dart';
 import '../lessons/widgets/activity_details_dialog.dart';
 import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast, isLessonRunning;
+import '../notifications/calendar_seen.dart';
+import 'calendar_tour.dart';
 import 'utils/calendar_strings.dart';
 import 'utils/teacher_band_call.dart';
+import 'utils/viewable_days.dart';
 import 'widgets/calendar_page_shell.dart';
 import 'widgets/convocation_card.dart';
 import 'widgets/own_day_timeline.dart';
 import 'widgets/own_lesson_block.dart';
 import 'widgets/own_lesson_dialog.dart';
 import 'widgets/own_lesson_list.dart';
+import 'widgets/teacher_note_dialog.dart' show lessonHasBegun;
 
 const Duration _tick = Duration(minutes: 1);
 
@@ -55,6 +61,9 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   Timer? _clock;
 
   late DateTime _day = _today;
+
+  // Today, or tomorrow once one of its bands is published.
+  late DateTime _lastDay = _today;
 
   late TimeBucket _band = bucketFor(TimeOfDay.fromDateTime(_now)) ?? TimeBucket.afternoon;
 
@@ -105,14 +114,111 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       }
     });
 
+    // Opened from a notification: straight to its day and band.
+    final CalendarJump? jump = CalendarJumps.role.take(role: _teacherRole);
+
+    if (jump != null)
+    {
+      _day = jump.day;
+      _band = jump.band;
+    }
+
+    CalendarJumps.role.asked.addListener(_jump);
     _loadDay();
   }
 
   @override
   void dispose()
   {
+    CalendarJumps.role.asked.removeListener(_jump);
     _clock?.cancel();
     super.dispose();
+  }
+
+  void _jump()
+  {
+    final CalendarJump? jump = CalendarJumps.role.take(role: _teacherRole);
+
+    if (jump == null || !mounted)
+    {
+      return;
+    }
+
+    setState(() => _band = jump.band);
+    _reload(jump.day);
+  }
+
+  // A published band on screen takes its notification away.
+  void _noteSeen()
+  {
+    if (!mounted || _isLoading || _failed || !_isPublished || !destinationShown)
+    {
+      return;
+    }
+
+    unawaited(markCalendarSeen(_day, _band));
+  }
+
+  void _chooseBand(TimeBucket band)
+  {
+    setState(() => _band = band);
+    _noteSeen();
+    _startTours();
+  }
+
+  bool get _canTour
+  {
+    return mounted && !_isLoading && !_failed && !isDesktopTourShown && isDesktopTourTargetShown(kTourCalendarBands);
+  }
+
+  // One tour for the page, the call and the lesson's window, on an open day. [follow]: a day just read turns to
+  // the band of a call never told, as on the phone; a band the teacher chose stays.
+  Future<void> _startTours({bool follow = false}) async
+  {
+    await WidgetsBinding.instance.endOfFrame;
+
+    if (!_canTour)
+    {
+      return;
+    }
+
+    if (follow && _firstLessonIn(_band) == null && await isCalendarCallDue())
+    {
+      final TimeBucket? called = TimeBucket.values.where((band) => _firstLessonIn(band) != null).firstOrNull;
+
+      if (called != null && _canTour)
+      {
+        setState(() => _band = called);
+        _noteSeen();
+        await WidgetsBinding.instance.endOfFrame;
+      }
+    }
+
+    if (!_canTour)
+    {
+      return;
+    }
+
+    final LessonItem? lesson = _firstLessonIn(_band);
+    final DesktopTour? tour = await calendarPageTour(
+      student: lesson != null && !lesson.date.isBefore(_today),
+      note: lesson != null && lessonHasBegun(lesson, _now),
+    );
+
+    if (tour != null && mounted)
+    {
+      startCalendarTour(context, tour);
+    }
+  }
+
+  void _onPickerOpen(BuildContext context, bool open)
+  {
+    calendarPickerOpen.value = open;
+
+    if (open)
+    {
+      startCalendarTour(context, calendarPickerTour);
+    }
   }
 
   @override
@@ -120,7 +226,11 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   {
     setState(() => _now = romeNow());
 
-    _loadDay(quiet: true);
+    // A full read under way, as a notification asks for, is fresh enough.
+    if (!_isLoading)
+    {
+      _loadDay(quiet: true);
+    }
   }
 
   Future<void> _loadDay({bool quiet = false}) async
@@ -139,6 +249,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
         _apiService.getRoomSupervisions(day),
         _apiService.getAvailabilities(dateFrom: day, dateTo: day),
         _apiService.getUnbookedBands(dateFrom: day, dateTo: day),
+        _apiService.getCalendarPublications(dateFrom: addDays(_today, 1), dateTo: addDays(_today, 1)),
         if (_ministrySubjects.isEmpty) _apiService.getMinistrySubjects(),
       ]);
 
@@ -159,15 +270,19 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
         _supervisions = results[5] as List<RoomSupervisionItem>;
         _availabilities = results[6] as List<AvailabilityItem>;
         _unbooked = results[7] as List<(DateTime, TimeBucket)>;
+        _lastDay = lastViewableDay(_today, results[8] as List<CalendarPublicationItem>);
 
-        if (results.length > 8)
+        if (results.length > 9)
         {
-          _ministrySubjects = results[8] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[9] as List<MinistrySubjectItem>;
         }
 
         _isLoading = false;
         _failed = false;
       });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) => _noteSeen());
+      _startTours(follow: true);
     }
     catch (e, stackTrace)
     {
@@ -190,15 +305,30 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   {
     final DateTime normalised = DateTime(day.year, day.month, day.day);
     final DateTime oldest = oldestKeptDay(_now);
-    final DateTime target = normalised.isAfter(_today)
-        ? _today
-        : (normalised.isBefore(oldest) ? oldest : normalised);
 
+    _showDay(
+      normalised.isAfter(_lastDay)
+          ? _lastDay
+          : (normalised.isBefore(oldest) ? oldest : normalised),
+    );
+  }
+
+  // The same day read again quietly, another one in full.
+  void _showDay(DateTime target)
+  {
     if (isSameDate(target, _day))
     {
+      _loadDay(quiet: true);
+
       return;
     }
 
+    _reload(target);
+  }
+
+  // Also what a notification's tap does: nothing on screen from before its news.
+  void _reload(DateTime target)
+  {
     setState(()
     {
       _day = target;
@@ -242,6 +372,26 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   bool get _isSettled
   {
     return _isPublished || _unbooked.any((row) => isSameDate(row.$1, _day) && row.$2 == _band);
+  }
+
+  // The earliest lesson of a published band: the one a tour lights.
+  LessonItem? _firstLessonIn(TimeBucket band)
+  {
+    if (!_publications.any((row) => isSameDate(row.date, _day) && row.band == band))
+    {
+      return null;
+    }
+
+    final List<LessonItem> lessons = teacherBandCall(
+      day: _day,
+      band: band,
+      lessons: _lessons,
+      activities: _activities,
+      supervisions: _supervisions,
+      teacherTaxCode: _meTaxCode,
+    ).lessons;
+
+    return lessons.isEmpty ? null : lessons.reduce((a, b) => b.startMinutes < a.startMinutes ? b : a);
   }
 
   TeacherBandCall get _call
@@ -334,19 +484,35 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     await showActivityDetailsDialog(context: context, activity: activity);
   }
 
+  // The earliest lesson is the one a tour lights.
+  TimelineEntry _lessonEntry(LessonItem lesson, {required bool onTimeline, required bool lit})
+  {
+    final TimelineEntry entry = OwnLessonBlock(
+      key: ValueKey('lesson-${lesson.id}'),
+      lesson: lesson,
+      ministrySubjects: _ministrySubjects,
+      view: CalendarView.byTeacher,
+      isPast: isLessonPast(lesson, _now),
+      isCurrent: !onTimeline && isLessonRunning(lesson, _now),
+      onTap: () => _openLesson(lesson),
+    ).asEntry(context);
+
+    return (
+      startMinutes: entry.startMinutes,
+      endMinutes: entry.endMinutes,
+      width: entry.width,
+      heightAt: entry.heightAt,
+      block: DesktopTourTarget(id: lit ? kTourCalendarLesson : null, child: entry.block),
+    );
+  }
+
   List<TimelineEntry> _entriesOf(TeacherBandCall call, {required bool onTimeline})
   {
+    final LessonItem? first = _firstLessonIn(_band);
+
     return [
       for (final lesson in call.lessons)
-        OwnLessonBlock(
-          key: ValueKey('lesson-${lesson.id}'),
-          lesson: lesson,
-          ministrySubjects: _ministrySubjects,
-          view: CalendarView.byTeacher,
-          isPast: isLessonPast(lesson, _now),
-          isCurrent: !onTimeline && isLessonRunning(lesson, _now),
-          onTap: () => _openLesson(lesson),
-        ).asEntry(context),
+        _lessonEntry(lesson, onTimeline: onTimeline, lit: lesson.id == first?.id),
       for (final activity in call.activities)
         OwnActivityBlock(
           key: ValueKey('activity-${activity.id}'),
@@ -396,7 +562,10 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ConvocationCard(call: call, isFeminine: _isFeminine),
+        DesktopTourTarget(
+          id: kTourCalendarCard,
+          child: ConvocationCard(call: call, isFeminine: _isFeminine),
+        ),
         const SizedBox(height: kCalendarCardGap),
         if (isNarrow)
           Center(
@@ -434,15 +603,15 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     return CalendarPageShell(
       currentRoute: '${homeForRole(_teacherRole)}/calendar',
       band: _band,
-      onBand: (band) => setState(() => _band = band),
+      onBand: _chooseBand,
       day: _day,
-      isToday: _isToday,
+      lastDay: _lastDay,
       isFirstDay: _isFirstDay,
       isBusy: _isLoading,
       onDay: _goToDay,
       isClosed: !_isLoading && !_failed && _isDayClosed,
       closureNote: _closureNote,
-      intro: lessonDetailsHint(verb: 'clicca'),
+      onPickerOpen: _onPickerOpen,
       body: _buildBody,
     );
   }

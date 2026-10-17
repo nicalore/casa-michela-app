@@ -57,37 +57,6 @@ String _pronounFor(String? gender)
 
 String _gotOn(String? gender) => gender == 'F' ? 'trovata' : 'trovato';
 
-String teachersIntro({required String verb, String? whoGotOn})
-{
-  final String intro = "Di seguito trovi tutti i docenti che collaborano con l'Associazione. "
-      '$verb su ciascuno di essi puoi visualizzarne alcune informazioni';
-
-  return whoGotOn == null
-      ? '$intro.'
-      : '$intro e, se lo desideri, indicare quelli con cui $whoGotOn bene.';
-}
-
-String whoGotOn(List<OpinionPupil> pupils, {required bool parent})
-{
-  if (!parent)
-  {
-    return 'non ti sei ${_gotOn(pupils.single.gender)}';
-  }
-
-  if (pupils.length == 1)
-  {
-    final OpinionPupil child = pupils.single;
-
-    return '${child.firstName} non si è ${_gotOn(child.gender)}';
-  }
-
-  final bool allDaughters = pupils.every((child) => child.gender == 'F');
-
-  return allDaughters
-      ? 'le tue figlie non si sono trovate'
-      : 'i tuoi figli non si sono trovati';
-}
-
 String opinionQuestion(PersonItem teacher)
 {
   return 'Chi non si è trovato bene con ${_pronounFor(teacher.gender)}?';

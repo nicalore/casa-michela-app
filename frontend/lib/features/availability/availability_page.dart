@@ -20,6 +20,7 @@ import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/carousel_arrow_button.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/dialog_components.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
@@ -29,6 +30,9 @@ import '../lessons/models/availability_item.dart';
 import '../lessons/utils/booking_window.dart';
 import '../lessons/utils/opening_window.dart';
 import '../lessons/widgets/availability_wizard.dart';
+import '../notifications/availability_seen.dart';
+import '../notifications/week_jump.dart';
+import 'availability_tour.dart';
 import 'utils/availability_strings.dart';
 import 'widgets/availability_day_row.dart';
 
@@ -70,6 +74,10 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
   bool _failed = false;
 
   List<AvailabilityItem> _availabilities = [];
+
+  // The tour's parts the rows showed last: a new one, however it came (hours given, a deadline, the other week), is
+  // told at once.
+  Set<AvailabilityTourMark> _partsOnShow = const {};
   List<OpeningDayItem> _openingDays = [];
 
   String? _meTaxCode;
@@ -96,27 +104,143 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
       }
     });
 
+    // A page opens on this week, whatever an earlier one left, unless a notification asks for another.
+    _weekIndex = _weekOf(WeekJumps.availability.take());
+    availabilityNextWeekShown.value = _weekIndex == 1;
+
     _loadData();
+    desktopTourLit.addListener(_onTourLit);
+    WeekJumps.availability.asked.addListener(_jump);
   }
 
   @override
   void dispose()
   {
     _clock?.cancel();
+    desktopTourLit.removeListener(_onTourLit);
+    WeekJumps.availability.asked.removeListener(_jump);
     super.dispose();
+  }
+
+  // 1 for a day of next week once it is open, else 0.
+  int _weekOf(DateTime? day)
+  {
+    return day != null && startOfWeek(day).isAfter(_thisMonday) && _isNextWeekUnlocked ? 1 : 0;
+  }
+
+  // Already open: the week asked for, read again in full.
+  void _jump()
+  {
+    final DateTime? day = WeekJumps.availability.take();
+
+    if (day == null || !mounted)
+    {
+      return;
+    }
+
+    _showWeek(_weekOf(day));
+
+    setState(()
+    {
+      _isLoading = true;
+      _failed = false;
+    });
+
+    _loadData();
+  }
+
+  // The page's tour, with the next week's steps once its arrow is there; the next week's alone for whoever
+  // saw the page before it unlocked, both from this week; then any part shown only later.
+  Future<void> _startTours() async
+  {
+    // Judged on the rows the data just set will draw.
+    await WidgetsBinding.instance.endOfFrame;
+
+    // A tour on show goes on undisturbed: the page is not turned back under it.
+    if (!mounted || isDesktopTourShown)
+    {
+      return;
+    }
+
+    final DesktopTour page = availabilityPageTour(showThisWeek: () => _showWeek(0));
+
+    if (!await availabilityTourSeen(page))
+    {
+      if (mounted)
+      {
+        _showWeek(0);
+        startAvailabilityTour(context, page);
+      }
+
+      return;
+    }
+
+    final DesktopTour nextWeek = availabilityNextWeekTour(showThisWeek: () => _showWeek(0));
+
+    if (_isNextWeekUnlocked && mounted && !await availabilityTourSeen(nextWeek))
+    {
+      if (mounted)
+      {
+        _showWeek(0);
+        startAvailabilityTour(context, nextWeek);
+      }
+
+      return;
+    }
+
+    // Parts that showed up only later, as colours and bins after the first hours given.
+    final DesktopTour? late = await availabilityLatePageTour();
+
+    if (late != null && mounted)
+    {
+      startAvailabilityTour(context, late);
+    }
+  }
+
+  void _noticeNewParts(Set<AvailabilityTourMark> parts)
+  {
+    final bool fresh = !_partsOnShow.containsAll(parts);
+
+    _partsOnShow = parts;
+
+    if (fresh)
+    {
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted && !_isLoading && !_failed)
+        {
+          _startTours();
+        }
+      });
+    }
+  }
+
+  // A tour just ended may leave room for the one still due.
+  void _onTourLit()
+  {
+    if (mounted && desktopTourLit.value.isEmpty && !_isLoading && !_failed)
+    {
+      _startTours();
+    }
   }
 
   @override
   void onDestinationShown()
   {
     _advanceClock();
-    _loadData(quiet: true);
+
+    // A full read under way, as a notification asks for, is fresh enough.
+    if (!_isLoading)
+    {
+      _loadData(quiet: true);
+    }
   }
 
   // Reloads once Monday midnight shifts the weeks.
   void _advanceClock()
   {
     final DateTime before = _thisMonday;
+    final bool wasUnlocked = _isNextWeekUnlocked;
 
     setState(()
     {
@@ -127,6 +251,14 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
         _weekIndex = 0;
       }
     });
+
+    availabilityNextWeekShown.value = _weekIndex == 1;
+
+    // Friday 20:00 with the page open: the arrow appears, and its tour with it.
+    if (!wasUnlocked && _isNextWeekUnlocked)
+    {
+      _startTours();
+    }
 
     if (!isSameDate(before, _thisMonday))
     {
@@ -182,6 +314,9 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
         _isLoading = false;
         _failed = false;
       });
+
+      _markSeen();
+      _startTours();
     }
     catch (e, stackTrace)
     {
@@ -404,26 +539,29 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
           ),
         ],
         const SizedBox(height: 6),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 2),
-              child: Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                kAvailabilityDeadlines,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                  color: AppTheme.trialMutedText,
+        DesktopTourTarget(
+          id: kTourAvailabilityDeadlines,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  kAvailabilityDeadlines,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                    color: AppTheme.trialMutedText,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -455,6 +593,22 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
     );
   }
 
+  void _showWeek(int index)
+  {
+    setState(() => _weekIndex = index);
+    availabilityNextWeekShown.value = index == 1;
+    _markSeen();
+  }
+
+  // The week on screen: what others wrote in it is seen.
+  void _markSeen()
+  {
+    if (destinationShown && !_isLoading && !_failed)
+    {
+      unawaited(markAvailabilitySeen(_shownDays.first));
+    }
+  }
+
   // Fixed label width keeps the arrows still as the text changes.
   Widget _buildWeekNav({required bool compact})
   {
@@ -477,15 +631,18 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
         CarouselArrowButton(
           icon: Icons.chevron_left_rounded,
           isDisabled: _weekIndex == 0,
-          onTap: () => setState(() => _weekIndex = 0),
+          onTap: () => _showWeek(0),
         ),
         const SizedBox(width: 8),
         if (compact) Expanded(child: label) else SizedBox(width: _weekLabelWidth, child: label),
         const SizedBox(width: 8),
-        CarouselArrowButton(
-          icon: Icons.chevron_right_rounded,
-          isDisabled: _weekIndex == 1,
-          onTap: () => setState(() => _weekIndex = 1),
+        DesktopTourTarget(
+          id: kTourAvailabilityNext,
+          child: CarouselArrowButton(
+            icon: Icons.chevron_right_rounded,
+            isDisabled: _weekIndex == 1,
+            onTap: () => _showWeek(1),
+          ),
         ),
       ],
     );
@@ -522,6 +679,21 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
 
     final DateTime today = _today;
 
+    // Each mark of the tour goes to the first day showing it.
+    final Map<AvailabilityTourMark, DateTime> firsts = {};
+
+    for (final day in _shownDays)
+    {
+      final marks = availabilityTourMarksOf(day: day, slots: _slotsOn(day), openingDays: _openingDays, now: _now);
+
+      for (final mark in marks)
+      {
+        firsts.putIfAbsent(mark, () => day);
+      }
+    }
+
+    _noticeNewParts(firsts.keys.toSet());
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -543,6 +715,10 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
                 onDeleteSlot: (slot) => _confirmDelete(day, [slot]),
                 onDeleteBand: (band, held) => _confirmDelete(day, held, band: band),
                 onDeleteDay: () => _confirmDelete(day, slots, wholeDay: true),
+                tourMarks: {
+                  for (final MapEntry(key: mark, value: first) in firsts.entries)
+                    if (isSameDate(first, day)) mark,
+                },
               );
             },
           ),
@@ -598,10 +774,13 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
                             ),
                             const SizedBox(height: _headerGap),
                             Expanded(
-                              child: PageTransitionScrollView(
-                                child: PageTransitionItem(
-                                  slot: PageTransitionItem.list,
-                                  child: _buildRows(),
+                              child: DesktopTourTarget(
+                                id: kTourAvailabilityDays,
+                                child: PageTransitionScrollView(
+                                  child: PageTransitionItem(
+                                    slot: PageTransitionItem.list,
+                                    child: _buildRows(),
+                                  ),
                                 ),
                               ),
                             ),

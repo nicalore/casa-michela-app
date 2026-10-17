@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../features/home/home_tour_texts.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_tour.dart';
 
@@ -25,19 +26,6 @@ const String kHomeTourNotices = 'home.notices';
 const EdgeInsets kHomeTourSectionInflate = EdgeInsets.all(12);
 const double kHomeTourSectionRadius = 22;
 
-const String _teacherToday = "Qui puoi vedere le disponibilità che hai dato per oggi e l'eventuale convocazione.";
-const String _teacherMonth =
-    'Qui puoi leggere alcune statistiche sul mese corrente: disponibilità date, ore di lezione e compenso accumulato.';
-const String _studentToday = 'Qui puoi vedere un riepilogo degli orari e delle lezioni prenotate per oggi.';
-const String _studentMonth =
-    'Qui puoi leggere alcune statistiche sul mese corrente: presenze, giorni prenotati e ore di lezione.';
-
-// A student nobody answers for pays too, as parents do.
-const String _ownStudentMonth =
-    'Qui puoi leggere alcune statistiche sul mese corrente: presenze, giorni prenotati, ore di lezione e pagamenti.';
-
-const String _notices =
-    "Qui puoi trovare le notifiche dell'app e le ultime comunicazioni inviate dal Direttivo di Casa Michela.";
 const String _sections = "Qui trovi tutte le sezioni dell'applicazione: toccane una per aprirla.";
 
 const String _toMonth = 'Tocca «Questo mese».';
@@ -59,8 +47,8 @@ MobileTour teacherHomeTour({required bool tablet, required PageController pages}
   return _homeTour(
     slug: _teacherSlug,
     version: _teacherVersion,
-    today: _teacherToday,
-    month: _teacherMonth,
+    today: kTeacherTodayTourText,
+    month: kTeacherMonthTourText,
     tablet: tablet,
     pages: pages,
   );
@@ -72,8 +60,8 @@ MobileTour studentHomeTour({required bool tablet, required PageController pages,
   return _homeTour(
     slug: _studentSlug,
     version: _studentVersion,
-    today: _studentToday,
-    month: answeredFor ? _studentMonth : _ownStudentMonth,
+    today: kStudentTodayTourText,
+    month: studentMonthTourText(answeredFor: answeredFor),
     tablet: tablet,
     pages: pages,
   );
@@ -85,35 +73,11 @@ MobileTour parentHomeTour({required bool tablet, required PageController pages, 
   return _homeTour(
     slug: _parentSlug,
     version: _parentVersion,
-    today: 'Qui puoi vedere un riepilogo delle lezioni prenotate per ${_yourChildren(genders)}.',
-    month: 'Qui puoi leggere alcune statistiche sul mese corrente per ${_eachChild(genders)}: presenze, giorni '
-        'prenotati, ore di lezione e pagamenti.',
+    today: parentTodayTourText(genders),
+    month: parentMonthTourText(genders),
     tablet: tablet,
     pages: pages,
   );
-}
-
-bool _daughters(List<String?> genders) => genders.isNotEmpty && genders.every((gender) => gender == 'F');
-
-// Daughters only take the feminine; without children the plural stands.
-String _yourChildren(List<String?> genders)
-{
-  if (genders.length == 1)
-  {
-    return _daughters(genders) ? 'tua figlia' : 'tuo figlio';
-  }
-
-  return _daughters(genders) ? 'le tue figlie' : 'i tuoi figli';
-}
-
-String _eachChild(List<String?> genders)
-{
-  if (genders.length == 1)
-  {
-    return _daughters(genders) ? 'tua figlia' : 'tuo figlio';
-  }
-
-  return _daughters(genders) ? 'ciascuna figlia' : 'ciascun figlio';
 }
 
 // A page is described with the forward button, then the next name is touched.
@@ -161,7 +125,7 @@ MobileTour _homeTour({
       steps: [
         MobileTourStep(text: today, shown: const [kHomeTourToday], reveal: kHomeTourToday),
         MobileTourStep(text: month, shown: const [kHomeTourMonth], reveal: kHomeTourMonth),
-        const MobileTourStep(text: _notices, shown: [kHomeTourNotices], reveal: kHomeTourNotices),
+        const MobileTourStep(text: kHomeNoticesTourText, shown: [kHomeTourNotices], reveal: kHomeTourNotices),
         ...menu,
       ],
     );
@@ -188,7 +152,7 @@ MobileTour _homeTour({
         reached: () => onPage(2),
         undo: () => backTo(1),
       ),
-      MobileTourStep(text: _notices, shown: [kHomeTourPages[2]]),
+      MobileTourStep(text: kHomeNoticesTourText, shown: [kHomeTourPages[2]]),
       ...menu,
     ],
   );

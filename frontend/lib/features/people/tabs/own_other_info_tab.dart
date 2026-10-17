@@ -7,11 +7,13 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/person_item.dart';
+import '../own_tour.dart';
 import '../widgets/person_detail_cards.dart';
 import '../widgets/person_detail_widgets.dart';
 
@@ -82,7 +84,11 @@ class OwnOtherInfoTab extends StatelessWidget
               children: pageTransitionBlocks([
                 for (var i = 0; i < cards.length; i++) ...[
                   if (i > 0) const SizedBox(height: kPersonCardGap),
-                  cards[i],
+                  // The teacher's details come last.
+                  DesktopTourTarget(
+                    id: isTeacher && i == cards.length - 1 ? kTourOwnStudies : null,
+                    child: cards[i],
+                  ),
                 ],
                 if (isTeacher || footer != null) ...[
                   const SizedBox(height: 48),
@@ -93,10 +99,13 @@ class OwnOtherInfoTab extends StatelessWidget
                       runSpacing: 16,
                       children: [
                         if (isTeacher)
-                          AppGradientButton(
-                            label: 'MODIFICA STUDI',
-                            icon: Icons.edit_rounded,
-                            onPressed: () => _editEducation(context),
+                          DesktopTourTarget(
+                            id: kTourOwnStudiesEdit,
+                            child: AppGradientButton(
+                              label: 'MODIFICA STUDI',
+                              icon: Icons.edit_rounded,
+                              onPressed: () => _editEducation(context),
+                            ),
                           ),
                         ?footer,
                       ],

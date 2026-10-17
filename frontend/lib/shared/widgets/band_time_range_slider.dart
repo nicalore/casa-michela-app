@@ -6,6 +6,7 @@ import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
 import 'app_range_slider.dart';
 import 'app_segmented_switch.dart';
+import 'desktop_tour.dart';
 
 class BandTimeRangeSlider extends StatelessWidget
 {
@@ -36,6 +37,10 @@ class BandTimeRangeSlider extends StatelessWidget
 
   final Widget? trailing;
 
+  // What a tour lights: the Sì/No switch, and the track with its hours.
+  final String? switchTour;
+  final String? trackTour;
+
   const BandTimeRangeSlider({
     super.key,
     required this.bucket,
@@ -53,6 +58,8 @@ class BandTimeRangeSlider extends StatelessWidget
     this.falseLabel = 'Chiusa',
     this.nameOverride,
     this.trailing,
+    this.switchTour,
+    this.trackTour,
   });
 
   bool get _isOpen => startTime != null && endTime != null;
@@ -123,11 +130,14 @@ class BandTimeRangeSlider extends StatelessWidget
       return replacement;
     }
 
-    return AppSegmentedSwitch(
-      value: _isOpen,
-      trueLabel: trueLabel,
-      falseLabel: falseLabel,
-      onChanged: _toggle,
+    return DesktopTourTarget(
+      id: switchTour,
+      child: AppSegmentedSwitch(
+        value: _isOpen,
+        trueLabel: trueLabel,
+        falseLabel: falseLabel,
+        onChanged: _toggle,
+      ),
     );
   }
 
@@ -262,8 +272,16 @@ class BandTimeRangeSlider extends StatelessWidget
       children: [
         _buildHeader(),
         const SizedBox(height: 2),
-        _buildTrack(),
-        _buildBounds(),
+        DesktopTourTarget(
+          id: trackTour,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildTrack(),
+              _buildBounds(),
+            ],
+          ),
+        ),
       ],
     );
   }

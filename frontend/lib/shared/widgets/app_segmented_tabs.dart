@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'desktop_tour.dart';
 
 const Duration kSegmentedSlide = Duration(milliseconds: 240);
 const Curve kSegmentedSlideCurve = Curves.easeOutCubic;
@@ -29,6 +30,9 @@ class AppSegmentedTabs extends StatefulWidget
 
   final bool hugContent;
 
+  // Per tab, the id a tour lights it by.
+  final List<String?> tours;
+
   const AppSegmentedTabs({
     super.key,
     required this.labels,
@@ -38,6 +42,7 @@ class AppSegmentedTabs extends StatefulWidget
     this.fontSize = 14,
     this.padding = const EdgeInsets.only(bottom: 24),
     this.hugContent = false,
+    this.tours = const [],
   });
 
   @override
@@ -170,6 +175,14 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
   {
     final active = index == widget.selectedIndex;
 
+    return DesktopTourTarget(
+      id: index < widget.tours.length ? widget.tours[index] : null,
+      child: _buildSegmentFace(index, width, active),
+    );
+  }
+
+  Widget _buildSegmentFace(int index, double width, bool active)
+  {
     return SizedBox(
       width: width,
       child: GestureDetector(

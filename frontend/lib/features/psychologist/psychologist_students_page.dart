@@ -232,23 +232,37 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
   {
     if (await showStudentNoteDialog(context, student, StudentNoteKind.methodological, note: note))
     {
+      // Its tour still due: clicks held back through the reload too, so the note cannot be left before it shows.
+      final DesktopTourHold? hold = note == null && mounted && !await _seen(psychologistNoteTour())
+          ? (mounted ? DesktopTourHold.over(context) : null)
+          : null;
+
       _confirm(note == null ? kNoteCreated : kNoteEdited);
       await _reload(student.fiscalCode);
 
       if (note == null)
       {
-        _startTour(psychologistNoteTour());
+        _startTour(psychologistNoteTour(), hold: hold);
       }
     }
   }
 
-  // After the frame that builds what the tour lights.
-  void _startTour(DesktopTour tour)
+  Future<bool> _seen(DesktopTour tour) async
+  {
+    final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
+
+    return taxCode == null || await isDesktopTourSeen(taxCode: taxCode, tour: tour);
+  }
+
+  // After the frame that builds what the tour lights. [hold]: clicks already held back, let go by the tour.
+  void _startTour(DesktopTour tour, {DesktopTourHold? hold})
   {
     final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
 
     if (taxCode == null)
     {
+      hold?.release();
+
       return;
     }
 
@@ -256,9 +270,15 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     {
       if (mounted)
       {
-        startDesktopTourOnce(context, taxCode: taxCode, tour: tour);
+        startDesktopTourOnce(context, taxCode: taxCode, tour: tour, hold: hold);
+      }
+      else
+      {
+        hold?.release();
       }
     });
+
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   Future<void> _deleteNote(PersonItem student, StudentNoteItem note) async

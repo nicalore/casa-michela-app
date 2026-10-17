@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -13,6 +15,7 @@ import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -22,6 +25,7 @@ import '../../association/models/opening_day_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
+import '../../bookings/bookings_tour.dart';
 import '../../bookings/utils/booking_replacement.dart' show withLeftOut;
 import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
@@ -53,6 +57,7 @@ const double _modesCardWidth = 460;
 const double _fixedFactsWidth = 560;
 
 const List<String> _modes = [kPresenceMode, kOnlineMode];
+
 
 // Keyed by opening signature, so answers survive adding or removing days.
 class _DayGroup
@@ -200,6 +205,9 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   bool _movingForward = true;
 
   bool _isSaving = false;
+
+  // A tour already asked for the next frame: changes in between ask no more.
+  bool _toursAsked = false;
 
   // Skipped when a failed save is retried.
   final Set<DateTime> _saved = {};
@@ -572,6 +580,9 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   @override
   void dispose()
   {
+    desktopTourLit.removeListener(_onTourLit);
+    bookingsSubjectOpen.removeListener(_onSubjectShut);
+
     for (final controller in _subjectScrollControllers.values)
     {
       controller.dispose();
@@ -592,6 +603,10 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   void initState()
   {
     super.initState();
+
+    desktopTourLit.addListener(_onTourLit);
+    bookingsSubjectOpen.addListener(_onSubjectShut);
+    _startTours();
 
     final existing = widget.existingPresence;
 
@@ -707,6 +722,8 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       _days = days;
       _reconcileHours();
     });
+
+    bookingsWizardDaysPicked.value++;
   }
 
   void _goToCard(int index)
@@ -721,6 +738,122 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       _movingForward = index > _cardIndex;
       _cardIndex = index;
     });
+
+    _startTours();
+  }
+
+  // Only parents and students booking their own lessons are shown around.
+  bool get _toured => _isOwn;
+
+  _Card get _shownCard => _cards[_cardIndex.clamp(0, _cards.length - 1)];
+
+  BookingsTourPupil get _pupil => BookingsTourPupil.of(self: _isSelf, gender: _selectedStudent?.gender);
+
+  // The switch's step moves on as soon as a «Sì» gives hours, not after the wait for tours.
+  void _tellHours()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
+        bookingsWizardHasHours.value = isDesktopTourTargetShown(kTourBookingsHours);
+      }
+    });
+  }
+
+  // Each once, judged on what the frame shows: the dates, the hours, the subjects, then the parts that showed
+  // up only later. One at a time.
+  void _startTours()
+  {
+    if (!_toured || !mounted)
+    {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async
+    {
+      if (!mounted || isDesktopTourShown || bookingsSubjectOpen.value)
+      {
+        return;
+      }
+
+      bookingsWizardHasHours.value = isDesktopTourTargetShown(kTourBookingsHours);
+
+      final _Card card = _shownCard;
+      final int index = _cardIndex;
+      final bool online = card.mode == kOnlineMode;
+
+      final DesktopTour? tour = switch (card.step)
+      {
+        _Step.who => await bookingsWizardDaysTour(),
+        _Step.hours => await bookingsWizardHoursTour(pupil: _pupil, online: online, hoursOnly: widget.hoursOnly) ??
+            await bookingsLateHoursTour(),
+        _Step.subjects => await bookingsWizardSubjectsTour(
+              pupil: _pupil,
+              online: online,
+              editing: _isEditing,
+              chosen: () => _hasChosen(card),
+            ) ??
+            await bookingsLateSubjectsTour(editing: _isEditing, chosen: _hasChosen(card)),
+        _Step.modes => null,
+      };
+
+      // Clicks while it gets ready may turn the card, open a subject or save: then it is dropped.
+      if (tour != null && mounted && identical(card.step, _shownCard.step))
+      {
+        startBookingsTour(
+          context,
+          tour,
+          still: () => mounted && _cardIndex == index && !_isSaving && !bookingsSubjectOpen.value,
+        );
+      }
+    });
+
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  bool _hasChosen(_Card card)
+  {
+    final _DayGroup? group = card.group;
+
+    return group != null && _answersOf(group).requests[card.mode]!.any((request) => request.band == card.band);
+  }
+
+  // After a change, at once: the tour waits for a drag to end, clicks held back meanwhile.
+  void _startToursSoon()
+  {
+    if (_toursAsked)
+    {
+      return;
+    }
+
+    _toursAsked = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      _toursAsked = false;
+      _startTours();
+    });
+
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  // A tour just ended may leave room for the one still due.
+  void _onTourLit()
+  {
+    if (mounted && desktopTourLit.value.isEmpty)
+    {
+      _startTours();
+    }
+  }
+
+  // Back from a subject's window: the button saving it all may be told now.
+  void _onSubjectShut()
+  {
+    if (mounted && !bookingsSubjectOpen.value)
+    {
+      _startTours();
+    }
   }
 
   String? _blockedReason(_Card card)
@@ -1276,7 +1409,15 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
             minimumMinutes: kMinimumBandMinutes,
             disabledLabelFor: (bucket) => _shutLabelFor(group, mode, bucket),
             frozen: _isEditing ? _frozen[mode]! : const {},
-            onChanged: () => setState(_dropSubjectsWithoutHours),
+            onChanged: ()
+            {
+              setState(_dropSubjectsWithoutHours);
+              _tellHours();
+              _startToursSoon();
+            },
+            tour: _toured
+                ? (yesNo: kTourBookingsSwitch, hours: kTourBookingsHours, add: kTourBookingsHoursAdd, bin: kTourBookingsHoursBin)
+                : null,
           ),
         ],
       ],
@@ -1323,47 +1464,65 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_bandOffers(group, mode).where((offer) => offer.band == band).firstOrNull case final BandOffer offer) ...[
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: '${bandLabel(band)} · ${offer.hours} · '),
-                TextSpan(
-                  text: minutesLeftLabel(offer.left),
-                  style: offer.left <= 0 ? const TextStyle(color: AppTheme.trialDanger) : null,
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
+          _buildOfferLine(band, offer),
           const SizedBox(height: 14),
         ],
         AppSegmentedTabs(
           labels: _subjectCategoryLabels,
           selectedIndex: category,
           onSelected: (index) => setState(() => _subjectCategory[mode] = index),
+          tours: _toured
+              ? const [kTourBookingsWizardMinistry, kTourBookingsWizardDisciplines, kTourBookingsWizardServices]
+              : const [],
         ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: _subjectListMaxHeight),
-          child: Scrollbar(
-            controller: scroll,
-            thumbVisibility: true,
-            child: ScrollEdgeFade(
-              child: SingleChildScrollView(
-                controller: scroll,
-                padding: const EdgeInsets.only(right: 12),
-                child: switch (category)
-                {
-                  _ministryCategory => _buildMinistryList(group, mode, band),
-                  _disciplineCategory => _buildDisciplineList(group, mode, band),
-                  _ => _buildServiceList(group, mode, band),
-                },
+        DesktopTourTarget(
+          id: _toured ? kTourBookingsWizardList : null,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: _subjectListMaxHeight),
+            child: Scrollbar(
+              controller: scroll,
+              thumbVisibility: true,
+              child: ScrollEdgeFade(
+                child: SingleChildScrollView(
+                  controller: scroll,
+                  padding: const EdgeInsets.only(right: 12),
+                  child: switch (category)
+                  {
+                    _ministryCategory => _buildMinistryList(group, mode, band),
+                    _disciplineCategory => _buildDisciplineList(group, mode, band),
+                    _ => _buildServiceList(group, mode, band),
+                  },
+                ),
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // The band and its hours, then what is left to book: two parts a tour lights one at a time.
+  Widget _buildOfferLine(TimeBucket band, BandOffer offer)
+  {
+    final TextStyle style = GoogleFonts.plusJakartaSans(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: AppTheme.trialMutedText,
+    );
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      children: [
+        DesktopTourTarget(
+          id: _toured ? kTourBookingsWizardBand : null,
+          child: Text('${bandLabel(band)} · ${offer.hours}', style: style),
+        ),
+        Text(' · ', style: style),
+        DesktopTourTarget(
+          id: _toured ? kTourBookingsWizardLeft : null,
+          child: Text(
+            minutesLeftLabel(offer.left),
+            style: offer.left <= 0 ? style.copyWith(color: AppTheme.trialDanger) : style,
           ),
         ),
       ],
@@ -1576,7 +1735,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     final String card = '$mode/${band.name}';
     final bool open = _openSubject[card] == subject.id;
 
-    return SubjectGroupRow(
+    final Widget row = SubjectGroupRow(
       key: ValueKey(subject.id),
       name: subject.name,
       booked: [
@@ -1584,17 +1743,22 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           if (_bookedDiscipline(group, mode, band, subject.id, discipline.id) != null) discipline.name,
       ],
       open: open,
-      onToggle: () => setState(()
+      onToggle: ()
       {
-        if (open)
+        setState(()
         {
-          _openSubject.remove(card);
-        }
-        else
-        {
-          _openSubject[card] = subject.id;
-        }
-      }),
+          if (open)
+          {
+            _openSubject.remove(card);
+          }
+          else
+          {
+            _openSubject[card] = subject.id;
+          }
+        });
+
+        _tellPicked();
+      },
       children: [
         for (final discipline in subject.associationSubjects)
           if (_bookedDiscipline(group, mode, band, subject.id, discipline.id) case final SubjectRequestDraft request?)
@@ -1622,6 +1786,16 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
             ),
       ],
     );
+
+    return DesktopTourTarget(id: _toured && open ? kTourBookingsWizardOpen : null, child: row);
+  }
+
+  // Told after the frame: a tour waiting for the disciplines must find them drawn.
+  void _tellPicked()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_) => bookingsWizardPicked.value++);
+    WidgetsBinding.instance.scheduleFrame();
+    _startToursSoon();
   }
 
   Widget _buildDisciplineList(_DayGroup group, String mode, TimeBucket band)
@@ -1755,6 +1929,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           for (final offer in _bandOffers(group, mode, skip: editing ? draft : null))
             if (offer.band == band) offer,
         ],
+        toured: _toured,
         onSave: (saved) async
         {
           setState(()
@@ -1950,13 +2125,16 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       onClose: _closeDialog,
       maxWidth: _stackMaxWidth,
       footer: AppDialogFooter.single(
-        AppGradientButton(
-          label: _isEditing ? 'SALVA' : 'CREA',
-          icon: Icons.check_rounded,
-          busy: _isSaving,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: _save,
+        DesktopTourTarget(
+          id: _toured ? kTourBookingsWizardSave : null,
+          child: AppGradientButton(
+            label: _isEditing ? 'SALVA' : 'CREA',
+            icon: Icons.check_rounded,
+            busy: _isSaving,
+            height: _dialogButtonHeight,
+            fontSize: _dialogButtonFontSize,
+            onPressed: _save,
+          ),
         ),
       ),
       children: [
@@ -1981,7 +2159,11 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           forwardBlockedReason: _blockedReason(card),
           onBack: () => _goToCard(_cardIndex - 1),
           onForward: () => _goToCard(_cardIndex + 1),
-          child: AppDialogPill(expand: true, child: _buildCard(card)),
+          forwardTour: _toured ? kTourBookingsWizardForward : null,
+          child: DesktopTourTarget(
+            id: _toured && card.step == _Step.who ? kTourBookingsWizardDays : null,
+            child: AppDialogPill(expand: true, child: _buildCard(card)),
+          ),
         ),
       ],
     );

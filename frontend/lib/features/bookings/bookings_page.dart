@@ -20,6 +20,7 @@ import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/carousel_arrow_button.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/dialog_components.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
@@ -40,7 +41,10 @@ import '../lessons/utils/study_program_lookup.dart';
 import '../lessons/widgets/presence_wizard.dart';
 import '../lessons/widgets/subject_request_tile.dart';
 import '../lessons/widgets/subject_request_wizard.dart';
+import '../notifications/bookings_seen.dart';
+import '../notifications/week_jump.dart';
 import '../people/models/person_item.dart';
+import 'bookings_tour.dart';
 import 'utils/booking_moves.dart';
 import 'utils/booking_replacement.dart';
 import 'utils/booking_strings.dart';
@@ -98,6 +102,10 @@ class _BookingsPageState extends State<BookingsPage>
 
   List<PersonItem> _pupils = [];
 
+  // The tour's parts the rows showed last: a new one, however it came (a booking, a deadline, the other week), is
+  // told at once.
+  Set<BookingsTourMark> _partsOnShow = const {};
+
   bool get _isParent => widget.role == _parentRole;
 
   // A pupil the parents answer for only looks, unless allowed to book too.
@@ -132,27 +140,152 @@ class _BookingsPageState extends State<BookingsPage>
       }
     });
 
+    // Opened from a notification: straight to the week it is about.
+    _weekIndex = _weekOf(WeekJumps.bookings.take(role: widget.role));
+    bookingsNextWeekShown.value = _weekIndex == 1;
+
     _loadData();
+    desktopTourLit.addListener(_onTourLit);
+    WeekJumps.bookings.asked.addListener(_jump);
   }
 
   @override
   void dispose()
   {
     _clock?.cancel();
+    desktopTourLit.removeListener(_onTourLit);
+    WeekJumps.bookings.asked.removeListener(_jump);
     super.dispose();
+  }
+
+  void _showWeek(int index)
+  {
+    setState(() => _weekIndex = index);
+    bookingsNextWeekShown.value = index == 1;
+    _markSeen();
+  }
+
+  // Every child's week is on screen at once: the lessons booked by others in it are seen.
+  void _markSeen()
+  {
+    if (!destinationShown || _isLoading || _failed)
+    {
+      return;
+    }
+
+    for (final pupil in _pupils)
+    {
+      unawaited(markBookingsSeen(pupil.fiscalCode, _shownDays.first));
+    }
+  }
+
+  // The page's tour, with the next week's steps once its arrow is there; the next week's alone for whoever
+  // saw the page before it unlocked, both from this week; then any part shown only later.
+  Future<void> _startTours() async
+  {
+    // Judged on the rows the data just set will draw.
+    await WidgetsBinding.instance.endOfFrame;
+
+    final BookingsTourReader? reader = bookingsTourReader();
+
+    // A tour on show goes on undisturbed: the page is not turned back under it.
+    if (!mounted || reader == null || _pupils.isEmpty || isDesktopTourShown)
+    {
+      return;
+    }
+
+    final DesktopTour page = bookingsPageTour(
+      reader: reader,
+      genders: [for (final pupil in _pupils) pupil.gender],
+      showThisWeek: () => _showWeek(0),
+    );
+
+    if (!await bookingsTourSeen(page))
+    {
+      if (mounted)
+      {
+        _showWeek(0);
+        startBookingsTour(context, page);
+      }
+
+      return;
+    }
+
+    final DesktopTour nextWeek = bookingsNextWeekTour(showThisWeek: () => _showWeek(0));
+
+    if (reader != BookingsTourReader.reading && _isNextWeekUnlocked && mounted && !await bookingsTourSeen(nextWeek))
+    {
+      if (mounted)
+      {
+        _showWeek(0);
+        startBookingsTour(context, nextWeek);
+      }
+
+      return;
+    }
+
+    // Parts that showed up only later, as the hover buttons after the first booking.
+    final DesktopTour? late = await bookingsLatePageTour(reader);
+
+    if (late != null && mounted)
+    {
+      startBookingsTour(context, late);
+    }
+  }
+
+  // A tour just ended may leave room for the one still due.
+  void _onTourLit()
+  {
+    if (mounted && desktopTourLit.value.isEmpty && !_isLoading && !_failed && destinationShown)
+    {
+      _startTours();
+    }
+  }
+
+  // 1 for a day of next week once it is open, else 0.
+  int _weekOf(DateTime? day)
+  {
+    return day != null && startOfWeek(day).isAfter(_thisMonday) && _isNextWeekUnlocked ? 1 : 0;
+  }
+
+  // Already open: the week asked for, read again in full.
+  void _jump()
+  {
+    final DateTime? day = WeekJumps.bookings.take(role: widget.role);
+
+    if (day == null || !mounted)
+    {
+      return;
+    }
+
+    _showWeek(_weekOf(day));
+
+    setState(()
+    {
+      _isLoading = true;
+      _failed = false;
+    });
+
+    _loadData();
   }
 
   @override
   void onDestinationShown()
   {
     _advanceClock();
-    _loadData(quiet: true);
+
+    // A full read under way, as a notification asks for, is fresh enough.
+    if (!_isLoading)
+    {
+      _loadData(quiet: true);
+    }
   }
 
   // Reloads once Monday midnight shifts the weeks.
   void _advanceClock()
   {
     final DateTime before = _thisMonday;
+    final bool wasUnlocked = _isNextWeekUnlocked;
 
     setState(()
     {
@@ -163,6 +296,14 @@ class _BookingsPageState extends State<BookingsPage>
         _weekIndex = 0;
       }
     });
+
+    bookingsNextWeekShown.value = _weekIndex == 1;
+
+    // Friday 20:00 with the page open: the arrow appears, and its tour with it.
+    if (!wasUnlocked && _isNextWeekUnlocked && !_isLoading)
+    {
+      _startTours();
+    }
 
     if (!isSameDate(before, _thisMonday))
     {
@@ -245,6 +386,9 @@ class _BookingsPageState extends State<BookingsPage>
         _isLoading = false;
         _failed = false;
       });
+
+      _markSeen();
+      _startTours();
     }
     catch (e, stackTrace)
     {
@@ -478,6 +622,7 @@ class _BookingsPageState extends State<BookingsPage>
           for (final offer in groupBandOffers(group, slot.mode, skip: existing, isOpen: (band) => !haveBookingsClosed(group.date, band, _now)))
             if (offer.band == bucketFor(slot.startTime)) offer,
         ],
+        toured: true,
         onSave: (draft) => _writeLesson(group, slot, existing, draft),
       ),
     );
@@ -875,26 +1020,30 @@ class _BookingsPageState extends State<BookingsPage>
         ],
         if (!_isReadOnly) ...[
           const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 2),
-                child: Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  kBookingDeadlines,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                    color: AppTheme.trialMutedText,
+          DesktopTourTarget(
+            id: kTourBookingsDeadlines,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    kBookingDeadlines,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                      color: AppTheme.trialMutedText,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ],
@@ -949,15 +1098,18 @@ class _BookingsPageState extends State<BookingsPage>
         CarouselArrowButton(
           icon: Icons.chevron_left_rounded,
           isDisabled: _weekIndex == 0,
-          onTap: () => setState(() => _weekIndex = 0),
+          onTap: () => _showWeek(0),
         ),
         const SizedBox(width: 8),
         if (compact) Expanded(child: label) else SizedBox(width: _weekLabelWidth, child: label),
         const SizedBox(width: 8),
-        CarouselArrowButton(
-          icon: Icons.chevron_right_rounded,
-          isDisabled: _weekIndex == 1,
-          onTap: () => setState(() => _weekIndex = 1),
+        DesktopTourTarget(
+          id: kTourBookingsNext,
+          child: CarouselArrowButton(
+            icon: Icons.chevron_right_rounded,
+            isDisabled: _weekIndex == 1,
+            onTap: () => _showWeek(1),
+          ),
         ),
       ],
     );
@@ -982,6 +1134,52 @@ class _BookingsPageState extends State<BookingsPage>
     );
   }
 
+  void _noticeNewParts(Set<BookingsTourMark> parts)
+  {
+    final bool fresh = !_partsOnShow.containsAll(parts);
+
+    _partsOnShow = parts;
+
+    if (fresh)
+    {
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted)
+        {
+          _startTours();
+        }
+      });
+    }
+  }
+
+  // Each mark of the tour on the first day showing it at its best, then on the first showing it at all; a day
+  // gone by only when no other does.
+  Map<BookingsTourMark, DateTime> get _tourFirsts
+  {
+    final DateTime today = _today;
+    final List<Map<BookingsTourMark, DateTime>> tiers = [{}, {}, {}];
+
+    for (final day in _shownDays)
+    {
+      final BookingsTourPlaces places = bookingsTourPlacesOf(
+        day: day,
+        lanes: _lanesOn(day),
+        openingDays: _openingDays,
+        now: _now,
+        readOnly: _isReadOnly,
+      );
+
+      for (final mark in places.marks)
+      {
+        final int tier = day.isBefore(today) ? 2 : (places.best.contains(mark) ? 0 : 1);
+
+        tiers[tier].putIfAbsent(mark, () => day);
+      }
+    }
+
+    return {...tiers[2], ...tiers[1], ...tiers[0]};
+  }
+
   Widget _buildRows()
   {
     if (_isLoading)
@@ -1003,6 +1201,9 @@ class _BookingsPageState extends State<BookingsPage>
     }
 
     final DateTime today = _today;
+    final Map<BookingsTourMark, DateTime> firsts = _tourFirsts;
+
+    _noticeNewParts(firsts.keys.toSet());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1019,6 +1220,10 @@ class _BookingsPageState extends State<BookingsPage>
             ministrySubjects: _ministrySubjects,
             teachers: _teachers,
             readOnly: _isReadOnly,
+            tourMarks: {
+              for (final MapEntry(key: mark, value: first) in firsts.entries)
+                if (isSameDate(first, day)) mark,
+            },
             onAdd: (lane, mode) => _showWizard(day, lane, mode, onlyFreeBands: true),
             onEditHours: (lane, mode, band) => _showWizard(day, lane, mode, hoursOnly: true, band: band),
             onAddLesson: (lane, mode, band) => _showWizard(day, lane, mode, openOnSubjects: true, band: band),
@@ -1083,10 +1288,13 @@ class _BookingsPageState extends State<BookingsPage>
                             ),
                             const SizedBox(height: _headerGap),
                             Expanded(
-                              child: PageTransitionScrollView(
-                                child: PageTransitionItem(
-                                  slot: PageTransitionItem.list,
-                                  child: _buildRows(),
+                              child: DesktopTourTarget(
+                                id: kTourBookingsDays,
+                                child: PageTransitionScrollView(
+                                  child: PageTransitionItem(
+                                    slot: PageTransitionItem.list,
+                                    child: _buildRows(),
+                                  ),
                                 ),
                               ),
                             ),

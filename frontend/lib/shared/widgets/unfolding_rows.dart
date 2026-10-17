@@ -1,7 +1,10 @@
 import 'package:flutter/widgets.dart';
 
+import 'scroll_edge_fade.dart';
+
 const Duration _unfoldTime = Duration(milliseconds: 380);
 const Duration _foldTime = Duration(milliseconds: 280);
+const Duration _scrollTime = Duration(milliseconds: 300);
 
 // Not a decelerating one: its tail left a sliver of the first row creeping shut.
 const Curve _foldCurve = Curves.easeInOut;
@@ -18,6 +21,9 @@ class UnfoldingRows extends StatefulWidget
   // False to open and shut at once.
   final bool animate;
 
+  // Once open, the list holding the rows scrolls them into sight.
+  final bool keepInView;
+
   final EdgeInsetsGeometry padding;
   final List<Widget> children;
 
@@ -25,6 +31,7 @@ class UnfoldingRows extends StatefulWidget
     super.key,
     required this.open,
     required this.animate,
+    this.keepInView = false,
     this.padding = EdgeInsets.zero,
     required this.children,
   });
@@ -57,6 +64,44 @@ class _UnfoldingRowsState extends State<UnfoldingRows> with SingleTickerProvider
     if (status == AnimationStatus.dismissed || status == AnimationStatus.forward)
     {
       setState(() {});
+    }
+
+    if (status == AnimationStatus.completed && widget.keepInView)
+    {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _keepInView());
+    }
+  }
+
+  // Rows opened below the list's edge are brought up past its fade; those already in sight stay put.
+  void _keepInView()
+  {
+    final ScrollableState? scrollable = mounted && _unfold.isCompleted ? Scrollable.maybeOf(context) : null;
+    final RenderObject? rows = context.findRenderObject();
+    final RenderObject? view = scrollable?.context.findRenderObject();
+
+    if (scrollable == null || rows is! RenderBox || view is! RenderBox || !rows.hasSize || !view.hasSize)
+    {
+      return;
+    }
+
+    final double bottom = rows.localToGlobal(Offset(0, rows.size.height), ancestor: view).dy;
+    final double over = bottom - (view.size.height - ScrollEdgeFade.height);
+
+    if (over <= 0)
+    {
+      return;
+    }
+
+    final ScrollPosition position = scrollable.position;
+    final double to = (position.pixels + over).clamp(position.minScrollExtent, position.maxScrollExtent);
+
+    if (widget.animate)
+    {
+      position.animateTo(to, duration: _scrollTime, curve: Curves.easeInOutCubic);
+    }
+    else
+    {
+      position.jumpTo(to);
     }
   }
 

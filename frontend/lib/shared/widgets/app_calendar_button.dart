@@ -10,6 +10,7 @@ import '../../core/utils/week_range.dart';
 import '../utils/day_marks.dart';
 import 'app_tooltip.dart';
 import 'carousel_arrow_button.dart';
+import 'desktop_tour.dart';
 
 const double _popoverWidth = 336;
 const double _popoverGap = 8;
@@ -50,6 +51,10 @@ class AppCalendarButton extends StatefulWidget
 
   final DayMarksLoader? loadMarks;
 
+  // The month's days, for a tour to light; told when the popover comes up and when it goes.
+  final String? tourDays;
+  final void Function(BuildContext context, bool open)? onOpen;
+
   const AppCalendarButton({
     super.key,
     required this.selected,
@@ -59,6 +64,8 @@ class AppCalendarButton extends StatefulWidget
     required this.last,
     required this.onPicked,
     this.loadMarks,
+    this.tourDays,
+    this.onOpen,
   });
 
   @override
@@ -132,6 +139,14 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
     _read(DateTime(widget.selected.year, widget.selected.month));
     setState(_portal.show);
 
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted && _isOpen)
+      {
+        widget.onOpen?.call(context, true);
+      }
+    });
+
     // Effects off: it shows at once.
     if (!VisualEffects.on)
     {
@@ -157,6 +172,7 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
       return;
     }
 
+    widget.onOpen?.call(context, false);
     setState(() {});
 
     if (VisualEffects.on)
@@ -193,7 +209,14 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
         offset: const Offset(0, _popoverGap),
         child: TapRegion(
           groupId: _link,
-          onTapOutside: (_) => _close(),
+          // A tour over the popover takes the clicks around it.
+          onTapOutside: (_)
+          {
+            if (!isDesktopTourShown)
+            {
+              _close();
+            }
+          },
           child: CallbackShortcuts(
             bindings: {const SingleActivator(LogicalKeyboardKey.escape): _close},
             child: Focus(
@@ -215,6 +238,7 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
                       last: widget.last,
                       today: _dateOnly(widget.today ?? romeNow()),
                       marks: _marks,
+                      tourDays: widget.tourDays,
                       onMonth: _read,
                       onPicked: _pick,
                     ),
@@ -289,6 +313,8 @@ class _MonthPopover extends StatefulWidget
 
   final ValueListenable<Map<DateTime, DayMarks>> marks;
 
+  final String? tourDays;
+
   // Asks for a month's marks as it comes into view.
   final ValueChanged<DateTime> onMonth;
 
@@ -301,6 +327,7 @@ class _MonthPopover extends StatefulWidget
     required this.last,
     required this.today,
     required this.marks,
+    required this.tourDays,
     required this.onMonth,
     required this.onPicked,
   });
@@ -402,38 +429,41 @@ class _MonthPopoverState extends State<_MonthPopover>
           ),
           const SizedBox(height: 6),
           // Only the days rebuild when marks arrive.
-          ValueListenableBuilder<Map<DateTime, DayMarks>>(
-            valueListenable: widget.marks,
-            builder: (context, all, _)
-            {
-              final DayMarks marks = all[_month] ?? DayMarks.none;
+          DesktopTourTarget(
+            id: widget.tourDays,
+            child: ValueListenableBuilder<Map<DateTime, DayMarks>>(
+              valueListenable: widget.marks,
+              builder: (context, all, _)
+              {
+                final DayMarks marks = all[_month] ?? DayMarks.none;
 
-              return Column(
-                children: [
-                  for (final week in _weeks(monthGridDays(_month)))
-                    Row(
-                      children: [
-                        for (final day in week)
-                          Expanded(
-                            child: day == null
-                                ? const SizedBox(height: _cellHeight)
-                                : _DayCell(
-                                    day: day,
-                                    enabled: !day.isBefore(_dateOnly(widget.first)) &&
-                                        !day.isAfter(_dateOnly(widget.last)),
-                                    shown: _isInShown(day),
-                                    filled: single,
-                                    today: isSameDate(day, today),
-                                    closed: marks.closed.contains(day),
-                                    busy: marks.busy.contains(day),
-                                    onTap: () => widget.onPicked(day),
-                                  ),
-                          ),
-                      ],
-                    ),
-                ],
-              );
-            },
+                return Column(
+                  children: [
+                    for (final week in _weeks(monthGridDays(_month)))
+                      Row(
+                        children: [
+                          for (final day in week)
+                            Expanded(
+                              child: day == null
+                                  ? const SizedBox(height: _cellHeight)
+                                  : _DayCell(
+                                      day: day,
+                                      enabled: !day.isBefore(_dateOnly(widget.first)) &&
+                                          !day.isAfter(_dateOnly(widget.last)),
+                                      shown: _isInShown(day),
+                                      filled: single,
+                                      today: isSameDate(day, today),
+                                      closed: marks.closed.contains(day),
+                                      busy: marks.busy.contains(day),
+                                      onTap: () => widget.onPicked(day),
+                                    ),
+                            ),
+                        ],
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),

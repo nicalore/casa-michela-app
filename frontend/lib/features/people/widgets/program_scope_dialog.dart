@@ -8,9 +8,11 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
+import '../subjects_tour.dart';
 import 'person_detail_widgets.dart';
 
 // Past this many programmes the list gets a search field.
@@ -59,6 +61,7 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
   {
     super.initState();
     _selected = Set<int>.from(widget.initialSelected);
+    startSubjectsTour(context, subjectsProgramsTour);
   }
 
   @override
@@ -153,7 +156,8 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
     );
   }
 
-  Widget _buildGroup(String title, List<_ScopedProgram> group)
+  // The first group's heading and row are the ones the tour lights.
+  Widget _buildGroup(String title, List<_ScopedProgram> group, {required bool first})
   {
     final int chosen =
         group.where((scoped) => _selected.contains(scoped.program.id)).length;
@@ -167,12 +171,16 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
           chosen: chosen,
           total: group.length,
           onToggle: (selected) => _toggleGroup(group, selected),
+          checkTour: first ? kTourProgramsSector : null,
         ),
-        for (final scoped in group)
-          _ProgramRow(
-            label: scoped.label,
-            selected: _selected.contains(scoped.program.id),
-            onSelected: (selected) => _toggle(scoped.program.id, selected),
+        for (final (index, scoped) in group.indexed)
+          DesktopTourTarget(
+            id: first && index == 0 ? kTourProgramsSingle : null,
+            child: _ProgramRow(
+              label: scoped.label,
+              selected: _selected.contains(scoped.program.id),
+              onSelected: (selected) => _toggle(scoped.program.id, selected),
+            ),
           ),
         const SizedBox(height: 18),
       ],
@@ -190,16 +198,19 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
       maxWidth: 720,
       fillLast: true,
       footer: AppDialogFooter.single(
-        AppGradientButton(
-          label: 'CONFERMA',
-          icon: Icons.check_rounded,
-          height: kPersonDialogButtonHeight,
-          fontSize: kPersonDialogButtonFontSize,
-          onPressed: ()
-          {
-            widget.onSave(_selected);
-            Navigator.of(context).pop();
-          },
+        DesktopTourTarget(
+          id: kTourProgramsConfirm,
+          child: AppGradientButton(
+            label: 'CONFERMA',
+            icon: Icons.check_rounded,
+            height: kPersonDialogButtonHeight,
+            fontSize: kPersonDialogButtonFontSize,
+            onPressed: ()
+            {
+              widget.onSave(_selected);
+              Navigator.of(context).pop();
+            },
+          ),
         ),
       ),
       children: [
@@ -221,22 +232,25 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
             ],
           ),
         ),
-        AppDialogPill(
-          expand: true,
-          child: groups.isEmpty
-              ? const PersonEmptyState(message: 'Nessun percorso trovato.')
-              : ScrollEdgeFade(
-                child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final entry in groups.entries)
-                          _buildGroup(entry.key, entry.value),
-                      ],
+        DesktopTourTarget(
+          id: kTourProgramsList,
+          child: AppDialogPill(
+            expand: true,
+            child: groups.isEmpty
+                ? const PersonEmptyState(message: 'Nessun percorso trovato.')
+                : ScrollEdgeFade(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final (index, entry) in groups.entries.indexed)
+                            _buildGroup(entry.key, entry.value, first: index == 0),
+                        ],
+                      ),
                     ),
                   ),
-              ),
+          ),
         ),
       ],
     );
@@ -250,11 +264,14 @@ class _GroupHeading extends StatelessWidget
   final int total;
   final ValueChanged<bool> onToggle;
 
+  final String? checkTour;
+
   const _GroupHeading({
     required this.title,
     required this.chosen,
     required this.total,
     required this.onToggle,
+    this.checkTour,
   });
 
   @override
@@ -277,10 +294,13 @@ class _GroupHeading extends StatelessWidget
             ),
           ),
           const SizedBox(width: 10),
-          AppCheckMark(
-            selected: all,
-            partial: some,
-            onTap: () => onToggle(!all),
+          DesktopTourTarget(
+            id: checkTour,
+            child: AppCheckMark(
+              selected: all,
+              partial: some,
+              onTap: () => onToggle(!all),
+            ),
           ),
         ],
       ),

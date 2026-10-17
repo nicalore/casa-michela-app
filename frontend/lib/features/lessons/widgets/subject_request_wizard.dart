@@ -12,9 +12,11 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/ministry_subject_item.dart';
+import '../../bookings/bookings_tour.dart';
 import 'subject_pick_row.dart';
 import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
@@ -69,6 +71,9 @@ class SubjectRequestWizard extends StatefulWidget
   // A subject still being booked, which can be taken back out.
   final VoidCallback? onRemove;
 
+  // A parent or a student booking: each card's parts are shown around the first time.
+  final bool toured;
+
   const SubjectRequestWizard({
     super.key,
     required this.mode,
@@ -83,6 +88,7 @@ class SubjectRequestWizard extends StatefulWidget
     this.studentGender,
     this.isEditing = false,
     this.bands = const [],
+    this.toured = false,
   });
 
   @override
@@ -102,6 +108,8 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
   bool _movingForward = true;
   bool _isSaving = false;
 
+  Animation<double>? _route;
+
   @override
   void initState()
   {
@@ -111,6 +119,83 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     {
       _draft.band = widget.bands.single.band;
     }
+
+    if (widget.toured)
+    {
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted)
+        {
+          _route = ModalRoute.of(context)?.animation?..addStatusListener(_onRoute);
+          bookingsSubjectOpen.value = true;
+          desktopTourLit.addListener(_onTourLit);
+          _startTour();
+        }
+      });
+    }
+  }
+
+  // Closing: the tours waiting on the window learn it at once, not after its fade.
+  void _onRoute(AnimationStatus status)
+  {
+    if (status == AnimationStatus.reverse || status == AnimationStatus.dismissed)
+    {
+      bookingsSubjectOpen.value = false;
+    }
+  }
+
+  String? _tour(String id) => widget.toured ? id : null;
+
+  // The wizard's tour, ended by the click that opened this window, leaves room for this one's.
+  void _onTourLit()
+  {
+    if (mounted && desktopTourLit.value.isEmpty && bookingsSubjectOpen.value)
+    {
+      _startTour();
+    }
+  }
+
+  // The card on show's parts never told, once it has slid in.
+  void _startTour()
+  {
+    final BookingsSubjectCard? card = switch (_stepList[_step])
+    {
+      _Step.what => BookingsSubjectCard.what,
+      _Step.duration => BookingsSubjectCard.duration,
+      _Step.teachers => BookingsSubjectCard.teachers,
+      _Step.notes => BookingsSubjectCard.notes,
+      _Step.band => null,
+    };
+
+    final int step = _step;
+
+    if (!widget.toured || card == null)
+    {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async
+    {
+      if (!mounted || isDesktopTourShown)
+      {
+        return;
+      }
+
+      final DesktopTour? tour = await bookingsSubjectTour(
+        card: card,
+        first: step == (_choosesBand ? 1 : 0),
+        editing: widget.isEditing,
+        online: widget.mode == kOnlineMode,
+        pupil: BookingsTourPupil.of(self: widget.isSelf, gender: widget.studentGender),
+      );
+
+      if (tour != null && mounted && _step == step)
+      {
+        startBookingsTour(context, tour, still: () => mounted && _step == step && !_isSaving);
+      }
+    });
+
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   BandOffer? get _offer => widget.bands.where((offer) => offer.band == _draft.band).firstOrNull;
@@ -134,6 +219,14 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
   @override
   void dispose()
   {
+    _route?.removeStatusListener(_onRoute);
+    desktopTourLit.removeListener(_onTourLit);
+
+    if (widget.toured)
+    {
+      bookingsSubjectOpen.value = false;
+    }
+
     _topicController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -151,6 +244,8 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       _movingForward = step > _step;
       _step = step.clamp(0, _steps - 1);
     });
+
+    _startTour();
   }
 
   String? _blockedReason(_Step step)
@@ -275,35 +370,41 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildLabel(kLessonKindLabel, first: true),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            for (final option in bookingTagOptions)
-              AppSelectableChip(
-                label: option.label,
-                selected: _draft.tags.contains(option.value),
-                onSelected: (selected) => setState(()
-                {
-                  if (selected)
+        DesktopTourTarget(
+          id: _tour(kTourBookingsSubjectKinds),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final option in bookingTagOptions)
+                AppSelectableChip(
+                  label: option.label,
+                  selected: _draft.tags.contains(option.value),
+                  onSelected: (selected) => setState(()
                   {
-                    _draft.tags.add(option.value);
+                    if (selected)
+                    {
+                      _draft.tags.add(option.value);
 
-                    return;
-                  }
+                      return;
+                    }
 
-                  _draft.tags.remove(option.value);
-                }),
-              ),
-          ],
+                    _draft.tags.remove(option.value);
+                  }),
+                ),
+            ],
+          ),
         ),
         _buildLabel(kTopicLabel),
-        AppTextField(
-          controller: _topicController,
-          label: 'Argomento',
-          showLabel: false,
-          hintText: kTopicHint,
-          maxLength: FieldLimits.topic,
+        DesktopTourTarget(
+          id: _tour(kTourBookingsSubjectTopic),
+          child: AppTextField(
+            controller: _topicController,
+            label: 'Argomento',
+            showLabel: false,
+            hintText: kTopicHint,
+            maxLength: FieldLimits.topic,
+          ),
         ),
       ],
     );
@@ -331,29 +432,35 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
             children: [
               const AppFieldLabel(kDurationLabel),
               if (_minutesAvailable != null)
-              Text(
-                '${formatMinutes(_minutesTaken)} di '
-                '${formatMinutes(_minutesAvailable!)}',
-                style: GoogleFonts.plusJakartaSans(
-                  color: _exceeds ? AppTheme.trialDanger : AppTheme.trialTealDeep,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
+                DesktopTourTarget(
+                  id: _tour(kTourBookingsSubjectCount),
+                  child: Text(
+                    '${formatMinutes(_minutesTaken)} di '
+                    '${formatMinutes(_minutesAvailable!)}',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: _exceeds ? AppTheme.trialDanger : AppTheme.trialTealDeep,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            for (final minutes in bookingDurationOptions)
-              AppSelectableChip(
-                label: formatMinutes(minutes),
-                selected: _draft.duration == minutes,
-                onSelected: (_) => setState(() => _draft.duration = minutes),
-              ),
-          ],
+        DesktopTourTarget(
+          id: _tour(kTourBookingsSubjectDurations),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final minutes in bookingDurationOptions)
+                AppSelectableChip(
+                  label: formatMinutes(minutes),
+                  selected: _draft.duration == minutes,
+                  onSelected: (_) => setState(() => _draft.duration = minutes),
+                ),
+            ],
+          ),
         ),
       ],
     );
@@ -361,19 +468,23 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
   Widget _buildTeachersStep()
   {
-    return AppDialogPill(
-      expand: true,
-      child: TeacherPicker(
-        label: preferredTeachersLabel(widget.studentGender),
-        icon: Icons.thumb_up_outlined,
-        chosen: _draft.preferredTeacherTaxCodes,
-        offered: teachersFitFirst(
-          widget.teachers,
-          disciplineIds: _draft.disciplineIds,
-          studyProgramId: widget.studentStudyProgramId,
+    return DesktopTourTarget(
+      id: _tour(kTourBookingsSubjectTeachers),
+      child: AppDialogPill(
+        expand: true,
+        child: TeacherPicker(
+          label: preferredTeachersLabel(widget.studentGender),
+          icon: Icons.thumb_up_outlined,
+          chosen: _draft.preferredTeacherTaxCodes,
+          offered: teachersFitFirst(
+            widget.teachers,
+            disciplineIds: _draft.disciplineIds,
+            studyProgramId: widget.studentStudyProgramId,
+          ),
+          max: SubjectRequestDraft.maxPreferredTeachers,
+          onChanged: () => setState(() {}),
+          searchTour: _tour(kTourBookingsSubjectSearch),
         ),
-        max: SubjectRequestDraft.maxPreferredTeachers,
-        onChanged: () => setState(() {}),
       ),
     );
   }
@@ -385,14 +496,17 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildLabel(kTeacherNotesLabel, first: true),
-        AppTextField(
-          controller: _notesController,
-          label: 'Note',
-          showLabel: false,
-          hintText: kTeacherNotesHint,
-          maxLength: FieldLimits.notes,
-          maxLines: 4,
-          minLines: 3,
+        DesktopTourTarget(
+          id: _tour(kTourBookingsSubjectNotes),
+          child: AppTextField(
+            controller: _notesController,
+            label: 'Note',
+            showLabel: false,
+            hintText: kTeacherNotesHint,
+            maxLength: FieldLimits.notes,
+            maxLines: 4,
+            minLines: 3,
+          ),
         ),
       ],
     );
@@ -484,13 +598,16 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
   @override
   Widget build(BuildContext context)
   {
-    final Widget save = AppGradientButton(
-      label: widget.isEditing ? 'SALVA' : 'AGGIUNGI',
-      icon: Icons.check_rounded,
-      busy: _isSaving,
-      height: _dialogButtonHeight,
-      fontSize: _dialogButtonFontSize,
-      onPressed: _save,
+    final Widget save = DesktopTourTarget(
+      id: _tour(kTourBookingsSubjectSave),
+      child: AppGradientButton(
+        label: widget.isEditing ? 'SALVA' : 'AGGIUNGI',
+        icon: Icons.check_rounded,
+        busy: _isSaving,
+        height: _dialogButtonHeight,
+        fontSize: _dialogButtonFontSize,
+        onPressed: _save,
+      ),
     );
 
     final String? discipline = _discipline;
@@ -540,6 +657,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
           forwardBlockedReason: _blockedReason(_stepList[_step]),
           onBack: () => _goTo(_step - 1),
           onForward: () => _goTo(_step + 1),
+          forwardTour: _tour(kTourBookingsSubjectForward),
           child: _buildStep(),
         ),
       ],

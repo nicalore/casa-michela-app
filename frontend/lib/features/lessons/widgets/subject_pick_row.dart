@@ -382,6 +382,7 @@ class _SubjectGroupRowState extends State<SubjectGroupRow>
         UnfoldingRows(
           open: widget.open,
           animate: effects,
+          keepInView: true,
           padding: const EdgeInsets.only(left: 36),
           children: widget.children,
         ),

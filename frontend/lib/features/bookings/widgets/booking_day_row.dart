@@ -7,6 +7,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../people/models/person_item.dart';
@@ -16,6 +17,7 @@ import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
 import '../../lessons/widgets/calendar_lesson_block.dart' show lessonModeIcon;
+import '../bookings_tour.dart';
 import '../utils/booking_strings.dart' show deleteBand, moveBandLessons;
 
 const double _radius = 24;
@@ -85,6 +87,158 @@ class BookingLane
   const BookingLane({required this.pupil, this.group});
 }
 
+// A band of a pupil's day, by the pupil's tax code.
+typedef BookingTourBlock = (String pupil, String mode, TimeBucket band);
+
+// Where a day row lights each mark of the tour: the first lane, band or lesson showing it.
+class BookingsTourPlaces
+{
+  final String? add;
+  final BookingTourBlock? lock;
+  final List<BookingTourBlock> modes;
+  final int? lesson;
+  final int? topic;
+  final int? notes;
+  final int? lessonActions;
+  final BookingTourBlock? bandActions;
+  final String? dayBin;
+
+  // Marks at their best here: both add buttons, a lesson that can still change.
+  final Set<BookingsTourMark> best;
+
+  const BookingsTourPlaces({
+    this.add,
+    this.lock,
+    this.modes = const [],
+    this.lesson,
+    this.topic,
+    this.notes,
+    this.lessonActions,
+    this.bandActions,
+    this.dayBin,
+    this.best = const {},
+  });
+
+  Set<BookingsTourMark> get marks => {
+        if (add != null) BookingsTourMark.add,
+        if (lock != null) BookingsTourMark.lock,
+        if (modes.isNotEmpty) BookingsTourMark.modes,
+        if (lesson != null) BookingsTourMark.lesson,
+        if (topic != null) BookingsTourMark.topic,
+        if (notes != null) BookingsTourMark.notes,
+        if (lessonActions != null) BookingsTourMark.lessonActions,
+        if (bandActions != null) BookingsTourMark.bandActions,
+        if (dayBin != null) BookingsTourMark.dayBin,
+      };
+
+  // Only [kept]: the page gives each mark to one day.
+  BookingsTourPlaces only(Set<BookingsTourMark> kept)
+  {
+    return BookingsTourPlaces(
+      add: kept.contains(BookingsTourMark.add) ? add : null,
+      lock: kept.contains(BookingsTourMark.lock) ? lock : null,
+      modes: kept.contains(BookingsTourMark.modes) ? modes : const [],
+      lesson: kept.contains(BookingsTourMark.lesson) ? lesson : null,
+      topic: kept.contains(BookingsTourMark.topic) ? topic : null,
+      notes: kept.contains(BookingsTourMark.notes) ? notes : null,
+      lessonActions: kept.contains(BookingsTourMark.lessonActions) ? lessonActions : null,
+      bandActions: kept.contains(BookingsTourMark.bandActions) ? bandActions : null,
+      dayBin: kept.contains(BookingsTourMark.dayBin) ? dayBin : null,
+    );
+  }
+}
+
+bool _said(String? text) => text != null && text.trim().isNotEmpty;
+
+// The row's own rules, read for the tour: the add buttons, the locks, the coloured hours and the hover buttons.
+BookingsTourPlaces bookingsTourPlacesOf({
+  required DateTime day,
+  required List<BookingLane> lanes,
+  required List<OpeningDayItem> openingDays,
+  required DateTime now,
+  required bool readOnly,
+})
+{
+  bool closedIn(TimeBucket band) => haveBookingsClosed(day, band, now);
+
+  // One only looking has nothing closed to them, as the row shows it.
+  bool slotClosed(PresenceItem slot)
+  {
+    final TimeBucket? band = bucketFor(slot.startTime);
+
+    return !readOnly && band != null && closedIn(band);
+  }
+
+  int addable(BookingLane lane)
+  {
+    final PresenceGroup? group = lane.group;
+
+    return readOnly
+        ? 0
+        : _modes
+            .where((mode) => TimeBucket.values.any((band) =>
+                !closedIn(band) &&
+                openingWindowFor(openingDays, day, mode, band) != null &&
+                (group == null || _modes.every((either) => group.slotsFor(either, band: band).isEmpty))))
+            .length;
+  }
+
+  final List<BookingTourBlock> blocks = [
+    for (final lane in lanes)
+      if (lane.group case final PresenceGroup group)
+        for (final mode in _modes)
+          for (final band in group.bandsFor(mode)) (lane.pupil.fiscalCode, mode, band),
+  ];
+
+  PresenceGroup groupOf(BookingTourBlock block) => lanes.firstWhere((lane) => lane.pupil.fiscalCode == block.$1).group!;
+
+  List<PresenceItem> slotsOf(BookingTourBlock block) => groupOf(block).slotsFor(block.$2, band: block.$3);
+
+  bool locked(BookingTourBlock block) => slotsOf(block).any(slotClosed);
+
+  bool coloured(BookingTourBlock block) => slotsOf(block).any((slot) => !slotClosed(slot));
+
+  bool changeable(BookingTourBlock block) => !readOnly && !closedIn(block.$3);
+
+  BookingTourBlock? firstBlock(bool Function(BookingTourBlock block) test) => blocks.where(test).firstOrNull;
+
+  // Each lesson with the block holding it.
+  final List<(BookingTourBlock, BookingSummaryItem, bool)> lessons = [
+    for (final block in blocks)
+      for (final slot in slotsOf(block))
+        for (final booking in slot.bookings) (block, booking, !readOnly && !slotClosed(slot)),
+  ];
+
+  final BookingTourBlock? presence = firstBlock((block) => block.$2 == kPresenceMode && coloured(block));
+  final BookingTourBlock? online = firstBlock((block) => block.$2 == kOnlineMode && coloured(block));
+
+  final String? bin = lanes
+      .where((lane) => !readOnly && lane.group != null && !lane.group!.slots.any(slotClosed))
+      .firstOrNull
+      ?.pupil
+      .fiscalCode;
+
+  final BookingLane? both = lanes.where((lane) => addable(lane) > 1).firstOrNull;
+  final (BookingTourBlock, BookingSummaryItem, bool)? changing = lessons.where((lesson) => lesson.$3).firstOrNull;
+
+  return BookingsTourPlaces(
+    add: (both ?? lanes.where((lane) => addable(lane) > 0).firstOrNull)?.pupil.fiscalCode,
+    lock: firstBlock(locked),
+    modes: [?presence, ?online],
+    lesson: (changing ?? lessons.firstOrNull)?.$2.id,
+    topic: lessons.where((lesson) => _said(lesson.$2.topic)).firstOrNull?.$2.id,
+    notes: lessons.where((lesson) => _said(lesson.$2.notes)).firstOrNull?.$2.id,
+    lessonActions: lessons.where((lesson) => lesson.$3).firstOrNull?.$2.id,
+    bandActions: firstBlock((block) => changeable(block) || (!readOnly && !locked(block))),
+    dayBin: bin,
+    best: {
+      if (both != null) BookingsTourMark.add,
+      if (changing != null) BookingsTourMark.lesson,
+      if (presence != null && online != null) BookingsTourMark.modes,
+    },
+  );
+}
+
 class BookingDayRow extends StatefulWidget
 {
   final DateTime day;
@@ -103,6 +257,9 @@ class BookingDayRow extends StatefulWidget
   final List<PersonItem> teachers;
 
   final bool readOnly;
+
+  // The tour's marks this row carries: for each, the first day showing it.
+  final Set<BookingsTourMark> tourMarks;
 
   final void Function(BookingLane lane, String mode) onAdd;
   final void Function(BookingLane lane, String mode, TimeBucket band) onEditHours;
@@ -133,6 +290,7 @@ class BookingDayRow extends StatefulWidget
     required this.ministrySubjects,
     required this.teachers,
     this.readOnly = false,
+    this.tourMarks = const {},
     required this.onAdd,
     required this.onEditHours,
     required this.onAddLesson,
@@ -158,6 +316,22 @@ class _BookingDayRowState extends State<BookingDayRow>
 
   bool get _named => _lanes.length > 1;
 
+  BookingsTourPlaces get _tour
+  {
+    if (widget.tourMarks.isEmpty)
+    {
+      return const BookingsTourPlaces();
+    }
+
+    return bookingsTourPlacesOf(
+      day: widget.day,
+      lanes: _lanes,
+      openingDays: widget.openingDays,
+      now: widget.now,
+      readOnly: widget.readOnly,
+    ).only(widget.tourMarks);
+  }
+
   bool _isOpenIn(TimeBucket bucket) => unionOpeningWindow(widget.openingDays, widget.day, bucket) != null;
 
   bool _hasClosed(TimeBucket bucket) => haveBookingsClosed(widget.day, bucket, widget.now);
@@ -181,11 +355,12 @@ class _BookingDayRowState extends State<BookingDayRow>
 
   bool get _isEmpty => _lanes.every((lane) => lane.group == null);
 
+  // One only looking changes nothing: no padlock, no closed hours, no muted lessons.
   bool _slotClosed(PresenceItem slot)
   {
     final TimeBucket? bucket = bucketFor(slot.startTime);
 
-    return bucket != null && haveBookingsClosed(widget.day, bucket, widget.now);
+    return !widget.readOnly && bucket != null && haveBookingsClosed(widget.day, bucket, widget.now);
   }
 
   bool _canDeleteDay(BookingLane lane)
@@ -195,9 +370,10 @@ class _BookingDayRowState extends State<BookingDayRow>
     return !widget.readOnly && group != null && !group.slots.any(_slotClosed);
   }
 
-  Widget _buildDate()
+  Widget _buildDate(BookingsTourPlaces tour)
   {
     final bool lone = !_named && !(_isShut && _isEmpty);
+    final String? bin = lone && tour.dayBin == _lanes.single.pupil.fiscalCode ? kTourBookingsDayBin : null;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -232,12 +408,16 @@ class _BookingDayRowState extends State<BookingDayRow>
             ),
             if (lone && _canDeleteDay(_lanes.single)) ...[
               const SizedBox(width: _actionGap),
-              _HoverAction(
-                visible: _hover,
-                icon: Icons.delete_outline_rounded,
-                color: AppTheme.trialDanger,
-                tooltip: 'Elimina la giornata',
-                onTap: () => widget.onDeleteDay(_lanes.single),
+              DesktopTourTarget(
+                id: bin,
+                child: _HoverAction(
+                  visible: _hover,
+                  litBy: bin,
+                  icon: Icons.delete_outline_rounded,
+                  color: AppTheme.trialDanger,
+                  tooltip: 'Elimina la giornata',
+                  onTap: () => widget.onDeleteDay(_lanes.single),
+                ),
               ),
             ],
           ],
@@ -262,12 +442,13 @@ class _BookingDayRowState extends State<BookingDayRow>
     ];
   }
 
-  Widget _buildLane(BookingLane lane, {required bool folded})
+  Widget _buildLane(BookingLane lane, {required bool folded, required BookingsTourPlaces tour})
   {
     return _LaneView(
       lane: lane,
       folded: folded,
       named: _named,
+      tour: tour,
       ministrySubjects: widget.ministrySubjects,
       teachers: widget.teachers,
       readOnly: widget.readOnly,
@@ -288,7 +469,7 @@ class _BookingDayRowState extends State<BookingDayRow>
     );
   }
 
-  Widget _buildLanes({required bool folded})
+  Widget _buildLanes({required bool folded, required BookingsTourPlaces tour})
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -299,7 +480,7 @@ class _BookingDayRowState extends State<BookingDayRow>
             Container(height: 1, color: AppTheme.trialLine),
             const SizedBox(height: _laneGap),
           ],
-          _buildLane(lane, folded: folded),
+          _buildLane(lane, folded: folded, tour: tour),
         ],
       ],
     );
@@ -318,7 +499,7 @@ class _BookingDayRowState extends State<BookingDayRow>
     );
   }
 
-  Widget _buildOneLine()
+  Widget _buildOneLine(BookingsTourPlaces tour)
   {
     final bool shut = _isShut && _isEmpty;
 
@@ -328,13 +509,13 @@ class _BookingDayRowState extends State<BookingDayRow>
         children: [
           SizedBox(
             width: _dateWidth,
-            child: Align(alignment: Alignment.centerLeft, child: _buildDate()),
+            child: Align(alignment: Alignment.centerLeft, child: _buildDate(tour)),
           ),
           _Divider(color: _lineColor),
           if (shut)
             Expanded(child: _buildShutNotice())
           else
-            Expanded(child: _buildLanes(folded: false)),
+            Expanded(child: _buildLanes(folded: false, tour: tour)),
         ],
       ),
     );
@@ -349,19 +530,19 @@ class _BookingDayRowState extends State<BookingDayRow>
     );
   }
 
-  Widget _buildStacked({required bool noticeBeside})
+  Widget _buildStacked({required bool noticeBeside, required BookingsTourPlaces tour})
   {
     if (_isShut && _isEmpty)
     {
       if (noticeBeside)
       {
-        return _buildOneLine();
+        return _buildOneLine(tour);
       }
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildDate(),
+          _buildDate(tour),
           _buildRule(),
           _buildShutNotice(),
         ],
@@ -371,9 +552,9 @@ class _BookingDayRowState extends State<BookingDayRow>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildDate(),
+        _buildDate(tour),
         _buildRule(),
-        _buildLanes(folded: true),
+        _buildLanes(folded: true, tour: tour),
       ],
     );
   }
@@ -382,6 +563,7 @@ class _BookingDayRowState extends State<BookingDayRow>
   Widget build(BuildContext context)
   {
     final bool shut = _isShut && _isEmpty;
+    final BookingsTourPlaces tour = _tour;
 
     Widget content = LayoutBuilder(
       builder: (context, constraints)
@@ -390,10 +572,10 @@ class _BookingDayRowState extends State<BookingDayRow>
 
         if (width >= _oneLineFrom)
         {
-          return _buildOneLine();
+          return _buildOneLine(tour);
         }
 
-        return _buildStacked(noticeBeside: width >= _noticeBesideFrom);
+        return _buildStacked(noticeBeside: width >= _noticeBesideFrom, tour: tour);
       },
     );
 
@@ -452,6 +634,8 @@ class _LaneView extends StatefulWidget
 
   final bool named;
 
+  final BookingsTourPlaces tour;
+
   final List<MinistrySubjectItem> ministrySubjects;
   final List<PersonItem> teachers;
 
@@ -481,6 +665,7 @@ class _LaneView extends StatefulWidget
     required this.lane,
     required this.folded,
     required this.named,
+    required this.tour,
     required this.ministrySubjects,
     required this.teachers,
     required this.readOnly,
@@ -508,8 +693,12 @@ class _LaneViewState extends State<_LaneView>
 {
   bool _hover = false;
 
+  String get _pupil => widget.lane.pupil.fiscalCode;
+
   Widget _buildHeader()
   {
+    final String? bin = widget.tour.dayBin == _pupil ? kTourBookingsDayBin : null;
+
     return SizedBox(
       height: _laneHeaderHeight,
       child: Row(
@@ -537,20 +726,35 @@ class _LaneViewState extends State<_LaneView>
                       ),
                       if (widget.canDeleteDay) ...[
                         const SizedBox(width: _actionGap),
-                        _HoverAction(
-                          visible: _hover,
-                          icon: Icons.delete_outline_rounded,
-                          color: AppTheme.trialDanger,
-                          tooltip: 'Elimina la giornata',
-                          onTap: widget.onDeleteDay,
+                        DesktopTourTarget(
+                          id: bin,
+                          child: _HoverAction(
+                            visible: _hover,
+                            litBy: bin,
+                            icon: Icons.delete_outline_rounded,
+                            color: AppTheme.trialDanger,
+                            tooltip: 'Elimina la giornata',
+                            onTap: widget.onDeleteDay,
+                          ),
                         ),
                       ],
                     ],
                   ),
           ),
-          for (final button in widget.addButtons) ...[
-            SizedBox(width: button == widget.addButtons.first ? _columnGap : _buttonGap),
-            button,
+          if (widget.addButtons.isNotEmpty) ...[
+            const SizedBox(width: _columnGap),
+            DesktopTourTarget(
+              id: widget.tour.add == _pupil ? kTourBookingsAdd : null,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final button in widget.addButtons) ...[
+                    if (button != widget.addButtons.first) const SizedBox(width: _buttonGap),
+                    button,
+                  ],
+                ],
+              ),
+            ),
           ],
         ],
       ),
@@ -590,6 +794,8 @@ class _LaneViewState extends State<_LaneView>
                 mode: mode,
                 band: band,
                 group: group,
+                tour: widget.tour,
+                block: (_pupil, mode, band),
                 folded: widget.folded,
                 ministrySubjects: widget.ministrySubjects,
                 teachers: widget.teachers,
@@ -619,6 +825,9 @@ class _ModeBlock extends StatefulWidget
   final TimeBucket band;
   final PresenceGroup group;
 
+  final BookingsTourPlaces tour;
+  final BookingTourBlock block;
+
   final bool folded;
 
   final List<MinistrySubjectItem> ministrySubjects;
@@ -645,6 +854,8 @@ class _ModeBlock extends StatefulWidget
     required this.mode,
     required this.band,
     required this.group,
+    required this.tour,
+    required this.block,
     required this.folded,
     required this.ministrySubjects,
     required this.teachers,
@@ -707,9 +918,13 @@ class _ModeBlockState extends State<_ModeBlock>
     return _isEditable(booking) && widget.canMoveLesson(booking);
   }
 
+  String? get _modesTour => widget.tour.modes.contains(widget.block) ? kTourBookingsModes : null;
+
+  String? get _actionsTour => widget.tour.bandActions == widget.block ? kTourBookingsBandActions : null;
+
   Widget _buildHeading()
   {
-    return Row(
+    final Widget heading = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
@@ -730,13 +945,18 @@ class _ModeBlockState extends State<_ModeBlock>
         ),
         if (_hasClosed) ...[
           const SizedBox(width: 6),
-          const AppTooltip(
-            message: 'Prenotazioni chiuse',
-            child: Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
+          DesktopTourTarget(
+            id: widget.tour.lock == widget.block ? kTourBookingsLock : null,
+            child: const AppTooltip(
+              message: 'Prenotazioni chiuse',
+              child: Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
+            ),
           ),
         ],
       ],
     );
+
+    return heading;
   }
 
   List<Widget> _buildActions()
@@ -745,6 +965,7 @@ class _ModeBlockState extends State<_ModeBlock>
       if (widget.canChange) ...[
         _HoverAction(
           visible: _hover,
+          litBy: _actionsTour,
           icon: Icons.edit_outlined,
           color: AppTheme.trialTealDeep,
           tooltip: 'Modifica gli orari',
@@ -753,6 +974,7 @@ class _ModeBlockState extends State<_ModeBlock>
         const SizedBox(width: 2),
         _HoverAction(
           visible: _hover,
+          litBy: _actionsTour,
           icon: Icons.add_rounded,
           color: AppTheme.trialTealDeep,
           tooltip: 'Aggiungi una lezione',
@@ -762,6 +984,7 @@ class _ModeBlockState extends State<_ModeBlock>
           const SizedBox(width: 2),
           _HoverAction(
             visible: _hover,
+            litBy: _actionsTour,
             icon: Icons.swap_horiz_rounded,
             color: AppTheme.trialTealDeep,
             tooltip: moveBandLessons(widget.band),
@@ -774,6 +997,7 @@ class _ModeBlockState extends State<_ModeBlock>
         if (widget.canChange) const SizedBox(width: 2),
         _HoverAction(
           visible: _hover,
+          litBy: _actionsTour,
           icon: Icons.delete_outline_rounded,
           color: AppTheme.trialDanger,
           tooltip: deleteBand(widget.band),
@@ -804,9 +1028,24 @@ class _ModeBlockState extends State<_ModeBlock>
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _buildHeading(),
-        _buildChips(),
-        if (actions.isNotEmpty) Row(mainAxisSize: MainAxisSize.min, children: actions),
+        // The band's name and its hours, lit by the tour as one part.
+        DesktopTourTarget(
+          id: _modesTour,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _buildHeading(),
+              _buildChips(),
+            ],
+          ),
+        ),
+        if (actions.isNotEmpty)
+          DesktopTourTarget(
+            id: _actionsTour,
+            child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+          ),
       ],
     );
   }
@@ -820,6 +1059,7 @@ class _ModeBlockState extends State<_ModeBlock>
         if (booking != lessons.first) const SizedBox(height: _rowGap),
         _LessonRow(
           booking: booking,
+          tour: widget.tour,
           folded: widget.folded,
           closed: _isClosed(booking),
           editable: _isEditable(booking),
@@ -901,6 +1141,7 @@ class _HoursChip extends StatelessWidget
 class _LessonRow extends StatefulWidget
 {
   final BookingSummaryItem booking;
+  final BookingsTourPlaces tour;
   final bool folded;
 
   final bool closed;
@@ -916,6 +1157,7 @@ class _LessonRow extends StatefulWidget
 
   const _LessonRow({
     required this.booking,
+    required this.tour,
     required this.folded,
     required this.closed,
     required this.editable,
@@ -1066,49 +1308,67 @@ class _LessonRowState extends State<_LessonRow>
   Widget _buildTrailing()
   {
     final bool shown = _hover && widget.editable;
+    final String? lit = widget.editable && widget.tour.lessonActions == _booking.id ? kTourBookingsLessonActions : null;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        _Mark(
-          icon: Icons.chat_bubble_outline_rounded,
-          label: 'Argomento',
-          text: _booking.topic,
-          muted: widget.closed,
+        DesktopTourTarget(
+          id: widget.tour.topic == _booking.id ? kTourBookingsTopic : null,
+          child: _Mark(
+            icon: Icons.chat_bubble_outline_rounded,
+            label: 'Argomento',
+            text: _booking.topic,
+            muted: widget.closed,
+          ),
         ),
         const SizedBox(width: 2),
-        _Mark(
-          icon: Icons.sticky_note_2_outlined,
-          label: 'Note per il docente',
-          text: _booking.notes,
-          muted: widget.closed,
+        DesktopTourTarget(
+          id: widget.tour.notes == _booking.id ? kTourBookingsNotes : null,
+          child: _Mark(
+            icon: Icons.sticky_note_2_outlined,
+            label: 'Note per il docente',
+            text: _booking.notes,
+            muted: widget.closed,
+          ),
         ),
         const SizedBox(width: _actionGap),
-        _HoverAction(
-          visible: shown,
-          icon: Icons.edit_outlined,
-          color: AppTheme.trialTealDeep,
-          tooltip: 'Modifica la lezione',
-          onTap: widget.onEdit,
-        ),
-        if (widget.movable) ...[
-          const SizedBox(width: 2),
-          _HoverAction(
-            visible: shown,
-            icon: Icons.swap_horiz_rounded,
-            color: AppTheme.trialTealDeep,
-            tooltip: 'Sposta la lezione',
-            onTap: widget.onMove,
+        DesktopTourTarget(
+          id: lit,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _HoverAction(
+                visible: shown,
+                litBy: lit,
+                icon: Icons.edit_outlined,
+                color: AppTheme.trialTealDeep,
+                tooltip: 'Modifica la lezione',
+                onTap: widget.onEdit,
+              ),
+              if (widget.movable) ...[
+                const SizedBox(width: 2),
+                _HoverAction(
+                  visible: shown,
+                  litBy: lit,
+                  icon: Icons.swap_horiz_rounded,
+                  color: AppTheme.trialTealDeep,
+                  tooltip: 'Sposta la lezione',
+                  onTap: widget.onMove,
+                ),
+              ],
+              const SizedBox(width: 2),
+              _HoverAction(
+                visible: shown,
+                litBy: lit,
+                icon: Icons.delete_outline_rounded,
+                color: AppTheme.trialDanger,
+                tooltip: 'Elimina la lezione',
+                onTap: widget.onDelete,
+              ),
+            ],
           ),
-        ],
-        const SizedBox(width: 2),
-        _HoverAction(
-          visible: shown,
-          icon: Icons.delete_outline_rounded,
-          color: AppTheme.trialDanger,
-          tooltip: 'Elimina la lezione',
-          onTap: widget.onDelete,
         ),
       ],
     );
@@ -1176,22 +1436,26 @@ class _LessonRowState extends State<_LessonRow>
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: Container(
-        padding: _rowPadding,
-        decoration: BoxDecoration(
-          color: AppTheme.trialPaper,
-          borderRadius: BorderRadius.circular(_rowRadius),
+      child: DesktopTourTarget(
+        id: widget.tour.lesson == _booking.id ? kTourBookingsLesson : null,
+        child: Container(
+          padding: _rowPadding,
+          decoration: BoxDecoration(
+            color: AppTheme.trialPaper,
+            borderRadius: BorderRadius.circular(_rowRadius),
+          ),
+          child: widget.folded ? _buildFolded() : _buildWide(),
         ),
-        child: widget.folded ? _buildFolded() : _buildWide(),
       ),
     );
   }
 }
 
-// Keeps its size while hidden so nothing shifts on hover.
+// Keeps its size while hidden so nothing shifts on hover; [litBy] shows it while the tour lights that part.
 class _HoverAction extends StatefulWidget
 {
   final bool visible;
+  final String? litBy;
   final IconData icon;
   final Color color;
   final String tooltip;
@@ -1201,6 +1465,7 @@ class _HoverAction extends StatefulWidget
 
   const _HoverAction({
     required this.visible,
+    this.litBy,
     required this.icon,
     required this.color,
     required this.tooltip,
@@ -1219,6 +1484,21 @@ class _HoverActionState extends State<_HoverAction>
   @override
   Widget build(BuildContext context)
   {
+    final String? lit = widget.litBy;
+
+    if (lit == null)
+    {
+      return _build(widget.visible);
+    }
+
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: desktopTourLit,
+      builder: (context, ids, _) => _build(widget.visible || ids.contains(lit)),
+    );
+  }
+
+  Widget _build(bool visible)
+  {
     final String? reason = widget.disabledReason;
 
     final Widget face = SizedBox(
@@ -1232,9 +1512,9 @@ class _HoverActionState extends State<_HoverAction>
     );
 
     return IgnorePointer(
-      ignoring: !widget.visible,
+      ignoring: !visible,
       child: AnimatedOpacity(
-        opacity: widget.visible ? 1 : 0,
+        opacity: visible ? 1 : 0,
         duration: _hoverFade,
         child: AppTooltip(
           message: reason ?? widget.tooltip,

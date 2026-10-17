@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -21,6 +22,8 @@ import '../../lessons/models/lesson_item.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
 import '../../lessons/widgets/calendar_lesson_block.dart' show lessonAbout, lessonTitle, lessonWhere;
 import '../../lessons/widgets/person_avatar.dart';
+import '../calendar_tour.dart';
+import '../pupil_calendar_tour.dart';
 // import 'own_lesson_block.dart' show kSharedLessonIcon;
 import 'teacher_note_dialog.dart';
 import '../../people/models/person_item.dart';
@@ -397,16 +400,19 @@ class _OwnLessonDialog extends StatelessWidget
 
   Widget _buildLessonSection()
   {
-    return LessonDialogSection(
-      heading: withOther ? 'Lezione' : null,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LessonVoicesTable(voices: lessonVoicesOf(lesson, ministrySubjects, where: _byStudent)),
-          // Co-presence hidden from students and parents for now.
-          // if (_byStudent && lesson.isShared) _buildSharedLine(),
-        ],
+    return DesktopTourTarget(
+      id: kTourLessonDetails,
+      child: LessonDialogSection(
+        heading: withOther ? 'Lezione' : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LessonVoicesTable(voices: lessonVoicesOf(lesson, ministrySubjects, where: _byStudent)),
+            // Co-presence hidden from students and parents for now.
+            // if (_byStudent && lesson.isShared) _buildSharedLine(),
+          ],
+        ),
       ),
     );
   }
@@ -415,30 +421,39 @@ class _OwnLessonDialog extends StatelessWidget
   {
     final person = other;
 
-    return LessonDialogSection(
-      heading: _byStudent ? 'Docente' : 'Studente',
-      child: person == null
-          ? _buildNote(_byStudent ? kTeacherFailedNote : kStudentFailedNote)
-          : LessonVoicesTable(
-              voices: _byStudent ? teacherVoicesOf(person) : studentVoicesOf(person, notes: false),
-            ),
+    return DesktopTourTarget(
+      id: person == null ? null : kTourLessonStudent,
+      child: LessonDialogSection(
+        heading: _byStudent ? 'Docente' : 'Studente',
+        child: person == null
+            ? _buildNote(_byStudent ? kTeacherFailedNote : kStudentFailedNote)
+            : LessonVoicesTable(
+                voices: _byStudent ? teacherVoicesOf(person) : studentVoicesOf(person, notes: false),
+              ),
+      ),
     );
   }
 
   Widget _buildNotesSection(PersonItem student, {required bool wide})
   {
-    final technical = _NotesColumn(
-      label: 'Tecniche',
-      taxCode: student.fiscalCode,
-      kind: StudentNoteKind.technical,
-      notes: student.technicalNotes ?? const [],
+    final technical = DesktopTourTarget(
+      id: kTourLessonTechnical,
+      child: _NotesColumn(
+        label: 'Tecniche',
+        taxCode: student.fiscalCode,
+        kind: StudentNoteKind.technical,
+        notes: student.technicalNotes ?? const [],
+      ),
     );
-    final methodological = _NotesColumn(
-      label: 'Metodologiche',
-      taxCode: student.fiscalCode,
-      kind: StudentNoteKind.methodological,
-      notes: student.methodologicalNotes ?? const [],
-      sensitive: true,
+    final methodological = DesktopTourTarget(
+      id: kTourLessonMethodological,
+      child: _NotesColumn(
+        label: 'Metodologiche',
+        taxCode: student.fiscalCode,
+        kind: StudentNoteKind.methodological,
+        notes: student.methodologicalNotes ?? const [],
+        sensitive: true,
+      ),
     );
 
     return LessonDialogSection(
@@ -473,63 +488,159 @@ class _OwnLessonDialog extends StatelessWidget
     final wide = MediaQuery.sizeOf(context).width >= _twoColumnsFromWindow;
     final PersonItem? student = _byStudent ? null : other;
 
-    return AppDialogStack(
-      eyebrow: 'Lezione',
-      title: lessonTitle(lesson, view: view),
-      leading: face == null ? null : PersonAvatar(person: face, size: PersonAvatar.titleSize),
-      subtitle: Text(
-        formatWeekdayColumnLabel(lesson.date),
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          height: 1.3,
-          color: AppTheme.trialMutedText,
+    return _LessonTourStart(
+      teacher: !_byStudent,
+      child: AppDialogStack(
+        eyebrow: 'Lezione',
+        title: lessonTitle(lesson, view: view),
+        leading: face == null ? null : PersonAvatar(person: face, size: PersonAvatar.titleSize),
+        subtitle: Text(
+          formatWeekdayColumnLabel(lesson.date),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+            color: AppTheme.trialMutedText,
+          ),
         ),
-      ),
-      maxWidth: withOther ? _dialogWidth : _singleWidth,
-      footer: _byStudent || !lessonHasBegun(lesson, romeNow())
-          ? null
-          : AppDialogFooter.single(
-              maxWidth: _noteFooterWidth,
-              AppGradientButton(
-                label: kAddNoteLabel,
-                icon: Icons.add_rounded,
-                height: 52,
-                fontSize: 14,
-                onPressed: () => _addNote(context),
+        maxWidth: withOther ? _dialogWidth : _singleWidth,
+        footer: _byStudent || !lessonHasBegun(lesson, romeNow())
+            ? null
+            : AppDialogFooter.single(
+                maxWidth: _noteFooterWidth,
+                DesktopTourTarget(
+                  id: kTourLessonNote,
+                  child: AppGradientButton(
+                    label: kAddNoteLabel,
+                    icon: Icons.add_rounded,
+                    height: 52,
+                    fontSize: 14,
+                    onPressed: () => _addNote(context),
+                  ),
+                ),
+              ),
+        children: [
+          if (!withOther)
+            _buildLessonSection()
+          else if (wide) ...[
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // The row is one piece of the stack; nested pieces stagger the two cards.
+                  Expanded(
+                    child: AppDialogPiece(index: 1, named: false, child: _buildLessonSection()),
+                  ),
+                  const SizedBox(width: _cardGap),
+                  Expanded(
+                    child: AppDialogPiece(index: 2, named: false, child: _buildOtherSection()),
+                  ),
+                ],
               ),
             ),
-      children: [
-        if (!withOther)
-          _buildLessonSection()
-        else if (wide) ...[
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // The row is one piece of the stack; nested pieces stagger the two cards.
-                Expanded(
-                  child: AppDialogPiece(index: 1, named: false, child: _buildLessonSection()),
-                ),
-                const SizedBox(width: _cardGap),
-                Expanded(
-                  child: AppDialogPiece(index: 2, named: false, child: _buildOtherSection()),
-                ),
-              ],
-            ),
-          ),
-          // Third after the two cards, as when they stand one under the other.
-          if (student != null)
-            AppDialogPiece(index: 3, named: false, child: _buildNotesSection(student, wide: true)),
-        ]
-        else ...[
-          _buildLessonSection(),
-          _buildOtherSection(),
-          if (student != null) _buildNotesSection(student, wide: false),
+            // Third after the two cards, as when they stand one under the other.
+            if (student != null)
+              AppDialogPiece(index: 3, named: false, child: _buildNotesSection(student, wide: true)),
+          ]
+          else ...[
+            _buildLessonSection(),
+            _buildOtherSection(),
+            if (student != null) _buildNotesSection(student, wide: false),
+          ],
         ],
-      ],
+      ),
     );
   }
+}
+
+// Tells the page's tour the window is up, and shows a teacher the parts never seen.
+class _LessonTourStart extends StatefulWidget
+{
+  final bool teacher;
+  final Widget child;
+
+  const _LessonTourStart({required this.teacher, required this.child});
+
+  @override
+  State<_LessonTourStart> createState() => _LessonTourStartState();
+}
+
+class _LessonTourStartState extends State<_LessonTourStart>
+{
+  Animation<double>? _route;
+
+  // Told after the frame: a tour waiting for it redraws itself, which a build in progress forbids.
+  @override
+  void initState()
+  {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async
+    {
+      if (!mounted)
+      {
+        return;
+      }
+
+      _route = ModalRoute.of(context)?.animation?..addStatusListener(_onRoute);
+      calendarLessonCloser = _closeWindow;
+
+      // Inside the page's tour the window is told by that tour.
+      final bool touring = isDesktopTourShown;
+
+      calendarLessonOpen.value = true;
+
+      final DesktopTour? tour = touring
+          ? null
+          : (widget.teacher ? await calendarLessonTour() : await pupilCalendarLessonTour());
+
+      if (tour != null && mounted)
+      {
+        if (widget.teacher)
+        {
+          startCalendarTour(context, tour);
+        }
+        else
+        {
+          startPupilCalendarTour(context, tour);
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose()
+  {
+    _route?.removeStatusListener(_onRoute);
+
+    if (calendarLessonCloser == _closeWindow)
+    {
+      calendarLessonCloser = null;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => calendarLessonOpen.value = false);
+    super.dispose();
+  }
+
+  void _closeWindow()
+  {
+    if (mounted)
+    {
+      Navigator.of(context).pop();
+    }
+  }
+
+  // Leaving, the window already counts as closed: a tour over it leaves with it.
+  void _onRoute(AnimationStatus status)
+  {
+    if (status == AnimationStatus.reverse || status == AnimationStatus.dismissed)
+    {
+      calendarLessonOpen.value = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _VoiceValue extends StatelessWidget
@@ -658,14 +769,17 @@ class _NotesColumnState extends State<_NotesColumn>
       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
       child: Padding(
         padding: const EdgeInsets.only(bottom: _rowPadding),
-        child: SizedBox(
-          height: _columnHeadHeight,
-          child: Row(
-            children: [
-              Expanded(child: AppFieldLabel(widget.label)),
-              if (_masked)
-                _EyeButton(open: _isVisible, onPressed: () => setState(() => _isVisible = !_isVisible)),
-            ],
+        child: DesktopTourTarget(
+          id: _masked ? kTourLessonSensitive : null,
+          child: SizedBox(
+            height: _columnHeadHeight,
+            child: Row(
+              children: [
+                Expanded(child: AppFieldLabel(widget.label)),
+                if (_masked)
+                  _EyeButton(open: _isVisible, onPressed: () => setState(() => _isVisible = !_isVisible)),
+              ],
+            ),
           ),
         ),
       ),
@@ -795,9 +909,11 @@ class LessonVoicesTable extends StatelessWidget
     return widest.ceilToDouble();
   }
 
+  bool _isMasked(LessonVoice voice) => voice.sensitive && voice.value != _empty;
+
   Widget _buildValue(LessonVoice voice)
   {
-    return voice.sensitive && voice.value != _empty
+    return _isMasked(voice)
         ? _ObscurableValue(value: voice.value)
         : _VoiceValue(value: voice.value, icon: voice.icon);
   }
@@ -826,14 +942,17 @@ class LessonVoicesTable extends StatelessWidget
               ),
               child: Padding(
                 padding: EdgeInsets.only(top: index == 0 ? 0 : _rowPadding, bottom: _rowPadding),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    SizedBox(width: labelWidth, child: AppFieldLabel(voice.label)),
-                    const SizedBox(width: _labelGap),
-                    Expanded(child: _buildValue(voice)),
-                  ],
+                child: DesktopTourTarget(
+                  id: _isMasked(voice) ? kTourLessonSensitive : null,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      SizedBox(width: labelWidth, child: AppFieldLabel(voice.label)),
+                      const SizedBox(width: _labelGap),
+                      Expanded(child: _buildValue(voice)),
+                    ],
+                  ),
                 ),
               ),
             ),

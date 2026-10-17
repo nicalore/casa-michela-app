@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
@@ -17,7 +18,9 @@ import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../lessons/widgets/person_avatar.dart';
 import '../../people/models/person_item.dart';
+import '../../people/models/teacher_subject_item.dart';
 import '../association_strings.dart';
+import '../association_tour.dart';
 import '../models/subject_taxonomy.dart';
 import '../teacher_opinions.dart';
 import '../widgets/teacher_card.dart';
@@ -114,34 +117,6 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
   }
 
   bool _isDisliked(PersonItem teacher) => _pupils.any((pupil) => pupil.dislikes(teacher));
-
-  String get _introText
-  {
-    if (!widget.canReport || _pupils.isEmpty)
-    {
-      return teachersIntro(verb: 'Cliccando');
-    }
-
-    final String intro = teachersIntro(verb: 'Cliccando', whoGotOn: whoGotOn(_pupils, parent: _isParent));
-
-    return '$intro $kTeachersOpinionNote';
-  }
-
-  Widget _buildIntro()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
-      child: Text(
-        _introText,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          height: 1.45,
-          color: AppTheme.trialInk,
-        ),
-      ),
-    );
-  }
 
   List<MultiSelectFilterOption<int>> get _subjectOptions
   {
@@ -245,7 +220,6 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
   List<Widget> _buildHeader(int count)
   {
     return [
-      _buildIntro(),
       TabHeaderRow(
         search: AppSearchField(
           controller: _searchController,
@@ -254,22 +228,25 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
         ),
       ),
       const SizedBox(height: 28),
-      Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          _buildSortPill(),
-          const FilterGroupDivider(),
-          AppCountFilterPill(
-            icon: Icons.auto_stories_outlined,
-            label: kSubjectsFilterLabel,
-            count: _selectedSubjectIds.length,
-            onOpen: _showSubjectFilterDialog,
-            onClear: () => setState(() => _selectedSubjectIds = {}),
-          ),
-          if (widget.canReport) _buildDislikedPill(),
-        ],
+      DesktopTourTarget(
+        id: kTourAssociationTeachersTop,
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _buildSortPill(),
+            const FilterGroupDivider(),
+            AppCountFilterPill(
+              icon: Icons.auto_stories_outlined,
+              label: kSubjectsFilterLabel,
+              count: _selectedSubjectIds.length,
+              onOpen: _showSubjectFilterDialog,
+              onClear: () => setState(() => _selectedSubjectIds = {}),
+            ),
+            if (widget.canReport) _buildDislikedPill(),
+          ],
+        ),
       ),
       const SizedBox(height: 20),
       Text(
@@ -296,6 +273,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
 
     return TabContent(
       header: _buildHeader(teachers.length),
+      bodyTour: kTourAssociationTeachers,
       body: EntityCardGrid(
         cardWidth: TeacherCard.width,
         children: [
@@ -336,6 +314,18 @@ class _TeacherDialogState extends State<_TeacherDialog>
   late List<OpinionPupil> _pupils = widget.pupils;
 
   bool _isSaving = false;
+
+  // The first time a parent or a student opens one, its parts are shown around.
+  @override
+  void initState()
+  {
+    super.initState();
+
+    startAssociationTour(
+      context,
+      associationTeacherTour(opinions: [for (final pupil in widget.pupils) pupil.gender]),
+    );
+  }
 
   Future<void> _toggle(OpinionPupil pupil, bool disliked) async
   {
@@ -402,6 +392,14 @@ class _TeacherDialogState extends State<_TeacherDialog>
   {
     final age = widget.teacher.age;
 
+    return DesktopTourTarget(
+      id: kTourAssociationTeacherProfile,
+      child: _buildProfileCard(age),
+    );
+  }
+
+  Widget _buildProfileCard(int? age)
+  {
     return AppDialogPill(
       expand: true,
       child: SelectionArea(
@@ -479,6 +477,14 @@ class _TeacherDialogState extends State<_TeacherDialog>
         (title: group.title, names: [for (final subject in group.items) subject.subjectName]..sort()),
     ];
 
+    return DesktopTourTarget(
+      id: kTourAssociationTeacherSubjects,
+      child: _buildSubjectsCard(subjects, areas),
+    );
+  }
+
+  Widget _buildSubjectsCard(List<TeacherSubjectItem> subjects, List<({String title, List<String> names})> areas)
+  {
     return AppDialogPill(
       expand: true,
       child: Column(
@@ -575,7 +581,11 @@ class _TeacherDialogState extends State<_TeacherDialog>
       children: [
         _buildProfile(),
         _buildSubjects(),
-        if (_pupils.isNotEmpty) AppDialogPill(expand: true, child: _buildOpinions()),
+        if (_pupils.isNotEmpty)
+          DesktopTourTarget(
+            id: kTourAssociationTeacherOpinion,
+            child: AppDialogPill(expand: true, child: _buildOpinions()),
+          ),
       ],
     );
   }

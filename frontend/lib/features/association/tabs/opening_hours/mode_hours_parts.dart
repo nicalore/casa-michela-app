@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_tooltip.dart';
+import '../../../../shared/widgets/desktop_tour.dart';
 import '../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../lessons/utils/opening_window.dart';
 import '../../../lessons/widgets/calendar_lesson_block.dart';
@@ -148,6 +149,9 @@ class BandTimes extends StatelessWidget
 
   final String? variationNote;
 
+  // Lights the first band's variation symbol for a tour.
+  final String? variationTour;
+
   const BandTimes({
     super.key,
     required this.bands,
@@ -156,6 +160,7 @@ class BandTimes extends StatelessWidget
     this.stacked = false,
     this.markVariations = true,
     this.variationNote,
+    this.variationTour,
   });
 
   static String _label(OpeningDayItem band) => formatTimeRange(band.startTime!, band.endTime!);
@@ -196,6 +201,8 @@ class BandTimes extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final OpeningDayItem? lit = markVariations ? bands.where((band) => band.isOverride).firstOrNull : null;
+
     final times = <Widget>[
       for (final band in bands)
         if (markVariations && band.isOverride)
@@ -204,9 +211,12 @@ class BandTimes extends StatelessWidget
             children: [
               Text(_label(band), maxLines: 1, softWrap: false, style: _style(band, fontSize, fontWeight)),
               const SizedBox(width: _markGap),
-              withReason(
-                variationNote,
-                Icon(kVariationIcon, size: _markSize(fontSize), color: lessonAccent(band.mode)),
+              DesktopTourTarget(
+                id: identical(band, lit) ? variationTour : null,
+                child: withReason(
+                  variationNote,
+                  Icon(kVariationIcon, size: _markSize(fontSize), color: lessonAccent(band.mode)),
+                ),
               ),
             ],
           )

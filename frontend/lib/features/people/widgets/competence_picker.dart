@@ -7,6 +7,7 @@ import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/overflow_tooltip_text.dart';
@@ -17,6 +18,7 @@ import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
 import '../../association/tabs/pupil_subjects_tab.dart' show subjectsFoundLabel;
+import '../subjects_tour.dart';
 import 'person_detail_widgets.dart';
 import 'program_scope_dialog.dart';
 
@@ -51,6 +53,10 @@ class CompetenceRow extends StatefulWidget
   final VoidCallback onAdd;
   final VoidCallback onRemove;
 
+  final String? addTour;
+  final String? binTour;
+  final String? rowTour;
+
   const CompetenceRow({
     super.key,
     required this.name,
@@ -62,6 +68,9 @@ class CompetenceRow extends StatefulWidget
     required this.onTap,
     required this.onAdd,
     required this.onRemove,
+    this.addTour,
+    this.binTour,
+    this.rowTour,
   });
 
   @override
@@ -74,11 +83,14 @@ class _CompetenceRowState extends State<CompetenceRow>
 
   Widget _buildAdd()
   {
-    final Widget button = FadeHoverIconButton(
-      icon: Icons.add_rounded,
-      color: AppTheme.trialTealDeep,
-      hoverColor: AppTheme.trialGoldSurface,
-      onTap: widget.onAdd,
+    final Widget button = DesktopTourTarget(
+      id: widget.addTour,
+      child: FadeHoverIconButton(
+        icon: Icons.add_rounded,
+        color: AppTheme.trialTealDeep,
+        hoverColor: AppTheme.trialGoldSurface,
+        onTap: widget.onAdd,
+      ),
     );
 
     if (!widget.hasPrograms)
@@ -100,6 +112,11 @@ class _CompetenceRowState extends State<CompetenceRow>
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeOut,
       transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+      // Held to the right edge while they cross, the + and the bin never pass through the middle.
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.centerRight,
+        children: [...previous, ?current],
+      ),
       child: Row(
         key: ValueKey(widget.selected),
         mainAxisSize: MainAxisSize.min,
@@ -108,11 +125,14 @@ class _CompetenceRowState extends State<CompetenceRow>
             _buildScope(),
             Padding(
               padding: const EdgeInsets.only(left: 6),
-              child: FadeHoverIconButton(
-                icon: Icons.delete_outline_rounded,
-                color: AppTheme.trialDanger,
-                hoverColor: AppTheme.trialGoldSurface,
-                onTap: widget.onRemove,
+              child: DesktopTourTarget(
+                id: widget.binTour,
+                child: FadeHoverIconButton(
+                  icon: Icons.delete_outline_rounded,
+                  color: AppTheme.trialDanger,
+                  hoverColor: AppTheme.trialGoldSurface,
+                  onTap: widget.onRemove,
+                ),
               ),
             ),
           ]
@@ -153,64 +173,70 @@ class _CompetenceRowState extends State<CompetenceRow>
   {
     final bool tappable = widget.onTap != null;
 
-    return MouseRegion(
-      cursor: tappable ? SystemMouseCursors.click : MouseCursor.defer,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: _selectFade,
-          curve: Curves.easeOut,
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            // Not Colors.transparent: the fade would pass through grey.
-            color: widget.selected
-                ? kPickedSurface
-                : kPickedSurface.withValues(alpha: 0),
-            borderRadius: BorderRadius.circular(16),
-            // Always present so hover does not shift the contents.
-            border: Border.all(
-              color: _hover && tappable
-                  ? AppTheme.trialGold
-                  : AppTheme.trialGold.withValues(alpha: 0),
-              width: 2,
-            ),
-          ),
-          child: Row(
-            children: [
-              AppCheckMark(selected: widget.selected),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    OverflowTooltipText(
-                      text: widget.name,
-                      maxLines: 1,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.trialOcean,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    OverflowTooltipText(
-                      maxLines: 1,
-                      text: widget.subtitle ?? subjectAreaLabel(widget.area),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.trialMutedText,
-                      ),
-                    ),
-                  ],
+    // The margin outside: the tour lights the row alone.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DesktopTourTarget(
+        id: widget.rowTour,
+        child: MouseRegion(
+          cursor: tappable ? SystemMouseCursors.click : MouseCursor.defer,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: _selectFade,
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                // Not Colors.transparent: the fade would pass through grey.
+                color: widget.selected
+                    ? kPickedSurface
+                    : kPickedSurface.withValues(alpha: 0),
+                borderRadius: BorderRadius.circular(16),
+                // Always present so hover does not shift the contents.
+                border: Border.all(
+                  color: _hover && tappable
+                      ? AppTheme.trialGold
+                      : AppTheme.trialGold.withValues(alpha: 0),
+                  width: 2,
                 ),
               ),
-              _buildTrailing(),
-            ],
+              child: Row(
+                children: [
+                  AppCheckMark(selected: widget.selected),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        OverflowTooltipText(
+                          text: widget.name,
+                          maxLines: 1,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.trialOcean,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        OverflowTooltipText(
+                          maxLines: 1,
+                          text: widget.subtitle ?? subjectAreaLabel(widget.area),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.trialMutedText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _buildTrailing(),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -325,6 +351,9 @@ class CompetenceCatalogue extends StatefulWidget
   final bool isLoading;
   final VoidCallback onChanged;
 
+  // A discipline was chosen, by its + or by confirming its programmes.
+  final VoidCallback? onChosen;
+
   // False inside a scrolling page: a nested scroll would swallow the wheel and clip rows.
   final bool scrollable;
 
@@ -342,6 +371,7 @@ class CompetenceCatalogue extends StatefulWidget
     required this.builder,
     this.isLoading = false,
     this.scrollable = true,
+    this.onChosen,
   });
 
   @override
@@ -357,6 +387,9 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
   String? _filterArea;
 
   bool _onlySelected = false;
+
+  // The last discipline chosen: its bin and row are the ones a tour lights.
+  int? _chosen;
 
   @override
   void dispose()
@@ -435,7 +468,8 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
         _programsOf(subject).map((program) => program.id).toSet();
 
     widget.onChanged();
-    setState(() {});
+    setState(() => _chosen = subject.id);
+    widget.onChosen?.call();
   }
 
   void _deselect(int subjectId)
@@ -487,7 +521,8 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
           widget.programsBySubject[subject.id] = selected;
 
           widget.onChanged();
-          setState(() {});
+          setState(() => _chosen = subject.id);
+          widget.onChosen?.call();
         },
       ),
     );
@@ -590,11 +625,16 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
       );
     }
 
+    // The tour lights the + of the first discipline still to choose.
+    final int plusAt = entries.indexWhere(
+      (entry) => entry is SubjectEntry && !(widget.isSelected[entry.subject.id] ?? false),
+    );
+
     final Widget rows = Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final entry in entries)
+          for (final (index, entry) in entries.indexed)
             switch (entry)
             {
               SubjectEntry(:final subject) => CompetenceRow(
@@ -609,6 +649,9 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
                   onTap: () => _openPrograms(subject),
                   onAdd: () => _select(subject),
                   onRemove: () => _deselect(subject.id),
+                  addTour: index == plusAt ? kTourSubjectsPlus : null,
+                  binTour: subject.id == _chosen ? kTourSubjectsChosenBin : null,
+                  rowTour: subject.id == _chosen ? kTourSubjectsChosenRow : null,
                 ),
               ServiceEntry(:final service) => CompetenceRow(
                   key: ValueKey('service-${service.name}'),

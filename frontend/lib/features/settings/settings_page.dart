@@ -17,27 +17,33 @@ import 'tabs/access_tab.dart';
 import 'tabs/appearance_tab.dart';
 import 'tabs/devices_tab.dart';
 import 'tabs/info_tab.dart';
+import 'tabs/system_tab.dart';
+import 'settings_jump.dart';
+import 'settings_tour.dart';
 import 'utils/settings_strings.dart';
 
 const String _appearance = kAppearanceSection;
 const String _access = kAccessSection;
 const String _devices = kDevicesSection;
+const String _system = kSystemSection;
 const String _info = kInfoSection;
 
 // Order matches the PageSections below; the constants under it index both.
 const List<RailGroup> _groups = [
   RailGroup(entries: [_appearance]),
   RailGroup(title: kAccountGroup, entries: [_access, _devices]),
+  RailGroup(entries: [_system]),
   RailGroup(entries: [_info]),
 ];
 
 // The compact bar has no groups: the same entries, flat.
-const List<String> _sections = [_appearance, _access, _devices, _info];
+const List<String> _sections = [_appearance, _access, _devices, _system, _info];
 
 const int _appearanceIndex = 0;
 const int _accessIndex = 1;
 const int _devicesIndex = 2;
-const int _infoIndex = 3;
+const int _systemIndex = 3;
+const int _infoIndex = 4;
 
 class SettingsPage extends StatefulWidget
 {
@@ -56,11 +62,41 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
 
   int _selectedSection = _appearanceIndex;
 
+  // Bumped by a notification's jump, so Dispositivi reads its sessions again in full.
+  int _devicesRound = 0;
+
   @override
   void initState()
   {
     super.initState();
+
+    // Opened from a notification: on the devices, where a sign-in not one's own is ended.
+    if (SettingsJumps.takeDevices())
+    {
+      _selectedSection = _devicesIndex;
+    }
+
     visitedSections.add(_selectedSection);
+    SettingsJumps.asked.addListener(_showDevices);
+    startSettingsTour(context);
+  }
+
+  @override
+  void dispose()
+  {
+    SettingsJumps.asked.removeListener(_showDevices);
+    super.dispose();
+  }
+
+  void _showDevices()
+  {
+    if (!SettingsJumps.takeDevices() || !mounted)
+    {
+      return;
+    }
+
+    setState(() => _devicesRound++);
+    _selectSection(_devicesIndex);
   }
 
   // Only in-app paths are accepted; anything else falls back to the home.
@@ -91,7 +127,10 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
             ? const AccessTab()
             : const SizedBox.shrink(),
         visitedSections.contains(_devicesIndex)
-            ? const DevicesTab()
+            ? DevicesTab(key: ValueKey(_devicesRound))
+            : const SizedBox.shrink(),
+        visitedSections.contains(_systemIndex)
+            ? const SystemTab()
             : const SizedBox.shrink(),
         visitedSections.contains(_infoIndex)
             ? const InfoTab()

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/desktop_tour.dart';
+import '../../association_tour.dart';
 import '../../models/opening_day_item.dart';
 import 'combined_hours.dart';
 import 'hours_strings.dart';
@@ -36,14 +38,17 @@ class CombinedWeekCard extends StatelessWidget
     required this.onPickDay,
   });
 
-  HoursWeekNav _weekNav({required bool stacked})
+  Widget _weekNav({required bool stacked})
   {
-    return HoursWeekNav(
-      weekStart: weekStart,
-      stacked: stacked,
-      onPreviousWeek: onPreviousWeek,
-      onNextWeek: onNextWeek,
-      onPickDay: onPickDay,
+    return DesktopTourTarget(
+      id: kTourAssociationWeek,
+      child: HoursWeekNav(
+        weekStart: weekStart,
+        stacked: stacked,
+        onPreviousWeek: onPreviousWeek,
+        onNextWeek: onNextWeek,
+        onPickDay: onPickDay,
+      ),
     );
   }
 
@@ -53,6 +58,13 @@ class CombinedWeekCard extends StatelessWidget
     final days = [
       for (final day in daysOfWeek(weekStart)) CombinedDay.read(openingDays, day, isLoading: isLoading),
     ];
+
+    // The week's first variation symbol is the one a tour lights.
+    final (CombinedDay, String)? lit = [
+      for (final day in days)
+        for (final mode in kHoursModes)
+          if (!day.of(mode).isClosed && day.of(mode).bands.any((band) => band.isOverride)) (day, mode),
+    ].firstOrNull;
 
     return LayoutBuilder(
       builder: (context, constraints)
@@ -76,9 +88,12 @@ class CombinedWeekCard extends StatelessWidget
               AnimatedOpacity(
                 opacity: isLoading ? 0.4 : 1.0,
                 duration: const Duration(milliseconds: 150),
-                child: HoursGrid(
-                  days: [for (final day in days) _gridDay(day)],
-                  entryWidth: _entryWidth(context, days),
+                child: DesktopTourTarget(
+                  id: kTourAssociationDays,
+                  child: HoursGrid(
+                    days: [for (final day in days) _gridDay(day, lit: identical(day, lit?.$1) ? lit?.$2 : null)],
+                    entryWidth: _entryWidth(context, days),
+                  ),
                 ),
               ),
             ],
@@ -88,24 +103,31 @@ class CombinedWeekCard extends StatelessWidget
     );
   }
 
-  HoursGridDay _gridDay(CombinedDay day)
+  // [lit]: the mode whose variation symbol a tour lights.
+  HoursGridDay _gridDay(CombinedDay day, {String? lit})
   {
     return HoursGridDay(
       title: weekdayFullName(day.date.weekday),
       subtitle: formatDayMonthFull(day.date),
       isToday: isSameDate(day.date, romeNow()),
-      modes: {for (final mode in kHoursModes) mode: _modeHours(day.of(mode))},
+      modes: {for (final mode in kHoursModes) mode: _modeHours(day.of(mode), lit: mode == lit)},
     );
   }
 
-  static Widget _modeHours(ModeDayHours hours)
+  static Widget _modeHours(ModeDayHours hours, {bool lit = false})
   {
     if (hours.isClosed)
     {
       return ClosedPill(isOverride: hours.isOverrideClosure, note: hours.note);
     }
 
-    return BandTimes(bands: hours.bands, fontSize: _bandsFontSize, stacked: true, variationNote: hours.note);
+    return BandTimes(
+      bands: hours.bands,
+      fontSize: _bandsFontSize,
+      stacked: true,
+      variationNote: hours.note,
+      variationTour: lit ? kTourAssociationVariation : null,
+    );
   }
 
   static double _entryWidth(BuildContext context, List<CombinedDay> days)

@@ -12,13 +12,16 @@ const String kDevicesSection = 'Dispositivi';
 const String kSystemSection = 'Sistema';
 const String kInfoSection = 'Informazioni';
 
-// Mobile only: the tutorials exist only in the app.
 const String kTutorialTitle = 'Tutorial';
-const String kTutorialSubtitle = 'Riattiva la guida dei menù';
+const String kTutorialSubtitle = 'Riattiva la guida dei menù.';
+const String kTutorialChoose = 'Scegli';
 const String kTutorialHint = 'Scegli in quali menù vuoi rivedere la guida.';
 const String kTutorialSections = 'Sezioni';
 const String kTutorialReactivate = 'Riattiva';
 const String kTutorialPickASection = 'Scegli almeno una sezione.';
+
+// Said by every tour closed with its ×, on the phone and on the computer.
+const String kTutorialClosedEarly = 'Puoi riattivare il tutorial dalle impostazioni.';
 
 String tutorialsReactivated(int sections) => sections == 1 ? 'Tutorial riattivato.' : 'Tutorial riattivati.';
 
@@ -188,7 +191,7 @@ const String kPrivacyTitle = 'Privacy policy';
 
 const String kRegulationOpenFailed = 'Non è stato possibile aprire il regolamento.';
 
-const String kAppVersion = '0.4.3 - Alpha';
+const String kAppVersion = '0.4.4 - Alpha';
 
 const String kDevelopmentWarning =
     'ATTENZIONE: Applicazione attualmente in sviluppo. '

@@ -5,10 +5,13 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart' show formatMinutes;
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../lessons/utils/opening_window.dart' show kOnlineMode, kPresenceMode;
 import '../models/person_item.dart';
+import '../children_tour.dart';
+import '../own_tour.dart';
 import '../models/personal_statistics_items.dart';
 import '../models/student_presence_statistics_item.dart';
 import 'statistics/widgets/appreciation_students_dialog.dart';
@@ -46,11 +49,15 @@ class PersonPersonalStatsTab extends StatefulWidget
   // Rendered under the cards, inside the scroll.
   final Widget? footer;
 
+  // A parent's tour lights the presence card and its mode and period.
+  final bool childTour;
+
   const PersonPersonalStatsTab({
     super.key,
     required this.person,
     this.forOwner = false,
     this.footer,
+    this.childTour = false,
   });
 
   @override
@@ -225,6 +232,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
     final cards = <Widget>[
       if (teacherStats != null)
         PersonalAvailabilityCard(
+          tour: widget.forOwner,
           statistics: teacherStats,
           period: _teacherPeriod,
           mode: _teacherMode,
@@ -255,6 +263,11 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
         ),
       if (studentStats != null)
         PersonalPresenceCard(
+          tour: widget.childTour
+              ? (card: kTourChildrenStats, mode: kTourChildrenMode, period: kTourChildrenPeriod)
+              : widget.forOwner && teacherStats == null
+                  ? (card: kTourOwnStats, mode: kTourOwnMode, period: kTourOwnPeriod)
+                  : null,
           statistics: studentStats,
           period: _studentPeriod,
           mode: _studentMode,
@@ -410,6 +423,9 @@ class PersonalAvailabilityCard extends StatelessWidget
   final bool isLoading;
   final bool forOwner;
 
+  // Lit by the owner's tour: the card, and its filters.
+  final bool tour;
+
   const PersonalAvailabilityCard({
     super.key,
     required this.statistics,
@@ -419,6 +435,7 @@ class PersonalAvailabilityCard extends StatelessWidget
     required this.onModeChanged,
     this.isLoading = false,
     this.forOwner = false,
+    this.tour = false,
   });
 
   Widget _banner(String message)
@@ -460,62 +477,68 @@ class PersonalAvailabilityCard extends StatelessWidget
       for (final shortfall in availabilityShortfalls(statistics, forOwner: forOwner)) _banner(shortfall),
     ];
 
-    return AppCard(
-      title: kTeacherStatsTitle,
-      selectable: false,
-      leading: const AppCardBadge(icon: Icons.event_available_rounded),
-      trailingFit: AppCardTrailing.wrapping,
-      trailing: StatFilterRow(
-        children: [
-          statsModePill(value: mode, onChanged: onModeChanged),
-          statsPeriodPill(value: period, onChanged: onPeriodChanged),
-        ],
-      ),
-      child: AnimatedOpacity(
-        opacity: isLoading ? 0.4 : 1,
-        duration: _fetchFade,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (banners.isNotEmpty) ...[
-              ...banners,
-              const SizedBox(height: 12),
+    return DesktopTourTarget(
+      id: tour ? kTourOwnStats : null,
+      child: AppCard(
+        title: kTeacherStatsTitle,
+        selectable: false,
+        leading: const AppCardBadge(icon: Icons.event_available_rounded),
+        trailingFit: AppCardTrailing.wrapping,
+        trailing: DesktopTourTarget(
+          id: tour ? kTourOwnFilters : null,
+          child: StatFilterRow(
+            children: [
+              statsModePill(value: mode, onChanged: onModeChanged),
+              statsPeriodPill(value: period, onChanged: onPeriodChanged),
             ],
-            Row(
-              children: [
-                _Figure(
-                  label: 'Disponibilità a settimana',
-                  value: statistics.weeklyAverage.toStringAsFixed(1),
-                ),
-                const StatDivider(),
-                _Figure(
-                  label: 'Totale nel periodo',
-                  value: '${statistics.totalAvailabilities}',
-                ),
+          ),
+        ),
+        child: AnimatedOpacity(
+          opacity: isLoading ? 0.4 : 1,
+          duration: _fetchFade,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (banners.isNotEmpty) ...[
+                ...banners,
+                const SizedBox(height: 12),
               ],
-            ),
-            const SizedBox(height: 32),
-            const Divider(color: _sectionDivider, thickness: 1),
-            const SizedBox(height: 32),
-            const StatSectionTitle('Disponibilità per mese, ultimi 12 mesi'),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: _chartHeight,
-              child: statistics.monthlyTrend.isEmpty
-                  ? const EmptyChartMessage()
-                  : TrendLineChart(
-                      data: statistics.monthlyTrend,
-                      isMonthly: true,
-                    ),
-            ),
-            const SizedBox(height: 32),
-            const Divider(color: _sectionDivider, thickness: 1),
-            const SizedBox(height: 32),
-            RankingPair(
-              first: _subjectHoursRanking(kTaughtDisciplinesTitle, statistics.taughtDisciplines),
-              second: _peopleHoursRanking(kTopStudentsTitle, statistics.topStudents),
-            ),
-          ],
+              Row(
+                children: [
+                  _Figure(
+                    label: 'Disponibilità a settimana',
+                    value: statistics.weeklyAverage.toStringAsFixed(1),
+                  ),
+                  const StatDivider(),
+                  _Figure(
+                    label: 'Totale nel periodo',
+                    value: '${statistics.totalAvailabilities}',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              const Divider(color: _sectionDivider, thickness: 1),
+              const SizedBox(height: 32),
+              const StatSectionTitle('Disponibilità per mese, ultimi 12 mesi'),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: _chartHeight,
+                child: statistics.monthlyTrend.isEmpty
+                    ? const EmptyChartMessage()
+                    : TrendLineChart(
+                        data: statistics.monthlyTrend,
+                        isMonthly: true,
+                      ),
+              ),
+              const SizedBox(height: 32),
+              const Divider(color: _sectionDivider, thickness: 1),
+              const SizedBox(height: 32),
+              RankingPair(
+                first: _subjectHoursRanking(kTaughtDisciplinesTitle, statistics.taughtDisciplines),
+                second: _peopleHoursRanking(kTopStudentsTitle, statistics.topStudents),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -622,8 +645,12 @@ class PersonalPresenceCard extends StatefulWidget
 
   final bool isLoading;
 
+  // Lit by a parent's tour or the student's own: the card, its mode and its period.
+  final ({String card, String mode, String period})? tour;
+
   const PersonalPresenceCard({
     super.key,
+    this.tour,
     required this.statistics,
     required this.period,
     required this.onPeriodChanged,
@@ -646,7 +673,7 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
   {
     final online = widget.shownMode == kOnlineMode;
 
-    return AppCard(
+    final Widget card = AppCard(
       title: kPupilStatsTitle,
       selectable: false,
       leading: const AppCardBadge(icon: Icons.event_seat_rounded),
@@ -657,8 +684,14 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
             value: _kind,
             onChanged: (value) => setState(() => _kind = value),
           ),
-          statsModePill(value: widget.mode, onChanged: widget.onModeChanged),
-          statsPeriodPill(value: widget.period, onChanged: widget.onPeriodChanged),
+          DesktopTourTarget(
+            id: widget.tour?.mode,
+            child: statsModePill(value: widget.mode, onChanged: widget.onModeChanged),
+          ),
+          DesktopTourTarget(
+            id: widget.tour?.period,
+            child: statsPeriodPill(value: widget.period, onChanged: widget.onPeriodChanged),
+          ),
         ],
       ),
       child: AnimatedOpacity(
@@ -702,5 +735,7 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
         ),
       ),
     );
+
+    return DesktopTourTarget(id: widget.tour?.card, child: card);
   }
 }

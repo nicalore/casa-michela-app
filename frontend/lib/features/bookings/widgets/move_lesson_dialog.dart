@@ -9,16 +9,19 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/booking_window.dart';
 import '../../lessons/utils/booking_wizard_strings.dart' show hoursOverlap;
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/band_schedule.dart';
+import '../bookings_tour.dart';
 
 const double _width = 560;
 const double _buttonHeight = 52;
 const double _buttonFontSize = 14;
+
 
 class MoveOption
 {
@@ -166,12 +169,15 @@ Widget _hint(String text)
 Widget _footer({required VoidCallback onMove})
 {
   return AppDialogFooter.single(
-    AppGradientButton(
-      label: 'SPOSTA',
-      icon: Icons.swap_horiz_rounded,
-      height: _buttonHeight,
-      fontSize: _buttonFontSize,
-      onPressed: onMove,
+    DesktopTourTarget(
+      id: kTourBookingsMoveConfirm,
+      child: AppGradientButton(
+        label: 'SPOSTA',
+        icon: Icons.swap_horiz_rounded,
+        height: _buttonHeight,
+        fontSize: _buttonFontSize,
+        onPressed: onMove,
+      ),
     ),
   );
 }
@@ -208,10 +214,16 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
 
   BandSchedule<PresenceItem> _hours = BandSchedule<PresenceItem>();
 
+  // A tour already asked for the next frame: changes in between ask no more.
+  bool _toursAsked = false;
+
   @override
   void initState()
   {
     super.initState();
+
+    desktopTourLit.addListener(_onTourLit);
+    _startTours();
 
     for (final day in widget.days)
     {
@@ -234,6 +246,72 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
     }
   }
 
+  @override
+  void dispose()
+  {
+    desktopTourLit.removeListener(_onTourLit);
+    super.dispose();
+  }
+
+  // The window's parts never told, as one tour; then those showing up later, as the hours.
+  void _startTours()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_) async
+    {
+      if (!mounted || isDesktopTourShown)
+      {
+        return;
+      }
+
+      final DesktopTour? tour = await bookingsMoveTour(
+            hoursMayCome: () => _chosen == null && (_day?.options.any((option) => option.refusal == null && _asks(option)) ?? false),
+          ) ??
+          await bookingsLateMoveTour();
+
+      if (tour != null && mounted)
+      {
+        startBookingsTour(context, tour);
+      }
+    });
+
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  // After a change, at once: the tour waits for a drag to end, clicks held back meanwhile.
+  void _startToursSoon()
+  {
+    if (_toursAsked)
+    {
+      return;
+    }
+
+    _toursAsked = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      _toursAsked = false;
+      _startTours();
+    });
+
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  void _onTourLit()
+  {
+    if (mounted && desktopTourLit.value.isEmpty)
+    {
+      _startTours();
+    }
+  }
+
+  // Told after the frame: the step after a pick must find the hours drawn.
+  void _tellPicked()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_) => bookingsMovePicked.value++);
+    WidgetsBinding.instance.scheduleFrame();
+    _startToursSoon();
+  }
+
   void _chooseDay(MoveDay day)
   {
     setState(()
@@ -242,6 +320,8 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
       _chosen = null;
       _hours = BandSchedule<PresenceItem>();
     });
+
+    _tellPicked();
   }
 
   void _choose(MoveOption? option)
@@ -251,6 +331,8 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
       _chosen = option;
       _hours = option == null ? BandSchedule<PresenceItem>() : moveScheduleFor(option);
     });
+
+    _tellPicked();
   }
 
   bool _asks(MoveOption option) => option.asksHours && option.window != null;
@@ -277,19 +359,22 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
     return [
       const AppFieldLabel(kMoveTargetLabel),
       const SizedBox(height: 12),
-      Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          for (final option in options)
-            AppSelectableChip(
-              label: option.label,
-              selected: identical(chosen, option),
-              enabled: option.refusal == null,
-              disabledTooltip: option.refusal,
-              onSelected: (selected) => _choose(selected ? option : null),
-            ),
-        ],
+      DesktopTourTarget(
+        id: kTourBookingsMoveOptions,
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final option in options)
+              AppSelectableChip(
+                label: option.label,
+                selected: identical(chosen, option),
+                enabled: option.refusal == null,
+                disabledTooltip: option.refusal,
+                onSelected: (selected) => _choose(selected ? option : null),
+              ),
+          ],
+        ),
       ),
       if (chosen != null && _asks(chosen) && window != null) ...[
         const SizedBox(height: 20),
@@ -300,7 +385,12 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
           windowFor: (band) => band == chosen.band ? window : null,
           bands: [chosen.band],
           fixed: true,
-          onChanged: () => setState(() {}),
+          onChanged: ()
+          {
+            setState(() {});
+            _startToursSoon();
+          },
+          tour: (yesNo: kTourBookingsSwitch, hours: kTourBookingsHours, add: kTourBookingsHoursAdd, bin: kTourBookingsHoursBin),
         ),
       ],
     ];
@@ -344,19 +434,22 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
             children: [
               const AppFieldLabel(kMoveDayLabel),
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final option in widget.days)
-                    AppSelectableChip(
-                      label: formatAvailableDayShortLabel(option.day),
-                      selected: identical(day, option),
-                      enabled: option.refusal == null,
-                      disabledTooltip: option.refusal,
-                      onSelected: (_) => _chooseDay(option),
-                    ),
-                ],
+              DesktopTourTarget(
+                id: kTourBookingsMoveDays,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final option in widget.days)
+                      AppSelectableChip(
+                        label: formatAvailableDayShortLabel(option.day),
+                        selected: identical(day, option),
+                        enabled: option.refusal == null,
+                        disabledTooltip: option.refusal,
+                        onSelected: (_) => _chooseDay(option),
+                      ),
+                  ],
+                ),
               ),
               if (day != null) ...[
                 const SizedBox(height: 20),

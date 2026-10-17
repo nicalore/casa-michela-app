@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -5,14 +7,17 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/week_range.dart';
+import '../../../notifications/week_jump.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/app_dialog_footer.dart';
 import '../../../../shared/widgets/app_dialog_stack.dart';
 import '../../../../shared/widgets/app_gradient_button.dart';
+import '../../../../shared/widgets/desktop_tour.dart';
 import '../../../../shared/widgets/dialog_components.dart';
 import '../../../../shared/widgets/page_transition.dart';
 import '../../../../shared/widgets/snackbar.dart';
 import '../../models/opening_day_item.dart';
+import '../../association_tour.dart';
 import '../../models/weekly_template_item.dart';
 import 'calendar_bounds.dart';
 import 'combined_hours.dart';
@@ -32,7 +37,19 @@ class CombinedHoursView extends StatefulWidget
 
   final Future<void> Function()? onWeeklyTemplatesChanged;
 
-  const CombinedHoursView({super.key, this.weeklyTemplates = const [], this.onWeeklyTemplatesChanged});
+  // After every read, once both the week and the variations are on screen: a reader's tour may start.
+  final VoidCallback? onShown;
+
+  // Whose Associazione it is in, so a notification for another role's is left to that one.
+  final String? role;
+
+  const CombinedHoursView({
+    super.key,
+    this.weeklyTemplates = const [],
+    this.onWeeklyTemplatesChanged,
+    this.onShown,
+    this.role,
+  });
 
   @override
   State<CombinedHoursView> createState() => _CombinedHoursViewState();
@@ -62,10 +79,34 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
   void initState()
   {
     super.initState();
-    _weekStart = startOfWeek(romeNow());
+
+    // Opened from a notification: the week of the first day changed.
+    _weekStart = startOfWeek(WeekJumps.hours.take(role: widget.role) ?? romeNow());
     _variationsWindowEnd = addDays(romeNow(), kVariationsWindowDays);
     _loadWeek();
     _loadUpcomingVariations();
+    WeekJumps.hours.asked.addListener(_jump);
+  }
+
+  @override
+  void dispose()
+  {
+    WeekJumps.hours.asked.removeListener(_jump);
+    super.dispose();
+  }
+
+  // Already open: that week, read again in full with the variations.
+  void _jump()
+  {
+    final DateTime? day = WeekJumps.hours.take(role: widget.role);
+
+    if (day == null || !mounted)
+    {
+      return;
+    }
+
+    _weekStart = startOfWeek(day);
+    unawaited(_reloadAll());
   }
 
   Future<void> _loadWeek() async
@@ -87,6 +128,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
         _weekOpeningDays = days;
         _isLoadingWeek = false;
       });
+      _tellShown();
     }
     catch (e)
     {
@@ -124,6 +166,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
         _scheduleByMode = standardScheduleOf(days, today);
         _isLoadingVariations = false;
       });
+      _tellShown();
     }
     catch (e)
     {
@@ -134,6 +177,14 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
 
       setState(() => _isLoadingVariations = false);
       CustomSnackBar.show(context: context, message: kVariationsLoadFailed, isError: true);
+    }
+  }
+
+  void _tellShown()
+  {
+    if (!_isLoadingWeek && !_isLoadingVariations)
+    {
+      widget.onShown?.call();
     }
   }
 
@@ -322,6 +373,9 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
     }
 
     CustomSnackBar.show(context: context, message: 'Variazione eliminata.', isError: false);
+    unawaited(
+      _apiService.announceOpeningHours(dateFrom: run.start, dateTo: run.end).catchError((Object _) {}),
+    );
     await _reloadAll();
   }
 
@@ -388,7 +442,10 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
           const SizedBox(height: kHoursCardGap),
           PageTransitionItem(
             slot: PageTransitionItem.list + 1,
-            child: CombinedStandardCard(scheduleByMode: _scheduleByMode, isLoading: _isLoadingVariations),
+            child: DesktopTourTarget(
+              id: kTourAssociationStandard,
+              child: CombinedStandardCard(scheduleByMode: _scheduleByMode, isLoading: _isLoadingVariations),
+            ),
           ),
           const SizedBox(height: kHoursCardGap),
           PageTransitionItem(
@@ -399,6 +456,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
               isLoading: _isLoadingVariations,
               onEdit: _isAdmin ? (run) => _openVariationWizard(initial: run) : null,
               onDelete: _isAdmin ? _deleteVariation : null,
+              tour: kTourAssociationVariations,
             ),
           ),
           if (_isAdmin) ...[

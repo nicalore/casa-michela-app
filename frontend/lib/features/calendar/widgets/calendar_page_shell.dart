@@ -14,10 +14,12 @@ import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/corner_glow.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/page_watermark.dart';
 import '../../association/tabs/opening_hours/calendar_bounds.dart';
 import '../../lessons/widgets/lessons_closed_day.dart';
+import '../calendar_tour.dart';
 import '../utils/calendar_strings.dart';
 import '../utils/day_marks_loader.dart';
 
@@ -46,7 +48,8 @@ class CalendarPageShell extends StatelessWidget
   final ValueChanged<TimeBucket> onBand;
 
   final DateTime day;
-  final bool isToday;
+  // Today, or tomorrow once one of its bands is published.
+  final DateTime lastDay;
   final bool isFirstDay;
   final bool isBusy;
   final ValueChanged<DateTime> onDay;
@@ -61,6 +64,9 @@ class CalendarPageShell extends StatelessWidget
 
   final String? intro;
 
+  // Told when the month picker comes up and goes, for its tour.
+  final void Function(BuildContext context, bool open)? onPickerOpen;
+
   final Widget Function(bool isNarrow) body;
 
   const CalendarPageShell({
@@ -69,7 +75,7 @@ class CalendarPageShell extends StatelessWidget
     required this.band,
     required this.onBand,
     required this.day,
-    required this.isToday,
+    required this.lastDay,
     required this.isFirstDay,
     required this.isBusy,
     required this.onDay,
@@ -78,6 +84,7 @@ class CalendarPageShell extends StatelessWidget
     this.loadMarks,
     this.tools = _noTools,
     this.intro,
+    this.onPickerOpen,
     required this.body,
   });
 
@@ -85,12 +92,15 @@ class CalendarPageShell extends StatelessWidget
 
   Widget _buildBandPicker()
   {
-    return AppSegmentedTabs(
-      labels: [for (final bucket in TimeBucket.values) bandLabel(bucket)],
-      selectedIndex: band.index,
-      onSelected: (index) => onBand(TimeBucket.values[index]),
-      padding: EdgeInsets.zero,
-      hugContent: true,
+    return DesktopTourTarget(
+      id: kTourCalendarBands,
+      child: AppSegmentedTabs(
+        labels: [for (final bucket in TimeBucket.values) bandLabel(bucket)],
+        selectedIndex: band.index,
+        onSelected: (index) => onBand(TimeBucket.values[index]),
+        padding: EdgeInsets.zero,
+        hugContent: true,
+      ),
     );
   }
 
@@ -123,21 +133,21 @@ class CalendarPageShell extends StatelessWidget
   {
     return CarouselArrowButton(
       icon: Icons.chevron_right_rounded,
-      isDisabled: isToday || isBusy,
+      isDisabled: !day.isBefore(lastDay) || isBusy,
       onTap: () => onDay(addDays(day, 1)),
     );
   }
 
   Widget _buildCalendarButton()
   {
-    final DateTime now = romeNow();
-
     return AppCalendarButton(
       selected: day,
-      first: oldestKeptDay(now),
-      last: DateTime(now.year, now.month, now.day),
+      first: oldestKeptDay(romeNow()),
+      last: lastDay,
       onPicked: onDay,
       loadMarks: loadMarks ?? (from, to) => loadDayMarks(from, to, published: true),
+      tourDays: kTourCalendarPickerDays,
+      onOpen: onPickerOpen,
     );
   }
 
@@ -172,7 +182,10 @@ class CalendarPageShell extends StatelessWidget
 
   Widget _buildHeader(bool navFits, bool isNarrow)
   {
-    final Widget dayNav = navFits ? _buildDayNav() : _buildNarrowDayNav();
+    final Widget dayNav = DesktopTourTarget(
+      id: kTourCalendarDay,
+      child: navFits ? _buildDayNav() : _buildNarrowDayNav(),
+    );
 
     if (isClosed)
     {

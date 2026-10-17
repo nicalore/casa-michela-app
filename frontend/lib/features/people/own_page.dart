@@ -13,11 +13,13 @@ import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_segmented_tabs.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../onboarding/onboarding_steps.dart';
 import 'edit/person_edit_report_dialog.dart';
 import 'models/person_item.dart';
+import 'own_tour.dart';
 import 'tabs/own_info_tab.dart';
 import 'tabs/own_other_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
@@ -126,6 +128,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
     super.initState();
 
     visitedSections.add(_selectedSection);
+    ownPageSection.value = null;
     _load();
   }
 
@@ -150,6 +153,9 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
         _isLoading = false;
         _failed = false;
       });
+
+      _tellSection();
+      _startTour();
     }
     catch (e, stackTrace)
     {
@@ -181,6 +187,76 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
   void _selectSection(int index)
   {
     openSection(index, () => _selectedSection = index);
+    _tellSection();
+  }
+
+  // Told after the frame: a tour waiting for it redraws itself, which a build in progress forbids.
+  void _tellSection()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      final List<OwnPageSection> sections = _sections;
+
+      if (mounted && _selectedSection < sections.length)
+      {
+        ownPageSection.value = sections[_selectedSection].name;
+      }
+    });
+  }
+
+  void _show(String name)
+  {
+    final int index = _sections.indexWhere((section) => section.name == name);
+
+    if (index >= 0)
+    {
+      _selectSection(index);
+    }
+  }
+
+  // The owner's tour, begun on the personal information: a teacher's, else a student's, a parent's, a psychologist's.
+  DesktopTour? _tourOf(PersonItem person)
+  {
+    final Set<String> roles = _rolesOf(person);
+    final bool standing = !person.isMembershipRevoked;
+
+    if (roles.contains('DOCENTE') && standing)
+    {
+      return teacherOwnTour(title: person.firstName, show: _show);
+    }
+
+    if (roles.contains('STUDENTE'))
+    {
+      return studentOwnTour(title: person.firstName, show: _show);
+    }
+
+    if (roles.contains('GENITORE'))
+    {
+      return parentOwnTour(title: person.firstName);
+    }
+
+    return roles.contains('PSICOLOGO') ? psychologistOwnTour(title: person.firstName) : null;
+  }
+
+  Future<void> _startTour() async
+  {
+    final PersonItem? person = _person;
+    final DesktopTour? tour = person == null ? null : _tourOf(person);
+
+    if (tour == null || isDesktopTourShown)
+    {
+      return;
+    }
+
+    if (!await ownTourSeen(tour) && mounted)
+    {
+      if (_selectedSection != 0)
+      {
+        _selectSection(0);
+      }
+
+      startOwnTour(context, tour);
+    }
   }
 
   void _report(PersonItem person)
@@ -193,23 +269,27 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
     );
   }
 
-  Widget _buildReportButton(PersonItem person)
+  // [tour]: the one a tour lights, under the personal information.
+  Widget _buildReportButton(PersonItem person, {bool tour = false})
   {
-    return AppGradientButton(
-      label: 'SEGNALA DATO MANCANTE / ERRATO',
-      icon: Icons.flag_rounded,
-      gradient: AppTheme.dismissGradient,
-      accent: AppTheme.trialViolet,
-      height: _reportHeight,
-      radius: _reportRadius,
-      fontSize: _reportFontSize,
-      onPressed: () => _report(person),
+    return DesktopTourTarget(
+      id: tour ? kTourOwnReport : null,
+      child: AppGradientButton(
+        label: 'SEGNALA DATO MANCANTE / ERRATO',
+        icon: Icons.flag_rounded,
+        gradient: AppTheme.dismissGradient,
+        accent: AppTheme.trialViolet,
+        height: _reportHeight,
+        radius: _reportRadius,
+        fontSize: _reportFontSize,
+        onPressed: () => _report(person),
+      ),
     );
   }
 
   Widget _buildSection(PersonItem person, OwnPageSection section)
   {
-    final Widget report = _buildReportButton(person);
+    final Widget report = _buildReportButton(person, tour: section == OwnPageSection.info);
     final Widget centred = Center(child: report);
 
     return switch (section)
@@ -286,6 +366,13 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
               groups: [RailGroup(entries: labels)],
               selectedIndex: _selectedSection,
               onSelected: _selectSection,
+              tours: {
+                for (final (int index, OwnPageSection section) in sections.indexed)
+                  if (section == OwnPageSection.other)
+                    index: kTourOwnToOther
+                  else if (section == OwnPageSection.stats)
+                    index: kTourOwnToStats,
+              },
             ),
           ),
           const SizedBox(width: AppSectionRail.gap),

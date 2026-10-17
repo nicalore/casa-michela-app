@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
 import '../../../shared/widgets/band_time_range_slider.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../utils/opening_window.dart';
 
@@ -317,6 +318,9 @@ class BandSchedule<T>
 }
 
 // Mutates the schedule it is handed and reports through [onChanged].
+// The parts a tour lights, each the first of its kind.
+typedef BandScheduleTour = ({String yesNo, String hours, String add, String bin});
+
 class BandScheduleField<T> extends StatelessWidget
 {
   final BandSchedule<T> schedule;
@@ -346,6 +350,8 @@ class BandScheduleField<T> extends StatelessWidget
   // Its band chosen elsewhere, as where a lesson moves: no Sì/No.
   final bool fixed;
 
+  final BandScheduleTour? tour;
+
   const BandScheduleField({
     super.key,
     required this.schedule,
@@ -359,6 +365,7 @@ class BandScheduleField<T> extends StatelessWidget
     this.addLabel = 'AGGIUNGI ORARIO',
     this.bands,
     this.fixed = false,
+    this.tour,
   });
 
   void _report(void Function() change)
@@ -367,22 +374,53 @@ class BandScheduleField<T> extends StatelessWidget
     onChanged();
   }
 
+  // The first open band with what the tour shows.
+  TimeBucket? _firstWhere(bool Function(TimeBucket bucket, OpeningWindow window) test)
+  {
+    for (final bucket in bands ?? TimeBucket.values)
+    {
+      final OpeningWindow? window = windowFor(bucket);
+
+      if (window != null && test(bucket, window))
+      {
+        return bucket;
+      }
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context)
   {
+    final BandScheduleTour? tour = this.tour;
+
+    final TimeBucket? switchAt = tour == null ? null : _firstWhere((bucket, _) => schedule.of(bucket).length <= 1);
+    final TimeBucket? hoursAt = tour == null ? null : _firstWhere((bucket, _) => schedule.of(bucket).isNotEmpty);
+    final TimeBucket? addAt = tour == null
+        ? null
+        : _firstWhere((bucket, window) => schedule.of(bucket).isNotEmpty && schedule.firstGap(bucket, window) != null);
+    final TimeBucket? binAt = tour == null ? null : _firstWhere((bucket, _) => schedule.of(bucket).length > 1);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (index, bucket) in (bands ?? TimeBucket.values).indexed) ...[
           if (index > 0) const Divider(height: 26, thickness: 1, color: AppTheme.trialLine),
-          _buildBand(bucket),
+          _buildBand(
+            bucket,
+            switchTour: bucket == switchAt ? tour?.yesNo : null,
+            hoursTour: bucket == hoursAt ? tour?.hours : null,
+            addTour: bucket == addAt ? tour?.add : null,
+            binTour: bucket == binAt ? tour?.bin : null,
+          ),
         ],
       ],
     );
   }
 
-  Widget _buildBand(TimeBucket bucket)
+  Widget _buildBand(TimeBucket bucket, {String? switchTour, String? hoursTour, String? addTour, String? binTour})
   {
     final window = windowFor(bucket);
 
@@ -399,7 +437,7 @@ class BandScheduleField<T> extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // First child: answering the band must not rebuild the switch (pill would jump, not slide).
-        _buildStretch(bucket, window, 0),
+        _buildStretch(bucket, window, 0, switchTour: switchTour, hoursTour: hoursTour, binTour: binTour),
         for (var index = 1; index < stretches.length; index++) ...[
           const SizedBox(height: 14),
           _buildStretch(bucket, window, index),
@@ -409,6 +447,7 @@ class BandScheduleField<T> extends StatelessWidget
           AppAddRowButton(
             label: addLabel,
             dense: true,
+            tour: addTour,
             onTap: () => _report(() => schedule.addStretch(bucket, window)),
           ),
         ],
@@ -451,7 +490,14 @@ class BandScheduleField<T> extends StatelessWidget
     );
   }
 
-  Widget _buildStretch(TimeBucket bucket, OpeningWindow window, int index)
+  Widget _buildStretch(
+    TimeBucket bucket,
+    OpeningWindow window,
+    int index, {
+    String? switchTour,
+    String? hoursTour,
+    String? binTour,
+  })
   {
     final stretches = schedule.of(bucket);
 
@@ -467,6 +513,7 @@ class BandScheduleField<T> extends StatelessWidget
         offLabel: offLabel,
         trueLabel: 'Sì',
         falseLabel: 'No',
+        switchTour: switchTour,
         onChanged: (start, end) => _report(() => schedule.toggle(bucket, start, end)),
       );
     }
@@ -482,13 +529,18 @@ class BandScheduleField<T> extends StatelessWidget
       windowEndMinutes: window.endMinutes,
       trueLabel: 'Sì',
       falseLabel: 'No',
+      switchTour: switchTour,
+      trackTour: hoursTour,
       trailing: stretches.length == 1
           ? (fixed ? const SizedBox.shrink() : null)
-          : FadeHoverIconButton(
-              icon: Icons.delete_outline_rounded,
-              color: AppTheme.trialDanger,
-              hoverColor: AppTheme.trialGoldSurface,
-              onTap: () => _report(() => schedule.removeAt(bucket, index)),
+          : DesktopTourTarget(
+              id: binTour,
+              child: FadeHoverIconButton(
+                icon: Icons.delete_outline_rounded,
+                color: AppTheme.trialDanger,
+                hoverColor: AppTheme.trialGoldSurface,
+                onTap: () => _report(() => schedule.removeAt(bucket, index)),
+              ),
             ),
       onChanged: (start, end)
       {

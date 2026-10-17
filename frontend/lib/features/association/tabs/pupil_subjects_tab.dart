@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
@@ -12,17 +11,15 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../shared/widgets/wizard_dialog.dart';
 import '../association_strings.dart';
+import '../association_tour.dart';
 import '../models/association_subject_item.dart';
 import '../models/subject_taxonomy.dart';
 import '../widgets/association_subject_card.dart';
-
-const String kSubjectsCatalogueIntro =
-    'Di seguito trovi tutte le discipline che vengono insegnate in Associazione. '
-    'Se manca una disciplina che ti interessa, faccelo sapere tramite il bottone qui sotto!';
 
 const String kSubjectsSearchHint = 'Cerca disciplina...';
 
@@ -135,22 +132,6 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
     );
   }
 
-  Widget _buildIntro()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
-      child: Text(
-        kSubjectsCatalogueIntro,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          height: 1.45,
-          color: AppTheme.trialInk,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
@@ -163,7 +144,6 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
 
     return TabContent(
       header: [
-        _buildIntro(),
         ...entityTabHeader(
           searchController: _searchController,
           onSearchChanged: (value) => setState(() => _searchText = value),
@@ -189,17 +169,21 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
           ],
         ),
       ],
+      bodyTour: kTourAssociationSubjects,
       body: EntityCardGrid(
         children: [
           for (final subject in subjects) AssociationSubjectCard(subject: subject),
         ],
       ),
-      footer: tabActionButton(
-        label: kMissingSubjectAction,
-        icon: Icons.flag_rounded,
-        gradient: AppTheme.dismissGradient,
-        accent: AppTheme.trialViolet,
-        onPressed: _openReportDialog,
+      footer: DesktopTourTarget(
+        id: kTourAssociationReport,
+        child: tabActionButton(
+          label: kMissingSubjectAction,
+          icon: Icons.flag_rounded,
+          gradient: AppTheme.dismissGradient,
+          accent: AppTheme.trialViolet,
+          onPressed: _openReportDialog,
+        ),
       ),
     );
   }

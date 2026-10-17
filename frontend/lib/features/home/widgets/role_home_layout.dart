@@ -27,7 +27,11 @@ import '../../lessons/models/lesson_item.dart';
 import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../people/models/person_item.dart';
+import '../../notifications/notification_board.dart';
+import '../../notifications/widgets/desktop_notifications_offer.dart';
+import '../../notifications/widgets/home_notifications_section.dart';
 import '../../psychologist/psychologist_tour.dart';
+import '../home_tour.dart';
 import '../models/month_summary_items.dart';
 import 'home_month_section.dart';
 import 'home_notices_section.dart';
@@ -36,6 +40,7 @@ import 'home_schedule_section.dart';
 
 const String kTeacherRole = 'TEACHER';
 const String kParentRole = 'PARENT';
+const String kStudentRole = 'STUDENT';
 
 const String kPsychologistRole = 'PSYCHOLOGIST';
 
@@ -108,6 +113,9 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   static const double _dayRowHeight = 300;
   static const double _listHeight = 286;
 
+  // Keeps the notifications card at _listHeight: its header and padding take the rest.
+  static const double _notificationsBodyHeight = 174;
+
   final ApiService _apiService = ApiService();
 
   bool _loadingToday = true;
@@ -118,6 +126,9 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
 
   bool _loadingNotices = true;
   List<NoticeHeadlineItem>? _notices;
+
+  // The parent's own record, read with the day: its children decline the tour's sentences.
+  Future<PersonItem?> _reader = Future.value(null);
 
   // Bumped on every fetch so a stale response is dropped.
   int _todayRequest = 0;
@@ -132,24 +143,52 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     _loadTodayData();
     _loadMonthData();
     _loadNotices();
+    _loadNotifications();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _startTour());
   }
 
-  void _startTour()
+  // The notifications question comes first, then the tour.
+  Future<void> _startTour() async
   {
+    await offerNotificationsOnce(context);
+
     final MeResponse? user = _apiService.lastKnownIdentity;
 
-    if (!mounted || user == null || widget.role != kPsychologistRole)
+    if (!mounted || user == null)
     {
       return;
     }
 
-    startDesktopTourOnce(
-      context,
-      taxCode: user.taxCode,
-      tour: psychologistHomeTour(manyRoles: user.availableRoles.length > 1),
-    );
+    final DesktopTour? tour = await _tourFor(user);
+
+    if (!mounted || tour == null)
+    {
+      return;
+    }
+
+    startDesktopTourOnce(context, taxCode: user.taxCode, tour: tour);
+  }
+
+  Future<DesktopTour?> _tourFor(MeResponse user) async
+  {
+    final bool manyRoles = user.availableRoles.length > 1;
+
+    return switch (widget.role)
+    {
+      kPsychologistRole => psychologistHomeTour(manyRoles: manyRoles),
+      kTeacherRole => teacherHomeTour(manyRoles: manyRoles),
+      kParentRole => parentHomeTour(manyRoles: manyRoles, genders: await _childGenders()),
+      kStudentRole => studentHomeTour(manyRoles: manyRoles, answeredFor: user.hasParentalResponsibility),
+      _ => null,
+    };
+  }
+
+  Future<List<String?>> _childGenders() async
+  {
+    final PersonItem? reader = await _reader;
+
+    return [for (final child in reader?.children ?? const []) child.gender];
   }
 
   @override
@@ -162,6 +201,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
       _loadTodayData();
       _loadMonthData();
       _loadNotices();
+      _loadNotifications();
     }
   }
 
@@ -171,7 +211,16 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     _loadTodayData();
     _loadMonthData();
     _loadNotices();
+    _loadNotifications();
     _startTour();
+  }
+
+  void _loadNotifications()
+  {
+    if (widget.role != kPsychologistRole)
+    {
+      NotificationBoard.instance.load();
+    }
   }
 
   Future<void> _loadNotices() async
@@ -301,6 +350,8 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
         ? _quiet(_apiService.getPerson(taxCode))
         : Future.value(null);
 
+    _reader = readerFuture;
+
     final inBuilding = await inBuildingFuture;
     final onScreen = await onScreenFuture;
     final publications = await publicationsFuture;
@@ -366,15 +417,19 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     });
   }
 
-  Widget _staggered({required int slot, required Widget card})
+  Widget _staggered({required int slot, required String tour, required Widget card})
   {
-    return PageTransitionItem(slot: PageTransitionItem.header + slot, child: card);
+    return PageTransitionItem(
+      slot: PageTransitionItem.header + slot,
+      child: DesktopTourTarget(id: tour, child: card),
+    );
   }
 
   Widget _scheduleCard({required bool inRow, required double cardWidth})
   {
     return _staggered(
       slot: 0,
+      tour: kTourHomeToday,
       card: HomeScheduleSection(
         bands: _bands,
         isLoading: _loadingToday,
@@ -397,6 +452,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   {
     return _staggered(
       slot: 1,
+      tour: kTourHomeMonth,
       card: HomeMonthSection(
         groups: _month,
         isLoading: _loadingMonth,
@@ -411,6 +467,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   {
     return _staggered(
       slot: 3,
+      tour: kTourHomeNotices,
       card: HomeNoticesSection(
         notices: _notices,
         isLoading: _loadingNotices,
@@ -425,14 +482,10 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   {
     return _staggered(
       slot: 2,
-      card: DashboardSectionCard(
-        eyebrow: 'Cose da fare',
-        title: 'Attività e notifiche',
+      tour: kTourHomeNotifications,
+      card: HomeNotificationsSection(
+        bodyHeight: tall ? _notificationsBodyHeight : null,
         minHeight: tall ? _listHeight : 0,
-        child: const DashboardComingSoon(
-          icon: Icons.checklist_rounded,
-          description: '',
-        ),
       ),
     );
   }

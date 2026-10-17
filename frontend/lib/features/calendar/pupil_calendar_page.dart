@@ -9,6 +9,7 @@ import '../../core/utils/week_range.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_filter_pill.dart';
+import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/filter_menu.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../association/models/ministry_subject_item.dart';
@@ -18,12 +19,17 @@ import '../lessons/models/calendar_day.dart';
 import '../lessons/models/calendar_publication_item.dart';
 import '../lessons/models/lesson_item.dart';
 import '../lessons/models/presence_item.dart';
+import '../lessons/utils/calendar_jump.dart';
 import '../lessons/utils/opening_window.dart';
 import '../lessons/utils/timeline_geometry.dart';
 import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast, isLessonRunning;
+import '../notifications/calendar_seen.dart';
 import '../people/models/person_face.dart';
+import 'calendar_tour.dart';
+import 'pupil_calendar_tour.dart';
 import 'utils/calendar_strings.dart';
 import 'utils/pupil_band_presence.dart';
+import 'utils/viewable_days.dart';
 import 'widgets/band_summary_card.dart';
 import 'widgets/calendar_page_shell.dart';
 import 'widgets/own_day_timeline.dart';
@@ -48,7 +54,7 @@ const double _listNameGap = 10;
 
 const double _layoutMenuWidth = 210;
 
-typedef _Pupil = ({String taxCode, String firstName});
+typedef _Pupil = ({String taxCode, String firstName, String? gender});
 
 // Never past today: only published days are shown.
 class PupilCalendarPage extends StatefulWidget
@@ -70,6 +76,9 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   Timer? _clock;
 
   late DateTime _day = _today;
+
+  // Today, or tomorrow once one of its bands is published.
+  late DateTime _lastDay = _today;
 
   late TimeBucket _band = bucketFor(TimeOfDay.fromDateTime(_now)) ?? TimeBucket.afternoon;
 
@@ -117,14 +126,143 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
       }
     });
 
+    // Opened from a notification: straight to its day and band.
+    final CalendarJump? jump = CalendarJumps.role.take(role: widget.role);
+
+    if (jump != null)
+    {
+      _day = jump.day;
+      _band = jump.band;
+    }
+
+    CalendarJumps.role.asked.addListener(_jump);
     _loadDay();
   }
 
   @override
   void dispose()
   {
+    CalendarJumps.role.asked.removeListener(_jump);
     _clock?.cancel();
     super.dispose();
+  }
+
+  void _jump()
+  {
+    final CalendarJump? jump = CalendarJumps.role.take(role: widget.role);
+
+    if (jump == null || !mounted)
+    {
+      return;
+    }
+
+    setState(() => _band = jump.band);
+    _reload(jump.day);
+  }
+
+  // A published band on screen takes its notification away.
+  void _noteSeen()
+  {
+    if (!mounted || _isLoading || _failed || !_isPublished || !destinationShown)
+    {
+      return;
+    }
+
+    unawaited(markCalendarSeen(_day, _band));
+  }
+
+  void _chooseBand(TimeBucket band)
+  {
+    setState(() => _band = band);
+    _noteSeen();
+    _startTours();
+  }
+
+  bool get _canTour
+  {
+    return mounted && !_isLoading && !_failed && !isDesktopTourShown && isDesktopTourTargetShown(kTourCalendarBands);
+  }
+
+  // One tour for the page, the published band and the lesson's window, on an open day. [follow]: a day just read
+  // turns to a published band with a lesson if the current one has none and that part was never told.
+  Future<void> _startTours({bool follow = false}) async
+  {
+    await WidgetsBinding.instance.endOfFrame;
+
+    if (!_canTour)
+    {
+      return;
+    }
+
+    if (follow && _firstLessonIn(_band) == null && await isPupilCalendarBandDue())
+    {
+      final TimeBucket? published = TimeBucket.values.where((band) => _firstLessonIn(band) != null).firstOrNull;
+
+      if (published != null && _canTour)
+      {
+        setState(() => _band = published);
+        _noteSeen();
+        await WidgetsBinding.instance.endOfFrame;
+      }
+    }
+
+    if (!_canTour)
+    {
+      return;
+    }
+
+    final List<_Pupil> pupils = _pupils ?? const [];
+    final List<PupilBandPresence> presences = [for (final pupil in pupils) _presenceOf(pupil)];
+    final LessonItem? lesson = _firstLessonIn(_band);
+
+    pupilCalendarLessonFor = _lessonFor(lesson);
+
+    final DesktopTour? tour = await pupilCalendarPageTour(
+      genders: [for (final pupil in pupils) pupil.gender],
+      online: presences.expand((presence) => presence.presences).every((row) => row.mode == kOnlineMode) &&
+          presences.any((presence) => presence.presences.isNotEmpty),
+    );
+
+    if (tour != null && mounted)
+    {
+      startPupilCalendarTour(context, tour);
+    }
+  }
+
+  // The pupil a lesson is for, as the window's tour names them.
+  ({bool self, String? gender}) _lessonFor(LessonItem? lesson)
+  {
+    final String? code = lesson?.bookings.firstOrNull?.presence.student.taxCode;
+    final _Pupil? pupil = (_pupils ?? const <_Pupil>[]).where((pupil) => pupil.taxCode == code).firstOrNull;
+
+    return (self: !_isParent, gender: pupil?.gender);
+  }
+
+  // The earliest lesson of a published band, among every pupil's: the one a tour lights.
+  LessonItem? _firstLessonIn(TimeBucket band)
+  {
+    if (!_publications.any((row) => isSameDate(row.date, _day) && row.band == band))
+    {
+      return null;
+    }
+
+    final List<LessonItem> lessons = [
+      for (final pupil in _pupils ?? const <_Pupil>[])
+        ...pupilBandPresence(day: _day, band: band, pupilTaxCode: pupil.taxCode, presences: _presences, lessons: _lessons)
+            .lessons,
+    ];
+
+    return lessons.isEmpty ? null : lessons.reduce((a, b) => b.startMinutes < a.startMinutes ? b : a);
+  }
+
+  void _onPickerOpen(BuildContext context, bool open)
+  {
+    calendarPickerOpen.value = open;
+
+    if (open)
+    {
+      startPupilCalendarTour(context, calendarPickerTour);
+    }
   }
 
   @override
@@ -132,7 +270,11 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   {
     setState(() => _now = romeNow());
 
-    _loadDay(quiet: true);
+    // A full read under way, as a notification asks for, is fresh enough.
+    if (!_isLoading)
+    {
+      _loadDay(quiet: true);
+    }
   }
 
   Future<List<_Pupil>> _readPupils() async
@@ -141,7 +283,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
     if (!_isParent)
     {
-      return [(taxCode: me.taxCode, firstName: me.firstName)];
+      return [(taxCode: me.taxCode, firstName: me.firstName, gender: me.gender)];
     }
 
     final reader = await _apiService.getPerson(me.taxCode);
@@ -152,7 +294,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
     return [
       for (final child in children.where((child) => child.roles.contains(_pupilRole)).toList()..sort(compareByName))
-        (taxCode: child.fiscalCode, firstName: child.firstName),
+        (taxCode: child.fiscalCode, firstName: child.firstName, gender: child.gender),
     ];
   }
 
@@ -170,6 +312,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
         _apiService.getLessons(dateFrom: day, dateTo: day),
         _apiService.getPresences(dateFrom: day, dateTo: day),
         _apiService.getUnbookedBands(dateFrom: day, dateTo: day),
+        _apiService.getCalendarPublications(dateFrom: addDays(_today, 1), dateTo: addDays(_today, 1)),
         if (_ministrySubjects.isEmpty) _apiService.getMinistrySubjects(),
       ]);
 
@@ -190,10 +333,11 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
         _lessons = results[3] as List<LessonItem>;
         _presences = results[4] as List<PresenceItem>;
         _unbooked = results[5] as List<(DateTime, TimeBucket)>;
+        _lastDay = lastViewableDay(_today, results[6] as List<CalendarPublicationItem>);
 
-        if (results.length > 6)
+        if (results.length > 7)
         {
-          _ministrySubjects = results[6] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[7] as List<MinistrySubjectItem>;
         }
 
         _pupils = pupils;
@@ -201,6 +345,9 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
         _isLoading = false;
         _failed = false;
       });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) => _noteSeen());
+      _startTours(follow: true);
     }
     catch (e, stackTrace)
     {
@@ -223,15 +370,30 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   {
     final DateTime normalised = DateTime(day.year, day.month, day.day);
     final DateTime oldest = oldestKeptDay(_now);
-    final DateTime target = normalised.isAfter(_today)
-        ? _today
-        : (normalised.isBefore(oldest) ? oldest : normalised);
 
+    _showDay(
+      normalised.isAfter(_lastDay)
+          ? _lastDay
+          : (normalised.isBefore(oldest) ? oldest : normalised),
+    );
+  }
+
+  // The same day read again quietly, another one in full.
+  void _showDay(DateTime target)
+  {
     if (isSameDate(target, _day))
     {
+      _loadDay(quiet: true);
+
       return;
     }
 
+    _reload(target);
+  }
+
+  // Also what a notification's tap does: nothing on screen from before its news.
+  void _reload(DateTime target)
+  {
     setState(()
     {
       _day = target;
@@ -320,6 +482,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     }
 
     _isOpeningLesson = true;
+    pupilCalendarLessonFor = _lessonFor(lesson);
 
     try
     {
@@ -337,20 +500,36 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     }
   }
 
+  // The earliest lesson is the one a tour lights.
   List<TimelineEntry> _entriesOf(PupilBandPresence presence, {required bool onTimeline})
   {
+    final LessonItem? first = _firstLessonIn(_band);
+
     return [
       for (final lesson in presence.lessons)
-        OwnLessonBlock(
-          key: ValueKey('lesson-${lesson.id}'),
-          lesson: lesson,
-          ministrySubjects: _ministrySubjects,
-          view: CalendarView.byStudent,
-          isPast: isLessonPast(lesson, _now),
-          isCurrent: !onTimeline && isLessonRunning(lesson, _now),
-          onTap: () => _openLesson(lesson),
-        ).asEntry(context),
+        _lessonEntry(lesson, onTimeline: onTimeline, lit: lesson.id == first?.id),
     ];
+  }
+
+  TimelineEntry _lessonEntry(LessonItem lesson, {required bool onTimeline, required bool lit})
+  {
+    final TimelineEntry entry = OwnLessonBlock(
+      key: ValueKey('lesson-${lesson.id}'),
+      lesson: lesson,
+      ministrySubjects: _ministrySubjects,
+      view: CalendarView.byStudent,
+      isPast: isLessonPast(lesson, _now),
+      isCurrent: !onTimeline && isLessonRunning(lesson, _now),
+      onTap: () => _openLesson(lesson),
+    ).asEntry(context);
+
+    return (
+      startMinutes: entry.startMinutes,
+      endMinutes: entry.endMinutes,
+      width: entry.width,
+      heightAt: entry.heightAt,
+      block: DesktopTourTarget(id: lit ? kTourCalendarLesson : null, child: entry.block),
+    );
   }
 
   TimelineLane _laneOf(_Pupil pupil, PupilBandPresence presence, {required bool named})
@@ -366,6 +545,14 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   }
 
   Widget _buildLayoutPicker()
+  {
+    return DesktopTourTarget(
+      id: kTourPupilCalendarLayout,
+      child: _buildLayoutPill(),
+    );
+  }
+
+  Widget _buildLayoutPill()
   {
     return AppFilterPill<CalendarLayout>.setting(
       prefix: 'Disposizione',
@@ -486,20 +673,22 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (named)
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var index = 0; index < pupils.length; index++) ...[
-                  if (index > 0) const SizedBox(width: _cardGap),
-                  Expanded(child: _buildCard(pupils[index], presences[index], named: true)),
-                ],
-              ],
-            ),
-          )
-        else
-          _buildCard(pupils.single, presences.single, named: false),
+        DesktopTourTarget(
+          id: kTourPupilCalendarCards,
+          child: named
+              ? IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var index = 0; index < pupils.length; index++) ...[
+                        if (index > 0) const SizedBox(width: _cardGap),
+                        Expanded(child: _buildCard(pupils[index], presences[index], named: true)),
+                      ],
+                    ],
+                  ),
+                )
+              : _buildCard(pupils.single, presences.single, named: false),
+        ),
         const SizedBox(height: kCalendarCardGap),
         if (isNarrow || _layout == CalendarLayout.byLesson)
           _buildLists(pupils, presences)
@@ -522,16 +711,16 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     return CalendarPageShell(
       currentRoute: '${homeForRole(widget.role)}/calendar',
       band: _band,
-      onBand: (band) => setState(() => _band = band),
+      onBand: _chooseBand,
       day: _day,
-      isToday: _isToday,
+      lastDay: _lastDay,
       isFirstDay: _isFirstDay,
       isBusy: _isLoading,
       onDay: _goToDay,
       isClosed: !_isLoading && !_failed && _isDayClosed,
       closureNote: _closureNote,
       tools: (isNarrow) => isNarrow ? const [] : [_buildLayoutPicker()],
-      intro: lessonDetailsHint(verb: 'clicca'),
+      onPickerOpen: _onPickerOpen,
       body: _buildBody,
     );
   }

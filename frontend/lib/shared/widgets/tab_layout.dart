@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import 'app_filter_pill.dart';
 import 'app_gradient_button.dart';
 import 'app_search_field.dart';
+import 'desktop_tour.dart';
 import 'filter_menu.dart';
 import 'page_transition.dart';
 
@@ -172,7 +173,10 @@ class TabContent extends StatelessWidget
   // Centred after the body, scrolling with it.
   final Widget? footer;
 
-  const TabContent({super.key, required this.header, required this.body, this.footer});
+  // The scrolling list, for a tour to light.
+  final String? bodyTour;
+
+  const TabContent({super.key, required this.header, required this.body, this.footer, this.bodyTour});
 
   List<Widget> get _head
   {
@@ -224,7 +228,12 @@ class TabContent extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ..._head,
-            Expanded(child: PageTransitionScrollView.slivers(slivers: _body)),
+            Expanded(
+              child: DesktopTourTarget(
+                id: bodyTour,
+                child: PageTransitionScrollView.slivers(slivers: _body),
+              ),
+            ),
           ],
         );
       },

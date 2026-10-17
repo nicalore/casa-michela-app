@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
@@ -452,6 +453,9 @@ class TeacherPicker extends StatefulWidget
 
   final VoidCallback onChanged;
 
+  // The search field, for a tour to light.
+  final String? searchTour;
+
   const TeacherPicker({
     super.key,
     this.label,
@@ -461,6 +465,7 @@ class TeacherPicker extends StatefulWidget
     required this.onChanged,
     this.max,
     this.hint = kSearchTeacher,
+    this.searchTour,
   });
 
   @override
@@ -559,10 +564,13 @@ class _TeacherPickerState extends State<TeacherPicker>
             ),
           )
         else ...[
-          AppSearchField(
-            controller: _controller,
-            hintText: _full ? kTeachersFull : widget.hint,
-            onChanged: (value) => setState(() => _query = value),
+          DesktopTourTarget(
+            id: widget.searchTour,
+            child: AppSearchField(
+              controller: _controller,
+              hintText: _full ? kTeachersFull : widget.hint,
+              onChanged: (value) => setState(() => _query = value),
+            ),
           ),
           const SizedBox(height: 10),
           if (_available.isEmpty)

@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/overflow_tooltip_text.dart';
@@ -20,6 +21,7 @@ import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
 import '../models/person_item.dart';
 import '../models/teacher_subject_item.dart';
+import '../subjects_tour.dart';
 import '../widgets/competence_picker.dart';
 import '../widgets/program_scope_dialog.dart';
 import '../widgets/teacher_competences_editor.dart';
@@ -348,35 +350,37 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
 
   List<Widget> _buildCards()
   {
-    final entries = <({String name, Widget card})>[
-      for (final subject in _filteredSubjects)
-        (
-          name: subject.subjectName,
-          card: _CompetenceCard(
-            title: subject.subjectName,
-            subtitle: subject.studyPrograms.length == 1
-                ? '1 percorso'
-                : '${subject.studyPrograms.length} percorsi',
-            onEdit: () => _openScopeDialog(subject),
-            onRemove: () => _confirmRemoveSubject(subject),
-          ),
-        ),
-      for (final service in _filteredServices)
-        (
-          name: service,
-          card: _CompetenceCard(
-            title: service,
-            subtitle: 'Servizio',
-            onRemove: () => _confirmRemoveService(service),
-          ),
-        ),
+    final entries = <({String name, TeacherSubjectItem? subject})>[
+      for (final subject in _filteredSubjects) (name: subject.subjectName, subject: subject),
+      for (final service in _filteredServices) (name: service, subject: null),
     ];
 
     entries.sort((a, b) => _sort == _SubjectSort.nameAsc
         ? a.name.compareTo(b.name)
         : b.name.compareTo(a.name));
 
-    return entries.map((entry) => entry.card).toList();
+    // The tour lights the pencil and the bin of the first discipline; services have no pencil.
+    final int toolsAt = entries.indexWhere((entry) => entry.subject != null);
+
+    return [
+      for (final (index, entry) in entries.indexed)
+        if (entry.subject case final subject?)
+          _CompetenceCard(
+            title: subject.subjectName,
+            subtitle: subject.studyPrograms.length == 1
+                ? '1 percorso'
+                : '${subject.studyPrograms.length} percorsi',
+            toolsTour: index == toolsAt ? kTourSubjectsTools : null,
+            onEdit: () => _openScopeDialog(subject),
+            onRemove: () => _confirmRemoveSubject(subject),
+          )
+        else
+          _CompetenceCard(
+            title: entry.name,
+            subtitle: 'Servizio',
+            onRemove: () => _confirmRemoveService(entry.name),
+          ),
+    ];
   }
 
   void _openAddDialog()
@@ -393,10 +397,13 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
 
   Widget _buildAddButton()
   {
-    return AppGradientButton(
-      label: 'AGGIUNGI DISCIPLINE',
-      icon: Icons.add_rounded,
-      onPressed: _openAddDialog,
+    return DesktopTourTarget(
+      id: kTourSubjectsAdd,
+      child: AppGradientButton(
+        label: 'AGGIUNGI DISCIPLINE',
+        icon: Icons.add_rounded,
+        onPressed: _openAddDialog,
+      ),
     );
   }
 
@@ -483,20 +490,26 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                     if (cards.isEmpty)
                       PageTransitionItem(
                         slot: PageTransitionItem.list,
-                        child: PersonEmptyState(
-                          message: _showingOnlyServices
-                              ? 'Nessun servizio trovato per questa ricerca.'
-                              : 'Nessuna disciplina trovata per questa ricerca.',
+                        child: DesktopTourTarget(
+                          id: kTourSubjectsHeld,
+                          child: PersonEmptyState(
+                            message: _showingOnlyServices
+                                ? 'Nessun servizio trovato per questa ricerca.'
+                                : 'Nessuna disciplina trovata per questa ricerca.',
+                          ),
                         ),
                       )
                     else
-                      Wrap(
-                        spacing: _subjectCardGap,
-                        runSpacing: _subjectCardGap,
-                        children: [
-                          for (final card in cards)
-                            PageTransitionItem.wave(child: card),
-                        ],
+                      DesktopTourTarget(
+                        id: kTourSubjectsHeld,
+                        child: Wrap(
+                          spacing: _subjectCardGap,
+                          runSpacing: _subjectCardGap,
+                          children: [
+                            for (final card in cards)
+                              PageTransitionItem.wave(child: card),
+                          ],
+                        ),
                       ),
                     const SizedBox(height: 48),
                     PageTransitionItem(
@@ -527,11 +540,14 @@ class _CompetenceCard extends StatefulWidget
   final VoidCallback? onEdit;
   final VoidCallback onRemove;
 
+  final String? toolsTour;
+
   const _CompetenceCard({
     required this.title,
     required this.subtitle,
     this.onEdit,
     required this.onRemove,
+    this.toolsTour,
   });
 
   @override
@@ -596,18 +612,26 @@ class _CompetenceCardState extends State<_CompetenceCard>
               ),
             ),
             const SizedBox(width: 10),
-            if (widget.onEdit != null)
-              FadeHoverIconButton(
-                icon: Icons.edit_outlined,
-                color: AppTheme.trialTealDeep,
-                hoverColor: AppTheme.trialGoldSurface,
-                onTap: widget.onEdit!,
+            DesktopTourTarget(
+              id: widget.toolsTour,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.onEdit != null)
+                    FadeHoverIconButton(
+                      icon: Icons.edit_outlined,
+                      color: AppTheme.trialTealDeep,
+                      hoverColor: AppTheme.trialGoldSurface,
+                      onTap: widget.onEdit!,
+                    ),
+                  FadeHoverIconButton(
+                    icon: Icons.delete_outline_rounded,
+                    color: AppTheme.trialDanger,
+                    hoverColor: AppTheme.trialGoldSurface,
+                    onTap: widget.onRemove,
+                  ),
+                ],
               ),
-            FadeHoverIconButton(
-              icon: Icons.delete_outline_rounded,
-              color: AppTheme.trialDanger,
-              hoverColor: AppTheme.trialGoldSurface,
-              onTap: widget.onRemove,
             ),
           ],
         ),
@@ -633,6 +657,32 @@ class _SubjectsAddDialogState extends State<_SubjectsAddDialog>
   TeacherCompetencesDraft? _draft;
 
   bool _isSubmitting = false;
+
+  // The first draft comes once the catalogue is read: its rows can be lit.
+  void _onDraft(TeacherCompetencesDraft draft)
+  {
+    if (_draft == null)
+    {
+      startSubjectsTour(context, subjectsCatalogueTour);
+    }
+
+    _draft = draft;
+  }
+
+  // Told after the frame: a tour waiting for it redraws itself, which a build in progress forbids.
+  @override
+  void initState()
+  {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => subjectsCatalogueOpen.value = true);
+  }
+
+  @override
+  void dispose()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_) => subjectsCatalogueOpen.value = false);
+    super.dispose();
+  }
 
   Future<void> _submitForm() async
   {
@@ -696,34 +746,44 @@ class _SubjectsAddDialogState extends State<_SubjectsAddDialog>
       maxWidth: 860,
       fillLast: true,
       footer: AppDialogFooter.single(
-        AppGradientButton(
-          label: 'CONFERMA',
-          icon: Icons.check_rounded,
-          busy: _isSubmitting,
-          height: kPersonDialogButtonHeight,
-          fontSize: kPersonDialogButtonFontSize,
-          onPressed: _submitForm,
+        DesktopTourTarget(
+          id: kTourSubjectsConfirm,
+          child: AppGradientButton(
+            label: 'CONFERMA',
+            icon: Icons.check_rounded,
+            busy: _isSubmitting,
+            height: kPersonDialogButtonHeight,
+            fontSize: kPersonDialogButtonFontSize,
+            onPressed: _submitForm,
+          ),
         ),
       ),
       children: [
         TeacherCompetencesEditor(
           person: widget.person,
           onlyNew: true,
-          onChanged: (draft) => _draft = draft,
+          onChanged: _onDraft,
+          onChosen: () => startSubjectsTour(context, subjectsChosenTour),
           builder: (context, filters, list) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               AppDialogPiece(
                 index: 1,
                 named: false,
-                child: AppDialogPill(expand: true, child: filters),
+                child: DesktopTourTarget(
+                  id: kTourSubjectsFilters,
+                  child: AppDialogPill(expand: true, child: filters),
+                ),
               ),
               const SizedBox(height: 26),
               Flexible(
                 child: AppDialogPiece(
                   index: 2,
                   named: false,
-                  child: AppDialogPill(expand: true, child: list),
+                  child: DesktopTourTarget(
+                    id: kTourSubjectsList,
+                    child: AppDialogPill(expand: true, child: list),
+                  ),
                 ),
               ),
             ],
