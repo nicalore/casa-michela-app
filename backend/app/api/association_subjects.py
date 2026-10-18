@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from html import escape
 from typing import Final
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,7 @@ from app.api.rbac import CurrentIdentity, get_current_identity, require_role
 from app.models.association_subject import AssociationSubject
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.person import Person
+from app.models.report import ReportKindEnum
 from app.models.teaching_competence import TeachingCompetence
 from app.schemas.association_subject import (
     AssociationSubjectCreate,
@@ -20,7 +21,8 @@ from app.schemas.association_subject import (
     AssociationSubjectUpdate,
     MissingSubjectReport,
 )
-from app.services import email_service
+from app.services import email_service, push
+from app.services.reports import ReportNotSentError, record_report, send_to_readers
 
 router = APIRouter(
     prefix="/association-subjects",
@@ -119,13 +121,23 @@ async def report_missing_subject(
     payload: MissingSubjectReport,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
     person = await db.get_one(Person, identity.tax_code)
     full_name = f"{person.first_name} {person.last_name}"
+    report, batch = await record_report(
+        db,
+        person,
+        identity.active_role,
+        ReportKindEnum.MISSING_SUBJECT,
+        title=payload.name,
+        description=payload.description,
+    )
 
     try:
-        email_service.send_email(
-            recipient=await email_service.president_address(db),
+        await send_to_readers(
+            db,
+            report,
             reply_to=person.email,
             subject=_REPORT_EMAIL_SUBJECT.format(full_name=full_name),
             heading=_REPORT_EMAIL_HEADING,
@@ -141,11 +153,15 @@ async def report_missing_subject(
                 teal=email_service.TEAL,
             ),
         )
-    except Exception as err:
+    except ReportNotSentError as err:
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=_REPORT_EMAIL_ERROR.format(error=err),
         ) from err
+
+    await db.commit()
+    background.add_task(push.deliver, batch)
 
     return {"message": _REPORT_SENT_MESSAGE}
 

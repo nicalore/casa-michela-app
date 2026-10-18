@@ -77,7 +77,7 @@ def image_content_id(key: str) -> str:
     return f"notice-image-{key}"
 
 
-def _day_and_time(instant: datetime) -> tuple[str, str]:
+def day_and_time(instant: datetime) -> tuple[str, str]:
     local = instant.astimezone(_ROME)
 
     return f"{local.day} {_MONTHS[local.month - 1]} {local.year}", f"{local:%H:%M}"
@@ -108,7 +108,7 @@ def compose(
     sent_at = notice.created_at
 
     if notice.edited_at is not None:
-        day, hour = _day_and_time(notice.edited_at)
+        day, hour = day_and_time(notice.edited_at)
         edited = _EDITED_NOTE.format(day=day, time=hour)
         subject = _EDITED_SUBJECT.format(title=notice.title)
         sent_at = notice.edited_at

@@ -217,6 +217,27 @@ async def make_president(db: AsyncSession, *, enrolled: bool = True) -> Administ
     )
 
 
+# Not unique: as many as the association wants.
+async def make_it_manager(
+    db: AsyncSession,
+    *,
+    first_name: str = "Paolo",
+    last_name: str = "Conti",
+    enrolled: bool = True,
+) -> Administrator:
+    person = await _make_staff_person(
+        db,
+        first_name=first_name,
+        last_name=last_name,
+        enrolled=enrolled,
+    )
+
+    return await _persist(
+        db,
+        Administrator(tax_code=person.tax_code, role=AdministratorRoleEnum.IT_MANAGER),
+    )
+
+
 # Fixed-day tests pin the year to theirs.
 def membership_year() -> int:
     return date.today().year

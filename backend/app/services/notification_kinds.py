@@ -8,12 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.account import Account
 from app.models.muted_notification_kind import MutedNotificationKind
 from app.models.notification import NotificationKindEnum
+from app.services.report_readers import kinds_read_by
 from app.services.role_service import RoleService
 
 _NOT_CHOOSABLE_ERROR: Final[str] = "Questo tipo di notifica non è tra i tuoi."
 
 # Not a role: a pupil who books alone.
 _SELF_BOOKER: Final[str] = "SELF_BOOKER"
+
+# Not a role either: an administrator who receives reports.
+_REPORT_READER: Final[str] = "REPORT_READER"
 
 # Who may turn each kind on or off, in settings order; every kind but TEST is here.
 CHOOSABLE: Final[dict[NotificationKindEnum, frozenset[str]]] = {
@@ -63,6 +67,7 @@ CHOOSABLE: Final[dict[NotificationKindEnum, frozenset[str]]] = {
             "COURSE_PARTICIPANT",
         },
     ),
+    NotificationKindEnum.REPORT_RECEIVED: frozenset({_REPORT_READER}),
 }
 
 
@@ -79,6 +84,9 @@ def _roles_of(account: Account) -> frozenset[str]:
 
     if books_alone(account):
         roles.add(_SELF_BOOKER)
+
+    if kinds_read_by(account.person):
+        roles.add(_REPORT_READER)
 
     return frozenset(roles)
 

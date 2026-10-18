@@ -27,6 +27,8 @@ class AdministratorRoleEnum(StrEnum):
     PRESIDENT = "PRESIDENT"
     VICE_PRESIDENT = "VICE_PRESIDENT"
     TREASURER = "TREASURER"
+    # Not unique and off the board: the only one told of the app's problems.
+    IT_MANAGER = "IT_MANAGER"
     OTHER = "OTHER"
 
 

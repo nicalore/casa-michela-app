@@ -46,6 +46,7 @@ class NotificationKindEnum(StrEnum):
     AVAILABILITY_CHANGED = "AVAILABILITY_CHANGED"
     AVAILABILITY_CANCELLED = "AVAILABILITY_CANCELLED"
     NEW_DEVICE = "NEW_DEVICE"
+    REPORT_RECEIVED = "REPORT_RECEIVED"
 
 
 # What an account was told; the home card lists these, a push only announces one.
@@ -113,6 +114,13 @@ class Notification(CreatedAtMixin, Base):
             unique=True,
             postgresql_where=text("kind = 'NOTICE_RECEIVED'"),
         ),
+        Index(
+            "uq_notifications_report_received",
+            "account_tax_code",
+            "report_id",
+            unique=True,
+            postgresql_where=text("kind = 'REPORT_RECEIVED'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -154,6 +162,12 @@ class Notification(CreatedAtMixin, Base):
     # The notice it announces; withdrawn before the notice goes, then gone with it.
     notice_id: Mapped[int | None] = mapped_column(
         ForeignKey("notices.id", ondelete="CASCADE"),
+        index=True,
+    )
+
+    # The report it announces; gone with it.
+    report_id: Mapped[int | None] = mapped_column(
+        ForeignKey("reports.id", ondelete="CASCADE"),
         index=True,
     )
 

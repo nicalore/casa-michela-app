@@ -3,24 +3,16 @@ from collections.abc import Sequence
 from typing import Final
 
 import resend
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.storage import EMAIL_LOGO
-from app.models.administrator import Administrator, AdministratorRoleEnum
-from app.models.person import Person
 
 resend.api_key = settings.resend_api_key
 
 SENDER: Final[str] = "Associazione Casa Michela <supporto@app.casamichela.it>"
 
-# The association's mailbox: replies, and reports until a president with an email.
+# The association's mailbox: replies, and reports nobody is there to receive.
 CONTACT_ADDRESS: Final[str] = "nicolo.calore@casamichela.it"
-
-# Whoever builds the app: problems and corrections go here, not to the president.
-DEVELOPER_ADDRESS: Final[str] = "nicolo.calore@casamichela.it"
-DEVELOPER_GREETING: Final[str] = "Ciao Nicolò,"
 
 GREETING: Final[str] = "Ciao,"
 
@@ -72,18 +64,6 @@ _SIGNATURE: Final[str] = f"""
             <strong style="color: {INK};">Associazione Casa Michela</strong>
         </p>
 """
-
-
-# Whoever holds the register reads what the members send in.
-async def president_address(db: AsyncSession) -> str:
-    email = await db.scalar(
-        select(Person.email)
-        .join(Administrator, Administrator.tax_code == Person.tax_code)
-        .where(Administrator.role == AdministratorRoleEnum.PRESIDENT)
-        .where(Person.email.is_not(None))
-    )
-
-    return email or CONTACT_ADDRESS
 
 
 # An empty greeting leaves no blank paragraph: a notice opens with its own words.

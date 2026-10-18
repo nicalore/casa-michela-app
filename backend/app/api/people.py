@@ -6,6 +6,7 @@ from typing import Annotated, Any, Final
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     HTTPException,
@@ -50,6 +51,7 @@ from app.models.person import GenderEnum, Person
 from app.models.presence import Presence
 from app.models.psychological_support import PsychologicalSupport
 from app.models.psychologist import Psychologist
+from app.models.report import ReportKindEnum
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
 from app.models.service import Service
@@ -99,7 +101,7 @@ from app.schemas.person import (
 )
 from app.schemas.person_wizard import PersonWizardPayload
 from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
-from app.services import email_service
+from app.services import email_service, push
 from app.services.collaboration import new_member, stop_collaboration
 from app.services.early_exit_form import (
     build_early_exit_form,
@@ -117,6 +119,7 @@ from app.services.person_wizard_service import (
     create_person_from_wizard,
 )
 from app.services.pupil_lock import lock_pupil
+from app.services.reports import ReportNotSentError, record_report, send_to_readers
 from app.services.role_service import RoleService
 from app.services.student_notes import is_followed, note_response
 from app.services.teacher_notes import teacher_note_response
@@ -2529,6 +2532,7 @@ async def report_person_error(
     corrections: dict[str, _ReportedValue],
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
     target = tax_code.upper()
     own = target == identity.tax_code
@@ -2558,12 +2562,22 @@ async def report_person_error(
         for field, value in corrections.items()
     )
 
+    reporter = await db.get_one(Person, identity.tax_code)
+    report, batch = await record_report(
+        db,
+        reporter,
+        identity.active_role,
+        ReportKindEnum.PERSONAL_DATA,
+        person_tax_code=person.tax_code,
+        corrections=list(corrections.items()),
+    )
+
     try:
-        email_service.send_email(
-            recipient=email_service.DEVELOPER_ADDRESS,
+        await send_to_readers(
+            db,
+            report,
             subject=_REPORT_EMAIL_SUBJECT.format(full_name=full_name),
             heading=_REPORT_EMAIL_HEADING,
-            greeting=email_service.DEVELOPER_GREETING,
             body=_REPORT_EMAIL_BODY.format(
                 full_name=escape(full_name),
                 tax_code=escape(person.tax_code),
@@ -2575,11 +2589,15 @@ async def report_person_error(
             ),
         )
 
-    except Exception as err:
+    except ReportNotSentError as err:
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=_REPORT_EMAIL_ERROR.format(error=err),
         ) from err
+
+    await db.commit()
+    background.add_task(push.deliver, batch)
 
     return {"status": "success", "message": _REPORT_SENT_MESSAGE}
 
@@ -2594,12 +2612,19 @@ async def wizard_create_person(
     db: DbSession,
 ) -> dict[str, str]:
     minors = [minor.tax_code for minor in payload.relationships.minors_tax_codes]
+    teachers = await _teacher_only_tax_codes(db, minors)
 
-    if await _teacher_only_tax_codes(db, minors):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_TEACHER_PARENTS_LOCKED_ERROR,
+    # As on the teacher's record, an adult teacher's parents are frozen.
+    if teachers:
+        birth_dates = await db.scalars(
+            select(Person.birth_date).where(Person.tax_code.in_(teachers))
         )
+
+        if any(_is_adult(birth_date) for birth_date in birth_dates):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_ADULT_TEACHER_PARENTS_ERROR,
+            )
 
     try:
         new_person = await create_person_from_wizard(db, payload)

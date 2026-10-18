@@ -1,16 +1,18 @@
 from html import escape
 from typing import Final
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity
 from app.core.labels import role_label
 from app.models.person import Person
+from app.models.report import ReportKindEnum
 from app.schemas.support import ProblemReport
-from app.services import email_service
+from app.services import email_service, push
+from app.services.reports import ReportNotSentError, record_report, send_to_readers
 
-# A word to whoever builds the app, from anyone signed in.
+# A word to the IT managers, from anyone signed in.
 router = APIRouter(prefix="/support", tags=["support"])
 
 _REPORT_SENT_MESSAGE: Final[str] = "Segnalazione inviata correttamente"
@@ -40,17 +42,25 @@ async def report_problem(
     payload: ProblemReport,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
     person = await db.get_one(Person, identity.tax_code)
     full_name = f"{person.first_name} {person.last_name}"
+    report, batch = await record_report(
+        db,
+        person,
+        identity.active_role,
+        ReportKindEnum.APP_PROBLEM,
+        description=payload.description,
+    )
 
     try:
-        email_service.send_email(
-            recipient=email_service.DEVELOPER_ADDRESS,
+        await send_to_readers(
+            db,
+            report,
             reply_to=person.email,
             subject=_REPORT_EMAIL_SUBJECT.format(full_name=full_name),
             heading=_REPORT_EMAIL_HEADING,
-            greeting=email_service.DEVELOPER_GREETING,
             body=_REPORT_EMAIL_BODY.format(
                 full_name=escape(full_name),
                 role=escape(role_label(identity.active_role or "")),
@@ -63,10 +73,14 @@ async def report_problem(
                 teal=email_service.TEAL,
             ),
         )
-    except Exception as err:
+    except ReportNotSentError as err:
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=_REPORT_EMAIL_ERROR.format(error=err),
         ) from err
+
+    await db.commit()
+    background.add_task(push.deliver, batch)
 
     return {"message": _REPORT_SENT_MESSAGE}
