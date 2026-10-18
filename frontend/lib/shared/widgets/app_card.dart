@@ -9,6 +9,7 @@ const double _cardPadding = 32;
 const double _cardRadius = 40;
 
 const double _compactBadgeSize = 64;
+const double _smallBadgeSize = 40;
 const double _compactCardPadding = 26;
 const double _compactCardRadius = 32;
 
@@ -157,12 +158,15 @@ class AppCardBadge extends StatelessWidget
 
   final bool compact;
 
-  const AppCardBadge({super.key, required this.icon, this.compact = false});
+  // The home cards' header.
+  final bool small;
+
+  const AppCardBadge({super.key, required this.icon, this.compact = false, this.small = false});
 
   @override
   Widget build(BuildContext context)
   {
-    final double size = compact ? _compactBadgeSize : _badgeSize;
+    final double size = small ? _smallBadgeSize : compact ? _compactBadgeSize : _badgeSize;
 
     return Container(
       width: size,
@@ -171,7 +175,7 @@ class AppCardBadge extends StatelessWidget
         gradient: AppTheme.brandGradient,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, size: compact ? 30 : 42, color: Colors.white),
+      child: Icon(icon, size: small ? 21 : compact ? 30 : 42, color: Colors.white),
     );
   }
 }

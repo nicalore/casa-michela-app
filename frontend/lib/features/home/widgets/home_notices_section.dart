@@ -9,7 +9,7 @@ import '../../association/notices/notice_item.dart';
 import '../../association/notices/notice_strings.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 
-const double _lineHeight = 44;
+const double _lineHeight = 36;
 const double _lineRadius = 16;
 const double _lineBorder = 1.5;
 // The gold frame of the one under the mouse, drawn over its own border.
@@ -22,7 +22,12 @@ const double _lineGap = 8;
 const int _shown = 5;
 
 // Sized for a full list from the start, so nothing moves when the lines arrive.
-const double _bodyHeight = _shown * _lineHeight + (_shown - 1) * _lineGap;
+double _bodyHeight(int columns)
+{
+  final int rows = (_shown / columns).ceil();
+
+  return rows * _lineHeight + (rows - 1) * _lineGap;
+}
 
 class HomeNoticesSection extends StatelessWidget
 {
@@ -35,6 +40,9 @@ class HomeNoticesSection extends StatelessWidget
   final double minHeight;
   final bool fill;
 
+  // Lines side by side, newest first along each row.
+  final int columns;
+
   const HomeNoticesSection({
     super.key,
     required this.notices,
@@ -42,18 +50,19 @@ class HomeNoticesSection extends StatelessWidget
     this.isLoading = false,
     this.minHeight = 0,
     this.fill = false,
+    this.columns = 1,
   });
 
   @override
   Widget build(BuildContext context)
   {
     return DashboardSectionCard(
-      eyebrow: kHomeNoticesEyebrow,
+      icon: Icons.campaign_rounded,
       title: kHomeNoticesTitle,
       minHeight: minHeight,
       fill: fill,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: _bodyHeight),
+        constraints: BoxConstraints(minHeight: _bodyHeight(columns)),
         child: _body(),
       ),
     );
@@ -88,13 +97,23 @@ class HomeNoticesSection extends StatelessWidget
 
     final DateTime today = romeNow();
 
+    Widget line(NoticeHeadlineItem notice) =>
+        _NoticeLine(notice: notice, day: noticeShortDay(notice.createdAt, today: today), onTap: () => onOpen(notice));
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < read.length; i++) ...[
-          if (i > 0) const SizedBox(height: _lineGap),
-          _NoticeLine(notice: read[i], day: noticeShortDay(read[i].createdAt, today: today), onTap: () => onOpen(read[i])),
+        for (var start = 0; start < read.length; start += columns) ...[
+          if (start > 0) const SizedBox(height: _lineGap),
+          Row(
+            children: [
+              for (var i = start; i < start + columns; i++) ...[
+                if (i > start) const SizedBox(width: _lineGap + 2),
+                Expanded(child: i < read.length ? line(read[i]) : const SizedBox()),
+              ],
+            ],
+          ),
         ],
       ],
     );
@@ -137,14 +156,14 @@ class _NoticeLineState extends State<_NoticeLine>
                 widget.notice.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+                style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
               ),
             ),
             const SizedBox(width: 12),
             Text(
               widget.day,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.trialMutedText,
                 fontFeatures: const [FontFeature.tabularFigures()],

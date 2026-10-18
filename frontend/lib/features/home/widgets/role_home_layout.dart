@@ -37,8 +37,7 @@ import '../models/month_summary_items.dart';
 import 'home_month_section.dart';
 import 'home_notices_section.dart';
 import 'home_schedule_data.dart';
-import 'home_schedule_section.dart';
-import 'home_variant.dart';
+import 'home_day_strip.dart';
 
 const String kTeacherRole = 'TEACHER';
 const String kParentRole = 'PARENT';
@@ -104,24 +103,28 @@ class RoleHomeLayout extends StatefulWidget
 
 class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
 {
-  static const double _greetingBottomGap = 24;
-  static const double _sectionGap = 22;
+  static const double _greetingBottomGap = 12;
+  static const double _sectionGap = 16;
 
-  static const double _maxContentWidth = 1240;
+  // The greeting sits nearer the bar than other pages' content: the home must fit one screen.
+  static const double _greetingTopGap = 16;
 
-  static const double _twoColumnsFrom = 700;
+  static const double _maxContentWidth = 1600;
 
-  // Row minimums, not maximums: cards can grow past them.
-  static const double _dayRowHeight = 300;
-  static const double _listHeight = 286;
+  // Below it the day's three bands get too narrow beside the notifications, and the cards stack.
+  static const double _besideFrom = 1150;
+  static const double _leftShare = 0.6;
 
-  // Keeps the notifications card at _listHeight: its header and padding take the rest.
-  static const double _notificationsBodyHeight = 174;
+  // The notifications' least height when the left column is short, as on a closed day.
+  static const double _tasksFloor = 520;
 
   final ApiService _apiService = ApiService();
 
   bool _loadingToday = true;
   List<HomeBandStatus>? _bands;
+
+  // A parent of two or more: lanes per child.
+  bool _named = false;
 
   bool _loadingMonth = true;
   List<HomeFigureGroup>? _month;
@@ -297,6 +300,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
             figures: pupilFigures(
               month.figures,
               withTariff: !month.hasParentalResponsibility,
+              withWeekly: true,
             ),
           ),
         ];
@@ -422,6 +426,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     setState(()
     {
       _bands = bands;
+      _named = named;
       _loadingToday = false;
     });
   }
@@ -434,15 +439,17 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     );
   }
 
-  Widget _scheduleCard({required bool inRow, required double cardWidth})
+  Widget _dayCard()
   {
+    final DateTime now = romeNow();
+
     return _staggered(
       slot: 0,
       tour: kTourHomeToday,
-      card: HomeScheduleSection(
+      card: HomeDayStrip(
         bands: _bands,
         isLoading: _loadingToday,
-        width: cardWidth,
+        day: DateTime(now.year, now.month, now.day),
         title: scheduleTitleFor(widget.role),
         ownHeading: ownHeadingFor(widget.role),
         convenedHeading: convenedHeadingFor(widget.role),
@@ -451,8 +458,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
           widget.role,
           feminine: _apiService.lastKnownIdentity?.gender == 'F',
         ),
-        minHeight: inRow ? _dayRowHeight : 0,
-        fill: inRow,
+        named: _named,
       ),
     );
   }
@@ -466,13 +472,13 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
         groups: _month,
         isLoading: _loadingMonth,
         title: monthTitleFor(widget.role),
+        month: romeNow(),
         columns: HomeMonthSection.columnsFor(width: cardWidth, groups: _month ?? const []),
       ),
     );
   }
 
-  // fill is only for a card given its height from outside; a column's plain child is not.
-  Widget _noticesCard({required bool tall, bool fill = false})
+  Widget _noticesCard({required int columns})
   {
     return _staggered(
       slot: 3,
@@ -481,171 +487,51 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
         notices: _notices,
         isLoading: _loadingNotices,
         onOpen: (notice) => openNoticeReading(context, notice.id),
-        minHeight: tall ? _listHeight : 0,
-        fill: fill,
+        columns: columns,
       ),
     );
   }
 
+  // Tall: as high as the column beside it, scrolling inside; otherwise it grows up to five.
   Widget _tasksCard({required bool tall})
   {
     return _staggered(
       slot: 2,
       tour: kTourHomeNotifications,
-      card: HomeNotificationsSection(
-        bodyHeight: tall ? _notificationsBodyHeight : null,
-        minHeight: tall ? _listHeight : 0,
-      ),
+      card: HomeNotificationsSection(fill: tall),
     );
   }
 
-  // Mockup layouts under study, see home_variant.dart.
-  Widget? _variant(double width, double visible)
+  Widget _buildHome(double width)
   {
-    final double half = (width - _sectionGap) / 2;
-    final double cardWidth = half - 2 * DashboardSectionCard.padding.left;
+    final double inset = 2 * DashboardSectionCard.badgedPadding.left;
 
-    switch (debugHomeVariant)
+    if (width >= _besideFrom)
     {
-      case 'blank':
-        return const SizedBox.shrink();
-      case 'd':
-        return _halves(
-          left: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _scheduleCard(inRow: false, cardWidth: cardWidth),
-              const SizedBox(height: _sectionGap),
-              Expanded(child: _noticesCard(tall: false, fill: true)),
-            ],
-          ),
-          right: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _monthCard(cardWidth: cardWidth),
-              const SizedBox(height: _sectionGap),
-              Expanded(child: _growingTasks(floor: kHomeTasksFloor)),
-            ],
-          ),
-        );
-      case 'e':
-        return _halves(
-          left: _column([
-            _scheduleCard(inRow: false, cardWidth: cardWidth),
-            _monthCard(cardWidth: cardWidth),
-          ]),
-          right: _growingTasks(heading: const HomeMessageTabs()),
-        );
-      case 'f':
-        return _atLeast(
-          visible,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _halves(
-                left: _scheduleCard(inRow: false, cardWidth: cardWidth),
-                right: _monthCard(cardWidth: cardWidth),
-              ),
-              const SizedBox(height: _sectionGap),
-              Expanded(child: _growingTasks(heading: const HomeMessageTabs(), columns: 2)),
-            ],
-          ),
-        );
+      final double left = ((width - _sectionGap) * _leftShare).floorToDouble();
+
+      return homeBeside(
+        left: _column([
+          _dayCard(),
+          _monthCard(cardWidth: left - inset),
+          _noticesCard(columns: 2),
+        ]),
+        right: _tasksCard(tall: true),
+        leftWidth: left,
+        gap: _sectionGap,
+        floor: _tasksFloor,
+      );
     }
 
-    return null;
+    return _column([
+      _dayCard(),
+      _monthCard(cardWidth: width - inset),
+      _tasksCard(tall: false),
+      _noticesCard(columns: width >= _twoNoticeColumnsFrom ? 2 : 1),
+    ]);
   }
 
-  // Never taller than its neighbours make the row; never below today's card.
-  Widget _growingTasks({Widget? heading, int columns = 1, double floor = _listHeight})
-  {
-    return HomeFloorHeight(
-      floor: floor,
-      child: _staggered(
-        slot: 2,
-        tour: kTourHomeNotifications,
-        card: HomeNotificationsSection(fill: true, expands: true, heading: heading, columns: columns),
-      ),
-    );
-  }
-
-  static Widget _atLeast(double height, Widget child)
-  {
-    return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: height),
-      child: IntrinsicHeight(child: child),
-    );
-  }
-
-  static Widget _halves({required Widget left, required Widget right})
-  {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: left),
-          const SizedBox(width: _sectionGap),
-          Expanded(child: right),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHome(double width, double visible)
-  {
-    if (width >= _twoColumnsFrom)
-    {
-      final Widget? variant = _variant(width, visible);
-
-      if (variant != null)
-      {
-        return variant;
-      }
-    }
-
-    if (width < _twoColumnsFrom)
-    {
-      final double cardWidth = width - 2 * DashboardSectionCard.padding.left;
-
-      return _column([
-        _scheduleCard(inRow: false, cardWidth: cardWidth),
-        _monthCard(cardWidth: cardWidth),
-        _tasksCard(tall: false),
-        _noticesCard(tall: false),
-      ]);
-    }
-
-    final double cardWidth = (width - _sectionGap) / 2 - 2 * DashboardSectionCard.padding.left;
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: _scheduleCard(inRow: true, cardWidth: cardWidth)),
-                const SizedBox(height: _sectionGap),
-                _tasksCard(tall: true),
-              ],
-            ),
-          ),
-          const SizedBox(width: _sectionGap),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _monthCard(cardWidth: cardWidth),
-                const SizedBox(height: _sectionGap),
-                Expanded(child: _noticesCard(tall: true, fill: true)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  static const double _twoNoticeColumnsFrom = 700;
 
   Widget _column(List<Widget> rows)
   {
@@ -667,8 +553,10 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     final AppWindowSize size = AppBreakpoints.fromWidth(widget.width);
     final double margin = AppBreakpoints.pageMargin(size);
 
-    final double topInset = AppTopBar.contentTopInsetFor(size);
-    final double greetingFontSize = size.isCompact ? 34.0 : 50.0;
+    final double topInset = size.isCompact
+        ? AppTopBar.contentTopInsetFor(size)
+        : AppTopBar.bottomFor(size) + _greetingTopGap;
+    final double greetingFontSize = size.isCompact ? 34.0 : 42.0;
 
     final double contentWidth = math.min(widget.width - 2 * margin, _maxContentWidth);
 
@@ -698,13 +586,17 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (debugHomeVariant != 'blank')
                   PageTransitionItem(
                     slot: PageTransitionItem.frame,
-                    child: DashboardGreeting(
-                      firstName: user?.firstName ?? '',
-                      birthDate: user?.birthDate,
-                      fontSize: greetingFontSize,
+                    child: Center(
+                      child: SizedBox(
+                        width: contentWidth,
+                        child: DashboardGreeting(
+                          firstName: user?.firstName ?? '',
+                          birthDate: user?.birthDate,
+                          fontSize: greetingFontSize,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: _greetingBottomGap),
@@ -716,13 +608,11 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
                               child: _ComingSoon(),
                             ),
                           )
-                        : LayoutBuilder(
-                            builder: (context, constraints) => PageTransitionScrollView(
-                              child: Center(
-                                child: SizedBox(
-                                  width: contentWidth,
-                                  child: _buildHome(contentWidth, constraints.maxHeight),
-                                ),
+                        : PageTransitionScrollView(
+                            child: Center(
+                              child: SizedBox(
+                                width: contentWidth,
+                                child: _buildHome(contentWidth),
                               ),
                             ),
                           ),
@@ -736,6 +626,26 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
       ),
     );
   }
+}
+
+// The right card takes the height the left column settles on, never adding to it.
+Widget homeBeside({
+  required Widget left,
+  required Widget right,
+  required double leftWidth,
+  required double gap,
+  required double floor,
+})
+{
+  return ConstrainedBox(
+    constraints: BoxConstraints(minHeight: floor),
+    child: Stack(
+      children: [
+        SizedBox(width: leftWidth, child: left),
+        Positioned(top: 0, bottom: 0, left: leftWidth + gap, right: 0, child: right),
+      ],
+    ),
+  );
 }
 
 class _ComingSoon extends StatelessWidget

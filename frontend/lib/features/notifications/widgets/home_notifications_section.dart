@@ -29,28 +29,13 @@ const double _columnMaxHeight = 5 * 62 + 4 * _tileGap;
 // The home card listing the notifications, newest first; every one is read by scrolling.
 class HomeNotificationsSection extends StatelessWidget
 {
-  // Given in a row of cards: the list scrolls inside it. Null in a column.
-  final double? bodyHeight;
-
   final double minHeight;
   final bool fill;
 
-  // With fill and no bodyHeight: the list takes all the height the card is given.
-  final bool expands;
-
-  final Widget? heading;
-
-  // Mockup: tiles side by side in a wide card.
-  final int columns;
-
   const HomeNotificationsSection({
     super.key,
-    this.bodyHeight,
     this.minHeight = 0,
     this.fill = false,
-    this.expands = false,
-    this.heading,
-    this.columns = 1,
   });
 
   @override
@@ -61,11 +46,10 @@ class HomeNotificationsSection extends StatelessWidget
     return ListenableBuilder(
       listenable: Listenable.merge([board, DeviceNotifications.state]),
       builder: (context, _) => DashboardSectionCard(
-        eyebrow: kNotificationsEyebrow,
+        icon: Icons.notifications_rounded,
         title: kNotificationsTitle,
         minHeight: minHeight,
         fill: fill,
-        heading: heading,
         action: board.unread > 0 ? _NewBadge(count: board.unread) : null,
         child: _body(context, board),
       ),
@@ -80,9 +64,8 @@ class HomeNotificationsSection extends StatelessWidget
     final Widget list = _list(board, showEmpty: !off);
     final Widget? row = off ? const _OffRow() : null;
 
-    final double? height = bodyHeight;
-
-    if (height == null && fill && expands)
+    // Given its height from outside, the list fills it and scrolls inside.
+    if (fill)
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -90,20 +73,6 @@ class HomeNotificationsSection extends StatelessWidget
           if (row != null) ...[row, const SizedBox(height: 12)],
           Expanded(child: list),
         ],
-      );
-    }
-
-    if (height != null)
-    {
-      return SizedBox(
-        height: height,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (row != null) ...[row, const SizedBox(height: 12)],
-            Expanded(child: list),
-          ],
-        ),
       );
     }
 
@@ -154,7 +123,7 @@ class HomeNotificationsSection extends StatelessWidget
       );
     }
 
-    return _NotificationScroll(items: items, columns: columns);
+    return _NotificationScroll(items: items);
   }
 }
 
@@ -244,9 +213,8 @@ class _OffRow extends StatelessWidget
 class _NotificationScroll extends StatefulWidget
 {
   final List<NotificationItem> items;
-  final int columns;
 
-  const _NotificationScroll({required this.items, this.columns = 1});
+  const _NotificationScroll({required this.items});
 
   @override
   State<_NotificationScroll> createState() => _NotificationScrollState();
@@ -301,7 +269,7 @@ class _NotificationScrollState extends State<_NotificationScroll>
         child: SingleChildScrollView(
           controller: _controller,
           padding: const EdgeInsets.only(right: 14),
-          child: widget.columns > 1 ? _grid(now) : Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final (index, item) in widget.items.indexed)
@@ -322,40 +290,6 @@ class _NotificationScrollState extends State<_NotificationScroll>
 }
 
 // A row that arrives while the card is on show opens its room from the top and slides down into it.
-extension on _NotificationScrollState
-{
-  Widget _grid(DateTime now)
-  {
-    final List<NotificationItem> items = widget.items;
-    final int columns = widget.columns;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var start = 0; start < items.length; start += columns)
-          Padding(
-            padding: EdgeInsets.only(bottom: start + columns < items.length ? _tileGap : 0),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = start; i < start + columns; i++) ...[
-                    if (i > start) const SizedBox(width: _tileGap),
-                    Expanded(
-                      child: i < items.length
-                          ? _NotificationTile(item: items[i], when: notificationWhen(items[i].createdAt, now: now))
-                          : const SizedBox(),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class _ArrivingRow extends StatefulWidget
 {
   final bool arriving;

@@ -20,6 +20,7 @@ import '../../association/notices/notice_item.dart';
 import '../../association/notices/notice_reading.dart';
 import '../../auth/models/me_response.dart';
 import '../../home/widgets/home_notices_section.dart';
+import '../../home/widgets/role_home_layout.dart' show homeBeside;
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/models/calendar_publication_item.dart';
 import '../../lessons/models/lesson_item.dart';
@@ -60,23 +61,23 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
 {
   static const double _tabletBreakpoint = 600.0;
 
-  static const double _greetingBottomGap = 24;
-  static const double _sectionGap = 22;
+  static const double _greetingBottomGap = 12;
+  static const double _sectionGap = 16;
 
-  static const double _maxContentWidth = 1240;
+  // The greeting sits nearer the bar than other pages' content: the home must fit one screen.
+  static const double _greetingTopGap = 16;
 
-  // Two equal columns, as the role homes have them.
+  static const double _maxContentWidth = 1600;
+
+  // As the role homes: below it the cards stack.
+  static const double _besideFrom = 1150;
+  static const double _leftShare = 0.6;
+  static const double _tasksFloor = 520;
+
   static const double _twoColumnsFrom = 700;
 
-  // Two to a row beside the day: four upcoming make two rows.
+  // Two to a row under the notifications.
   static const int _birthdaysShown = 4;
-
-  // Row minimums, not maximums: cards can grow past them.
-  static const double _dayRowHeight = 300;
-  static const double _listHeight = 286;
-
-  // The notices' five lines beside it: 5 x 44 + 4 x 8.
-  static const double _notificationsBodyHeight = 252;
 
   final ApiService _apiService = ApiService();
 
@@ -379,54 +380,49 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  // Slot is the card's reading-order position, which differs per grid.
+  // Slot is the card's reading-order position.
   Widget _staggered({required int slot, required Widget card})
   {
     return PageTransitionItem(slot: PageTransitionItem.header + slot, child: card);
   }
 
-  Widget _todayCard({required bool inRow, required int slot})
+  Widget _todayCard()
   {
+    final DateTime now = romeNow();
+
     return _staggered(
-      slot: slot,
+      slot: 0,
       card: DashboardTodaySection(
         bands: _bands,
         isLoading: _loadingToday,
-        minHeight: inRow ? _dayRowHeight : 0,
-        fill: inRow,
+        day: DateTime(now.year, now.month, now.day),
       ),
     );
   }
 
-  // fill needs a height from outside; a column's plain child has none.
-  Widget _noticesCard({required bool tall, bool fill = false})
+  Widget _noticesCard({required int columns})
   {
     return _staggered(
-      slot: 4,
+      slot: 2,
       card: HomeNoticesSection(
         notices: _notices,
         isLoading: _loadingNotices,
         onOpen: (notice) => openNoticeReading(context, notice.id),
-        minHeight: tall ? _listHeight : 0,
-        fill: fill,
+        columns: columns,
       ),
     );
   }
 
-  // As tall as the notices' list beside it.
-  Widget _tasksCard({required bool tall, bool fill = false})
+  // Tall: as high as the room the column leaves it, scrolling inside; otherwise it grows up to five.
+  Widget _tasksCard({required bool tall})
   {
     return _staggered(
       slot: 3,
-      card: HomeNotificationsSection(
-        bodyHeight: tall ? _notificationsBodyHeight : null,
-        minHeight: tall ? _listHeight : 0,
-        fill: fill,
-      ),
+      card: HomeNotificationsSection(fill: tall),
     );
   }
 
-  Widget _statsCard({required double cardWidth, required bool strip})
+  Widget _statsCard({required double cardWidth})
   {
     return _staggered(
       slot: 1,
@@ -435,66 +431,63 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
         teachers: _teacherTotals,
         students: _studentTotals,
         isLoading: _loadingHome,
-        columns: strip
-            ? DashboardStatsSection.stripColumnsForWidth(cardWidth)
-            : DashboardStatsSection.columnsForWidth(cardWidth),
-        strip: strip,
+        columns: DashboardStatsSection.stripColumnsForWidth(cardWidth),
+        strip: true,
       ),
     );
   }
 
-  Widget _birthdaysCard({required double cardWidth, required bool fill})
+  Widget _birthdaysCard({required double cardWidth})
   {
     return _staggered(
-      slot: 2,
+      slot: 4,
       card: DashboardBirthdaysSection(
         birthdays: _birthdays,
         isLoading: _loadingHome,
         // from= sends the detail page's back button here.
         onTap: (person) => context.go('/people/${person.fiscalCode}?from=/dashboard'),
         columns: DashboardBirthdaysSection.columnsForWidth(cardWidth),
-        fill: fill,
       ),
     );
   }
 
   Widget _buildHome(double width)
   {
-    if (width < _twoColumnsFrom)
-    {
-      final double cardWidth = width - 2 * DashboardSectionCard.padding.left;
+    final double inset = 2 * DashboardSectionCard.badgedPadding.left;
 
-      return _column([
-        _todayCard(inRow: false, slot: 0),
-        _statsCard(cardWidth: cardWidth, strip: false),
-        _birthdaysCard(cardWidth: cardWidth, fill: false),
-        _tasksCard(tall: false),
-        _noticesCard(tall: false),
-      ]);
+    if (width >= _besideFrom)
+    {
+      final double left = ((width - _sectionGap) * _leftShare).floorToDouble();
+      final double right = width - _sectionGap - left;
+
+      return homeBeside(
+        left: _column([
+          _todayCard(),
+          _statsCard(cardWidth: left - inset),
+          _noticesCard(columns: 2),
+        ]),
+        right: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _tasksCard(tall: true)),
+            const SizedBox(height: _sectionGap),
+            _birthdaysCard(cardWidth: right - inset),
+          ],
+        ),
+        leftWidth: left,
+        gap: _sectionGap,
+        floor: _tasksFloor,
+      );
     }
 
-    final double cardWidth = (width - _sectionGap) / 2 - 2 * DashboardSectionCard.padding.left;
+    final double cardWidth = width - inset;
 
     return _column([
-      _CardRow(
-        children: [
-          _todayCard(inRow: true, slot: 0),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _statsCard(cardWidth: cardWidth, strip: true),
-              const SizedBox(height: _sectionGap),
-              Expanded(child: _birthdaysCard(cardWidth: cardWidth, fill: true)),
-            ],
-          ),
-        ],
-      ),
-      _CardRow(
-        children: [
-          _tasksCard(tall: true, fill: true),
-          _noticesCard(tall: true, fill: true),
-        ],
-      ),
+      _todayCard(),
+      _statsCard(cardWidth: cardWidth),
+      _tasksCard(tall: false),
+      _noticesCard(columns: width >= _twoColumnsFrom ? 2 : 1),
+      _birthdaysCard(cardWidth: cardWidth),
     ]);
   }
 
@@ -517,8 +510,10 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     final AppWindowSize size = AppBreakpoints.fromWidth(widget.width);
     final double margin = AppBreakpoints.pageMargin(size);
 
-    final double topInset = AppTopBar.contentTopInsetFor(size);
-    final double greetingFontSize = size.isCompact ? 34.0 : 50.0;
+    final double topInset = size.isCompact
+        ? AppTopBar.contentTopInsetFor(size)
+        : AppTopBar.bottomFor(size) + _greetingTopGap;
+    final double greetingFontSize = size.isCompact ? 34.0 : 42.0;
 
     final double contentWidth =
         math.min(widget.width - 2 * margin, _maxContentWidth);
@@ -549,10 +544,15 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
                 children: [
                   PageTransitionItem(
                     slot: PageTransitionItem.frame,
-                    child: DashboardGreeting(
-                      firstName: _currentUser?.firstName ?? '',
-                      birthDate: _currentUser?.birthDate,
-                      fontSize: greetingFontSize,
+                    child: Center(
+                      child: SizedBox(
+                        width: contentWidth,
+                        child: DashboardGreeting(
+                          firstName: _currentUser?.firstName ?? '',
+                          birthDate: _currentUser?.birthDate,
+                          fontSize: greetingFontSize,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: _greetingBottomGap),
@@ -571,29 +571,6 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
             ),
           ),
           AppTopBar(currentRoute: '/dashboard', user: _currentUser),
-        ],
-      ),
-    );
-  }
-}
-
-class _CardRow extends StatelessWidget
-{
-  final List<Widget> children;
-
-  const _CardRow({required this.children});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) const SizedBox(width: _DashboardLayoutState._sectionGap),
-            Expanded(child: children[i]),
-          ],
         ],
       ),
     );

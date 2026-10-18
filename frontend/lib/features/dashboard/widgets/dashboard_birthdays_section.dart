@@ -142,7 +142,7 @@ class DashboardBirthdaysSection extends StatelessWidget
   Widget build(BuildContext context)
   {
     return DashboardSectionCard(
-      eyebrow: 'Spegniamo le candeline',
+      icon: Icons.cake_rounded,
       title: 'Compleanni',
       minHeight: minHeight,
       fill: fill,

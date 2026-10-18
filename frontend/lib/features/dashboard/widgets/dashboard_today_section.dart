@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
-import '../../../shared/widgets/closed_today_notice.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/models/calendar_publication_item.dart';
@@ -13,7 +12,8 @@ import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/utils/timeline_geometry.dart';
 import 'dashboard_section_card.dart';
-import 'published_pill.dart';
+import '../../home/widgets/home_day_strip.dart';
+import '../../lessons/widgets/calendar_lesson_block.dart';
 
 typedef _DayRow = ({DateTime date, TimeOfDay start, TimeOfDay end, String who});
 
@@ -159,71 +159,11 @@ List<DashboardBandStatus> openBands({
   return bands;
 }
 
-// Type and spacing grow as the band count shrinks: the card height is fixed, so fewer bands fill it.
-class _BandScale
-{
-  final double name;
-  final double hours;
-  final double unit;
-  final double figure;
-  final double figureUnit;
-  final double padding;
-  final double gap;
+const double _hoursRow = 22;
+const double _figureRow = 24;
 
-  const _BandScale({
-    required this.name,
-    required this.hours,
-    required this.unit,
-    required this.figure,
-    required this.figureUnit,
-    required this.padding,
-    required this.gap,
-  });
-
-  static const _BandScale _tight = _BandScale(
-    name: 15,
-    hours: 15,
-    unit: 12.5,
-    figure: 15,
-    figureUnit: 12.5,
-    padding: 11,
-    gap: 4,
-  );
-
-  static const _BandScale _roomy = _BandScale(
-    name: 17,
-    hours: 21,
-    unit: 14,
-    figure: 21,
-    figureUnit: 14,
-    padding: 24,
-    gap: 6,
-  );
-
-  static const _BandScale _alone = _BandScale(
-    name: 19,
-    hours: 28,
-    unit: 15,
-    figure: 28,
-    figureUnit: 15,
-    padding: 34,
-    gap: 10,
-  );
-
-  static _BandScale of(int bands)
-  {
-    if (bands >= 3)
-    {
-      return _tight;
-    }
-
-    return bands == 2 ? _roomy : _alone;
-  }
-
-  double get between => this == _tight ? 10.0 : 12.0;
-
-  double get spacing => this == _tight ? 14.0 : 18.0;
-}
+// Docenti, studenti and lezioni: a band that has fewer keeps the empty rows.
+const int _figureRows = 3;
 
 class DashboardTodaySection extends StatelessWidget
 {
@@ -232,25 +172,22 @@ class DashboardTodaySection extends StatelessWidget
 
   final bool isLoading;
 
-  final double minHeight;
-  final bool fill;
+  final DateTime day;
 
   const DashboardTodaySection({
     super.key,
     required this.bands,
+    required this.day,
     this.isLoading = false,
-    this.minHeight = 0,
-    this.fill = false,
   });
 
   @override
   Widget build(BuildContext context)
   {
     return DashboardSectionCard(
-      eyebrow: 'Oggi',
+      icon: Icons.today_rounded,
       title: 'Orari e prenotazioni',
-      minHeight: minHeight,
-      fill: fill,
+      action: DashboardCardNote(formatWeekdayColumnLabel(day)),
       child: _buildBody(),
     );
   }
@@ -282,112 +219,85 @@ class DashboardTodaySection extends StatelessWidget
       );
     }
 
-    if (open.isEmpty)
-    {
-      return const ClosedTodayNotice();
-    }
+    return DayStripFrame(
+      column: (band)
+      {
+        final DashboardBandStatus? status = open.where((status) => status.band == band).firstOrNull;
 
-    // Multiple bands share the card's extra height; a single band keeps its natural height, centred.
-    final _BandScale scale = _BandScale.of(open.length);
-    final bool shares = fill && open.length > 1;
+        return status == null ? ClosedBandColumn(band: band) : _BandColumn(status: status);
+      },
+    );
+  }
+}
+
+class _BandColumn extends StatelessWidget
+{
+  final DashboardBandStatus status;
+
+  const _BandColumn({required this.status});
+
+  // Openings name their modes in words, the same hours both ways as one.
+  BandOpening? _openingOf(String mode)
+  {
+    final String alone = mode == kOnlineMode ? kOnScreen : kInBuilding;
+
+    return status.openings.where((opening) => opening.mode == alone || opening.mode == kBothWays).firstOrNull;
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final List<DashboardBandFigure> figures = status.figures;
 
     return Column(
-      mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
-      mainAxisAlignment: shares ? MainAxisAlignment.start : MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var i = 0; i < open.length; i++)
-          if (shares)
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: i == open.length - 1 ? 0 : scale.between,
-                ),
-                child: _BandRow(status: open[i], scale: scale),
-              ),
-            )
+        StripBandHead(band: status.band, isPublished: status.isPublished, isDraft: status.isDraft),
+        const SizedBox(height: 6),
+        for (final mode in kStripModes)
+          if (_openingOf(mode) case final opening?)
+            _Hours(mode: mode, opening: opening)
           else
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: i == open.length - 1 ? 0 : scale.between,
-              ),
-              child: _BandRow(status: open[i], scale: scale),
-            ),
+            StripClosedMode(mode: mode, height: _hoursRow),
+        const SizedBox(height: 6),
+        for (var i = 0; i < _figureRows; i++)
+          i < figures.length ? _Figure(figure: figures[i]) : const SizedBox(height: _figureRow),
       ],
     );
   }
 }
 
-class _BandRow extends StatelessWidget
+class _Hours extends StatelessWidget
 {
-  final DashboardBandStatus status;
-  final _BandScale scale;
+  final String mode;
+  final BandOpening opening;
 
-  const _BandRow({required this.status, required this.scale});
+  const _Hours({required this.mode, required this.opening});
 
   @override
   Widget build(BuildContext context)
   {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: scale.padding),
-      decoration: BoxDecoration(
-        color: AppTheme.trialPaper,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.trialLine, width: 1.5),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      height: _hoursRow,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  bandLabel(status.band),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: scale.name,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                    color: AppTheme.trialOcean,
-                  ),
+          Icon(lessonModeIcon(mode), size: 16, color: lessonAccent(mode)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                formatMinutesRange(opening.startMinutes, opening.endMinutes),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                  color: AppTheme.trialInk,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
-              if (status.isPublished) ...[
-                const SizedBox(width: 8),
-                PublishedPill(isDraft: status.isDraft),
-              ],
-            ],
-          ),
-          SizedBox(height: scale.gap),
-          Wrap(
-            spacing: scale.spacing,
-            runSpacing: 2,
-            children: [
-              for (final opening in status.openings)
-                _Reading(
-                  value: opening.hours,
-                  label: opening.mode,
-                  size: scale.hours,
-                  labelSize: scale.unit,
-                ),
-            ],
-          ),
-          SizedBox(height: scale.gap / 2),
-          Wrap(
-            spacing: scale.spacing,
-            runSpacing: 2,
-            children: [
-              for (final figure in status.figures)
-                _Reading(
-                  value: '${figure.value}',
-                  label: figure.label,
-                  size: scale.figure,
-                  labelSize: scale.figureUnit,
-                ),
-            ],
+            ),
           ),
         ],
       ),
@@ -395,48 +305,52 @@ class _BandRow extends StatelessWidget
   }
 }
 
-class _Reading extends StatelessWidget
+// Numbers right-aligned in a column two digits wide, so the labels of every band line up.
+class _Figure extends StatelessWidget
 {
-  final String value;
-  final String label;
-  final double size;
-  final double labelSize;
+  final DashboardBandFigure figure;
 
-  const _Reading({
-    required this.value,
-    required this.label,
-    required this.size,
-    required this.labelSize,
-  });
+  const _Figure({required this.figure});
 
   @override
   Widget build(BuildContext context)
   {
-    return Text.rich(
-      TextSpan(
+    return SizedBox(
+      height: _figureRow,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
-          TextSpan(
-            text: value,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: size,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
-              color: AppTheme.trialInk,
+          SizedBox(
+            width: 26,
+            child: Text(
+              '${figure.value}',
+              textAlign: TextAlign.right,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                height: 1.2,
+                color: AppTheme.trialOcean,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
-          TextSpan(
-            text: ' $label',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: labelSize,
-              fontWeight: FontWeight.w600,
-              height: 1.35,
-              color: AppTheme.trialMutedText,
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              figure.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+                color: AppTheme.trialMutedText,
+              ),
             ),
           ),
         ],
       ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
     );
   }
 }

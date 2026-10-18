@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/rome_clock.dart';
+import '../../../core/utils/week_range.dart';
 import '../../people/models/current_totals_item.dart';
 import 'dashboard_section_card.dart';
 
@@ -119,11 +121,11 @@ class _StatScale
     icon: 16,
     sideGap: 4,
     padX: 10,
-    padY: 12,
+    padY: 9,
     gap: 10,
     radius: 18,
-    labelGap: 8,
-    valueGap: 8,
+    labelGap: 6,
+    valueGap: 5,
     spacing: 0.9,
     inline: false,
   );
@@ -193,8 +195,9 @@ class DashboardStatsSection extends StatelessWidget
   Widget build(BuildContext context)
   {
     return DashboardSectionCard(
-      eyebrow: 'Questo mese',
+      icon: Icons.groups_rounded,
       title: 'Alcune statistiche',
+      action: DashboardCardNote(formatMonthYear(romeNow())),
       minHeight: minHeight,
       fill: fill,
       compact: compact,

@@ -79,12 +79,16 @@ class HomeBandStatus
 
   final List<String> idle;
 
+  // The band's opening by mode, whoever is booked.
+  final Map<String, OpeningWindow> openings;
+
   const HomeBandStatus({
     required this.band,
     required this.isPublished,
     required this.offered,
     required this.lanes,
     required this.idle,
+    this.openings = const {},
   });
 
   bool get isEmpty => lanes.every((lane) => lane.spans.isEmpty);
@@ -281,6 +285,7 @@ List<HomeBandStatus> homeBands({
       offered: own.isNotEmpty,
       lanes: _lanes(openings, shown, names),
       idle: names.where((name) => !busy.contains(name)).toList(),
+      openings: openings,
     ));
   }
 

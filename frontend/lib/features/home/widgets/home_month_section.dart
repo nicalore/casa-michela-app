@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
-import '../../../core/utils/week_range.dart' show formatMinutes;
+import '../../../core/utils/week_range.dart' show formatMinutes, formatMonthYear;
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../models/month_summary_items.dart';
@@ -138,7 +138,10 @@ String? _weeklyWarning(TeacherMonthSummaryItem month)
   return '$short ${short == 1 ? 'settimana' : 'settimane'} con meno di\u00a0due';
 }
 
-List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
+// A dash until the Compensi page settles how pay is counted.
+const bool _showsPayAmount = false;
+
+List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount = _showsPayAmount})
 {
   final TeacherMonthFiguresItem last = month.lastMonth;
 
@@ -183,11 +186,13 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
       ),
     ),
     if (cents != null)
-      HomeFigure(
-        label: 'Compenso',
-        value: formatAmount(cents),
-        delta: _delta(cents - (lastCents ?? 0), (change) => formatAmount(change.toInt())),
-      ),
+      withAmount
+          ? HomeFigure(
+              label: 'Compenso',
+              value: formatAmount(cents),
+              delta: _delta(cents - (lastCents ?? 0), (change) => formatAmount(change.toInt())),
+            )
+          : const HomeFigure(label: 'Compenso', value: '—', tone: HomeFigureTone.absent),
   ];
 }
 
@@ -216,7 +221,7 @@ HomeFigure _tariffFigure(PupilMonthFiguresItem figures)
   return const HomeFigure(label: 'Modalità', value: '—', tone: HomeFigureTone.absent);
 }
 
-List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool withTariff})
+List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool withTariff, bool withWeekly = false})
 {
   return [
     HomeFigure(
@@ -224,6 +229,12 @@ List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool with
       value: '${figures.totalPresences}',
       unit: _days(figures.totalPresences),
     ),
+    if (withWeekly)
+      HomeFigure(
+        label: 'A settimana',
+        value: figures.weeklyPresences.toStringAsFixed(1),
+        unit: _days(figures.weeklyPresences),
+      ),
     HomeFigure(
       label: 'Prenotazioni',
       value: '${figures.bookedPresences}',
@@ -266,7 +277,7 @@ class _TileScale
   static const _TileScale _narrow =
       _TileScale(value: 28, unit: 14.5, warning: 13.5, padding: 14, side: 16, gap: 14);
   static const _TileScale _quad =
-      _TileScale(value: 24, unit: 13, warning: 12.5, padding: 12, side: 12, gap: 10);
+      _TileScale(value: 24, unit: 13, warning: 12.5, padding: 10, side: 12, gap: 10);
 
   static _TileScale of(int columns)
   {
@@ -286,11 +297,11 @@ class HomeMonthSection extends StatelessWidget
 {
   // 4 quad-scale tiles need 125 each for an unshrunk 187,50 euro amount; half a page gives 553.
   static const double _fourInARowFrom = 530;
+  static const double _fiveInARowFrom = 660;
   static const double _threeInARowFrom = 380;
 
-  static const double _nameSize = 16;
-  static const double _nameGap = 10;
-  static const double _groupGap = 22;
+  static const double _tableNameWidth = 96;
+  static const double _tableRowHeight = 42;
 
   // Past two people the card scrolls, the third's name peeking under the fold.
   static const int _scrollPast = 2;
@@ -299,7 +310,9 @@ class HomeMonthSection extends StatelessWidget
   // Four figures go two by two rather than three and one.
   static int columnsFor({required double width, required List<HomeFigureGroup> groups})
   {
-    final int most = width >= _fourInARowFrom
+    final int most = width >= _fiveInARowFrom
+        ? 5
+        : width >= _fourInARowFrom
         ? 4
         : width >= _threeInARowFrom
             ? 3
@@ -327,6 +340,9 @@ class HomeMonthSection extends StatelessWidget
 
   final String title;
 
+  // Named on the card's head.
+  final DateTime month;
+
   // Set by the page: a LayoutBuilder cannot report a height inside a row of equal-height cards.
   final int columns;
 
@@ -334,6 +350,7 @@ class HomeMonthSection extends StatelessWidget
     super.key,
     required this.groups,
     required this.title,
+    required this.month,
     this.isLoading = false,
     this.columns = 2,
   });
@@ -342,8 +359,9 @@ class HomeMonthSection extends StatelessWidget
   Widget build(BuildContext context)
   {
     return DashboardSectionCard(
-      eyebrow: 'Questo mese',
+      icon: Icons.insights_rounded,
       title: title,
+      action: DashboardCardNote(formatMonthYear(month)),
       child: _buildBody(),
     );
   }
@@ -377,45 +395,58 @@ class HomeMonthSection extends StatelessWidget
       );
     }
 
-    final _TileScale scale = _TileScale.of(columns);
+    return read.length > 1 ? _table(read) : _grid(read.first.figures, _TileScale.of(columns));
+  }
 
-    final Widget people = Column(
+  // One person a row, the figures as columns; past two the rows scroll under a fixed head.
+  Widget _table(List<HomeFigureGroup> read)
+  {
+    final bool scrolls = read.length > _scrollPast;
+
+    final Widget head = Padding(
+      padding: EdgeInsets.only(right: scrolls ? 14 : 0, bottom: 6),
+      child: Row(
+        children: [
+          const SizedBox(width: _tableNameWidth),
+          for (final figure in read.first.figures)
+            Expanded(
+              child: Text(
+                figure.label.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: _TileScale.label,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.1,
+                  height: _TileScale.lineHeight,
+                  color: AppTheme.trialMutedText,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    final Widget rows = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [for (final group in read) _TableRow(group: group)],
+    );
+
+    return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < read.length; i++) ...[
-          if (i > 0) const SizedBox(height: _groupGap),
-          if (read[i].name.isNotEmpty) ...[
-            Text(
-              read[i].name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: _nameSize,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-                color: AppTheme.trialInk,
-              ),
-            ),
-            const SizedBox(height: _nameGap),
-          ],
-          _grid(read[i].figures, scale),
-        ],
+        head,
+        if (scrolls)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: _scrollPast * _tableRowHeight + _peek),
+            child: _PeopleScroll(child: rows),
+          )
+        else
+          rows,
       ],
     );
-
-    if (read.length > _scrollPast)
-    {
-      final double group = _nameSize * 1.25 + _nameGap + scale.tileHeight;
-      final double fold = _scrollPast * group + (_scrollPast - 1) * _groupGap + _peek;
-
-      return ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: fold),
-        child: _PeopleScroll(child: people),
-      );
-    }
-
-    return people;
   }
 
   // A partial last row is not stretched; a warned figure makes its whole row keep the aside line.
@@ -457,6 +488,82 @@ class HomeMonthSection extends StatelessWidget
           rows[i],
         ],
       ],
+    );
+  }
+}
+
+class _TableRow extends StatelessWidget
+{
+  final HomeFigureGroup group;
+
+  const _TableRow({required this.group});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      height: HomeMonthSection._tableRowHeight,
+      decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppTheme.trialLine))),
+      child: Row(
+        children: [
+          SizedBox(
+            width: HomeMonthSection._tableNameWidth,
+            child: Text(
+              group.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.trialInk),
+            ),
+          ),
+          for (final figure in group.figures)
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(fit: BoxFit.scaleDown, child: _TableValue(figure: figure)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TableValue extends StatelessWidget
+{
+  final HomeFigure figure;
+
+  const _TableValue({required this.figure});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final Color color = switch (figure.tone)
+    {
+      HomeFigureTone.absent => AppTheme.trialMutedText,
+      _ => figure.isWord ? AppTheme.trialInk : AppTheme.trialOcean,
+    };
+
+    final TextStyle number = GoogleFonts.plusJakartaSans(
+      fontSize: figure.isWord ? 16 : 20,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      color: color,
+    );
+
+    final TextStyle unit = GoogleFonts.plusJakartaSans(
+      fontSize: 12.5,
+      fontWeight: FontWeight.w600,
+      height: 1,
+      color: AppTheme.trialMutedText,
+    );
+
+    return Text.rich(
+      TextSpan(
+        children: [
+          for (final part in figure.parts) TextSpan(text: part.text, style: part.isUnit ? unit : number),
+        ],
+      ),
+      maxLines: 1,
     );
   }
 }

@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_card.dart';
 
 class DashboardSectionCard extends StatelessWidget
 {
   static const double radius = 28;
   static const EdgeInsets padding = EdgeInsets.fromLTRB(28, 24, 28, 26);
+
+  // The home cards, headed by a badge as the other pages' cards are.
+  static const EdgeInsets badgedPadding = EdgeInsets.fromLTRB(22, 14, 22, 16);
 
   static const EdgeInsets _compactPadding = EdgeInsets.fromLTRB(22, 20, 22, 20);
 
@@ -16,8 +20,8 @@ class DashboardSectionCard extends StatelessWidget
 
   final Widget? action;
 
-  // Replaces eyebrow and title, e.g. with tabs.
-  final Widget? heading;
+  // Given: a badge and the title replace the eyebrow, with a rule under them.
+  final IconData? icon;
 
   final double minHeight;
 
@@ -28,11 +32,11 @@ class DashboardSectionCard extends StatelessWidget
 
   const DashboardSectionCard({
     super.key,
-    required this.eyebrow,
+    this.eyebrow = '',
     required this.title,
     required this.child,
     this.action,
-    this.heading,
+    this.icon,
     this.minHeight = 0,
     this.fill = false,
     this.compact = false,
@@ -41,6 +45,8 @@ class DashboardSectionCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final IconData? icon = this.icon;
+
     return ConstrainedBox(
       constraints: BoxConstraints(minHeight: minHeight),
       child: Container(
@@ -49,52 +55,113 @@ class DashboardSectionCard extends StatelessWidget
           borderRadius: BorderRadius.circular(radius),
           boxShadow: AppTheme.cardShadow,
         ),
-        padding: compact ? _compactPadding : padding,
+        padding: icon != null ? badgedPadding : compact ? _compactPadding : padding,
         child: Column(
           mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: heading ?? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        eyebrow.toUpperCase(),
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: compact ? 10 : 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.4,
-                          height: 1.2,
-                          color: AppTheme.trialMutedText,
-                        ),
-                      ),
-                      SizedBox(height: compact ? 2 : 3),
-                      Text(
-                        title,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: compact ? 18 : 21,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                          color: AppTheme.trialOcean,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (action != null) ...[
-                  const SizedBox(width: 16),
-                  action!,
-                ],
-              ],
-            ),
-            SizedBox(height: compact ? 14 : 20),
+            if (icon != null) ...[
+              _badgedHead(icon),
+              const SizedBox(height: 10),
+              Container(height: 1, color: AppTheme.trialLine),
+              const SizedBox(height: 12),
+            ] else ...[
+              _plainHead(),
+              SizedBox(height: compact ? 14 : 20),
+            ],
             if (fill) Expanded(child: child) else child,
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _badgedHead(IconData icon)
+  {
+    return Row(
+      children: [
+        AppCardBadge(icon: icon, small: true),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+              color: AppTheme.trialOcean,
+            ),
+          ),
+        ),
+        if (action != null) ...[
+          const SizedBox(width: 16),
+          action!,
+        ],
+      ],
+    );
+  }
+
+  Widget _plainHead()
+  {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                eyebrow.toUpperCase(),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: compact ? 10 : 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.4,
+                  height: 1.2,
+                  color: AppTheme.trialMutedText,
+                ),
+              ),
+              SizedBox(height: compact ? 2 : 3),
+              Text(
+                title,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: compact ? 18 : 21,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                  color: AppTheme.trialOcean,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (action != null) ...[
+          const SizedBox(width: 16),
+          action!,
+        ],
+      ],
+    );
+  }
+}
+
+// The muted words on a home card's head, beside the title: the day, the month.
+class DashboardCardNote extends StatelessWidget
+{
+  final String text;
+
+  const DashboardCardNote(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Text(
+      text,
+      maxLines: 1,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 13.5,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.trialMutedText,
       ),
     );
   }
