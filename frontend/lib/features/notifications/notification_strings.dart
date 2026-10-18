@@ -111,4 +111,12 @@ const Map<NotificationKind, (String, String)> kNotificationKindLabels = {
     'Nuovi accessi',
     'Avvisa quando qualcuno entra nel tuo account da un nuovo dispositivo.',
   ),
+  NotificationKind.reportReceived: (
+    'Segnalazioni',
+    'Avvisa quando arriva una nuova segnalazione.',
+  ),
+  NotificationKind.ratingReminder: (
+    'Valutazione docenti',
+    'Avvisa di aggiornare la valutazione di un docente due settimane dopo la sua iscrizione.',
+  ),
 };

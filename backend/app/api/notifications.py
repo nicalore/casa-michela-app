@@ -29,6 +29,12 @@ from app.services.notifications import dismissals, withdraw
 
 _NOTIFICATION_NOT_FOUND_ERROR: Final[str] = "Notifica non trovata."
 
+# Once read they have said all they had to: a new device's sign-in, and a rating
+# reminder, whose reader is taken to the rating or chose to let it be.
+_GONE_ONCE_READ: Final[frozenset[NotificationKindEnum]] = frozenset(
+    {NotificationKindEnum.NEW_DEVICE, NotificationKindEnum.RATING_REMINDER},
+)
+
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
@@ -79,7 +85,7 @@ async def my_notifications(
             update={
                 "notice_roles": reached_roles(
                     identity.roles,
-                    recipients.get(row.notice_id, ()),
+                    recipients.get(row.notice_id or 0, ()),
                 ),
             },
         )
@@ -111,8 +117,7 @@ async def mark_read(
     if notification.read_at is None:
         notification.read_at = func.now()
 
-        # A new device's sign-in, once read, has said all it had to.
-        if notification.kind == NotificationKindEnum.NEW_DEVICE:
+        if notification.kind in _GONE_ONCE_READ:
             notification.withdrawn_at = func.now()
 
         batch = await dismissals(db, [notification])

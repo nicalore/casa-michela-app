@@ -35,6 +35,8 @@ class NotificationLook
       NotificationKind.availabilityChanged => const NotificationLook(Icons.update_rounded, AppTheme.trialTealDeep),
       NotificationKind.availabilityCancelled => const NotificationLook(Icons.timer_off_rounded, AppTheme.trialTealDeep),
       NotificationKind.newDevice => const NotificationLook(Icons.devices_rounded, AppTheme.trialOcean),
+      NotificationKind.reportReceived => const NotificationLook(Icons.flag_rounded, AppTheme.trialOcean),
+      NotificationKind.ratingReminder => const NotificationLook(Icons.rate_review_rounded, AppTheme.trialTealDeep),
       NotificationKind.unknown => const NotificationLook(Icons.notifications_rounded, AppTheme.trialOcean),
     };
   }

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from collections.abc import Collection, Sequence
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from html import escape
 from typing import Annotated, Any, Final
 
@@ -119,6 +120,7 @@ from app.services.person_wizard_service import (
     create_person_from_wizard,
 )
 from app.services.pupil_lock import lock_pupil
+from app.services.rating_reminders import rating_updated
 from app.services.reports import ReportNotSentError, record_report, send_to_readers
 from app.services.role_service import RoleService
 from app.services.student_notes import is_followed, note_response
@@ -1532,6 +1534,11 @@ async def _sync_administrator_profile(
     )
 
 
+# None for one who is no teacher.
+async def _teacher_rating(db: AsyncSession, tax_code: str) -> Decimal | None:
+    return await db.scalar(select(Teacher.rating).where(Teacher.tax_code == tax_code))
+
+
 async def _sync_teacher_profile(
     db: AsyncSession,
     person: Person,
@@ -1785,7 +1792,7 @@ async def get_people(
 
 
 def _view(full: PersonResponse, fields: frozenset[str]) -> PersonResponse:
-    return PersonResponse(**full.model_dump(include=fields))
+    return PersonResponse(**full.model_dump(include=set(fields)))
 
 
 def _with_children(full: PersonResponse, kept: frozenset[str]) -> PersonResponse:
@@ -1849,7 +1856,7 @@ async def _pupil_programmes(
             within[programme].add(subject_id)
 
     return [
-        (programme, frozenset(within.get(programme, ())))
+        (programme, frozenset(within.get(programme or 0, ())))
         for programme, _ in (latest.get(code, (None, 0)) for code in tax_codes)
     ]
 
@@ -1889,11 +1896,13 @@ def _catalogue_entry(
     person: Person,
     pupils: Sequence[_PupilProgramme],
 ) -> PersonResponse:
-    teacher = person.member_profile.staff_profile.teacher_profile
-    allowed = _teachable_subject_ids(teacher, pupils)
+    member = person.member_profile
+    staff = member.staff_profile if member is not None else None
+    teacher = staff.teacher_profile if staff is not None else None
+    allowed = set() if teacher is None else _teachable_subject_ids(teacher, pupils)
 
     full = _map_person_to_response(person, show_teacher_rating=False)
-    data = full.model_dump(include=_PUPIL_VIEW_FIELDS)
+    data = full.model_dump(include=set(_PUPIL_VIEW_FIELDS))
 
     subjects = [
         subject
@@ -2063,6 +2072,7 @@ async def update_person(
     payload: PersonUpdatePayload,
     db: DbSession,
     identity: CurrentIdentity,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
     person = await _get_person_or_404(db, tax_code)
 
@@ -2073,6 +2083,7 @@ async def update_person(
         )
 
     roles = [role.upper() for role in payload.roles]
+    rating_before = await _teacher_rating(db, person.tax_code)
 
     # Self-demotion refused: only another admin may remove the role.
     if person.tax_code == identity.tax_code and _ROLE_CODE_ADMIN not in roles:
@@ -2195,7 +2206,15 @@ async def update_person(
     else:
         await _delete_all_member_profiles(db, person)
 
+    # A rating moved, or one no longer a teacher: the reminder to rate them goes.
+    batch = (
+        await rating_updated(db, person.tax_code)
+        if await _teacher_rating(db, person.tax_code) != rating_before
+        else push.joined([])
+    )
+
     await _commit_person_update(db)
+    background.add_task(push.deliver, batch)
 
     for image in discarded_images:
         discard_profile_image(image)

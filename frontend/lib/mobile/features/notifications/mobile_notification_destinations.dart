@@ -109,6 +109,15 @@ void followMobileNotification(NotificationItem item)
 
       NoticeJumps.reading.request(id, role: role);
       MobileShellRequests.open(role, _associationSlug);
+    case NotificationKind.reportReceived:
+      final int? id = item.reportId;
+
+      if (id != null)
+      {
+        MobileShellRequests.openReport(id);
+      }
+    // No person editing on the phone yet: a tap only reads it, which takes it away.
+    case NotificationKind.ratingReminder:
     case NotificationKind.test:
     case NotificationKind.bookingsClosed:
     case NotificationKind.arrivalReminder:

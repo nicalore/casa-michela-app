@@ -1,14 +1,22 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 
+import '../core/utils/error_message.dart';
 import '../core/utils/time_bucket.dart';
 import '../features/auth/models/me_response.dart';
 import '../features/lessons/utils/calendar_jump.dart';
 import '../features/notifications/notice_jump.dart';
+import '../features/people/edit/person_edit_dialog.dart';
+import '../features/people/edit/person_edit_pages.dart';
+import '../features/people/models/person_item.dart';
 import '../features/settings/settings_jump.dart';
 import '../features/notifications/week_jump.dart';
 import '../features/notifications/notification_item.dart';
 import '../features/notifications/notification_roles.dart';
+import '../features/reports/widgets/report_dialog.dart';
+import '../shared/widgets/dialog_components.dart';
+import '../shared/widgets/snackbar.dart';
 import 'app_router.dart';
 
 const String _adminRole = 'ADMIN';
@@ -17,6 +25,7 @@ const String _studentRole = 'STUDENT';
 const String _teacherRole = 'TEACHER';
 const String _calendarRoute = '/lessons';
 const String _adminAssociationRoute = '/association';
+const String _peopleRoute = '/people';
 
 const String _availabilitySlug = 'availability';
 const String _bookingsSlug = 'bookings';
@@ -51,6 +60,10 @@ void followNotification(NotificationItem item)
       unawaited(_openOwnAvailability(item));
     case NotificationKind.newDevice:
       _openDevices();
+    case NotificationKind.reportReceived:
+      _openReport(item);
+    case NotificationKind.ratingReminder:
+      unawaited(_openRating(item));
     case NotificationKind.test:
     case NotificationKind.arrivalReminder:
     case NotificationKind.unknown:
@@ -148,6 +161,76 @@ Future<void> _openOwnAvailability(NotificationItem item) async
     const [_teacherRole],
     jump: (role) => WeekJumps.availability.request(day, role: role),
     route: (role) => '${homeForRole(role)}/$_availabilitySlug',
+  );
+}
+
+// The report over the page in use, whatever the role worn.
+void _openReport(NotificationItem item)
+{
+  final int? id = item.reportId;
+  final BuildContext? context = rootNavigatorContext;
+
+  if (id != null && context != null)
+  {
+    unawaited(openReport(context, id));
+  }
+}
+
+// The teacher's record being edited on the Docente card, where the rating is; from another role,
+// as administrator over Anagrafiche.
+Future<void> _openRating(NotificationItem item) async
+{
+  final String? teacher = item.teacherTaxCode;
+  final MeResponse? me = apiService.identity.value;
+
+  if (teacher == null || me == null || !me.availableRoles.contains(_adminRole))
+  {
+    return;
+  }
+
+  if (me.activeRole != _adminRole)
+  {
+    try
+    {
+      await apiService.setActiveRole(_adminRole);
+    }
+    catch (_)
+    {
+      return;
+    }
+
+    appRouter.go(_peopleRoute);
+  }
+
+  final PersonItem person;
+
+  try
+  {
+    person = await apiService.getPerson(teacher);
+  }
+  catch (error)
+  {
+    final BuildContext? context = rootNavigatorContext;
+
+    if (context != null && context.mounted)
+    {
+      CustomSnackBar.show(context: context, message: readableApiError(error), isError: true);
+    }
+
+    return;
+  }
+
+  final BuildContext? context = rootNavigatorContext;
+
+  if (context == null || !context.mounted)
+  {
+    return;
+  }
+
+  await showBlurredDialog<String>(
+    context: context,
+    barrierLabel: 'PersonEdit',
+    builder: (context) => PersonEditDialog(person: person, startCard: PersonEditCardId.teacher),
   );
 }
 

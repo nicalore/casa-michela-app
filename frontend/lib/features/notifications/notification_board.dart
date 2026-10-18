@@ -6,6 +6,9 @@ import '../../services/api_service.dart';
 import 'notification_item.dart';
 import 'push_types.dart';
 
+// Mirrors _GONE_ONCE_READ in backend/app/api/notifications.py.
+const Set<NotificationKind> _goneOnceRead = {NotificationKind.newDevice, NotificationKind.ratingReminder};
+
 // The signed-in person's notifications, shared by every card that lists them.
 class NotificationBoard extends ChangeNotifier
 {
@@ -162,6 +165,48 @@ class NotificationBoard extends ChangeNotifier
     catch (_) {}
   }
 
+  // A report resolved: the news of it goes, as the server took it away.
+  void dropReport(int id)
+  {
+    _drop(NotificationKind.reportReceived, (item) => item.reportId == id);
+  }
+
+  // Those asked for before [asked] and no longer open were resolved by someone else.
+  void keepOpenReports(Set<int> open, {required DateTime asked})
+  {
+    _drop(
+      NotificationKind.reportReceived,
+      (item) => !open.contains(item.reportId) && item.createdAt.isBefore(asked),
+    );
+  }
+
+  // A teacher rated anew: the reminder to rate them goes, as the server took it away.
+  void dropRatingReminder(String teacherTaxCode)
+  {
+    _drop(NotificationKind.ratingReminder, (item) => item.teacherTaxCode == teacherTaxCode);
+  }
+
+  void _drop(NotificationKind kind, bool Function(NotificationItem item) gone)
+  {
+    final List<NotificationItem>? items = _items;
+
+    if (items == null)
+    {
+      return;
+    }
+
+    final List<NotificationItem> kept = [
+      for (final item in items)
+        if (item.kind != kind || !gone(item)) item,
+    ];
+
+    if (kept.length != items.length)
+    {
+      _items = kept;
+      notifyListeners();
+    }
+  }
+
   void _markRead(int id)
   {
     final List<NotificationItem>? items = _items;
@@ -173,8 +218,8 @@ class NotificationBoard extends ChangeNotifier
 
     _items = [
       for (final item in items)
-        // A new device's sign-in, once read, has said all it had to: the server takes it away too.
-        if (item.id != id) item else if (item.kind != NotificationKind.newDevice) item.asRead(),
+        // Some have said all they had to once read: the server takes them away too.
+        if (item.id != id) item else if (!_goneOnceRead.contains(item.kind)) item.asRead(),
     ];
     notifyListeners();
   }

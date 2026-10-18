@@ -9,6 +9,7 @@ from app.services.arrival_reminders import remind_arrivals
 from app.services.daily_reminders import remind_tomorrow
 from app.services.notifications import expire
 from app.services.push import deliver, forget_ended_sessions
+from app.services.rating_reminders import remind_ratings
 from app.services.week_opened import announce_opened_week
 
 # Times are whole minutes: just past one, everything due at it has come.
@@ -74,6 +75,18 @@ async def _remind_tomorrow() -> None:
         logger.exception("Promemoria per domani non riuscito.")
 
 
+async def _remind_ratings() -> None:
+    try:
+        async with AsyncSessionLocal() as session:
+            batch = await remind_ratings(session, now_in_rome())
+            await session.commit()
+
+        await deliver(batch)
+
+    except Exception:
+        logger.exception("Promemoria delle valutazioni non riuscito.")
+
+
 # Startup hook: runs at once, for what fell due while down, then every minute.
 async def sweep_every_minute() -> None:
     while True:
@@ -82,6 +95,7 @@ async def sweep_every_minute() -> None:
         await _remind()
         await _announce_week()
         await _remind_tomorrow()
+        await _remind_ratings()
 
         now = now_in_rome()
         await asyncio.sleep(

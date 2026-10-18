@@ -47,6 +47,7 @@ class NotificationKindEnum(StrEnum):
     AVAILABILITY_CANCELLED = "AVAILABILITY_CANCELLED"
     NEW_DEVICE = "NEW_DEVICE"
     REPORT_RECEIVED = "REPORT_RECEIVED"
+    RATING_REMINDER = "RATING_REMINDER"
 
 
 # What an account was told; the home card lists these, a push only announces one.
@@ -121,6 +122,14 @@ class Notification(CreatedAtMixin, Base):
             unique=True,
             postgresql_where=text("kind = 'REPORT_RECEIVED'"),
         ),
+        # Kept once withdrawn too: a teacher's rating is asked for only once.
+        Index(
+            "uq_notifications_rating_reminder",
+            "account_tax_code",
+            "teacher_tax_code",
+            unique=True,
+            postgresql_where=text("kind = 'RATING_REMINDER'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -181,6 +190,13 @@ class Notification(CreatedAtMixin, Base):
     author_tax_code: Mapped[str | None] = mapped_column(
         # tax_code is a mutable natural key, so onupdate is required here.
         ForeignKey("people.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
+    )
+
+    # The teacher whose rating it asks to update.
+    teacher_tax_code: Mapped[str | None] = mapped_column(
+        # tax_code is a mutable natural key, so onupdate is required here.
+        ForeignKey("people.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
+        index=True,
     )
 
     # The lessons or availabilities it tells of: no key, so one deleted is still found.

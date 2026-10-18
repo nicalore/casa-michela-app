@@ -20,6 +20,7 @@ import '../../association/models/course_item.dart';
 import '../../association/models/school_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
+import '../../notifications/notification_board.dart';
 import '../models/person_item.dart';
 import '../widgets/competence_picker.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
@@ -46,7 +47,10 @@ class PersonEditDialog extends StatefulWidget
   // Tax codes the opener already holds: its own person and the ones created there.
   final Set<String> reservedTaxCodes;
 
-  const PersonEditDialog({super.key, required PersonItem this.person})
+  // The card to open on, as when a notification asks for one of its fields.
+  final PersonEditCardId? startCard;
+
+  const PersonEditDialog({super.key, required PersonItem this.person, this.startCard})
       : purpose = PersonEditPurpose.edit,
         offeredResidence = null,
         reservedTaxCodes = const {};
@@ -55,7 +59,8 @@ class PersonEditDialog extends StatefulWidget
       : person = null,
         purpose = PersonEditPurpose.create,
         offeredResidence = null,
-        reservedTaxCodes = const {};
+        reservedTaxCodes = const {},
+        startCard = null;
 
   // Hands the payload back to the opener instead of saving it.
   const PersonEditDialog.createParent({
@@ -64,7 +69,8 @@ class PersonEditDialog extends StatefulWidget
     this.reservedTaxCodes = const {},
   })
       : person = null,
-        purpose = PersonEditPurpose.createParent;
+        purpose = PersonEditPurpose.createParent,
+        startCard = null;
 
   const PersonEditDialog.createMinor({
     super.key,
@@ -72,7 +78,8 @@ class PersonEditDialog extends StatefulWidget
     this.reservedTaxCodes = const {},
   })
       : person = null,
-        purpose = PersonEditPurpose.createMinor;
+        purpose = PersonEditPurpose.createMinor,
+        startCard = null;
 
   bool get isCreation => person == null;
 
@@ -121,6 +128,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             reservedTaxCodes: widget.reservedTaxCodes,
           )
         : PersonEditForm.fromPerson(widget.person!);
+
+    final PersonEditCardId? startCard = widget.startCard;
+    final PersonEditStep? start = startCard == null ? null : _stepHolding(startCard);
+
+    if (start != null)
+    {
+      _stepId = start.id;
+      _cardId = startCard;
+    }
+
     _loadCatalogues();
   }
 
@@ -256,24 +273,26 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     setState(() => _cardId = cards[index.clamp(0, cards.length - 1)].id);
   }
 
+  PersonEditStep? _stepHolding(PersonEditCardId cardId)
+  {
+    return _steps.where((step) => step.cards.any((card) => card.id == cardId)).firstOrNull;
+  }
+
   void _jumpTo(PersonEditCardId cardId)
   {
-    final List<PersonEditStep> steps = _steps;
+    final PersonEditStep? step = _stepHolding(cardId);
 
-    for (var i = 0; i < steps.length; i++)
+    if (step == null)
     {
-      if (steps[i].cards.any((card) => card.id == cardId))
-      {
-        setState(()
-        {
-          _movingForward = i >= _stepIndex;
-          _stepId = steps[i].id;
-          _cardId = cardId;
-        });
-
-        return;
-      }
+      return;
     }
+
+    setState(()
+    {
+      _movingForward = indexOfStep(_steps, step.id) >= _stepIndex;
+      _stepId = step.id;
+      _cardId = cardId;
+    });
   }
 
   String get _personName
@@ -515,6 +534,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         _form.buildPayload(),
         imageBytes: _form.fotoProfilo,
       );
+
+      // Rated anew, or a teacher no more: the server took the reminder to rate them away.
+      if (!_form.activeRoles.contains('DOCENTE') || _form.teacherRating != widget.person!.teacherRating)
+      {
+        NotificationBoard.instance.dropRatingReminder(widget.person!.fiscalCode);
+      }
 
       if (!mounted)
       {

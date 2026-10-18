@@ -6,9 +6,10 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
+from app.models.administrator import AdministratorRoleEnum
 from app.models.muted_notification_kind import MutedNotificationKind
 from app.models.notification import NotificationKindEnum
-from app.services.report_readers import kinds_read_by
+from app.services.report_readers import kinds_read_by, reader_role
 from app.services.role_service import RoleService
 
 _NOT_CHOOSABLE_ERROR: Final[str] = "Questo tipo di notifica non è tra i tuoi."
@@ -18,6 +19,9 @@ _SELF_BOOKER: Final[str] = "SELF_BOOKER"
 
 # Not a role either: an administrator who receives reports.
 _REPORT_READER: Final[str] = "REPORT_READER"
+
+# Nor this: the administrator who is the president.
+_PRESIDENT: Final[str] = "PRESIDENT"
 
 # Who may turn each kind on or off, in settings order; every kind but TEST is here.
 CHOOSABLE: Final[dict[NotificationKindEnum, frozenset[str]]] = {
@@ -68,6 +72,7 @@ CHOOSABLE: Final[dict[NotificationKindEnum, frozenset[str]]] = {
         },
     ),
     NotificationKindEnum.REPORT_RECEIVED: frozenset({_REPORT_READER}),
+    NotificationKindEnum.RATING_REMINDER: frozenset({_PRESIDENT}),
 }
 
 
@@ -87,6 +92,9 @@ def _roles_of(account: Account) -> frozenset[str]:
 
     if kinds_read_by(account.person):
         roles.add(_REPORT_READER)
+
+    if reader_role(account.person) == AdministratorRoleEnum.PRESIDENT:
+        roles.add(_PRESIDENT)
 
     return frozenset(roles)
 
