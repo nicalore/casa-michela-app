@@ -5,6 +5,7 @@ import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/card_scroll_area.dart';
+import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -109,8 +110,8 @@ class PersonSchoolsTab extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
                 if (current != null) ...[
-                  const PersonSectionTitle('Anno scolastico attuale'),
-                  const SizedBox(height: kPersonTitleGap),
+                  const PageHeading('Anno scolastico attuale', large: true),
+                  const SizedBox(height: kPageHeadingGap),
                   schoolEnrollmentCard(
                     current,
                     enrollments,
@@ -120,8 +121,8 @@ class PersonSchoolsTab extends StatelessWidget
                   const SizedBox(height: kPersonSectionGap),
                 ],
                 if (past.isNotEmpty) ...[
-                  const PersonSectionTitle('Anni scolastici passati'),
-                  const SizedBox(height: kPersonTitleGap),
+                  const PageHeading('Anni scolastici passati', large: true),
+                  const SizedBox(height: kPageHeadingGap),
                   for (var i = 0; i < past.length; i++) ...[
                     if (i > 0) const SizedBox(height: kPersonCardGap),
                     schoolEnrollmentCard(

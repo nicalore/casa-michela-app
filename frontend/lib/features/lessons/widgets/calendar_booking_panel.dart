@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
@@ -304,33 +305,10 @@ class CalendarBookingPanel extends StatelessWidget
 
   Widget _buildHeader({required bool showToggle})
   {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'Da pianificare',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-              color: AppTheme.trialOcean,
-            ),
-          ),
-        ),
-        Text(
-          '$_openCount',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-            color: AppTheme.trialTealDeep,
-          ),
-        ),
-        if (showToggle) ...[
-          const SizedBox(width: 4),
-          _buildExpandToggle(),
-        ],
-      ],
+    return PageHeading(
+      'Da pianificare',
+      count: _openCount,
+      trailing: showToggle ? _buildExpandToggle() : null,
     );
   }
 
@@ -392,17 +370,7 @@ class CalendarBookingPanel extends StatelessWidget
     }
 
     return [
-      if (named)
-        Text(
-          'ATTIVITÀ',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-            letterSpacing: 1.1,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
+      if (named) const PageHeading('Attività'),
       for (final activity in activities) _buildActivityCard(activity),
     ];
   }
@@ -477,7 +445,7 @@ class CalendarBookingPanel extends StatelessWidget
       children: [
         if (showTitle) ...[
           _buildHeader(showToggle: false),
-          const SizedBox(height: 16),
+          const SizedBox(height: kPageHeadingGap),
         ],
         Expanded(
           child: rows.isEmpty
@@ -521,7 +489,7 @@ class CalendarBookingPanel extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
-        const SizedBox(height: 16),
+        const SizedBox(height: kPageHeadingGap),
         if (rows.isEmpty)
           _buildEmpty()
         else

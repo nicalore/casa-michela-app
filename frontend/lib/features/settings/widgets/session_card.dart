@@ -109,7 +109,7 @@ class _SessionCardState extends State<SessionCard>
                       ),
                     if (session.isCurrent) ...[
                       const SizedBox(height: 12),
-                      const _CurrentSessionChip(),
+                      const CurrentSessionChip(),
                     ],
                   ],
                 ),
@@ -119,7 +119,7 @@ class _SessionCardState extends State<SessionCard>
               Positioned(
                 top: 12,
                 right: 12,
-                child: _RevokeIcon(
+                child: SessionRevokeIcon(
                   visible: _hover || widget.busy,
                   busy: widget.busy,
                   onTap: widget.onRevoke,
@@ -153,7 +153,7 @@ class _DeviceBadge extends StatelessWidget
   }
 }
 
-class _RevokeIcon extends StatefulWidget
+class SessionRevokeIcon extends StatefulWidget
 {
   final bool visible;
 
@@ -161,17 +161,18 @@ class _RevokeIcon extends StatefulWidget
 
   final VoidCallback onTap;
 
-  const _RevokeIcon({
+  const SessionRevokeIcon({
+    super.key,
     required this.visible,
     required this.busy,
     required this.onTap,
   });
 
   @override
-  State<_RevokeIcon> createState() => _RevokeIconState();
+  State<SessionRevokeIcon> createState() => _SessionRevokeIconState();
 }
 
-class _RevokeIconState extends State<_RevokeIcon>
+class _SessionRevokeIconState extends State<SessionRevokeIcon>
 {
   bool _hover = false;
 
@@ -221,9 +222,9 @@ class _RevokeIconState extends State<_RevokeIcon>
   }
 }
 
-class _CurrentSessionChip extends StatelessWidget
+class CurrentSessionChip extends StatelessWidget
 {
-  const _CurrentSessionChip();
+  const CurrentSessionChip({super.key});
 
   @override
   Widget build(BuildContext context)

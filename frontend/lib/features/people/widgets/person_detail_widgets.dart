@@ -15,7 +15,6 @@ import '../models/person_item.dart';
 
 const double _rowGap = 16;
 
-const double kPersonTitleGap = 20;
 const double kPersonCardGap = 24;
 
 // Keeps the last row's shadow from being clipped by the scroll view.
@@ -550,26 +549,6 @@ class PersonEditRow extends StatelessWidget
         borderRadius: BorderRadius.circular(18),
       ),
       child: child,
-    );
-  }
-}
-
-class PersonSectionTitle extends StatelessWidget
-{
-  final String text;
-
-  const PersonSectionTitle(this.text, {super.key});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Text(
-      text,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: 21,
-        fontWeight: FontWeight.w700,
-        color: AppTheme.trialOcean,
-      ),
     );
   }
 }

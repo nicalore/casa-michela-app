@@ -28,6 +28,9 @@ class AppCarouselFrame extends StatelessWidget
 
   final Widget? header;
 
+  // Under the header; a page heading wants less room than a wizard's question.
+  final double headerSpacing;
+
   final double maxContentWidth;
 
   final bool canGoBack;
@@ -48,6 +51,7 @@ class AppCarouselFrame extends StatelessWidget
     required this.movingForward,
     required this.child,
     this.header,
+    this.headerSpacing = headerGap,
     required this.maxContentWidth,
     required this.canGoBack,
     required this.canGoForward,
@@ -151,7 +155,7 @@ class AppCarouselFrame extends StatelessWidget
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(width: cardWidth, child: question),
-                  const SizedBox(height: headerGap),
+                  SizedBox(height: headerSpacing),
                   turned,
                 ],
               );

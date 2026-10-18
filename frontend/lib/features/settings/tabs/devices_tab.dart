@@ -1,12 +1,10 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
@@ -15,12 +13,19 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/session_item.dart';
 import '../utils/settings_strings.dart';
-import '../widgets/session_card.dart';
+import '../widgets/own_session_cards.dart';
+import '../widgets/settings_panel.dart';
 
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
 const double _confirmWidth = 480;
+
+// Two cards side by side once each gets this much.
+const double _minCardWidth = 300;
+const double _cardGap = 20;
+
+const double _buttonGap = 40;
 
 
 class DevicesTab extends StatefulWidget
@@ -249,67 +254,87 @@ class _DevicesTabState extends State<DevicesTab>
       );
     }
 
-    return PageTransitionScrollView(
-      child: Padding(
-        // Side padding adds to the page margin, so it is dropped when compact.
-        padding: EdgeInsets.only(
-          top: 16,
-          left: AppBreakpoints.of(context).isCompact ? 0 : 32,
-          right: AppBreakpoints.of(context).isCompact ? 0 : 32,
-          bottom: 32,
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints)
-          {
-            final double cardWidth = math.min(kSessionCardWidth, constraints.maxWidth);
-            final int columns =
-                sessionGridColumns(constraints.maxWidth, cardWidth, sessions.length);
+    final SessionItem? current = sessions.where((session) => session.isCurrent).firstOrNull;
+    final List<SessionItem> others = [for (final session in sessions) if (!session.isCurrent) session];
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Centred as a block, so a short last row still starts on the left.
-                Center(
-                  child: SizedBox(
-                    width: columns * cardWidth + (columns - 1) * kSessionCardGap,
-                    child: Wrap(
-                      spacing: kSessionCardGap,
-                      runSpacing: kSessionCardGap,
-                      children: [
-                        for (final session in sessions)
-                          PageTransitionItem.wave(
-                            child: SessionCard(
-                              session: session,
-                              width: cardWidth,
-                              busy: _revoking.contains(session.sessionId),
-                              onRevoke: () => _confirmRevoke(session),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+    return SettingsColumn(
+      children: [
+        if (current != null) CurrentSessionCard(session: current),
+        if (others.isNotEmpty)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const PageHeading(kOtherSessionsHeading),
+              const SizedBox(height: kPageHeadingGap),
+              _OtherSessions(
+                sessions: others,
+                revoking: _revoking,
+                onRevoke: _confirmRevoke,
+              ),
+              const SizedBox(height: _buttonGap),
+              Center(
+                child: AppGradientButton(
+                  label: kRevokeOthersLabel.toUpperCase(),
+                  icon: Icons.logout_rounded,
+                  gradient: AppTheme.dangerGradient,
+                  accent: AppTheme.trialDanger,
+                  busy: _revokingOthers,
+                  onPressed: _confirmRevokeOthers,
                 ),
-                if (sessions.any((s) => !s.isCurrent)) ...[
-                  const SizedBox(height: 40),
-                  PageTransitionItem(
-                    slot: PageTransitionItem.list + (sessions.length - 1) ~/ columns + columns,
-                    child: Center(
-                      child: AppGradientButton(
-                        label: kRevokeOthersLabel.toUpperCase(),
-                        icon: Icons.logout_rounded,
-                        gradient: AppTheme.dangerGradient,
-                        accent: AppTheme.trialDanger,
-                        busy: _revokingOthers,
-                        onPressed: _confirmRevokeOthers,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+// Two side by side when they fit, each pair as tall as the taller one.
+class _OtherSessions extends StatelessWidget
+{
+  final List<SessionItem> sessions;
+  final Set<String> revoking;
+  final ValueChanged<SessionItem> onRevoke;
+
+  const _OtherSessions({required this.sessions, required this.revoking, required this.onRevoke});
+
+  Widget _card(SessionItem session)
+  {
+    return OtherSessionCard(
+      session: session,
+      busy: revoking.contains(session.sessionId),
+      onRevoke: () => onRevoke(session),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final int columns = constraints.maxWidth >= 2 * _minCardWidth + _cardGap ? 2 : 1;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var first = 0; first < sessions.length; first += columns) ...[
+              if (first > 0) const SizedBox(height: _cardGap),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = first; i < first + columns; i++) ...[
+                      if (i > first) const SizedBox(width: _cardGap),
+                      Expanded(child: i < sessions.length ? _card(sessions[i]) : const SizedBox.shrink()),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
+import 'app_tooltip.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
 
@@ -13,16 +14,34 @@ const double _fieldBorder = 2;
 const double _menuRadius = 16;
 const double _scrollbarLane = 10;
 
+const double _mutedOpacity = 0.55;
+
 class AppDropdownOption<T>
 {
   final T?     value;
   final String label;
   final bool   isSeparator;
 
+  // Before the label, in the menu and in the field once chosen.
+  final Widget? leading;
+
+  // After the label, in the menu only.
+  final Widget? trailing;
+
+  // False for an option shown but not to be picked: muted and inert.
+  final bool enabled;
+
+  // Why a muted option cannot be picked, in a tooltip under the pointer.
+  final String? disabledReason;
+
   AppDropdownOption({
     this.value,
     this.label       = '',
-    this.isSeparator = false
+    this.isSeparator = false,
+    this.leading,
+    this.trailing,
+    this.enabled     = true,
+    this.disabledReason,
   });
 }
 
@@ -152,6 +171,10 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              if (selectedOption.leading case final Widget leading) ...[
+                leading,
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Text(
                   displayText,
@@ -294,6 +317,10 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
                             return _DropdownItem(
                               text:       option.label,
                               isSelected: widget.currentValue == option.value,
+                              leading:    option.leading,
+                              trailing:   option.trailing,
+                              enabled:    option.enabled,
+                              disabledReason: option.disabledReason,
                               onTap:      () => widget.onSelected(option.value),
                             );
                           }).toList(),
@@ -313,11 +340,19 @@ class _DropdownItem extends StatefulWidget
 {
   final String       text;
   final bool         isSelected;
+  final Widget?      leading;
+  final Widget?      trailing;
+  final bool         enabled;
+  final String?      disabledReason;
   final VoidCallback onTap;
 
   const _DropdownItem({
     required this.text,
     required this.isSelected,
+    this.leading,
+    this.trailing,
+    this.enabled = true,
+    this.disabledReason,
     required this.onTap,
   });
 
@@ -332,45 +367,67 @@ class _DropdownItemState extends State<_DropdownItem>
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion(
-      cursor:  SystemMouseCursors.click,
+    final bool enabled = widget.enabled;
+    final bool lit = enabled && _hover;
+
+    final Widget row = Row(
+      children: [
+        AnimatedContainer(
+          duration:   const Duration(milliseconds: 150),
+          width:      2,
+          height:     (lit || widget.isSelected) ? 16 : 0,
+          decoration: BoxDecoration(
+            color:        AppTheme.trialGold,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        if (widget.leading case final Widget leading) ...[
+          leading,
+          const SizedBox(width: 10),
+        ],
+        Expanded(
+          child: OverflowTooltipText(
+            text: widget.text,
+            maxLines: 1,
+            style:    GoogleFonts.plusJakartaSans(
+              fontSize:   14,
+              fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,
+              color:      AppTheme.trialTealDeep,
+            ),
+          ),
+        ),
+        if (widget.trailing case final Widget trailing) ...[
+          const SizedBox(width: 10),
+          trailing,
+        ],
+      ],
+    );
+
+    final Widget item = MouseRegion(
+      cursor:  enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hover = true),
       onExit:  (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: enabled ? widget.onTap : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           color: Colors.transparent,
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration:   const Duration(milliseconds: 150),
-                width:      2,
-                height:     (_hover || widget.isSelected) ? 16 : 0,
-                decoration: BoxDecoration(
-                  color:        AppTheme.trialGold,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OverflowTooltipText(
-                  text: widget.text,
-                  maxLines: 1,
-                  style:    GoogleFonts.plusJakartaSans(
-                    fontSize:   14,
-                    fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color:      AppTheme.trialTealDeep,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: enabled ? row : Opacity(opacity: _mutedOpacity, child: row),
         ),
       ),
     );
+
+    final String? reason = widget.disabledReason;
+
+    if (enabled || reason == null)
+    {
+      return item;
+    }
+
+    return AppTooltip(waitDuration: const Duration(milliseconds: 400), message: reason, child: item);
   }
 }

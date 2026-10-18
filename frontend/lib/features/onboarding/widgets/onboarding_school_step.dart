@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_carousel_frame.dart';
+import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
@@ -63,9 +64,8 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
       canGoForward: index < years.length - 1,
       onBack: () => _turn(index - 1),
       onForward: () => _turn(index + 1),
-      header: PersonSectionTitle(
-        isCurrent ? 'Anno scolastico attuale' : 'Anno scolastico passato',
-      ),
+      header: PageHeading(isCurrent ? 'Anno scolastico attuale' : 'Anno scolastico passato', large: true),
+      headerSpacing: kPageHeadingGap,
       child: SizedBox(
         width: double.infinity,
         child: schoolEnrollmentCard(years[index], years, isCurrent: isCurrent),

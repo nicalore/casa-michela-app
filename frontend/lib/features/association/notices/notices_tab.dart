@@ -18,6 +18,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/filter_menu.dart';
+import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
@@ -657,10 +658,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
         height: _yearHeight,
         child: Align(
           alignment: Alignment.centerLeft,
-          child: Text(
-            '${entry.year}',
-            style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.trialOcean),
-          ),
+          child: PageHeading('${entry.year}', large: true),
         ),
       );
     }

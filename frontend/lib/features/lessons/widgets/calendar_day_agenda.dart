@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
@@ -74,30 +75,7 @@ class CalendarDayAgenda extends StatelessWidget
 
   Widget _buildHeader()
   {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'In calendario',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-              color: AppTheme.trialOcean,
-            ),
-          ),
-        ),
-        Text(
-          '$_rowCount',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-            color: AppTheme.trialTealDeep,
-          ),
-        ),
-      ],
-    );
+    return PageHeading('In calendario', count: _rowCount);
   }
 
   // Lessons and activities interleaved in clock order.
@@ -178,7 +156,7 @@ class CalendarDayAgenda extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildHeader(),
-        const SizedBox(height: 16),
+        const SizedBox(height: kPageHeadingGap),
         Expanded(
           child: ScrollEdgeFade(
             child: ListView.separated(

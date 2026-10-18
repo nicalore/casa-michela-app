@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -79,8 +80,8 @@ class PersonNotPreferredTeachersTab extends StatelessWidget
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
-                const PersonSectionTitle('Mi sono trovato meno con...'),
-                const SizedBox(height: kPersonTitleGap),
+                const PageHeading('Mi sono trovato meno con...', large: true),
+                const SizedBox(height: kPageHeadingGap),
                 if (teachers.isEmpty)
                   const PersonEmptyState(message: 'Nessun docente indicato.')
                 else

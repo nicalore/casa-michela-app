@@ -5,7 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../routing/app_router.dart' show ownPageSlug;
 import '../../../routing/role_sections.dart';
 import '../../../services/api_service.dart';
-import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_check_mark.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -15,6 +14,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
 import '../utils/settings_strings.dart';
+import 'settings_panel.dart';
 
 const String _home = 'home';
 const String _homeLabel = 'Home';
@@ -24,11 +24,9 @@ const String _settings = 'settings';
 // The own page has a tour for teachers alone so far.
 const Set<String> _rolesWithOwnTour = {'TEACHER', 'PARENT', 'STUDENT', 'PSYCHOLOGIST'};
 
-const double _hintGap = 18;
 const double _maxWidth = 640;
 const double _buttonHeight = 52;
 const double _buttonFontSize = 14;
-const double _pillGap = 26;
 const double _rowGap = 8;
 const Duration _fade = Duration(milliseconds: 160);
 
@@ -74,9 +72,9 @@ List<RoleSection> desktopTourSectionsOf(MeResponse user)
 }
 
 // Absent for whoever has no tours, as the administrator.
-class TutorialCard extends StatelessWidget
+class TutorialRow extends StatelessWidget
 {
-  const TutorialCard({super.key});
+  const TutorialRow({super.key});
 
   static bool shownFor(MeResponse? user) => user != null && desktopTourSectionsOf(user).isNotEmpty;
 
@@ -90,31 +88,21 @@ class TutorialCard extends StatelessWidget
       return const SizedBox.shrink();
     }
 
-    return AppCard(
+    return SettingsRow(
+      icon: Icons.school_rounded,
       title: kTutorialTitle,
-      compact: true,
-      selectable: false,
-      leading: const AppCardBadge(icon: Icons.school_rounded, compact: true),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(kTutorialSubtitle, style: _hintStyle()),
-          const SizedBox(height: _hintGap),
-          SizedBox(
-            width: double.infinity,
-            child: Center(
-              child: AppGradientButton(
-                label: kTutorialChoose.toUpperCase(),
-                icon: Icons.school_rounded,
-                onPressed: () => showBlurredDialog<void>(
-                  context: context,
-                  barrierLabel: 'Tutorial',
-                  builder: (_) => _TutorialDialog(user: user),
-                ),
-              ),
-            ),
-          ),
-        ],
+      subtitle: kTutorialSubtitle,
+      trailing: AppGradientButton(
+        label: kTutorialChoose.toUpperCase(),
+        icon: Icons.school_rounded,
+        height: kSettingsButtonHeight,
+        radius: kSettingsButtonHeight / 2,
+        fontSize: kSettingsButtonFontSize,
+        onPressed: () => showBlurredDialog<void>(
+          context: context,
+          barrierLabel: 'Tutorial',
+          builder: (_) => _TutorialDialog(user: user),
+        ),
       ),
     );
   }
@@ -196,7 +184,6 @@ class _TutorialDialogState extends State<_TutorialDialog>
       ),
       children: [
         AppDialogPill(expand: true, child: Text(kTutorialHint, style: _hintStyle())),
-        const SizedBox(height: _pillGap),
         AppDialogPill(
           expand: true,
           child: Column(

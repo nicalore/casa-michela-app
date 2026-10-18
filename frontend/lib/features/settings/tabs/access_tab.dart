@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -10,14 +9,18 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/password_policy_checklist.dart';
-import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
+import '../../notifications/device_notifications.dart';
+import '../../notifications/notification_item.dart';
+import '../../notifications/notification_kinds.dart';
+import '../../notifications/notification_look.dart';
+import '../../notifications/notification_strings.dart';
 import '../utils/settings_strings.dart';
-
-const double _labelWidth = 170;
+import '../widgets/settings_panel.dart';
 
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
@@ -43,6 +46,10 @@ class _AccessTabState extends State<AccessTab>
   {
     super.initState();
     _fetchAccount();
+
+    // The new sign-ins switch is one of the kinds: read again, another device may have changed it.
+    DeviceNotifications.refresh();
+    NotificationKinds.instance.load();
   }
 
   Future<void> _fetchAccount() async
@@ -79,6 +86,67 @@ class _AccessTabState extends State<AccessTab>
       context: context,
       barrierLabel: 'ChangePassword',
       builder: (context) => const _ChangePasswordDialogContent(),
+    );
+  }
+
+  Future<void> _chooseNewDevice(List<NotificationKindChoice> choices, bool on) async
+  {
+    try
+    {
+      await DeviceNotifications.chooseKinds([
+        for (final choice in choices) choice.kind == NotificationKind.newDevice ? choice.turned(on) : choice,
+      ]);
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+    }
+  }
+
+  Widget _value(String text)
+  {
+    return Text(
+      text,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 15.5,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.trialInk,
+      ),
+    );
+  }
+
+  // Only while this device shows notifications, as the other kinds.
+  Widget? _buildNewDevice()
+  {
+    final List<NotificationKindChoice>? choices = NotificationKinds.instance.choices;
+    final NotificationKindChoice? choice =
+        choices?.where((choice) => choice.kind == NotificationKind.newDevice).firstOrNull;
+
+    if (choices == null || choice == null)
+    {
+      return null;
+    }
+
+    final (String title, String line) = kNotificationKindLabels[NotificationKind.newDevice]!;
+    final bool deviceOn = DeviceNotifications.state.value == NotificationSwitch.on;
+
+    final NotificationLook look = NotificationLook.of(NotificationKind.newDevice);
+
+    return SettingsRow(
+      icon: look.icon,
+      tint: look.color,
+      title: title,
+      subtitle: deviceOn ? line : kNotificationKindsTurnOnFirst,
+      trailing: deviceOn
+          ? AppSegmentedSwitch(
+              value: choice.enabled,
+              hugContent: true,
+              onChanged: (on) => _chooseNewDevice(choices, on),
+            )
+          : null,
     );
   }
 
@@ -121,58 +189,39 @@ class _AccessTabState extends State<AccessTab>
 
     final me = _me!;
 
-    return PageTransitionScrollView(
-      child: Padding(
-        // Side padding adds to the page margin, so it is dropped when compact.
-        padding: EdgeInsets.only(
-          top: 16,
-          left: AppBreakpoints.of(context).isCompact ? 0 : 32,
-          right: AppBreakpoints.of(context).isCompact ? 0 : 32,
-          bottom: 32,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: pageTransitionBlocks([
-                AppCard(
-                  title: kAccessSection,
-                  compact: true,
-                  selectable: false,
-                  leading: const AppCardBadge(
-                    icon: Icons.manage_accounts_rounded,
-                    compact: true,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppInfoRow(
-                        label: kUsernameLabel,
-                        value: me.username,
-                        labelWidth: _labelWidth,
-                      ),
-                      const SizedBox(height: 16),
-                      AppInfoRow(
-                        label: kLastLoginLabel,
-                        value: formatLastLogin(me.lastLogin),
-                        labelWidth: _labelWidth,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-                Center(
-                  child: AppGradientButton(
-                    label: kChangePasswordLabel.toUpperCase(),
-                    onPressed: () => _showChangePasswordDialog(context),
-                  ),
-                ),
-              ]),
-            ),
+    return ListenableBuilder(
+      listenable: Listenable.merge([DeviceNotifications.state, NotificationKinds.instance]),
+      builder: (context, _) => SettingsColumn(
+        children: [
+          SettingsPanel(
+            heading: kAccountGroup,
+            rows: [
+              SettingsRow(icon: Icons.person_rounded, title: kUsernameLabel, trailing: _value(me.username)),
+              SettingsRow(
+                icon: Icons.history_rounded,
+                title: kLastLoginLabel,
+                trailing: _value(formatLastLogin(me.lastLogin)),
+              ),
+            ],
           ),
-        ),
+          SettingsPanel(
+            heading: kSecurityHeading,
+            rows: [
+              SettingsRow(
+                icon: Icons.key_rounded,
+                title: kPasswordLabel,
+                trailing: AppGradientButton(
+                  label: kChangePasswordLabel.toUpperCase(),
+                  height: kSettingsButtonHeight,
+                  radius: kSettingsButtonHeight / 2,
+                  fontSize: kSettingsButtonFontSize,
+                  onPressed: () => _showChangePasswordDialog(context),
+                ),
+              ),
+              ?_buildNewDevice(),
+            ],
+          ),
+        ],
       ),
     );
   }

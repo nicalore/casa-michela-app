@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/password_policy_checklist.dart';
 import '../models/session_item.dart';
 
@@ -29,6 +30,9 @@ const String kAccountGroup = 'Account';
 
 const String kComingSoon = 'In arrivo';
 
+// As the top bar's sections not built yet.
+const Duration kComingSoonWait = Duration(milliseconds: 400);
+
 class AppearanceOption
 {
   final String label;
@@ -36,7 +40,13 @@ class AppearanceOption
   // False for an option not built yet: shown, muted, and inert.
   final bool available;
 
-  const AppearanceOption(this.label, {this.available = true});
+  // A palette's colours, drawn as its swatch.
+  final List<Color> colors;
+
+  // A language's two letters, drawn beside its name.
+  final String? code;
+
+  const AppearanceOption(this.label, {this.available = true, this.colors = const [], this.code});
 }
 
 class AppearanceSetting
@@ -56,12 +66,18 @@ const AppearanceSetting kThemeSetting = AppearanceSetting('Tema', Icons.brightne
 ]);
 
 const AppearanceSetting kColorsSetting = AppearanceSetting('Colori', Icons.palette_rounded, [
-  AppearanceOption('Casa Michela'),
+  AppearanceOption('Casa Michela', colors: [
+    AppTheme.trialDeepWater,
+    AppTheme.trialTealDeep,
+    AppTheme.trialSeaGreen,
+    AppTheme.trialGold,
+    AppTheme.trialViolet,
+  ]),
 ]);
 
 const AppearanceSetting kLanguageSetting = AppearanceSetting('Lingua', Icons.translate_rounded, [
-  AppearanceOption('Italiano'),
-  AppearanceOption('Inglese', available: false),
+  AppearanceOption('Italiano', code: 'IT'),
+  AppearanceOption('Inglese', available: false, code: 'EN'),
 ]);
 
 const List<AppearanceSetting> kAppearanceSettings = [kThemeSetting, kColorsSetting, kLanguageSetting];
@@ -86,6 +102,9 @@ String formatLastLogin(DateTime? lastLogin)
 {
   return lastLogin == null ? '-' : _timestampFormat.format(lastLogin);
 }
+
+const String kSecurityHeading = 'Sicurezza';
+const String kPasswordLabel = 'Password';
 
 const String kChangePasswordLabel = 'Modifica password';
 
@@ -146,6 +165,8 @@ const String kSessionLastUsedLabel = 'Ultima attività';
 const String kRevokeSessionLabel = 'Disattiva';
 const String kRevokeOthersLabel = 'Disattiva le altre sessioni';
 
+const String kOtherSessionsHeading = 'Altre sessioni';
+
 const String kSessionEyebrow = 'Sessione';
 const String kSessionsEyebrow = 'Sessioni';
 
@@ -191,13 +212,21 @@ const String kPrivacyTitle = 'Privacy policy';
 
 const String kRegulationOpenFailed = 'Non è stato possibile aprire il regolamento.';
 
-const String kAppVersion = '0.4.4 - Alpha';
+const String kAppVersion = '0.4.5 - Alpha';
 
 const String kDevelopmentWarning =
     'ATTENZIONE: Applicazione attualmente in sviluppo. '
     'Potrebbero verificarsi comportamenti inaspettati.';
 
-String appCredits(int year) => '© $year Nicolò Calore\nVersione $kAppVersion';
+String appCredits(int year) => '${appCopyright(year)}\n$kAppVersionLabel';
+
+String appCopyright(int year) => '© $year Nicolò Calore';
+
+const String kAppVersionLabel = 'Versione $kAppVersion';
+
+const String kAssociationName = 'Associazione Casa Michela';
+
+const String kDocumentsHeading = 'Documenti';
 
 const String kReportProblemLabel = 'Segnala un problema';
 

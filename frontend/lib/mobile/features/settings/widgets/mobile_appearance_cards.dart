@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../../../../features/settings/utils/settings_strings.dart';
 import '../../../shared/widgets/mobile_choice_tile.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
@@ -15,16 +14,6 @@ const double _tabletPreview = 150;
 
 const EdgeInsets _cardPadding = EdgeInsets.fromLTRB(16, 14, 16, 16);
 const double _cardRadius = 22;
-
-const List<Color> _brandColors = [
-  AppTheme.trialDeepWater,
-  AppTheme.trialTealDeep,
-  AppTheme.trialSeaGreen,
-  AppTheme.trialGold,
-  AppTheme.trialViolet,
-];
-
-const Map<String, String> _languageCodes = {'Italiano': 'IT', 'Inglese': 'EN'};
 
 class MobileAppearanceCards extends StatelessWidget
 {
@@ -44,7 +33,7 @@ class MobileAppearanceCards extends StatelessWidget
       setting: kColorsSetting,
       child: _Choices(
         setting: kColorsSetting,
-        leading: (_) => const MobileSwatches(colors: _brandColors),
+        leading: (option) => MobileSwatches(colors: option.colors),
       ),
     );
 
@@ -53,7 +42,7 @@ class MobileAppearanceCards extends StatelessWidget
       child: _Choices(
         setting: kLanguageSetting,
         leading: (option) => MobileLanguageCode(
-          code: _languageCodes[option.label] ?? option.label.substring(0, 2).toUpperCase(),
+          code: option.code ?? option.label.substring(0, 2).toUpperCase(),
           available: option.available,
         ),
       ),

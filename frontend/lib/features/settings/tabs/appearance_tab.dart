@@ -1,171 +1,110 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/platform/visual_effects.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_card.dart';
-import '../../../shared/widgets/app_selectable_chip.dart';
-import '../../../shared/widgets/app_tooltip.dart';
-import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/app_dropdown_field.dart';
+import '../../../shared/widgets/app_segmented_switch.dart';
 import '../utils/settings_strings.dart';
+import '../widgets/appearance_choices.dart';
+import '../widgets/settings_panel.dart';
 
-// Two columns once each gets the narrower width; below, one.
-const double _minColumnWidth = 300;
+const double _tileGap = 14;
+const double _languageWidth = 260;
+const double _menuCode = 26;
 
-// As wide as the single column of the other settings tabs.
-const double _maxColumnWidth = 560;
-
-const double _cardGap = 24;
-const double _chipGap = 10;
-const double _hintGap = 18;
-
-const double _comingOpacity = 0.6;
-
+// The first option of each setting is the one in force.
 class AppearanceTab extends StatelessWidget
 {
   const AppearanceTab({super.key});
 
-  Widget _buildOption(AppearanceOption option, {required bool chosen})
+  Widget _buildThemes()
   {
-    final Widget chip = AppSelectableChip(
-      label: option.label,
-      selected: chosen,
-      // The sole option cannot be deselected.
-      onSelected: (_) {},
-    );
+    final List<AppearanceOption> options = kThemeSetting.options;
 
-    if (option.available)
-    {
-      return chip;
-    }
-
-    return AppTooltip(
-      message: kComingSoon,
-      waitDuration: const Duration(milliseconds: 400),
-      child: IgnorePointer(
-        child: Opacity(opacity: _comingOpacity, child: chip),
-      ),
-    );
-  }
-
-  Widget _buildSetting(AppearanceSetting setting)
-  {
-    return AppCard(
-      title: setting.title,
-      compact: true,
-      selectable: false,
-      leading: AppCardBadge(icon: setting.icon, compact: true),
-      child: Wrap(
-        spacing: _chipGap,
-        runSpacing: _chipGap,
-        children: [
-          for (var i = 0; i < setting.options.length; i++)
-            _buildOption(setting.options[i], chosen: i == 0),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEffects(BuildContext context)
-  {
-    final bool on = VisualEffects.of(context);
-
-    return AppCard(
-      title: kEffectsTitle,
-      compact: true,
-      selectable: false,
-      leading: const AppCardBadge(icon: Icons.auto_awesome_rounded, compact: true),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            kEffectsHint,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              height: 1.45,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(height: _hintGap),
-          Wrap(
-            spacing: _chipGap,
-            runSpacing: _chipGap,
-            children: [
-              AppSelectableChip(
-                label: kEffectsOn,
-                selected: on,
-                onSelected: (_) => VisualEffects.choose(true),
-              ),
-              AppSelectableChip(
-                label: kEffectsOff,
-                selected: !on,
-                onSelected: (_) => VisualEffects.choose(false),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Cards side by side share the taller one's height.
-  Widget _buildGrid(List<Widget> cards, double width)
-  {
-    final int columns = width >= 2 * _minColumnWidth + _cardGap ? 2 : 1;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Wrap(
+      spacing: _tileGap,
+      runSpacing: _tileGap,
       children: [
-        for (var first = 0; first < cards.length; first += columns) ...[
-          if (first > 0) const SizedBox(height: _cardGap),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = first; i < first + columns; i++) ...[
-                  if (i > first) const SizedBox(width: _cardGap),
-                  Expanded(
-                    child: i < cards.length
-                        ? PageTransitionItem(slot: PageTransitionItem.header + i, child: cards[i])
-                        : const SizedBox.shrink(),
-                  ),
-                ],
-              ],
-            ),
+        for (var i = 0; i < options.length; i++)
+          ThemePreviewTile(
+            label: options[i].label,
+            dark: i > 0,
+            chosen: i == 0,
+            available: options[i].available,
           ),
-        ],
       ],
+    );
+  }
+
+  Widget _buildPalettes()
+  {
+    final List<AppearanceOption> options = kColorsSetting.options;
+
+    return Wrap(
+      spacing: _tileGap,
+      runSpacing: _tileGap,
+      children: [
+        for (var i = 0; i < options.length; i++)
+          PaletteTile(label: options[i].label, colors: options[i].colors, chosen: i == 0),
+      ],
+    );
+  }
+
+  Widget _buildLanguages()
+  {
+    final List<AppearanceOption> options = kLanguageSetting.options;
+
+    LanguageCode code(AppearanceOption option, {double size = 30}) => LanguageCode(
+          code: option.code ?? option.label.substring(0, 2).toUpperCase(),
+          available: option.available,
+          size: size,
+        );
+
+    return SizedBox(
+      width: _languageWidth,
+      child: AppDropdownField<String>(
+        hint: kLanguageSetting.title,
+        value: options.first.label,
+        options: [
+          for (final AppearanceOption option in options)
+            AppDropdownOption(
+              value: option.label,
+              label: option.label,
+              leading: code(option, size: _menuCode),
+              enabled: option.available,
+              disabledReason: kComingSoon,
+            ),
+        ],
+        // The sole language in force cannot change yet.
+        onChanged: (_) {},
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    final List<Widget> cards = [
-      for (final setting in kAppearanceSettings) _buildSetting(setting),
-      _buildEffects(context),
-    ];
-
-    return PageTransitionScrollView(
-      child: Padding(
-        // Side padding adds to the page margin, so it is dropped when compact.
-        padding: EdgeInsets.only(
-          top: 16,
-          left: AppBreakpoints.of(context).isCompact ? 0 : 32,
-          right: AppBreakpoints.of(context).isCompact ? 0 : 32,
-          bottom: 32,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 2 * _maxColumnWidth + _cardGap),
-            child: LayoutBuilder(
-              builder: (context, constraints) => _buildGrid(cards, constraints.maxWidth),
+    return SettingsColumn(
+      children: [
+        SettingsPanel(
+          rows: [
+            SettingsBand(icon: kThemeSetting.icon, title: kThemeSetting.title, child: _buildThemes()),
+            SettingsBand(icon: kColorsSetting.icon, title: kColorsSetting.title, child: _buildPalettes()),
+            SettingsRow(icon: kLanguageSetting.icon, title: kLanguageSetting.title, trailing: _buildLanguages()),
+            SettingsRow(
+              icon: Icons.auto_awesome_rounded,
+              title: kEffectsTitle,
+              subtitle: kEffectsHint,
+              trailing: AppSegmentedSwitch(
+                value: VisualEffects.of(context),
+                trueLabel: kEffectsOn,
+                falseLabel: kEffectsOff,
+                hugContent: true,
+                onChanged: VisualEffects.choose,
+              ),
             ),
-          ),
+          ],
         ),
-      ),
+      ],
     );
   }
 }

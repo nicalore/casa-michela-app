@@ -1,24 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/export/pdf_tab.dart';
+import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/association_logo.dart';
-import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../utils/settings_strings.dart';
 import '../widgets/problem_report_dialog.dart';
+import '../widgets/settings_panel.dart';
 
 // Matches the own page's report pill.
 const double _reportHeight = 50;
 const double _reportRadius = 25;
 const double _reportFontSize = 14;
 
-const double _logoSize = 64;
+const double _logoSize = 96;
+
+// Narrower, the report button goes under the logo.
+const double _stackedBelow = 560;
+
+const double _cardRadius = 28;
+const double _documentRadius = 22;
+
+// Two papers side by side once each gets this much.
+const double _minDocumentWidth = 300;
+const double _documentGap = 20;
 
 class InfoTab extends StatefulWidget
 {
@@ -82,65 +92,171 @@ class _InfoTabState extends State<InfoTab>
   @override
   Widget build(BuildContext context)
   {
-    final int currentYear = DateTime.now().year;
-
-    final List<(String, VoidCallback)> documents = [
-      (kStatuteTitle, () {}),
-      (kRegulationTitle, _openRegulation),
-      (kTermsTitle, () {}),
-      (kPrivacyTitle, () {}),
+    final List<(IconData, String, VoidCallback)> documents = [
+      (Icons.gavel_rounded, kStatuteTitle, () {}),
+      (Icons.menu_book_rounded, kRegulationTitle, _openRegulation),
+      (Icons.description_rounded, kTermsTitle, () {}),
+      (Icons.privacy_tip_rounded, kPrivacyTitle, () {}),
     ];
 
-    return PageTransitionScrollView(
-      child: Padding(
-        // Side padding adds to the page margin, so it is dropped when compact.
-        padding: EdgeInsets.only(
-          top: 16,
-          left: AppBreakpoints.of(context).isCompact ? 0 : 32,
-          right: AppBreakpoints.of(context).isCompact ? 0 : 32,
-          bottom: 32,
+    return SettingsColumn(
+      children: [
+        const _AboutCard(),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const PageHeading(kDocumentsHeading),
+            const SizedBox(height: kPageHeadingGap),
+            LayoutBuilder(
+              builder: (context, constraints)
+              {
+                final int columns = constraints.maxWidth >= 2 * _minDocumentWidth + _documentGap ? 2 : 1;
+                final double width = (constraints.maxWidth - (columns - 1) * _documentGap) / columns;
+
+                return Wrap(
+                  spacing: _documentGap,
+                  runSpacing: _documentGap,
+                  children: [
+                    for (final (icon, title, onTap) in documents)
+                      SizedBox(
+                        width: width,
+                        child: _InfoDocumentCard(icon: icon, title: title, onTap: onTap),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
         ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: pageTransitionBlocks([
-                for (final (title, onTap) in documents)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: _InfoDocumentCard(title: title, onTap: onTap),
+      ],
+    );
+  }
+}
+
+// Who made the app, which version it is, and where to report a problem.
+class _AboutCard extends StatelessWidget
+{
+  const _AboutCard();
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_cardRadius),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints)
+            {
+              final bool stacked = constraints.maxWidth < _stackedBelow;
+
+              final Widget version = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.trialTealDeep.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      kAppVersionLabel,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.trialTealDeep,
+                      ),
+                    ),
                   ),
-                const SizedBox(height: 24),
-                Center(
-                  child: AppGradientButton(
-                    label: kReportProblemLabel.toUpperCase(),
-                    icon: Icons.flag_rounded,
-                    gradient: AppTheme.dismissGradient,
-                    accent: AppTheme.trialViolet,
-                    height: _reportHeight,
-                    radius: _reportRadius,
-                    fontSize: _reportFontSize,
-                    onPressed: () => showProblemReportDialog(context),
+                  const SizedBox(height: 6),
+                  Text(appCopyright(DateTime.now().year), style: settingsLineStyle()),
+                ],
+              );
+
+              final Widget report = AppGradientButton(
+                label: kReportProblemLabel.toUpperCase(),
+                icon: Icons.flag_rounded,
+                gradient: AppTheme.dismissGradient,
+                accent: AppTheme.trialViolet,
+                height: _reportHeight,
+                radius: _reportRadius,
+                fontSize: _reportFontSize,
+                onPressed: () => showProblemReportDialog(context),
+              );
+
+              final Widget who = Row(
+                children: [
+                  const AssociationLogo(size: _logoSize),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          kAssociationName,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 23,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.trialOcean,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // The button level with the version and the copyright.
+                        if (stacked)
+                          version
+                        else
+                          Row(children: [Expanded(child: version), const SizedBox(width: 16), report]),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              if (!stacked)
+              {
+                return who;
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [who, const SizedBox(height: 20), report],
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.trialGoldSurface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_rounded, size: 20, color: AppTheme.trialGold),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    kDevelopmentWarning,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.45,
+                      color: AppTheme.modifiedAccent,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 44),
-                const Center(child: AssociationLogo(size: _logoSize)),
-                const SizedBox(height: 26),
-                Text(
-                  '${appCredits(currentYear)}\n$kDevelopmentWarning',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.trialMutedText,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    height: 1.5,
-                  ),
-                ),
-              ]),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -148,10 +264,11 @@ class _InfoTabState extends State<InfoTab>
 
 class _InfoDocumentCard extends StatefulWidget
 {
+  final IconData icon;
   final String title;
   final VoidCallback onTap;
 
-  const _InfoDocumentCard({required this.title, required this.onTap});
+  const _InfoDocumentCard({required this.icon, required this.title, required this.onTap});
 
   @override
   State<_InfoDocumentCard> createState() => _InfoDocumentCardState();
@@ -173,10 +290,10 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(_documentRadius),
             border: Border.all(
               color: _isHovering
                   ? AppTheme.trialGold
@@ -186,24 +303,15 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
             boxShadow: AppTheme.cardShadow,
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: Text(
-                  widget.title,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.trialOcean,
-                  ),
-                ),
-              ),
+              SettingsIconTile(icon: widget.icon),
+              const SizedBox(width: 14),
+              Expanded(child: Text(widget.title, style: settingsTitleStyle())),
               const SizedBox(width: 12),
               Icon(
-                Icons.chevron_right_rounded,
+                Icons.open_in_new_rounded,
                 color: _isHovering ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
-                size: 28,
+                size: 22,
               ),
             ],
           ),
