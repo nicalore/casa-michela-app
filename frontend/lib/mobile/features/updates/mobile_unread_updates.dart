@@ -7,18 +7,18 @@ import '../../../features/association/notices/notice_message_view.dart';
 import '../../../features/updates/unread_updates.dart';
 import '../../../features/updates/update_item.dart';
 import '../../../features/updates/update_reading.dart';
-import '../../../features/updates/update_strings.dart';
 import '../../../features/updates/widgets/update_badges.dart';
-import '../../shared/mobile_line_breaks.dart';
 import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_tour.dart';
 import '../notifications/mobile_notifications_offer.dart';
 
 const Duration _waitStep = Duration(milliseconds: 200);
 
-// The title wraps onto two lines more often than not: it needs air above the first card.
 const double _titleRoom = 18;
-const double _cardGap = 12;
+// Cards of one version sit closer than the versions.
+const double _cardGap = 10;
+const double _versionGap = 22;
+const double _badgeIndent = 4;
 
 // Over the home, after the notifications question and before its tour.
 Future<void> showMobileUnreadUpdatesOnce(BuildContext context)
@@ -51,6 +51,7 @@ Future<void> showMobileUnreadUpdatesOnce(BuildContext context)
   });
 }
 
+// As on the computer: each version's badge over its cards, one card per update.
 class _UpdatesSheet extends StatelessWidget
 {
   final List<UpdateReadingItem> updates;
@@ -58,54 +59,43 @@ class _UpdatesSheet extends StatelessWidget
 
   const _UpdatesSheet({required this.updates, required this.images});
 
-  Widget _card(List<Widget> children)
-  {
-    return MobileSheetCard(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 4, bottom: 14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
-    // As a notice opens: what it is above, its own title below.
-    if (updates.length == 1)
-    {
-      final UpdateReadingItem update = updates.single;
-
-      return MobileSheet(
-        eyebrow: withoutOrphans(updateHeading(update.version)),
-        title: update.title,
-        body: [
-          const SizedBox(height: _titleRoom),
-          _card([NoticeMessageView(message: update.message, images: images[update.id]!)]),
-        ],
-      );
-    }
+    final List<List<UpdateReadingItem>> groups = updatesByVersion(updates);
 
     return MobileSheet(
       eyebrow: '',
-      title: kUpdatesGroupTitle,
+      title: updatesMessageTitle(updates.length),
       body: [
-        for (var i = 0; i < updates.length; i++) ...[
-          SizedBox(height: i == 0 ? _titleRoom : _cardGap),
-          _card([
-            const SizedBox(height: 2),
-            Align(
+        for (var g = 0; g < groups.length; g++) ...[
+          SizedBox(height: g == 0 ? _titleRoom : _versionGap),
+          Padding(
+            padding: const EdgeInsets.only(left: _badgeIndent),
+            child: Align(
               alignment: Alignment.centerLeft,
-              child: UpdateVersionBadge(updates[i].version, height: 26, fontSize: 13),
+              child: UpdateVersionBadge(groups[g].first.version, height: 26, fontSize: 13),
             ),
-            const SizedBox(height: 10),
-            Text(
-              updates[i].title,
-              style: GoogleFonts.plusJakartaSans(fontSize: 21, fontWeight: FontWeight.w800, height: 1.25, color: AppTheme.trialInk),
+          ),
+          for (final update in groups[g]) ...[
+            const SizedBox(height: _cardGap),
+            MobileSheetCard(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6, bottom: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      update.title,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 21, fontWeight: FontWeight.w800, height: 1.25, color: AppTheme.trialInk),
+                    ),
+                    const SizedBox(height: 10),
+                    NoticeMessageView(message: update.message, images: images[update.id]!, tight: true),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 10),
-            NoticeMessageView(message: updates[i].message, images: images[updates[i].id]!, tight: true),
-          ]),
+          ],
         ],
       ],
     );

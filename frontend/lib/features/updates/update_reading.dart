@@ -12,6 +12,9 @@ import 'update_strings.dart';
 import 'widgets/update_badges.dart';
 
 const double _dialogWidth = 800;
+// Cards of one version sit closer than the dialog's pieces, which are its versions.
+const double _cardGap = 14;
+const double _badgeIndent = 12;
 
 NoticeImages updateImages(int updateId) =>
     NoticeImages(fetcher: (key) => ApiService().fetchUpdateImage(updateId, key));
@@ -47,13 +50,29 @@ Widget updatePillTitle(String text)
   );
 }
 
-// One update, a version, its title, then what changed; for a message with several.
-class UpdateSection extends StatelessWidget
+// Each version once, from the newest; its updates in the order given, newest first.
+List<List<UpdateReadingItem>> updatesByVersion(List<UpdateReadingItem> updates)
+{
+  final Map<String, List<UpdateReadingItem>> groups = {};
+
+  for (final update in updates)
+  {
+    groups.putIfAbsent(update.version, () => []).add(update);
+  }
+
+  return groups.values.toList();
+}
+
+// The title the readers' message opens with: one update or several.
+String updatesMessageTitle(int count) => count == 1 ? kUpdateSingleTitle : kUpdatesGroupTitle;
+
+// One update in its card: its own title, then what changed.
+class UpdateCardBody extends StatelessWidget
 {
   final UpdateReadingItem update;
   final NoticeImages images;
 
-  const UpdateSection({super.key, required this.update, required this.images});
+  const UpdateCardBody({super.key, required this.update, required this.images});
 
   @override
   Widget build(BuildContext context)
@@ -62,11 +81,6 @@ class UpdateSection extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: UpdateVersionBadge(update.version, height: 28, fontSize: 13.5),
-        ),
-        const SizedBox(height: 12),
         Text(
           update.title,
           style: GoogleFonts.plusJakartaSans(fontSize: 23, fontWeight: FontWeight.w800, height: 1.25, color: AppTheme.trialInk),
@@ -78,7 +92,7 @@ class UpdateSection extends StatelessWidget
   }
 }
 
-// One update as a notice opens; several, each in a card of its own under one pill.
+// Each version's badge floats over its cards, one card per update, one update or several.
 Future<void> showUpdatesMessage(
   BuildContext context,
   List<UpdateReadingItem> updates, {
@@ -88,31 +102,31 @@ Future<void> showUpdatesMessage(
   return showBlurredDialog<void>(
     context: context,
     barrierLabel: 'UpdatesMessage',
-    builder: (_)
-    {
-      if (updates.length == 1)
-      {
-        final UpdateReadingItem update = updates.single;
-
-        return AppDialogStack(
-          eyebrow: updateHeading(update.version),
-          title: update.title,
-          maxWidth: _dialogWidth,
-          fillLast: true,
-          children: [
-            AppScrollingDialogPill(child: NoticeMessageView(message: update.message, images: images[update.id]!)),
-          ],
-        );
-      }
-
-      return AppDialogStack(
-        header: updatePillTitle(kUpdatesGroupTitle),
-        maxWidth: _dialogWidth,
-        children: [
-          for (final update in updates)
-            AppDialogPill(expand: true, child: UpdateSection(update: update, images: images[update.id]!)),
-        ],
-      );
-    },
+    builder: (_) => AppDialogStack(
+      header: updatePillTitle(updatesMessageTitle(updates.length)),
+      maxWidth: _dialogWidth,
+      children: [
+        for (final group in updatesByVersion(updates))
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: _badgeIndent),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: UpdateVersionBadge(group.first.version, height: 30, fontSize: 14),
+                ),
+              ),
+              for (final update in group) ...[
+                const SizedBox(height: _cardGap),
+                AppDialogPill(
+                  expand: true,
+                  child: UpdateCardBody(update: update, images: images[update.id]!),
+                ),
+              ],
+            ],
+          ),
+      ],
+    ),
   );
 }

@@ -11,6 +11,7 @@ String updateHeading(String version) => 'Nuovo aggiornamento - Versione $version
 
 String updateVersionLabel(String version) => 'Versione $version';
 
+const String kUpdateSingleTitle = 'Nuovo aggiornamento';
 const String kUpdatesGroupTitle = 'Nuovi aggiornamenti';
 
 String updateCountLabel(int count) => count == 1 ? '1 aggiornamento pubblicato' : '$count aggiornamenti pubblicati';
