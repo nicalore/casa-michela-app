@@ -31,12 +31,14 @@ import '../../notifications/notification_board.dart';
 import '../../notifications/widgets/desktop_notifications_offer.dart';
 import '../../notifications/widgets/home_notifications_section.dart';
 import '../../psychologist/psychologist_tour.dart';
+import '../../updates/unread_updates.dart';
 import '../home_tour.dart';
 import '../models/month_summary_items.dart';
 import 'home_month_section.dart';
 import 'home_notices_section.dart';
 import 'home_schedule_data.dart';
 import 'home_schedule_section.dart';
+import 'home_variant.dart';
 
 const String kTeacherRole = 'TEACHER';
 const String kParentRole = 'PARENT';
@@ -148,10 +150,17 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     WidgetsBinding.instance.addPostFrameCallback((_) => _startTour());
   }
 
-  // The notifications question comes first, then the tour.
+  // The notifications question comes first, then the updates not yet read, then the tour.
   Future<void> _startTour() async
   {
     await offerNotificationsOnce(context);
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    await showUnreadUpdatesOnce(context);
 
     final MeResponse? user = _apiService.lastKnownIdentity;
 
@@ -490,8 +499,110 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     );
   }
 
-  Widget _buildHome(double width)
+  // Mockup layouts under study, see home_variant.dart.
+  Widget? _variant(double width, double visible)
   {
+    final double half = (width - _sectionGap) / 2;
+    final double cardWidth = half - 2 * DashboardSectionCard.padding.left;
+
+    switch (debugHomeVariant)
+    {
+      case 'blank':
+        return const SizedBox.shrink();
+      case 'd':
+        return _halves(
+          left: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _scheduleCard(inRow: false, cardWidth: cardWidth),
+              const SizedBox(height: _sectionGap),
+              Expanded(child: _noticesCard(tall: false, fill: true)),
+            ],
+          ),
+          right: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _monthCard(cardWidth: cardWidth),
+              const SizedBox(height: _sectionGap),
+              Expanded(child: _growingTasks(floor: kHomeTasksFloor)),
+            ],
+          ),
+        );
+      case 'e':
+        return _halves(
+          left: _column([
+            _scheduleCard(inRow: false, cardWidth: cardWidth),
+            _monthCard(cardWidth: cardWidth),
+          ]),
+          right: _growingTasks(heading: const HomeMessageTabs()),
+        );
+      case 'f':
+        return _atLeast(
+          visible,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _halves(
+                left: _scheduleCard(inRow: false, cardWidth: cardWidth),
+                right: _monthCard(cardWidth: cardWidth),
+              ),
+              const SizedBox(height: _sectionGap),
+              Expanded(child: _growingTasks(heading: const HomeMessageTabs(), columns: 2)),
+            ],
+          ),
+        );
+    }
+
+    return null;
+  }
+
+  // Never taller than its neighbours make the row; never below today's card.
+  Widget _growingTasks({Widget? heading, int columns = 1, double floor = _listHeight})
+  {
+    return HomeFloorHeight(
+      floor: floor,
+      child: _staggered(
+        slot: 2,
+        tour: kTourHomeNotifications,
+        card: HomeNotificationsSection(fill: true, expands: true, heading: heading, columns: columns),
+      ),
+    );
+  }
+
+  static Widget _atLeast(double height, Widget child)
+  {
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: height),
+      child: IntrinsicHeight(child: child),
+    );
+  }
+
+  static Widget _halves({required Widget left, required Widget right})
+  {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: left),
+          const SizedBox(width: _sectionGap),
+          Expanded(child: right),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHome(double width, double visible)
+  {
+    if (width >= _twoColumnsFrom)
+    {
+      final Widget? variant = _variant(width, visible);
+
+      if (variant != null)
+      {
+        return variant;
+      }
+    }
+
     if (width < _twoColumnsFrom)
     {
       final double cardWidth = width - 2 * DashboardSectionCard.padding.left;
@@ -587,6 +698,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (debugHomeVariant != 'blank')
                   PageTransitionItem(
                     slot: PageTransitionItem.frame,
                     child: DashboardGreeting(
@@ -604,11 +716,13 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
                               child: _ComingSoon(),
                             ),
                           )
-                        : PageTransitionScrollView(
-                            child: Center(
-                              child: SizedBox(
-                                width: contentWidth,
-                                child: _buildHome(contentWidth),
+                        : LayoutBuilder(
+                            builder: (context, constraints) => PageTransitionScrollView(
+                              child: Center(
+                                child: SizedBox(
+                                  width: contentWidth,
+                                  child: _buildHome(contentWidth, constraints.maxHeight),
+                                ),
                               ),
                             ),
                           ),

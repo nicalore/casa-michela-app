@@ -28,6 +28,8 @@ const double _leadingRoom = 8;
 
 int _openSheets = 0;
 
+bool get isMobileSheetOpen => _openSheets > 0;
+
 const Duration _turnDuration = Duration(milliseconds: 380);
 // Gentle at both ends: a fast start showed its first, heaviest frame as a jump.
 const Curve _turnCurve = Curves.easeInOutCubic;
@@ -323,9 +325,13 @@ class _SheetHostState extends State<_SheetHost> with SingleTickerProviderStateMi
     }
   }
 
+  // Only while on top: a sheet already on its way out would pop the page under it.
   void close()
   {
-    Navigator.of(context).pop();
+    if (ModalRoute.of(context)?.isCurrent ?? false)
+    {
+      Navigator.of(context).pop();
+    }
   }
 
   void _turned(AnimationStatus status)
@@ -586,9 +592,11 @@ class MobileSheet extends StatelessWidget
   {
     final String? subtitle = this.subtitle;
     final Widget? leading = this.leading;
+    // No eyebrow: the title alone stands level with the close button.
+    final bool bare = eyebrow.isEmpty;
 
     return Row(
-      crossAxisAlignment: leading == null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: leading == null && !bare ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         if (leading != null) ...[
           Padding(padding: const EdgeInsets.symmetric(vertical: _leadingRoom), child: leading),
@@ -598,16 +606,18 @@ class MobileSheet extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                eyebrow.toUpperCase(),
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.9,
-                  color: AppTheme.trialTealDeep,
+              if (!bare) ...[
+                Text(
+                  eyebrow.toUpperCase(),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.9,
+                    color: AppTheme.trialTealDeep,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
+                const SizedBox(height: 4),
+              ],
               Text(
                 title,
                 style: GoogleFonts.plusJakartaSans(

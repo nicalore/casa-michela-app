@@ -22,7 +22,9 @@ import '../features/people/people_page.dart';
 import '../features/people/person_detail_page.dart';
 import '../features/people/teacher_subjects_page.dart';
 import '../features/psychologist/psychologist_students_page.dart';
+import '../features/reports/reports_page.dart';
 import '../features/settings/settings_page.dart';
+import '../features/updates/updates_page.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 import '../shared/widgets/not_found_page.dart';
@@ -32,6 +34,9 @@ import 'role_sections.dart';
 final apiService = ApiService();
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+// For what opens over any page, such as a notification's report.
+BuildContext? get rootNavigatorContext => _rootNavigatorKey.currentContext;
 
 const String adminHome = '/dashboard';
 
@@ -55,10 +60,16 @@ String homeForRole(String? role) => homeByRole[role] ?? unavailableHome;
 // Under every home path, shown over it on the root navigator.
 const String ownPageSlug = 'profile';
 const String settingsSlug = 'settings';
+const String reportsSlug = 'reports';
+const String updatesSlug = 'updates';
 
 String ownPageForRole(String? role) => '${homeForRole(role)}/$ownPageSlug';
 
 String settingsPageForRole(String? role) => '${homeForRole(role)}/$settingsSlug';
+
+String reportsPageForRole(String? role) => '${homeForRole(role)}/$reportsSlug';
+
+String updatesPageForRole(String? role) => '${homeForRole(role)}/$updatesSlug';
 
 bool canSwitchTo(String role) => homeByRole.containsKey(role);
 
@@ -125,6 +136,8 @@ List<GoRoute> _screenRoutes()
   return [
     _screenRoute(ownPageSlug, (origin) => OwnPage(origin: origin)),
     _screenRoute(settingsSlug, (origin) => SettingsPage(origin: origin)),
+    _screenRoute(reportsSlug, (origin) => ReportsPage(origin: origin)),
+    _screenRoute(updatesSlug, (origin) => UpdatesPage(origin: origin)),
   ];
 }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/role_label_mapper.dart';
 import '../../features/auth/models/me_response.dart';
+import '../../features/reports/reports_board.dart';
+import '../../features/updates/unread_updates.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import 'app_nav_drawer.dart';
@@ -119,7 +122,22 @@ class _AppTopBarState extends State<AppTopBar>
       _loadUser();
     }
 
+    // The menu's count, ready before it opens.
+    if (!ReportsBoard.instance.loaded)
+    {
+      unawaited(ReportsBoard.instance.refresh(_user));
+    }
+
     AppTopBar.userMenuOpen.addListener(_followMenu);
+
+    // Whatever page opens first after signing in shows the updates not yet read.
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
+        unawaited(showUnreadUpdatesOnce(context));
+      }
+    });
   }
 
   @override
@@ -188,6 +206,11 @@ class _AppTopBarState extends State<AppTopBar>
       _isDrawerOpen = false;
     });
     _syncMenu();
+
+    if (_isMenuOpen)
+    {
+      unawaited(ReportsBoard.instance.refresh(_user));
+    }
   }
 
   void _toggleDrawer()
@@ -512,6 +535,7 @@ class _AppTopBarState extends State<AppTopBar>
                   onGo: _goTo,
                   onChangeRole: _openRoleSwitcher,
                   onLogout: _logout,
+                  unreadReports: ReportsBoard.instance.unread,
                 ),
               )
             : const SizedBox(key: ValueKey('empty')),

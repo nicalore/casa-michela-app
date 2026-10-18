@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -26,6 +27,9 @@ class UserMenu extends StatelessWidget
   final VoidCallback onChangeRole;
   final VoidCallback onLogout;
 
+  // The reports still unread, beside their entry.
+  final ValueListenable<int>? unreadReports;
+
   const UserMenu({
     super.key,
     required this.destinations,
@@ -33,7 +37,43 @@ class UserMenu extends StatelessWidget
     required this.onGo,
     required this.onChangeRole,
     required this.onLogout,
+    this.unreadReports,
   });
+
+  Widget _buildReports(AppDestination destination)
+  {
+    final ValueListenable<int> unread = unreadReports ?? ValueNotifier<int>(0);
+
+    return ValueListenableBuilder<int>(
+      valueListenable: unread,
+      builder: (context, count, _) => _HoverMenuItem(
+        icon: Icons.flag_rounded,
+        text: destination.label,
+        color: AppTheme.trialTealDeep,
+        marked: count > 0,
+        trailing: count > 0 ? _CountBadge(count) : null,
+        onTap: () => onGo(destination.route!),
+      ),
+    );
+  }
+
+  // Reports and updates share a group: no line between them.
+  List<Widget> _buildManagement()
+  {
+    final AppDestination? reports = destinations.reports;
+    final AppDestination? updates = destinations.updates;
+
+    if (reports == null && updates == null)
+    {
+      return const [];
+    }
+
+    return [
+      if (reports != null) _buildReports(reports),
+      if (updates != null) _buildDestination(Icons.update_rounded, updates),
+      const Divider(height: 1),
+    ];
+  }
 
   Widget _buildDestination(IconData icon, AppDestination destination)
   {
@@ -63,6 +103,7 @@ class UserMenu extends StatelessWidget
             _buildDestination(Icons.person_rounded, destinations.ownPage),
             _buildDestination(Icons.settings_rounded, destinations.settings),
             const Divider(height: 1),
+            ..._buildManagement(),
             if (canChangeRole) ...[
               _HoverMenuItem(
                 icon: Icons.swap_horiz_rounded,
@@ -93,11 +134,18 @@ class _HoverMenuItem extends StatefulWidget
 
   final VoidCallback onTap;
 
+  // The gold bar stays without the pointer: something there is waiting.
+  final bool marked;
+
+  final Widget? trailing;
+
   const _HoverMenuItem({
     required this.icon,
     required this.text,
     required this.color,
     required this.onTap,
+    this.marked = false,
+    this.trailing,
   });
 
   @override
@@ -128,7 +176,7 @@ class _HoverMenuItemState extends State<_HoverMenuItem>
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOut,
                 width: 2,
-                height: _hover ? _hoverBarHeight : 0,
+                height: _hover || widget.marked ? _hoverBarHeight : 0,
                 decoration: BoxDecoration(
                   color: AppTheme.trialGold,
                   borderRadius: BorderRadius.circular(2),
@@ -153,10 +201,39 @@ class _HoverMenuItemState extends State<_HoverMenuItem>
                       ),
                     ),
                   ),
+                  if (widget.trailing case final Widget trailing) ...[
+                    const SizedBox(width: 8),
+                    trailing,
+                  ],
                 ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget
+{
+  final int count;
+
+  const _CountBadge(this.count);
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 22),
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      decoration: BoxDecoration(color: AppTheme.trialGold, borderRadius: BorderRadius.circular(11)),
+      child: Center(
+        widthFactor: 1,
+        child: Text(
+          '$count',
+          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white),
         ),
       ),
     );

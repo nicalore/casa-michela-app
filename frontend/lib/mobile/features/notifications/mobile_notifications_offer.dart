@@ -12,6 +12,9 @@ const double _badgeSize = 58;
 
 bool _offering = false;
 
+// While the first-access question may still come: what opens by itself waits behind it.
+bool get isMobileNotificationsOfferPending => _offering;
+
 // Refused for good, only the system's settings turn them back on.
 Future<void> turnMobileNotificationsOn(BuildContext context) async
 {

@@ -18,6 +18,9 @@ const double _offerWidth = 520;
 
 bool _offering = false;
 
+// While the first-access question may still come: what opens by itself waits behind it.
+bool get isNotificationsOfferPending => _offering;
+
 // From a tap: the browser asks only inside one. Blocked, it can only say where to undo it.
 Future<void> turnNotificationsOn(BuildContext context) async
 {

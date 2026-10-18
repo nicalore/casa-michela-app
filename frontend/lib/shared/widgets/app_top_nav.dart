@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/auth/models/me_response.dart';
 import '../../features/dashboard/dashboard_modules.dart';
+import '../../features/reports/report_strings.dart';
+import '../../features/updates/update_strings.dart';
 import '../../routing/app_router.dart';
 import '../../routing/role_sections.dart';
 import 'app_tooltip.dart';
@@ -29,7 +31,13 @@ class AppDestination
   const AppDestination(this.label, this.route);
 }
 
-typedef MenuDestinations = ({AppDestination ownPage, AppDestination settings});
+// reports only for those who receive them, updates only for IT managers.
+typedef MenuDestinations = ({
+  AppDestination ownPage,
+  AppDestination settings,
+  AppDestination? reports,
+  AppDestination? updates,
+});
 
 AppDestination _destinationOf(RoleSection section, String? home)
 {
@@ -81,6 +89,8 @@ MenuDestinations menuDestinationsFor(MeResponse user, {String? role, String? fro
   return (
     ownPage: AppDestination(user.firstName, _screenRoute(ownPageForRole(role), from)),
     settings: AppDestination('Impostazioni', _screenRoute(settingsPageForRole(role), from)),
+    reports: user.readsReports ? AppDestination(kReportsEntry, _screenRoute(reportsPageForRole(role), from)) : null,
+    updates: user.managesUpdates ? AppDestination(kUpdatesEntry, _screenRoute(updatesPageForRole(role), from)) : null,
   );
 }
 

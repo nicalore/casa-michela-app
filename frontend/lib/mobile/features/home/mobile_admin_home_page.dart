@@ -20,6 +20,7 @@ import '../../../services/api_service.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_tour.dart';
 import '../notifications/mobile_notifications_offer.dart';
+import '../updates/mobile_unread_updates.dart';
 import 'mobile_admin_home_view.dart';
 import 'widgets/mobile_admin_cards.dart';
 import 'widgets/mobile_notices_list.dart';
@@ -102,6 +103,8 @@ class _MobileAdminHomePageState extends State<MobileAdminHomePage>
         if (mounted)
         {
           offerMobileNotificationsOnce(context);
+          // Waits for the question to go.
+          showMobileUnreadUpdatesOnce(context);
         }
       });
     }

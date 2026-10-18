@@ -16,6 +16,7 @@ import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_tour.dart';
 import '../notifications/mobile_notifications_offer.dart';
+import '../updates/mobile_unread_updates.dart';
 import 'mobile_home_tour.dart';
 import 'mobile_home_view.dart';
 import 'mobile_teacher_day.dart';
@@ -85,10 +86,17 @@ class _MobileTeacherHomePageState extends State<MobileTeacherHomePage>
     super.dispose();
   }
 
-  // The notifications question comes first, then the tour.
+  // The notifications question comes first, then the updates not yet read, then the tour.
   Future<void> _tourOnce() async
   {
     await offerMobileNotificationsOnce(context);
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    await showMobileUnreadUpdatesOnce(context);
 
     if (!mounted)
     {

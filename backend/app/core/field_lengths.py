@@ -13,6 +13,8 @@ STUDENT_NOTE_MARKDOWN: Final[int] = 10000
 
 NOTICE_TITLE: Final[int] = 150
 NOTICE_MESSAGE: Final[int] = 20000
+# The app's version an update is about, x.y.z.
+APP_VERSION: Final[int] = 20
 FILE_NAME: Final[int] = 255
 
 TOPIC: Final[int] = 255

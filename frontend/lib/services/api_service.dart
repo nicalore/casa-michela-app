@@ -49,7 +49,9 @@ import '../features/people/models/student_presence_statistics_item.dart';
 import '../features/people/models/teacher_appreciation_item.dart';
 import '../features/people/models/teacher_availability_statistics_item.dart';
 import '../features/people/models/teacher_subjects_statistics_item.dart';
+import '../features/reports/report_item.dart';
 import '../features/settings/models/session_item.dart';
+import '../features/updates/update_item.dart';
 import 'auth_state.dart';
 import 'browser_tabs.dart';
 import 'client_device_key.dart';
@@ -1354,6 +1356,48 @@ class ApiService
     }
   }
 
+  // Newest first, the unresolved ones of the kinds the caller receives.
+  Future<List<ReportItem>> getReports() async
+  {
+    try
+    {
+      final response = await _dio.get('/reports');
+
+      return parseList(response.data, ReportItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare le segnalazioni.');
+    }
+  }
+
+  // Opening one reads it, for the caller alone.
+  Future<ReportItem> openReport(int id) async
+  {
+    try
+    {
+      final response = await _dio.get('/reports/$id');
+
+      return ReportItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile aprire la segnalazione.');
+    }
+  }
+
+  Future<void> resolveReport(int id) async
+  {
+    try
+    {
+      await _dio.put('/reports/$id/resolve');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile segnare la segnalazione come risolta.');
+    }
+  }
+
   Future<List<PresenceItem>> createLessonRequest({
     required String studentTaxCode,
     required DateTime date,
@@ -1853,6 +1897,162 @@ class ApiService
     {
       final response = await _dio.get<List<int>>(
         '/notices/$noticeId/images/$key',
+        options: Options(responseType: ResponseType.bytes, receiveTimeout: _uploadTimeout),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(e, 'Impossibile caricare l\'immagine.');
+    }
+  }
+
+  Future<List<UpdateSummaryItem>> getUpdates() async
+  {
+    try
+    {
+      final response = await _dio.get('/app-updates/');
+
+      return parseList(response.data, UpdateSummaryItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare gli aggiornamenti.');
+    }
+  }
+
+  Future<UpdateItem> getUpdate(int id) async
+  {
+    try
+    {
+      final response = await _dio.get('/app-updates/$id');
+
+      return UpdateItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare l\'aggiornamento.');
+    }
+  }
+
+  // People who can sign in holding one of the roles.
+  Future<int> countUpdateRecipients(List<UpdateRole> recipients) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/app-updates/recipients',
+        queryParameters: {'recipients': [for (final role in recipients) role.code]},
+        options: Options(listFormat: ListFormat.multi),
+      );
+
+      return response.data['people'] as int;
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile contare i destinatari.');
+    }
+  }
+
+  // Repeated keys without brackets: the server reads a form list that way.
+  FormData _updateForm(UpdateDraft draft, {String? version, DateTime? expectedUpdatedAt})
+  {
+    return FormData()
+      ..fields.addAll([
+        MapEntry('title', draft.title),
+        MapEntry('message', draft.message),
+        for (final role in draft.recipients) MapEntry('recipients', role.code),
+        if (version != null) MapEntry('version', version),
+        if (expectedUpdatedAt != null) MapEntry('expected_updated_at', expectedUpdatedAt.toUtc().toIso8601String()),
+      ])
+      ..files.addAll([
+        for (final entry in draft.images.entries)
+          MapEntry('images', _multipart(entry.value, fileName: entry.key)),
+      ]);
+  }
+
+  Future<UpdateItem> createUpdate(UpdateDraft draft, {required String version}) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/app-updates/',
+        data: _updateForm(draft, version: version),
+        options: Options(receiveTimeout: _uploadTimeout),
+      );
+
+      return UpdateItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la pubblicazione dell\'aggiornamento. Riprova più tardi.');
+    }
+  }
+
+  Future<UpdateItem> editUpdate(UpdateItem update, UpdateDraft draft) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/app-updates/${update.id}',
+        data: _updateForm(draft, expectedUpdatedAt: update.updatedAt),
+        options: Options(receiveTimeout: _uploadTimeout),
+      );
+
+      return UpdateItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la modifica dell\'aggiornamento. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deleteUpdate(int id) async
+  {
+    try
+    {
+      await _dio.delete('/app-updates/$id');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'eliminazione dell\'aggiornamento.');
+    }
+  }
+
+  // Newest first, what the caller has still to read.
+  Future<List<UpdateReadingItem>> getUnreadUpdates() async
+  {
+    try
+    {
+      final response = await _dio.get('/app-updates/unread');
+
+      return parseList(response.data, UpdateReadingItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare gli aggiornamenti.');
+    }
+  }
+
+  Future<void> markUpdatesSeen(List<int> ids) async
+  {
+    try
+    {
+      await _dio.put('/app-updates/seen', data: {'ids': ids});
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile segnare gli aggiornamenti come letti.');
+    }
+  }
+
+  Future<Uint8List> fetchUpdateImage(int updateId, String key) async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        '/app-updates/$updateId/images/$key',
         options: Options(responseType: ResponseType.bytes, receiveTimeout: _uploadTimeout),
       );
 

@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
 from app.api import (
+    app_updates,
     association_subjects,
     auth,
     availabilities,
@@ -34,6 +35,7 @@ from app.api import (
     person_collaboration,
     presences,
     push,
+    reports,
     room_supervisions,
     rooms,
     schools,
@@ -159,6 +161,8 @@ app.include_router(calendar_activities.router)
 app.include_router(calendar_teacher_exclusions.router)
 app.include_router(notices.router)
 app.include_router(notifications.router)
+app.include_router(reports.router)
+app.include_router(app_updates.router)
 app.include_router(push.router)
 app.include_router(tours.router)
 

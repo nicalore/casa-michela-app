@@ -40,6 +40,7 @@ from app.schemas.auth.password_reset import PasswordResetConfirm, PasswordResetR
 from app.schemas.auth.refresh_request import RefreshRequest
 from app.schemas.auth.session_response import SessionResponse
 from app.services import push
+from app.services.app_updates import manages_updates
 from app.services.auth_service import (
     AccountDisabledError,
     AccountLockedError,
@@ -51,6 +52,7 @@ from app.services.auth_service import (
     SessionNotFoundError,
 )
 from app.services.new_devices import device_seen, sessions_ended
+from app.services.report_readers import kinds_read_by
 from app.services.role_service import BOARD_ROLES, RoleService
 
 router = APIRouter(
@@ -340,6 +342,10 @@ def _identity_payload(account: Account) -> dict[str, Any]:
         # Such a pupil may still be allowed to book; payments stay with the parents.
         "autonomous_bookings": account.autonomous_bookings,
         "board_role": _board_role(person),
+        # The kinds of report they receive; their menu lists them if any.
+        "report_kinds": [kind.value for kind in kinds_read_by(person)],
+        # IT managers write the app's updates; their menu has the page.
+        "manages_updates": manages_updates(person),
         # Stored aware, in UTC; the client picks the wall clock.
         "last_login": account.last_login.isoformat() if account.last_login else None,
         "gender": person.gender.value if person.gender else None,

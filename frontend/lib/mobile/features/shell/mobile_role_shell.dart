@@ -6,6 +6,7 @@ import 'package:flutter/physics.dart';
 
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
+import '../../../features/reports/reports_board.dart';
 import '../../../services/api_service.dart';
 import '../../shared/navigation/mobile_destinations.dart';
 import '../../shared/widgets/mobile_birthday_confetti.dart';
@@ -26,8 +27,11 @@ import '../home/mobile_admin_home_page.dart';
 import '../home/mobile_pupil_home_page.dart';
 import '../home/mobile_teacher_home_page.dart';
 import '../profile/mobile_own_page.dart';
+import '../reports/mobile_report_details_sheet.dart';
+import '../reports/mobile_reports_page.dart';
 import '../settings/mobile_settings_page.dart';
 import '../subjects/mobile_subjects_page.dart';
+import '../updates/mobile_unread_updates.dart';
 import 'mobile_placeholder_page.dart';
 import 'mobile_shell_requests.dart';
 
@@ -92,15 +96,25 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
   // Sign-out clears the identity before the handover, while this area is still shown.
   MeResponse? _lastUser;
 
+  bool _menuSeen = false;
+
   @override
   void initState()
   {
     super.initState();
     MobileNavSheet.openness.addListener(_onCurtainMoved);
     MobileShellRequests.section.addListener(_onRequest);
+    MobileShellRequests.report.addListener(_onReportRequest);
 
     // A tap that opened the app asked before the area was built.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onRequest());
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      _onRequest();
+      _onReportRequest();
+    });
+
+    // The menu's count, ready before it opens.
+    unawaited(ReportsBoard.instance.refresh(_apiService.lastKnownIdentity));
   }
 
   @override
@@ -112,7 +126,21 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
     _fall.dispose();
     MobileNavSheet.openness.removeListener(_onCurtainMoved);
     MobileShellRequests.section.removeListener(_onRequest);
+    MobileShellRequests.report.removeListener(_onReportRequest);
     super.dispose();
+  }
+
+  // A report's notification: the report over whatever page is shown.
+  void _onReportRequest()
+  {
+    if (!mounted || MobileShellRequests.report.value == null || _lastUser == null)
+    {
+      return;
+    }
+
+    final int id = MobileShellRequests.takeReport()!;
+
+    unawaited(showMobileReport(context, id));
   }
 
   // A notification asking for a section: the role it concerns first, if another.
@@ -174,6 +202,15 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
 
   void _onCurtainMoved()
   {
+    // Opening the menu reads the count again.
+    final bool open = MobileNavSheet.openness.value > 0;
+
+    if (open && !_menuSeen)
+    {
+      unawaited(ReportsBoard.instance.refresh(_lastUser));
+    }
+
+    _menuSeen = open;
 
     if (MobileNavSheet.openness.value <= 0 && _fall.value <= 0)
     {
@@ -388,7 +425,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
 
       return _pupilRoles.contains(role)
           ? MobilePupilHomePage(role: role, user: user)
-          : const MobilePlaceholderPage(title: 'Home');
+          : const MobileUnreadUpdatesTrigger(child: MobilePlaceholderPage(title: 'Home'));
     }
 
     if (slug == kMobileOwnPageSlug)
@@ -399,6 +436,11 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
     if (slug == kMobileSettingsSlug)
     {
       return MobileSettingsPage(user: user);
+    }
+
+    if (slug == kMobileReportsSlug)
+    {
+      return MobileReportsPage(user: user);
     }
 
     final MobileDestination current = _destinationsFor(user, role).firstWhere((d) => d.slug == slug);
@@ -473,7 +515,10 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
 
         final String role = _role!;
         final List<MobileDestination> destinations = _destinationsFor(user, role);
-        final List<MobileDestination> userDestinations = mobileUserDestinationsFor(user.firstName);
+        final List<MobileDestination> userDestinations = mobileUserDestinationsFor(
+          user.firstName,
+          reports: user.readsReports ? ReportsBoard.instance.unread : null,
+        );
 
         // A role switch leaves a destination the new role does not have.
         if (![...destinations, ...userDestinations].any((d) => d.slug == _destination))

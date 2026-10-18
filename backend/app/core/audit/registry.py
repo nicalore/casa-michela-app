@@ -45,6 +45,10 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         body_fields=("name",),
     ),
     ("POST", "/support/report-problem"): AuditRule("Problem report"),
+    ("PUT", "/reports/{report_id}/resolve"): AuditRule(
+        "Report resolution",
+        path_params=("report_id",),
+    ),
     **_crud(
         "/ministry-subjects",
         "Ministry subject",
@@ -55,6 +59,7 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     **_crud("/study-programs", "Study program", "program_id", body_fields=("name",)),
     **_crud("/rooms", "Room", "room_id", body_fields=("name",)),
     **_crud("/notices", "Notice", "notice_id"),
+    **_crud("/app-updates", "App update", "update_id"),
     ("PUT", "/notices/{notice_id}/pin"): AuditRule(
         "Notice pin",
         path_params=("notice_id",),
@@ -373,8 +378,8 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     ),
 }
 
-# Editor locks, seen tutorials, read notifications, notification kinds and push
-# addresses are UI bookkeeping: auditing them would bury real entries.
+# Editor locks, seen tutorials, read notifications and app updates, notification
+# kinds and push addresses are UI bookkeeping: auditing them would bury real entries.
 IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
     {
         ("POST", "/calendar-locks/{lock_date}/{band}/heartbeat"),
@@ -382,6 +387,7 @@ IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
         ("PUT", "/tours/{platform}"),
         ("DELETE", "/tours/{platform}"),
         ("PUT", "/notifications/{notification_id}/read"),
+        ("PUT", "/app-updates/seen"),
         ("PUT", "/notifications/kinds"),
         ("PUT", "/notifications/calendar/{calendar_date}/{band}/seen"),
         ("PUT", "/notifications/bookings/{pupil_tax_code}/seen"),

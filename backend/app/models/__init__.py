@@ -1,5 +1,6 @@
 from app.models.account import Account
 from app.models.administrator import Administrator
+from app.models.app_update import AppUpdate, AppUpdateImage, AppUpdateRead
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
@@ -33,6 +34,7 @@ from app.models.psychological_support import PsychologicalSupport
 from app.models.psychologist import Psychologist
 from app.models.push_device import PushDevice
 from app.models.refresh_token import RefreshToken
+from app.models.report import Report, ReportRead
 from app.models.room import Room
 from app.models.room_supervision import RoomSupervision
 from app.models.school import School
@@ -58,6 +60,9 @@ from app.models.weekly_template import WeeklyTemplate
 __all__ = [
     "Account",
     "Administrator",
+    "AppUpdate",
+    "AppUpdateImage",
+    "AppUpdateRead",
     "AssociationSubject",
     "Availability",
     "Booking",
@@ -93,6 +98,8 @@ __all__ = [
     "Psychologist",
     "PushDevice",
     "RefreshToken",
+    "Report",
+    "ReportRead",
     "Room",
     "RoomSupervision",
     "School",

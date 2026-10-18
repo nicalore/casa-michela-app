@@ -24,6 +24,12 @@ class MeResponse
   // for everybody else. Mirrors _BOARD_ROLES on the server.
   final String? boardRole;
 
+  // The kinds of report they receive (IT managers, the president); empty for the rest.
+  final List<String> reportKinds;
+
+  // IT managers write the app's updates, from their own page.
+  final bool managesUpdates;
+
   // Already converted to the local clock.
   final DateTime? lastLogin;
 
@@ -38,6 +44,8 @@ class MeResponse
   final String? city;
   final String? province;
   final String? zipCode;
+
+  bool get readsReports => reportKinds.isNotEmpty;
 
   const MeResponse({
     required this.taxCode,
@@ -54,6 +62,8 @@ class MeResponse
     this.hasParentalResponsibility = false,
     this.autonomousBookings = false,
     this.boardRole,
+    this.reportKinds = const [],
+    this.managesUpdates = false,
     this.lastLogin,
     this.gender,
     this.email,
@@ -85,6 +95,8 @@ class MeResponse
       hasParentalResponsibility: json['has_parental_responsibility'] ?? false,
       autonomousBookings: json['autonomous_bookings'] ?? false,
       boardRole: json['board_role'] as String?,
+      reportKinds: List<String>.from(json['report_kinds'] ?? const []),
+      managesUpdates: json['manages_updates'] ?? false,
       // The server sends UTC; convert to local or it reads hours behind.
       lastLogin: json['last_login'] != null
           ? DateTime.tryParse(json['last_login'])?.toLocal()
