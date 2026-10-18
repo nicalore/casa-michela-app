@@ -34,6 +34,15 @@ def compute_available_window(now: datetime) -> tuple[date, date]:
     return today, current_week_monday + timedelta(days=last_unlocked_offset)
 
 
+# When the week starting that Monday opens: the Friday before, at 20:00.
+def week_unlocks_at(monday: date) -> datetime:
+    return datetime.combine(
+        monday - timedelta(days=7 - _UNLOCK_WEEKDAY),
+        time(_UNLOCK_HOUR),
+        tzinfo=_ROME_TIMEZONE,
+    )
+
+
 def now_in_rome() -> datetime:
     return datetime.now(_ROME_TIMEZONE)
 

@@ -15,6 +15,7 @@
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
 		9C41A0012F1E4B3D00A7C1D2 /* RotationReportingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C41A0002F1E4B3D00A7C1D2 /* RotationReportingViewController.swift */; };
 		9C41A0032F1E4B3D00A7C1D2 /* DocumentSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C41A0022F1E4B3D00A7C1D2 /* DocumentSaver.swift */; };
+		9C41A0052F1E4B3D00A7C1D2 /* NotificationPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C41A0042F1E4B3D00A7C1D2 /* NotificationPermission.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		7CD96E0FB4AEF7646A9B0814 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AF279284EA4F0BE3E336486 /* Pods_RunnerTests.framework */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
@@ -60,6 +61,7 @@
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		9C41A0002F1E4B3D00A7C1D2 /* RotationReportingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotationReportingViewController.swift; sourceTree = "<group>"; };
 		9C41A0022F1E4B3D00A7C1D2 /* DocumentSaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentSaver.swift; sourceTree = "<group>"; };
+		9C41A0042F1E4B3D00A7C1D2 /* NotificationPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermission.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		83D59934E1A24534D9FEBE9B /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
@@ -172,6 +174,7 @@
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				9C41A0002F1E4B3D00A7C1D2 /* RotationReportingViewController.swift */,
 				9C41A0022F1E4B3D00A7C1D2 /* DocumentSaver.swift */,
+				9C41A0042F1E4B3D00A7C1D2 /* NotificationPermission.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -382,6 +385,7 @@
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				9C41A0012F1E4B3D00A7C1D2 /* RotationReportingViewController.swift in Sources */,
 				9C41A0032F1E4B3D00A7C1D2 /* DocumentSaver.swift in Sources */,
+				9C41A0052F1E4B3D00A7C1D2 /* NotificationPermission.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

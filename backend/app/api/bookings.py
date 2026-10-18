@@ -1,7 +1,7 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.booking_presentation import (
     AvoidedTeachers,
@@ -21,7 +21,10 @@ from app.schemas.booking import (
     PresenceSummary,
 )
 from app.schemas.person import PersonOption
+from app.services import push
+from app.services.booking_notifications import Lesson, pupil_lessons, tell_changes
 from app.services.booking_service import BookingService
+from app.services.push import PushBatch
 
 router = APIRouter(
     prefix="/bookings",
@@ -111,16 +114,44 @@ async def get_booking(
     return (await _to_responses(db, [booking]))[0]
 
 
+# Changed or cancelled by whoever it was: the pupil and the parents hear of it.
+async def _tell(
+    db: DbSession,
+    identity: CurrentIdentity,
+    pupil: str | None,
+    before: Mapping[int, Lesson],
+    after: Mapping[int, Lesson],
+) -> PushBatch:
+    if pupil is None:
+        return PushBatch(web=[], android=[])
+
+    told = await tell_changes(
+        db,
+        booker_tax_code=identity.tax_code,
+        pupil_tax_code=pupil,
+        before=before,
+        after=after,
+    )
+    await db.commit()
+
+    return told
+
+
 @router.put("/{booking_id}", response_model=BookingResponse)
 async def update_booking(
     booking_id: int,
     payload: BookingUpdate,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> BookingResponse:
+    pupil, before = await pupil_lessons(db, booking_id=booking_id)
     booking = await _services(db).update(identity, booking_id, payload)
+    response = (await _to_responses(db, [booking]))[0]
+    _, after = await pupil_lessons(db, booking_id=booking_id)
+    background.add_task(push.deliver, await _tell(db, identity, pupil, before, after))
 
-    return (await _to_responses(db, [booking]))[0]
+    return response
 
 
 @router.delete("/{booking_id}")
@@ -128,7 +159,10 @@ async def delete_booking(
     booking_id: int,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
+    pupil, before = await pupil_lessons(db, booking_id=booking_id)
     await _services(db).delete(identity, booking_id)
+    background.add_task(push.deliver, await _tell(db, identity, pupil, before, {}))
 
     return {"detail": "Prenotazione eliminata"}

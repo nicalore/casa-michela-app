@@ -15,6 +15,9 @@ class MobileAvatar extends StatelessWidget
 
   final bool gold;
 
+  // Shown instead of the white initials while there is no photo.
+  final Widget? fallback;
+
   const MobileAvatar({
     super.key,
     required this.firstName,
@@ -22,6 +25,7 @@ class MobileAvatar extends StatelessWidget
     this.imageUrl,
     this.size = 46,
     this.gold = true,
+    this.fallback,
   });
 
   @override
@@ -46,7 +50,7 @@ class MobileAvatar extends StatelessWidget
       url = '$url?v=${ApiService().profileImageVersion}';
     }
 
-    final Widget fallback = Center(
+    final Widget fallback = this.fallback ?? Center(
       child: Text(
         initials,
         style: GoogleFonts.plusJakartaSans(

@@ -72,6 +72,12 @@ class MobileNavSheet extends StatefulWidget
   static void close() => _shown?._close();
   static _MobileNavSheetState? _shown;
 
+  // Critically damped: no bounce at the ends. The shell changes section on it with the menu closed.
+  static final SpringDescription spring = SpringDescription.withDampingRatio(
+    mass: 1,
+    stiffness: 380,
+  );
+
   // The login card turns into this glass on sign-in.
   static final BoxDecoration glass = BoxDecoration(
     color: MobileGlassPanel.sheetTint.withValues(alpha: MobileGlassPanel.sheetAlpha),
@@ -118,12 +124,6 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
   // In sheet travels per second.
   static const double _flickVelocity = 1.2;
 
-  // Critically damped: no bounce at the ends.
-  static final SpringDescription _spring = SpringDescription.withDampingRatio(
-    mass: 1,
-    stiffness: 380,
-  );
-
   // 0 closed, 1 open.
   late final AnimationController _open = AnimationController.unbounded(vsync: this, value: 0)
     ..addListener(() => MobileNavSheet._openness.value = _open.value.clamp(0.0, 1.0));
@@ -157,7 +157,7 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
   void _settle(double target, {double velocity = 0})
   {
     _open
-        .animateWith(SpringSimulation(_spring, _open.value, target, velocity))
+        .animateWith(SpringSimulation(MobileNavSheet.spring, _open.value, target, velocity))
         .whenComplete(()
     {
       // Also called when a new drag cancels the spring, which must not snap.

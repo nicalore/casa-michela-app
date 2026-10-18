@@ -10,6 +10,8 @@ import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
+import '../notifications/notice_jump.dart';
+import '../notifications/week_jump.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/snackbar.dart';
 import 'models/association_subject_item.dart';
@@ -105,8 +107,46 @@ class _AssociationPageState extends State<AssociationPage>
   void initState()
   {
     super.initState();
+
+    // Opened from a notification: on the hours, whose view takes the day, or on the notices,
+    // whose tab opens the one it announced.
+    if (WeekJumps.hours.isPending)
+    {
+      _selectedSection = _hoursContentIndex;
+    }
+    else if (NoticeJumps.reading.isPending)
+    {
+      _selectedSection = _noticesContentIndex;
+    }
+
     visitedSections.add(_selectedSection);
     _loadAllData();
+    WeekJumps.hours.asked.addListener(_showHours);
+    NoticeJumps.reading.asked.addListener(_showNotices);
+  }
+
+  @override
+  void dispose()
+  {
+    WeekJumps.hours.asked.removeListener(_showHours);
+    NoticeJumps.reading.asked.removeListener(_showNotices);
+    super.dispose();
+  }
+
+  void _showNotices()
+  {
+    if (_selectedSection != _noticesContentIndex)
+    {
+      _selectSection(_noticesContentIndex);
+    }
+  }
+
+  void _showHours()
+  {
+    if (_selectedSection != _hoursContentIndex)
+    {
+      _selectSection(_hoursContentIndex);
+    }
   }
 
   @override
@@ -533,7 +573,11 @@ class _AssociationPageState extends State<AssociationPage>
         if (_onBoard) const SizedBox.shrink(),
         visitedSections.contains(_noticesContentIndex) ? const NoticesTab() : const SizedBox.shrink(),
         visitedSections.contains(_hoursContentIndex)
-            ? CombinedHoursView(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
+            ? CombinedHoursView(
+                weeklyTemplates: _weeklyTemplates,
+                onWeeklyTemplatesChanged: _refreshWeeklyTemplates,
+                role: 'ADMIN',
+              )
             : const SizedBox.shrink(),
       ],
     );

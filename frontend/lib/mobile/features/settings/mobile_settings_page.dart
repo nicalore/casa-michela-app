@@ -8,6 +8,7 @@ import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../../features/people/widgets/person_detail_widgets.dart';
 import '../../../features/settings/models/session_item.dart';
+import '../../../features/settings/settings_jump.dart';
 import '../../../features/settings/utils/settings_strings.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
@@ -49,6 +50,10 @@ const double _creditsGap = 34;
 
 const String _confirmTitle = 'Confermi?';
 
+// Third of the strip: Aspetto, Accesso, Dispositivi.
+const int _devicesPage = 2;
+const Duration _pageTurn = Duration(milliseconds: 320);
+
 // Mobile only: the desktop opens the regulation in a tab instead.
 const String _regulationSaved = 'Il regolamento è stato scaricato.';
 const String _regulationSaveFailed = 'Non è stato possibile salvare il regolamento.';
@@ -70,7 +75,7 @@ class MobileSettingsPage extends StatefulWidget
 class _MobileSettingsPageState extends State<MobileSettingsPage>
 {
   final ApiService _apiService = ApiService();
-  final PageController _pages = PageController();
+  late final PageController _pages;
 
   // Null while loading.
   List<SessionItem>? _sessions;
@@ -87,9 +92,30 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
   void initState()
   {
     super.initState();
+
+    // Opened from a notification: on the devices, where a sign-in not one's own is ended.
+    _pages = PageController(initialPage: SettingsJumps.takeDevices() ? _devicesPage : 0);
     _loadSessions();
     mobileTourChanges.addListener(_tourLater);
     MobileNavSheet.hidden.addListener(_tourLater);
+    SettingsJumps.asked.addListener(_showDevices);
+  }
+
+  // Already open: the devices, read again in full.
+  void _showDevices()
+  {
+    if (!SettingsJumps.takeDevices() || !mounted)
+    {
+      return;
+    }
+
+    if (_pages.hasClients)
+    {
+      _pages.animateToPage(_devicesPage, duration: _pageTurn, curve: Curves.easeInOutCubic);
+    }
+
+    setState(() => _sessions = null);
+    _loadSessions();
   }
 
   @override
@@ -109,6 +135,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
   {
     mobileTourChanges.removeListener(_tourLater);
     MobileNavSheet.hidden.removeListener(_tourLater);
+    SettingsJumps.asked.removeListener(_showDevices);
     _pages.dispose();
     super.dispose();
   }

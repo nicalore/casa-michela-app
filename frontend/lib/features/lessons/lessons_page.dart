@@ -42,6 +42,7 @@ import 'tabs/bookings_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'utils/band_watch.dart';
 import 'utils/booking_window.dart';
+import 'utils/calendar_jump.dart';
 import 'utils/opening_window.dart';
 import 'widgets/lessons_day_header.dart';
 import 'widgets/lessons_toolbar.dart';
@@ -174,16 +175,41 @@ class _LessonsPageState extends State<LessonsPage>
   void initState()
   {
     super.initState();
+
+    // Opened from a notification: straight to the calendar, with no slide from the days.
+    final bool jumping = CalendarJumps.admin.isPending;
+
+    if (jumping)
+    {
+      _selectedSection = _availableDays.length;
+    }
+
     _visitedSections.add(_contentIndex);
     _watch.start();
+
+    if (jumping)
+    {
+      _watchTheShownSection();
+    }
+
+    CalendarJumps.admin.asked.addListener(_turnToTheCalendar);
     _loadAllData();
   }
 
   @override
   void dispose()
   {
+    CalendarJumps.admin.asked.removeListener(_turnToTheCalendar);
     _watch.dispose();
     super.dispose();
+  }
+
+  void _turnToTheCalendar()
+  {
+    if (!_isCalendarSelected)
+    {
+      _selectSection(_availableDays.length);
+    }
   }
 
   @override

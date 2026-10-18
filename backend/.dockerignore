@@ -10,6 +10,8 @@ test.http
 .DS_Store
 # Passed with --env-file; never baked into a layer.
 .env
+# Firebase key: mounted, like the .env.
+*firebase-adminsdk*.json
 # Mounted volumes.
 logs/
 uploads/

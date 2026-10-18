@@ -6,6 +6,9 @@ from app.models.refresh_token import DeviceTypeEnum
 # Preferred to the user agent: iPadOS Safari poses as a Mac, apps omit the screen.
 FORM_FACTOR_HEADER: Final[str] = "X-Client-Form-Factor"
 
+# A code each browser or app keeps for good, so a sign-in from a new one is told apart.
+DEVICE_KEY_HEADER: Final[str] = "X-Client-Device"
+
 _FORM_FACTORS: Final[dict[str, DeviceTypeEnum]] = {
     "desktop": DeviceTypeEnum.DESKTOP,
     "phone": DeviceTypeEnum.PHONE,

@@ -42,6 +42,10 @@ def closes_at(day: date, band: TimeBandEnum) -> datetime:
     )
 
 
+def band_ends_at(day: date, band: TimeBandEnum) -> datetime:
+    return datetime.combine(day, band_bounds(band)[1], tzinfo=_ROME_TIMEZONE)
+
+
 def now_in_rome() -> datetime:
     return datetime.now(_ROME_TIMEZONE)
 

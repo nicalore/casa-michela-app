@@ -3,10 +3,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Response, status
 
 from app.api.dependencies import DbSession
-from app.api.rbac import require_role
+from app.api.rbac import CurrentIdentity, require_role
+from app.core.booking_window import today_in_rome
 from app.models.opening_day import OpeningDay
 from app.repositories.opening_day_repository import OpeningDayRepository
 from app.repositories.weekly_template_repository import WeeklyTemplateRepository
@@ -17,9 +18,12 @@ from app.schemas.opening_day import (
     OpeningDayRestoreRequest,
     OpeningDayRestoreResponse,
     OpeningDayUpdate,
+    OpeningHoursChanged,
     OpeningModeEnum,
 )
+from app.services import push
 from app.services.opening_day_service import OpeningDayService
+from app.services.opening_hours_changed import announce_hours_change
 
 router = APIRouter(
     prefix="/opening-days",
@@ -112,6 +116,31 @@ async def restore_standard_hours(
         dates_restored=dates_restored,
         rows_created=rows_created,
     )
+
+
+# Called once a variation is saved, so a range written day by day makes one notice.
+@router.post(
+    "/announce",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=_ADMIN_ONLY,
+)
+async def announce_hours(
+    payload: OpeningHoursChanged,
+    identity: CurrentIdentity,
+    db: DbSession,
+    background: BackgroundTasks,
+) -> Response:
+    batch = await announce_hours_change(
+        db,
+        payload.date_from,
+        payload.date_to,
+        author=identity.tax_code,
+        today=today_in_rome(),
+    )
+    await db.commit()
+    background.add_task(push.deliver, batch)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{opening_day_id}", response_model=OpeningDayResponse)

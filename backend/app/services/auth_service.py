@@ -261,6 +261,8 @@ class AuthService:
             access_token=access_token,
             refresh_token=refresh_token,
             password_reset_required=account.password_reset_required,
+            account_tax_code=account.tax_code,
+            session_id=session_id,
         )
 
     async def _load_valid_refresh_token(

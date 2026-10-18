@@ -12,6 +12,7 @@ from app.models.competence_waiver import CompetenceWaiver
 from app.models.course import Course
 from app.models.course_participant import CourseParticipant
 from app.models.early_exit_schedule import EarlyExitSchedule
+from app.models.known_device import KnownDevice
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
@@ -20,7 +21,9 @@ from app.models.membership import Membership
 from app.models.methodological_note import MethodologicalNote
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
+from app.models.muted_notification_kind import MutedNotificationKind
 from app.models.notice import Notice, NoticeFile, NoticePin
+from app.models.notification import Notification
 from app.models.opening_day import OpeningDay
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
@@ -28,6 +31,7 @@ from app.models.person import Person
 from app.models.presence import Presence
 from app.models.psychological_support import PsychologicalSupport
 from app.models.psychologist import Psychologist
+from app.models.push_device import PushDevice
 from app.models.refresh_token import RefreshToken
 from app.models.room import Room
 from app.models.room_supervision import RoomSupervision
@@ -74,9 +78,12 @@ __all__ = [
     "MethodologicalNote",
     "MinistryAssociationSubject",
     "MinistrySubject",
+    "KnownDevice",
+    "MutedNotificationKind",
     "Notice",
     "NoticeFile",
     "NoticePin",
+    "Notification",
     "OpeningDay",
     "Parent",
     "ParentalResponsibility",
@@ -84,6 +91,7 @@ __all__ = [
     "Presence",
     "PsychologicalSupport",
     "Psychologist",
+    "PushDevice",
     "RefreshToken",
     "Room",
     "RoomSupervision",

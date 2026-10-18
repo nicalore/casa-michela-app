@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show TimeOfDay;
+import 'package:flutter/material.dart' show AppLifecycleListener, TimeOfDay;
 
 import '../core/config/api_config.dart';
 import '../core/utils/content_disposition.dart';
@@ -31,6 +31,7 @@ import '../features/lessons/models/lesson_item.dart';
 import '../features/lessons/models/presence_item.dart';
 import '../features/lessons/models/room_supervision_item.dart';
 import '../features/lessons/models/teacher_room_assignment_item.dart';
+import '../features/notifications/notification_item.dart';
 import '../features/people/models/age_distribution_item.dart';
 import '../features/people/models/certification_distribution_item.dart';
 import '../features/people/models/city_distribution_item.dart';
@@ -51,6 +52,7 @@ import '../features/people/models/teacher_subjects_statistics_item.dart';
 import '../features/settings/models/session_item.dart';
 import 'auth_state.dart';
 import 'browser_tabs.dart';
+import 'client_device_key.dart';
 import 'client_form_factor.dart';
 import 'session_service.dart';
 
@@ -224,6 +226,7 @@ class ApiService
   Future<void>? _refreshing;
 
   static const String _formFactorHeader = 'X-Client-Form-Factor';
+  static const String _deviceKeyHeader = 'X-Client-Device';
   static const String _activeRoleHeader = 'X-Active-Role';
 
   // Long enough for a phone to settle on its new network after a switch.
@@ -482,6 +485,13 @@ class ApiService
     if (_appUserAgent != null)
     {
       options.headers['User-Agent'] = _appUserAgent;
+    }
+
+    final String? deviceKey = ClientDeviceKey.value;
+
+    if (deviceKey != null)
+    {
+      options.headers[_deviceKeyHeader] = deviceKey;
     }
   }
 
@@ -818,8 +828,14 @@ class ApiService
     return LoginResponse.fromJson(refreshResponse.data);
   }
 
+  // Back in front: a session ended from another device meanwhile goes to the login now.
+  AppLifecycleListener? _resumes;
+
   Future<bool> restoreSession() async
   {
+    await ClientDeviceKey.load();
+    _resumes ??= AppLifecycleListener(onResume: () => unawaited(_recheckIdentity(now: true)));
+
     final StoredSession stored = await SessionService.read();
 
     _accessToken = stored.accessToken;
@@ -873,9 +889,18 @@ class ApiService
     return loginResponse;
   }
 
+  // Runs before a sign-out, while the session still opens the API.
+  Future<void> Function()? beforeSignOut;
+
   // In turn with renewals, so the server gets the pair another tab may have just renewed.
   Future<void> logout() async
   {
+    try
+    {
+      await beforeSignOut?.call();
+    }
+    catch (_) {}
+
     final String? ended = await inTurnWithOtherTabs(_sessionLock, () async
     {
       await _catchUpWithOtherTabs();
@@ -1236,6 +1261,15 @@ class ApiService
     {
       _refused(e, 'Errore durante il ripristino dell\'orario standard. Riprova più tardi.');
     }
+  }
+
+  // Once a variation is saved or removed: one notice to everyone for all its days.
+  Future<void> announceOpeningHours({required DateTime dateFrom, required DateTime dateTo}) async
+  {
+    await _dio.post('/opening-days/announce', data: {
+      'date_from': formatDateOnly(dateFrom),
+      'date_to': formatDateOnly(dateTo),
+    });
   }
   Future<AssociationSubjectItem> createAssociationSubject(String name, String area, String description) async
   {
@@ -2549,6 +2583,101 @@ class ApiService
   Future<void> markToursSeen(String platform, Map<String, int> seen) async
   {
     await _dio.put('/tours/$platform', data: {'seen': seen});
+  }
+
+  // Newest first.
+  Future<List<NotificationItem>> getNotifications() async
+  {
+    try
+    {
+      final response = await _dio.get('/notifications');
+
+      return parseList(response.data, NotificationItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare le notifiche.');
+    }
+  }
+
+  Future<void> markNotificationRead(int id) async
+  {
+    await _dio.put('/notifications/$id/read');
+  }
+
+  // The calendar of that band has been on screen.
+  Future<void> markCalendarSeen(DateTime day, TimeBucket band) async
+  {
+    await _dio.put('/notifications/calendar/${formatDateOnly(day)}/${LessonItem.formatBand(band)}/seen');
+  }
+
+  // One's own availabilities of those days on screen: the notifications of them go.
+  Future<void> markAvailabilitySeen(DateTime from, DateTime to) async
+  {
+    await _dio.put(
+      '/notifications/availabilities/seen',
+      queryParameters: {'date_from': formatDateOnly(from), 'date_to': formatDateOnly(to)},
+    );
+  }
+
+  // A pupil's bookings of those days on screen: the notifications of them go.
+  Future<void> markBookingsSeen(String pupilTaxCode, DateTime from, DateTime to) async
+  {
+    await _dio.put(
+      '/notifications/bookings/$pupilTaxCode/seen',
+      queryParameters: {'date_from': formatDateOnly(from), 'date_to': formatDateOnly(to)},
+    );
+  }
+
+  // The kinds of the account's roles that can be turned on or off.
+  Future<List<NotificationKindChoice>> getNotificationKinds() async
+  {
+    try
+    {
+      final response = await _dio.get('/notifications/kinds');
+
+      return parseList(response.data, NotificationKindChoice.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare i tipi di notifica.');
+    }
+  }
+
+  Future<List<NotificationKindChoice>> setNotificationKinds(List<NotificationKindChoice> choices) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/notifications/kinds',
+        data: [for (final choice in choices) choice.toJson()],
+      );
+
+      return parseList(response.data, NotificationKindChoice.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile salvare i tipi di notifica.');
+    }
+  }
+
+  // Null while the server has no key: browsers then get no pushes.
+  Future<String?> getWebPushKey() async
+  {
+    final response = await _dio.get('/push/web-key');
+    final Object? data = response.data;
+
+    return data is Map ? data['public_key'] as String? : null;
+  }
+
+  Future<void> registerPushAddress(PushAddress address) async
+  {
+    await _dio.put('/push/devices', data: address.toJson());
+  }
+
+  Future<void> forgetPushAddress(String address) async
+  {
+    await _dio.delete('/push/devices', data: {'address': address});
   }
 
   // Null sections: every tour of the platform.

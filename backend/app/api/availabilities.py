@@ -1,10 +1,10 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.dependencies import DbSession
-from app.api.rbac import CurrentIdentity, require_role
+from app.api.rbac import CurrentIdentity, IdentityContext, require_role
 from app.models.availability import Availability
 from app.models.person import Person
 from app.repositories.availability_repository import AvailabilityRepository
@@ -15,7 +15,15 @@ from app.schemas.availability import (
     AvailabilityUpdate,
 )
 from app.schemas.person import PersonOption
+from app.services import push
+from app.services.availability_notifications import (
+    teacher_availability,
+    tell_availability_changes,
+)
 from app.services.availability_service import AvailabilityService
+from app.services.change_notices import Item
+from app.services.daily_reminders import availability_given
+from app.services.push import joined
 
 router = APIRouter(
     prefix="/availabilities",
@@ -73,14 +81,44 @@ async def list_availabilities(
     return await _to_responses(db, availabilities)
 
 
+# Given for that day: the evening's reminder about it goes, and the teacher hears of
+# what someone else wrote for them.
+async def _settle(
+    db: DbSession,
+    background: BackgroundTasks,
+    identity: IdentityContext,
+    availability: Availability,
+    before: Mapping[int, Item],
+) -> None:
+    _, after = await teacher_availability(db, availability.id)
+    batches = [
+        await availability_given(
+            db,
+            availability.teacher_tax_code,
+            availability.date,
+        ),
+        await tell_availability_changes(
+            db,
+            author_tax_code=identity.tax_code,
+            teacher_tax_code=availability.teacher_tax_code,
+            before=before,
+            after=after,
+        ),
+    ]
+    await db.commit()
+    background.add_task(push.deliver, joined(batches))
+
+
 @router.post("/", response_model=AvailabilityResponse)
 async def create_availability(
     payload: AvailabilityCreate,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> AvailabilityResponse:
     service = AvailabilityService(AvailabilityRepository(db))
     availability = await service.create(identity, payload)
+    await _settle(db, background, identity, availability, {})
 
     return (await _to_responses(db, [availability]))[0]
 
@@ -103,9 +141,12 @@ async def update_availability(
     payload: AvailabilityUpdate,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> AvailabilityResponse:
+    _, before = await teacher_availability(db, availability_id)
     service = AvailabilityService(AvailabilityRepository(db))
     availability = await service.update(identity, availability_id, payload)
+    await _settle(db, background, identity, availability, before)
 
     return (await _to_responses(db, [availability]))[0]
 
@@ -115,8 +156,21 @@ async def delete_availability(
     availability_id: int,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
+    teacher, before = await teacher_availability(db, availability_id)
     service = AvailabilityService(AvailabilityRepository(db))
     await service.delete(identity, availability_id)
+
+    # Cancelled by someone else: the teacher hears of it.
+    told = await tell_availability_changes(
+        db,
+        author_tax_code=identity.tax_code,
+        teacher_tax_code=teacher,
+        before=before,
+        after={},
+    )
+    await db.commit()
+    background.add_task(push.deliver, told)
 
     return {"detail": "Disponibilità eliminata"}

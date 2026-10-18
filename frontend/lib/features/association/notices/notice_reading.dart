@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../notifications/notice_seen.dart';
 import 'notice_details_dialog.dart';
 import 'notice_embeds.dart';
 import 'notice_item.dart';
@@ -15,6 +18,7 @@ Future<void> openNoticeReading(BuildContext context, int id) async
   try
   {
     notice = await ApiService().readNotice(id);
+    unawaited(noticeSeen(id));
   }
   catch (error)
   {

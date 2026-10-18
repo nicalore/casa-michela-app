@@ -1,12 +1,13 @@
 from collections.abc import Sequence
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.core.time_band import TimeBandEnum
 from app.models.calendar_publication import CalendarPublication
+from app.models.notification import NotificationKindEnum
 from app.models.person import Person
 from app.repositories.calendar_publication_repository import (
     CalendarPublicationRepository,
@@ -26,7 +27,13 @@ from app.schemas.calendar_publication import (
     CalendarPublicationResponse,
 )
 from app.schemas.person import PersonOption
+from app.services import push
 from app.services.calendar_publication_service import CalendarPublicationService
+from app.services.calendar_published import (
+    announce_changes,
+    announce_publication,
+)
+from app.services.notifications import withdraw
 
 # Readable by the published-to roles: tells "not yet published" from "nothing for you".
 router = APIRouter(
@@ -36,6 +43,11 @@ router = APIRouter(
 )
 
 _ADMIN_ONLY = [Depends(require_role("ADMIN"))]
+
+_PUBLISHED_KINDS = [
+    NotificationKindEnum.CALENDAR_PUBLISHED,
+    NotificationKindEnum.CONVOCATION,
+]
 
 
 def _to_response(
@@ -180,8 +192,20 @@ async def publish_band(
     payload: CalendarPublicationCreate,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> CalendarPublicationResponse:
     publication, warnings = await _service(db).publish(identity, payload)
+
+    # The administrators' call to publish it is answered; families and teachers hear.
+    calendar = (payload.date, payload.band)
+    withdrawn = await withdraw(
+        db,
+        kinds=[NotificationKindEnum.BOOKINGS_CLOSED],
+        calendar=calendar,
+    )
+    announced = await announce_publication(db, payload.date, payload.band)
+    await db.commit()
+    background.add_task(push.deliver, push.joined([withdrawn, announced]))
 
     return (await _to_responses(db, [publication], warnings=warnings))[0]
 
@@ -233,12 +257,24 @@ async def close_draft(
     band: TimeBandEnum,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> CalendarDraftClosed:
-    publication, warnings, resent = await _service(db).settle(
+    service = _service(db)
+    draft = await service.repository.get(publication_date, str(band))
+    before = draft.draft_snapshot if draft is not None else None
+
+    publication, warnings, resent = await service.settle(
         identity,
         publication_date,
         str(band),
     )
+
+    # Sent again: those whose own lessons changed hear of it.
+    if resent and before is not None:
+        after = await service.picture_of(publication_date, str(band))
+        batch = await announce_changes(db, publication_date, band, before, after)
+        await db.commit()
+        background.add_task(push.deliver, batch)
 
     return CalendarDraftClosed(
         publication=(await _to_responses(db, [publication], warnings=warnings))[0],
@@ -252,7 +288,17 @@ async def unpublish_band(
     band: TimeBandEnum,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
     await _service(db).unpublish(identity, publication_date, str(band))
+
+    # What it told the families and teachers no longer stands.
+    batch = await withdraw(
+        db,
+        kinds=_PUBLISHED_KINDS,
+        calendar=(publication_date, band),
+    )
+    await db.commit()
+    background.add_task(push.deliver, batch)
 
     return {"detail": "Calendario in modifica"}

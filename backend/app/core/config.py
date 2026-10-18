@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     app_store_url: str | None = None
     play_store_url: str | None = None
 
+    # Web push; scripts/generate_vapid_keys.py prints a pair. Unset, browsers get none.
+    vapid_public_key: str | None = None
+    vapid_private_key: str | None = None
+    vapid_subject: str = "mailto:associazione.casamichela@gmail.com"
+
+    # The Firebase service account's JSON key, for pushes to the Android app.
+    fcm_credentials_file: str | None = None
+
     audit_log_path: str = "logs/audit_{date}.log"
 
     @property
@@ -62,6 +70,16 @@ class Settings(BaseSettings):
     @property
     def audit_log_template(self) -> Path:
         path = Path(self.audit_log_path)
+
+        return path if path.is_absolute() else _BACKEND_DIR / path
+
+    # Anchored to the backend package, like the audit log.
+    @property
+    def fcm_credentials_path(self) -> Path | None:
+        if not self.fcm_credentials_file:
+            return None
+
+        path = Path(self.fcm_credentials_file)
 
         return path if path.is_absolute() else _BACKEND_DIR / path
 

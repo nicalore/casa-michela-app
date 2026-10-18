@@ -64,6 +64,13 @@ TIME_BAND_LABELS: Final[dict[str, str]] = {
     "EVENING": "Sera",
 }
 
+# "Le prenotazioni della mattina", "il calendario del pomeriggio".
+TIME_BAND_PHRASES: Final[dict[str, str]] = {
+    "MORNING": "della mattina",
+    "AFTERNOON": "del pomeriggio",
+    "EVENING": "della sera",
+}
+
 ROMAN_NUMERAL_BY_GRADE: Final[dict[int, str]] = {
     1: "I",
     2: "II",
@@ -136,6 +143,10 @@ def opening_mode_label(mode: str) -> str:
 
 def time_band_label(band: str) -> str:
     return _translate(band, TIME_BAND_LABELS)
+
+
+def time_band_phrase(band: str) -> str:
+    return _translate(band, TIME_BAND_PHRASES)
 
 
 def role_label(role: str) -> str:

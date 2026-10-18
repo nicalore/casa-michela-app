@@ -57,6 +57,8 @@ class AppTopBar extends StatefulWidget
     return _topMarginFor(size) + _barHeightFor(size) + (size.isCompact ? 44 : _shadowReach);
   }
 
+  static double bottomFor(AppWindowSize size) => _topMarginFor(size) + _barHeightFor(size);
+
   final String currentRoute;
 
   final MeResponse? user;

@@ -200,16 +200,19 @@ class MobileParentHomeView extends StatelessWidget
       tabletBody: (_) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          MobileLoadSwitcher(
-            waiting: _loading,
-            child: _loading ? const MobileWaiting() : _buildRows(),
+          MobileHomeSection(
+            title: names[0],
+            child: MobileLoadSwitcher(
+              waiting: _loading,
+              child: _loading ? const MobileWaiting() : _buildRows(),
+            ),
           ),
           const SizedBox(height: MobileHomeFrame.sectionGap),
           MobileTourTarget(
             id: kHomeTourNotices,
             inflate: kHomeTourSectionInflate,
             radius: kHomeTourSectionRadius,
-            child: MobileHomeSection(title: names[2], child: MobileNoticesList(notices: notices, beside: true)),
+            child: MobileHomeSection(title: names[2], child: MobileNoticesList(notices: notices)),
           ),
         ],
       ),

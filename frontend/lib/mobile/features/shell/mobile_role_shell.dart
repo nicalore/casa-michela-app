@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
@@ -20,13 +22,16 @@ import '../bookings/mobile_bookings_page.dart';
 import '../calendar/mobile_calendar_page.dart';
 import '../calendar/mobile_pupil_calendar_page.dart';
 import '../children/mobile_children_page.dart';
+import '../home/mobile_admin_home_page.dart';
 import '../home/mobile_pupil_home_page.dart';
 import '../home/mobile_teacher_home_page.dart';
 import '../profile/mobile_own_page.dart';
 import '../settings/mobile_settings_page.dart';
 import '../subjects/mobile_subjects_page.dart';
 import 'mobile_placeholder_page.dart';
+import 'mobile_shell_requests.dart';
 
+const String _adminRole = 'ADMIN';
 const String _teacherRole = 'TEACHER';
 const String _parentRole = 'PARENT';
 const Set<String> _pupilRoles = {_parentRole, 'STUDENT'};
@@ -53,7 +58,7 @@ class MobileRoleShell extends StatefulWidget
   State<MobileRoleShell> createState() => _MobileRoleShellState();
 }
 
-class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProviderStateMixin
+class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderStateMixin
 {
   final ApiService _apiService = ApiService();
 
@@ -78,6 +83,12 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
   // From choosing a section until the menu closes; reopening it leaves the page still.
   bool _sinking = false;
 
+  // The menu closing without the menu, for a section a notification asks for: 1 open, 0 closed.
+  late final AnimationController _fall = AnimationController(vsync: this)..addListener(_onCurtainMoved);
+
+  // Whichever of the two the page follows down.
+  late final Listenable _curtain = Listenable.merge([MobileNavSheet.openness, _fall]);
+
   // Sign-out clears the identity before the handover, while this area is still shown.
   MeResponse? _lastUser;
 
@@ -85,7 +96,11 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
   void initState()
   {
     super.initState();
-    MobileNavSheet.openness.addListener(_onSheetMoved);
+    MobileNavSheet.openness.addListener(_onCurtainMoved);
+    MobileShellRequests.section.addListener(_onRequest);
+
+    // A tap that opened the app asked before the area was built.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onRequest());
   }
 
   @override
@@ -94,13 +109,73 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
     _stopWaiting();
     _holds.dispose();
     _turn.dispose();
-    MobileNavSheet.openness.removeListener(_onSheetMoved);
+    _fall.dispose();
+    MobileNavSheet.openness.removeListener(_onCurtainMoved);
+    MobileShellRequests.section.removeListener(_onRequest);
     super.dispose();
   }
 
-  void _onSheetMoved()
+  // A notification asking for a section: the role it concerns first, if another.
+  void _onRequest()
   {
-    if (MobileNavSheet.openness.value <= 0)
+    final MeResponse? user = _lastUser;
+
+    if (!mounted || MobileShellRequests.section.value == null || _role == null || user == null)
+    {
+      return;
+    }
+
+    final ({String role, String slug}) request = MobileShellRequests.take()!;
+
+    if (!user.availableRoles.contains(request.role))
+    {
+      return;
+    }
+
+    if (request.role != _role)
+    {
+      unawaited(_switchRole(request.role, slug: request.slug));
+    }
+    else if (request.slug != _destination)
+    {
+      unawaited(_dropInto(request.slug));
+    }
+  }
+
+  // As a section chosen from the menu, without the menu: the new page sinks into place as it would close.
+  Future<void> _dropInto(String slug) async
+  {
+    final String role = _role!;
+
+    await _prepare(role, slug);
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    setState(()
+    {
+      _destination = slug;
+      _arrivingRole = null;
+      _arrivingSlug = null;
+      _sinking = true;
+    });
+
+    _fall.value = 1;
+    _fall.animateWith(SpringSimulation(MobileNavSheet.spring, 1, 0, 0)).whenComplete(()
+    {
+      if (mounted && !_fall.isAnimating)
+      {
+        _fall.value = 0;
+      }
+    });
+  }
+
+  void _onCurtainMoved()
+  {
+
+    if (MobileNavSheet.openness.value <= 0 && _fall.value <= 0)
     {
       _sinking = false;
     }
@@ -216,7 +291,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
     );
   }
 
-  Future<void> _switchRole(String role) async
+  Future<void> _switchRole(String role, {String slug = kMobileHomeSlug}) async
   {
     _switchingTo = role;
 
@@ -241,7 +316,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
       return;
     }
 
-    await _prepare(role, kMobileHomeSlug);
+    await _prepare(role, slug);
 
     if (!mounted)
     {
@@ -253,7 +328,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
       _leavingRole = _role;
       _leavingSlug = _destination;
       _role = role;
-      _destination = kMobileHomeSlug;
+      _destination = slug;
       _arrivingRole = null;
       _arrivingSlug = null;
       _switchingTo = null;
@@ -304,6 +379,11 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
       if (role == _teacherRole)
       {
         return MobileTeacherHomePage(user: user);
+      }
+
+      if (role == _adminRole)
+      {
+        return MobileAdminHomePage(user: user);
       }
 
       return _pupilRoles.contains(role)
@@ -381,6 +461,12 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
         if (_role == null ||
             (user.activeRole != _role && user.activeRole != _switchingTo && _leavingRole == null))
         {
+          // A tap's request may have come while the area did not know its role yet.
+          if (_role == null)
+          {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _onRequest());
+          }
+
           _role = user.activeRole;
           _destination = kMobileHomeSlug;
         }
@@ -432,10 +518,13 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
             fit: StackFit.expand,
             children: [
               MobileHandoverRise(
-                child: ValueListenableBuilder<double>(
-                  valueListenable: MobileNavSheet.openness,
-                  builder: (context, open, page) => Transform.translate(
-                    offset: Offset(0, _sinking ? -_curtainDrop * open : 0),
+                child: AnimatedBuilder(
+                  animation: _curtain,
+                  builder: (context, page) => Transform.translate(
+                    offset: Offset(
+                      0,
+                      _sinking ? -_curtainDrop * math.max(MobileNavSheet.openness.value, _fall.value) : 0,
+                    ),
                     child: page,
                   ),
                   child: IgnorePointer(

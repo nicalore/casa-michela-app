@@ -4,6 +4,7 @@ from typing import Annotated, Any, Final
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     File,
     HTTPException,
     Request,
@@ -18,7 +19,12 @@ from app.api.current_account import (
     CurrentSessionId,
 )
 from app.api.dependencies import DbSession
-from app.core.client_device import FORM_FACTOR_HEADER, ClientDevice, describe_client
+from app.core.client_device import (
+    DEVICE_KEY_HEADER,
+    FORM_FACTOR_HEADER,
+    ClientDevice,
+    describe_client,
+)
 from app.core.password_policy import PasswordPolicyError
 from app.core.storage import PROFILE_IMAGES_DIR, store_profile_image
 from app.models.account import Account
@@ -33,6 +39,7 @@ from app.schemas.auth.logout_request import LogoutRequest
 from app.schemas.auth.password_reset import PasswordResetConfirm, PasswordResetRequest
 from app.schemas.auth.refresh_request import RefreshRequest
 from app.schemas.auth.session_response import SessionResponse
+from app.services import push
 from app.services.auth_service import (
     AccountDisabledError,
     AccountLockedError,
@@ -43,6 +50,7 @@ from app.services.auth_service import (
     PasswordReuseError,
     SessionNotFoundError,
 )
+from app.services.new_devices import device_seen, sessions_ended
 from app.services.role_service import BOARD_ROLES, RoleService
 
 router = APIRouter(
@@ -107,20 +115,32 @@ def _client_device(request: Request) -> ClientDevice:
     )
 
 
+# A sign-in from a device the account never used is told to the account.
 @router.post("/login", response_model=LoginResponse)
 async def login(
     request: LoginRequest,
     http_request: Request,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> LoginResponse:
     auth_service = _build_auth_service(db)
+    device = _client_device(http_request)
 
     try:
         result = await auth_service.authenticate(
             username=request.username,
             password=request.password,
-            device=_client_device(http_request),
+            device=device,
         )
+        told = await device_seen(
+            db,
+            result.account_tax_code,
+            http_request.headers.get(DEVICE_KEY_HEADER),
+            session_id=result.session_id,
+            device_name=device.name,
+        )
+        await db.commit()
+        background.add_task(push.deliver, told)
 
         return LoginResponse(
             access_token=result.access_token,
@@ -159,6 +179,13 @@ async def refresh(
             request.refresh_token,
             device=_client_device(http_request),
         )
+        # Learned quietly: devices in use before the sign-ins were told are known.
+        await device_seen(
+            db,
+            result.account_tax_code,
+            http_request.headers.get(DEVICE_KEY_HEADER),
+        )
+        await db.commit()
 
         return LoginResponse(
             access_token=result.access_token,
@@ -221,6 +248,7 @@ async def revoke_other_sessions(
     current_account: CurrentAccount,
     current_session_id: CurrentSessionId,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> None:
     # A token from before sessions were tracked names no session to spare.
     if current_session_id is None:
@@ -233,6 +261,13 @@ async def revoke_other_sessions(
         current_account.tax_code,
         current_session_id,
     )
+    told = await sessions_ended(
+        db,
+        current_account.tax_code,
+        keep=current_session_id,
+    )
+    await db.commit()
+    background.add_task(push.deliver, told)
 
 
 # The session in use ends with a logout, which clears the client as well.
@@ -242,6 +277,7 @@ async def revoke_session(
     current_account: CurrentAccount,
     current_session_id: CurrentSessionId,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> None:
     if session_id == current_session_id:
         raise HTTPException(
@@ -259,6 +295,10 @@ async def revoke_session(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=_SESSION_NOT_FOUND_ERROR,
         ) from None
+
+    told = await sessions_ended(db, current_account.tax_code, sessions=[session_id])
+    await db.commit()
+    background.add_task(push.deliver, told)
 
 
 # The board seat, if any; None otherwise, even for an OTHER-role administrator.

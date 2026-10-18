@@ -11,6 +11,10 @@ Thumbs.db
 
 .env
 .env.*
+# Firebase service account keys: secrets, kept on the machine that sends.
+*firebase-adminsdk*.json
+# The Android app's Firebase config: its API key stays off the public repository.
+frontend/android/app/google-services.json
 *.pem
 *.key
 *.crt

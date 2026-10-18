@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Reads google-services.json into the resources Firebase starts from.
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -41,4 +43,10 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// Messaging alone: no Analytics, nothing else of Firebase.
+dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:35.0.1"))
+    implementation("com.google.firebase:firebase-messaging")
 }

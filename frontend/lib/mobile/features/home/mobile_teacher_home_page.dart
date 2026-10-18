@@ -10,10 +10,12 @@ import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/models/calendar_publication_item.dart';
 import '../../../features/lessons/models/lesson_item.dart';
 import '../../../features/lessons/utils/opening_window.dart';
+import '../../../features/notifications/notification_board.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_tour.dart';
+import '../notifications/mobile_notifications_offer.dart';
 import 'mobile_home_tour.dart';
 import 'mobile_home_view.dart';
 import 'mobile_teacher_day.dart';
@@ -83,8 +85,11 @@ class _MobileTeacherHomePageState extends State<MobileTeacherHomePage>
     super.dispose();
   }
 
-  void _tourOnce()
+  // The notifications question comes first, then the tour.
+  Future<void> _tourOnce() async
   {
+    await offerMobileNotificationsOnce(context);
+
     if (!mounted)
     {
       return;
@@ -98,7 +103,7 @@ class _MobileTeacherHomePageState extends State<MobileTeacherHomePage>
 
   Future<void> _reload()
   {
-    return Future.wait([_loadDay(), _loadMonth(), _loadNotices()]);
+    return Future.wait([_loadDay(), _loadMonth(), _loadNotices(), NotificationBoard.instance.load()]);
   }
 
   Future<void> _loadNotices() async

@@ -31,7 +31,12 @@ from app.schemas.notice import (
     NoticeSummaryResponse,
 )
 from app.schemas.validators import CleanStr
-from app.services import notice_mail
+from app.services import notice_mail, push
+from app.services.notice_notifications import (
+    announce_notice,
+    notice_deleted,
+    notice_read,
+)
 from app.services.notice_recipients import recipients_of, unique_addresses
 from app.services.notices import (
     HOME_LIMIT,
@@ -150,13 +155,18 @@ async def received_notices(
     return [received_response(notice) for notice in listing_order(notices.all())]
 
 
+# Opening it is reading it: the notification that announced it goes.
 @router.get("/{notice_id}", response_model=NoticeResponse | NoticeReadingResponse)
 async def get_notice(
     notice_id: int,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> NoticeResponse | NoticeReadingResponse:
     notice = await readable_notice(db, notice_id, identity)
+    read = await notice_read(db, notice.id, identity.tax_code)
+    await db.commit()
+    background.add_task(push.deliver, read)
 
     return notice_response(notice) if identity.is_admin else reading_response(notice)
 
@@ -191,13 +201,15 @@ async def get_image(
     return Response(content=file.content, media_type=file.content_type)
 
 
-async def _mail(
+# Mailed to everyone it reaches, and announced to those who can read it in the app.
+async def _send(
     db: DbSession,
     background: BackgroundTasks,
     notice: Notice,
 ) -> None:
     people = await recipients_of(db, notice.recipients)
     notice.recipient_count = len(people)
+    told = await announce_notice(db, notice)
     await db.commit()
 
     sent = await load_notice(db, notice.id, with_content=True)
@@ -205,6 +217,7 @@ async def _mail(
         notice_mail.deliver,
         notice_mail.compose(sent, sent.files, unique_addresses(people)),
     )
+    background.add_task(push.deliver, told)
 
 
 @router.post(
@@ -241,7 +254,7 @@ async def create_notice(
     )
     db.add(notice)
     await db.flush()
-    await _mail(db, background, notice)
+    await _send(db, background, notice)
 
     return notice_response(await load_notice(db, notice.id))
 
@@ -287,7 +300,7 @@ async def update_notice(
     notice.files = files
     notice.edited_at = datetime.now(UTC)
     await db.flush()
-    await _mail(db, background, notice)
+    await _send(db, background, notice)
 
     return notice_response(await load_notice(db, notice.id))
 
@@ -334,6 +347,7 @@ async def delete_notice(
     notice_id: int,
     identity: Administrator,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> Response:
     notice = await own_notice(
         db,
@@ -342,7 +356,9 @@ async def delete_notice(
         with_content=False,
     )
 
+    gone = await notice_deleted(db, notice.id)
     await db.delete(notice)
     await db.commit()
+    background.add_task(push.deliver, gone)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

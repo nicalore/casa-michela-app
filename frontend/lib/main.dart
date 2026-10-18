@@ -9,9 +9,14 @@ import 'core/platform/app_platform.dart';
 import 'core/platform/visual_effects.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/splash_bridge.dart';
+import 'features/notifications/device_notifications.dart';
+import 'features/notifications/notification_board.dart';
+import 'features/notifications/widgets/notification_toast.dart';
+import 'mobile/features/notifications/mobile_notification_destinations.dart';
 import 'mobile/mobile_app.dart';
 import 'routing/app_router.dart';
 import 'routing/dialog_history_guard.dart';
+import 'routing/notification_destinations.dart';
 import 'services/api_service.dart';
 import 'services/seen_tours.dart';
 import 'shared/widgets/dialog_components.dart';
@@ -29,6 +34,8 @@ void main() async
   if (AppPlatform.isNativeMobile)
   {
     SeenTours.mobile.follow();
+    NotificationBoard.instance.follow = followMobileNotification;
+    DeviceNotifications.follow();
 
     // Edge to edge on every Android version, as iOS always is.
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -44,6 +51,8 @@ void main() async
   }
 
   SeenTours.desktop.follow();
+  NotificationBoard.instance.follow = followNotification;
+  DeviceNotifications.follow();
 
   await VisualEffects.load();
 
@@ -77,7 +86,14 @@ class CasaMichelaApp extends StatelessWidget
               ),
             ),
             child: VisualEffects.scope(
-              child: RepaintBoundary(key: dialogBackdropKey, child: child!),
+              // Over every page and dialog, outside what dialogs blur behind them.
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  RepaintBoundary(key: dialogBackdropKey, child: child!),
+                  const NotificationToastLayer(),
+                ],
+              ),
             ),
           ),
         );

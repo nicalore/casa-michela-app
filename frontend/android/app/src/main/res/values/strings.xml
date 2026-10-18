@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel_id" translatable="false">casa_michela</string>
+    <!-- Shown in the system's settings for this app's notifications. -->
+    <string name="notification_channel_name">Notifiche</string>
+</resources>

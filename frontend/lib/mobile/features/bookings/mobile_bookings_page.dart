@@ -29,6 +29,8 @@ import '../../../features/lessons/utils/booking_window.dart';
 import '../../../features/lessons/utils/opening_window.dart';
 import '../../../features/lessons/utils/study_program_lookup.dart';
 import '../../../features/lessons/widgets/subject_request_tile.dart' show ministrySubjectName;
+import '../../../features/notifications/bookings_seen.dart';
+import '../../../features/notifications/week_jump.dart';
 import '../../../features/people/models/person_face.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../services/api_service.dart';
@@ -58,6 +60,8 @@ import 'widgets/mobile_subject_flow.dart';
 const String _title = 'Prenotazioni';
 
 const String _parentRole = 'PARENT';
+
+const Duration _pageTurn = Duration(milliseconds: 320);
 const String _pupilRole = 'Studente';
 
 const List<String> _weeks = ['Questa settimana', 'Settimana prossima'];
@@ -97,7 +101,9 @@ class MobileBookingsPage extends StatefulWidget
 class _MobileBookingsPageState extends State<MobileBookingsPage>
 {
   final ApiService _apiService = ApiService();
-  final PageController _pages = PageController();
+  // Opened from a notification: on the week it is about, and the child it is about.
+  DateTime? _askedDay;
+  late final PageController _pages = PageController(initialPage: _weekOf(_askedDay));
   final BookingSheetTourLink _sheetLink = BookingSheetTourLink();
 
   late DateTime _now = widget.clock();
@@ -169,11 +175,48 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
   void initState()
   {
     super.initState();
+
+    final ({DateTime day, String? pupil})? asked = WeekJumps.bookings.takeFor(role: widget.role);
+    _askedDay = asked?.day;
+    _shown = asked?.pupil;
+
     _load().whenComplete(MobileHoldScope.hold(context));
     _tick();
     _pages.addListener(_onPage);
     MobileNavSheet.hidden.addListener(_onSheets);
     mobileTourChanges.addListener(_tourLater);
+    WeekJumps.bookings.asked.addListener(_jump);
+  }
+
+  // 1 for a day of next week once it is open, else 0.
+  int _weekOf(DateTime? day)
+  {
+    return day != null && startOfWeek(day).isAfter(_monday) && isNextWeekUnlocked(_now) ? 1 : 0;
+  }
+
+  // Already open: the week asked for, read again in full.
+  void _jump()
+  {
+    final ({DateTime day, String? pupil})? asked = WeekJumps.bookings.takeFor(role: widget.role);
+
+    if (asked == null || !mounted)
+    {
+      return;
+    }
+
+    if (_pages.hasClients)
+    {
+      _pages.animateToPage(_weekOf(asked.day), duration: _pageTurn, curve: Curves.easeInOutCubic);
+    }
+
+    setState(()
+    {
+      _shown = asked.pupil ?? _shown;
+      _loading = true;
+      _failed = false;
+    });
+
+    _load();
   }
 
   @override
@@ -194,6 +237,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
     _clock?.cancel();
     MobileNavSheet.hidden.removeListener(_onSheets);
     mobileTourChanges.removeListener(_tourLater);
+    WeekJumps.bookings.asked.removeListener(_jump);
     _pages.dispose();
     _sheetLink.dispose();
 
@@ -244,7 +288,23 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
     {
       _pageSeen = page.round();
       _tourLater();
+      _markSeen();
     }
+  }
+
+  // The child's week on screen: the lessons booked by others in it are seen.
+  void _markSeen()
+  {
+    final PersonItem? pupil = _pupil;
+
+    if (pupil == null || _loading || _failed)
+    {
+      return;
+    }
+
+    final int week = _pages.hasClients ? (_pages.page ?? 0).round() : _pages.initialPage;
+
+    unawaited(markBookingsSeen(pupil.fiscalCode, addDays(_monday, 7 * week)));
   }
 
   // A sheet closing, as the wizard after a save, may leave a new mark on the page.
@@ -412,6 +472,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
         }
       });
 
+      _markSeen();
       _tourLater();
     }
     catch (e, stackTrace)
@@ -1039,6 +1100,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
   void _show(PersonItem pupil)
   {
     setState(() => _shown = pupil.fiscalCode);
+    _markSeen();
     _tourLater();
   }
 

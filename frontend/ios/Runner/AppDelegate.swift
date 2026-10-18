@@ -4,6 +4,7 @@ import UIKit
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var documentSaver: DocumentSaver?
+  private var notificationPermission: NotificationPermission?
 
   override func application(
     _ application: UIApplication,
@@ -17,6 +18,10 @@ import UIKit
 
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DocumentSaver") {
       documentSaver = DocumentSaver(messenger: registrar.messenger())
+    }
+
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NotificationPermission") {
+      notificationPermission = NotificationPermission(messenger: registrar.messenger())
     }
   }
 }

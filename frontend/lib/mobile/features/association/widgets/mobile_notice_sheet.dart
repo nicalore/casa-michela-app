@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,6 +11,7 @@ import '../../../../features/association/notices/notice_format.dart';
 import '../../../../features/association/notices/notice_item.dart';
 import '../../../../features/association/notices/notice_message_view.dart';
 import '../../../../features/association/notices/notice_strings.dart';
+import '../../../../features/notifications/notice_seen.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart' show DetailRowData;
 import '../../../../services/api_service.dart';
 import '../../../shared/device_files.dart';
@@ -31,6 +34,7 @@ Future<void> showMobileNotice(BuildContext context, int id) async
   try
   {
     notice = await ApiService().readNotice(id);
+    unawaited(noticeSeen(id));
   }
   catch (e)
   {

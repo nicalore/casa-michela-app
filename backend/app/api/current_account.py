@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated, Final
 
 from fastapi import Depends, HTTPException, Request, status
@@ -7,6 +8,7 @@ from app.api.dependencies import DbSession
 from app.core.security import decode_access_token
 from app.models.account import Account, AccountStatusEnum
 from app.repositories.identity_repository import IdentityRepository
+from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services.role_service import RoleService
 
 bearer_scheme = HTTPBearer()
@@ -14,6 +16,7 @@ bearer_scheme = HTTPBearer()
 _INVALID_ACCESS_TOKEN_ERROR: Final[str] = "Token di accesso non valido"
 _ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
 _ACCOUNT_DISABLED_ERROR: Final[str] = "Account disabilitato"
+_SESSION_ENDED_ERROR: Final[str] = "Sessione terminata"
 
 _PASSWORD_RESET_REQUIRED_CODE: Final[str] = "PASSWORD_RESET_REQUIRED"
 
@@ -35,7 +38,19 @@ async def get_current_account(
         ) from None
 
     # Tokens issued before sessions were tracked carry no sid.
-    setattr(request.state, _SESSION_ID_STATE_KEY, payload.get("sid"))
+    session_id = payload.get("sid")
+    setattr(request.state, _SESSION_ID_STATE_KEY, session_id)
+
+    # A session ended from another device stops at once, not when this token expires.
+    if session_id is not None and not await RefreshTokenRepository(db).session_is_live(
+        payload["sub"],
+        session_id,
+        datetime.now(UTC),
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=_SESSION_ENDED_ERROR,
+        )
 
     # With the role graph: every later dependency reads it off this object.
     account = await IdentityRepository(db).get_account_identity(payload["sub"])

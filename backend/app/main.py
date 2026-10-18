@@ -27,11 +27,13 @@ from app.api import (
     methodological_notes,
     ministry_subjects,
     notices,
+    notifications,
     opening_days,
     people,
     person_accounts,
     person_collaboration,
     presences,
+    push,
     room_supervisions,
     rooms,
     schools,
@@ -53,7 +55,8 @@ from app.core.exception_handlers import (
 from app.core.storage import PROFILE_IMAGES_DIR, UPLOADS_DIR
 from app.middleware import audit_logging_middleware
 from app.services.calendar_bootstrap import bootstrap_calendar_on_startup
-from app.services.collaboration_sweep import settle_collaborations_after_every_close
+from app.services.close_sweep import sweep_after_every_close
+from app.services.minute_sweep import sweep_every_minute
 
 
 # Photos are named after their content: what a URL serves never changes.
@@ -69,7 +72,8 @@ class _ImmutableStaticFiles(StaticFiles):
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     tasks = (
         asyncio.create_task(bootstrap_calendar_on_startup()),
-        asyncio.create_task(settle_collaborations_after_every_close()),
+        asyncio.create_task(sweep_after_every_close()),
+        asyncio.create_task(sweep_every_minute()),
     )
 
     try:
@@ -154,6 +158,8 @@ app.include_router(calendar_locks.router)
 app.include_router(calendar_activities.router)
 app.include_router(calendar_teacher_exclusions.router)
 app.include_router(notices.router)
+app.include_router(notifications.router)
+app.include_router(push.router)
 app.include_router(tours.router)
 
 

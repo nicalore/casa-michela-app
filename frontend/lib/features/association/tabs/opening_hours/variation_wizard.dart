@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/field_limits.dart';
@@ -331,6 +333,16 @@ class _VariationWizardState extends State<VariationWizard>
     ];
   }
 
+  // Days dropped from an edited variation changed too.
+  void _announce(DateTime first, DateTime last)
+  {
+    final initial = widget.initial;
+    final DateTime from = initial != null && initial.start.isBefore(first) ? initial.start : first;
+    final DateTime to = initial != null && initial.end.isAfter(last) ? initial.end : last;
+
+    unawaited(_apiService.announceOpeningHours(dateFrom: from, dateTo: to).catchError((Object _) {}));
+  }
+
   Future<void> _save() async
   {
     if (_isSaving || !_validate())
@@ -442,6 +454,8 @@ class _VariationWizardState extends State<VariationWizard>
     {
       return;
     }
+
+    _announce(dates.first, dates.last);
 
     final String message;
 

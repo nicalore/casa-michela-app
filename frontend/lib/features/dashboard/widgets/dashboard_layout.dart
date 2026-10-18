@@ -29,6 +29,9 @@ import '../../people/models/current_totals_item.dart';
 import '../../people/models/person_item.dart';
 import 'dashboard_birthdays_section.dart';
 import 'dashboard_greeting.dart';
+import '../../notifications/notification_board.dart';
+import '../../notifications/widgets/desktop_notifications_offer.dart';
+import '../../notifications/widgets/home_notifications_section.dart';
 import 'dashboard_section_card.dart';
 import 'dashboard_stats_section.dart';
 import 'dashboard_today_section.dart';
@@ -72,6 +75,9 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   static const double _dayRowHeight = 300;
   static const double _listHeight = 286;
 
+  // The notices' five lines beside it: 5 x 44 + 4 x 8.
+  static const double _notificationsBodyHeight = 252;
+
   final ApiService _apiService = ApiService();
 
   bool _loadingUser = true;
@@ -107,6 +113,9 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     _loadHomeData();
     _loadTodayData();
     _loadNotices();
+    NotificationBoard.instance.load();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => offerNotificationsOnce(context));
   }
 
   // Refreshes without clearing: the loaders only ever switch the spinner off.
@@ -117,6 +126,8 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     _loadHomeData();
     _loadTodayData();
     _loadNotices();
+    NotificationBoard.instance.load();
+    offerNotificationsOnce(context);
   }
 
   // Only those sent to the administrators.
@@ -402,19 +413,15 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
+  // As tall as the notices' list beside it.
   Widget _tasksCard({required bool tall, bool fill = false})
   {
     return _staggered(
       slot: 3,
-      card: DashboardSectionCard(
-        eyebrow: 'Cose da fare',
-        title: 'Attività e notifiche',
+      card: HomeNotificationsSection(
+        bodyHeight: tall ? _notificationsBodyHeight : null,
         minHeight: tall ? _listHeight : 0,
         fill: fill,
-        child: const DashboardComingSoon(
-          icon: Icons.checklist_rounded,
-          description: '',
-        ),
       ),
     );
   }

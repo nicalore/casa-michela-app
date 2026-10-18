@@ -17,11 +17,14 @@ import '../../../features/auth/models/me_response.dart';
 import '../../../features/calendar/utils/calendar_strings.dart';
 import '../../../features/calendar/utils/day_marks_loader.dart';
 import '../../../features/calendar/utils/pupil_band_presence.dart';
+import '../../../features/calendar/utils/viewable_days.dart';
 import '../../../features/lessons/models/calendar_day.dart';
 import '../../../features/lessons/models/calendar_publication_item.dart';
 import '../../../features/lessons/models/lesson_item.dart';
 import '../../../features/lessons/models/presence_item.dart';
+import '../../../features/lessons/utils/calendar_jump.dart';
 import '../../../features/lessons/utils/opening_window.dart';
+import '../../../features/notifications/calendar_seen.dart';
 import '../../../features/people/models/person_face.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../services/api_service.dart';
@@ -116,9 +119,17 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
   Timer? _timer;
 
-  late final PageController _pageController = PageController(initialPage: _bandNow.index);
+  // Opened from a notification: its day and band instead of the clock's.
+  late final CalendarJump? _openedFor = CalendarJumps.role.take(role: widget.role);
 
-  late DateTime _day = _today;
+  late final PageController _pageController = PageController(initialPage: (_openedFor?.band ?? _bandNow).index);
+
+  late DateTime _day = _openedFor?.day ?? _today;
+
+  // Today, or tomorrow once one of its bands is published.
+  late DateTime _lastDay = _today;
+
+  List<CalendarPublicationItem> _publications = const [];
 
   CalendarLayout _layout = CalendarLayout.byHour;
 
@@ -133,6 +144,9 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
   // By tax code, so a refresh that reorders the children keeps the one shown.
   String? _shown;
+
+  // A notification's band: once its day is read, the child shown is one with lessons in it.
+  late TimeBucket? _askedBand = _openedFor?.band;
 
   // Bumped on every fetch so a stale response is dropped.
   int _request = 0;
@@ -196,8 +210,10 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
     _pageController.addListener(_onPage);
     MobileNavSheet.hidden.addListener(_onSheets);
+    MobileNavSheet.openness.addListener(_onSheets);
     mobileTourChanges.addListener(_tourLater);
     _sheetLink.addListener(_onLessonSheet);
+    CalendarJumps.role.asked.addListener(_jump);
   }
 
   @override
@@ -216,8 +232,10 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
   void dispose()
   {
     _timer?.cancel();
+    CalendarJumps.role.asked.removeListener(_jump);
     _sheetLink.removeListener(_onLessonSheet);
     mobileTourChanges.removeListener(_tourLater);
+    MobileNavSheet.openness.removeListener(_onSheets);
     MobileNavSheet.hidden.removeListener(_onSheets);
     _clock.dispose();
     _pageController.dispose();
@@ -230,8 +248,57 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
   void _tourLater()
   {
     SchedulerBinding.instance
-      ..addPostFrameCallback((_) => _tourCheck())
+      ..addPostFrameCallback((_)
+      {
+        _tourCheck();
+        _noteSeen();
+      })
       ..scheduleFrame();
+  }
+
+  // Already open: turned to the day and band a notification asks for.
+  void _jump()
+  {
+    final CalendarJump? jump = CalendarJumps.role.take(role: widget.role);
+
+    if (jump == null || !mounted)
+    {
+      return;
+    }
+
+    if (_pageController.hasClients)
+    {
+      _pageController.animateToPage(jump.band.index, duration: _pageTurn, curve: Curves.easeInOutCubic);
+    }
+
+    _askedBand = jump.band;
+    _reload(jump.day);
+  }
+
+  // A published band settled on screen, with no menu or sheet over it, takes its notification away.
+  void _noteSeen()
+  {
+    if (!mounted ||
+        !_toured ||
+        _loading ||
+        _failed ||
+        MobileNavSheet.hidden.value ||
+        MobileNavSheet.openness.value > 0 ||
+        !_pageController.hasClients)
+    {
+      return;
+    }
+
+    final double page = _pageController.page ?? _pageController.initialPage.toDouble();
+    final TimeBucket band = TimeBucket.values[page.round()];
+
+    if ((page - page.round()).abs() >= _settled ||
+        !_publications.any((row) => isSameDate(row.date, _day) && row.band == band))
+    {
+      return;
+    }
+
+    unawaited(markCalendarSeen(_day, band));
   }
 
   void _onPage()
@@ -452,6 +519,18 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     return children.where((child) => child.roles.contains(_pupilRole)).toList()..sort(compareByName);
   }
 
+  // The child shown if they have lessons in the band, else the first who has, else the first who booked it.
+  String? _childWithLessonsIn(MobilePupilBand band)
+  {
+    final List<String> codes = [
+      ?_shown,
+      for (final PersonItem pupil in _pupils) pupil.fiscalCode,
+    ];
+
+    return codes.where((code) => band.of(code).lessons.isNotEmpty).firstOrNull ??
+        codes.where((code) => !band.of(code).isEmpty).firstOrNull;
+  }
+
   Future<void> _load({bool quiet = false}) async
   {
     final int request = ++_request;
@@ -468,6 +547,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
         _apiService.getPresences(dateFrom: day, dateTo: day),
         readPupils ? _readPupils() : Future.value(_pupils),
         _apiService.getUnbookedBands(dateFrom: day, dateTo: day),
+        _apiService.getCalendarPublications(dateFrom: addDays(_today, 1), dateTo: addDays(_today, 1)),
         if (_ministrySubjects.isEmpty) _apiService.getMinistrySubjects(),
       ]);
 
@@ -478,10 +558,13 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
       setState(()
       {
-        if (results.length > 7)
+        if (results.length > 8)
         {
-          _ministrySubjects = results[7] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[8] as List<MinistrySubjectItem>;
         }
+
+        _publications = results[2] as List<CalendarPublicationItem>;
+        _lastDay = lastViewableDay(_today, results[7] as List<CalendarPublicationItem>);
 
         _pupils = results[5] as List<PersonItem>;
 
@@ -502,6 +585,14 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
           unbooked: results[6] as List<(DateTime, TimeBucket)>,
           pupilTaxCodes: [for (final pupil in _pupils) pupil.fiscalCode],
         );
+
+        final TimeBucket? asked = _askedBand;
+
+        if (asked != null)
+        {
+          _askedBand = null;
+          _shown = _childWithLessonsIn(_data!.bandOf(asked)) ?? _shown;
+        }
 
         _loading = false;
         _failed = false;
@@ -575,9 +666,9 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
   {
     DateTime target = DateTime(day.year, day.month, day.day);
 
-    if (target.isAfter(_today))
+    if (target.isAfter(_lastDay))
     {
-      target = _today;
+      target = _lastDay;
     }
 
     if (target.isBefore(oldestKeptDay(_today)))
@@ -585,11 +676,25 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
       target = oldestKeptDay(_today);
     }
 
+    _showDay(target);
+  }
+
+  // The same day read again quietly, another one in full.
+  void _showDay(DateTime target)
+  {
     if (isSameDate(target, _day))
     {
+      _load(quiet: true);
+
       return;
     }
 
+    _reload(target);
+  }
+
+  // Also what a notification's tap does: nothing on screen from before its news.
+  void _reload(DateTime target)
+  {
     setState(()
     {
       _day = target;
@@ -638,7 +743,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
       selected: _day,
       today: _today,
       first: oldestKeptDay(_today),
-      last: _today,
+      last: _lastDay,
       loadMarks: (from, to) => loadDayMarks(from, to, published: true),
       tourDays: kCalendarTourPickerDays,
       onShown: () => startMobileTourOnce(taxCode: widget.user.taxCode, tour: calendarPickerTour()),
@@ -1050,7 +1155,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
               current: _isToday,
               tablet: tablet,
               onBack: !_isFirstDay && !_loading ? () => _goToDay(addDays(_day, -1)) : null,
-              onForward: !_isToday && !_loading ? () => _goToDay(addDays(_day, 1)) : null,
+              onForward: _day.isBefore(_lastDay) && !_loading ? () => _goToDay(addDays(_day, 1)) : null,
               onPick: _pickDay,
             ),
           ),

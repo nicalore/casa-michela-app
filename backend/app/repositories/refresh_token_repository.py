@@ -1,9 +1,24 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import exists, select, update
+from sqlalchemy import ColumnElement, exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.refresh_token import RefreshToken, TokenTypeEnum
+
+
+# Still signed in: one of its refresh tokens is neither revoked nor expired.
+def live_session(
+    account_tax_code: str | ColumnElement[str],
+    session_id: str | ColumnElement[str],
+    now: datetime,
+) -> ColumnElement[bool]:
+    return exists().where(
+        RefreshToken.account_tax_code == account_tax_code,
+        RefreshToken.session_id == session_id,
+        RefreshToken.token_type == TokenTypeEnum.REFRESH,
+        RefreshToken.revoked_at.is_(None),
+        RefreshToken.expires_at > now,
+    )
 
 
 class RefreshTokenRepository:
@@ -88,15 +103,7 @@ class RefreshTokenRepository:
         now: datetime,
     ) -> bool:
         live = await self.session.scalar(
-            select(
-                exists().where(
-                    RefreshToken.account_tax_code == account_tax_code,
-                    RefreshToken.session_id == session_id,
-                    RefreshToken.token_type == TokenTypeEnum.REFRESH,
-                    RefreshToken.revoked_at.is_(None),
-                    RefreshToken.expires_at > now,
-                )
-            )
+            select(live_session(account_tax_code, session_id, now))
         )
 
         return bool(live)

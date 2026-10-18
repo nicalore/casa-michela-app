@@ -45,10 +45,19 @@ class MobileHomeFrame extends StatelessWidget
   final Future<void> Function() onRefresh;
   final PageController pageController;
 
+  final List<String> names;
+
   // Phones: one per page name.
   final List<Widget> Function() pages;
 
   final Widget Function(bool wide) tabletBody;
+
+  // One per page name; null leaves the home without a tour.
+  final List<String>? tourTabs;
+  final List<String>? tourPages;
+
+  // Names that do not fit scroll sideways instead of shrinking.
+  final bool scrollingNames;
 
   const MobileHomeFrame({
     super.key,
@@ -58,6 +67,10 @@ class MobileHomeFrame extends StatelessWidget
     required this.pageController,
     required this.pages,
     required this.tabletBody,
+    this.names = pageNames,
+    this.tourTabs = kHomeTourTabs,
+    this.tourPages = kHomeTourPages,
+    this.scrollingNames = false,
   });
 
   Widget _buildHeader({required bool tablet})
@@ -146,38 +159,47 @@ class MobileHomeFrame extends StatelessWidget
     }
 
     final List<Widget> built = pages();
+    final List<String>? pageTargets = tourPages;
 
+    // A scrolling strip runs edge to edge and keeps the margin inside.
     final Widget head = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildHeader(tablet: false),
+        Padding(
+          padding: EdgeInsets.fromLTRB(margin, 4, margin, 0),
+          child: _buildHeader(tablet: false),
+        ),
         const SizedBox(height: _headerGap),
-        MobilePageStrip(labels: pageNames, controller: pageController, tourTargets: kHomeTourTabs),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: scrollingNames ? 0 : margin),
+          child: MobilePageStrip(
+            labels: names,
+            controller: pageController,
+            scrollMargin: scrollingNames ? margin : null,
+            tourTargets: tourTabs,
+          ),
+        ),
+        const SizedBox(height: _stripGap),
       ],
     );
 
     return SafeArea(
       bottom: false,
       child: NestedScrollView(
-        headerSliverBuilder: (context, _) => [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(margin, 4, margin, _stripGap),
-              child: head,
-            ),
-          ),
-        ],
+        headerSliverBuilder: (context, _) => [SliverToBoxAdapter(child: head)],
         body: PageView(
           controller: pageController,
           children: [
             for (var i = 0; i < built.length; i++)
               _scrollable(
-                MobileTourTarget(
-                  id: kHomeTourPages[i],
-                  inflate: kHomeTourSectionInflate,
-                  radius: kHomeTourSectionRadius,
-                  child: built[i],
-                ),
+                pageTargets == null
+                    ? built[i]
+                    : MobileTourTarget(
+                        id: pageTargets[i],
+                        inflate: kHomeTourSectionInflate,
+                        radius: kHomeTourSectionRadius,
+                        child: built[i],
+                      ),
                 side: margin,
                 bottom: bottom,
               ),
@@ -333,7 +355,7 @@ class MobileHomeView extends StatelessWidget
             id: kHomeTourNotices,
             inflate: kHomeTourSectionInflate,
             radius: kHomeTourSectionRadius,
-            child: MobileHomeSection(title: names[2], child: MobileNoticesList(notices: notices, beside: true)),
+            child: MobileHomeSection(title: names[2], child: MobileNoticesList(notices: notices)),
           ),
         ],
       ),

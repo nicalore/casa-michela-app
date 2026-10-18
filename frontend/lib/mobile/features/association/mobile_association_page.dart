@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,6 +16,8 @@ import '../../../features/association/tabs/opening_hours/hours_strings.dart';
 import '../../../features/association/tabs/opening_hours/hours_week_nav.dart';
 import '../../../features/association/teacher_opinions.dart' show canSpeakFor;
 import '../../../features/calendar/utils/day_marks_loader.dart';
+import '../../../features/notifications/notice_jump.dart';
+import '../../../features/notifications/week_jump.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/mobile_palette.dart';
@@ -33,6 +37,7 @@ import 'widgets/mobile_association_status.dart';
 import 'widgets/mobile_catalogue_tab.dart';
 import 'widgets/mobile_hours_day_card.dart';
 import 'widgets/mobile_hours_week_tables.dart';
+import 'widgets/mobile_notice_sheet.dart';
 import 'widgets/mobile_notices_tab.dart';
 import 'widgets/mobile_standard_hours_card.dart';
 import 'widgets/mobile_teachers_tab.dart';
@@ -48,6 +53,8 @@ const double _phoneMargin = 20;
 const double _tabletMargin = 44;
 
 const double _stripGap = 14;
+
+const Duration _pageTurn = Duration(milliseconds: 320);
 const double _ribbonGap = 14;
 const double _cardGap = 12;
 
@@ -106,7 +113,12 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
 {
   final ApiService _apiService = ApiService();
 
-  final PageController _pages = PageController();
+  // Opened from a notification: on the notices, the one it announced opening once the page is in.
+  int? _askedNotice;
+
+  late final PageController _pages = PageController(
+    initialPage: _askedNotice == null ? 0 : _tabs.indexOf(_Tab.notices),
+  );
 
   late final List<_Tab> _tabs =
       widget.role == _teacherRole ? const [_Tab.hours, _Tab.notices] : _Tab.values;
@@ -127,7 +139,8 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
   MobileTeachersDirectory? _directory;
   MobileNoticesBoard? _board;
 
-  late DateTime _selected = _today;
+  // Opened from a notification: the first day changed.
+  late DateTime _selected = WeekJumps.hours.take(role: widget.role) ?? _today;
   late DateTime _weekStart = startOfWeek(_selected);
 
   bool _loadingWeek = true;
@@ -163,6 +176,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
   void initState()
   {
     super.initState();
+    _askedNotice = NoticeJumps.reading.take(role: widget.role);
 
     Future.wait([
       _loadWeek(),
@@ -176,6 +190,62 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
     _boardOf.addListener(_tourLater);
     mobileTourChanges.addListener(_tourLater);
     MobileNavSheet.hidden.addListener(_tourLater);
+    WeekJumps.hours.asked.addListener(_jump);
+    NoticeJumps.reading.asked.addListener(_jumpToNotice);
+  }
+
+  // Already open: the notices read again in full, then the one asked for over them.
+  Future<void> _jumpToNotice() async
+  {
+    final int? id = NoticeJumps.reading.take(role: widget.role);
+
+    if (id == null || !mounted)
+    {
+      return;
+    }
+
+    if (_pages.hasClients)
+    {
+      unawaited(
+        _pages.animateToPage(_tabs.indexOf(_Tab.notices), duration: _pageTurn, curve: Curves.easeInOutCubic),
+      );
+    }
+
+    await _boardOf.load(quiet: true);
+
+    if (mounted)
+    {
+      await showMobileNotice(context, id);
+    }
+  }
+
+  // Already open: the hours on that day, read again in full.
+  void _jump()
+  {
+    final DateTime? day = WeekJumps.hours.take(role: widget.role);
+
+    if (day == null || !mounted)
+    {
+      return;
+    }
+
+    if (_pages.hasClients)
+    {
+      _pages.animateToPage(_tabs.indexOf(_Tab.hours), duration: _pageTurn, curve: Curves.easeInOutCubic);
+    }
+
+    _showDay(day);
+
+    setState(()
+    {
+      _loadingWeek = true;
+      _weekFailed = false;
+      _loadingOutlook = true;
+      _outlookFailed = false;
+    });
+
+    _loadWeek();
+    _loadOutlook();
   }
 
   @override
@@ -186,13 +256,34 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
     if (!_settledIn && mobileTourSettled(context))
     {
       _settledIn = true;
+      _openAskedNotice();
       _tourLater();
+    }
+  }
+
+  void _openAskedNotice()
+  {
+    final int? id = _askedNotice;
+    _askedNotice = null;
+
+    if (id != null)
+    {
+      // Not while dependencies change: a sheet is a route.
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted)
+        {
+          unawaited(showMobileNotice(context, id));
+        }
+      });
     }
   }
 
   @override
   void dispose()
   {
+    WeekJumps.hours.asked.removeListener(_jump);
+    NoticeJumps.reading.asked.removeListener(_jumpToNotice);
     _board?.removeListener(_tourLater);
     mobileTourChanges.removeListener(_tourLater);
     MobileNavSheet.hidden.removeListener(_tourLater);

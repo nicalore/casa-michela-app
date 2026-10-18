@@ -17,13 +17,16 @@ import '../../../features/auth/models/me_response.dart';
 import '../../../features/calendar/utils/calendar_strings.dart';
 import '../../../features/calendar/utils/day_marks_loader.dart';
 import '../../../features/calendar/utils/teacher_band_call.dart';
+import '../../../features/calendar/utils/viewable_days.dart';
 import '../../../features/calendar/widgets/teacher_note_dialog.dart' show lessonHasBegun;
 import '../../../features/lessons/models/activity_item.dart';
 import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/models/calendar_publication_item.dart';
 import '../../../features/lessons/models/lesson_item.dart';
 import '../../../features/lessons/models/room_supervision_item.dart';
+import '../../../features/lessons/utils/calendar_jump.dart';
 import '../../../features/lessons/utils/opening_window.dart';
+import '../../../features/notifications/calendar_seen.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
@@ -62,6 +65,8 @@ const double _nowAlignment = 0.4;
 
 const Duration _pageTurn = Duration(milliseconds: 320);
 
+const String _teacherRole = 'TEACHER';
+
 // A page settles within a tolerance, never exactly on its index.
 const double _settled = 0.001;
 
@@ -96,9 +101,17 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
   Timer? _timer;
 
-  late final PageController _pageController = PageController(initialPage: _bandNow.index);
+  // Opened from a notification: its day and band instead of the clock's.
+  final CalendarJump? _openedFor = CalendarJumps.role.take(role: _teacherRole);
 
-  late DateTime _day = _today;
+  late final PageController _pageController = PageController(initialPage: (_openedFor?.band ?? _bandNow).index);
+
+  late DateTime _day = _openedFor?.day ?? _today;
+
+  // Today, or tomorrow once one of its bands is published.
+  late DateTime _lastDay = _today;
+
+  List<CalendarPublicationItem> _publications = const [];
 
   bool _loading = true;
   bool _failed = false;
@@ -149,8 +162,10 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
     _load().whenComplete(MobileHoldScope.hold(context));
     _pageController.addListener(_onPage);
     MobileNavSheet.hidden.addListener(_onSheets);
+    MobileNavSheet.openness.addListener(_onSheets);
     mobileTourChanges.addListener(_tourLater);
     _sheetLink.addListener(_onLessonSheet);
+    CalendarJumps.role.asked.addListener(_jump);
   }
 
   @override
@@ -169,8 +184,10 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
   void dispose()
   {
     _timer?.cancel();
+    CalendarJumps.role.asked.removeListener(_jump);
     _sheetLink.removeListener(_onLessonSheet);
     mobileTourChanges.removeListener(_tourLater);
+    MobileNavSheet.openness.removeListener(_onSheets);
     MobileNavSheet.hidden.removeListener(_onSheets);
     _clock.dispose();
     _pageController.dispose();
@@ -182,8 +199,56 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
   void _tourLater()
   {
     SchedulerBinding.instance
-      ..addPostFrameCallback((_) => _tourCheck())
+      ..addPostFrameCallback((_)
+      {
+        _tourCheck();
+        _noteSeen();
+      })
       ..scheduleFrame();
+  }
+
+  // Already open: turned to the day and band a notification asks for.
+  void _jump()
+  {
+    final CalendarJump? jump = CalendarJumps.role.take(role: _teacherRole);
+
+    if (jump == null || !mounted)
+    {
+      return;
+    }
+
+    if (_pageController.hasClients)
+    {
+      _pageController.animateToPage(jump.band.index, duration: _pageTurn, curve: Curves.easeInOutCubic);
+    }
+
+    _reload(jump.day);
+  }
+
+  // A published band settled on screen, with no menu or sheet over it, takes its notification away.
+  void _noteSeen()
+  {
+    if (!mounted ||
+        !_toured ||
+        _loading ||
+        _failed ||
+        MobileNavSheet.hidden.value ||
+        MobileNavSheet.openness.value > 0 ||
+        !_pageController.hasClients)
+    {
+      return;
+    }
+
+    final double page = _pageController.page ?? _pageController.initialPage.toDouble();
+    final TimeBucket band = TimeBucket.values[page.round()];
+
+    if ((page - page.round()).abs() >= _settled ||
+        !_publications.any((row) => isSameDate(row.date, _day) && row.band == band))
+    {
+      return;
+    }
+
+    unawaited(markCalendarSeen(_day, band));
   }
 
   void _onPage()
@@ -360,6 +425,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
         _apiService.getRoomSupervisions(day),
         _apiService.getAvailabilities(dateFrom: day, dateTo: day),
         _apiService.getUnbookedBands(dateFrom: day, dateTo: day),
+        _apiService.getCalendarPublications(dateFrom: addDays(_today, 1), dateTo: addDays(_today, 1)),
         if (_ministrySubjects.isEmpty) _apiService.getMinistrySubjects(),
       ]);
 
@@ -370,10 +436,13 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
       setState(()
       {
-        if (results.length > 8)
+        if (results.length > 9)
         {
-          _ministrySubjects = results[8] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[9] as List<MinistrySubjectItem>;
         }
+
+        _publications = results[2] as List<CalendarPublicationItem>;
+        _lastDay = lastViewableDay(_today, results[8] as List<CalendarPublicationItem>);
 
         _data = calendarDayFrom(
           day: day,
@@ -462,9 +531,9 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
   {
     DateTime target = DateTime(day.year, day.month, day.day);
 
-    if (target.isAfter(_today))
+    if (target.isAfter(_lastDay))
     {
-      target = _today;
+      target = _lastDay;
     }
 
     if (target.isBefore(oldestKeptDay(_today)))
@@ -472,11 +541,25 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       target = oldestKeptDay(_today);
     }
 
+    _showDay(target);
+  }
+
+  // The same day read again quietly, another one in full.
+  void _showDay(DateTime target)
+  {
     if (isSameDate(target, _day))
     {
+      _load(quiet: true);
+
       return;
     }
 
+    _reload(target);
+  }
+
+  // Also what a notification's tap does: nothing on screen from before its news.
+  void _reload(DateTime target)
+  {
     setState(()
     {
       _day = target;
@@ -573,7 +656,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       selected: _day,
       today: _today,
       first: oldestKeptDay(_today),
-      last: _today,
+      last: _lastDay,
       loadMarks: (from, to) => loadDayMarks(from, to, published: true),
       tourDays: kCalendarTourPickerDays,
       onShown: () => startMobileTourOnce(taxCode: widget.user.taxCode, tour: calendarPickerTour()),
@@ -712,7 +795,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
               current: _isToday,
               tablet: tablet,
               onBack: !_isFirstDay && !_loading ? () => _goToDay(addDays(_day, -1)) : null,
-              onForward: !_isToday && !_loading ? () => _goToDay(addDays(_day, 1)) : null,
+              onForward: _day.isBefore(_lastDay) && !_loading ? () => _goToDay(addDays(_day, 1)) : null,
               onPick: _pickDay,
             ),
           ),

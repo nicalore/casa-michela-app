@@ -18,6 +18,37 @@ class DashboardStat
   });
 }
 
+// Shared with the mobile home; a total not read counts as zero.
+List<DashboardStat> dashboardStats({
+  required CurrentTotalsItem? general,
+  required CurrentTotalsItem? teachers,
+  required CurrentTotalsItem? students,
+})
+{
+  return [
+    DashboardStat(
+      label: 'Iscritti',
+      value: general?.currentTotalMembers ?? 0,
+      deltaMonth: general?.membersDeltaMonth ?? 0,
+    ),
+    DashboardStat(
+      label: 'Collaboratori',
+      value: general?.currentActiveCollaborators ?? 0,
+      deltaMonth: general?.collabDeltaMonth ?? 0,
+    ),
+    DashboardStat(
+      label: 'Docenti',
+      value: teachers?.currentTotalMembers ?? 0,
+      deltaMonth: teachers?.membersDeltaMonth ?? 0,
+    ),
+    DashboardStat(
+      label: 'Studenti',
+      value: students?.currentTotalMembers ?? 0,
+      deltaMonth: students?.membersDeltaMonth ?? 0,
+    ),
+  ];
+}
+
 class _StatScale
 {
   final double value;
@@ -156,28 +187,7 @@ class DashboardStatsSection extends StatelessWidget
           ? _StatScale.compact
           : _StatScale.spacious;
 
-  List<DashboardStat> get _stats => [
-        DashboardStat(
-          label: 'Iscritti',
-          value: general?.currentTotalMembers ?? 0,
-          deltaMonth: general?.membersDeltaMonth ?? 0,
-        ),
-        DashboardStat(
-          label: 'Collaboratori',
-          value: general?.currentActiveCollaborators ?? 0,
-          deltaMonth: general?.collabDeltaMonth ?? 0,
-        ),
-        DashboardStat(
-          label: 'Docenti',
-          value: teachers?.currentTotalMembers ?? 0,
-          deltaMonth: teachers?.membersDeltaMonth ?? 0,
-        ),
-        DashboardStat(
-          label: 'Studenti',
-          value: students?.currentTotalMembers ?? 0,
-          deltaMonth: students?.membersDeltaMonth ?? 0,
-        ),
-      ];
+  List<DashboardStat> get _stats => dashboardStats(general: general, teachers: teachers, students: students);
 
   @override
   Widget build(BuildContext context)

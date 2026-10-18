@@ -16,8 +16,12 @@ const double _leadSize = 64;
 const double _gaugeStroke = 7;
 const double _rowGap = 10;
 
+const double _compactLeadSize = 40;
+const double _compactRowGap = 8;
+
 const BorderRadius _rowRadius = BorderRadius.all(Radius.circular(24));
 const EdgeInsets _rowPadding = EdgeInsets.fromLTRB(18, 14, 18, 14);
+const EdgeInsets _compactRowPadding = EdgeInsets.fromLTRB(10, 7, 16, 7);
 
 class MobileMonthFigures extends StatelessWidget
 {
@@ -86,11 +90,46 @@ class MobilePupilMonthFigures extends StatelessWidget
   }
 }
 
+// Iscritti, Collaboratori, Docenti and Studenti, in dashboardStats order.
+const List<IconData> _associationIcons = [
+  Icons.badge_rounded,
+  Icons.volunteer_activism_rounded,
+  Icons.co_present_rounded,
+  Icons.backpack_rounded,
+];
+
+class MobileAssociationMonthFigures extends StatelessWidget
+{
+  final List<HomeFigure> figures;
+
+  // Tablets: lower rows with the change beside the figure, so the day beside them stretches less.
+  final bool compact;
+
+  const MobileAssociationMonthFigures({super.key, required this.figures, this.compact = false});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return _Rows(
+      [
+        for (final (i, figure) in figures.indexed)
+          _FigureRow(
+            lead: _LeadIcon(_associationIcons[i % _associationIcons.length], size: compact ? 20 : 28),
+            figure: figure,
+            compact: compact,
+          ),
+      ],
+      gap: compact ? _compactRowGap : _rowGap,
+    );
+  }
+}
+
 class _Rows extends StatelessWidget
 {
   final List<Widget> rows;
+  final double gap;
 
-  const _Rows(this.rows);
+  const _Rows(this.rows, {this.gap = _rowGap});
 
   @override
   Widget build(BuildContext context)
@@ -99,7 +138,7 @@ class _Rows extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) const SizedBox(height: _rowGap),
+          if (i > 0) SizedBox(height: gap),
           rows[i],
         ],
       ],
@@ -111,59 +150,72 @@ class _FigureRow extends StatelessWidget
 {
   final Widget lead;
   final HomeFigure figure;
+  final bool compact;
 
-  const _FigureRow({required this.lead, required this.figure});
+  const _FigureRow({required this.lead, required this.figure, this.compact = false});
 
   @override
   Widget build(BuildContext context)
   {
+    final double lead = compact ? _compactLeadSize : _leadSize;
+
     return MobileGlassPanel(
-      padding: _rowPadding,
+      padding: compact ? _compactRowPadding : _rowPadding,
       borderRadius: _rowRadius,
       child: Row(
         children: [
-          SizedBox(width: _leadSize, height: _leadSize, child: lead),
-          const SizedBox(width: 16),
-          Expanded(child: _FigureText(figure: figure)),
+          SizedBox(width: lead, height: lead, child: this.lead),
+          SizedBox(width: compact ? 14 : 16),
+          Expanded(child: _FigureText(figure: figure, compact: compact)),
+          if (compact) ...[
+            const SizedBox(width: 10),
+            _asideOf(figure, shrink: true),
+          ],
         ],
       ),
     );
   }
 }
 
+Widget _asideOf(HomeFigure figure, {bool shrink = false})
+{
+  final String? warning = figure.warning;
+
+  if (warning != null)
+  {
+    return _Aside(
+      icon: Icons.warning_rounded,
+      text: warning,
+      color: AppTheme.modifiedAccent,
+      shrink: shrink,
+    );
+  }
+
+  final HomeDelta? delta = figure.delta;
+
+  if (delta == null)
+  {
+    return const SizedBox.shrink();
+  }
+
+  final (IconData icon, Color color) = switch (delta.direction)
+  {
+    > 0 => (Icons.trending_up_rounded, AppTheme.trialSeaGreen),
+    < 0 => (Icons.trending_down_rounded, AppTheme.trialDanger),
+    _ => (Icons.remove_rounded, MobilePalette.mutedText),
+  };
+
+  return _Aside(icon: icon, text: delta.text, color: color, shrink: shrink);
+}
+
 class _FigureText extends StatelessWidget
 {
   final HomeFigure figure;
 
-  const _FigureText({required this.figure});
+  // The change then sits beside the text, not under it.
+  final bool compact;
 
-  Widget _buildAside()
-  {
-    final String? warning = figure.warning;
-
-    if (warning != null)
-    {
-      return _Aside(
-        icon: Icons.warning_rounded,
-        text: warning,
-        color: AppTheme.modifiedAccent,
-      );
-    }
-
-    final HomeDelta? delta = figure.delta;
-
-    if (delta == null)
-    {
-      return const SizedBox.shrink();
-    }
-
-    return switch (delta.direction)
-    {
-      > 0 => _Aside(icon: Icons.trending_up_rounded, text: delta.text, color: AppTheme.trialSeaGreen),
-      < 0 => _Aside(icon: Icons.trending_down_rounded, text: delta.text, color: AppTheme.trialDanger),
-      _ => _Aside(icon: Icons.trending_flat_rounded, text: delta.text, color: MobilePalette.mutedText),
-    };
-  }
+  const _FigureText({required this.figure, this.compact = false});
 
   @override
   Widget build(BuildContext context)
@@ -189,7 +241,7 @@ class _FigureText extends StatelessWidget
             ],
           ),
           style: GoogleFonts.plusJakartaSans(
-            fontSize: figure.isWord ? 24 : 30,
+            fontSize: figure.isWord ? 24 : (compact ? 23 : 30),
             fontWeight: FontWeight.w800,
             letterSpacing: figure.isWord ? -0.3 : -0.6,
             height: 1.05,
@@ -201,18 +253,20 @@ class _FigureText extends StatelessWidget
             },
           ),
         ),
-        const SizedBox(height: 3),
+        SizedBox(height: compact ? 2 : 3),
         Text(
           figure.label.toUpperCase(),
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
+            fontSize: compact ? 10.5 : 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
             color: AppTheme.trialInk.withValues(alpha: 0.62),
           ),
         ),
-        const SizedBox(height: 4),
-        _buildAside(),
+        if (!compact) ...[
+          const SizedBox(height: 4),
+          _asideOf(figure),
+        ],
       ],
     );
   }
@@ -224,25 +278,29 @@ class _Aside extends StatelessWidget
   final String text;
   final Color color;
 
-  const _Aside({required this.icon, required this.text, required this.color});
+  // As wide as its text, for a row that leaves it no fixed width.
+  final bool shrink;
+
+  const _Aside({required this.icon, required this.text, required this.color, this.shrink = false});
 
   @override
   Widget build(BuildContext context)
   {
+    final Widget label = Text(
+      text,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w700,
+        color: color,
+      ),
+    );
+
     return Row(
+      mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 5),
-        Flexible(
-          child: Text(
-            text,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-        ),
+        if (shrink) label else Flexible(child: label),
       ],
     );
   }
@@ -251,8 +309,9 @@ class _Aside extends StatelessWidget
 class _LeadIcon extends StatelessWidget
 {
   final IconData icon;
+  final double size;
 
-  const _LeadIcon(this.icon);
+  const _LeadIcon(this.icon, {this.size = 28});
 
   @override
   Widget build(BuildContext context)
@@ -262,7 +321,7 @@ class _LeadIcon extends StatelessWidget
         shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: 0.5),
       ),
-      child: Icon(icon, size: 28, color: AppTheme.trialTealDeep),
+      child: Icon(icon, size: size, color: AppTheme.trialTealDeep),
     );
   }
 }

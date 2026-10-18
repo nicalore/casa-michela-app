@@ -121,6 +121,10 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Standard hours restoration",
         body_fields=("date_from", "date_to"),
     ),
+    ("POST", "/opening-days/announce"): AuditRule(
+        "Opening hours change announcement",
+        body_fields=("date_from", "date_to"),
+    ),
     # Composite natural keys: the target is spelled out field by field.
     ("POST", "/lesson-requests/"): AuditRule(
         "Lesson request creation",
@@ -369,13 +373,21 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     ),
 }
 
-# Editor locks and seen tutorials are UI bookkeeping: auditing them would bury real entries.
+# Editor locks, seen tutorials, read notifications, notification kinds and push
+# addresses are UI bookkeeping: auditing them would bury real entries.
 IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
     {
         ("POST", "/calendar-locks/{lock_date}/{band}/heartbeat"),
         ("DELETE", "/calendar-locks/{lock_date}/{band}"),
         ("PUT", "/tours/{platform}"),
         ("DELETE", "/tours/{platform}"),
+        ("PUT", "/notifications/{notification_id}/read"),
+        ("PUT", "/notifications/kinds"),
+        ("PUT", "/notifications/calendar/{calendar_date}/{band}/seen"),
+        ("PUT", "/notifications/bookings/{pupil_tax_code}/seen"),
+        ("PUT", "/notifications/availabilities/seen"),
+        ("PUT", "/push/devices"),
+        ("DELETE", "/push/devices"),
     }
 )
 

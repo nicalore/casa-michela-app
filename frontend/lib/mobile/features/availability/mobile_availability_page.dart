@@ -14,6 +14,8 @@ import '../../../features/availability/utils/availability_strings.dart';
 import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/utils/booking_window.dart';
 import '../../../features/lessons/utils/opening_window.dart';
+import '../../../features/notifications/availability_seen.dart';
+import '../../../features/notifications/week_jump.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_confirm_sheet.dart';
@@ -37,6 +39,8 @@ import 'widgets/mobile_availability_wizard.dart';
 const String _title = 'Disponibilità';
 
 const List<String> _pages = ['Questa settimana', 'Settimana prossima'];
+
+const Duration _pageTurn = Duration(milliseconds: 320);
 
 const double _phoneMargin = 20;
 const double _tabletMargin = 44;
@@ -68,7 +72,8 @@ class MobileAvailabilityPage extends StatefulWidget
 class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
 {
   final ApiService _apiService = ApiService();
-  final PageController _pageController = PageController();
+  // Opened from a notification: on the week it is about.
+  late final PageController _pageController = PageController(initialPage: _weekOf(WeekJumps.availability.take()));
 
   late DateTime _now = widget.clock();
 
@@ -101,6 +106,37 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
     _pageController.addListener(_onPage);
     MobileNavSheet.hidden.addListener(_onSheets);
     mobileTourChanges.addListener(_tourLater);
+    WeekJumps.availability.asked.addListener(_jump);
+  }
+
+  // 1 for a day of next week once it is open, else 0.
+  int _weekOf(DateTime? day)
+  {
+    return day != null && startOfWeek(day).isAfter(_monday) && isNextWeekUnlocked(_now) ? 1 : 0;
+  }
+
+  // Already open: the week asked for, read again in full.
+  void _jump()
+  {
+    final DateTime? day = WeekJumps.availability.take();
+
+    if (day == null || !mounted)
+    {
+      return;
+    }
+
+    if (_pageController.hasClients)
+    {
+      _pageController.animateToPage(_weekOf(day), duration: _pageTurn, curve: Curves.easeInOutCubic);
+    }
+
+    setState(()
+    {
+      _loading = true;
+      _failed = false;
+    });
+
+    _load();
   }
 
   @override
@@ -121,6 +157,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
     _clock?.cancel();
     MobileNavSheet.hidden.removeListener(_onSheets);
     mobileTourChanges.removeListener(_tourLater);
+    WeekJumps.availability.asked.removeListener(_jump);
     _pageController.dispose();
 
     super.dispose();
@@ -142,7 +179,21 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
     {
       _pageSeen = page.round();
       _tourLater();
+      _markSeen();
     }
+  }
+
+  // The week on screen: what others wrote in it is seen.
+  void _markSeen()
+  {
+    if (_loading || _failed)
+    {
+      return;
+    }
+
+    final int week = _pageController.hasClients ? (_pageController.page ?? 0).round() : _pageController.initialPage;
+
+    unawaited(markAvailabilitySeen(addDays(_monday, 7 * week)));
   }
 
   // A sheet closing, as the wizard after a save, may leave a new button on the page.
@@ -269,6 +320,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
         _failed = false;
       });
 
+      _markSeen();
       _tourLater();
     }
     catch (e, stackTrace)

@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/birthday.dart';
 import '../../../core/utils/rome_clock.dart';
-import '../../../core/utils/week_range.dart' show formatDayMonthShort;
+import '../../../core/utils/week_range.dart' show formatDayMonthFull, formatDayMonthShort;
 import '../../people/models/person_item.dart';
 import 'dashboard_section_card.dart';
 
@@ -26,6 +26,16 @@ class DashboardBirthday
 
     return date.day == now.day && date.month == now.month;
   }
+}
+
+// "41 anni · oggi", "17 anni · 18 ottobre"; short months where two share a row.
+String birthdayCaption(DashboardBirthday birthday, {bool short = false})
+{
+  final String when = birthday.isToday
+      ? 'oggi'
+      : (short ? formatDayMonthShort(birthday.date) : formatDayMonthFull(birthday.date));
+
+  return '${birthday.age} ${birthday.age == 1 ? 'anno' : 'anni'} · $when';
 }
 
 DateTime? _nextBirthday(DateTime? birth, DateTime today)
@@ -100,11 +110,6 @@ List<DashboardBirthday> upcomingBirthdays(
 
 class DashboardBirthdaysSection extends StatelessWidget
 {
-  static const List<String> _months = [
-    'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
-    'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
-  ];
-
   final List<DashboardBirthday> birthdays;
   final bool isLoading;
   final void Function(PersonItem person)? onTap;
@@ -194,11 +199,7 @@ class DashboardBirthdaysSection extends StatelessWidget
 
     return _BirthdayRow(
       birthday: birthday,
-      when: birthday.isToday
-          ? 'oggi'
-          : (tight
-              ? formatDayMonthShort(birthday.date)
-              : '${birthday.date.day} ${_months[birthday.date.month - 1]}'),
+      caption: birthdayCaption(birthday, short: tight),
       onTap: onTap == null ? null : () => onTap!(birthday.person),
       tight: tight,
     );
@@ -209,14 +210,14 @@ class DashboardBirthdaysSection extends StatelessWidget
 class _BirthdayRow extends StatefulWidget
 {
   final DashboardBirthday birthday;
-  final String when;
+  final String caption;
   final VoidCallback? onTap;
 
   final bool tight;
 
   const _BirthdayRow({
     required this.birthday,
-    required this.when,
+    required this.caption,
     this.onTap,
     this.tight = false,
   });
@@ -302,7 +303,7 @@ class _BirthdayRowState extends State<_BirthdayRow>
                       ),
                     ),
                     Text(
-                      '${widget.birthday.age} ${widget.birthday.age == 1 ? 'anno' : 'anni'} · ${widget.when}',
+                      widget.caption,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(

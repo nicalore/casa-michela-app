@@ -40,6 +40,7 @@ import '../models/room_day_plan.dart';
 import '../models/schedulable_booking.dart';
 import '../models/teacher_room_assignment_item.dart';
 import '../export/calendar_pdf_export.dart';
+import '../utils/calendar_jump.dart';
 import '../utils/excluded_teachers.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/new_members.dart';
@@ -349,6 +350,15 @@ class _CalendarTabState extends State<CalendarTab>
   {
     super.initState();
     _carriedAt.addListener(_sayWhatIsWrong);
+    CalendarJumps.admin.asked.addListener(_jump);
+
+    final CalendarJump? jump = CalendarJumps.admin.take();
+
+    if (jump != null)
+    {
+      _day = jump.day;
+      _band = jump.band;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
@@ -358,9 +368,31 @@ class _CalendarTabState extends State<CalendarTab>
       }
 
       setState(_syncClock);
+
+      // A notification's day is read again, inside the window too.
+      if (jump != null)
+      {
+        unawaited(_goToDay(jump.day, fresh: true));
+
+        return;
+      }
+
       _sayWhichBand();
       _ensureRoomPlan();
     });
+  }
+
+  void _jump()
+  {
+    final CalendarJump? jump = CalendarJumps.admin.take();
+
+    if (jump == null || !mounted)
+    {
+      return;
+    }
+
+    setState(() => _band = jump.band);
+    unawaited(_goToDay(jump.day, fresh: true));
   }
 
   static const Duration _closingWatch = Duration(hours: 12);
@@ -422,6 +454,7 @@ class _CalendarTabState extends State<CalendarTab>
   @override
   void dispose()
   {
+    CalendarJumps.admin.asked.removeListener(_jump);
     _carriedAt.removeListener(_sayWhatIsWrong);
 
     if (_carriedRefusal != null)
@@ -592,7 +625,8 @@ class _CalendarTabState extends State<CalendarTab>
 
   static String _keyOf(DateTime day) => '${day.year}-${day.month}-${day.day}';
 
-  Future<void> _goToDay(DateTime day) async
+  // Fresh: read again even if held, as a notification's tap asks.
+  Future<void> _goToDay(DateTime day, {bool fresh = false}) async
   {
     final normalised = DateTime(day.year, day.month, day.day);
 
@@ -604,11 +638,11 @@ class _CalendarTabState extends State<CalendarTab>
 
     _sayWhichBand();
 
-    await _fetchDay(normalised);
+    await _fetchDay(normalised, fresh: fresh);
 
     if (mounted)
     {
-      await _ensureRoomPlan();
+      await _ensureRoomPlan(force: fresh);
     }
   }
 
@@ -617,11 +651,11 @@ class _CalendarTabState extends State<CalendarTab>
     widget.onViewChanged?.call(day: _day, band: _band);
   }
 
-  Future<void> _fetchDay(DateTime day) async
+  Future<void> _fetchDay(DateTime day, {bool fresh = false}) async
   {
     final load = widget.onLoadDay;
 
-    if (load == null || _isInsideWindow(day) || _fetchedDays.contains(_keyOf(day)))
+    if (load == null || (!fresh && (_isInsideWindow(day) || _fetchedDays.contains(_keyOf(day)))))
     {
       return;
     }

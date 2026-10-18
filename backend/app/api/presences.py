@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.booking_presentation import (
     AvoidedTeachers,
@@ -22,6 +22,9 @@ from app.schemas.presence import (
     PresenceResponse,
     PresenceUpdate,
 )
+from app.services import push
+from app.services.booking_notifications import pupil_lessons, tell_changes
+from app.services.daily_reminders import presence_booked
 from app.services.presence_service import PresenceService
 
 router = APIRouter(
@@ -104,14 +107,27 @@ async def list_presences(
     return await to_responses(db, identity, presences)
 
 
+# Booked for that day: the evening's reminder about it goes.
+async def _settle_reminder(
+    db: DbSession,
+    presence: Presence,
+    background: BackgroundTasks,
+) -> None:
+    batch = await presence_booked(db, presence.student_tax_code, presence.date)
+    await db.commit()
+    background.add_task(push.deliver, batch)
+
+
 @router.post("/", response_model=PresenceResponse)
 async def create_presence(
     payload: PresenceCreate,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> PresenceResponse:
     service = PresenceService(PresenceRepository(db))
     presence = await service.create(identity, payload)
+    await _settle_reminder(db, presence, background)
 
     return (await to_responses(db, identity, [presence]))[0]
 
@@ -134,9 +150,23 @@ async def update_presence(
     payload: PresenceUpdate,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> PresenceResponse:
+    _, before = await pupil_lessons(db, presence_id=presence_id)
     service = PresenceService(PresenceRepository(db))
     presence = await service.update(identity, presence_id, payload)
+    _, after = await pupil_lessons(db, presence_id=presence_id)
+
+    # Its hours changed: so did its lessons, for the pupil and the parents.
+    told = await tell_changes(
+        db,
+        booker_tax_code=identity.tax_code,
+        pupil_tax_code=presence.student_tax_code,
+        before=before,
+        after=after,
+    )
+    background.add_task(push.deliver, told)
+    await _settle_reminder(db, presence, background)
 
     return (await to_responses(db, identity, [presence]))[0]
 
@@ -146,8 +176,22 @@ async def delete_presence(
     presence_id: int,
     identity: CurrentIdentity,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
+    pupil, before = await pupil_lessons(db, presence_id=presence_id)
     service = PresenceService(PresenceRepository(db))
     await service.delete(identity, presence_id)
+
+    # Its lessons went with it: the pupil and the parents hear of them.
+    if pupil is not None:
+        told = await tell_changes(
+            db,
+            booker_tax_code=identity.tax_code,
+            pupil_tax_code=pupil,
+            before=before,
+            after={},
+        )
+        await db.commit()
+        background.add_task(push.deliver, told)
 
     return {"detail": "Presenza eliminata"}

@@ -105,6 +105,19 @@ class OpeningDayRestoreRequest(BaseModel):
         return self
 
 
+# The days a variation was saved on, removed days included; one notice tells them all.
+class OpeningHoursChanged(BaseModel):
+    date_from: date
+    date_to: date
+
+    @model_validator(mode="after")
+    def _range_ordered(self) -> Self:
+        if self.date_to < self.date_from:
+            raise ValueError(_INVALID_RANGE_ERROR)
+
+        return self
+
+
 class OpeningDayRestoreResponse(BaseModel):
     dates_restored: int
     rows_created: int

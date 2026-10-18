@@ -16,6 +16,9 @@ class DashboardSectionCard extends StatelessWidget
 
   final Widget? action;
 
+  // Replaces eyebrow and title, e.g. with tabs.
+  final Widget? heading;
+
   final double minHeight;
 
   // True inside a row, where the tallest card sets the height; false in a column.
@@ -29,6 +32,7 @@ class DashboardSectionCard extends StatelessWidget
     required this.title,
     required this.child,
     this.action,
+    this.heading,
     this.minHeight = 0,
     this.fill = false,
     this.compact = false,
@@ -54,7 +58,7 @@ class DashboardSectionCard extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
+                  child: heading ?? Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
