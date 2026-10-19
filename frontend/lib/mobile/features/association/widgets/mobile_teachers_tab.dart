@@ -4,10 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/association/association_strings.dart';
 import '../../../../features/association/teacher_opinions.dart';
+import '../../../../features/lessons/utils/booking_wizard_strings.dart' show kNoTeachers;
 import '../../../../features/people/models/person_item.dart';
+import '../../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
 import '../../../shared/widgets/mobile_choice_sheet.dart';
+import '../../../shared/widgets/mobile_empty_card.dart';
 import '../../../shared/widgets/mobile_filter_chip.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_load_switcher.dart';
@@ -154,6 +157,16 @@ class _MobileTeachersTabState extends State<MobileTeachersTab>
     }
 
     final List<PersonItem> teachers = _directory.shown;
+
+    if (teachers.isEmpty)
+    {
+      return Center(
+        child: _directory.isEmpty
+            ? MobileEmptyCard(icon: Icons.co_present_rounded, message: kNoTeachers, tablet: widget.tablet)
+            : MobileEmptyCard(icon: Icons.search_off_rounded, message: kNoSearchMatch, tablet: widget.tablet),
+      );
+    }
+
     final double room = MediaQuery.sizeOf(context).width - widget.margin * 2;
     final int columns = widget.tablet ? (room / _minRowWidth).floor().clamp(1, _maxColumns) : 1;
 
@@ -196,51 +209,44 @@ class _MobileTeachersTabState extends State<MobileTeachersTab>
         color: AppTheme.trialGold,
         backgroundColor: AppTheme.trialDeepWater,
         onRefresh: () => _directory.load(quiet: true),
-        child: ListView(
-          clipBehavior: Clip.none,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(top: _topRoom, bottom: bottom),
-          children: [
-            // One child, as the chips were laid out with the rows: scrolled down, they are kept.
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                MobileTourTarget(
-                  id: widget.tourTop,
-                  inflate: EdgeInsets.fromLTRB(
-                    _tourTopInflate - widget.margin,
-                    _tourTopInflate,
-                    _tourTopInflate - widget.margin,
-                    _tourTopInflate,
-                  ),
-                  radius: _tourTopRadius,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: widget.margin),
-                        child: MobileSearchField(
-                          controller: _directory.search,
-                          hintText: kTeachersSearchHint,
-                          onChanged: (_) => _directory.searched(),
-                        ),
+        child: ListenableBuilder(
+          listenable: _directory,
+          builder: (context, _) => MobileEmptyScroll(
+            padding: EdgeInsets.only(top: _topRoom, bottom: bottom),
+            head: [
+              MobileTourTarget(
+                id: widget.tourTop,
+                inflate: EdgeInsets.fromLTRB(
+                  _tourTopInflate - widget.margin,
+                  _tourTopInflate,
+                  _tourTopInflate - widget.margin,
+                  _tourTopInflate,
+                ),
+                radius: _tourTopRadius,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: widget.margin),
+                      child: MobileSearchField(
+                        controller: _directory.search,
+                        hintText: kTeachersSearchHint,
+                        onChanged: (_) => _directory.searched(),
                       ),
-                      const SizedBox(height: 12),
-                      ListenableBuilder(listenable: _directory, builder: (context, _) => _buildChips()),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildChips(),
+                  ],
                 ),
-                const SizedBox(height: 18),
-                ListenableBuilder(
-                  listenable: _directory,
-                  builder: (context, _) => Padding(
-                    padding: EdgeInsets.symmetric(horizontal: widget.margin),
-                    child: _buildBody(),
-                  ),
-                ),
-              ],
+              ),
+              const SizedBox(height: 18),
+            ],
+            body: Padding(
+              padding: EdgeInsets.symmetric(horizontal: widget.margin),
+              child: _buildBody(),
             ),
-          ],
+            fill: !_directory.loading && !_directory.failed && _directory.shown.isEmpty,
+          ),
         ),
       ),
     );

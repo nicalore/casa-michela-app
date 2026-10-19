@@ -135,7 +135,7 @@ class _MoveSheetState extends State<_MoveSheet>
       ..scheduleFrame();
   }
 
-  // Once the sheet stands still, the parts never explained; the hours come when an option shows them.
+  // Once the sheet stands still, the parts never explained; hours when an option shows them.
   Future<void> _tourCheck() async
   {
     final String? taxCode = widget.tourFor;
@@ -457,7 +457,7 @@ class _MoveSheetState extends State<_MoveSheet>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 18),
-                    MobileQuietLine(chosen.isNew ? kMoveAddHours : kMoveStretchHours),
+                    MobileQuietLine(chosen.isNew ? kMoveAddHours : kMoveStretchHours, centred: false),
                     _buildHours(chosen, window),
                   ],
                 )

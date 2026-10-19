@@ -113,7 +113,7 @@ List<FilterOption<String>> statsPeriodOptions()
   final now = romeNow();
 
   final options = <FilterOption<String>>[
-    const FilterOption(value: 'last-1', label: 'Ultimo mese'),
+    const FilterOption(value: 'last-1', label: 'Questo mese'),
     for (var months = 2; months <= statsMonthsWindow; months++)
       FilterOption(value: 'last-$months', label: 'Ultimi $months mesi'),
   ];

@@ -24,7 +24,6 @@ const String kNotificationsOfferMessage =
     'o una variazione degli orari di apertura. Puoi cambiare idea in qualsiasi momento dalle impostazioni.';
 const String kNotificationsNotNow = 'Non ora';
 
-// Settings.
 const String kNotificationsSettingTitle = 'Notifiche';
 const String kNotificationsSettingHint = 'Gli avvisi di Casa Michela su questo dispositivo.';
 const String kNotificationsOn = 'Attive';
@@ -38,7 +37,6 @@ const String kNotificationKindsTurnOnFirst = 'Attiva le notifiche per scegliere 
 const String kNotificationKindsHint = 'Scegli quali notifiche vuoi ricevere. Vale per tutti i tuoi dispositivi.';
 const String kNotificationKindsConfirm = 'Conferma';
 
-// Draft.
 String notificationKindsCount(int on, int all) => on == 1 ? '1 attivo su $all' : '$on attivi su $all';
 
 // Each kind's switch, title and line; every kind but the test one needs its own.
@@ -61,11 +59,11 @@ const Map<NotificationKind, (String, String)> kNotificationKindLabels = {
   ),
   NotificationKind.availabilityOpened: (
     'Disponibilità della settimana',
-    'Avvisa il venerdì alle 20 quando si possono inserire le disponibilità per la settimana prossima.',
+    'Avvisa il venerdì alle 20:00 quando si possono inserire le disponibilità per la settimana prossima.',
   ),
   NotificationKind.bookingsOpened: (
     'Prenotazioni della settimana',
-    'Avvisa il venerdì alle 20 quando si possono prenotare le lezioni per la settimana prossima.',
+    'Avvisa il venerdì alle 20:00 quando si possono prenotare le lezioni per la settimana prossima.',
   ),
   NotificationKind.availabilityReminder: (
     'Promemoria delle disponibilità',

@@ -16,6 +16,7 @@ from app.repositories.weekly_template_repository import WeeklyTemplateRepository
 from app.schemas.weekly_template import WeeklyTemplateCreate, WeeklyTemplateUpdate
 from app.services.availability_cleanup import purge_hours_outside_openings
 from app.services.calendar_hours_sync import CalendarHoursWatch
+from app.services.started_hours import StartedHoursGuard
 
 _ENTITY_LABEL: Final[str] = "il template settimanale"
 _NOT_FOUND_ERROR: Final[str] = "Riga di template non trovata"
@@ -113,6 +114,12 @@ class WeeklyTemplateService:
             if template.mode == mode
         ]
 
+        guard = await StartedHoursGuard.taken(
+            self.opening_day_repository.session,
+            dates,
+            mode,
+        )
+
         # Published calendars on these dates must revert to draft or be dropped.
         watch = await CalendarHoursWatch.taken(
             self.opening_day_repository.session,
@@ -133,6 +140,7 @@ class WeeklyTemplateService:
             for template in templates
             if template.effective_from <= day
         ])
+        await guard.settle()
 
         purged = await purge_hours_outside_openings(
             self.opening_day_repository.session,

@@ -22,16 +22,13 @@ import 'mobile_load_switcher.dart';
 import 'mobile_nav_sheet.dart';
 import 'mobile_notice.dart';
 
-// Stands in a step's text where its glyph goes.
 const String kMobileTourGlyph = '\u{FFFC}';
 const String _nextLabel = 'Avanti';
 const String _endLabel = 'Fine';
 
-// Targets of the menu, lit by any tour.
 const String kMobileTourNavSheet = 'nav.sheet';
 const String kMobileTourNavSections = 'nav.sections';
 
-// A sheet's close button; the top sheet's when several are up.
 const String kMobileTourSheetClose = 'sheet.close';
 
 const double _sideMargin = 16;
@@ -49,10 +46,8 @@ const double _textSize = 14;
 // Under the line's 1.4 height once centred on the capitals, so the line keeps its height.
 const double _glyphEm = 1.3;
 
-// Until the banner has been laid out once.
 const double _bannerGuess = 96;
 
-// A hole cut shorter than this by the banner is left out.
 const double _shortestHole = 24;
 
 // A read hole running this far under the banner still counts as clear of it.
@@ -67,24 +62,21 @@ const Duration _revealDuration = Duration(milliseconds: 420);
 // Long enough to follow a page turn, the menu's spring and a scroll into view.
 const Duration _followWindow = Duration(milliseconds: 900);
 
-// What the banner hides of a described part comes up: with the step if it fits, else after a pause.
 const Duration _scrollPause = Duration(milliseconds: 1200);
 const double _scrollMsPerPixel = 4;
 const Duration _scrollShortest = Duration(milliseconds: 700);
 const Duration _scrollLongest = Duration(milliseconds: 2400);
 const Duration _scrollBack = Duration(milliseconds: 420);
 
-// A step's start changing the page: its holes wait until they stand still this many frames, or this long.
 const int _stillFrames = 3;
 const Duration _settleLongest = Duration(milliseconds: 900);
 
 // Sizes measured on a moving page wobble in their last digits; less than this is no resize.
 const double _sizeTolerance = 0.5;
 
-// A tour waits this many frames at most for its first step's parts to stand still.
 const int _startLongest = 60;
 
-// How far into their move holes still count as setting off, a reveal joining them.
+// Holes less than this far into their move restart toward where a reveal scroll lands.
 const double _justSetOff = 0.2;
 
 class MobileTourStep
@@ -94,50 +86,40 @@ class MobileTourStep
   // Lit to be read: they take no touch and stop above the banner.
   final List<String> shown;
 
-  // Lit to be touched: the touch reaches them.
   final List<String> touched;
 
   // Without them the step moves on with the forward button.
   final Listenable? watch;
   final bool Function()? reached;
 
-  // Scrolled into view when the step starts, unless already in sight.
   final String? reveal;
 
   // Puts the screen back as it was before this step's touch, when stepping back to it.
   final VoidCallback? undo;
 
-  // Run as the step begins, as a list put back to the one the step speaks of.
   final VoidCallback? enter;
 
   // Drawn where the text holds kMobileTourGlyph, as tall as given.
   final Widget Function(double size)? glyph;
 
-  // In place of [glyph] when they differ: one per kMobileTourGlyph, in order.
   final List<Widget Function(double size)> glyphs;
 
-  // A tap on a touched part moves on too, as the forward button does.
   final bool tapMovesOn;
 
-  // A tap on a touched part ends the tour: what it opens or closes leaves the later steps nothing to light.
   final bool tapEnds;
 
-  // What the banner hides of the parts read comes up; off for a list longer than any screen.
+  // Scrolls parts read out from under the banner; off for a list longer than any screen.
   final bool scrolls;
 
-  // The banner under the status bar, whatever is lit.
   final bool high;
 
-  // Nothing dimmed: the step is about the whole screen.
   final bool lightsAll;
 
-  // The parts read lit as one hole around them all, as a heading and the table under it.
   final bool joined;
 
-  // Moves on once [watch] tells of the touch and this holds, never as the step begins; the forward button stays.
+  // Moves on once [watch] fires and this holds, never at step start; the forward button stays.
   final bool Function()? acted;
 
-  // While false the step is passed over; the touches before it may make it true.
   final bool Function()? present;
 
   // Counted ahead while not present yet, as what an earlier step's touch may bring.
@@ -216,7 +198,6 @@ class _Run
 
 final ValueNotifier<_Run?> _requested = ValueNotifier<_Run?>(null);
 
-// True once the page is loaded and no entrance is moving it.
 bool mobileTourSettled(BuildContext context)
 {
   final MobileHandover? handover = MobileHandover.maybeOf(context);
@@ -231,7 +212,6 @@ bool mobileTourSettled(BuildContext context)
 
 bool get isMobileTourShown => _requested.value != null;
 
-// Told as a tour is asked for and as it ends.
 Listenable get mobileTourChanges => _requested;
 
 Future<bool> isMobileTourSeen({required String taxCode, required MobileTour tour})
@@ -239,7 +219,6 @@ Future<bool> isMobileTourSeen({required String taxCode, required MobileTour tour
   return SeenTours.mobile.hasSeen(taxCode: taxCode, slug: tour.slug, version: tour.version);
 }
 
-// Once per person and tour, whatever the device.
 Future<void> startMobileTourOnce({required String taxCode, required MobileTour tour}) async
 {
   if (_requested.value != null || await isMobileTourSeen(taxCode: taxCode, tour: tour))
@@ -252,7 +231,7 @@ Future<void> startMobileTourOnce({required String taxCode, required MobileTour t
 
 Future<void> resetMobileTours(String taxCode) => SeenTours.mobile.reset(taxCode);
 
-// Menu sections having tours, by slug; a section's tours are slugged after it. Add one with its first tour.
+// Menu sections with tours, by slug; a section's tours are slugged after it.
 const Set<String> kMobileTourSections = {
   'home',
   'availability',
@@ -265,11 +244,9 @@ const Set<String> kMobileTourSections = {
   'settings',
 };
 
-// Every tour of these sections shows again, its main one and those of its single parts.
 Future<void> resetMobileToursOf(String taxCode, Iterable<String> sections) =>
     SeenTours.mobile.reset(taxCode, sections);
 
-// Calls back once its sheet has finished rising, so a tour measures it in place.
 class MobileTourOnRise extends StatefulWidget
 {
   final VoidCallback? onRisen;
@@ -338,23 +315,19 @@ class _MobileTourOnRiseState extends State<MobileTourOnRise>
   Widget build(BuildContext context) => widget.child;
 }
 
-// Whether a part a tour can light is built now, as a mark that shows only sometimes.
 bool isMobileTourTargetShown(String id) => _MobileTourTargetState.find(id) != null;
 
-// Marks what a tour can light; touches inside a lit target reach it.
 class MobileTourTarget extends StatefulWidget
 {
   // Null marks nothing, so lighting a part or not keeps the tree the same.
   final String? id;
 
-  // Negative values pull the hole in.
   final EdgeInsets inflate;
   final double radius;
 
-  // Cut to the vertical scroll view holding it, so a list longer than its view lights only what shows.
+  // Clipped to its vertical scroll view: a list longer than the view lights only what shows.
   final bool clipped;
 
-  // Runs down to the screen's bottom: a part and everything under it.
   final bool toBottom;
 
   final Widget child;
@@ -383,7 +356,6 @@ class _MobileTourTargetState extends State<MobileTourTarget>
   // The latest mounted one wins, as when a page is rebuilt for a new role.
   static _MobileTourTargetState? find(String id) => findAll(id).lastOrNull;
 
-  // Every one with the id, in mounting order: one per child, say.
   static List<_MobileTourTargetState> findAll(String id) => [
         for (final _MobileTourTargetState target in _live[id] ?? const <_MobileTourTargetState>[])
           if (target._active) target,
@@ -437,7 +409,6 @@ class _MobileTourTargetState extends State<MobileTourTarget>
     super.dispose();
   }
 
-  // [clip] false: where the part stands, seen or not; [shift] moves it down inside its view.
   RRect? holeIn(RenderBox ancestor, {bool clip = true, double shift = 0})
   {
     final RenderObject? box = context.findRenderObject();
@@ -499,8 +470,7 @@ class _Runway
 
 final ValueNotifier<_Runway?> _runway = ValueNotifier<_Runway?>(null);
 
-// Views that make room at their end: a tour can always scroll a part of theirs out from under the banner.
-final Set<ScrollableState> _runwayViews = Set.identity();
+final Map<ScrollableState, _MobileTourRunwayState> _runwayViews = Map.identity();
 
 // At a scroll view's end: room for a tour to scroll a part read there out from under its banner.
 class MobileTourRunway extends StatefulWidget
@@ -529,7 +499,7 @@ class _MobileTourRunwayState extends State<MobileTourRunway>
 
       if (view != null)
       {
-        _runwayViews.add(view);
+        _runwayViews[view] = this;
       }
     }
   }
@@ -553,8 +523,6 @@ class _MobileTourRunwayState extends State<MobileTourRunway>
   }
 }
 
-// Lives in the shell, draws in a root overlay entry, which stays above every route and sheet.
-// [ready] holds a tour back while the shell is moving.
 class MobileTourLayer extends StatefulWidget
 {
   final bool ready;
@@ -574,11 +542,10 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
   // Counts the steps entered: the banner's buttons answer only for the one they were drawn for.
   int _visit = 0;
 
-  // The steps shown so far, in order: going back walks it; and every one shown, for its seen mark.
   final List<int> _path = [];
   final Set<int> _visited = {};
 
-  // Not lazy: a layer that never showed a tour would create them in dispose(), on an unmounted element.
+  // Not lazy: never shown, it would be created in dispose() on an unmounted element.
   late final AnimationController _shown;
   late final AnimationController _move;
 
@@ -586,7 +553,6 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
   late final AnimationController _anchor;
   bool _high = false;
 
-  // The first place is taken at once.
   bool _placed = false;
 
   late final Ticker _follow;
@@ -600,43 +566,39 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
   // The last holes drawn, kept when what they lit goes away, as a sheet closed by its close button.
   List<RRect> _lastLit = const [];
 
-  // Where this step's holes head while they move: a part read still under the banner too, where it stands.
   List<RRect> _aim = const [];
 
   // Where this step's first part stood as it began, and how far its page has moved it since.
   Rect? _setOut;
   Offset _carried = Offset.zero;
 
-  // How far the tour's own scroll moves that part in all, once known: the holes head where it stops.
+  // Total shift the tour's own scroll gives that part, once known; the holes head there.
   Offset? _landing;
   ScrollableState? _landingView;
 
-  // Holes are measured as they are painted, once the page is laid out for the frame; told to paint again.
+  // Holes are measured at paint, after the frame's layout; this triggers a repaint.
   final _Repaint _repaint = _Repaint();
 
-  // What the step lights, where it stood after the last frame: moving with no follow running, it starts one.
   bool _watchingFrames = false;
   List<Rect> _lastSeen = const [];
 
-  // The sizes of what the step's scroll is about, since its scroll was planned.
   bool _planned = false;
   List<Size>? _lastSizes;
   bool _resized = false;
   int _sizesStill = 0;
 
-  // A tour asked for, waiting for its first step's parts to stand still.
   _Run? _waiting;
   List<double>? _waitSeen;
   int _waitStill = 0;
   int _waitFrames = 0;
 
-  // Set while the page a step's start changed still moves: the holes, the banner and the scroll then set off.
+  // Set while a page changed by step start still moves; holes, banner and scroll start after it.
   VoidCallback? _settling;
   List<RRect> _lastStill = const [];
   int _still = 0;
   Timer? _settleCap;
 
-  // Meanwhile the last holes stay on the step left's part, as it moves with the page: its first, where it stood.
+  // While settling, the old holes follow the left step's lead part as the page moves it.
   String? _leftLead;
   Rect? _leftAt;
   Offset _leftMoved = Offset.zero;
@@ -647,20 +609,17 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
   double _windowTop = 0;
   double _floor = double.infinity;
 
-  // Scrolled by the current step; put back when the step is left.
   _PageScroll? _scrolled;
 
   // Kept for the step just entered: its own scroll starts from where this one found the page.
   _PageScroll? _backTo;
 
-  // The view the tour last set scrolling, maybe still moving for a step already left.
   ScrollableState? _driving;
 
-  // Set when scrolling the part read cannot bring its end above a low banner: the banner goes up.
   bool _endUp = false;
   Timer? _scrollWait;
 
-  // Moved on when the step's scroll is put back, so a frame awaited for it is let go.
+  // Bumped by _unscroll, so a post-frame callback awaited for the left scroll is dropped.
   int _scrollRun = 0;
   Timer? _runwayDrop;
   bool _surfaceChanged = false;
@@ -700,7 +659,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     }
   }
 
-  // The entry is built apart from this widget.
+  // The overlay entry is its own element: it does not rebuild with this state.
   @override
   void setState(VoidCallback fn)
   {
@@ -769,7 +728,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     _awaitStill(run);
   }
 
-  // Shown once what its first step lights stands still: a list a tap is still unfolding was measured half open.
+  // Shown once its first step's parts stand still, or an unfolding list is measured half open.
   void _awaitStill(_Run run)
   {
     if (!mounted || _requested.value != run || _run != null || !widget.ready)
@@ -810,8 +769,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     _begin(run, start);
   }
 
-  // Where the step's parts stand and how far their views run: a list's own height easing after rows unfold
-  // still grows the page the step scrolls.
+  // Part positions and view extents: a list easing taller after an unfold still grows the page.
   List<double> _stillness(MobileTourStep step)
   {
     return [
@@ -901,7 +859,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       _kick();
     }
 
-    // What the step's scroll is about growing or shrinking, as rows unfolding: once still, it is planned again.
+    // The scroll's subject resizing, as rows unfold: once still, the scroll is planned again.
     final List<Size> sizes = [for (final Rect part in _partsOf(step, camera: true)) part.size];
 
     if (!_sameSizes(sizes, _lastSizes))
@@ -974,7 +932,6 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     }
   }
 
-  // A tap on a touched part, on a step that lets it move on.
   void _onTouchTap()
   {
     final _Run? run = _run;
@@ -1018,7 +975,6 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     return own is RenderBox && own.attached && own.hasSize ? own : null;
   }
 
-  // A tap on a button fading out with the step left, or a second one in the same frame, does nothing.
   void _nextFrom(int visit)
   {
     if (_run != null && !_closing && visit == _visit)
@@ -1068,7 +1024,6 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     final List<RRect> now = _holesNow();
 
-    // Its part gone, the step before still hands its last place on: the next holes move from there.
     _from = first ? const [] : (now.isEmpty ? _lastLit : now);
     _step = index;
     _endUp = false;
@@ -1099,7 +1054,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     void setOff()
     {
-      // As long as the page going back, so the holes land with it.
+      // Lasts as long as the page's scroll back, so the holes land with it.
       _move.duration = goingBack ? _scrollBack : _moveDuration;
       _move.forward(from: first ? 1 : 0);
 
@@ -1109,11 +1064,11 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
         _scrollWait = Timer(_scrollPause, _scrollThrough);
       }
 
-      // After the next layout, the banner holding this step's text: the page may have just been moved too.
+      // After the next layout, with the banner on this step's text; the page may have moved too.
       _afterLayout(_bringIn);
     }
 
-    // A list sliding to another, a sheet growing with it: lit while they moved, two holes slid and the banner crossed.
+    // An enter step moves the page: settle first, or two holes slide and the banner crosses.
     if (step.enter != null && left != null)
     {
       final String? lead = _lead(left);
@@ -1141,10 +1096,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     }
   }
 
-  // What a step's scroll is about: the part it reveals, else the first part read.
   String? _camera(MobileTourStep step) => step.reveal ?? (step.scrolls ? step.shown.firstOrNull : null);
 
-  // Once the next frame is laid out, unless the step's scroll has been left meanwhile.
   void _afterLayout(VoidCallback then)
   {
     final _Run? run = _run;
@@ -1161,8 +1114,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       ..scheduleFrame();
   }
 
-  // One scroll for the step, from where an earlier step found the page if it moved it: the part revealed into the
-  // window, the parts read whole if they fit, else from their top. The holes set off with it and land with it.
+  // One scroll per step: the revealed part into view, read parts whole if they fit, else their top.
   void _bringIn({bool grown = false})
   {
     final MobileTourStep step = _current;
@@ -1208,8 +1160,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     final double base = held?.start ?? scroll.offset;
 
-    // The offsets at which the parts show: from the first, up to the second; the third, up to which a part read
-    // still counts as fitting, its top in the gap under the window's edge.
+    // Offsets showing the parts: from the first up to the second.
+    // Up to the third a read part still fits, its top in the gap under the window's edge.
     (double, double, double) limits(Iterable<String> ids, {required bool read})
     {
       double low = double.negativeInfinity;
@@ -1269,7 +1221,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     );
 
     // A view ending too soon gets room at its end first, a frame before it scrolls.
-    if (reads && !grown && target > scroll.last + 0.5 && _runwayViews.contains(scroll._innerView))
+    if (reads && !grown && target > scroll.last + 0.5 && _runwayViews.containsKey(scroll._innerView))
     {
       _growRunway(scroll, target - scroll.last);
       _backTo = held;
@@ -1281,7 +1233,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     final double from = scroll.offset;
     final bool moves = (target - from).abs() >= 1;
 
-    // Already where this step wants it, but still carried on by an earlier step's scroll: it stops there.
+    // Already in place but still carried by an earlier step's scroll: it stops there.
     if (!moves && scroll._innerView == _driving)
     {
       scroll.hold();
@@ -1332,16 +1284,36 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     return lead == null ? null : _MobileTourTargetState.findAll(lead).firstOrNull;
   }
 
-  // Longer by what the content still lacks to move as far as it must.
   void _growRunway(_PageScroll scroll, double short)
   {
     final _Runway? had = _runway.value;
     final double kept = had != null && had.view == scroll._innerView ? had.height : 0;
 
-    _runway.value = _Runway(scroll._innerView, kept + short);
+    _runway.value = _Runway(scroll._innerView, kept + short + _runwayGap(scroll));
   }
 
-  // Where the step left's part stands now, if still there.
+  // Content ending above the view's lowest bottom scrolls only once the runway has filled that gap.
+  double _runwayGap(_PageScroll scroll)
+  {
+    final RenderObject? end = _runwayViews[scroll._innerView]?.context.findRenderObject();
+    final RenderObject? view = scroll._innerView.context.findRenderObject();
+
+    if (end is! RenderBox || view is! RenderBox || !end.attached || !view.attached || !end.hasSize || !view.hasSize)
+    {
+      return 0;
+    }
+
+    // Under loose constraints a short view shrinks to its content: it grows up to their height first.
+    final double height = view.constraints.hasBoundedHeight ? view.constraints.maxHeight : view.size.height;
+
+    // A nested header still showing lifts the content as it goes, and the body grows by as much.
+    final ScrollPosition? head = scroll.outer;
+    final double header = head != null && head.hasPixels ? head.maxScrollExtent - head.pixels : 0;
+    final double reached = end.localToGlobal(Offset(0, end.size.height)).dy - header;
+
+    return math.max(0, view.localToGlobal(Offset.zero).dy + height - reached);
+  }
+
   Rect? _leftStands()
   {
     final String? lead = _leftLead;
@@ -1350,10 +1322,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     return lead == null || layer == null ? null : _MobileTourTargetState.findAll(lead).firstOrNull?.holeIn(layer)?.outerRect;
   }
 
-  // The part the step's holes follow: the first read, else the first touched.
   String? _lead(MobileTourStep step) => step.shown.isNotEmpty ? step.shown.first : step.touched.firstOrNull;
 
-  // Once what a step's start changed stands still: the step sets off from where the last one left its holes.
   void _settle()
   {
     final VoidCallback? setOff = _settling;
@@ -1547,7 +1517,6 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     _follow.start();
   }
 
-  // Brings up what the banner hides of the parts described, scrolling their page.
   void _scrollThrough({int grown = 0})
   {
     _scrollWait = null;
@@ -1571,8 +1540,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     final double by = _readBottom - _floor;
 
-    // Its view ends too soon: room is made at its end, where it has a runway, a frame before scrolling.
-    if (scroll != null && grown < 2 && by > scroll.room + _cutTolerance && _runwayViews.contains(scroll._innerView))
+    if (scroll != null && grown < 2 && by > scroll.room + _cutTolerance && _runwayViews.containsKey(scroll._innerView))
     {
       _scrolled = _held(scroll);
       _growRunway(scroll, by - scroll.room);
@@ -1599,7 +1567,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       _driving = scroll._innerView;
     }
 
-    // Its view ends before its end comes clear of a low banner: once scrolled, the banner makes way.
+    // View ends before the part clears a low banner: once scrolled, the banner makes way.
     if (by > room + _cutTolerance && !_high)
     {
       _scrollWait = Timer(scrolls ? clamped : Duration.zero, ()
@@ -1625,8 +1593,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     return earlier != null && earlier._innerView == scroll._innerView ? earlier : scroll;
   }
 
-  // True while the page goes back to where the step found it; unless [keepFor], a part of the next step, is in
-  // that same page: then the next step's own scroll moves it, measured from there.
+  // A page holding [keepFor], a next-step part, is not put back: the next step scrolls it.
   bool _unscroll({String? keepFor})
   {
     _scrollWait?.cancel();
@@ -1723,7 +1690,6 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
   RRect? _hole(String id, RenderBox layer) => _MobileTourTargetState.find(id)?.holeIn(layer);
 
-  // With [view], its parts moved down by [shift], as where the tour's scroll will have taken them.
   List<RRect> _holes(String id, RenderBox layer, {double shift = 0, ScrollableState? view})
   {
     return [
@@ -1733,7 +1699,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     ];
   }
 
-  // Measured as the screen is painted, its page laid out for this very frame: a frame earlier they trailed it.
+  // Measured a frame earlier, the holes would trail a moving page by one frame.
   List<RRect> _paintedHoles()
   {
     if (_run == null)
@@ -1753,8 +1719,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     return _holesNow();
   }
 
-  // Every lit hole and the touchable ones; places the banner, then cuts what is read above it.
-  // Not [placing], as while painting: the banner keeps its place.
+  // Returns (lit, touchable) holes; places the banner too, unless [placing] is off (at paint).
   (List<RRect>, List<RRect>) _measure(MobileTourStep step, {bool placing = true})
   {
     final RenderBox? layer = _frame;
@@ -1790,8 +1755,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     bool cutBelow(double floor) => read.any((hole) => hole.outerRect.bottom > floor + _cutTolerance);
     bool cutAbove(double ceiling) => read.any((hole) => hole.outerRect.top < ceiling);
 
-    // Scrolled out from under the banner by the step: rising midway made the banner bounce.
-    // Not by a view that cannot move it far enough and makes no room at its end: there the banner rises at once.
+    // Scrolled out from under the banner by the step, so the banner does not bounce midway.
+    // Not by a view too short and without runway: there the banner rises at once.
     bool scrolledOut(_MobileTourTargetState target)
     {
       final _PageScroll? scroll = _PageScroll.of(target.context);
@@ -1802,13 +1767,12 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
         return false;
       }
 
-      return _runwayViews.contains(scroll._innerView) || whole.bottom - (low - _surfaceGap) <= scroll.room + _cutTolerance;
+      return _runwayViews.containsKey(scroll._innerView) || whole.bottom - (low - _surfaceGap) <= scroll.room + _cutTolerance;
     }
 
     final bool scrollsOut =
         step.scrolls && step.shown.isNotEmpty && _MobileTourTargetState.findAll(step.shown.first).any(scrolledOut);
 
-    // For the scroll: where the parts end, and the window their own views leave, in a sheet above its buttons.
     double readBottom = double.negativeInfinity;
     double viewTop = double.negativeInfinity;
     double viewBottom = double.infinity;
@@ -1833,10 +1797,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       }
     }
 
-    // Over the menu, unless it covers what is touched, or cuts a part read it cannot scroll out and on top
-    // would show whole, or the part read from its top could not scroll its end out from under it.
-    // Until the banner holds this step's text, its height is an earlier step's: it stays where it is; so too while
-    // the page this step's start changed still moves.
+    // Low over the menu unless it covers a touched part or hides a read part it cannot scroll out.
+    // Stays put until it holds this step's text, and while a page changed by the step still moves.
     final Widget? built = _bannerKey.currentWidget;
     bool high = _settling != null || (_placed && built is _TourBanner && built.step != _step)
         ? _high
@@ -1893,8 +1855,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
           if (step.lightsAll) RRect.fromRectAndRadius(Offset.zero & layer.size, Radius.zero),
         ];
 
-    // Where the tour's scroll takes them, if it moves them; a part wholly under the banner is not lit until it comes
-    // out, but holes on their way head for it all the same.
+    // A part wholly under the banner is lit only once out, but moving holes head for it anyway.
     final Offset? landing = _landing;
     final double rest = landing == null ? 0 : (landing - _carried).dy;
 
@@ -1909,7 +1870,6 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     return ([...drawn(cut), ...touched], touched);
   }
 
-  // A hole the banner leaves whole is kept whatever its size; of a cut one, only a part worth seeing.
   RRect? _cut(RRect hole, double ceiling, double floor)
   {
     final double top = math.max(hole.top, ceiling);
@@ -1928,7 +1888,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     return RRect.fromRectAndRadius(Rect.fromLTRB(hole.left, top, hole.right, bottom), hole.tlRadius);
   }
 
-  // The height the banner is heading to as its text changes; until laid out once, a guess.
+  // The height the banner is heading to while its text changes size.
   double _bannerHeight()
   {
     final RenderObject? banner = _bannerKey.currentContext?.findRenderObject();
@@ -1969,7 +1929,6 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     }
   }
 
-  // Where the holes are drawn this frame, between the last step's and this one's.
   List<RRect> _holesNow()
   {
     final double t = Curves.easeInOutCubic.transform(_move.value);
@@ -1983,9 +1942,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     return holes;
   }
 
-  // Fewer now: each goes to the nearest, so they join as they move; more now: they part from where all were.
-  // While the page under this step's part moves, they head straight where it stops, if the tour knows it; else
-  // the last holes ride with that page.
+  // Fewer holes: each goes to the nearest and they join; more: they part from where all were.
+  // While this step's page moves, they head where it stops if known, else ride with the page.
   List<RRect> _between(double t, List<RRect> to)
   {
     final List<RRect> carried = [
@@ -2043,8 +2001,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     final bool forward = step.reached == null || step.tapMovesOn;
 
-    // Counted as they stand now: a touch may bring a later step in; but a forward button with none there yet ends
-    // the tour, so it reads «Fine» and promises none (they come on their own once the touch brings them).
+    // With none present yet the forward button ends the tour: it reads "Fine" and promises none.
     final int later = forward && _presentAfter(run.tour, _step) == null ? 0 : _countedLater;
     final int total = _path.length + later;
 
@@ -2116,13 +2073,10 @@ class _PageScroll
   ScrollPosition get inner => _innerView.position;
   ScrollPosition? get outer => _outerView?.position;
 
-  // Gone with its sheet: nothing left to scroll, or to put back.
   bool get _alive => _innerView.mounted && (_outerView?.mounted ?? true);
 
-  // Where it was before the tour moved it.
   final double start;
 
-  // How much further the content can move up from there; a nested body grows by what its header gives up.
   double get room => math.max(0, last - start);
 
   // The furthest the content can move up, header and body together.
@@ -2144,9 +2098,8 @@ class _PageScroll
 
   bool holds(ScrollableState? view) => view != null && (view == _innerView || view == _outerView);
 
-  // The offsets at which [part] of [view], standing there now, has its top under [top] and under [viewTop] in its
-  // view, its end above [bottom]: from the first, up to the second. A nested header moves only until it is gone;
-  // the body's top rises with it.
+  // Offsets keeping [part] below [top] and [viewTop], above [bottom]: from the first to the second.
+  // A nested header moves only until gone; the body's top rises with it.
   (double, double) range(ScrollableState view, Rect part, {required double top, double? viewTop, required double bottom})
   {
     final ScrollPosition? head = outer;
@@ -2170,7 +2123,7 @@ class _PageScroll
       return (offset + part.bottom - bottom, to);
     }
 
-    // In a nested body the part stays under the body's top as long as the body has not scrolled past it.
+    // In a nested body the part stays under the body's top until the body scrolls past it.
     final double under = nested
         ? head.maxScrollExtent + math.max(0, inner.pixels - inner.minScrollExtent + part.top - viewTop)
         : offset + part.top - viewTop;
@@ -2178,7 +2131,7 @@ class _PageScroll
     return (offset + part.bottom - bottom, math.min(to, under));
   }
 
-  // How far down what [view] holds moves as the content goes to [offset]: a nested header only with the outer.
+  // How far [view]'s content moves down at [offset]; a nested header moves only with the outer.
   double shiftTo(ScrollableState view, double offset)
   {
     final ScrollPosition? head = outer;
@@ -2191,7 +2144,6 @@ class _PageScroll
     return view == _innerView ? this.offset - offset : 0;
   }
 
-  // How far the content has moved up now, header and body together.
   double get offset
   {
     final ScrollPosition? head = outer;
@@ -2209,7 +2161,7 @@ class _PageScroll
 
   _PageScroll _from(double start) => _PageScroll._(_innerView, _outerView, start);
 
-  // Stops where it stands, as a finger would; a nested view's coordinator stops header and body together.
+  // Stops in place as a finger would; a nested coordinator stops header and body together.
   void hold()
   {
     if (_alive && inner.hasPixels)
@@ -2244,13 +2196,11 @@ class _PageScroll
     return state;
   }
 
-  // How far the content has moved up the screen, header and body together.
   static double _offset(ScrollPosition inner, ScrollPosition? outer)
   {
     return outer == null ? inner.pixels : outer.pixels + inner.pixels - inner.minScrollExtent;
   }
 
-  // Where it goes, within its extent.
   double to(double offset, Duration duration)
   {
     if (!_alive)
@@ -2277,7 +2227,7 @@ class _PageScroll
     final double last = head.maxScrollExtent + inner.maxScrollExtent - inner.minScrollExtent;
     final double target = offset.clamp(head.minScrollExtent, last);
 
-    // Either drives the nested view's coordinator: the outer up to the header's end, the inner past it.
+    // Either drives the nested coordinator: the outer up to the header's end, the inner past it.
     if (target <= head.maxScrollExtent)
     {
       head.animateTo(target, duration: duration, curve: Curves.easeInOutCubic);
@@ -2301,7 +2251,6 @@ class _BannerLayout extends SingleChildLayoutDelegate
   final double safeTop;
   final double high;
 
-  // Null: the screen less the side margins.
   final double? width;
 
   const _BannerLayout({required this.surfaceTop, required this.safeTop, required this.high, required this.width});
@@ -2371,7 +2320,6 @@ class _RenderHoles extends RenderProxyBox
   VoidCallback? onTap;
   VoidCallback? onTouch;
 
-  // Where each pointer that went down in a hole did, to tell a tap from a drag.
   final Map<int, Offset> _downs = {};
 
   // Dispatched before the scroll views and sheets below, with the same slop: they lose every drag.
@@ -2497,14 +2445,12 @@ class _TourBanner extends StatelessWidget
   final List<Widget Function(double size)> glyphs;
   final int step;
 
-  // On the part whose height follows the text.
   final GlobalKey textKey;
 
   final VoidCallback onClose;
   final VoidCallback? onBack;
   final VoidCallback? onNext;
 
-  // The forward button then ends the tour.
   final bool last;
 
   const _TourBanner({
@@ -2595,7 +2541,7 @@ class _TourBanner extends StatelessWidget
                   switchInCurve: Curves.easeOutCubic,
                   // Runs in reverse on the way out, so it eases out too.
                   switchOutCurve: Curves.easeInCubic,
-                  // The text going out takes no touch: its buttons lie uncovered under a shorter one.
+                  // Outgoing text takes no touch: its buttons lie under a shorter new one.
                   layoutBuilder: (current, previous) => Stack(
                     alignment: Alignment.topLeft,
                     children: [

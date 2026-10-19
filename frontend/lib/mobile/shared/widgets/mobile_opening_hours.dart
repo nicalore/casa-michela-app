@@ -9,7 +9,7 @@ const double _ascent = 1.038;
 // Glyphs land on the baseline rounded to a whole pixel from the line's top.
 double _drawnDrift(double em) => (_ascent * em).roundToDouble() - _ascent * em;
 
-// «Apertura» beside each mode's hours; hours that wrap stay in their column, under the first.
+// "Apertura" beside each mode's hours; hours that wrap stay in their column, under the first.
 class MobileOpeningHours extends StatelessWidget
 {
   // Mode and hours, in order.

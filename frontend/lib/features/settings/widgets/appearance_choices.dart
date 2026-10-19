@@ -49,7 +49,6 @@ EdgeInsets _tilePadding(double padding, {required bool chosen})
 
 Widget _chosenTick(double size) => Icon(Icons.check_circle_rounded, size: size, color: AppTheme.trialTurquoise);
 
-// A theme drawn as a small window of the app.
 class ThemePreviewTile extends StatelessWidget
 {
   final String label;
@@ -189,7 +188,6 @@ class _MiniScreen extends StatelessWidget
   }
 }
 
-// A palette as a strip of its colours and its name.
 class PaletteTile extends StatelessWidget
 {
   final String label;
@@ -247,7 +245,6 @@ class PaletteTile extends StatelessWidget
   }
 }
 
-// A language's two letters, beside its name in the menu.
 class LanguageCode extends StatelessWidget
 {
   final String code;

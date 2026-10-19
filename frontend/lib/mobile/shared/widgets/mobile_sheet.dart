@@ -31,7 +31,7 @@ int _openSheets = 0;
 bool get isMobileSheetOpen => _openSheets > 0;
 
 const Duration _turnDuration = Duration(milliseconds: 380);
-// Gentle at both ends: a fast start showed its first, heaviest frame as a jump.
+// Gentle at both ends: a fast start shows its first, heaviest frame as a jump.
 const Curve _turnCurve = Curves.easeInOutCubic;
 
 const double _turnDrift = 0.3;
@@ -454,7 +454,7 @@ class _SheetHostState extends State<_SheetHost> with SingleTickerProviderStateMi
   }
 }
 
-// No surface of the pages' own: it changed shade against the glass and as the turn ended.
+// No surface of the pages' own: it would change shade against the glass as the turn ends.
 class _TurnMotion extends AnimatedWidget
 {
   final _Turning turning;
@@ -722,7 +722,7 @@ class MobileSideSwitcher extends StatelessWidget
 
   final bool instantHeight;
 
-  // The height runs only through a turn: chasing a step pager's own height lifted the footer.
+  // The height runs only through a turn: chasing a step pager's own height lifts the footer.
   final bool heightOnlyTurning;
 
   const MobileSideSwitcher({
@@ -1200,14 +1200,16 @@ class MobileSheetCard extends StatelessWidget
 class MobileSheetText extends StatelessWidget
 {
   final String text;
+  final TextAlign textAlign;
 
-  const MobileSheetText(this.text, {super.key});
+  const MobileSheetText(this.text, {super.key, this.textAlign = TextAlign.start});
 
   @override
   Widget build(BuildContext context)
   {
     return Text(
       withoutOrphans(text),
+      textAlign: textAlign,
       style: GoogleFonts.plusJakartaSans(
         fontSize: 14.5,
         fontWeight: FontWeight.w500,

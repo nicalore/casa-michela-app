@@ -36,9 +36,6 @@ bool isLastCalendarWeek(DateTime weekStart, [DateTime? now])
   return addDays(weekStart, 7).isAfter(calendarHorizon(now));
 }
 
-const String kBeforeFoundationError =
-    'La data non può essere precedente al 09/01/2023, data di nascita dell\'associazione.';
-
 String beyondHorizonError(DateTime horizon) =>
     'La data non può essere successiva al 31/12/${horizon.year}: gli orari del prossimo anno si '
         'potranno impostare da dicembre.';

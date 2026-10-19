@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -135,27 +136,31 @@ class _StudentHeader extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                student.student.fullName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                  color: AppTheme.trialOcean,
+              DescenderRoom(
+                child: Text(
+                  student.student.fullName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    color: AppTheme.trialOcean,
+                  ),
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                _openLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                  color: done ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+              DescenderRoom(
+                child: Text(
+                  _openLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                    color: done ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                  ),
                 ),
               ),
             ],

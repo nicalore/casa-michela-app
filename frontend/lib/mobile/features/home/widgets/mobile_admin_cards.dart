@@ -12,6 +12,7 @@ import '../../../../features/dashboard/widgets/dashboard_birthdays_section.dart'
 import '../../../../features/dashboard/widgets/dashboard_today_section.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../../features/people/models/person_item.dart';
+import '../../../../shared/widgets/descender_room.dart';
 import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
@@ -438,16 +439,18 @@ class MobileBirthdayCard extends StatelessWidget
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${birthday.person.firstName} ${birthday.person.lastName}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
-                      height: 1.2,
-                      color: AppTheme.trialInk,
+                  DescenderRoom(
+                    child: Text(
+                      '${birthday.person.firstName} ${birthday.person.lastName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                        height: 1.2,
+                        color: AppTheme.trialInk,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -499,17 +502,19 @@ class MobileBirthdayTile extends StatelessWidget
               fallback: _initials(birthday, _faceSize),
             ),
             const SizedBox(height: 10),
-            Text(
-              '${person.firstName} ${person.lastName}',
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
-                height: 1.2,
-                color: AppTheme.trialInk,
+            DescenderRoom(
+              child: Text(
+                '${person.firstName} ${person.lastName}',
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  height: 1.2,
+                  color: AppTheme.trialInk,
+                ),
               ),
             ),
             const SizedBox(height: 3),

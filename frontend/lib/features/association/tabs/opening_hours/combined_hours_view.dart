@@ -19,6 +19,7 @@ import '../../../../shared/widgets/snackbar.dart';
 import '../../models/opening_day_item.dart';
 import '../../association_tour.dart';
 import '../../models/weekly_template_item.dart';
+import 'begun_hours.dart';
 import 'calendar_bounds.dart';
 import 'combined_hours.dart';
 import 'combined_standard_card.dart';
@@ -37,10 +38,10 @@ class CombinedHoursView extends StatefulWidget
 
   final Future<void> Function()? onWeeklyTemplatesChanged;
 
-  // After every read, once both the week and the variations are on screen: a reader's tour may start.
+  // After every read, once the week and the variations show: a reader's tour may start.
   final VoidCallback? onShown;
 
-  // Whose Associazione it is in, so a notification for another role's is left to that one.
+  // Whose "Associazione" it is in, so a notification for another role's is left to that one.
   final String? role;
 
   const CombinedHoursView({
@@ -69,6 +70,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
 
   bool _isLoadingVariations = true;
   List<OpeningDayItem> _upcomingVariations = [];
+  List<OpeningDayItem> _todayRows = [];
 
   // Kept beside the data so the card filters on the window the rows were fetched for.
   late DateTime _variationsWindowEnd;
@@ -162,6 +164,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       setState(()
       {
         _upcomingVariations = upcomingVariationsOf(days, today);
+        _todayRows = days.where((day) => isSameDate(day.date, today)).toList();
         _variationsWindowEnd = addDays(today, kVariationsWindowDays);
         _scheduleByMode = standardScheduleOf(days, today);
         _isLoadingVariations = false;
@@ -259,6 +262,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       transitionDuration: const Duration(milliseconds: 420),
       builder: (_) => StandardHoursWizard(
         currentTemplates: widget.weeklyTemplates,
+        todayRows: _todayRows,
         onSaved: () async
         {
           await widget.onWeeklyTemplatesChanged?.call();
@@ -279,6 +283,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       barrierLabel: 'VariationWizard',
       builder: (_) => VariationWizard(
         standardTemplates: widget.weeklyTemplates,
+        todayRows: _todayRows,
         initial: initial,
         onSaved: _reloadAll,
       ),
@@ -288,6 +293,23 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
   // Must go through the server: deleting rows locally would leave days with no hours.
   Future<void> _deleteVariation(CombinedVariation run) async
   {
+    final now = romeNow();
+
+    if (isSameDate(run.start, now))
+    {
+      for (final mode in run.bandsByMode.keys)
+      {
+        final standard = standardHoursOn(widget.weeklyTemplates, now.weekday, mode);
+        final band = begunBandChanged(now, hoursOfRows(_todayRows, mode), standard, now);
+
+        if (band != null)
+        {
+          CustomSnackBar.show(context: context, message: begunHoursError(mode, band), isError: true);
+          return;
+        }
+      }
+    }
+
     final confirmed = await showBlurredDialog<bool>(
       context: context,
       barrierLabel: 'ConfirmVariationDeletion',
@@ -397,7 +419,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       onPressed: _openVariationWizard,
     );
 
-    // Not ResponsiveDialogButtonsRow: it reverses its children when stacking, wrong for peer actions.
+    // Not ResponsiveDialogButtonsRow: it reverses children when stacking, wrong for peers.
     return LayoutBuilder(
       builder: (context, constraints)
       {

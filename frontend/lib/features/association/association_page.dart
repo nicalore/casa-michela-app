@@ -108,8 +108,7 @@ class _AssociationPageState extends State<AssociationPage>
   {
     super.initState();
 
-    // Opened from a notification: on the hours, whose view takes the day, or on the notices,
-    // whose tab opens the one it announced.
+    // Opened from a notification: start on the section whose view consumes the jump.
     if (WeekJumps.hours.isPending)
     {
       _selectedSection = _hoursContentIndex;
@@ -202,8 +201,7 @@ class _AssociationPageState extends State<AssociationPage>
     }
   }
 
-  // Each entity embeds a denormalized copy of the level below, so the level above
-  // is refetched after a write; failures are swallowed since the write succeeded.
+  // Entities embed a copy of the level below, so the level above is refetched after a write.
   Future<void> _refresh<T>(Future<List<T>> Function() fetch, void Function(List<T>) apply) async
   {
     try
@@ -217,7 +215,7 @@ class _AssociationPageState extends State<AssociationPage>
     }
     catch (_)
     {
-      // Intentionally swallowed.
+      // The write already succeeded.
     }
   }
 
@@ -620,7 +618,6 @@ class _AssociationPageState extends State<AssociationPage>
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    // Top inset clears the bar overlaid on the content.
                     padding: EdgeInsets.only(
                       left: margin,
                       right: margin,

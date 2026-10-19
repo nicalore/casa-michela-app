@@ -1,14 +1,7 @@
 export '../../../core/utils/week_range.dart' show isSameDate;
 
-// Weekly unlock window for availabilities and presences: every Friday at
-// 20:00 the entire following week (Monday-Sunday) opens up, on top of
-// whatever remains of the already unlocked current week. Mirrors
-// backend/app/core/booking_window.py - keep both in sync if the rule changes.
-//
-// Every day-stepping computation here goes through the DateTime constructor
-// (year, month, day + n) rather than Duration-based add()/subtract(): Duration
-// arithmetic on local DateTimes can skew across Italy's DST transitions,
-// while constructor field arithmetic is plain calendar math with no such risk.
+// Every Friday 20:00 the next Mon-Sun week unlocks. Mirrors backend/app/core/booking_window.py.
+// Days step via DateTime(y, m, d + n), never Duration: Duration math skews across DST.
 
 const List<String> _weekdayNames = [
   'Lunedì',
@@ -92,8 +85,7 @@ List<DateTime> computeAvailableDays(DateTime now)
   return days;
 }
 
-// E.g. "Sabato 25 luglio". No locale data is initialized in this app, so
-// DateFormat with a locale would throw at runtime; manual lookup instead.
+// "Sabato 25 luglio"; no locale data is initialized, so a localized DateFormat would throw.
 String formatAvailableDayLabel(DateTime date)
 {
   final weekday = _weekdayNames[date.weekday - 1];

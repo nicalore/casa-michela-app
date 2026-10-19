@@ -1,3 +1,6 @@
+import '../../../shared/widgets/app_empty_card.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
+import '../../shared/widgets/mobile_glass_panel.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -140,7 +143,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   bool _failed = false;
   bool _saving = false;
 
-  // Set once the page is in place; from then on every load, page change and closed sheet looks for a tour.
+  // Set once the page is in place; then every load, page change and closed sheet looks for a tour.
   bool _toured = false;
   int? _pageSeen;
 
@@ -256,7 +259,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     return shown.where((entry) => !entry.isService).firstOrNull ?? shown.firstOrNull;
   }
 
-  // The main tour on the first visit; then where a discipline just taken went, and the swipe after a held one's sheet.
+  // Main tour on first visit; then where a taken discipline went, the swipe after a held sheet.
   Future<void> _tourCheck() async
   {
     final String? taxCode = _taxCode;
@@ -797,14 +800,20 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
     if (shown.isEmpty)
     {
+      final bool tablet = MobileBreakpoints.of(context).isTablet;
+
       if (entries.isEmpty)
       {
-        return _buildStatus(held
-            ? 'Nessuna disciplina o servizio a sistema.'
-            : 'Nessuna disciplina o servizio da aggiungere.');
+        return MobileEmptyCard(
+          icon: Icons.auto_stories_rounded,
+          message: held
+              ? 'Nessuna disciplina o servizio a sistema.'
+              : 'Nessuna disciplina o servizio da aggiungere.',
+          tablet: tablet,
+        );
       }
 
-      return _buildStatus(kMobileNoSearchMatch);
+      return MobileEmptyCard(icon: Icons.search_off_rounded, message: kNoSearchMatch, tablet: tablet);
     }
 
     if (columns > 1)
@@ -1010,28 +1019,26 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   // Margin inside the scroll view so card shadows are not clipped while paging.
   Widget _scrollable(Widget child, {required double side, required double bottom, required String tourId})
   {
+    final bool empty = child is MobileEmptyCard;
+
+    // Inside the switcher, so an empty card alone is lit, and centred in the room left.
+    final Widget lit = MobileTourTarget(
+      id: tourId,
+      inflate: const EdgeInsets.all(_tourListInflate),
+      radius: empty ? MobileGlassPanel.cardRadius.topLeft.x + _tourListInflate : _tourListRadius,
+      child: child,
+    );
+
     return MobileSwipePage(
       child: RefreshIndicator(
         color: AppTheme.trialGold,
         backgroundColor: AppTheme.trialDeepWater,
         onRefresh: () => _load(quiet: true),
-        child: SingleChildScrollView(
-          clipBehavior: Clip.none,
-          physics: const AlwaysScrollableScrollPhysics(),
+        child: MobileEmptyScroll(
           padding: EdgeInsets.fromLTRB(side, _shadowRoom, side, bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              MobileTourTarget(
-                id: tourId,
-                inflate: const EdgeInsets.all(_tourListInflate),
-                radius: _tourListRadius,
-                child: MobileLoadSwitcher(child: child),
-              ),
-              const MobileTourRunway(),
-            ],
-          ),
+          body: MobileLoadSwitcher(waiting: _loading, child: empty ? Center(child: lit) : lit),
+          fill: empty,
+          tail: const [MobileTourRunway()],
         ),
       ),
     );

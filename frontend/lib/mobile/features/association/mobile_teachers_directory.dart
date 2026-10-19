@@ -35,6 +35,7 @@ class MobileTeachersDirectory extends ChangeNotifier
 
   MobileTeachersDirectory({required this.parent, required this.canReport});
 
+  bool get isEmpty => _teachers.isEmpty;
   List<OpinionPupil> get pupils => _pupils;
   TeacherSort get sort => _sort;
   Set<int> get subjectIds => _subjectIds;

@@ -47,7 +47,7 @@ class _AccessTabState extends State<AccessTab>
     super.initState();
     _fetchAccount();
 
-    // The new sign-ins switch is one of the kinds: read again, another device may have changed it.
+    // New sign-ins is one of the kinds: read again, another device may have changed it.
     DeviceNotifications.refresh();
     NotificationKinds.instance.load();
   }

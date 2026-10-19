@@ -1,5 +1,4 @@
-// Mirrored from backend/app/core/field_lengths.py: the server refuses
-// anything longer.
+// Mirrored from backend/app/core/field_lengths.py: the server refuses anything longer.
 abstract final class FieldLimits
 {
   static const int name = 255;

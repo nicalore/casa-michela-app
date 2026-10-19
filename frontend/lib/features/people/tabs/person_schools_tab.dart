@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/card_scroll_area.dart';
 import '../../../shared/widgets/page_heading.dart';
@@ -100,6 +101,23 @@ class PersonSchoolsTab extends StatelessWidget
         enrollments.where((item) => item.startYear == currentYear).firstOrNull;
     final past = enrollments.where((item) => item.startYear < currentYear).toList();
 
+    if (current == null && past.isEmpty)
+    {
+      return AppEmptyRoom(
+        card: const AppEmptyCard(icon: Icons.school_rounded, message: 'Nessun anno scolastico registrato.'),
+        gap: kPersonSectionGap,
+        below: [
+          if (onUpdate case final VoidCallback update)
+            AppGradientButton(
+              label: 'MODIFICA ANNI SCOLASTICI',
+              icon: Icons.edit_rounded,
+              onPressed: () => showEditSchoolsDialog(context, person: person, onUpdate: update),
+            ),
+          ?footer,
+        ],
+      );
+    }
+
     return ScrollEdgeFade(
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 40),
@@ -133,8 +151,6 @@ class PersonSchoolsTab extends StatelessWidget
                     ),
                   ],
                 ],
-                if (current == null && past.isEmpty)
-                  const PersonEmptyState(message: 'Nessun anno scolastico registrato.'),
                 if (onUpdate case final VoidCallback update) ...[
                   const SizedBox(height: kPersonSectionGap),
                   Center(

@@ -54,8 +54,7 @@ class _TeacherRatingDotsState extends State<TeacherRatingDots>
 
   double get _rowWidth => _dotCount * _pointWidth - TeacherRatingDots._gap;
 
-  // A whole point spans dot plus gap; a half point spans half a dot, not half
-  // a step, or the cut would not fall mid-dot.
+  // A whole point spans dot plus gap; a half point spans half a dot, so the cut falls mid-dot.
   double _filledWidth(double value)
   {
     final double whole = value.floorToDouble();
@@ -98,8 +97,7 @@ class _TeacherRatingDotsState extends State<TeacherRatingDots>
     widget.onChanged!(zeroing ? kTeacherRatingMinimum : picked);
   }
 
-  // Drawn twice with the same geometry: empty row below, filled row clipped
-  // above.
+  // Drawn twice with the same geometry: empty row below, filled row clipped above.
   Widget _buildDotRow(Widget dot)
   {
     return Row(

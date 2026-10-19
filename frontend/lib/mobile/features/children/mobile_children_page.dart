@@ -15,6 +15,7 @@ import '../../../features/people/widgets/person_detail_widgets.dart' show Person
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_filter_chip.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
@@ -61,7 +62,7 @@ const double _handleClearance = 16;
 const double _tourStatsInflate = 8;
 const double _tourStatsRadius = 26;
 
-// Every child has every section, as on the desktop, so switching child keeps the page.
+// Every child has every section, so switching child keeps the page.
 const List<OwnPageSection> _sections = OwnPageSection.values;
 
 class MobileChildrenPage extends StatefulWidget
@@ -318,31 +319,44 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
     final double bottom = bar + _reportLift + _reportHeight + _handleClearance;
 
     final Widget body = child == null
-        ? _scrollable(
-            bottom: bar + _handleClearance,
-            children: [
-              Padding(
+        ? _refreshable(
+            MobileEmptyScroll(
+              padding: EdgeInsets.only(top: _shadowRoom, bottom: bar + _handleClearance),
+              body: Padding(
                 padding: EdgeInsets.symmetric(horizontal: margin),
                 child: MobileLoadSwitcher(
                   child: _loading
                       ? const MobileWaiting()
-                      : _Status(
-                          _failed
-                              ? 'Non è stato possibile caricare i dati dei figli.'
-                              : 'Nessun figlio collegato al tuo profilo.',
-                        ),
+                      : _failed
+                          ? const _Status('Non è stato possibile caricare i dati dei figli.')
+                          : Center(
+                              child: MobileEmptyCard(
+                                icon: Icons.family_restroom_rounded,
+                                message: 'Nessun figlio collegato al tuo profilo.',
+                                tablet: tablet,
+                              ),
+                            ),
                 ),
               ),
-            ],
+              fill: !_loading && !_failed,
+            ),
           )
         // Never kept alive, which stalls the header; statistics load with their page.
         : PageView.builder(
             controller: _pages,
             itemCount: _sections.length,
-            itemBuilder: (context, index) => _scrollable(
-              bottom: bottom,
-              children: _buildSection(child, _sections[index], margin: margin, tablet: tablet),
-            ),
+            itemBuilder: (context, index) => _isEmptySection(child, _sections[index])
+                ? _refreshable(
+                    MobileEmptyScroll(
+                      padding: EdgeInsets.only(top: _shadowRoom, bottom: bottom),
+                      body: _buildSection(child, _sections[index], margin: margin, tablet: tablet).single,
+                      fill: true,
+                    ),
+                  )
+                : _scrollable(
+                    bottom: bottom,
+                    children: _buildSection(child, _sections[index], margin: margin, tablet: tablet),
+                  ),
           );
 
     return Stack(
@@ -456,19 +470,46 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
   // Edge to edge, inset per block, so card shadows cross pages.
   Widget _scrollable({required double bottom, required List<Widget> children})
   {
+    return _refreshable(
+      ListView(
+        clipBehavior: Clip.none,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(top: _shadowRoom, bottom: bottom),
+        children: children,
+      ),
+    );
+  }
+
+  Widget _refreshable(Widget scroll)
+  {
     return MobileSwipePage(
       child: RefreshIndicator(
         color: AppTheme.trialGold,
         backgroundColor: AppTheme.trialDeepWater,
         onRefresh: _refresh,
-        child: ListView(
-          clipBehavior: Clip.none,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(top: _shadowRoom, bottom: bottom),
-          children: children,
-        ),
+        child: scroll,
       ),
     );
+  }
+
+  // Sections holding nothing but the empty card.
+  bool _isEmptySection(PersonItem child, OwnPageSection section)
+  {
+    return switch (section)
+    {
+      OwnPageSection.other => _otherCards(child).isEmpty,
+      OwnPageSection.school => MobileSchoolYears.yearsOf(child).isEmpty,
+      OwnPageSection.stats => !_isPupil(child),
+      _ => false,
+    };
+  }
+
+  List<PersonDetailCard> _otherCards(PersonItem child)
+  {
+    return [
+      ...pupilDetailCards(child),
+      if (!child.isAdult) minorSafetyCard(child),
+    ];
   }
 
   List<Widget> _buildSection(
@@ -491,7 +532,6 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
         final Widget residence = MobileDetailCard.of(residenceCard(child));
         final Widget contacts = MobileDetailCard.of(contactsCard(child));
 
-        // Tablet order matches the desktop's pairs.
         return [
           inset(MobileCardGrid(
             tablet: tablet,
@@ -514,15 +554,18 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
         ];
 
       case OwnPageSection.other:
-        final List<PersonDetailCard> cards = [
-          ...pupilDetailCards(child),
-          if (!child.isAdult) minorSafetyCard(child),
-        ];
+        final List<PersonDetailCard> cards = _otherCards(child);
 
         return [
           inset(
             cards.isEmpty
-                ? const _Status('Nessuna informazione aggiuntiva.')
+                ? Center(
+                    child: MobileEmptyCard(
+                      icon: Icons.info_outline_rounded,
+                      message: 'Nessuna informazione aggiuntiva.',
+                      tablet: tablet,
+                    ),
+                  )
                 : MobileCardGrid(
                     tablet: tablet,
                     cards: [for (final card in cards) MobileDetailCard.of(card)],
@@ -530,11 +573,11 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
           ),
         ];
 
-      // Read-only, as on the desktop.
+      // Read-only.
       case OwnPageSection.school:
         return [inset(MobileSchoolYears(person: child))];
 
-      // Only pupils have figures, as on the desktop.
+      // Only pupils have figures.
       case OwnPageSection.stats:
         return [
           if (_isPupil(child))
@@ -550,7 +593,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
               child: MobilePupilStats(controller: _statsOf(child), margin: margin, tourFilters: kChildrenTourFilters),
             )
           else
-            inset(const _Status('Nessun dato')),
+            inset(Center(child: MobileEmptyCard(icon: Icons.insights_rounded, message: 'Nessun dato', tablet: tablet))),
         ];
     }
   }

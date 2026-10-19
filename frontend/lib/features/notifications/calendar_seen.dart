@@ -12,10 +12,10 @@ final Set<String> _asked = {};
 
 bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
-// A published band on screen has done the work of what announced it: that notice goes.
+// A published band on screen dismisses the notification that announced it.
 Future<void> markCalendarSeen(DateTime day, TimeBucket band) async
 {
-  // Read by the home, or by the tap that opened the app: not asked for here.
+  // The board is loaded by the home or by the opening tap; this does not fetch it.
   final NotificationBoard board = NotificationBoard.instance;
 
   final bool announced = board.items?.any(

@@ -1,6 +1,5 @@
 import '../settings/utils/settings_strings.dart';
 
-// Every word the updates show, in one place.
 const String kUpdatesEntry = 'Aggiornamenti';
 const String kUpdatesTitle = 'Aggiornamenti';
 

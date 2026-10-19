@@ -156,7 +156,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
   // Drops taps while a lesson's teacher is being fetched.
   bool _opening = false;
 
-  // Set once the page is in place; from then on every load, band change and closed sheet looks for a tour.
+  // Set once the page is in place; then every load, band change and closed sheet looks for a tour.
   bool _toured = false;
   int? _pageSeen;
 
@@ -320,7 +320,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     }
   }
 
-  // The earliest lesson of the first child shown having one, in a published band; which a tour lights.
+  // Earliest lesson of the first shown child having one, in a published band; a tour lights it.
   (LessonItem, PersonItem)? _litLessonIn(MobilePupilCalendarDay data, TimeBucket band, List<PersonItem> pupils)
   {
     final MobilePupilBand shown = data.bandOf(band);
@@ -353,7 +353,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     return lit(here) ? here : TimeBucket.values.where(lit).firstOrNull;
   }
 
-  // The bands, the child picker and the day on the first visit; a published band's parts the first time one shows.
+  // Bands, child picker and day on the first visit; a published band's parts when one first shows.
   Future<void> _tourCheck() async
   {
     final MobilePupilCalendarDay? data = _data;
@@ -519,7 +519,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     return children.where((child) => child.roles.contains(_pupilRole)).toList()..sort(compareByName);
   }
 
-  // The child shown if they have lessons in the band, else the first who has, else the first who booked it.
+  // Shown child if they have lessons in the band, else the first who has, else the first booker.
   String? _childWithLessonsIn(MobilePupilBand band)
   {
     final List<String> codes = [

@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-// A section asked for from outside the menu, by a notification: the role first, if it differs.
+// A section requested outside the menu, by a notification: the role first, if it differs.
 abstract final class MobileShellRequests
 {
   static final ValueNotifier<({String role, String slug})?> section = ValueNotifier(null);
@@ -13,5 +13,18 @@ abstract final class MobileShellRequests
     section.value = null;
 
     return request;
+  }
+
+  // A report, over whatever page is shown.
+  static final ValueNotifier<int?> report = ValueNotifier(null);
+
+  static void openReport(int id) => report.value = id;
+
+  static int? takeReport()
+  {
+    final int? id = report.value;
+    report.value = null;
+
+    return id;
   }
 }

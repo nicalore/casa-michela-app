@@ -60,7 +60,7 @@ class _AvailabilityCardState extends State<AvailabilityCard>
       barrierLabel: 'AvailabilityDetails',
       builder: (dialogContext) => _AvailabilityDetailsDialogContent(
         group: widget.group,
-        // Over the details, which stay put: closing and reopening them replayed their entrance.
+        // Over the details, which stay put: a close and reopen would replay their entrance.
         onEditRequested: () => widget.onEditRequested(() => Navigator.of(dialogContext).pop()),
         onDelete: widget.onDelete,
       ),
@@ -411,13 +411,16 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
               for (final mode in const [kPresenceMode, kOnlineMode]) ...[
                 _buildModeLabel(modeLabel(mode), first: mode == kPresenceMode),
                 if (group.slotsFor(mode).isEmpty)
-                  Text(
-                    'Nessuna disponibilità.',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.trialMutedText,
-                      fontStyle: FontStyle.italic,
+                  Center(
+                    child: Text(
+                      'Nessuna disponibilità.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.trialMutedText,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   )
                 else

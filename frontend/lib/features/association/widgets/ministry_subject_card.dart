@@ -260,13 +260,16 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
             children: [
               _buildFieldLabel('Discipline interne associate', first: true),
               if (subject.associationSubjects.isEmpty)
-                Text(
-                  'Nessuna disciplina associata.',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.trialMutedText,
-                    fontStyle: FontStyle.italic,
+                Center(
+                  child: Text(
+                    'Nessuna disciplina associata.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.trialMutedText,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 )
               else

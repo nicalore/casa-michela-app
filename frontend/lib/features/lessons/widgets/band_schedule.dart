@@ -317,7 +317,6 @@ class BandSchedule<T>
   }
 }
 
-// Mutates the schedule it is handed and reports through [onChanged].
 // The parts a tour lights, each the first of its kind.
 typedef BandScheduleTour = ({String yesNo, String hours, String add, String bin});
 

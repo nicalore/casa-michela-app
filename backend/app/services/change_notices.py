@@ -86,8 +86,7 @@ def _word(
     row.web_body = texts.web_body_many if many else texts.web_body_one
 
 
-# One notice per reader, author and owner: a later one takes the place of the one
-# not seen yet, telling of its items too.
+# One live notice per reader, author and owner: the next replaces it, items merged.
 async def _tell(
     db: AsyncSession,
     topic: Topic,
@@ -143,8 +142,7 @@ async def _tell(
     )
 
 
-# Items no longer to tell of leave the notices telling of them, which are worded
-# anew or, once they tell of none, go.
+# Dropped items leave their notices, which are reworded or, once empty, withdrawn.
 async def _trim(
     db: AsyncSession,
     topic: Topic,
@@ -160,11 +158,12 @@ async def _trim(
             continue
 
         row.item_ids = left
-        row.known = {
+        known = {
             key: entry
             for key, entry in (row.known or {}).items()
             if int(key) not in gone
         }
+        row.known = known
 
         if not left:
             row.withdrawn_at = func.now()
@@ -172,8 +171,8 @@ async def _trim(
 
             continue
 
-        if row.known:
-            row.calendar_date = _first_day(row.known)
+        if known:
+            row.calendar_date = _first_day(known)
 
         author = await db.get(Person, row.author_tax_code)
         owner = await db.get(Person, row.pupil_tax_code or row.account_tax_code)
@@ -307,9 +306,8 @@ async def change(
     return joined(batches)
 
 
-# A write's items before and after: those gone were cancelled, those come were added,
-# those reshaped were changed; the day told is the one each has now. Who wrote knows
-# them as they are: the news of them to that person is past.
+# Gone -> cancelled, new -> added, reshaped -> changed; each told on its current day.
+# The author's own news of these items is trimmed: they know them as they are.
 async def tell_changes(
     db: AsyncSession,
     topic: Topic,

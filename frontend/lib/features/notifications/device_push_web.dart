@@ -309,7 +309,7 @@ DateTime? _shownAt(web.Notification notification)
       : null;
 }
 
-// Closes what the list says is read or gone; one shown after the list was asked for may be new.
+// Closes what the list says is read or gone; one shown after the list was fetched may be new.
 Future<void> tidyPushNotifications({
   required Set<int> unread,
   required Set<int> listed,

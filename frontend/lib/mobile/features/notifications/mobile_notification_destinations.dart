@@ -18,8 +18,8 @@ const String _bookingsSlug = 'bookings';
 const String _teacherRole = 'TEACHER';
 const String _availabilitySlug = 'availability';
 
-// A published calendar leads to the person's own, availabilities and bookings to their page; the
-// administrator has no area here yet.
+// A published calendar leads to the person's own; availabilities and bookings to their page.
+// The administrator has no area here yet.
 void followMobileNotification(NotificationItem item)
 {
   final MeResponse? me = ApiService().identity.value;

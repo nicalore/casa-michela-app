@@ -7,6 +7,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../lessons/models/availability_item.dart';
@@ -107,7 +108,6 @@ class AvailabilityDayRow extends StatefulWidget
   final void Function(TimeBucket band, List<AvailabilityItem> slots) onDeleteBand;
   final VoidCallback onDeleteDay;
 
-  // The tour's marks this row carries: for each, the first day showing it.
   final Set<AvailabilityTourMark> tourMarks;
 
   const AvailabilityDayRow({
@@ -229,15 +229,17 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
           mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
-              child: Text(
-                formatDayMonthFull(widget.day),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  height: 1.15,
-                  color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+              child: DescenderRoom(
+                child: Text(
+                  formatDayMonthFull(widget.day),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                    color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+                  ),
                 ),
               ),
             ),
@@ -845,16 +847,18 @@ class _Muted extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Text(
-      text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        fontStyle: FontStyle.italic,
-        height: 1.35,
-        color: AppTheme.trialMutedText,
+    return DescenderRoom(
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          fontStyle: FontStyle.italic,
+          height: 1.35,
+          color: AppTheme.trialMutedText,
+        ),
       ),
     );
   }

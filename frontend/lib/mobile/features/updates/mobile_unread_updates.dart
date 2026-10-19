@@ -51,7 +51,7 @@ Future<void> showMobileUnreadUpdatesOnce(BuildContext context)
   });
 }
 
-// As on the computer: each version's badge over its cards, one card per update.
+// Each version's badge over its cards, one card per update.
 class _UpdatesSheet extends StatelessWidget
 {
   final List<UpdateReadingItem> updates;

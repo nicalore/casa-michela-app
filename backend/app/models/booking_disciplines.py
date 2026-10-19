@@ -4,10 +4,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-# In-memory and stored readings both live here because three hooks need them.
-
-# A discipline paired with the ministry subject it is booked under, None for
-# a discipline booked on its own.
+# (ministry subject, discipline); the subject is None for a standalone discipline.
 type Request = tuple[int | None, int]
 
 

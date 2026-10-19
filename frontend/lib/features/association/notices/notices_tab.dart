@@ -1,3 +1,4 @@
+import '../../../shared/widgets/app_empty_card.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -57,7 +58,7 @@ const Duration _flashDuration = Duration(milliseconds: 1400);
 
 class NoticesTab extends StatefulWidget
 {
-  // The role whose notices are read, without writing, pinning or filtering by author; null for administrators.
+  // Reader's role: no writing, pinning or author filter; null for administrators.
   final String? readerRole;
 
   // After every read, the notices on screen: a reader's tour may start.
@@ -281,7 +282,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     return box == null ? null : RenderAbstractViewport.of(box).getOffsetToReveal(box, 0).offset - _cardGap;
   }
 
-  // From an entry on screen, adding up those between: cards are as tall as each other unless their badges wrap.
+  // Estimated from an entry on screen: cards share a height unless their badges wrap.
   double? _estimatedOffsetOf(List<_Entry> entries, int target)
   {
     double? cardHeight;
@@ -610,12 +611,17 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
 
   Widget _empty()
   {
+    final bool none = _notices.isEmpty;
+
     return Padding(
-      padding: const EdgeInsets.only(top: 40),
+      padding: EdgeInsets.only(bottom: _reading ? 0 : _listBottomRoom),
       child: Center(
-        child: Text(
-          _notices.isEmpty ? (_reading ? kNoReceivedNotices : kNoNotices) : kNoMatchingNotices,
-          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.trialMutedText),
+        child: PageTransitionItem(
+          slot: PageTransitionItem.list,
+          child: AppEmptyCard(
+            icon: none ? Icons.campaign_rounded : Icons.search_off_rounded,
+            message: none ? (_reading ? kNoReceivedNotices : kNoNotices) : kNoMatchingNotices,
+          ),
         ),
       ),
     );
@@ -625,7 +631,9 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
   {
     if (notices.isEmpty)
     {
-      return SliverToBoxAdapter(child: _loaded ? _empty() : const SizedBox.shrink());
+      return _loaded
+          ? SliverFillRemaining(hasScrollBody: false, child: _empty())
+          : const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
     final List<_Entry> entries = _entries(notices);

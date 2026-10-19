@@ -7,7 +7,6 @@ import '../update_strings.dart';
 
 const double _roleBadgeHeight = 24;
 
-// The version in the greeting's gradient: what an update is filed under.
 class UpdateVersionBadge extends StatelessWidget
 {
   final String version;
@@ -38,7 +37,7 @@ class UpdateVersionBadge extends StatelessWidget
   }
 }
 
-// As the notices' role badges; every role chosen reads as one badge.
+// All roles chosen show as one badge.
 class UpdateRoleBadges extends StatelessWidget
 {
   final List<UpdateRole> roles;

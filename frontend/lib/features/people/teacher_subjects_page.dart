@@ -18,12 +18,6 @@ import 'tabs/person_subjects_tab.dart';
 
 const String _teacherRole = 'TEACHER';
 
-const String kTeacherSubjectsIntro =
-    'Qui puoi indicare le discipline che desideri insegnare e i percorsi di '
-    'studio per i quali sei disponibile. Ti chiediamo di mantenere queste '
-    'informazioni sempre aggiornate e corrette, poiché verranno utilizzate '
-    'per assegnarti le lezioni.';
-
 class TeacherSubjectsPage extends StatefulWidget
 {
   const TeacherSubjectsPage({super.key});
@@ -120,24 +114,7 @@ class _TeacherSubjectsPageState extends State<TeacherSubjectsPage> with Destinat
 
     return PersonSubjectsTab(
       person: person,
-      intro: _buildIntro(),
       onUpdate: () => _load(quiet: true),
-    );
-  }
-
-  Widget _buildIntro()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
-      child: Text(
-        kTeacherSubjectsIntro,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          height: 1.45,
-          color: AppTheme.trialInk,
-        ),
-      ),
     );
   }
 

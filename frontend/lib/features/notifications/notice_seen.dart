@@ -1,7 +1,7 @@
 import 'notification_board.dart';
 import 'notification_item.dart';
 
-// A notice opened is a notice read: the server has taken away what announced it, the card follows.
+// Opening a notice reads it: the server drops its notification, so the board does too.
 Future<void> noticeSeen(int id) async
 {
   final NotificationBoard board = NotificationBoard.instance;

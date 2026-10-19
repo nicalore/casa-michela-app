@@ -183,8 +183,8 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     return mounted && !_isLoading && !_failed && !isDesktopTourShown && isDesktopTourTargetShown(kTourCalendarBands);
   }
 
-  // One tour for the page, the published band and the lesson's window, on an open day. [follow]: a day just read
-  // turns to a published band with a lesson if the current one has none and that part was never told.
+  // One tour for the page, the published band and the lesson's window, on an open day.
+  // [follow]: turn to a published band with a lesson if the shown one has none.
   Future<void> _startTours({bool follow = false}) async
   {
     await WidgetsBinding.instance.endOfFrame;

@@ -8,11 +8,11 @@ const String kHomeTourTitle = 'Home';
 
 // One tour per role, so whoever has two sees both. Bump a version on every change to that tour.
 const String _teacherSlug = 'home.teacher';
-const int _teacherVersion = 8;
+const int _teacherVersion = 9;
 const String _studentSlug = 'home.student';
-const int _studentVersion = 5;
+const int _studentVersion = 6;
 const String _parentSlug = 'home.parent';
-const int _parentVersion = 4;
+const int _parentVersion = 5;
 
 // Phones: the three names of the page strip, and the three pages they show.
 const List<String> kHomeTourTabs = ['home.tab.today', 'home.tab.month', 'home.tab.notices'];

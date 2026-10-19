@@ -176,7 +176,17 @@ class TabContent extends StatelessWidget
   // The scrolling list, for a tour to light.
   final String? bodyTour;
 
-  const TabContent({super.key, required this.header, required this.body, this.footer, this.bodyTour});
+  // Stands in for the body, centred in the room left below the header.
+  final Widget? empty;
+
+  const TabContent({
+    super.key,
+    required this.header,
+    required this.body,
+    this.footer,
+    this.bodyTour,
+    this.empty,
+  });
 
   List<Widget> get _head
   {
@@ -190,6 +200,28 @@ class TabContent extends StatelessWidget
   {
     final Widget body = this.body;
     final Widget? footer = this.footer;
+    final Widget? empty = this.empty;
+
+    if (empty != null)
+    {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PageTransitionItem(slot: PageTransitionItem.list, child: empty),
+                if (footer != null) ...[
+                  const SizedBox(height: _footerGap),
+                  PageTransitionItem.wave(child: footer),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
 
     return [
       body is EntityCardGrid ? body.sliver : SliverToBoxAdapter(child: body),

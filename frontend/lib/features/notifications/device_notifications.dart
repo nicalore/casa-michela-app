@@ -12,7 +12,6 @@ import 'notification_item.dart';
 import 'notification_kinds.dart';
 import 'push_types.dart';
 
-// Whether this device shows the system's notifications.
 enum NotificationSwitch
 {
   // No push here, or the server has no key: nothing to offer.
@@ -23,7 +22,6 @@ enum NotificationSwitch
   on,
 }
 
-// The device's side of notifications: permission, push subscription, the person's own choice.
 abstract final class DeviceNotifications
 {
   // Turned off by hand here: kept off even while the system allows them.
@@ -158,7 +156,6 @@ abstract final class DeviceNotifications
     }
     catch (error)
     {
-      // Hidden from the user, not from whoever is debugging.
       if (kDebugMode)
       {
         debugPrint('Notifications: $error');
@@ -313,7 +310,6 @@ abstract final class DeviceNotifications
 
   static Future<void> turnOff() async
   {
-    // The test stand-in answers as the device would after this.
     if (_debugState != null)
     {
       _debugState = NotificationSwitch.off;

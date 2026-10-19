@@ -501,7 +501,7 @@ class _SlotChip extends StatelessWidget
   {
     final bool online = slot.mode == kOnlineMode;
 
-    // Locked: neutral chip with the mode kept in the icon, as the desktop greys it.
+    // Locked: neutral chip, the mode kept in the icon.
     final Color surface = locked
         ? Colors.white.withValues(alpha: 0.5)
         : (online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface);

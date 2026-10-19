@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -268,6 +269,20 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
 
   Widget _buildResultList(List<PersonItem> people)
   {
+    final AppEmptyCard? empty = emptyListCard(
+      shown: people.length,
+      total: _people.length,
+      icon: Icons.group_off_rounded,
+      none: 'Nessuna persona registrata',
+    );
+
+    if (empty != null)
+    {
+      return Expanded(
+        child: Center(child: PageTransitionItem(slot: PageTransitionItem.list, child: empty)),
+      );
+    }
+
     // Measured outside the scroll view: a SliverLayoutBuilder reruns on every scrolled pixel.
     return Expanded(
       child: LayoutBuilder(

@@ -16,8 +16,7 @@ from app.models.presence import Presence
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.services.pupil_lock import lock_pupil
 
-# Availabilities/presences left outside the new openings are deleted whole,
-# never clipped, together with the lessons, bookings, and rooms built on them.
+# Hours outside the new openings go whole, never clipped, with all built on them.
 
 
 @dataclass(frozen=True)
@@ -86,13 +85,13 @@ def _outside(
     )
 
 
-async def _outside_rows(
+async def _outside_rows[R: (Availability, Presence)](
     session: AsyncSession,
-    model: type[Availability] | type[Presence],
+    model: type[R],
     days: Sequence[date],
     mode: str,
     openings: dict[date, list[tuple[time, time]]],
-) -> list[Availability] | list[Presence]:
+) -> list[R]:
     rows = (
         (
             await session.execute(

@@ -35,7 +35,7 @@ const double _tourAddLessonRadius = 18;
 // Past half the side, so both come out round.
 const double _tourRoundRadius = 30;
 
-// What a tour lights of a mode: lock, name with hours, round button, a lesson by index, the add lesson button.
+// Tour targets of a mode: [edit] is the round button, [lesson] a lesson by index.
 typedef MobileBookingModeTour = ({
   String? lock,
   String? hours,
@@ -132,7 +132,7 @@ class MobileBookingDayCard extends StatelessWidget
 
     if (icon == null)
     {
-      return Text(text, style: style);
+      return Text(text, textAlign: TextAlign.center, style: style);
     }
 
     return Row(
@@ -277,7 +277,7 @@ class _ModeBlock extends StatelessWidget
             ),
           ),
         ),
-        // Past days too, as on the desktop; never for who only reads.
+        // Past days too; never for who only reads.
         if (mode.hasClosed) ...[
           const SizedBox(width: 5),
           _lit(
@@ -391,7 +391,7 @@ class _LessonRow extends StatelessWidget
           child: Row(
             children: [
               Expanded(
-                // A subject divided in disciplines leads with the discipline, the subject small above it.
+                // Divided subject: the discipline leads, the subject small above it.
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -440,7 +440,6 @@ class _LessonRow extends StatelessWidget
   }
 }
 
-// The mode's actions, which the desktop shows on hover.
 class _MoreButton extends StatelessWidget
 {
   final bool tablet;

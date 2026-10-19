@@ -12,6 +12,7 @@ import '../../core/utils/error_message.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_back_button.dart';
+import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_gradient_button.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/corner_glow.dart';
@@ -46,7 +47,6 @@ const double _yearGapBelow = 12;
 // The back button's width and a gap.
 const double _backRoom = 84 + 36;
 
-// The IT managers' updates, newest first, each opened to be edited or deleted.
 class UpdatesPage extends StatefulWidget
 {
   final String? origin;
@@ -279,7 +279,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
     if (_loaded && _updates.isEmpty)
     {
       return const Center(
-        child: PageTransitionItem(slot: PageTransitionItem.list, child: _NoUpdates()),
+        child: PageTransitionItem(slot: PageTransitionItem.list, child: AppEmptyCard(icon: Icons.update_rounded, message: kNoUpdates)),
       );
     }
 
@@ -411,40 +411,6 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-// As the psychologist's home card.
-class _NoUpdates extends StatelessWidget
-{
-  const _NoUpdates();
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 26),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.update_rounded, size: 30, color: AppTheme.trialTealDeep),
-          const SizedBox(width: 16),
-          Text(
-            kNoUpdates,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.trialTealDeep,
-            ),
-          ),
-        ],
       ),
     );
   }

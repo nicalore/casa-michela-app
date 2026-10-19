@@ -66,7 +66,7 @@ abstract final class VisualEffects
     }
     catch (_)
     {
-      // Storage refused: effects on, as before this setting existed.
+      // Storage refused: effects stay on.
     }
   }
 

@@ -6,19 +6,18 @@ const Duration _unfoldTime = Duration(milliseconds: 380);
 const Duration _foldTime = Duration(milliseconds: 280);
 const Duration _scrollTime = Duration(milliseconds: 300);
 
-// Not a decelerating one: its tail left a sliver of the first row creeping shut.
+// Not a decelerating curve: its tail leaves a sliver of the first row creeping shut.
 const Curve _foldCurve = Curves.easeInOut;
 
 // Each row starts this share of the unfolding after the one above it.
 const double _rowStagger = 0.08;
 const double _lastRowStart = 0.4;
 
-// Rows under a header that a tap opens: the area grows from the top while each row slides out from under it.
+// Rows a header tap opens: the area grows from the top while each row slides out from under it.
 class UnfoldingRows extends StatefulWidget
 {
   final bool open;
 
-  // False to open and shut at once.
   final bool animate;
 
   // Once open, the list holding the rows scrolls them into sight.
@@ -72,7 +71,7 @@ class _UnfoldingRowsState extends State<UnfoldingRows> with SingleTickerProvider
     }
   }
 
-  // Rows opened below the list's edge are brought up past its fade; those already in sight stay put.
+  // Rows opened below the list's edge come up past its fade; those already in sight stay put.
   void _keepInView()
   {
     final ScrollableState? scrollable = mounted && _unfold.isCompleted ? Scrollable.maybeOf(context) : null;

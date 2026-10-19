@@ -115,7 +115,6 @@ async def _open_report_or_404(
     return report
 
 
-# Newest first, the unresolved ones the caller receives.
 @router.get("")
 async def my_reports(
     current_account: CurrentAccount,

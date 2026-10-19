@@ -7,6 +7,7 @@ import '../../../../features/calendar/utils/calendar_strings.dart';
 import '../../../../features/calendar/utils/pupil_band_presence.dart';
 import '../../../../features/calendar/utils/teacher_band_call.dart' show ModeSpan;
 import '../../../../features/lessons/utils/opening_window.dart';
+import '../../../../shared/widgets/descender_room.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import 'mobile_convocation_card.dart';
@@ -96,15 +97,17 @@ class MobilePupilHead extends StatelessWidget
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: tablet ? 19 : 17,
-              fontWeight: FontWeight.w800,
-              height: 1.2,
-              color: AppTheme.trialOcean,
+          DescenderRoom(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: tablet ? 19 : 17,
+                fontWeight: FontWeight.w800,
+                height: 1.2,
+                color: AppTheme.trialOcean,
+              ),
             ),
           ),
           Padding(
@@ -236,16 +239,18 @@ class MobilePupilLaneName extends StatelessWidget
   {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Text(
-        name,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.2,
-          height: 1.15,
-          color: Colors.white,
+      child: DescenderRoom(
+        child: Text(
+          name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
+            height: 1.15,
+            color: Colors.white,
+          ),
         ),
       ),
     );

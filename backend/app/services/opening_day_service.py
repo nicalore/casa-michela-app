@@ -22,6 +22,7 @@ from app.services.availability_cleanup import (
     purge_hours_outside_openings,
 )
 from app.services.calendar_hours_sync import CalendarHoursWatch
+from app.services.started_hours import StartedHoursGuard
 
 _ENTITY_LABEL: Final[str] = "le aperture"
 _NOT_FOUND_ERROR: Final[str] = "Apertura non trovata"
@@ -75,9 +76,11 @@ class OpeningDayService:
         )
 
         async with integrity_guard(self.repository.session, _CREATE_ERROR):
+            guard = await self._guard([opening_day.date], opening_day.mode)
             watch = await self._watch([opening_day.date])
 
             await self.repository.create(opening_day)
+            await guard.settle()
             purged = await self._purge_closed([opening_day.date], opening_day.mode)
             await watch.settle(purged=purged)
             await self.repository.commit()
@@ -112,6 +115,7 @@ class OpeningDayService:
         ]
 
         async with integrity_guard(self.repository.session, _CREATE_ERROR):
+            guard = await self._guard([day], mode)
             watch = await self._watch([day])
 
             await self.repository.delete_for_range_mode(
@@ -120,6 +124,7 @@ class OpeningDayService:
                 mode=mode,
             )
             await self.repository.create_many(rows)
+            await guard.settle()
             purged = await self._purge_closed([day], mode)
             await watch.settle(confirmed=payload.confirm, purged=purged)
             await self.repository.commit()
@@ -140,6 +145,7 @@ class OpeningDayService:
         )
 
         # Read before the row is touched: a later query would autoflush the new hours.
+        guard = await self._guard([opening_day.date], opening_day.mode)
         watch = await self._watch([opening_day.date])
 
         opening_day.start_time = payload.start_time
@@ -149,6 +155,7 @@ class OpeningDayService:
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):
             await self.repository.session.flush()
+            await guard.settle()
             purged = await self._purge_closed([opening_day.date], opening_day.mode)
             await watch.settle(confirmed=payload.confirm, purged=purged)
             await self.repository.commit()
@@ -163,9 +170,11 @@ class OpeningDayService:
         target_date = opening_day.date
         mode = opening_day.mode
 
+        guard = await self._guard([target_date], mode)
         watch = await self._watch([target_date])
 
         await self.repository.delete(opening_day)
+        await guard.settle()
         purged = await self._purge_closed([target_date], mode)
         await watch.settle(confirmed=confirmed, purged=purged)
         await self.repository.commit()
@@ -176,6 +185,9 @@ class OpeningDayService:
             dates,
             mode,
         )
+
+    async def _guard(self, dates: Sequence[date], mode: str) -> StartedHoursGuard:
+        return await StartedHoursGuard.taken(self.repository.session, dates, mode)
 
     # Taken before the write and settled after, so it compares the change itself.
     async def _watch(self, dates: Sequence[date]) -> CalendarHoursWatch:
@@ -245,10 +257,13 @@ class OpeningDayService:
         # Read before the deletion: the horizon could be one of the dates removed.
         horizon = await self.repository.last_generated_date(mode)
 
-        watch = await self._watch([
+        dates = [
             date_from + timedelta(days=offset)
             for offset in range((date_to - date_from).days + 1)
-        ])
+        ]
+
+        guard = await self._guard(dates, mode)
+        watch = await self._watch(dates)
 
         await self.repository.delete_for_range_mode(
             date_from=date_from,
@@ -271,6 +286,7 @@ class OpeningDayService:
 
         async with integrity_guard(self.repository.session, _RESTORE_ERROR):
             await self.repository.create_many(to_create)
+            await guard.settle()
 
             # Restoring standard hours can narrow or shut a day a special opening opened.
             purged = await self._purge_closed(restored_dates, mode)

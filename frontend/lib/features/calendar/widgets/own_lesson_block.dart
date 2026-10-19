@@ -14,7 +14,7 @@ import '../../lessons/widgets/calendar_activity_block.dart';
 import '../../lessons/widgets/calendar_lesson_block.dart';
 import 'own_day_timeline.dart';
 
-// Taller than the admin's 60 to fit two lines of subject.
+// Taller than the admin blocks, to fit two lines of subject.
 const double kOwnBlockHeight = 104;
 
 const double _hoverBorder = 2;
@@ -118,8 +118,6 @@ class _BlockFrame extends StatefulWidget
   final bool isPast;
   final bool isCurrent;
 
-  // final bool isShared;
-
   final VoidCallback? onTap;
 
   final Widget Function(bool narrow) body;
@@ -131,7 +129,6 @@ class _BlockFrame extends StatefulWidget
     required this.hours,
     required this.isPast,
     this.isCurrent = false,
-    // this.isShared = false,
     required this.onTap,
     required this.body,
   });
@@ -222,13 +219,6 @@ class _BlockFrameState extends State<_BlockFrame>
                                         const SizedBox(width: 6),
                                         const _CurrentBadge(),
                                       ],
-                                      // if (!narrow && widget.isShared) ...[
-                                      //   const SizedBox(width: 4),
-                                      //   const AppTooltip(
-                                      //     message: kSharedLessonLabel,
-                                      //     child: Icon(kSharedLessonIcon, size: 15, color: AppTheme.trialMutedText),
-                                      //   ),
-                                      // ],
                                       if (!narrow && widget.isPast) ...[
                                         const SizedBox(width: 4),
                                         const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
@@ -398,8 +388,7 @@ class OwnLessonBlock extends StatelessWidget
       hours: _hours,
       isPast: isPast,
       isCurrent: isCurrent,
-      // Co-presence hidden from students and parents for now.
-      // isShared: _byStudent && lesson.isShared,
+      // Co-presence (lesson.isShared) is not shown to students and parents.
       onTap: onTap,
       body: (narrow) => _buildBody(topic, narrow: narrow),
     );

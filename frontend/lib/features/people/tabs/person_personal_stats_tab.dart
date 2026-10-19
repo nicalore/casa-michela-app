@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart' show formatMinutes;
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
@@ -288,9 +289,12 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
 
     final Widget? footer = widget.footer;
 
-    if (cards.isEmpty && footer == null)
+    if (cards.isEmpty)
     {
-      return const Center(child: EmptyChartMessage());
+      return AppEmptyRoom(
+        card: const AppEmptyCard(icon: Icons.insights_rounded, message: 'Nessun dato'),
+        below: [?footer],
+      );
     }
 
     return ScrollEdgeFade(
@@ -300,11 +304,6 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: pageTransitionBlocks([
-            if (cards.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: EmptyChartMessage(),
-              ),
             for (final card in cards) ...[
               card,
               const SizedBox(height: 24),

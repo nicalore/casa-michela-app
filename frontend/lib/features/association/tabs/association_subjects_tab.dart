@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_text_field.dart';
@@ -8,6 +9,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../shared/widgets/wizard_dialog.dart';
+import '../association_strings.dart';
 import '../models/association_subject_item.dart';
 import '../models/subject_taxonomy.dart';
 import '../widgets/association_subject_card.dart';
@@ -114,6 +116,12 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
                 .toList(),
           ),
         ],
+      ),
+      empty: emptyListCard(
+        shown: subjects.length,
+        total: widget.associationSubjects.length,
+        icon: Icons.auto_stories_rounded,
+        none: kNoSubjects,
       ),
       body: EntityCardGrid(
         children: subjects.map((subject)

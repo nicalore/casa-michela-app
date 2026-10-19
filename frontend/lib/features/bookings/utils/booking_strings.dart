@@ -67,7 +67,7 @@ String bookingDeletionWarning(DateTime day, {String? pupil, String? mode, TimeBu
   return '$whose di ${formatAvailableDayLabel(day).toLowerCase()} verrà eliminata definitivamente.';
 }
 
-// The last lesson of a band takes the band's hours with it. [divided]: [label] is «Materia - Disciplina», in bold.
+// Last lesson of a band takes its hours. [divided]: [label] is "Materia - Disciplina", bold.
 ({String? bold, String text}) lessonDeletionWarning(String label, String mode, {required bool last, bool divided = false, TimeBucket? band})
 {
   final String where = _whereIn(mode, band);

@@ -13,9 +13,9 @@ const String _title = 'Prenotazioni';
 
 // Bump a version on every change to that tour.
 const String _slug = 'bookings.parent';
-const int _version = 9;
+const int _version = 10;
 
-// A student's main tours; their parts keep the parents' slugs, seen once by whoever wears both roles.
+// Student main tours; their parts keep the parents' slugs, seen once by whoever has both roles.
 const String _studentSlug = 'bookings.student';
 const int _studentVersion = 1;
 const String _readerSlug = 'bookings.student.reading';
@@ -82,7 +82,7 @@ const Duration _pageBack = Duration(milliseconds: 320);
 // A page settles within a tolerance, never exactly on its index.
 const double _settled = 0.001;
 
-// The lesson sheet as a tour sees it: up and still, whether its lesson can be changed, how to close it.
+// Lesson sheet as a tour sees it: up and still, lesson changeable or not, how to close it.
 class BookingSheetTourLink extends ChangeNotifier
 {
   bool open = false;
@@ -108,7 +108,7 @@ class BookingSheetTourLink extends ChangeNotifier
   void close() => _close?.call();
 }
 
-// Where a week's tour lights each mark: a day's index, with a mode's on that day, and a lesson's in that mode.
+// Where a week's tour lights each mark: day index, mode index on that day, lesson index in it.
 class BookingTourPicks
 {
   final int? add;
@@ -118,7 +118,7 @@ class BookingTourPicks
   final (int, int)? addLesson;
   final (int, int)? edit;
 
-  // Its sheet shows Modifica, Sposta and Elimina.
+  // Its sheet shows "Modifica", "Sposta" and "Elimina".
   final bool lessonEditable;
 
   const BookingTourPicks({
@@ -141,7 +141,7 @@ class BookingTourPicks
       };
 }
 
-// The first of each in the week; both add buttons on one day when one has them; a lesson by its add button.
+// First of each in the week; a day with both add buttons if any; a lesson by its add button.
 BookingTourPicks bookingTourPicks(List<MobileBookingDay> days)
 {
   (int, int)? first(bool Function(MobileBookingDay day, MobileBookingMode mode) test)
@@ -160,7 +160,7 @@ BookingTourPicks bookingTourPicks(List<MobileBookingDay> days)
     return null;
   }
 
-  // Per day, the first line of that mode in colour: a day gone by or a band past its deadline is grey.
+  // Per day, the first coloured line of that mode; past days and closed bands are grey.
   List<(int, int)> coloured(String kind) => [
         for (final (i, day) in days.indexed)
           if (day.modes.indexWhere((mode) => !day.isPast && mode.mode == kind && mode.slots.any((slot) => !mode.isClosed(slot)))
@@ -245,8 +245,8 @@ MobileTourStep _markStep(BookingMark mark, int page)
 
 const String _closeSheet = 'Tocca la $kMobileTourGlyph per chiudere il menù.';
 
-// The lesson touched opens its sheet, read there; with [closing], its close button ends it and the page goes on.
-// Closed otherwise, as by the back button, the page's steps go on too; stepping back into it opens it again.
+// The touched lesson opens its sheet; with [closing], its close button ends it, the page goes on.
+// Closed otherwise, the page's steps go on too; stepping back into it opens it again.
 List<MobileTourStep> _lessonSteps({
   required int page,
   required BookingSheetTourLink sheet,
@@ -310,9 +310,8 @@ List<MobileTourStep> _lessonSteps({
 
 bool _daughter(String? gender) => gender == 'F';
 
-// [genders]: one per child, 'F' for a daughter; [shown]: the gender of the child whose week shows.
-// [openLesson] opens the sheet of the lesson a week's tour lights; [lessonEditable]: that sheet shows its buttons.
-// [self]: a student's own bookings; [readOnly]: one who only looks, with no next week to book nor deadlines.
+// [genders]: one per child, 'F' for a daughter; [shown]: the gender of the child shown.
+// [readOnly]: one who only looks, with no next week to book nor deadlines.
 MobileTour bookingsTour({
   required PageController pages,
   required List<String?> genders,
@@ -386,7 +385,7 @@ MobileTour bookingsTour({
         ),
         MobileTourStep(text: _nextWeek, shown: [bookingsTourWeek(1)]),
         ...marks(nextWeek, 1, shownBefore: thisWeek),
-        // Ends as the (i) sheet rises, which drops the menu bar; the page may have scrolled the title out.
+        // Ends as the (i) sheet rises and drops the menu bar; the title may be scrolled out.
         MobileTourStep(
           text: _info,
           touched: const [kBookingsTourInfo],
@@ -508,7 +507,7 @@ String lessonSheetTourTarget(LessonSheetMark mark) => 'bookings.lesson.${mark.na
 
 (String, int) _lessonSeen(LessonSheetMark mark) => ('$_slug.lesson.${mark.name}', _lessonVersions[mark]!);
 
-// The first time: every part the sheet shows; later, those shown for the first time. Closing the sheet stops it.
+// First time: every part the sheet shows; later, those shown for the first time. Closing stops it.
 Future<void> startLessonSheetTour({required String taxCode, required Set<LessonSheetMark> present})
 {
   return _startFresh(
@@ -554,7 +553,7 @@ Future<void> startModeSheetTour({required String taxCode})
   );
 }
 
-// The move sheet: day, where to, hours and its button; each explained once, the first time it shows.
+// Move sheet: day, where to, hours and its button; each explained once, the first time it shows.
 enum MoveMark { days, options, hours, add, bin, confirm }
 
 const Map<MoveMark, int> _moveVersions = {
@@ -682,7 +681,7 @@ Future<void> startMoveTour({
   );
 }
 
-// The booking wizard, creating or editing: each mark explained once, on the first page showing it, in either mode.
+// Booking wizard, creating or editing: each mark explained once, on the first page showing it.
 // Hours, adding and bins are the move sheet's own marks: seen in one, seen in both.
 enum BookingWizardMark
 {
@@ -790,7 +789,7 @@ String _wizardText(BookingWizardMark mark, {required bool online, required Booki
   };
 }
 
-// The wizard's news for its tour: the part just touched, the page it rests on (null while turning), or that it closed.
+// Wizard news for its tour: last part touched, resting page (null while turning), or closed.
 class BookingWizardTourPulse extends ChangeNotifier
 {
   BookingWizardMark? used;
@@ -819,11 +818,8 @@ class BookingWizardTourPulse extends ChangeNotifier
   }
 }
 
-// The marks of [kind] never seen, as they stand or as touches on the page will make them.
-// [anyOpen]: a band can be given; [anyGiven]: one has hours; [anyBins]: one has two stretches; [band]: the tag shows.
-// [toSubjects] turns the list back to the subjects, which the tabs' steps may have left on another.
-// [creates], [saves]: the page's button creates the booking, or saves an edited one; a subject is chosen, and no
-// subject's own pages cover the wizard. [savesHours]: the hours page is the last, when only the hours are edited.
+// Marks of [kind] never seen, now or once touched; [anyBins]: a band has two stretches.
+// [toSubjects] turns the list back to the subjects, which the tabs' steps may have left.
 Future<void> startBookingWizardTour({
   required String taxCode,
   required BookingWizardPage kind,
@@ -969,7 +965,7 @@ Future<void> startBookingWizardTour({
   );
 }
 
-// The subject's own steps, over the wizard or from a lesson's edit button: each part explained once, on its page.
+// Subject steps, over the wizard or from a lesson's edit button: each part explained once.
 enum SubjectFlowMark { intro, kinds, topic, next, durations, count, teachers, search, notes, add, save }
 
 const Map<SubjectFlowMark, int> _subjectVersions = {
@@ -1046,8 +1042,8 @@ class SubjectFlowTourPulse extends ChangeNotifier
   }
 }
 
-// The page's parts never seen, the last ending the tour so the page can be filled before going on; [first]: the
-// flow's first page, where the intro comes first. A part not built on the page is passed over.
+// Page parts never seen, the last ending the tour so the page can be filled before going on.
+// [first]: the flow's first page, intro first. Parts not built on the page are skipped.
 Future<void> startSubjectFlowTour({
   required String taxCode,
   required List<SubjectFlowMark> marks,
@@ -1076,7 +1072,7 @@ Future<void> startSubjectFlowTour({
         MobileTourStep(text: text, touched: [target], reveal: target, present: built, seen: seen),
       SubjectFlowMark.topic || SubjectFlowMark.count || SubjectFlowMark.search =>
         MobileTourStep(text: text, shown: [target], reveal: target, present: built, seen: seen),
-      // Touched, it turns the page or ends the flow: the tour leaves with it, its parts after it come next time.
+      // Touched, it turns the page or ends the flow: the tour leaves, later parts come next time.
       // The last page's button adds a new subject, or saves one edited.
       SubjectFlowMark.next || SubjectFlowMark.add || SubjectFlowMark.save => MobileTourStep(
           text: text,

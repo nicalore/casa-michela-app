@@ -1,5 +1,6 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Load, joinedload, selectinload
+from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.sql.base import ExecutableOption
 
 from app.models.account import Account
 from app.models.member import Member
@@ -11,7 +12,7 @@ from app.repositories.base import SessionRepository
 
 
 # One statement for the one-to-one chain; only the collections use an IN.
-def _account_identity() -> tuple[Load, ...]:
+def _account_identity() -> tuple[ExecutableOption, ...]:
     person = joinedload(Account.person)
     member = person.joinedload(Person.member_profile)
     staff = member.joinedload(Member.staff_profile)

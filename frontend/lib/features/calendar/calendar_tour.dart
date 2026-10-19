@@ -3,16 +3,13 @@ import 'package:flutter/widgets.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
-// The teacher's Calendario page.
 const String kTourCalendarBands = 'calendar.bands';
 const String kTourCalendarDay = 'calendar.day';
 const String kTourCalendarCard = 'calendar.card';
 const String kTourCalendarLesson = 'calendar.lesson';
 
-// The month picker's days.
 const String kTourCalendarPickerDays = 'calendar.picker.days';
 
-// The lesson's window.
 const String kTourLessonDetails = 'calendar.dialog.details';
 const String kTourLessonStudent = 'calendar.dialog.student';
 const String kTourLessonTechnical = 'calendar.dialog.technical';
@@ -36,7 +33,7 @@ const int _pickerVersion = 2;
 // The convocation and the click on a lesson, the first time a call is shown.
 const (String, int) _callSeen = ('calendar.call', 1);
 
-// The window's parts, each told the first time it shows. Bump a version on every change to that step.
+// Lesson window parts, each told when first shown. Bump a version on every change to that step.
 enum CalendarLessonMark { details, facts, technical, methodological, sensitive, note }
 
 const Map<CalendarLessonMark, int> _markVersions = {
@@ -62,7 +59,7 @@ const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.belo
 
 bool _shown(String id) => isDesktopTourTargetShown(id);
 
-// The same windows serve students and parents: only the teacher is shown around, for now.
+// The same windows serve students and parents: only teachers are toured here.
 void startCalendarTour(BuildContext context, DesktopTour tour)
 {
   final String? taxCode = ApiService().lastKnownIdentity?.taxCode;
@@ -101,7 +98,7 @@ Future<bool> _seen(String taxCode, (String, int) mark)
   );
 }
 
-// Asked before the page's tour: a call never told is shown where it is, as on the phone.
+// Asked before the page tour: an untold call is shown where it is, as on mobile.
 Future<bool> isCalendarCallDue() async
 {
   final String? taxCode = _teacher;
@@ -109,7 +106,7 @@ Future<bool> isCalendarCallDue() async
   return taxCode != null && !await _seen(taxCode, _callSeen);
 }
 
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
+// Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
 // The bands and the day, the same for teachers, parents and students.
 const List<DesktopTourStep> kCalendarMainSteps = [
   DesktopTourStep(
@@ -156,7 +153,7 @@ final List<DesktopTourStep> _callSteps = [
   ),
 ];
 
-// [undo]: for the first step of the window inside the page's tour. [coming]: counted before the window is up.
+// [undo]: first window step inside the page's tour. [coming]: counted before the window is up.
 DesktopTourStep _lessonStep(CalendarLessonMark mark, {VoidCallback? undo, bool Function()? coming})
 {
   bool there(String id) => calendarLessonOpen.value && _shown(id);
@@ -268,9 +265,8 @@ Future<List<CalendarLessonMark>> _unseenMarks(String taxCode) async
   ];
 }
 
-// The page's steps, the call's and those of the lesson's window, as one tour: a click on the lesson opens the
-// window and the tour goes on inside it. Once the page's were seen, a call never told comes alone the first time
-// one shows. [student] and [note]: what the window of the lesson lit will show. Null when nothing is due.
+// Page, call and lesson window as one tour (a click opens the window); null if none is due.
+// [student], [note]: what the lit lesson's window shows.
 Future<DesktopTour?> calendarPageTour({required bool student, required bool note}) async
 {
   final String? taxCode = _teacher;

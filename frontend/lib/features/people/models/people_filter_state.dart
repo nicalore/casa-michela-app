@@ -25,6 +25,7 @@ class PeopleFilterState
   final List<String> birthCities;
   final List<String> cities;
   final String? childrenCount;
+  final bool? isEnrolled;
   final bool? isActiveCollaborator;
   final String? enrollmentYear;
   final String? educationLevel;
@@ -52,6 +53,7 @@ class PeopleFilterState
     this.birthCities = const [],
     this.cities = const [],
     this.childrenCount,
+    this.isEnrolled,
     this.isActiveCollaborator,
     this.enrollmentYear,
     this.educationLevel,
@@ -78,6 +80,7 @@ class PeopleFilterState
     List<String>? birthCities,
     List<String>? cities,
     String? childrenCount,
+    bool? isEnrolled,
     bool? isActiveCollaborator,
     String? enrollmentYear,
     String? educationLevel,
@@ -100,6 +103,7 @@ class PeopleFilterState
     bool clearBirthCities = false,
     bool clearCities = false,
     bool clearChildrenCount = false,
+    bool clearEnrolled = false,
     bool clearCollaborator = false,
     bool clearEnrollment = false,
     bool clearEducationLevel = false,
@@ -125,6 +129,7 @@ class PeopleFilterState
       birthCities: clearBirthCities ? [] : (birthCities ?? this.birthCities),
       cities: clearCities ? [] : (cities ?? this.cities),
       childrenCount: clearChildrenCount ? null : (childrenCount ?? this.childrenCount),
+      isEnrolled: clearEnrolled ? null : (isEnrolled ?? this.isEnrolled),
       isActiveCollaborator: clearCollaborator ? null : (isActiveCollaborator ?? this.isActiveCollaborator),
       enrollmentYear: clearEnrollment ? null : (enrollmentYear ?? this.enrollmentYear),
       educationLevel: clearEducationLevel ? null : (educationLevel ?? this.educationLevel),
@@ -215,6 +220,7 @@ class PeopleFilterState
       ageRange != null && ageRange != defaultAgeRange,
       birthPlace != null,
       childrenCount != null,
+      isEnrolled != null,
       isActiveCollaborator != null,
       enrollmentYear != null,
       educationLevel != null,

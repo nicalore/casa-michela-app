@@ -9,7 +9,6 @@ import 'push_types.dart';
 // Mirrors _GONE_ONCE_READ in backend/app/api/notifications.py.
 const Set<NotificationKind> _goneOnceRead = {NotificationKind.newDevice, NotificationKind.ratingReminder};
 
-// The signed-in person's notifications, shared by every card that lists them.
 class NotificationBoard extends ChangeNotifier
 {
   static final NotificationBoard instance = NotificationBoard._();
@@ -41,7 +40,7 @@ class NotificationBoard extends ChangeNotifier
   // Null when they could not be read.
   List<NotificationItem>? get items => _items;
 
-  // When the list held now was asked for: system notifications shown before it are in it.
+  // When the current list was fetched: system notifications shown before it are in it.
   DateTime? get listedAt => _listedAt;
 
   int get unread => _items?.where((item) => !item.read).length ?? 0;
@@ -171,7 +170,7 @@ class NotificationBoard extends ChangeNotifier
     _drop(NotificationKind.reportReceived, (item) => item.reportId == id);
   }
 
-  // Those asked for before [asked] and no longer open were resolved by someone else.
+  // Reports fetched before [asked] and no longer open were resolved by someone else.
   void keepOpenReports(Set<int> open, {required DateTime asked})
   {
     _drop(

@@ -71,8 +71,7 @@ async def device_seen(
     )
 
 
-# Sessions ended from the devices list: the news of their sign-ins goes too, all
-# but the one in use when kept.
+# Sessions ended from the devices list withdraw their sign-in news, bar the kept one.
 async def sessions_ended(
     db: AsyncSession,
     tax_code: str,

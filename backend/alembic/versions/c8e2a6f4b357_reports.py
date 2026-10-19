@@ -35,7 +35,7 @@ def upgrade() -> None:
             "ADD VALUE IF NOT EXISTS 'REPORT_RECEIVED'"
         )
 
-    # Written by hand under Other until now.
+    # IT managers typed by hand under Other move to the new role.
     op.execute(
         "UPDATE administrators SET role = 'IT_MANAGER', other_role = NULL "
         "WHERE role = 'OTHER' AND lower(trim(other_role)) = 'responsabile it'"

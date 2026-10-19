@@ -26,7 +26,6 @@ String noticeShortDay(DateTime instant, {required DateTime today}) =>
 String noticeLongDay(DateTime instant, {required DateTime today}) =>
     instant.year == today.year ? formatDayMonthFull(instant) : '${formatDayMonthFull(instant)} ${instant.year}';
 
-// With the weekday, for the details.
 String noticeSentLong(DateTime instant) =>
     noticeSentLabel('${formatWeekdayColumnLabel(instant)} ${instant.year}', noticeHour(instant));
 
@@ -41,7 +40,6 @@ String fileSizeLabel(int bytes)
   return '${(bytes / _kilobyte).ceil()} KB';
 }
 
-// The badge a file is shown with, from its extension.
 enum NoticeFileKind
 {
   pdf(Icons.picture_as_pdf_rounded, AppTheme.trialDanger),

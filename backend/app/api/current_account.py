@@ -37,7 +37,7 @@ async def get_current_account(
             detail=_INVALID_ACCESS_TOKEN_ERROR,
         ) from None
 
-    # Tokens issued before sessions were tracked carry no sid.
+    # The sid is optional: a token without one is tied to no session.
     session_id = payload.get("sid")
     setattr(request.state, _SESSION_ID_STATE_KEY, session_id)
 

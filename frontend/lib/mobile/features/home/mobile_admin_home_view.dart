@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../features/dashboard/widgets/dashboard_birthdays_section.dart';
 import '../../../features/home/widgets/home_month_section.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import 'mobile_home_view.dart';
 import 'widgets/mobile_admin_cards.dart';
@@ -22,11 +23,11 @@ class MobileAdminHomeView extends StatelessWidget
   final String firstName;
   final DateTime? birthDate;
 
-  // Null when the day could not be read.
+  // [day] is null when it could not be read.
   final bool loadingDay;
   final List<MobileAdminBand>? day;
 
-  // Null when the month could not be read.
+  // [month] is null when it could not be read.
   final bool loadingMonth;
   final List<HomeFigure>? month;
 
@@ -88,12 +89,18 @@ class MobileAdminHomeView extends StatelessWidget
       return const MobileWaiting();
     }
 
-    return birthdays.isEmpty
-        ? const MobileHomeStatus(_noBirthdays)
-        : MobileBirthdayCards(
-            birthdays: compact ? birthdays.take(_besideBirthdays).toList() : birthdays,
-            compact: compact,
-          );
+    if (birthdays.isEmpty)
+    {
+      // Beside the month on tablets, a whole page on phones.
+      return compact
+          ? const MobileHomeStatus(_noBirthdays)
+          : const Center(child: MobileEmptyCard(icon: Icons.cake_rounded, message: _noBirthdays, tablet: false));
+    }
+
+    return MobileBirthdayCards(
+      birthdays: compact ? birthdays.take(_besideBirthdays).toList() : birthdays,
+      compact: compact,
+    );
   }
 
   // Today on the left, as tall as the month and the birthdays stacked beside it.
@@ -153,6 +160,7 @@ class MobileAdminHomeView extends StatelessWidget
       tourTabs: null,
       tourPages: null,
       scrollingNames: true,
+      emptyPages: {if (!loadingBirthdays && birthdays.isEmpty) 2},
       pages: () => [
         MobileLoadSwitcher(child: _buildToday()),
         MobileLoadSwitcher(child: _buildMonth()),

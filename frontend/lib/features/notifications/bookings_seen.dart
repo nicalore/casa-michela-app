@@ -11,11 +11,10 @@ const Set<NotificationKind> _bookingKinds = {
 // Being asked now: a page redrawn meanwhile does not ask twice.
 final Set<String> _asked = {};
 
-// A pupil's week of bookings on screen, from its Monday: the lessons someone else booked, changed or
-// cancelled in it are seen.
+// Pupil's week on screen, from its Monday: others' bookings, changes and cancellations seen.
 Future<void> markBookingsSeen(String pupilTaxCode, DateTime monday) async
 {
-  // Read by the home, or by the tap that opened the app: not asked for here.
+  // The board is loaded by the home or by the opening tap; this does not fetch it.
   final NotificationBoard board = NotificationBoard.instance;
   final DateTime from = DateTime(monday.year, monday.month, monday.day);
   final DateTime to = from.add(const Duration(days: 6));

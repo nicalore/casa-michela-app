@@ -26,7 +26,6 @@ const Duration _arrival = Duration(milliseconds: 380);
 // In a column the card grows with the list up to this, then scrolls.
 const double _columnMaxHeight = 5 * 62 + 4 * _tileGap;
 
-// The home card listing the notifications, newest first; every one is read by scrolling.
 class HomeNotificationsSection extends StatelessWidget
 {
   final double minHeight;
@@ -114,6 +113,7 @@ class HomeNotificationsSection extends StatelessWidget
 
       return Text(
         items == null ? kNotificationsUnavailable : kNotificationsEmpty,
+        textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14.5,
           fontWeight: FontWeight.w500,
@@ -289,7 +289,7 @@ class _NotificationScrollState extends State<_NotificationScroll>
   }
 }
 
-// A row that arrives while the card is on show opens its room from the top and slides down into it.
+// A row arriving while the card shows opens its room from the top and slides down into it.
 class _ArrivingRow extends StatefulWidget
 {
   final bool arriving;

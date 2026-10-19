@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
@@ -114,6 +115,12 @@ class _RoomsTabState extends State<RoomsTab>
         countLabel: rooms.length == 1
             ? '1 stanza trovata'
             : '${rooms.length} stanze trovate',
+      ),
+      empty: emptyListCard(
+        shown: rooms.length,
+        total: widget.rooms.length,
+        icon: Icons.meeting_room_rounded,
+        none: 'Nessuna stanza registrata',
       ),
       body: EntityCardGrid(
         children: rooms.map((room)

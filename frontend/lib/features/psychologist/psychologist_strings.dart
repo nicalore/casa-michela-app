@@ -19,6 +19,7 @@ const String kOtherDetailLabel = 'Altra certificazione';
 const String kSchoolTitle = 'Scuola';
 const String kCurrentSchoolYear = 'Anno scolastico attuale';
 const String kPastSchoolYears = 'Anni scolastici passati';
+const String kNoStudents = 'Nessuno studente registrato';
 const String kNoSchoolYears = 'Nessun anno scolastico registrato.';
 
 const String kSchoolYearLabel = 'Anno scolastico';

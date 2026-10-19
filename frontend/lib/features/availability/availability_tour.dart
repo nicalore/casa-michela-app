@@ -3,19 +3,16 @@ import 'package:flutter/widgets.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
-// The teacher's Disponibilità page.
 const String kTourAvailabilityDays = 'availability.days';
 const String kTourAvailabilityDeadlines = 'availability.deadlines';
 const String kTourAvailabilityNext = 'availability.next';
 
-// Parts of a day row, each lit on the first day showing it.
 const String kTourAvailabilityModes = 'availability.modes';
 const String kTourAvailabilityAdd = 'availability.add';
 const String kTourAvailabilityEdit = 'availability.edit';
 const String kTourAvailabilityLock = 'availability.lock';
 const String kTourAvailabilityBins = 'availability.bins';
 
-// The wizard.
 const String kTourWizardDays = 'availability.wizard.days';
 const String kTourWizardYesNo = 'availability.wizard.yesno';
 const String kTourWizardHours = 'availability.wizard.hours';
@@ -25,7 +22,7 @@ const String kTourWizardSave = 'availability.wizard.save';
 
 enum AvailabilityTourMark { modes, add, edit, lock, bins }
 
-// True once the next week is on show: its tour asks for it with a click.
+// True once the next week is on show; its tour step waits for it.
 final ValueNotifier<bool> availabilityNextWeekShown = ValueNotifier(false);
 
 // The wizard tells its tours: a date picked, and whether some band holds hours.
@@ -42,7 +39,7 @@ const int _hoursVersion = 3;
 
 const String _nextWeekSlug = 'availability.next';
 
-// Parts that may appear only later: told in the main tour when there, else alone the first time they show.
+// Parts that may appear later: in the main tour if present, else toured alone when first shown.
 const (String, int) _modesSeen = ('availability.mark.modes', 1);
 const (String, int) _addSeen = ('availability.mark.add', 1);
 const (String, int) _editSeen = ('availability.mark.edit', 1);
@@ -64,8 +61,8 @@ const List<DesktopTourSide> _leftFirst = [DesktopTourSide.left, DesktopTourSide.
 
 bool _shown(String id) => isDesktopTourTargetShown(id);
 
-// The same wizard serves an administrator giving hours for a teacher: only the teacher is shown around.
-// [still]: asked right before the tour shows; false drops it, as a wizard turned to another card meanwhile.
+// Admins giving hours for a teacher share this wizard: only teachers are toured.
+// [still]: checked right before showing; false drops the tour (e.g. the card changed).
 void startAvailabilityTour(BuildContext context, DesktopTour tour, {bool Function()? still})
 {
   final String? taxCode = ApiService().lastKnownIdentity?.taxCode;
@@ -87,7 +84,7 @@ void startAvailabilityTour(BuildContext context, DesktopTour tour, {bool Functio
   WidgetsBinding.instance.scheduleFrame();
 }
 
-// False for anyone the tours are not for.
+// False when no identity is known.
 Future<bool> availabilityTourSeen(DesktopTour tour) async
 {
   final String? taxCode = ApiService().lastKnownIdentity?.taxCode;
@@ -132,7 +129,7 @@ List<DesktopTourStep> _nextWeekSteps(VoidCallback showThisWeek)
   ];
 }
 
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
+// Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
 final DesktopTourStep _modesStep = DesktopTourStep(
   targets: const [kTourAvailabilityModes],
   text: "Le lezioni in presenza sono contrassegnate dal colore verde e dall'icona di una casa, mentre quelle "
@@ -198,7 +195,7 @@ DesktopTourStep _once(DesktopTourStep step, Map<(String, int), Object> told, {bo
   return desktopTourStepOnce(step, told, when: nextWeek ? () => availabilityNextWeekShown.value : null);
 }
 
-// With the next week open, its steps come in the same tour, then the parts only the next week shows.
+// With the next week open, its steps join this tour, then the parts only it shows.
 DesktopTour availabilityPageTour({required VoidCallback showThisWeek})
 {
   final Map<(String, int), Object> told = {};
@@ -242,7 +239,6 @@ DesktopTour availabilityNextWeekTour({required VoidCallback showThisWeek})
   );
 }
 
-// The page's parts first shown after its tour, together.
 Future<DesktopTour?> availabilityLatePageTour() => _dueTour(_pageMarks);
 
 bool _always() => true;
@@ -277,7 +273,7 @@ final DesktopTourStep _cursorsStep = DesktopTourStep(
   seen: _cursorsSeen,
 );
 
-// The full band a «Sì» gives has no room for a second hour: the button comes once the cursors leave some.
+// A "Sì" gives the full band: the add button shows once the cursors leave some room.
 final DesktopTourStep _addHoursStep = DesktopTourStep(
   targets: const [kTourWizardAdd],
   text: 'Puoi indicare più orari di disponibilità nella stessa fascia. Ad esempio, dalle 14:00 alle 15:00 e '
@@ -300,7 +296,7 @@ final DesktopTourStep _binStep = DesktopTourStep(
   seen: _binSeen,
 );
 
-// The first card with hours to give; a «Sì» on the switch brings the cursors in.
+// The first card with hours to give; a "Sì" on the switch brings the cursors in.
 DesktopTour availabilityHoursTour({required bool editing})
 {
   return DesktopTour(
@@ -343,5 +339,4 @@ DesktopTour availabilityHoursTour({required bool editing})
   );
 }
 
-// The wizard's parts first shown after its tour, together.
 Future<DesktopTour?> availabilityLateWizardTour() => _dueTour([_cursorsStep, _addHoursStep, _binStep]);

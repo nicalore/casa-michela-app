@@ -6,7 +6,9 @@ import '../../../core/utils/halloween.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../features/dashboard/widgets/dashboard_greeting.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../layout/mobile_breakpoints.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
@@ -59,6 +61,9 @@ class MobileHomeFrame extends StatelessWidget
   // Names that do not fit scroll sideways instead of shrinking.
   final bool scrollingNames;
 
+  // Phone pages holding the empty card alone, centred in the room left.
+  final Set<int> emptyPages;
+
   const MobileHomeFrame({
     super.key,
     required this.firstName,
@@ -71,6 +76,7 @@ class MobileHomeFrame extends StatelessWidget
     this.tourTabs = kHomeTourTabs,
     this.tourPages = kHomeTourPages,
     this.scrollingNames = false,
+    this.emptyPages = const {},
   });
 
   Widget _buildHeader({required bool tablet})
@@ -90,16 +96,18 @@ class MobileHomeFrame extends StatelessWidget
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          greetingLineFor(firstName: firstName, birthDate: birthDate, now: now),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: tablet ? 36 : 30,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.4,
-            height: 1.05,
-            color: isHalloweenFor(birthDate, now) ? AppTheme.halloweenPumpkinLight : Colors.white,
+        DescenderRoom(
+          child: Text(
+            greetingLineFor(firstName: firstName, birthDate: birthDate, now: now),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: tablet ? 36 : 30,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              height: 1.05,
+              color: isHalloweenFor(birthDate, now) ? AppTheme.halloweenPumpkinLight : Colors.white,
+            ),
           ),
         ),
       ],
@@ -117,17 +125,42 @@ class MobileHomeFrame extends StatelessWidget
         child: SingleChildScrollView(
           clipBehavior: Clip.none,
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(side, head == null ? _shadowRoom : 0, side, bottom),
-          child: head == null
-              ? child
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    head,
-                    const SizedBox(height: _shadowRoom),
-                    child,
-                  ],
-                ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(side, head == null ? _shadowRoom : 0, side, bottom),
+                child: head == null
+                    ? child
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          head,
+                          const SizedBox(height: _shadowRoom),
+                          child,
+                        ],
+                      ),
+              ),
+              const MobileTourRunway(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _page(Widget child, {required double side, required double bottom, required bool fill})
+  {
+    return MobileSwipePage(
+      child: RefreshIndicator(
+        color: AppTheme.trialGold,
+        backgroundColor: AppTheme.trialDeepWater,
+        onRefresh: onRefresh,
+        child: MobileEmptyScroll(
+          padding: EdgeInsets.fromLTRB(side, _shadowRoom, side, bottom),
+          body: child,
+          fill: fill,
+          tail: const [MobileTourRunway()],
         ),
       ),
     );
@@ -191,7 +224,7 @@ class MobileHomeFrame extends StatelessWidget
           controller: pageController,
           children: [
             for (var i = 0; i < built.length; i++)
-              _scrollable(
+              _page(
                 pageTargets == null
                     ? built[i]
                     : MobileTourTarget(
@@ -202,6 +235,7 @@ class MobileHomeFrame extends StatelessWidget
                       ),
                 side: margin,
                 bottom: bottom,
+                fill: emptyPages.contains(i),
               ),
           ],
         ),
@@ -241,7 +275,7 @@ class MobileHomeView extends StatelessWidget
   final bool loadingDay;
   final MobileHomeDay? day;
 
-  // Null when the month could not be read.
+  // [month] is null when it could not be read.
   final bool loadingMonth;
   final Widget? month;
 

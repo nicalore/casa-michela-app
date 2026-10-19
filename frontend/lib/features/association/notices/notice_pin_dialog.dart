@@ -90,7 +90,6 @@ class _NoticePinDialogState extends State<_NoticePinDialog>
                   ignoring: _forever,
                   child: Row(
                     children: [
-                      // Label and day share one baseline, whatever their sizes.
                       Expanded(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,

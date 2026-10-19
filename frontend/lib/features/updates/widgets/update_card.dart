@@ -10,7 +10,6 @@ import 'update_badges.dart';
 const double _radius = 24;
 const double _authorMaxWidth = 280;
 
-// A notice's card, the version before the title.
 class UpdateCard extends StatefulWidget
 {
   final UpdateSummaryItem update;

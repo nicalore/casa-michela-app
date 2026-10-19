@@ -25,8 +25,7 @@ _TRIM_TO_NULL: Final[tuple[tuple[str, str], ...]] = (
     ("study_programs", "description"),
 )
 
-# Required text columns: trim only. One left empty is surfaced by the guard
-# below rather than filled with an invented value.
+# Required text columns: trim only; one left empty fails the guard below.
 _TRIM_IN_PLACE: Final[tuple[tuple[str, str], ...]] = (
     ("people", "first_name"),
     ("people", "last_name"),
@@ -41,23 +40,20 @@ _TRIM_IN_PLACE: Final[tuple[tuple[str, str], ...]] = (
     ("study_programs", "name"),
 )
 
-# Province codes: the existing DB check is ^[A-Za-z]{2}$ while the model wants
-# ^[A-Z]{2}$, so lowercase rows can genuinely exist.
+# Province codes: the DB check is ^[A-Za-z]{2}$, the model wants ^[A-Z]{2}$.
 _UPPERCASE: Final[tuple[tuple[str, str], ...]] = (
     ("people", "birth_province"),
     ("people", "residence_province"),
 )
 
-# An account that never logged in must have a pending password reset. The only
-# fix beyond whitespace, and it only adds a reset, never removes protection.
+# An account that never logged in must have a pending password reset.
 _FIRST_LOGIN_FIX: Final[str] = """
     UPDATE accounts
     SET password_reset_required = TRUE
     WHERE last_login IS NULL AND password_reset_required = FALSE
     """
 
-# Same rule (id > 0) under a name an old migration gave it. Rename, don't
-# create: duplicates would both run per write and autogenerate would drop one.
+# Same rule (id > 0) under an earlier migration's name: renamed, not duplicated.
 _RENAMES: Final[tuple[tuple[str, str, str], ...]] = (
     (
         "study_programs",
@@ -330,8 +326,7 @@ _CHECKS: Final[tuple[tuple[str, str, str], ...]] = (
 )
 
 
-# Counts rows a constraint would reject, before trying. NOT (condition) is NULL
-# where the condition is NULL, so those rows don't count - exactly a CHECK's rule.
+# NOT (condition) is NULL where the condition is NULL: such rows pass, as in a CHECK.
 _GUARD: Final[str] = """
     DO $$
     DECLARE
@@ -378,8 +373,7 @@ def upgrade() -> None:
 
     op.execute(_FIRST_LOGIN_FIX)
 
-    # All guards run before any creation: on failure the migration stops having
-    # added nothing, and reruns clean once the data is fixed.
+    # All guards run before any creation, so a failure leaves nothing half-added.
     for table, name, condition in _CHECKS:
         op.execute(_GUARD.format(table=table, name=name, condition=condition))
 
@@ -398,9 +392,4 @@ def downgrade() -> None:
         op.execute(f"ALTER TABLE {table} RENAME CONSTRAINT {new_name} TO {old_name}")
 
 
-# Deliberately omitted: ck_people_profile_image_url_format demands http(s) URLs
-# while app/core/storage.py writes relative paths, so every upload would violate
-# it - resolve that model/code conflict before adding it here.
-#
-# paid_staff_requires_iban was removed from the model together with this
-# migration: being paid and having an IBAN on file are separate things.
+# ck_people_profile_image_url_format is left out: uploads store relative paths.

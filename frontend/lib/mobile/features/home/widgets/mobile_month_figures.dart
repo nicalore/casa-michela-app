@@ -66,7 +66,7 @@ class MobileMonthFigures extends StatelessWidget
   }
 }
 
-// Presenze, Prenotazioni, Lezioni and Modalità, in pupilFigures order.
+// "Presenze", "Prenotazioni", "Lezioni" and "Modalità", in pupilFigures order.
 const List<IconData> _pupilIcons = [
   Icons.how_to_reg_rounded,
   Icons.bookmark_added_rounded,
@@ -90,7 +90,7 @@ class MobilePupilMonthFigures extends StatelessWidget
   }
 }
 
-// Iscritti, Collaboratori, Docenti and Studenti, in dashboardStats order.
+// "Iscritti", "Collaboratori", "Docenti" and "Studenti", in dashboardStats order.
 const List<IconData> _associationIcons = [
   Icons.badge_rounded,
   Icons.volunteer_activism_rounded,

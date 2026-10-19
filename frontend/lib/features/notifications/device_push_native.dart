@@ -144,7 +144,6 @@ Stream<PushNews> pushNews()
   return news.stream;
 }
 
-// The system page where this app's notifications are turned back on.
 Future<bool> openPushSettings() async
 {
   try

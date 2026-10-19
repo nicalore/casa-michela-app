@@ -63,7 +63,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   PersonItem? _person;
   MeResponse? _currentUser;
 
-  // Shared by Accesso and Dispositivi; recreated on each reload of the record.
+  // Shared by "Accesso" and "Dispositivi"; recreated on each reload of the record.
   PersonAccountController? _accountController;
 
   late String _currentFiscalCode;

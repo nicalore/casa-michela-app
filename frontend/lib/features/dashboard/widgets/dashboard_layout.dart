@@ -21,6 +21,7 @@ import '../../association/notices/notice_reading.dart';
 import '../../auth/models/me_response.dart';
 import '../../home/widgets/home_notices_section.dart';
 import '../../home/widgets/role_home_layout.dart' show homeBeside;
+import '../../lessons/models/activity_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/models/calendar_publication_item.dart';
 import '../../lessons/models/lesson_item.dart';
@@ -37,8 +38,7 @@ import 'dashboard_section_card.dart';
 import 'dashboard_stats_section.dart';
 import 'dashboard_today_section.dart';
 
-// Widget tests run with kIsWeb false and would otherwise only see the native
-// phone scaffold; this forces the web layout they target.
+// Widget tests run with kIsWeb false; this forces the web layout they target.
 @visibleForTesting
 bool debugAlwaysUseWebDashboard = false;
 
@@ -69,7 +69,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
 
   static const double _maxContentWidth = 1600;
 
-  // As the role homes: below it the cards stack.
+  // Below this width the cards stack.
   static const double _besideFrom = 1150;
   static const double _leftShare = 0.6;
   static const double _tasksFloor = 520;
@@ -221,6 +221,10 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
           .getCalendarPublications(dateFrom: today, dateTo: today)
           .then<Object?>((value) => value)
           .catchError((_) => null),
+      _apiService
+          .getCalendarActivities(dateFrom: today, dateTo: today)
+          .then<Object?>((value) => value)
+          .catchError((_) => null),
     ]);
 
     if (!mounted || request != _todayRequest)
@@ -242,6 +246,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
               availabilities: (results[2] as List<AvailabilityItem>?) ?? const [],
               presences: (results[3] as List<PresenceItem>?) ?? const [],
               lessons: (results[4] as List<LessonItem>?) ?? const [],
+              activities: (results[6] as List<ActivityItem>?) ?? const [],
               publications: (results[5] as List<CalendarPublicationItem>?) ?? const [],
             );
       _loadingToday = false;
@@ -276,8 +281,8 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     }
   }
 
-  // Native layout only; the web logout lives in AppTopBar. Local session
-  // cleanup happens only if the server call succeeds (TC-IAM-012 / RF-IAM-018).
+  // Native layout only; the web logout lives in AppTopBar.
+  // Local session cleanup happens only if the server call succeeds.
   Future<void> _logout() async
   {
     try
@@ -304,9 +309,8 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     context.go('/login');
   }
 
-  // kIsWeb is true in every browser, phones included: the web build always
-  // gets the absolute layout (index.html scales it for touch devices); the
-  // native layout is Android/iOS only.
+  // kIsWeb is true in phone browsers too: every web build gets the absolute layout.
+  // index.html scales it for touch devices; the native layout is Android/iOS only.
   @override
   Widget build(BuildContext context)
   {
@@ -413,7 +417,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  // Tall: as high as the room the column leaves it, scrolling inside; otherwise it grows up to five.
+  // Tall: fills the room the column leaves, scrolling inside; else it grows up to five.
   Widget _tasksCard({required bool tall})
   {
     return _staggered(

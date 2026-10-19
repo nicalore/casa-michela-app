@@ -60,10 +60,6 @@ abstract final class AppTheme
     colors: [chartViolet, chartNavy],
   );
 
-  // Ocean and violet lightened for the dark tooltip surface.
-  static const Color chartOceanOnDark = Color(0xFFA8D0FA);
-  static const Color chartVioletOnDark = Color(0xFFA97CD9);
-
   // Slices that stand for "none" or "other".
   static const Color chartGray = slate400;
   static const Color chartGrayLight = Color(0xFFCBD5E1);
@@ -78,8 +74,6 @@ abstract final class AppTheme
     Color(0xFF4E347D),
     Color(0xFF421B62),
   ];
-
-  // Legacy blue palette, still read by pages not yet on the trial colours.
 
   static const Color primary = Color(0xFF003C82);
   static const Color primaryHover = Color(0xFF004D99);

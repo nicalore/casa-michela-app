@@ -84,7 +84,6 @@ class CalendarLessonBoard extends StatelessWidget
 
   final Set<int> pastLessonIds;
 
-  // Lessons under way, each with the share of its hours gone by.
   final Map<int, double> elapsedLessons;
 
   final Map<String, LaneRoomLabel> roomByTeacher;

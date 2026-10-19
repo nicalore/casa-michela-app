@@ -205,8 +205,7 @@ def _affected_lessons(session: Session) -> list[Lesson]:
     return list(affected.values())
 
 
-# A just-reassigned collection is authoritative: rows a replacement discards
-# are not in session.deleted yet, so the database would give the old answer.
+# A just-reassigned collection wins: discarded rows are not in session.deleted yet.
 def _linked_bookings(
     session: Session,
     lesson: Lesson,

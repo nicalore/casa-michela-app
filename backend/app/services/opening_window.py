@@ -15,8 +15,7 @@ def _format_time(value: time) -> str:
     return f"{value.hour:02d}:{value.minute:02d}"
 
 
-# Hours must fall inside a single opening band of that day and mode. The
-# client enforces this too, but the rule belongs to the domain.
+# Hours must fall inside one opening band of that day and mode; the client checks too.
 async def assert_within_opening(
     session: AsyncSession,
     *,
@@ -36,7 +35,11 @@ async def assert_within_opening(
         .order_by(OpeningDay.start_time)
     )
 
-    openings = (await session.execute(stmt)).scalars().all()
+    openings = [
+        (opening.start_time, opening.end_time)
+        for opening in (await session.execute(stmt)).scalars()
+        if opening.start_time is not None and opening.end_time is not None
+    ]
 
     if not openings:
         raise HTTPException(
@@ -44,13 +47,12 @@ async def assert_within_opening(
             detail=_CLOSED_ERROR.format(mode=opening_mode_label(mode)),
         )
 
-    for opening in openings:
-        if opening.start_time <= start_time and end_time <= opening.end_time:
+    for opens, closes in openings:
+        if opens <= start_time and end_time <= closes:
             return
 
     windows = ", ".join(
-        f"{_format_time(opening.start_time)}-{_format_time(opening.end_time)}"
-        for opening in openings
+        f"{_format_time(opens)}-{_format_time(closes)}" for opens, closes in openings
     )
 
     raise HTTPException(

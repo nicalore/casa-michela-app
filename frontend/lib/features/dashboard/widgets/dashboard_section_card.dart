@@ -3,13 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/descender_room.dart';
 
 class DashboardSectionCard extends StatelessWidget
 {
   static const double radius = 28;
   static const EdgeInsets padding = EdgeInsets.fromLTRB(28, 24, 28, 26);
 
-  // The home cards, headed by a badge as the other pages' cards are.
   static const EdgeInsets badgedPadding = EdgeInsets.fromLTRB(22, 14, 22, 16);
 
   static const EdgeInsets _compactPadding = EdgeInsets.fromLTRB(22, 20, 22, 20);
@@ -83,15 +83,17 @@ class DashboardSectionCard extends StatelessWidget
         AppCardBadge(icon: icon, small: true),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-              color: AppTheme.trialOcean,
+          child: DescenderRoom(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+                color: AppTheme.trialOcean,
+              ),
             ),
           ),
         ),
@@ -145,7 +147,6 @@ class DashboardSectionCard extends StatelessWidget
   }
 }
 
-// The muted words on a home card's head, beside the title: the day, the month.
 class DashboardCardNote extends StatelessWidget
 {
   final String text;

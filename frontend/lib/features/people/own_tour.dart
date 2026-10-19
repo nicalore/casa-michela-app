@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
-// The teacher's own page.
 const String kTourOwnFace = 'profile.face';
 const String kTourOwnReport = 'profile.report';
 const String kTourOwnToOther = 'profile.tab.other';
@@ -13,7 +12,6 @@ const String kTourOwnToStats = 'profile.tab.stats';
 const String kTourOwnStats = 'profile.stats';
 const String kTourOwnFilters = 'profile.filters';
 
-// A student's own statistics: the mode and the period, lit as one.
 const String kTourOwnMode = 'profile.mode';
 const String kTourOwnPeriod = 'profile.period';
 
@@ -74,12 +72,10 @@ Future<bool> ownTourSeen(DesktopTour tour) async
   return taxCode == null || await isDesktopTourSeen(taxCode: taxCode, tour: tour);
 }
 
-// About the whole page, the report and the face: every owner's tour begins so. [face]: what the face step says.
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
+// Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
 List<DesktopTourStep> _pageSteps({required String face})
 {
   return [
-    // About the whole page: nothing lit, the card in the middle.
     const DesktopTourStep(text: _about),
     const DesktopTourStep(
       targets: [kTourOwnReport],
@@ -115,8 +111,6 @@ DesktopTourStep _click(String target, String text, String section)
   );
 }
 
-// A student who is no teacher: the page, the report, the face, then their statistics, as one tour.
-// [show]: turns the page to a section by name, when stepping back.
 DesktopTour studentOwnTour({required String title, required ValueChanged<String> show})
 {
   return DesktopTour(
@@ -152,7 +146,6 @@ DesktopTour studentOwnTour({required String title, required ValueChanged<String>
   );
 }
 
-// A parent who is neither teacher nor student: the page, the report, the face.
 DesktopTour parentOwnTour({required String title})
 {
   return DesktopTour(
@@ -163,7 +156,6 @@ DesktopTour parentOwnTour({required String title})
   );
 }
 
-// A psychologist, as a parent: the page, the report, the face.
 DesktopTour psychologistOwnTour({required String title})
 {
   return DesktopTour(
@@ -174,9 +166,6 @@ DesktopTour psychologistOwnTour({required String title})
   );
 }
 
-// The personal information, the report, the face, then «Altre informazioni» and the statistics, as one tour.
-// [title]: the page's name in the menu, the first name. [show]: turns the page to a section by name, when stepping back.
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
 DesktopTour teacherOwnTour({required String title, required ValueChanged<String> show})
 {
   return DesktopTour(
@@ -214,7 +203,6 @@ DesktopTour teacherOwnTour({required String title, required ValueChanged<String>
         pad: 6,
         radius: 43,
         undo: () => show('other'),
-        // The statistics are read once their section opens: the hole waits for them.
         present: () => _on('stats'),
         coming: () => _shown(kTourOwnToStats),
       ),

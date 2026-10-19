@@ -360,7 +360,7 @@ class _FadingEdges extends StatelessWidget
         final bool before = measured && pixels > scroll.position.minScrollExtent;
         final bool after = measured && pixels < scroll.position.maxScrollExtent;
 
-        // Always there, even with nothing to fade: put in later, it built the scroll view anew, back at its start.
+        // Always there: added later, it would rebuild the scroll view back at its start.
         return ShaderMask(
           blendMode: BlendMode.dstIn,
           shaderCallback: (bounds)

@@ -1,16 +1,5 @@
-# Realigns opening_days with weekly_templates.
-#
-# A one-off, for after the calendar has drifted: a standard band that changed its
-# start time used to leave its already materialised rows behind, and those rows
-# stayed in the calendar with no template declaring them.
-#
-# It rewrites the generated rows of every day from the templates, from the chosen
-# date on. Overrides - holidays, closures and extraordinary openings - stay where
-# they are: they do not come from the templates and take precedence. Teachers'
-# availabilities on days that come out closed are removed, as on any closure.
-#
-#     python -m scripts.reconcile_opening_days --dry-run
-#     python -m scripts.reconcile_opening_days
+# Realigns opening_days with weekly_templates; availabilities on closed days go.
+# Usage: python -m scripts.reconcile_opening_days [--from YYYY-MM-DD] [--dry-run]
 
 import argparse
 import asyncio
@@ -32,8 +21,7 @@ _MODES: Final[tuple[str, ...]] = ("presence", "online")
 _SnapshotRow = tuple[date, str, time | None, time | None]
 
 
-# Overrides are left out on purpose: the reconcile never touches them, so a
-# difference on one of those rows would be noise.
+# Overrides are left out: the reconcile never touches them.
 async def _snapshot(session: AsyncSession, date_from: date) -> list[_SnapshotRow]:
     rows = (
         await session.execute(

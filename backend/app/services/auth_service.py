@@ -1,6 +1,6 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Any, Final, TypedDict
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -130,6 +130,13 @@ class AccountLockedError(Exception):
         super().__init__(_ACCOUNT_LOCKED_ERROR.format(locked_until=locked_until))
 
 
+class _ResetEmail(TypedDict):
+    recipient: str
+    subject: str
+    heading: str
+    body: str
+
+
 class AuthService:
     def __init__(
         self,
@@ -209,7 +216,7 @@ class AuthService:
         self,
         account: Account,
         reset_link: str,
-    ) -> dict[str, str]:
+    ) -> _ResetEmail:
         return {
             "recipient": account.person.email,
             "subject": "Recupero password - Associazione Casa Michela",

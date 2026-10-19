@@ -4,7 +4,7 @@ import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import 'calendar_tour.dart';
 
-// The parents' and the students' Calendario page: the bands and the day are the teachers' own parts.
+// Parents' and students' Calendario: the bands and the day reuse the teachers' parts.
 const String kTourPupilCalendarCards = 'calendar.pupil.cards';
 const String kTourPupilCalendarLayout = 'calendar.pupil.layout';
 
@@ -17,11 +17,11 @@ const String _studentRole = 'STUDENT';
 const (String, int) _parentSeen = ('calendar.parent', 1);
 const (String, int) _studentSeen = ('calendar.student', 1);
 
-// The summary, the layouts and the click on a lesson, the first time a published band shows a lesson.
+// Summary, layouts and the lesson click, the first time a published band shows a lesson.
 const (String, int) _parentBandSeen = ('calendar.parent.published', 1);
 const (String, int) _studentBandSeen = ('calendar.student.published', 1);
 
-// The lesson's window, each part told the first time it shows; one mark for parents and students alike.
+// Lesson window parts, each told when first shown; one mark for parents and students alike.
 enum PupilLessonMark { details, teacher }
 
 const Map<PupilLessonMark, int> _markVersions = {
@@ -31,7 +31,7 @@ const Map<PupilLessonMark, int> _markVersions = {
 
 (String, int) _markSeen(PupilLessonMark mark) => ('calendar.pupil.lesson.${mark.name}', _markVersions[mark]!);
 
-// Whom the lesson lit is for: the student's own, or a son's or daughter's. Set by the page before a window opens.
+// Whom the lit lesson is for (own, son or daughter); set by the page before a window opens.
 ({bool self, String? gender}) pupilCalendarLessonFor = (self: false, gender: null);
 
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.right, DesktopTourSide.above];
@@ -112,7 +112,7 @@ String _summary({required List<String?> genders, required bool online})
   return 'della $presence $whose';
 }
 
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
+// Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
 List<DesktopTourStep> _bandSteps({required List<String?> genders, required bool online})
 {
   final (String, int) seen = _self ? _studentBandSeen : _parentBandSeen;
@@ -154,7 +154,7 @@ List<DesktopTourStep> _bandSteps({required List<String?> genders, required bool 
   ];
 }
 
-// [undo]: for the first step of the window inside the page's tour. [coming]: counted before the window is up.
+// [undo]: first window step inside the page's tour. [coming]: counted before the window is up.
 DesktopTourStep _lessonStep(PupilLessonMark mark, {VoidCallback? undo, bool Function()? coming})
 {
   final ({bool self, String? gender}) whom = pupilCalendarLessonFor;
@@ -196,9 +196,8 @@ Future<List<PupilLessonMark>> _unseenMarks(String taxCode) async
   ];
 }
 
-// The page's steps, the published band's and those of the lesson's window, as one tour: a click on the lesson opens
-// the window and the tour goes on inside it. Once the page's were seen, a published band never told comes alone the
-// first time one shows a lesson. [genders] and [online]: the summary's children and mode. Null when nothing is due.
+// Page, published band and lesson window as one tour (a click opens it); null if none is due.
+// [genders], [online]: the summary's children and mode.
 Future<DesktopTour?> pupilCalendarPageTour({required List<String?> genders, required bool online}) async
 {
   final String? taxCode = _reader;

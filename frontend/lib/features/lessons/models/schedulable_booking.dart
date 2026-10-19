@@ -144,7 +144,6 @@ String formatWindows(Iterable<(int, int)> windows)
   return [for (final window in windows) formatMinutesRange(window.$1, window.$2)].join(', ');
 }
 
-// One pupil, one mode: their stretches that day and every booking typed under them.
 bool _startsIn(PresenceItem stretch, int bandStart, int bandEnd)
 {
   final int start = minutesOfTimeOfDay(stretch.startTime);

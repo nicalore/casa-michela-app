@@ -83,7 +83,7 @@ class _TeacherSheetState extends State<_TeacherSheet>
     );
   }
 
-  // Saved at once, as on the desktop; taps while one is saving are dropped.
+  // Saved at once; taps while one is saving are dropped.
   Future<void> _toggle(OpinionPupil pupil) async
   {
     if (_saving)

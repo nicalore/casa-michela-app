@@ -40,8 +40,7 @@ def _service(db: DbSession) -> LessonRequestService:
     )
 
 
-# Booked: those days' evening reminders go, and the pupil and the parents hear of
-# the lessons someone else added, changed or cancelled, against those read before.
+# Withdraws those days' evening reminders; the family hears of others' lesson edits.
 async def _settle(
     db: DbSession,
     background: BackgroundTasks,
@@ -73,8 +72,7 @@ async def _settle(
     response_model=list[PresenceResponse],
     status_code=status.HTTP_201_CREATED,
 )
-# One transaction for a day's hours plus their lessons; /presences and
-# /bookings stay for single-row edits.
+# A day's hours and lessons in one transaction; /presences, /bookings edit one row.
 async def create_lesson_request(
     payload: LessonRequestCreate,
     identity: CurrentIdentity,

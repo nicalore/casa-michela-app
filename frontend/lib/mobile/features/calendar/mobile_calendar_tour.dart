@@ -162,9 +162,8 @@ Future<Set<LessonSheetMark>> unseenLessonSheetMarks(String taxCode) async
   };
 }
 
-// [main]: the page's own steps. [band]: the band whose call and first lesson are shown; null for none.
-// [sheetMarks]: the sheet's parts never seen, shown once the sheet is up, or at once when [opened].
-// [student] and [note]: what the sheet of the lesson lit is expected to show.
+// [band]: the band whose call and first lesson are shown; null for none.
+// [sheetMarks]: sheet parts never seen, shown once the sheet is up, or at once when [opened].
 MobileTour calendarTour({
   required bool main,
   required TimeBucket? band,
@@ -313,8 +312,8 @@ MobileTour calendarPickerTour()
   );
 }
 
-// The parents' page: the bands, the child picker when there is one, the day; then, once a band is published, the
-// children's summary, the layouts and a lesson, its details and its teacher. Bump a version on every change.
+// Parents' page: bands, child picker, day; once a band is published, summary, layouts, a lesson.
+// Bump a version on every change to that tour.
 const String _parentSlug = 'calendar.parent';
 const int _parentVersion = 1;
 
@@ -391,12 +390,8 @@ Future<Set<PupilLessonSheetMark>> unseenPupilLessonSheetMarks(String taxCode) as
   };
 }
 
-// [main]: the page's own steps; [genders]: every child's, when the page shows one at a time with a picker.
-// [band]: the published band whose summary, layouts and first lesson are shown; null for none. [shownGenders]: the
-// children whose summary shows; [online]: theirs is online only; [lessonGender]: the child of the lesson lit.
-// [layouts]: the layouts' sheet up and still; [openLayouts], [closeLayouts] put it back when stepping back.
-// [sheetMarks]: the lesson sheet's parts never seen, shown once it is up, or at once when [opened].
-// [self]: a student's own page, one person and no children.
+// [genders]: every child's, when one shows at a time; [band]: the published band lit, or null.
+// [openLayouts], [closeLayouts] put the layouts' sheet back when stepping back.
 MobileTour pupilCalendarTour({
   required bool main,
   required List<String?>? genders,
@@ -432,7 +427,7 @@ MobileTour pupilCalendarTour({
     final String text = _pupilSheetText(mark, gender: lessonGender, self: self);
     final (String, int) seen = _pupilSheetSeen(mark);
 
-    // Each step on top, over the sheet's header: the cards show whole and the banner stays put from one to the next.
+    // Each step on top, over the sheet's header: cards show whole, the banner stays put.
     return switch (mark)
     {
       PupilLessonSheetMark.details => MobileTourStep(

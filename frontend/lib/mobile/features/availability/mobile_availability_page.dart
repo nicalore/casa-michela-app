@@ -115,7 +115,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
     return day != null && startOfWeek(day).isAfter(_monday) && isNextWeekUnlocked(_now) ? 1 : 0;
   }
 
-  // Already open: the week asked for, read again in full.
+  // Already open: the notified week, read again in full.
   void _jump()
   {
     final DateTime? day = WeekJumps.availability.take();

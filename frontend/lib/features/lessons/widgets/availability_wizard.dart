@@ -126,7 +126,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
   bool _isSaving = false;
 
-  // A tour already asked for the next frame: changes in between ask no more.
+  // Set once a tour start is scheduled for the next frame; later changes add none.
   bool _toursAsked = false;
 
   int _cardIndex = 0;
@@ -473,7 +473,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     super.dispose();
   }
 
-  // The switch's step moves on as soon as a «Sì» gives hours, not after the wait for tours.
+  // The switch step moves on as soon as a "Sì" gives hours, not after the wait for tours.
   void _tellHours()
   {
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -485,8 +485,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     });
   }
 
-  // Each once, judged on what the frame shows: the dates, the first card with hours to give, then the parts
-  // that showed up only later. One at a time, in that order.
+  // Each tour once, judged on what the frame shows; one at a time, in order.
   void _startTours()
   {
     if (!_isOwn || !mounted)
@@ -527,7 +526,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
         return;
       }
 
-      // The cursors, «Aggiungi orario» and the bin, each as it first shows up.
+      // The cursors, "Aggiungi orario" and the bin, each as it first shows up.
       final DesktopTour? late = await availabilityLateWizardTour();
 
       if (late != null && mounted)

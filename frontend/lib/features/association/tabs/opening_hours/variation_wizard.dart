@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/field_limits.dart';
 import '../../../../core/utils/error_message.dart';
+import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../services/api_service.dart';
@@ -17,7 +18,9 @@ import '../../../../shared/widgets/snackbar.dart';
 import '../../../lessons/utils/opening_window.dart';
 import '../../../lessons/widgets/lessons_form_fields.dart';
 import '../../../people/edit/widgets/person_edit_guide.dart';
+import '../../models/opening_day_item.dart';
 import '../../models/weekly_template_item.dart';
+import 'begun_hours.dart';
 import 'calendar_bounds.dart';
 import 'combined_hours.dart';
 import 'hours_date_field.dart';
@@ -39,6 +42,9 @@ class VariationWizard extends StatefulWidget
 {
   final List<WeeklyTemplateItem> standardTemplates;
 
+  // Today's hours in both modes, to refuse changing a band already under way.
+  final List<OpeningDayItem> todayRows;
+
   final Future<void> Function() onSaved;
 
   final CombinedVariation? initial;
@@ -46,6 +52,7 @@ class VariationWizard extends StatefulWidget
   const VariationWizard({
     super.key,
     required this.standardTemplates,
+    this.todayRows = const [],
     required this.onSaved,
     this.initial,
   });
@@ -268,9 +275,11 @@ class _VariationWizardState extends State<VariationWizard>
       return false;
     }
 
-    if (parseDateString(fromDate).isBefore(kAssociationFoundedOn))
+    final now = romeNow();
+
+    if (parseDateString(fromDate).isBefore(DateTime(now.year, now.month, now.day)))
     {
-      CustomSnackBar.show(context: context, message: kBeforeFoundationError, isError: true);
+      CustomSnackBar.show(context: context, message: kPastDaysError, isError: true);
       return false;
     }
 
@@ -292,20 +301,58 @@ class _VariationWizardState extends State<VariationWizard>
       return false;
     }
 
-    if (_variedModes.isNotEmpty || _releasedModes.isNotEmpty)
+    if (_variedModes.isEmpty && _releasedModes.isEmpty)
     {
-      return true;
+      CustomSnackBar.show(
+        context: context,
+        message: _dates.length == 1
+            ? 'Questi sono già gli orari standard del giorno scelto.'
+            : 'Questi sono già gli orari standard di tutti i giorni scelti.',
+        isError: true,
+      );
+
+      return false;
     }
 
-    CustomSnackBar.show(
-      context: context,
-      message: _dates.length == 1
-          ? 'Questi sono già gli orari standard del giorno scelto.'
-          : 'Questi sono già gli orari standard di tutti i giorni scelti.',
-      isError: true,
-    );
+    if (_begunChange() case (final mode, final band))
+    {
+      CustomSnackBar.show(context: context, message: begunHoursError(mode, band), isError: true);
 
-    return false;
+      return false;
+    }
+
+    return true;
+  }
+
+  // Today's first band the save would change although its hours have begun.
+  (String, TimeBucket)? _begunChange()
+  {
+    final now = romeNow();
+    final today = DateTime(now.year, now.month, now.day);
+    final dates = _dates;
+    final varied = _variedModes;
+    final restorations = _restorations(dates.first, dates.last);
+
+    for (final mode in kHoursModes)
+    {
+      final written = dates.any((day) => isSameDate(day, today)) ? varied[mode] : null;
+      final restored = restorations.any((row) => row.$1 == mode && !today.isBefore(row.$2) && !today.isAfter(row.$3));
+      final next = written ?? (restored ? standardHoursOn(widget.standardTemplates, today.weekday, mode) : null);
+
+      if (next == null)
+      {
+        continue;
+      }
+
+      final band = begunBandChanged(today, hoursOfRows(widget.todayRows, mode), next, now);
+
+      if (band != null)
+      {
+        return (mode, band);
+      }
+    }
+
+    return null;
   }
 
   // Days the edited variation stops covering: all for a released mode, else the trimmed ends.
@@ -403,7 +450,7 @@ class _VariationWizardState extends State<VariationWizard>
     final written = <DateTime>{};
     final errors = <String>[];
 
-    // One call per day: delete-then-create would briefly close it, dropping its lessons and calendar.
+    // One call per day: delete-then-create would close it briefly, dropping lessons and calendar.
     outer:
     for (final date in dates)
     {

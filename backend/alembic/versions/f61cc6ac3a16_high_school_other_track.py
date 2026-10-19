@@ -32,8 +32,7 @@ _FIXED_TRACKS: Final[str] = (
 
 
 def _swap_enum(values: tuple[str, ...], old_value: str, new_value: str) -> None:
-    # Postgres cannot drop an enum value, and a value added in this
-    # transaction cannot be used before it commits: the type is rebuilt.
+    # Rebuilt: Postgres cannot drop enum values or use one added in this transaction.
     op.execute(f"ALTER TYPE {_ENUM} RENAME TO {_RETIRED_ENUM}")
 
     labels = ", ".join(f"'{value}'" for value in values)
@@ -82,8 +81,7 @@ def downgrade() -> None:
 
     _swap_enum(("BIENNIO", "TRIENNIO", "QUADRIENNALE"), "OTHER", "QUADRIENNALE")
 
-    # Fails if an OTHER programme spans anything but 1-4: QUADRIENNALE cannot
-    # hold it, and no other track can either.
+    # Fails if an OTHER programme spans anything but 1-4: no track can hold it.
     op.create_check_constraint(
         op.f(f"ck_{_TABLE}_{_TRACK_YEARS_MATCH}"),
         _TABLE,

@@ -50,7 +50,6 @@ from app.services.enrollment_spans import (
     enrolled_throughout,
 )
 
-# A person's own month; desk-wide figures live in app/api/statistics.py.
 router = APIRouter(prefix="/home", tags=["home"])
 
 _MINUTES_PER_HOUR: Final[int] = 60
@@ -251,7 +250,6 @@ async def _pupil_figures(
 
         return round(presences.get(tax_code, 0) / (days / 7), 1) if days else 0.0
 
-    # Still to come: from tomorrow to the end of the month.
     booked = await presence_days(month.until, month.end)
 
     lessons = await db.execute(

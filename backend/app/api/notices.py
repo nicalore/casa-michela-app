@@ -143,7 +143,7 @@ async def home_notices(
     ]
 
 
-# Everything sent to the role worn, for its own Associazione page.
+# Everything sent to the role worn, for its own "Associazione" page.
 @router.get("/received", response_model=list[NoticeReceivedResponse])
 async def received_notices(
     identity: CurrentIdentity,

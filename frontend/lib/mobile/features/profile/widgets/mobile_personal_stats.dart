@@ -21,6 +21,7 @@ import '../../../../features/people/tabs/person_personal_stats_tab.dart'
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/people/tabs/statistics/widgets/stats_data.dart';
 import '../../../../services/api_service.dart';
+import '../../../../shared/widgets/descender_room.dart';
 import '../../../layout/mobile_breakpoints.dart';
 import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
@@ -39,7 +40,7 @@ const double _badgeSlot = 72;
 const EdgeInsets _tourChipInflate = EdgeInsets.all(5);
 const double _tourChipRadius = 21;
 
-// Room for "10°".
+// Room for "10" and a degree sign.
 const double _positionSlot = 30;
 
 const double _rankingsGap = 12;
@@ -642,15 +643,17 @@ class _RankRow extends StatelessWidget
               ),
             ),
             Expanded(
-              child: Text(
-                entry.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1.3,
-                  color: AppTheme.trialInk,
+              child: DescenderRoom(
+                child: Text(
+                  entry.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                    color: AppTheme.trialInk,
+                  ),
                 ),
               ),
             ),
@@ -796,7 +799,7 @@ class _SectionTitle extends StatelessWidget
   }
 }
 
-// Worded and coloured as on the desktop.
+// Worded as on the desktop.
 class _Shortfall extends StatelessWidget
 {
   final String text;

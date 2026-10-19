@@ -157,29 +157,18 @@ MobileDayBand _bandFrom(
   );
 }
 
-// The mode is left to the detail, so the title never repeats it.
-String _convenedTitle(TeacherBandCall call, {required bool feminine})
-{
-  if (inBuildingSpan(call) != null)
-  {
-    return convocationTitle(call, feminine: feminine);
-  }
-
-  final ModeSpan? online = call.byMode.firstOrNull;
-
-  return online == null ? kLessonLead : '$kLessonLead ${homeLineRange(online.startMinutes, online.endMinutes)}';
-}
-
 MobileLineEntry _convenedEntry(TeacherBandCall call, {required bool feminine})
 {
+  final List<String> modes = [for (final span in call.byMode) span.mode];
+
   final String detail = [
-    for (final span in call.byMode) modeLabel(span.mode),
+    for (final mode in modes) modeLabel(mode),
     convocationSummary(call),
   ].join(' · ');
 
   return MobileLineEntry(
-    _convenedTitle(call, feminine: feminine),
-    mode: inBuildingSpan(call) == null ? kOnlineMode : kPresenceMode,
+    convocationTitle(call, feminine: feminine),
+    mode: modes.contains(kPresenceMode) ? kPresenceMode : kOnlineMode,
     detail: detail,
   );
 }

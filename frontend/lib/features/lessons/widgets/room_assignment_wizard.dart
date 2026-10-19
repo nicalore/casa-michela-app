@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_check_mark.dart' show kPickedSurface;
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -206,27 +207,31 @@ class _TeacherCardState extends State<_TeacherCard>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  lane.teacher.fullName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                    color: AppTheme.trialOcean,
+                DescenderRoom(
+                  child: Text(
+                    lane.teacher.fullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      color: AppTheme.trialOcean,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '$hours · ${lessons == 1 ? '1 lezione' : '$lessons lezioni'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                    color: AppTheme.trialMutedText,
+                DescenderRoom(
+                  child: Text(
+                    '$hours · ${lessons == 1 ? '1 lezione' : '$lessons lezioni'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                      color: AppTheme.trialMutedText,
+                    ),
                   ),
                 ),
               ],
@@ -378,15 +383,17 @@ class _SupervisorCardState extends State<_SupervisorCard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      widget.lane.teacher.fullName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                        color: AppTheme.trialOcean,
+                    DescenderRoom(
+                      child: Text(
+                        widget.lane.teacher.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                          color: AppTheme.trialOcean,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -411,7 +418,7 @@ typedef _Bar = ({double start, double end, double alpha});
 
 double _lerp(double from, double to, double t) => from + (to - from) * t;
 
-// New spans tween from the old span they overlap most; unmatched ones open or close at their midpoint.
+// New spans tween from the old one they overlap most; unmatched ones open or close at the middle.
 List<_Bar> _barsBetween(List<(int, int)> from, List<(int, int)> to, double t)
 {
   final bars = <_Bar>[];
@@ -1068,15 +1075,17 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            room.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-              color: AppTheme.trialOcean,
+          child: DescenderRoom(
+            child: Text(
+              room.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+                color: AppTheme.trialOcean,
+              ),
             ),
           ),
         ),
@@ -1128,7 +1137,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildSideTitle('Docenti convocati', trailing: waiting.isEmpty ? null : '${waiting.length}'),
+        _buildSideTitle('Docenti in sede', trailing: waiting.isEmpty ? null : '${waiting.length}'),
         _DropBox(
           accepts: (carried) => carried.fromRoomId != null,
           onAccept: (carried) => _put(carried, null),

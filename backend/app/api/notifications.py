@@ -29,8 +29,7 @@ from app.services.notifications import dismissals, withdraw
 
 _NOTIFICATION_NOT_FOUND_ERROR: Final[str] = "Notifica non trovata."
 
-# Once read they have said all they had to: a new device's sign-in, and a rating
-# reminder, whose reader is taken to the rating or chose to let it be.
+# Withdrawn on read: the rating reminder opens the rating, new devices need nothing.
 _GONE_ONCE_READ: Final[frozenset[NotificationKindEnum]] = frozenset(
     {NotificationKindEnum.NEW_DEVICE, NotificationKindEnum.RATING_REMINDER},
 )
@@ -38,7 +37,6 @@ _GONE_ONCE_READ: Final[frozenset[NotificationKindEnum]] = frozenset(
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
-# Whom each notice announced was sent to, by role.
 async def _notice_recipients(
     db: DbSession,
     rows: Sequence[Notification],
@@ -55,7 +53,6 @@ async def _notice_recipients(
     return dict(pairs.tuples().all())
 
 
-# Newest first: the home card shows them all, until withdrawn or expired.
 @router.get("")
 async def my_notifications(
     current_account: CurrentAccount,

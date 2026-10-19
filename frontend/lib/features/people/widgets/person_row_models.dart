@@ -12,7 +12,7 @@ class MembershipRowData
   final TextEditingController yearCtrl;
   final TextEditingController dateCtrl;
 
-  // Carried along untouched: hard-coding 'NO' on save silently readmitted expelled people.
+  // Keep the stored revocation: writing 'NO' on save would readmit expelled people.
   final String revocation;
 
   MembershipRowData({

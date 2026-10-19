@@ -1,4 +1,3 @@
-// Every word the notices pages show, in one place.
 const String kNoticeEyebrow = 'Comunicazione';
 const String kNewNoticeTitle = 'Nuova comunicazione';
 const String kEditNoticeTitle = 'Modifica comunicazione';

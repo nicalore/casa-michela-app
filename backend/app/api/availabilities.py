@@ -14,6 +14,7 @@ from app.schemas.availability import (
     AvailabilityResponse,
     AvailabilityUpdate,
 )
+from app.schemas.opening_day import OpeningModeEnum
 from app.schemas.person import PersonOption
 from app.services import push
 from app.services.availability_notifications import (
@@ -41,7 +42,7 @@ def _to_response(
     return AvailabilityResponse(
         id=availability.id,
         date=availability.date,
-        mode=availability.mode,
+        mode=OpeningModeEnum(availability.mode),
         start_time=availability.start_time,
         end_time=availability.end_time,
         teacher_tax_code=availability.teacher_tax_code,
@@ -81,8 +82,7 @@ async def list_availabilities(
     return await _to_responses(db, availabilities)
 
 
-# Given for that day: the evening's reminder about it goes, and the teacher hears of
-# what someone else wrote for them.
+# Withdraws that day's evening reminder; the teacher hears of others' edits.
 async def _settle(
     db: DbSession,
     background: BackgroundTasks,

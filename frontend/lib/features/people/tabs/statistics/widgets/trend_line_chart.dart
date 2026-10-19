@@ -9,8 +9,7 @@ import 'chart_common.dart';
 import 'chart_value_popup.dart';
 import 'stats_constants.dart';
 
-// Shared by the hit-testing widget and the painter: if these drift apart the
-// hover targets no longer sit on the drawn points.
+// Shared by the hit testing and the painter: if they drift, hover targets leave the points.
 const double _chartPaddingLeft = 40.0;
 const double _chartPaddingBottom = 30.0;
 
@@ -158,8 +157,7 @@ class _TrendLineChartPainter extends CustomPainter
     return '${monthAbbreviations[(item.month ?? 1) - 1]}\n${item.year}';
   }
 
-  // The last point is always labelled; a stride label too close to it is
-  // dropped rather than letting the two overlap.
+  // The last point is always labelled; a stride label too close to it is dropped.
   Set<int> _visibleLabelIndices(double stepX)
   {
     if (data.length <= 1)

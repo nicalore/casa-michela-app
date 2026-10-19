@@ -137,8 +137,7 @@ class DashboardStatsSection extends StatelessWidget
   static const double fourInARowFrom = 670;
   static const double twoInARowFrom = 300;
 
-  // A strip's four tiles are narrower: "COLLABORATORI" needs about a hundred
-  // pixels inside each, and each has twenty-three of padding and border.
+  // "COLLABORATORI" needs about 100 px per tile plus 23 of padding and border.
   static const double stripOfFourFrom = 534;
 
   static int columnsForWidth(double width)
@@ -164,7 +163,7 @@ class DashboardStatsSection extends StatelessWidget
   // Strip sets four small tiles in a row, figures written large.
   final bool strip;
 
-  // Set by the page: a LayoutBuilder here cannot report a height inside a row of equal-height cards.
+  // Set by the page: a LayoutBuilder cannot report a height inside equal-height card rows.
   final int columns;
 
   final double minHeight;

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../models/activity_item.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
@@ -237,7 +238,7 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
                     children: [
                       Row(
                         children: [
-                          // The icon goes first: on a sliver of a block it would push past the edge.
+                          // The icon goes first: on a sliver it would push past the edge.
                           if (!_isNarrow) ...[
                             Icon(kActivityIcon, size: 12, color: kActivityAccent),
                             const SizedBox(width: 4),
@@ -255,11 +256,13 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        _scheduled.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: _nameStyle,
+                      DescenderRoom(
+                        child: Text(
+                          _scheduled.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: _nameStyle,
+                        ),
                       ),
                     ],
                   ),

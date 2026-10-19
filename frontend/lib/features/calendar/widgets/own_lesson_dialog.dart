@@ -24,7 +24,6 @@ import '../../lessons/widgets/calendar_lesson_block.dart' show lessonAbout, less
 import '../../lessons/widgets/person_avatar.dart';
 import '../calendar_tour.dart';
 import '../pupil_calendar_tour.dart';
-// import 'own_lesson_block.dart' show kSharedLessonIcon;
 import 'teacher_note_dialog.dart';
 import '../../people/models/person_item.dart';
 import '../../people/models/school_enrollment_item.dart';
@@ -50,8 +49,6 @@ const double _rowPadding = 11;
 
 // Read off the window: a LayoutBuilder cannot sit inside the IntrinsicHeight that levels the cards.
 const double _twoColumnsFromWindow = 1160;
-
-// const double _voiceGap = 18;
 
 const double _headingGap = 14;
 
@@ -356,34 +353,6 @@ class _OwnLessonDialog extends StatelessWidget
     }
   }
 
-  // Widget _buildSharedLine()
-  // {
-  //   return Padding(
-  //     padding: const EdgeInsets.only(top: _voiceGap),
-  //     child: Row(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         const Padding(
-  //           padding: EdgeInsets.only(top: 2),
-  //           child: Icon(kSharedLessonIcon, size: 18, color: AppTheme.trialTealDeep),
-  //         ),
-  //         const SizedBox(width: 8),
-  //         Expanded(
-  //           child: Text(
-  //             sharedLessonSentence(lesson),
-  //             style: GoogleFonts.plusJakartaSans(
-  //               fontSize: 14.5,
-  //               fontWeight: FontWeight.w600,
-  //               height: 1.4,
-  //               color: AppTheme.trialInk,
-  //             ),
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   Widget _buildNote(String text)
   {
     return Text(
@@ -409,8 +378,7 @@ class _OwnLessonDialog extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             LessonVoicesTable(voices: lessonVoicesOf(lesson, ministrySubjects, where: _byStudent)),
-            // Co-presence hidden from students and parents for now.
-            // if (_byStudent && lesson.isShared) _buildSharedLine(),
+            // Co-presence (lesson.isShared) is not shown to students and parents.
           ],
         ),
       ),
@@ -840,7 +808,6 @@ class _NotesColumnState extends State<_NotesColumn>
   }
 }
 
-// A card of the lesson's window: its heading over the body.
 class LessonDialogSection extends StatelessWidget
 {
   // Null for a card alone under the title, which already says what it is.
@@ -879,7 +846,6 @@ class LessonDialogSection extends StatelessWidget
   }
 }
 
-// Labels in a column of their own, each value beside its label.
 class LessonVoicesTable extends StatelessWidget
 {
   final List<LessonVoice> voices;

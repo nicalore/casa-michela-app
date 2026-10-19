@@ -14,7 +14,7 @@ import '../../../shared/widgets/mobile_sheet.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_subjects_tour.dart';
 
-// Past this many programmes the list gets a search field, as on the desktop.
+// Past this many programmes the list gets a search field.
 const int _searchFrom = 12;
 
 const EdgeInsets _tourListInflate = EdgeInsets.fromLTRB(8, -8, 8, 4);
@@ -30,7 +30,7 @@ String programsSummary(int chosen, int total)
   return chosen == total ? 'Tutti i percorsi ($total)' : '$chosen di $total percorsi';
 }
 
-// Null when dismissed; confirming none gives a held discipline up, as on the desktop.
+// Null when dismissed; confirming none gives a held discipline up.
 // [taxCode] lets the sheet's tour start once it is up.
 Future<Set<int>?> showMobileProgramsSheet({
   required BuildContext context,
@@ -126,7 +126,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
     super.dispose();
   }
 
-  // The track is part of the key, or a course's biennio and triennio would merge.
+  // The track is part of the key, or a course's "biennio" and "triennio" would merge.
   Map<String, List<StudyProgramItem>> get _groups
   {
     final String query = _query.toLowerCase();
@@ -146,6 +146,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
         track: program.highSchoolTrack,
         minYear: program.minYear,
         maxYear: program.maxYear,
+        namesHighSchool: false,
       );
 
       groups.putIfAbsent(title, () => []).add(program);
@@ -275,13 +276,16 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
         if (groups.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 24),
-            child: Text(
-              'Nessun percorso trovato.',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w500,
-                fontStyle: FontStyle.italic,
-                color: MobilePalette.mutedText,
+            child: Center(
+              child: Text(
+                'Nessun percorso trovato.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w500,
+                  fontStyle: FontStyle.italic,
+                  color: MobilePalette.mutedText,
+                ),
               ),
             ),
           )

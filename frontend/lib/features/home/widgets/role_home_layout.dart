@@ -1,12 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/corner_glow.dart';
 import '../../../shared/widgets/desktop_tour.dart';
@@ -605,7 +605,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
                         ? const Center(
                             child: PageTransitionItem(
                               slot: PageTransitionItem.header,
-                              child: _ComingSoon(),
+                              child: AppEmptyCard(icon: Icons.construction_rounded, message: 'In arrivo'),
                             ),
                           )
                         : PageTransitionScrollView(
@@ -646,37 +646,4 @@ Widget homeBeside({
       ],
     ),
   );
-}
-
-class _ComingSoon extends StatelessWidget
-{
-  const _ComingSoon();
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 26),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.construction_rounded, size: 30, color: AppTheme.trialTealDeep),
-          const SizedBox(width: 16),
-          Text(
-            'In arrivo',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.trialTealDeep,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

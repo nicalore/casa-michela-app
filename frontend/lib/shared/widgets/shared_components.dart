@@ -141,6 +141,5 @@ class _FadeHoverIconButtonState extends State<FadeHoverIconButton>
   }
 }
 
-// Transitional alias: call sites can migrate to FadeHoverIconButton, then
-// this can be deleted.
+// Transitional alias: migrate call sites to FadeHoverIconButton, then delete it.
 typedef StaticHoverIconButton = FadeHoverIconButton;

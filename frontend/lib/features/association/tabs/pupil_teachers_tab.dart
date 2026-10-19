@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -16,6 +17,7 @@ import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
+import '../../lessons/utils/booking_wizard_strings.dart' show kNoTeachers;
 import '../../lessons/widgets/person_avatar.dart';
 import '../../people/models/person_item.dart';
 import '../../people/models/teacher_subject_item.dart';
@@ -274,6 +276,12 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
     return TabContent(
       header: _buildHeader(teachers.length),
       bodyTour: kTourAssociationTeachers,
+      empty: emptyListCard(
+        shown: teachers.length,
+        total: _teachers.length,
+        icon: Icons.co_present_rounded,
+        none: kNoTeachers,
+      ),
       body: EntityCardGrid(
         cardWidth: TeacherCard.width,
         children: [

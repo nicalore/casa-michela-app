@@ -76,12 +76,13 @@ def _named(names: list[str]) -> str:
 # A parent's children by name; a pupil booking alone stands for themself.
 def _pupils_of(account: Account) -> dict[str, str]:
     person = account.person
+    parent = person.parent_profile
     children = RoleService.pupil_children_tax_codes(person)
 
-    if children:
+    if parent is not None and children:
         return {
             row.child_tax_code: row.child.first_name
-            for row in person.parent_profile.children_relationships
+            for row in parent.children_relationships
             if row.child_tax_code in children
         }
 

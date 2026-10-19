@@ -6,9 +6,11 @@ import '../../../../features/association/association_strings.dart';
 import '../../../../features/association/models/association_subject_item.dart';
 import '../../../../features/association/models/subject_taxonomy.dart';
 import '../../../../features/association/tabs/pupil_subjects_tab.dart'
-    show kMissingSubjectAction, kSubjectsSearchHint, subjectsFoundLabel;
+    show kMissingSubjectAction, kSubjectsSearchHint;
+import '../../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_dismiss_button.dart';
+import '../../../shared/widgets/mobile_empty_card.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_load_switcher.dart';
 import '../../../shared/widgets/mobile_nav_sheet.dart';
@@ -39,7 +41,6 @@ class MobileCatalogueTab extends StatefulWidget
 {
   final MobileCatalogue catalogue;
 
-  // The report button's, for a tour.
   final String? tourReport;
 
   final double margin;
@@ -84,14 +85,18 @@ class _MobileCatalogueTabState extends State<MobileCatalogueTab>
 
     if (_catalogue.isEmpty)
     {
-      return MobileAssociationStatus(subjectsFoundLabel(0));
+      return Center(
+        child: MobileEmptyCard(icon: Icons.auto_stories_rounded, message: kNoSubjects, tablet: widget.tablet),
+      );
     }
 
     final List<MobileSubjectGroup> groups = _catalogue.groups;
 
     if (groups.isEmpty)
     {
-      return const MobileAssociationStatus(kMobileNoSearchMatch);
+      return Center(
+        child: MobileEmptyCard(icon: Icons.search_off_rounded, message: kNoSearchMatch, tablet: widget.tablet),
+      );
     }
 
     return _Groups(
@@ -115,22 +120,21 @@ class _MobileCatalogueTabState extends State<MobileCatalogueTab>
             color: AppTheme.trialGold,
             backgroundColor: AppTheme.trialDeepWater,
             onRefresh: () => _catalogue.load(quiet: true),
-            child: ListView(
-              clipBehavior: Clip.none,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(widget.margin, _topRoom, widget.margin, bottom),
-              children: [
-                MobileSearchField(
-                  controller: _catalogue.search,
-                  hintText: kSubjectsSearchHint,
-                  onChanged: (_) => _catalogue.searched(),
-                ),
-                SizedBox(height: widget.tablet ? 30 : 26),
-                ListenableBuilder(
-                  listenable: _catalogue,
-                  builder: (context, _) => _buildBody(),
-                ),
-              ],
+            child: ListenableBuilder(
+              listenable: _catalogue,
+              builder: (context, _) => MobileEmptyScroll(
+                padding: EdgeInsets.fromLTRB(widget.margin, _topRoom, widget.margin, bottom),
+                head: [
+                  MobileSearchField(
+                    controller: _catalogue.search,
+                    hintText: kSubjectsSearchHint,
+                    onChanged: (_) => _catalogue.searched(),
+                  ),
+                  SizedBox(height: widget.tablet ? 30 : 26),
+                ],
+                body: _buildBody(),
+                fill: !_catalogue.loading && !_catalogue.failed && _catalogue.groups.isEmpty,
+              ),
             ),
           ),
         ),

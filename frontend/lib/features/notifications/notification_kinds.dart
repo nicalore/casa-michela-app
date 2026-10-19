@@ -4,7 +4,7 @@ import '../../services/api_service.dart';
 import 'notification_item.dart';
 import 'notification_strings.dart';
 
-// The account's kinds and whether each is on; read on every visit, another device may change them.
+// Per-account kind switches; read on every visit, as another device may change them.
 class NotificationKinds extends ChangeNotifier
 {
   static final NotificationKinds instance = NotificationKinds._();

@@ -76,8 +76,7 @@ class _SubjectPickRowState extends State<SubjectPickRow>
           // Fixed height so ticking never reflows the list.
           height: widget.leading == null ? rowHeight : rowHeightWithAvatar,
           decoration: BoxDecoration(
-            // Transparent of this colour, not Colors.transparent (black at zero
-            // opacity), so the fade never passes through grey.
+            // This colour at zero alpha, not Colors.transparent: the fade avoids grey.
             color: widget.selected ? kPickedSurface : kPickedSurface.withValues(alpha: 0),
             borderRadius: BorderRadius.circular(16),
             // Border always present (transparent when idle) so hover does not shift layout.

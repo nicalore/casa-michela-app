@@ -1,9 +1,5 @@
-# Prints a fresh VAPID pair to paste into backend/.env.
-#
-#     python -m scripts.generate_vapid_keys
-#
-# Browsers tie their subscriptions to the public key: replacing a pair in use
-# silences every browser until it subscribes again.
+# Prints a fresh VAPID pair for backend/.env: python -m scripts.generate_vapid_keys
+# Replacing a pair in use silences every browser until it subscribes again.
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec

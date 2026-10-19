@@ -265,13 +265,16 @@ class _SchoolDetailsDialogContent extends StatelessWidget
             children: [
               _buildFieldLabel('Percorsi di studio attivi', first: true),
               if (school.studyPrograms.isEmpty)
-                Text(
-                  'Nessun percorso associato a questa scuola.',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.trialMutedText,
-                    fontStyle: FontStyle.italic,
+                Center(
+                  child: Text(
+                    'Nessun percorso associato a questa scuola.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.trialMutedText,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 )
               else
@@ -387,13 +390,16 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
             children: [
               _buildFieldLabel('Materie ministeriali incluse', first: true),
               if (program.ministrySubjects.isEmpty)
-                Text(
-                  'Nessuna materia associata.',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.trialMutedText,
-                    fontStyle: FontStyle.italic,
+                Center(
+                  child: Text(
+                    'Nessuna materia associata.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.trialMutedText,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 )
               else

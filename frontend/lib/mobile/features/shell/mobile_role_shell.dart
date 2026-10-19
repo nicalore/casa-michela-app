@@ -170,7 +170,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
     }
   }
 
-  // As a section chosen from the menu, without the menu: the new page sinks into place as it would close.
+  // As a section picked from the menu, without the menu: the new page sinks in as it would close.
   Future<void> _dropInto(String slug) async
   {
     final String role = _role!;
@@ -557,7 +557,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
         final String? arrivingSlug = _arrivingSlug;
 
         return Scaffold(
-          // Fields live in sheets above the keyboard; resizing relaid the page every frame.
+          // Fields live in sheets above the keyboard; resizing would lay out the page every frame.
           resizeToAvoidBottomInset: false,
           body: Stack(
             fit: StackFit.expand,

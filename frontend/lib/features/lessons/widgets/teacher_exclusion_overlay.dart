@@ -4,8 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import 'calendar_lesson_block.dart';
 
-// Exclude/readmit control laid over a teacher's avatar; meant for a
-// Positioned.fill inside the caller's Stack.
+// Exclude/readmit control over a teacher's avatar, for a Positioned.fill in the caller's Stack.
 class TeacherExclusionOverlay extends StatefulWidget
 {
   final bool isExcluded;

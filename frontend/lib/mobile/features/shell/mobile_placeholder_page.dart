@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../layout/mobile_breakpoints.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 
 const double _margin = 20;
@@ -32,20 +34,10 @@ class MobilePlaceholderPage extends StatelessWidget
             ),
             Expanded(
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.hourglass_top_rounded, size: 40, color: Colors.white.withValues(alpha: 0.4)),
-                    const SizedBox(height: 12),
-                    Text(
-                      'In arrivo',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ],
+                child: MobileEmptyCard(
+                  icon: Icons.construction_rounded,
+                  message: 'In arrivo',
+                  tablet: MobileBreakpoints.of(context).isTablet,
                 ),
               ),
             ),

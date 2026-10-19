@@ -16,6 +16,9 @@ class BandSummaryCard extends StatelessWidget
   final String? summary;
   final List<Widget> chips;
 
+  // Under the chips, past the same rule.
+  final Widget? footer;
+
   final bool compact;
 
   const BandSummaryCard({
@@ -24,6 +27,7 @@ class BandSummaryCard extends StatelessWidget
     required this.title,
     this.summary,
     this.chips = const [],
+    this.footer,
     this.compact = false,
   });
 
@@ -32,6 +36,8 @@ class BandSummaryCard extends StatelessWidget
   {
     final eyebrow = this.eyebrow;
     final summary = this.summary;
+    final footer = this.footer;
+    final double gap = compact ? 12 : 16;
 
     return Container(
       padding: compact ? const EdgeInsets.fromLTRB(18, 16, 18, 14) : const EdgeInsets.fromLTRB(24, 20, 24, 18),
@@ -76,11 +82,15 @@ class BandSummaryCard extends StatelessWidget
               ),
             ),
           ],
-          if (chips.isNotEmpty) ...[
-            SizedBox(height: compact ? 12 : 16),
+          if (chips.isNotEmpty || footer != null) ...[
+            SizedBox(height: gap),
             const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
-            SizedBox(height: compact ? 12 : 16),
-            Wrap(spacing: 10, runSpacing: 10, children: chips),
+            SizedBox(height: gap),
+          ],
+          if (chips.isNotEmpty) Wrap(spacing: 10, runSpacing: 10, children: chips),
+          if (footer != null) ...[
+            if (chips.isNotEmpty) SizedBox(height: gap),
+            footer,
           ],
         ],
       ),

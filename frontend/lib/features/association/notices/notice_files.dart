@@ -118,7 +118,6 @@ class _NoticeFileChipState extends State<NoticeFileChip>
   }
 }
 
-// Picks or takes dropped files of any kind, read whole.
 class NoticeDropZone extends StatefulWidget
 {
   final ValueChanged<List<NoticeUpload>> onFiles;

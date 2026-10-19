@@ -72,7 +72,7 @@ async def mark_tours_seen(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# A section's tours are slugged after it ("home", "home.teacher"); none given clears all.
+# Tours are slugged by section ("home", "home.teacher"); without one, all are cleared.
 @router.delete("/{platform}", status_code=status.HTTP_204_NO_CONTENT)
 async def reset_tours(
     platform: Platform,

@@ -17,7 +17,9 @@ import '../../../availability/utils/availability_strings.dart';
 import '../../../lessons/utils/opening_window.dart';
 import '../../../lessons/widgets/lessons_form_fields.dart';
 import '../../../people/edit/widgets/person_edit_guide.dart';
+import '../../models/opening_day_item.dart';
 import '../../models/weekly_template_item.dart';
+import 'begun_hours.dart';
 import 'calendar_bounds.dart';
 import 'combined_hours.dart';
 import 'hours_date_field.dart';
@@ -47,9 +49,17 @@ class StandardHoursWizard extends StatefulWidget
 {
   final List<WeeklyTemplateItem> currentTemplates;
 
+  // Today's hours in both modes, to refuse changing a band already under way.
+  final List<OpeningDayItem> todayRows;
+
   final Future<void> Function() onSaved;
 
-  const StandardHoursWizard({super.key, required this.currentTemplates, required this.onSaved});
+  const StandardHoursWizard({
+    super.key,
+    required this.currentTemplates,
+    this.todayRows = const [],
+    required this.onSaved,
+  });
 
   @override
   State<StandardHoursWizard> createState() => _StandardHoursWizardState();
@@ -165,9 +175,11 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
       return false;
     }
 
-    if (parseDateString(text).isBefore(kAssociationFoundedOn))
+    final now = romeNow();
+
+    if (parseDateString(text).isBefore(DateTime(now.year, now.month, now.day)))
     {
-      CustomSnackBar.show(context: context, message: kBeforeFoundationError, isError: true);
+      CustomSnackBar.show(context: context, message: kPastDaysError, isError: true);
 
       return false;
     }
@@ -188,7 +200,43 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
       return false;
     }
 
+    if (_begunChange(parseDateString(text)) case (final mode, final band))
+    {
+      CustomSnackBar.show(context: context, message: begunHoursError(mode, band), isError: true);
+
+      return false;
+    }
+
     return true;
+  }
+
+  // Today's first band the save would change although its hours have begun; a variation keeps its day.
+  (String, TimeBucket)? _begunChange(DateTime effectiveFrom)
+  {
+    final now = romeNow();
+
+    if (!isSameDate(effectiveFrom, now))
+    {
+      return null;
+    }
+
+    for (final (weekday, mode, drafts) in _writes)
+    {
+      if (weekday != now.weekday || widget.todayRows.any((row) => row.mode == mode && row.isOverride))
+      {
+        continue;
+      }
+
+      final next = [for (final draft in drafts.values) if (draft.isOpen) (draft.start!, draft.end!)];
+      final band = begunBandChanged(now, hoursOfRows(widget.todayRows, mode), next, now);
+
+      if (band != null)
+      {
+        return (mode, band);
+      }
+    }
+
+    return null;
   }
 
   // Only changed weekdays and modes are written; with no change, all are re-applied from the date.

@@ -235,7 +235,7 @@ class MobileDaysTag extends StatelessWidget
   }
 }
 
-// Page snapping where a swipe forward stops at the first step still refused, as «Avanti» does.
+// Page snapping where a swipe forward stops at the first refused step, as "Avanti" does.
 class MobileStepPhysics extends PageScrollPhysics
 {
   final String? Function(int index) blockedReason;
@@ -328,7 +328,7 @@ class MobileStepPager extends StatefulWidget
   final List<Widget> Function(int index) pageBuilder;
   final ValueChanged<int> onPageChanged;
 
-  // Same as «Avanti»: a swipe forward from a refused step gives the reason and springs back.
+  // As "Avanti": a swipe forward from a refused step gives the reason and springs back.
   final String? Function(int index) blockedReason;
 
   const MobileStepPager({

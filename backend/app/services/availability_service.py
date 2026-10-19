@@ -139,6 +139,8 @@ class AvailabilityService:
                 activity
                 for activity in activities
                 if moved
+                or activity.start_time is None
+                or activity.end_time is None
                 or activity.start_time < payload.start_time
                 or activity.end_time > payload.end_time
             ],

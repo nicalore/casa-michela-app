@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../lessons/utils/timeline_geometry.dart';
 import '../../lessons/widgets/calendar_lesson_block.dart';
 import '../../lessons/widgets/calendar_timeline.dart';
@@ -86,7 +87,7 @@ class _OwnDayTimelineState extends State<OwnDayTimeline>
     return 2 * _rowPadding + subLanes * blockHeight + (subLanes - 1) * _subLaneGap;
   }
 
-  // Each row's cards as tall as the one whose long lines wrap the most, at the width the scale gives.
+  // Each row's cards as tall as the most-wrapped one, at the width the scale gives.
   static List<double> _blockHeightsOf(List<TimelineLane> lanes, TimelineMetrics metrics)
   {
     return [
@@ -311,15 +312,17 @@ class TimelineLaneName extends StatelessWidget
       padding: const EdgeInsets.only(right: 16),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Text(
-          name,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-            color: AppTheme.trialOcean,
+        child: DescenderRoom(
+          child: Text(
+            name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+              color: AppTheme.trialOcean,
+            ),
           ),
         ),
       ),

@@ -6,6 +6,7 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/page_heading.dart';
@@ -83,7 +84,9 @@ class PersonNotPreferredTeachersTab extends StatelessWidget
                 const PageHeading('Mi sono trovato meno con...', large: true),
                 const SizedBox(height: kPageHeadingGap),
                 if (teachers.isEmpty)
-                  const PersonEmptyState(message: 'Nessun docente indicato.')
+                  const Center(
+                    child: AppEmptyCard(icon: Icons.thumb_down_off_alt_rounded, message: 'Nessun docente indicato.'),
+                  )
                 else
                   Wrap(
                     spacing: _cardGap,

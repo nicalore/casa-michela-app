@@ -49,7 +49,7 @@ class PersonEditPeopleCard extends StatefulWidget
   // Swaps parent and child in the pickup question, and applies the cap of two.
   final bool pickingParents;
 
-  // False links at once: pickup does not apply to a teacher.
+  // False links at once: pickup does not apply to a teacher, on either side.
   final bool asksPickup;
 
   final String searchHint;
@@ -109,6 +109,9 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
 
   String _nameOf(PersonItem person) => '${person.firstName} ${person.lastName}';
 
+  bool _asksPickupFor(PersonItem person) =>
+      widget.asksPickup && (widget.pickingParents || !person.isTeacherOnly);
+
   Future<void> _open(PersonItem person) async
   {
     final bool wasSelected = widget.selected.containsKey(person.fiscalCode);
@@ -124,7 +127,7 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
       return;
     }
 
-    final ParentalRelationshipDraft? draft = widget.asksPickup
+    final ParentalRelationshipDraft? draft = _asksPickupFor(person)
         ? await showAuthorizedPickupDialog(
             context,
             personTaxCode: person.fiscalCode,
@@ -158,7 +161,7 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
 
     widget.people.add(person);
 
-    final ParentalRelationshipDraft? draft = widget.asksPickup
+    final ParentalRelationshipDraft? draft = _asksPickupFor(person)
         ? await showAuthorizedPickupDialog(
             context,
             personTaxCode: person.fiscalCode,
@@ -240,7 +243,7 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
                     person: person,
                     isSelected: widget.selected.containsKey(person.fiscalCode),
                     onTap: () => _open(person),
-                    onEdit: widget.asksPickup && widget.selected.containsKey(person.fiscalCode)
+                    onEdit: _asksPickupFor(person) && widget.selected.containsKey(person.fiscalCode)
                         ? () => _open(person)
                         : null,
                     onRemove: widget.selected.containsKey(person.fiscalCode)

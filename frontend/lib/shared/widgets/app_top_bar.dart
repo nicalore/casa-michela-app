@@ -287,7 +287,7 @@ class _AppTopBarState extends State<AppTopBar>
     context.go(homeForRole(role));
   }
 
-  // Local logout only after the server call succeeds (TC-IAM-012 / RF-IAM-018).
+  // Local logout only after the server call succeeds.
   Future<void> _logout() async
   {
     try
@@ -329,7 +329,7 @@ class _AppTopBarState extends State<AppTopBar>
         ? url
         : '${ApiConfig.baseUrl}$url';
 
-    // Cache-buster counts picture changes, not time: a per-build URL would blink the face on navigation.
+    // Cache-buster counts picture changes: a per-build URL would blink the face on navigation.
     return '$absoluteUrl?v=${_apiService.profileImageVersion}';
   }
 

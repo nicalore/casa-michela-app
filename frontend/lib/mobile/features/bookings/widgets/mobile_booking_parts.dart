@@ -179,7 +179,7 @@ class MobileTeacherFace extends StatelessWidget
   }
 }
 
-// Coloured by its mode, as the hours on the day cards; several ranges stand in a column after the band's name.
+// Coloured by its mode; several ranges stand in a column after the band's name.
 class MobileBandTag extends StatelessWidget
 {
   final BandOffer offer;
@@ -278,7 +278,6 @@ class MobileFieldHead extends StatelessWidget
   final String? count;
   final bool over;
 
-  // For a tour to light the count.
   final String? countTourTarget;
 
   const MobileFieldHead(this.label, {super.key, this.count, this.over = false, this.countTourTarget});
@@ -327,7 +326,10 @@ class MobileQuietLine extends StatelessWidget
 {
   final String text;
 
-  const MobileQuietLine(this.text, {super.key});
+  // Off for a line that leads into fields rather than standing for an empty list.
+  final bool centred;
+
+  const MobileQuietLine(this.text, {super.key, this.centred = true});
 
   @override
   Widget build(BuildContext context)
@@ -336,6 +338,7 @@ class MobileQuietLine extends StatelessWidget
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Text(
         text,
+        textAlign: centred ? TextAlign.center : TextAlign.start,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 13.5,
           fontWeight: FontWeight.w600,

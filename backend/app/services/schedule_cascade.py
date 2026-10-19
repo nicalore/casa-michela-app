@@ -66,9 +66,8 @@ async def _open_drafts(
             publication.draft_snapshot = picture
 
 
-# A withdrawn availability takes only the assignment: the activity stays with
-# its calendar. Snapshot first - a reopened draft is compared against how the
-# band last went out.
+# A withdrawn availability takes only the assignment: the activity stays put.
+# Snapshot first: a reopened draft is compared against how the band last went out.
 async def unassign(
     session: AsyncSession,
     activities: Sequence[CalendarActivity],

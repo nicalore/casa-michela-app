@@ -3,14 +3,13 @@ import 'package:flutter/widgets.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
-// The parents' Figli page.
 const String kTourChildrenReport = 'children.report';
 const String kTourChildrenToStats = 'children.tab.stats';
 const String kTourChildrenStats = 'children.stats';
 const String kTourChildrenMode = 'children.mode';
 const String kTourChildrenPeriod = 'children.period';
 
-// The section on show of the child the tour follows, by name ('info', 'stats'...): the tour's clicks wait for it.
+// Followed child's section on show, by name ('info', 'stats'...): the tour's clicks wait for it.
 final ValueNotifier<String?> childrenPageSection = ValueNotifier(null);
 
 const String _title = 'Figli';
@@ -70,10 +69,8 @@ Future<bool> childrenTourSeen(DesktopTour tour) async
   return taxCode == null || await isDesktopTourSeen(taxCode: taxCode, tour: tour);
 }
 
-// The page, the report, then the statistics of the child the tour follows, as one tour, like the own page's.
-// [genders]: every child's. [followed]: the gender of the child whose sections are lit; [pupil]: they have
-// statistics. [show]: turns that child's sections by name, when stepping back.
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
+// [followed]: gender of the child whose sections are lit; [pupil]: that child has statistics.
+// Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
 DesktopTour childrenTour({
   required List<String?> genders,
   required String? followed,
@@ -91,7 +88,6 @@ DesktopTour childrenTour({
     title: _title,
     version: _seen.$2,
     steps: [
-      // About the whole page: nothing lit, the card in the middle.
       DesktopTourStep(text: 'In questo menù puoi consultare le informazioni personali $whom.'),
       DesktopTourStep(
         targets: const [kTourChildrenReport],

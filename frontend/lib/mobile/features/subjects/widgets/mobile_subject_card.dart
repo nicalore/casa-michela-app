@@ -14,7 +14,7 @@ const double _addSize = 36;
 
 const EdgeInsets _tourAddInflate = EdgeInsets.all(5);
 
-// The + taking every programme, also drawn in a tour's text, where a larger [iconShare] keeps it legible.
+// Also drawn in a tour's text, where a larger [iconShare] keeps it legible.
 Widget mobileSubjectAddCircle(double size, {double iconShare = 23 / 36})
 {
   return MobileActionCircle(icon: Icons.add_rounded, size: size, iconSize: size * iconShare);
@@ -32,10 +32,9 @@ class MobileSubjectCard extends StatelessWidget
 
   final VoidCallback? onTap;
 
-  // The + takes every programme; the row opens the sheet to pick them, as on desktop.
+  // The + takes every programme; the row opens the sheet to pick them.
   final VoidCallback? onAdd;
 
-  // For a tour to light the +.
   final String? addTourId;
 
   const MobileSubjectCard({

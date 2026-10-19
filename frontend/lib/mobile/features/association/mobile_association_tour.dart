@@ -13,7 +13,7 @@ const int _parentVersion = 2;
 const String _studentSlug = 'association.student';
 const int _studentVersion = 1;
 
-// A teacher's sheet opened from «Docenti», the first time; a student's keeps the parents' slug.
+// A teacher's sheet opened from "Docenti", the first time; a student's keeps the parents' slug.
 const String _teacherSheetSlug = 'association.parent.teacher';
 const int _teacherSheetVersion = 2;
 
@@ -63,7 +63,7 @@ const String _notices = "Qui puoi leggere tutti i messaggi inviati dal Direttivo
 const String _top =
     'Puoi ordinare i messaggi dal più recente al meno recente o viceversa, filtrare gli avvisi per una data specifica '
     'oppure cercarli in base al titolo o al contenuto.';
-const String _picker = 'Il pallino sotto una data indica la presenza di un messaggio inviato in quella data.';
+const String _picker = 'Il pallino sotto una data indica la presenza di un messaggio inviato in quel giorno.';
 const String _toSubjects = 'Tocca «Discipline».';
 const String _subjects = 'In questa pagina trovi tutte le discipline che vengono insegnate in Associazione.';
 const String _report = 'Se manca una disciplina che ti interessa, puoi segnalarlo tramite questo bottone.';
@@ -73,7 +73,7 @@ const String _teacherFacts =
 
 bool _daughter(String? gender) => gender == 'F';
 
-// Who reads the subjects and the teachers: a parent for their children, or a student for themselves.
+// A parent reading subjects and teachers for their children, or a student for themselves.
 // [opinions]: by gender, those whose opinions on the teachers are given; none, no opinions to give.
 class AssociationReader
 {
@@ -162,9 +162,8 @@ MobileTourStep _markStep(AssociationMark mark)
   return MobileTourStep(text: _markTexts[mark]!, shown: [target], reveal: target, seen: _markSeen(mark));
 }
 
-// [tablet]: the week is a table, without the row of days. [variations]: upcoming ones listed.
-// [pinned]: the notices hold a pinned one, lit once its tab shows.
-// [reader]: a parent or a student, whose subjects and teachers come before the notices; null for a teacher.
+// [tablet]: the week is a table, no row of days. [pinned]: the notices hold one, lit once shown.
+// [reader]: a parent or a student, subjects and teachers before the notices; null for a teacher.
 MobileTour associationTour({
   required PageController pages,
   required bool tablet,

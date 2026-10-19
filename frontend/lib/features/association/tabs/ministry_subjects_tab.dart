@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
@@ -171,6 +172,12 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
             onClear: () => setState(() => _selectedAssociationSubjectIds = {}),
           ),
         ],
+      ),
+      empty: emptyListCard(
+        shown: subjects.length,
+        total: widget.ministrySubjects.length,
+        icon: Icons.menu_book_rounded,
+        none: 'Nessuna materia registrata',
       ),
       body: EntityCardGrid(
         children: subjects.map((subject)
@@ -437,6 +444,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
               ? Center(
                   child: Text(
                     'Nessuna disciplina trovata per le aree selezionate.',
+                    textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,

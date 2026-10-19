@@ -37,7 +37,7 @@ const double kCalendarCardGap = 52;
 
 const double _introGap = 24;
 
-// Below this the page lists lessons instead of a timeline, matching the admin's kCalendarTimelineMin.
+// Below this the page lists lessons, not a timeline, as the admin's kCalendarTimelineMin.
 const double kCalendarListBelow = 900;
 
 class CalendarPageShell extends StatelessWidget

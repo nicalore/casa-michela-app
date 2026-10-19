@@ -23,7 +23,7 @@ from app.schemas.notice import (
 )
 from app.services.notice_markdown import image_keys, preview
 
-# Mirrored by frontend/lib/features/association/notices/notice_limits.dart.
+# Mirrored by frontend/lib/features/association/notices/notice_format.dart.
 MAX_FILES_BYTES: Final[int] = 15 * 1024 * 1024
 
 # Lines on the home card, pinned ones included.
@@ -255,10 +255,15 @@ def active_pin(notice: Notice) -> NoticePin | None:
 
 # Pinned first, the latest pinned on top; then the newest sent.
 def listing_order(notices: Sequence[Notice]) -> list[Notice]:
-    pinned = [notice for notice in notices if active_pin(notice) is not None]
-    others = [notice for notice in notices if active_pin(notice) is None]
+    pins = {
+        notice.id: pin
+        for notice in notices
+        if (pin := active_pin(notice)) is not None
+    }
+    pinned = [notice for notice in notices if notice.id in pins]
+    others = [notice for notice in notices if notice.id not in pins]
 
-    pinned.sort(key=lambda notice: notice.pin.pinned_at, reverse=True)
+    pinned.sort(key=lambda notice: pins[notice.id].pinned_at, reverse=True)
     others.sort(key=lambda notice: (notice.created_at, notice.id), reverse=True)
 
     return [*pinned, *others]

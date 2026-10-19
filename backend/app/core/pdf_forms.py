@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from fontTools.ttLib import TTFont
 from pypdf import PdfWriter
@@ -18,7 +18,7 @@ from pypdf.generic import (
     StreamObject,
 )
 
-# Bit 1 of /Ff (PDF 32000-1 table 221): makes the field read-only.
+# Bit 1 of /Ff: makes the field read-only.
 _READ_ONLY_FLAG: Final[int] = 1
 
 # Every text widget of the template declares /MaxLen 100; pypdf does not enforce it.
@@ -159,7 +159,7 @@ def _fitted_size(
         return asked
 
     top, depth = ink
-    rectangle = widget["/Rect"]
+    rectangle = cast(ArrayObject, widget["/Rect"])
     height = abs(float(rectangle[3]) - float(rectangle[1])) - 2 * _FIELD_MARGIN
 
     # A line taller than its cell would have its tails clipped away.
@@ -188,9 +188,12 @@ def _advance_widths(font: bytes) -> dict[int, int] | None:
         parsed = TTFont(BytesIO(font))
         metrics = parsed["hmtx"]
         by_code = parsed.getBestCmap()
-        per_em = parsed["head"].unitsPerEm
+        per_em = cast(Any, parsed["head"]).unitsPerEm
 
     except Exception:
+        return None
+
+    if by_code is None:
         return None
 
     scale = _GLYPH_SPACE / per_em
@@ -221,9 +224,12 @@ def _ink_box(font: bytes) -> tuple[float, float] | None:
         parsed = TTFont(BytesIO(font))
         glyphs = parsed["glyf"]
         by_code = parsed.getBestCmap()
-        per_em = parsed["head"].unitsPerEm
+        per_em = cast(Any, parsed["head"]).unitsPerEm
 
     except Exception:
+        return None
+
+    if by_code is None:
         return None
 
     tops: list[int] = []
@@ -258,7 +264,7 @@ def _embed_font(writer: PdfWriter, font: bytes, ink: tuple[float, float]) -> str
     if isinstance(resource.get("/ToUnicode"), StreamObject):
         resource[NameObject("/ToUnicode")] = writer._add_object(resource["/ToUnicode"])
 
-    descendant = resource["/DescendantFonts"][0]
+    descendant = cast(ArrayObject, resource["/DescendantFonts"])[0]
     descriptor = descendant["/FontDescriptor"]
 
     # pypdf centres on /Ascent; feeding it (ink above - ink below) centres the ink box.
@@ -271,7 +277,9 @@ def _embed_font(writer: PdfWriter, font: bytes, ink: tuple[float, float]) -> str
         [writer._add_object(descendant)]
     )
 
-    fonts = writer.root_object["/AcroForm"]["/DR"][NameObject("/Font")]
+    acro_form = cast(DictionaryObject, writer.root_object["/AcroForm"])
+    resources = cast(DictionaryObject, acro_form["/DR"])
+    fonts = cast(DictionaryObject, resources[NameObject("/Font")])
     fonts[NameObject(_EMBEDDED_FONT_NAME)] = writer._add_object(resource)
 
     return _EMBEDDED_FONT_NAME
@@ -288,9 +296,9 @@ def _drop_field_tint(writer: PdfWriter) -> None:
 
 
 def _lock_fields(writer: PdfWriter) -> None:
-    acro_form = writer.root_object["/AcroForm"]
+    acro_form = cast(DictionaryObject, writer.root_object["/AcroForm"])
 
-    for reference in acro_form["/Fields"]:
+    for reference in cast(ArrayObject, acro_form["/Fields"]):
         field = reference.get_object()
 
         if not isinstance(field, DictionaryObject):

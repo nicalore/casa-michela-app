@@ -80,7 +80,7 @@ class DetailRowData
         hidesLength = false;
 }
 
-// LayoutBuilder must stay outside IntrinsicHeight: intrinsic measurement cannot resolve one and throws.
+// LayoutBuilder stays outside IntrinsicHeight: intrinsic measurement of one throws.
 class PersonDetailCardPair extends StatelessWidget
 {
   static const double _breakpoint = 820.0;
@@ -356,7 +356,7 @@ class PersonFactsRow extends StatelessWidget
           );
         }
 
-        // FlexFit.loose: at full share a short value pushed the row off the card.
+        // FlexFit.loose: with a tight fit a short value would push the row off the card.
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,

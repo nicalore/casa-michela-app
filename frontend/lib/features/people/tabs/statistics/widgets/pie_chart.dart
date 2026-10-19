@@ -14,12 +14,10 @@ const double _ringThickness = 30.0;
 // Hover growth: no colour is free to mark it, any of them may be a slice.
 const double _hoveredExtraThickness = 8.0;
 
-// Angular gap between slices, in radians. Dropped for a single slice, which
-// would otherwise show a seam.
+// Gap between slices, in radians; dropped for a single slice, which would show a seam.
 const double _sliceGap = 0.04;
 
-// Hover tolerance: a few pixels outside and most of the thickness inside, so
-// thin slices stay reachable.
+// Hover tolerance: a few px outside, most of the ring inside, so thin slices stay reachable.
 const double _hoverOuterTolerance = 15.0;
 const double _hoverInnerTolerance = 35.0;
 

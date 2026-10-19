@@ -49,9 +49,12 @@ class CombinedStandardCard extends StatelessWidget
 
     if (!hasStandardHours(scheduleByMode))
     {
-      return Text(
-        kNoStandardHours,
-        style: GoogleFonts.plusJakartaSans(fontSize: 16, color: AppTheme.trialMutedText),
+      return Center(
+        child: Text(
+          kNoStandardHours,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(fontSize: 16, color: AppTheme.trialMutedText),
+        ),
       );
     }
 

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -77,15 +78,12 @@ class PersonSubjectsTab extends StatefulWidget
   final PersonItem person;
   final VoidCallback onUpdate;
 
-  // Rendered above the filters and under the add button, inside the scroll.
-  final Widget? intro;
   final Widget? footer;
 
   const PersonSubjectsTab({
     super.key,
     required this.person,
     required this.onUpdate,
-    this.intro,
     this.footer,
   });
 
@@ -451,6 +449,24 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
     );
   }
 
+  AppEmptyCard _buildEmptyCard()
+  {
+    if (_subjects.isEmpty && _services.isEmpty)
+    {
+      return const AppEmptyCard(
+        icon: Icons.auto_stories_rounded,
+        message: 'Nessuna disciplina o servizio a sistema.',
+      );
+    }
+
+    return AppEmptyCard(
+      icon: Icons.search_off_rounded,
+      message: _showingOnlyServices
+          ? 'Nessun servizio trovato per questa ricerca.'
+          : 'Nessuna disciplina trovata per questa ricerca.',
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -478,13 +494,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                   children: [
                     PageTransitionItem(
                       slot: PageTransitionItem.header,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (widget.intro != null) widget.intro!,
-                          _buildFilters(cards.length),
-                        ],
-                      ),
+                      child: _buildFilters(cards.length),
                     ),
                     const SizedBox(height: 16),
                     if (cards.isEmpty)
@@ -492,10 +502,9 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                         slot: PageTransitionItem.list,
                         child: DesktopTourTarget(
                           id: kTourSubjectsHeld,
-                          child: PersonEmptyState(
-                            message: _showingOnlyServices
-                                ? 'Nessun servizio trovato per questa ricerca.'
-                                : 'Nessuna disciplina trovata per questa ricerca.',
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 32),
+                            child: Center(child: _buildEmptyCard()),
                           ),
                         ),
                       )

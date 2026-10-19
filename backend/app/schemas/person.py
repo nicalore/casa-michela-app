@@ -348,7 +348,7 @@ class StudentCertificationsUpdate(StudentCertificationData):
 
 
 class EarlyExitScheduleItem(BaseModel):
-    # 1=Monday .. 7=Sunday, per ISO 8601.
+    # 1=Monday .. 7=Sunday, as date.isoweekday().
     weekdays: list[Weekday] = Field(..., min_length=1)
     exit_time: time
     reason: OpeningCapitalStr = Field(

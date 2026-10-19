@@ -27,7 +27,7 @@ Widget withReason(String? note, Widget child)
   return AppTooltip(message: note, child: child);
 }
 
-// Merged with the inherited style as Text does: Material's body letter spacing would wrap the column.
+// Merged with the inherited style as Text does: Material's letter spacing would wrap it.
 double measureText(BuildContext context, String text, TextStyle style)
 {
   final painter = TextPainter(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../features/people/models/person_face.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_home_tour.dart';
@@ -26,11 +27,11 @@ class MobileParentHomeView extends StatelessWidget
   final String firstName;
   final DateTime? birthDate;
 
-  // Null when the day could not be read.
+  // [day] is null when it could not be read.
   final bool loadingDay;
   final MobileParentDay? day;
 
-  // Null when the month could not be read.
+  // [month] is null when it could not be read.
   final bool loadingMonth;
   final List<MobileChildMonth>? month;
 
@@ -88,7 +89,9 @@ class MobileParentHomeView extends StatelessWidget
 
     if (today.children.isEmpty)
     {
-      return const MobileHomeStatus(_noPupils);
+      return const Center(
+        child: MobileEmptyCard(icon: Icons.family_restroom_rounded, message: _noPupils, tablet: false),
+      );
     }
 
     return _column([
@@ -113,7 +116,9 @@ class MobileParentHomeView extends StatelessWidget
 
     if (months.isEmpty)
     {
-      return const MobileHomeStatus(_noPupils);
+      return const Center(
+        child: MobileEmptyCard(icon: Icons.family_restroom_rounded, message: _noPupils, tablet: false),
+      );
     }
 
     return _column([
@@ -150,7 +155,9 @@ class MobileParentHomeView extends StatelessWidget
         );
       }
 
-      return const MobileHomeStatus(_noPupils);
+      return const Center(
+        child: MobileEmptyCard(icon: Icons.family_restroom_rounded, message: _noPupils, tablet: true),
+      );
     }
 
     final MobileCardNote? dayNote = switch (today)
@@ -192,6 +199,10 @@ class MobileParentHomeView extends StatelessWidget
       birthDate: birthDate,
       onRefresh: onRefresh,
       pageController: pageController,
+      emptyPages: {
+        if (!loadingDay && (day?.children.isEmpty ?? false) && !day!.isClosed) 0,
+        if (!loadingMonth && (month?.isEmpty ?? false)) 1,
+      },
       pages: () => [
         MobileLoadSwitcher(child: _buildToday()),
         MobileLoadSwitcher(child: _buildMonth()),

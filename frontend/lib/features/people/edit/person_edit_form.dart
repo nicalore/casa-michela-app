@@ -50,6 +50,7 @@ const Map<String, String> kAdminRoles = {
   'Presidente': 'PRESIDENT',
   'Vicepresidente': 'VICE_PRESIDENT',
   'Tesoriere': 'TREASURER',
+  'Responsabile IT': 'IT_MANAGER',
   'Altro': 'OTHER',
 };
 
@@ -259,7 +260,7 @@ class PersonEditForm
         person?.homeworkTariff;
   }
 
-  // Sets the Aiuto Compiti rate: current year's level if recorded, else the latest earlier year's.
+  // Drives the "Aiuto Compiti" rate: this year's level if recorded, else the latest earlier one.
   String? get currentSchoolLevel
   {
     final int current = currentSchoolYearStart();
@@ -636,13 +637,13 @@ class PersonEditForm
     allCourses = courses;
     allPeople = people;
 
-    // A teacher's parents are chosen from the teacher's record only.
+    // Past creation, a teacher's parents change from the teacher's record only.
     allMinors = people
         .where((candidate) =>
             ((candidate.age != null && candidate.age! < 18) ||
                 (person?.children?.any((child) => child.fiscalCode == candidate.fiscalCode) ??
                     false)) &&
-            !candidate.isTeacherOnly &&
+            (person == null || !candidate.isTeacherOnly) &&
             candidate.fiscalCode != person?.fiscalCode)
         .toList();
 
@@ -1020,7 +1021,7 @@ class PersonEditForm
           'start_date': '$year-${parts[1]}-${parts[0]}',
           'end_date': '$year-12-31',
           'renewal_period_days': MembershipItem.defaultRenewalPeriodDays,
-          // Preserved as-is: hard-coding 'NO' silently readmitted expelled people.
+          // Keep the stored revocation: writing 'NO' would readmit expelled people.
           'revocation': row.revocation,
           if (row.id != null) 'id': row.id,
         });
@@ -1193,7 +1194,7 @@ class PersonEditForm
     };
   }
 
-  // Differs from the update payload: consents signed now, Roman-numeral grade, no expected_updated_at.
+  // Unlike buildPayload: consents signed now, Roman-numeral grade, no expected_updated_at.
   Map<String, dynamic> buildCreatePayload()
   {
     final Set<String> finalRolesSet = selectedRoles.where((role) => role != 'ASSOCIATO').toSet();
@@ -1299,7 +1300,6 @@ class PersonEditForm
         'is_high_school_student': isHighSchoolStudent,
         'school_education':
             studiScolasticiCtrl.text.isNotEmpty ? studiScolasticiCtrl.text.trim() : null,
-        // The server rejects university education for a high-school student.
         'university_education': !isHighSchoolStudent && studiUniversitariCtrl.text.isNotEmpty
             ? studiUniversitariCtrl.text.trim()
             : null,
@@ -1342,7 +1342,6 @@ class PersonEditForm
           .whereType<String>()
           .toList();
 
-      // Only a minor is authorised to leave early: an adult just leaves.
       final bool earlyExitAuthorized = isMinor && uscitaAnticipata;
 
       studentData = {

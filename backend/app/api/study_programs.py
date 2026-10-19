@@ -116,7 +116,7 @@ async def _assert_name_available(
     sector: str | None,
     years: tuple[int, int],
 ) -> None:
-    # Sector and span are part of identity: one name exists as biennio and triennio.
+    # Sector and year span are part of identity: one name can exist with two spans.
     stmt = select(StudyProgram).where(
         StudyProgram.name.ilike(name),
         StudyProgram.level == level,
@@ -267,7 +267,7 @@ async def update_study_program(
 
     min_year, max_year = payload.years
 
-    # The span is part of identity: a cycle-only change still needs the duplicate check.
+    # Span is part of identity: a cycle-only change still needs the duplicate check.
     if (
         program.name.lower() != payload.name.lower()
         or program.level != payload.level

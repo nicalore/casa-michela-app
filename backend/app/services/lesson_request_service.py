@@ -194,8 +194,7 @@ class _ModePlan:
         ]
 
 
-# Owns only the transaction: the services stage uncommitted rows and the
-# single commit at the end makes the request all-or-nothing.
+# Owns only the transaction: one commit at the end makes the request all-or-nothing.
 class LessonRequestService:
     def __init__(
         self,
@@ -239,8 +238,7 @@ class LessonRequestService:
                         block_presences,
                         block.subjects,
                     ):
-                        # presence= fills presence.bookings via
-                        # back_populates: no further IO for the response.
+                        # back_populates fills presence.bookings: no IO later.
                         self.session.add(
                             await self.booking_service.build_for_presence(
                                 presence,
@@ -254,8 +252,7 @@ class LessonRequestService:
                 await self.session.commit()
 
             except HTTPException:
-                # Explicit rollback so the transaction is not held open
-                # until the session closes.
+                # Explicit, or the transaction stays open until the session closes.
                 await self.session.rollback()
                 raise
 
@@ -513,7 +510,7 @@ class LessonRequestService:
                 )
 
             gone = {booking.id for booking in plan.gone}
-            band_of_booking = {
+            band_of_booking: dict[int, TimeBandEnum | None] = {
                 booking.id: _band(presence)
                 for presence in plan.frozen
                 for booking in presence.bookings

@@ -86,6 +86,7 @@ class HomeNoticesSection extends StatelessWidget
     {
       return Text(
         read == null ? kHomeNoticesUnavailable : kHomeNoNotices,
+        textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14.5,
           fontWeight: FontWeight.w500,

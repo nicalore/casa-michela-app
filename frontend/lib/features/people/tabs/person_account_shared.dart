@@ -173,7 +173,7 @@ mixin PersonAccountActions<T extends StatefulWidget> on State<T>
   }
 }
 
-// «Confermi?» with ANNULLA and the given action; true only when confirmed.
+// "Confermi?" with "ANNULLA" and the given action; true only when confirmed.
 Future<bool> askPersonConfirmation(
   BuildContext context, {
   required String eyebrow,

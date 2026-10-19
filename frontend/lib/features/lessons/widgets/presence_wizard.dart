@@ -206,7 +206,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   bool _isSaving = false;
 
-  // A tour already asked for the next frame: changes in between ask no more.
+  // Set once a tour start is scheduled for the next frame; later changes add none.
   bool _toursAsked = false;
 
   // Skipped when a failed save is retried.
@@ -749,7 +749,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   BookingsTourPupil get _pupil => BookingsTourPupil.of(self: _isSelf, gender: _selectedStudent?.gender);
 
-  // The switch's step moves on as soon as a «Sì» gives hours, not after the wait for tours.
+  // The switch step moves on as soon as a "Sì" gives hours, not after the wait for tours.
   void _tellHours()
   {
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -761,8 +761,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     });
   }
 
-  // Each once, judged on what the frame shows: the dates, the hours, the subjects, then the parts that showed
-  // up only later. One at a time.
+  // Each tour once, judged on what the frame shows; one at a time.
   void _startTours()
   {
     if (!_toured || !mounted)
@@ -1424,10 +1423,11 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     );
   }
 
-  Widget _buildHint(String text)
+  Widget _buildHint(String text, {TextAlign? textAlign})
   {
     return Text(
       text,
+      textAlign: textAlign,
       style: GoogleFonts.plusJakartaSans(
         fontSize: 14,
         fontWeight: FontWeight.w500,
@@ -1541,7 +1541,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   Widget _buildEmptyCategory(String message) => Padding(
         padding: const EdgeInsets.only(top: 12),
-        child: _buildHint(message),
+        child: Center(child: _buildHint(message, textAlign: TextAlign.center)),
       );
 
   Widget _buildCategorySearch(String mode, int category, String hint)
@@ -1896,7 +1896,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     VoidCallback? onRemove,
   })
   {
-    // The pupils' catalogue comes already vetted by the server, without the memberships to vet it here.
+    // The pupils' catalogue comes vetted by the server, without the memberships to vet it here.
     final teachers = askableTeachers(
       _isOwn ? widget.teachers : activeCollaborators(widget.teachers),
       _avoidedTeachers,

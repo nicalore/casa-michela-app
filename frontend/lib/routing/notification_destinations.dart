@@ -128,7 +128,7 @@ Future<void> _openHours(NotificationItem item)
   );
 }
 
-// Prenotazioni on the week of the first lesson booked, changed or cancelled, as the pupil or a parent of theirs.
+// Prenotazioni on the week of the first lesson booked, changed or cancelled, as pupil or parent.
 Future<void> _openPupilBookings(NotificationItem item) async
 {
   final DateTime? day = item.calendarDate;
@@ -176,8 +176,7 @@ void _openReport(NotificationItem item)
   }
 }
 
-// The teacher's record being edited on the Docente card, where the rating is; from another role,
-// as administrator over Anagrafiche.
+// The teacher's Docente card, where the rating is; from another role, as admin over Anagrafiche.
 Future<void> _openRating(NotificationItem item) async
 {
   final String? teacher = item.teacherTaxCode;
@@ -248,7 +247,7 @@ void _openDevices()
   appRouter.go(settingsPageForRole(me.activeRole));
 }
 
-// Comunicazioni e avvisi with the notice open, in a role it reached; administrators list every notice.
+// Comunicazioni e avvisi with the notice open, in a role it reached; admins list every notice.
 Future<void> _openNotice(NotificationItem item) async
 {
   final int? id = item.noticeId;

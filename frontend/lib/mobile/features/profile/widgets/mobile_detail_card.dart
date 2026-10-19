@@ -314,7 +314,7 @@ class _Row extends StatelessWidget
   }
 }
 
-// Masked until tapped, as on the desktop.
+// Masked until tapped.
 class _HiddenValue extends StatefulWidget
 {
   final String value;

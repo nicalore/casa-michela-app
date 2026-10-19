@@ -243,7 +243,7 @@ class ApiService
 
   final ValueNotifier<AuthState> authState = ValueNotifier(AuthState.loading);
 
-  // The router's redirect is synchronous and needs the active role, so the identity lives in a notifier.
+  // The router's synchronous redirect needs the active role: the identity lives in a notifier.
   final ValueNotifier<MeResponse?> identity = ValueNotifier(null);
 
   final _ListMemo<PersonItem> _peopleMemo = _ListMemo();
@@ -737,7 +737,7 @@ class ApiService
           return;
         }
 
-        // Only a refusal ends the session; with no answer the pair stays and the identity is retried.
+        // Only a refusal ends the session; no answer keeps the pair and retries the identity.
         if (_sessionRefused(e))
         {
           _leaveSession();
@@ -2805,7 +2805,6 @@ class ApiService
     await _dio.put('/notifications/$id/read');
   }
 
-  // The calendar of that band has been on screen.
   Future<void> markCalendarSeen(DateTime day, TimeBucket band) async
   {
     await _dio.put('/notifications/calendar/${formatDateOnly(day)}/${LessonItem.formatBand(band)}/seen');

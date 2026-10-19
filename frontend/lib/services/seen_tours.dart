@@ -78,7 +78,7 @@ class SeenTours
   // Slugs marked here and not yet heard by the server.
   String _pendingKey(String taxCode) => '${platform.prefix}_pending/$taxCode';
 
-  // Set once the copy made before tours lived on the server has been sent.
+  // Set once the local marks unknown to the server have all been sent.
   String _sentKey(String taxCode) => '${platform.prefix}_sent/$taxCode';
 
   Map<String, int> _local(SharedPreferences prefs, String taxCode)
@@ -143,7 +143,7 @@ class SeenTours
     return server;
   }
 
-  // catchUp: [seen] holds every mark the server lacked, so the old copy counts as sent.
+  // catchUp: [seen] holds every mark the server lacked, so the local copy counts as sent.
   Future<void> _send(String taxCode, Map<String, int> seen, {bool catchUp = false}) async
   {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -178,7 +178,7 @@ class SeenTours
   {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    // Builds before versions stored true.
+    // A stored bool, not an int version, is ignored here.
     final Object? local = prefs.get(_key(taxCode, slug));
 
     if (local is int && local >= version)

@@ -5,24 +5,37 @@ import '../../../core/utils/week_range.dart';
 import '../../lessons/models/activity_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/models/lesson_item.dart';
+import '../../lessons/models/person_option_item.dart';
 import '../../lessons/models/room_supervision_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/utils/timeline_geometry.dart';
 
 typedef ModeSpan = ({String mode, int startMinutes, int endMinutes});
 
+class RoomSupervisor
+{
+  final PersonOptionItem person;
+
+  // Clipped to the band and merged.
+  final List<(int, int)> spans;
+
+  final bool isSelf;
+
+  const RoomSupervisor({required this.person, required this.spans, required this.isSelf});
+}
+
 class TeacherBandCall
 {
   final List<LessonItem> lessons;
   final List<ScheduledActivity> activities;
 
-  // Clipped to the band and merged.
-  final List<(int, int)> supervisions;
+  // Everybody supervising the teacher's room in the band, the teacher included.
+  final List<RoomSupervisor> roomSupervisors;
 
   const TeacherBandCall({
     required this.lessons,
     required this.activities,
-    required this.supervisions,
+    required this.roomSupervisors,
   });
 
   bool get isEmpty => lessons.isEmpty && activities.isEmpty;
@@ -132,11 +145,13 @@ TeacherBandCall teacherBandCall({
 
   given.sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
-  final shifts = <(int, int)>[];
+  final int? roomId = own.map((lesson) => lesson.room).nonNulls.firstOrNull?.id;
+  final people = <String, PersonOptionItem>{};
+  final shifts = <String, List<(int, int)>>{};
 
   for (final shift in supervisions)
   {
-    if (!isSameDate(shift.date, day) || !isMine(shift.teacherTaxCode))
+    if (roomId == null || shift.room.id != roomId || !isSameDate(shift.date, day))
     {
       continue;
     }
@@ -145,14 +160,24 @@ TeacherBandCall teacherBandCall({
 
     if (clipped != null)
     {
-      shifts.add(clipped);
+      people[shift.teacherTaxCode] = shift.teacher;
+      (shifts[shift.teacherTaxCode] ??= []).add(clipped);
     }
   }
+
+  final supervisors = [
+    for (final MapEntry(key: taxCode, value: spans) in shifts.entries)
+      RoomSupervisor(
+        person: people[taxCode]!,
+        spans: mergeSpans(spans),
+        isSelf: taxCode == teacherTaxCode,
+      ),
+  ]..sort((a, b) => a.spans.first.$1.compareTo(b.spans.first.$1));
 
   return TeacherBandCall(
     lessons: own,
     activities: given,
-    supervisions: mergeSpans(shifts),
+    roomSupervisors: supervisors,
   );
 }
 

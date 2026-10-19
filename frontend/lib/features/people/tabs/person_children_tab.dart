@@ -7,6 +7,7 @@ import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -110,14 +111,18 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
 
   Widget _buildEmptyState()
   {
-    return PersonEmptyState(
-      message: 'Nessun figlio associato a questa anagrafica genitore.',
-      action: PersonLoneButton(
-        label: 'AGGIUNGI FIGLI',
+    return AppEmptyRoom(
+      card: const AppEmptyCard(
         icon: Icons.family_restroom_rounded,
-        onPressed: _openChildrenEditDialog,
+        message: 'Nessun figlio associato a questa anagrafica genitore.',
       ),
-      rises: true,
+      below: [
+        PersonLoneButton(
+          label: 'AGGIUNGI FIGLI',
+          icon: Icons.family_restroom_rounded,
+          onPressed: _openChildrenEditDialog,
+        ),
+      ],
     );
   }
 

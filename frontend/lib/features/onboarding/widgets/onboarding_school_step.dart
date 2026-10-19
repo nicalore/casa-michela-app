@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_carousel_frame.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -49,7 +50,12 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
   {
     if (years.isEmpty)
     {
-      return const PersonEmptyState(message: 'Nessun anno scolastico registrato.');
+      return const Padding(
+        padding: EdgeInsets.only(top: 32),
+        child: Center(
+          child: AppEmptyCard(icon: Icons.school_rounded, message: 'Nessun anno scolastico registrato.'),
+        ),
+      );
     }
 
     // A new record starts from its first card.

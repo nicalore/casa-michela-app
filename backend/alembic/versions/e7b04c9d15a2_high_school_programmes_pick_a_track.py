@@ -33,8 +33,7 @@ _ONLY_FOR_HIGH_SCHOOL: Final[str] = "study_program_track_only_for_high_school"
 
 _TRACK_YEARS_MATCH: Final[str] = "study_program_track_years_match"
 
-# Plain groups on purpose: in "(?:percorso" SQLAlchemy would read ":percorso"
-# as a bind parameter and refuse to run the statement.
+# Plain groups: SQLAlchemy reads ":percorso" in "(?:percorso" as a bind parameter.
 _HAND_WRITTEN_SUFFIX: Final[str] = (
     r"\s*\((percorso\s+)?(biennio|triennio|quadriennale)\)\s*$"
 )
@@ -47,8 +46,7 @@ _STRIPPED_NAME: Final[str] = (
 def upgrade() -> None:
     bind = op.get_bind()
 
-    # Alembic does not emit CREATE TYPE on its own: the type has to exist
-    # before the column, which then references it with create_type=False.
+    # add_column emits no CREATE TYPE: the type is created first, create_type=False.
     postgresql.ENUM(*_TRACKS, name=_ENUM).create(bind, checkfirst=True)
 
     op.add_column(
@@ -60,14 +58,8 @@ def upgrade() -> None:
         ),
     )
 
-    # Backfill before the constraints: ADD CONSTRAINT validates the rows that
-    # are already there. A CASE resolves to text, which Postgres refuses to
-    # assign to an enum column, hence the cast.
-    #
-    # No existing span maps faithfully: the standard high school covers 1-5,
-    # which is none of the three. QUADRIENNALE is the fallback because it is
-    # the arm that strands the fewest enrolments - only year 5, where TRIENNIO
-    # would strand years 1 and 2.
+    # Backfilled before the constraints; a CASE yields text, hence the enum cast.
+    # A 1-5 span fits no track: QUADRIENNALE strands the fewest years (only year 5).
     op.execute(
         f"""
         UPDATE {_TABLE}
@@ -97,13 +89,10 @@ def upgrade() -> None:
         """
     )
 
-    # Out before the names are stripped: dropping the suffix is exactly what
-    # makes a biennio and a triennio of one course collide on this key.
+    # Out before the names are stripped: without the suffix two cycles collide here.
     op.execute(f"DROP INDEX IF EXISTS {_OLD_INDEX}")
 
-    # The cycle used to be written into the name by hand. Now that it is a
-    # column, strip that suffix - but only where a name survives it, so a row
-    # called just "(triennio)" is left alone.
+    # Strips the hand-written cycle suffix, unless nothing else would remain.
     op.execute(
         f"""
         UPDATE {_TABLE}
@@ -113,8 +102,7 @@ def upgrade() -> None:
         """
     )
 
-    # Rebuilt only once the names are final. The years are what keep the two
-    # rows apart now that the suffix is gone.
+    # Rebuilt once the names are final: the years now keep the two cycles apart.
     op.execute(
         f"CREATE UNIQUE INDEX {_NEW_INDEX} "
         f"ON {_TABLE} (level, coalesce(sector, ''), name, min_year, max_year)"
@@ -149,16 +137,14 @@ def downgrade() -> None:
         type_="check",
     )
 
-    # Fails if two programmes were created that differ only by their span:
-    # without the years the old key cannot tell them apart any more.
+    # Fails if two programmes differ only by their span, which the old key ignores.
     op.execute(f"DROP INDEX IF EXISTS {_NEW_INDEX}")
     op.execute(
         f"CREATE UNIQUE INDEX {_OLD_INDEX} "
         f"ON {_TABLE} (level, coalesce(sector, ''), name)"
     )
 
-    # min_year, max_year and the stripped names keep whatever the backfill
-    # left them: neither the span nor the hand-written suffix is recoverable.
+    # Years and stripped names stay as the backfill left them: not recoverable.
     op.drop_column(_TABLE, _COLUMN)
 
     # Last: the column using the type has to be gone first.

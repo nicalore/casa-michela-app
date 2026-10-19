@@ -21,7 +21,6 @@ const String _homeLabel = 'Home';
 
 const String _settings = 'settings';
 
-// The own page has a tour for teachers alone so far.
 const Set<String> _rolesWithOwnTour = {'TEACHER', 'PARENT', 'STUDENT', 'PSYCHOLOGIST'};
 
 const double _maxWidth = 640;
@@ -37,8 +36,7 @@ TextStyle _hintStyle() => GoogleFonts.plusJakartaSans(
       color: AppTheme.trialMutedText,
     );
 
-// Every bar section with a tour across the person's roles, the home first, then in bar order; the own page, under the
-// first name as in the menu, and the settings last.
+// Toured sections across roles: home first, then bar order, own page, settings last.
 List<RoleSection> desktopTourSectionsOf(MeResponse user)
 {
   final bool toured = user.availableRoles.any(kDesktopTourRoles.contains);
@@ -206,7 +204,6 @@ class _TutorialDialogState extends State<_TutorialDialog>
   }
 }
 
-// As the rows of the notification kinds: tick, light green when chosen, gold under the mouse.
 class _SectionRow extends StatefulWidget
 {
   final String label;

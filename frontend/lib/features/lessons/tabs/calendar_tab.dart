@@ -1547,7 +1547,7 @@ class _CalendarTabState extends State<CalendarTab>
         for (final lesson in lane.lessons) lesson.id: lesson,
     }.values;
 
-    // Read off the band, not the rows: by-student rows are pupils, yet activities still convoke teachers.
+    // From the band, not the rows: by-student rows are pupils, yet activities convoke teachers.
     final given = [
       for (final activity in _activities)
         if (activity.placement != null) activity.placement!,
@@ -2781,8 +2781,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     final Widget area = PageTransitionItem(slot: slot, child: _buildTimelineArea(lanes, index));
 
-    // Always the Column: swapping to the bare area would re-parent the GlobalKey'd track
-    // inside its LayoutBuilder mid-drop, marking render objects outside the builder laying out.
+    // Always the Column: re-parenting the GlobalKey'd track mid-drop breaks its LayoutBuilder.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

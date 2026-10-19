@@ -6,6 +6,7 @@ import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
@@ -170,6 +171,12 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
         ),
       ],
       bodyTour: kTourAssociationSubjects,
+      empty: emptyListCard(
+        shown: subjects.length,
+        total: _subjects.length,
+        icon: Icons.auto_stories_rounded,
+        none: kNoSubjects,
+      ),
       body: EntityCardGrid(
         children: [
           for (final subject in subjects) AssociationSubjectCard(subject: subject),

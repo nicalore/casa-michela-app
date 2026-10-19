@@ -37,8 +37,11 @@ def _placement(
     people: dict[str, Person],
 ) -> CalendarActivityPlacement | None:
     availability = activity.availability
+    start_time = activity.start_time
+    end_time = activity.end_time
 
-    if availability is None:
+    # All or nothing in the database: with an availability come both times.
+    if availability is None or start_time is None or end_time is None:
         return None
 
     teacher = people.get(availability.teacher_tax_code)
@@ -51,8 +54,8 @@ def _placement(
         teacher_tax_code=availability.teacher_tax_code,
         teacher=PersonOption.model_validate(teacher),
         teacher_mode=OpeningModeEnum(availability.mode),
-        start_time=activity.start_time,
-        end_time=activity.end_time,
+        start_time=start_time,
+        end_time=end_time,
     )
 
 

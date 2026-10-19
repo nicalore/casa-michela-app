@@ -26,7 +26,13 @@ class MobileStandardHoursCard extends StatelessWidget
       return MobileGlassPanel(
         padding: tablet ? const EdgeInsets.all(20) : const EdgeInsets.all(18),
         borderRadius: BorderRadius.circular(_radius),
-        child: Text(kNoStandardHours, style: table.closedStyle().copyWith(fontWeight: FontWeight.w500)),
+        child: Center(
+          child: Text(
+            kNoStandardHours,
+            textAlign: TextAlign.center,
+            style: table.closedStyle().copyWith(fontWeight: FontWeight.w500),
+          ),
+        ),
       );
     }
 

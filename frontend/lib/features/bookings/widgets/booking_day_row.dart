@@ -7,6 +7,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
@@ -150,7 +151,7 @@ class BookingsTourPlaces
 
 bool _said(String? text) => text != null && text.trim().isNotEmpty;
 
-// The row's own rules, read for the tour: the add buttons, the locks, the coloured hours and the hover buttons.
+// The row's own rules, read for the tour: add buttons, locks, coloured hours, hover buttons.
 BookingsTourPlaces bookingsTourPlacesOf({
   required DateTime day,
   required List<BookingLane> lanes,
@@ -202,7 +203,6 @@ BookingsTourPlaces bookingsTourPlacesOf({
 
   BookingTourBlock? firstBlock(bool Function(BookingTourBlock block) test) => blocks.where(test).firstOrNull;
 
-  // Each lesson with the block holding it.
   final List<(BookingTourBlock, BookingSummaryItem, bool)> lessons = [
     for (final block in blocks)
       for (final slot in slotsOf(block))
@@ -258,7 +258,6 @@ class BookingDayRow extends StatefulWidget
 
   final bool readOnly;
 
-  // The tour's marks this row carries: for each, the first day showing it.
   final Set<BookingsTourMark> tourMarks;
 
   final void Function(BookingLane lane, String mode) onAdd;
@@ -394,15 +393,17 @@ class _BookingDayRowState extends State<BookingDayRow>
           mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
-              child: Text(
-                formatDayMonthFull(widget.day),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  height: 1.15,
-                  color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+              child: DescenderRoom(
+                child: Text(
+                  formatDayMonthFull(widget.day),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                    color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+                  ),
                 ),
               ),
             ),
@@ -712,15 +713,17 @@ class _LaneViewState extends State<_LaneView>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Flexible(
-                        child: Text(
-                          widget.lane.pupil.firstName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                            color: AppTheme.trialOcean,
+                        child: DescenderRoom(
+                          child: Text(
+                            widget.lane.pupil.firstName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                              color: AppTheme.trialOcean,
+                            ),
                           ),
                         ),
                       ),
@@ -1228,15 +1231,17 @@ class _LessonRowState extends State<_LessonRow>
           const SizedBox(height: _disciplinesGap + _disciplinesFontSize * _disciplinesLineHeight)
         else ...[
           const SizedBox(height: _disciplinesGap),
-          Text(
-            _disciplines.join(' · '),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: _disciplinesFontSize,
-              fontWeight: FontWeight.w600,
-              height: _disciplinesLineHeight,
-              color: AppTheme.trialMutedText,
+          DescenderRoom(
+            child: Text(
+              _disciplines.join(' · '),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: _disciplinesFontSize,
+                fontWeight: FontWeight.w600,
+                height: _disciplinesLineHeight,
+                color: AppTheme.trialMutedText,
+              ),
             ),
           ),
         ],
@@ -1451,7 +1456,7 @@ class _LessonRowState extends State<_LessonRow>
   }
 }
 
-// Keeps its size while hidden so nothing shifts on hover; [litBy] shows it while the tour lights that part.
+// Sized while hidden so nothing shifts on hover; [litBy] shows it while the tour lights that part.
 class _HoverAction extends StatefulWidget
 {
   final bool visible;
@@ -1557,15 +1562,17 @@ class _Tag extends StatelessWidget
         borderRadius: BorderRadius.circular(7),
         border: Border.all(color: AppTheme.trialMutedText.withValues(alpha: 0.35)),
       ),
-      child: Text(
-        label,
-        maxLines: 1,
-        softWrap: false,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w600,
-          height: 1.3,
-          color: AppTheme.trialMutedText,
+      child: DescenderRoom(
+        child: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+            color: AppTheme.trialMutedText,
+          ),
         ),
       ),
     );
@@ -1632,16 +1639,18 @@ class _Muted extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Text(
-      text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-        fontStyle: FontStyle.italic,
-        height: 1.35,
-        color: AppTheme.trialMutedText,
+    return DescenderRoom(
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          fontStyle: FontStyle.italic,
+          height: 1.35,
+          color: AppTheme.trialMutedText,
+        ),
       ),
     );
   }

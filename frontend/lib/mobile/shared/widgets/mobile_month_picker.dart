@@ -22,7 +22,7 @@ const Duration _turnDuration = Duration(milliseconds: 300);
 const EdgeInsets _tourDaysInflate = EdgeInsets.fromLTRB(4, 2, 4, 2);
 const double _tourDaysRadius = 18;
 
-// [tourDays]: the days' grid marked for a tour. [onShown]: told once the sheet has risen and stands still.
+// [tourDays]: the day grid for a tour. [onShown]: called once the sheet has risen and is still.
 Future<DateTime?> showMobileMonthPicker({
   required BuildContext context,
   required DateTime selected,

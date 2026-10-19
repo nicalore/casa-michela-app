@@ -80,7 +80,7 @@ Future<void> offerNotificationsOnce(BuildContext context) async
   }
 }
 
-// The question itself; Attiva asks the browser from inside its own tap.
+// The question itself; "Attiva" asks the browser from inside its own tap.
 Future<void> showNotificationsOffer(BuildContext context)
 {
   return showBlurredDialog<void>(

@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/birthday.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart' show formatDayMonthFull, formatDayMonthShort;
+import '../../../shared/widgets/descender_room.dart';
 import '../../people/models/person_item.dart';
 import 'dashboard_section_card.dart';
 
@@ -28,7 +29,7 @@ class DashboardBirthday
   }
 }
 
-// "41 anni · oggi", "17 anni · 18 ottobre"; short months where two share a row.
+// "<age> anni", a middle dot, "oggi" or the day; short months where two share a row.
 String birthdayCaption(DashboardBirthday birthday, {bool short = false})
 {
   final String when = birthday.isToday
@@ -114,8 +115,7 @@ class DashboardBirthdaysSection extends StatelessWidget
   final bool isLoading;
   final void Function(PersonItem person)? onTap;
 
-  // Decided by the page: measuring here would need a LayoutBuilder, which
-  // cannot report a height inside a row of equal-height cards.
+  // Set by the page: a LayoutBuilder cannot report a height inside equal-height card rows.
   final int columns;
 
   final double minHeight;
@@ -157,6 +157,7 @@ class DashboardBirthdaysSection extends StatelessWidget
           : birthdays.isEmpty
               ? Text(
                   'Nessun compleanno in arrivo.',
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w500,
@@ -291,26 +292,30 @@ class _BirthdayRowState extends State<_BirthdayRow>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${person.firstName} ${person.lastName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: widget.tight ? 14 : 15,
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                        color: AppTheme.trialOcean,
+                    DescenderRoom(
+                      child: Text(
+                        '${person.firstName} ${person.lastName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: widget.tight ? 14 : 15,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                          color: AppTheme.trialOcean,
+                        ),
                       ),
                     ),
-                    Text(
-                      widget.caption,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: widget.tight ? 12 : 12.5,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                        color: today ? AppTheme.modifiedAccent : AppTheme.trialMutedText,
+                    DescenderRoom(
+                      child: Text(
+                        widget.caption,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: widget.tight ? 12 : 12.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          color: today ? AppTheme.modifiedAccent : AppTheme.trialMutedText,
+                        ),
                       ),
                     ),
                   ],

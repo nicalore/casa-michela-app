@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
@@ -253,6 +254,12 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
           ),
         ],
       ),
+      empty: emptyListCard(
+        shown: programs.length,
+        total: widget.studyPrograms.length,
+        icon: Icons.route_rounded,
+        none: 'Nessun percorso di studio registrato',
+      ),
       body: EntityCardGrid(
         cardWidth: _cardWidth,
         children: programs.map((program)
@@ -344,7 +351,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       _selectedLevel = program.level;
       _selectedTrack = program.highSchoolTrack;
 
-      // A fixed track's span would only prefill what Altro refuses.
+      // A fixed track's span would only prefill what "Altro" refuses.
       if (_hasTypedYears)
       {
         _minYearController.text = program.minYear.toString();
@@ -800,6 +807,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
               ? Center(
                   child: Text(
                     'Nessuna materia trovata per il livello.',
+                    textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,

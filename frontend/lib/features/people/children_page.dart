@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
+import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_gradient_button.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
@@ -33,11 +34,6 @@ const String _parentRole = 'PARENT';
 const String _module = 'Figli';
 
 const double _cardsWidth = 1200;
-
-// Matches the other sections' action pills.
-const double _reportHeight = 50;
-const double _reportRadius = 25;
-const double _reportFontSize = 14;
 
 // One group per child, each with these sections in this order.
 const List<String> _entries = [
@@ -288,9 +284,6 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
       icon: Icons.flag_rounded,
       gradient: AppTheme.dismissGradient,
       accent: AppTheme.trialViolet,
-      height: _reportHeight,
-      radius: _reportRadius,
-      fontSize: _reportFontSize,
       onPressed: () => _report(child),
     );
   }
@@ -340,7 +333,12 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
 
     if (_children.isEmpty)
     {
-      return _buildNotice('Nessun figlio collegato al tuo profilo.');
+      return const Center(
+        child: PageTransitionItem(
+          slot: PageTransitionItem.list,
+          child: AppEmptyCard(icon: Icons.family_restroom_rounded, message: 'Nessun figlio collegato al tuo profilo.'),
+        ),
+      );
     }
 
     return Row(
@@ -509,6 +507,15 @@ class _ChildOtherInfoTab extends StatelessWidget
       if (!person.isAdult) minorSafetyCard(person),
     ];
 
+    if (cards.isEmpty)
+    {
+      return AppEmptyRoom(
+        card: const AppEmptyCard(icon: Icons.info_outline_rounded, message: 'Nessuna informazione aggiuntiva.'),
+        gap: 48,
+        below: [footer],
+      );
+    }
+
     return ScrollEdgeFade(
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(top: 16, bottom: 32),
@@ -518,8 +525,6 @@ class _ChildOtherInfoTab extends StatelessWidget
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
-                if (cards.isEmpty)
-                  const PersonEmptyState(message: 'Nessuna informazione aggiuntiva.'),
                 for (var i = 0; i < cards.length; i++) ...[
                   if (i > 0) const SizedBox(height: kPersonCardGap),
                   cards[i],

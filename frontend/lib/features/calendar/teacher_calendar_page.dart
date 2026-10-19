@@ -171,8 +171,8 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     return mounted && !_isLoading && !_failed && !isDesktopTourShown && isDesktopTourTargetShown(kTourCalendarBands);
   }
 
-  // One tour for the page, the call and the lesson's window, on an open day. [follow]: a day just read turns to
-  // the band of a call never told, as on the phone; a band the teacher chose stays.
+  // One tour for the page, the call and the lesson's window, on an open day.
+  // [follow]: turn to the band of an untold call; a band picked by the user stays.
   Future<void> _startTours({bool follow = false}) async
   {
     await WidgetsBinding.instance.endOfFrame;

@@ -9,7 +9,6 @@ _PENDING: Final[str] = "pending"
 # ("pending", id(parent)) for one being written in this very flush.
 FlushKey = tuple[str, object]
 
-# Legacy alias from when bookings were the only parent needing this.
 BookingFlushKey = FlushKey
 
 

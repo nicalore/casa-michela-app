@@ -77,8 +77,7 @@ class DashboardGreeting extends StatelessWidget
       alignment: alignment,
       child: FittedBox(
         fit: BoxFit.scaleDown,
-        // srcIn uses the text as a mask; a tightened line height shrinks the mask
-        // box and erases descenders.
+        // srcIn masks with the text: a tighter line height shrinks the mask, cutting descenders.
         child: ShaderMask(
           blendMode: BlendMode.srcIn,
           shaderCallback: (bounds) => gradient.createShader(bounds),

@@ -119,7 +119,6 @@ async def test_impossible_hours_are_refused(
         await db.flush()
 
 
-# The band is computed by the database, so it cannot disagree with the hours.
 @pytest.mark.parametrize(
     ("start", "end", "expected"),
     [
@@ -159,8 +158,7 @@ async def test_a_lesson_cannot_disagree_with_its_availability(
 ) -> None:
     availability, _, _ = await _scene(db)
 
-    # Pupil and lesson agree; only the composite FK notices the
-    # availability's different day.
+    # Pupil and lesson agree; only the composite FK sees the availability's other day.
     other_day = date(2026, 9, 16)
     student = await make_student(db)
     presence = await make_presence(db, student, day=other_day)
@@ -188,7 +186,6 @@ async def test_a_lesson_cannot_disagree_with_its_availability(
         await db.flush()
 
 
-# A teacher at a screen at home cannot have a pupil sitting in front of them.
 async def test_a_teacher_at_home_cannot_teach_in_person(db: AsyncSession) -> None:
     availability, booking, _ = await _scene(db, teacher_mode="online")
 
@@ -198,7 +195,6 @@ async def test_a_teacher_at_home_cannot_teach_in_person(db: AsyncSession) -> Non
         await db.flush()
 
 
-# The other way round is the point of keeping two modes.
 async def test_a_teacher_in_the_building_may_teach_online(db: AsyncSession) -> None:
     availability, booking, _ = await _scene(db, student_mode="online")
 
@@ -206,8 +202,7 @@ async def test_a_teacher_in_the_building_may_teach_online(db: AsyncSession) -> N
     await db.flush()
 
 
-# Two one-pupil lessons at the same hour must pass: the pupil-count cap
-# lives in the service, since no CHECK can count rows in another table.
+# The pupil-count cap lives in the service: no CHECK can count rows elsewhere.
 async def test_one_availability_may_start_two_lessons_at_once(
     db: AsyncSession,
 ) -> None:

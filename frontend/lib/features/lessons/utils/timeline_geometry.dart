@@ -17,8 +17,8 @@ int snapQuarterDown(int minutes)
   return (minutes / kQuarterHour).floor() * kQuarterHour;
 }
 
-// Slides a span inside [lower, upper] keeping its length (never clips). A span
-// longer than the range comes back flush left and too long, for the caller to refuse.
+// Slides a span inside [lower, upper] keeping its length; never clips.
+// A span longer than the range comes back flush left, for the caller to refuse.
 (int, int) clampSpanInto(int start, int end, int lower, int upper)
 {
   final length = end - start;
@@ -116,8 +116,7 @@ List<(int, int)> subtractSpans(List<(int, int)> from, List<(int, int)> holes)
   return remaining;
 }
 
-// Must stay identical to teacher_occupancy.peak_concurrent_students on the
-// backend; this copy exists so the refusal arrives under the pointer.
+// Mirrors backend teacher_occupancy.peak_concurrent_students, so refusals come under the pointer.
 int peakConcurrentStudents(List<(int, int, int)> spans)
 {
   final events = <(int, int)>[];
@@ -143,9 +142,8 @@ int peakConcurrentStudents(List<(int, int, int)> spans)
   return peak;
 }
 
-// Assigns each span the first free sub-lane. [preferred] only changes the
-// order spans are served in: honoring last frame's lanes keeps untouched
-// blocks in place while one is dragged.
+// Assigns each span the first free sub-lane.
+// [preferred] only orders the spans: last frame's lanes keep untouched blocks still in a drag.
 ({List<int> laneOf, int laneCount}) assignSubLanes(
   List<(int, int)> spans, {
   List<int?> preferred = const [],
@@ -163,8 +161,7 @@ int peakConcurrentStudents(List<(int, int, int)> spans)
 
   final laneOf = List<int>.filled(spans.length, 0);
 
-  // Check the whole lane, not just its last span: spans are served out of
-  // time order.
+  // Check the whole lane, not just its last span: spans are served out of time order.
   final laneSpans = <List<(int, int)>>[];
 
   for (final index in order)
@@ -209,9 +206,8 @@ const int _noClaim = 1 << 20;
   return (math.min(a.$1, b.$1), math.max(a.$2, b.$2));
 }
 
-// The axis covers the opening hours, not the whole band. [content] only
-// stretches it where existing items fall outside the opening (hours changed
-// after a lesson existed). Null for a closed, never-written band.
+// The axis covers the opening, not the whole band; [content] stretches it to items outside.
+// Null for a closed, never-written band.
 (int, int)? timelineWindow({
   required int bandStartMinutes,
   required int bandEndMinutes,
@@ -284,7 +280,7 @@ class TimeScale
     return TimeScale._(start, end, [for (final length in minutes) length * perMinute]);
   }
 
-  // Quarters an item needs grow, the rest shrink down to [minQuarter]; past that it outgrows [extent].
+  // Needed quarters grow, the rest shrink to [minQuarter]; past that the scale outgrows [extent].
   factory TimeScale.elastic({
     required int start,
     required int end,
@@ -527,8 +523,7 @@ class TimelineMetrics
     return snapToQuarter(minutesAt(x)).clamp(windowStartMinutes, windowEndMinutes);
   }
 
-  // Row at a vertical position, or null outside the rows. Inter-row air is
-  // padding inside a row, so no drop lands in a dead band.
+  // Null outside the rows; inter-row air is padding inside a row, so no drop hits a dead band.
   int? rowAt(double y)
   {
     if (y < 0)

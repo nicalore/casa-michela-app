@@ -13,6 +13,7 @@ import '../../../../features/lessons/models/lesson_item.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/calendar_activity_block.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
+import '../../../../shared/widgets/descender_room.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
 import '../../../shared/widgets/mobile_tour.dart';
@@ -40,7 +41,7 @@ const Color _pastAccent = Color(0xFF93A3AD);
 const double kMobilePhoneCardScale = 1.1;
 const double kMobileTabletCardScale = 1.15;
 
-// Under this inner width a card drops its icons, as on the desktop.
+// Under this inner width a card drops its icons.
 const double _narrowWidth = 81;
 
 // How far a word may shrink so a card never splits it across two lines.
@@ -80,7 +81,6 @@ class MobileCalendarEntry
 
   final VoidCallback onTap;
 
-  // For a tour to light the card.
   final String? tourId;
 
   const MobileCalendarEntry({
@@ -557,7 +557,7 @@ class _CardBody extends StatelessWidget
       used += _personGap + personHeight;
     }
 
-    // Last, as on the desktop, so it goes first.
+    // Last, so it is the first to go.
     final MobileLessonWhere? where = entry.where;
     final double whereIcon = inColumn || narrow ? 0 : 14 * scale;
     final double whereWidth = width - whereIcon - (whereIcon == 0 ? 0 : _whereIconGap);
@@ -635,19 +635,21 @@ class _CardBody extends StatelessWidget
                     ],
                   ),
                   const SizedBox(height: _titleGap),
-                  Text(
-                    entry.title,
-                    maxLines: lines.titleLines,
-                    overflow: TextOverflow.ellipsis,
-                    style: lines.titleStyle,
+                  DescenderRoom(
+                    child: Text(
+                      entry.title,
+                      maxLines: lines.titleLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: lines.titleStyle,
+                    ),
                   ),
                   if (lines.subjectLines > 0 && subject != null) ...[
                     const SizedBox(height: _subjectGap),
-                    Text(subject, maxLines: lines.subjectLines, overflow: TextOverflow.ellipsis, style: lines.subjectStyle),
+                    DescenderRoom(child: Text(subject, maxLines: lines.subjectLines, overflow: TextOverflow.ellipsis, style: lines.subjectStyle)),
                   ],
                   if (lines.personLines > 0 && person != null) ...[
                     const SizedBox(height: _personGap),
-                    Text(person, maxLines: lines.personLines, overflow: TextOverflow.ellipsis, style: lines.personStyle),
+                    DescenderRoom(child: Text(person, maxLines: lines.personLines, overflow: TextOverflow.ellipsis, style: lines.personStyle)),
                   ],
                   if (lines.whereLines > 0 && where != null) ...[
                     const SizedBox(height: _whereGap),
@@ -874,7 +876,7 @@ class _WhereLine extends StatelessWidget
           Icon(where.icon, size: iconSize, color: past ? _pastAccent : where.accent),
           const SizedBox(width: _whereIconGap),
         ],
-        Expanded(child: Text(where.label, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style)),
+        Expanded(child: DescenderRoom(child: Text(where.label, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style))),
       ],
     );
   }

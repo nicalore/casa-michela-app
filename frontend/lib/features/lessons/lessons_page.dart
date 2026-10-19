@@ -1079,7 +1079,7 @@ class _LessonsPageState extends State<LessonsPage>
     _sayWhatMovedUnderneath(hours, requests, day, band);
   }
 
-  // Reports lessons lost to withdrawn availability and requests arrived since the calendar was built.
+  // Reports lessons lost to withdrawn hours and requests arrived since the calendar was built.
   void _sayWhatMovedUnderneath(
     Set<int> hours,
     Set<int> requests,
@@ -1259,7 +1259,7 @@ class _LessonsPageState extends State<LessonsPage>
     }
   }
 
-  // One setState for lessons, publications and activities: two in sequence showed a half-updated frame.
+  // One setState for lessons, publications and activities: two would show a half-updated frame.
   Future<void> _refreshDay(DateTime day) async
   {
     try

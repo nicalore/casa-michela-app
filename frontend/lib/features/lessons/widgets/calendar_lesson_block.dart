@@ -8,6 +8,7 @@ import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/calendar_day.dart';
@@ -78,6 +79,8 @@ const String kRemoveFromCalendarAwayLabel = 'Rimuovi dal calendario';
 const double _markGap = 4;
 
 const String kSupervisorLabel = 'Responsabile di stanza';
+
+const String kSupervisorsLabel = 'Responsabili di stanza';
 
 const Duration kCalendarTooltipWait = Duration(milliseconds: 300);
 
@@ -404,15 +407,17 @@ class CalendarGhostBlock extends StatelessWidget
               padding: const EdgeInsets.symmetric(horizontal: 9),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  label!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                    color: isRefused ? AppTheme.trialDanger : AppTheme.trialTealDeep,
+                child: DescenderRoom(
+                  child: Text(
+                    label!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      color: isRefused ? AppTheme.trialDanger : AppTheme.trialTealDeep,
+                    ),
                   ),
                 ),
               ),
@@ -563,12 +568,14 @@ class CalendarDragFeedback extends StatelessWidget
                       height: 1.15,
                       color: accent,
                     ),
-                    child: Text(
-                      saysLeaving
-                          ? awayLabel!
-                          : '${lead ?? modeLabel(mode)} · ${span == null ? hours : formatMinutesRange(span.$1, span.$2)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: DescenderRoom(
+                      child: Text(
+                        saysLeaving
+                            ? awayLabel!
+                            : '${lead ?? modeLabel(mode)} · ${span == null ? hours : formatMinutesRange(span.$1, span.$2)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -581,10 +588,12 @@ class CalendarDragFeedback extends StatelessWidget
                       height: 1.15,
                       color: isWrong ? AppTheme.trialDanger : AppTheme.trialOcean,
                     ),
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: DescenderRoom(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ],
@@ -983,7 +992,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
     );
   }
 
-  // Published blocks wrap a long line, the row grows to take it; composing ones say it in a caption.
+  // Published blocks wrap long lines and the row grows; composing ones use a caption.
   int? get _lineCap => widget.isComposing ? 1 : null;
 
   TextOverflow get _lineCut => widget.isComposing ? TextOverflow.ellipsis : TextOverflow.clip;
@@ -998,11 +1007,13 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
         Icon(_where.icon, size: _blockWhereIcon, color: accent),
         const SizedBox(width: _blockWhereIconGap),
         Expanded(
-          child: Text(
-            _where.label,
-            maxLines: _lineCap,
-            overflow: _lineCut,
-            style: _blockWhereStyle.copyWith(color: accent),
+          child: DescenderRoom(
+            child: Text(
+              _where.label,
+              maxLines: _lineCap,
+              overflow: _lineCut,
+              style: _blockWhereStyle.copyWith(color: accent),
+            ),
           ),
         ),
       ],
@@ -1059,7 +1070,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
                       ),
                     ),
                     SizedBox(width: _isTight ? 4 : 8),
-                    // Clipped: the block still has its composing height for a moment after publishing.
+                    // Clipped: just after publishing the block briefly keeps its composing height.
                     Expanded(
                       child: ClipRect(
                         clipper: const _BlockFaceClip(),
@@ -1099,28 +1110,34 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
                                 ],
                               ),
                               SizedBox(height: widget.isComposing ? 2 : 3),
-                              Text(
-                                _topic.discipline,
-                                maxLines: _lineCap,
-                                overflow: _lineCut,
-                                style: _blockDisciplineStyle,
+                              DescenderRoom(
+                                child: Text(
+                                  _topic.discipline,
+                                  maxLines: _lineCap,
+                                  overflow: _lineCut,
+                                  style: _blockDisciplineStyle,
+                                ),
                               ),
                               // Composing blocks keep their height: no subject line.
                               if (!widget.isComposing && _topic.subject != null) ...[
                                 const SizedBox(height: 1),
-                                Text(
-                                  _topic.subject!,
-                                  maxLines: _lineCap,
-                                  overflow: _lineCut,
-                                  style: _blockSubjectStyle,
+                                DescenderRoom(
+                                  child: Text(
+                                    _topic.subject!,
+                                    maxLines: _lineCap,
+                                    overflow: _lineCut,
+                                    style: _blockSubjectStyle,
+                                  ),
                                 ),
                               ],
                               SizedBox(height: widget.isComposing ? 2 : 4),
-                              Text(
-                                _title,
-                                maxLines: _lineCap,
-                                overflow: _lineCut,
-                                style: _blockPersonStyle,
+                              DescenderRoom(
+                                child: Text(
+                                  _title,
+                                  maxLines: _lineCap,
+                                  overflow: _lineCut,
+                                  style: _blockPersonStyle,
+                                ),
                               ),
                               if (_byStudent) ...[
                                 const SizedBox(height: 2),

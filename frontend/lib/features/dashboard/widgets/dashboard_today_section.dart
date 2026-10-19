@@ -4,7 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../association/models/opening_day_item.dart';
+import '../../lessons/models/activity_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/models/calendar_publication_item.dart';
 import '../../lessons/models/lesson_item.dart';
@@ -96,6 +98,7 @@ List<DashboardBandStatus> openBands({
   required List<AvailabilityItem> availabilities,
   required List<PresenceItem> presences,
   required List<LessonItem> lessons,
+  required List<ActivityItem> activities,
   required List<CalendarPublicationItem> publications,
 })
 {
@@ -138,6 +141,12 @@ List<DashboardBandStatus> openBands({
         .where((lesson) => isSameDate(lesson.date, day) && lesson.band == band)
         .toList();
 
+    final Set<String> convened = {
+      for (final lesson in planned) lesson.teacherTaxCode,
+      for (final activity in activities)
+        if (isSameDate(activity.date, day) && activity.band == band) ?activity.teacherTaxCode,
+    };
+
     final bandStart = bandStartMinutes(band);
     final bandEnd = bandEndMinutes(band);
 
@@ -148,7 +157,7 @@ List<DashboardBandStatus> openBands({
       // Once published, counts come from the calendar, not from what was offered or booked.
       teachers: publication == null
           ? _peopleIn(offered, day, bandStart, bandEnd)
-          : planned.map((lesson) => lesson.teacherTaxCode).toSet().length,
+          : convened.length,
       students: publication == null
           ? _peopleIn(booked, day, bandStart, bandEnd)
           : planned.expand((lesson) => lesson.studentTaxCodes).toSet().length,
@@ -162,7 +171,7 @@ List<DashboardBandStatus> openBands({
 const double _hoursRow = 22;
 const double _figureRow = 24;
 
-// Docenti, studenti and lezioni: a band that has fewer keeps the empty rows.
+// "Docenti", "studenti" and "lezioni": a band that has fewer keeps the empty rows.
 const int _figureRows = 3;
 
 class DashboardTodaySection extends StatelessWidget
@@ -210,6 +219,7 @@ class DashboardTodaySection extends StatelessWidget
     {
       return Text(
         'Gli orari di oggi non sono disponibili.',
+        textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14.5,
           fontWeight: FontWeight.w500,
@@ -337,15 +347,17 @@ class _Figure extends StatelessWidget
           ),
           const SizedBox(width: 7),
           Flexible(
-            child: Text(
-              figure.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
-                color: AppTheme.trialMutedText,
+            child: DescenderRoom(
+              child: Text(
+                figure.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                  color: AppTheme.trialMutedText,
+                ),
               ),
             ),
           ),

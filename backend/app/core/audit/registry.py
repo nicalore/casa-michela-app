@@ -378,8 +378,7 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     ),
 }
 
-# Editor locks, seen tutorials, read notifications and app updates, notification
-# kinds and push addresses are UI bookkeeping: auditing them would bury real entries.
+# UI bookkeeping routes: auditing them would bury the real entries.
 IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
     {
         ("POST", "/calendar-locks/{lock_date}/{band}/heartbeat"),

@@ -12,7 +12,6 @@ import '../utils/settings_strings.dart';
 import '../widgets/settings_panel.dart';
 import '../widgets/tutorial_card.dart';
 
-// This device's notifications, which kinds the account receives on every device, then the tutorials.
 class SystemTab extends StatefulWidget
 {
   const SystemTab({super.key});
@@ -74,7 +73,7 @@ class _DeviceRow extends StatelessWidget
     _ => kNotificationsSettingHint,
   };
 
-  // Blocked by the browser, a tap on «Attive» says so.
+  // Blocked by the browser, a tap on "Attive" says so.
   @override
   Widget build(BuildContext context)
   {
@@ -95,7 +94,6 @@ class _DeviceRow extends StatelessWidget
   }
 }
 
-// The count and the button: the dialog says which kinds there are and which are on.
 class _KindsRow extends StatelessWidget
 {
   final bool on;

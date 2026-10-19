@@ -62,7 +62,7 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
 
   int _selectedSection = _appearanceIndex;
 
-  // Bumped by a notification's jump, so Dispositivi reads its sessions again in full.
+  // Bumped by a notification's jump, so "Dispositivi" reads its sessions again in full.
   int _devicesRound = 0;
 
   @override

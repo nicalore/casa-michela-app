@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-// A notification asking the settings for their Dispositivi: a page not built yet takes it when it
-// starts, one already shown hears of it.
+// Pending jump to "Dispositivi": a page not built yet takes it on start, a shown one listens.
 abstract final class SettingsJumps
 {
   static bool _devices = false;

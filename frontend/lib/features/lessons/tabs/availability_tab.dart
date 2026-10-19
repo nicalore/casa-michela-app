@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
-import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../association/models/opening_day_item.dart';
@@ -164,19 +162,19 @@ class _AvailabilityTabState extends State<AvailabilityTab>
     }
   }
 
-  String get _emptyMessage
+  AppEmptyCard get _emptyCard
   {
     if (_hasFilters)
     {
-      return 'Nessuna disponibilità corrisponde ai filtri scelti.';
+      return const AppEmptyCard(icon: Icons.filter_alt_off_rounded, message: 'Nessuna disponibilità corrisponde ai filtri scelti.');
     }
 
     if (_searchText.isNotEmpty)
     {
-      return 'Nessun docente trovato in questa giornata.';
+      return const AppEmptyCard(icon: Icons.search_off_rounded, message: 'Nessun docente trovato in questa giornata.');
     }
 
-    return 'Nessuna disponibilità in questa giornata.';
+    return const AppEmptyCard(icon: Icons.event_note_rounded, message: 'Nessuna disponibilità in questa giornata.');
   }
 
   Widget _buildFilters()
@@ -301,35 +299,17 @@ class _AvailabilityTabState extends State<AvailabilityTab>
         _buildFilters(),
         const SizedBox(height: 28),
       ],
-      body: groups.isEmpty
-          ? PageTransitionItem(
-              slot: PageTransitionItem.list,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: Text(
-                    _emptyMessage,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.trialMutedText,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ),
-            )
-          : EntityCardGrid(
-              children: [
-                for (final group in groups)
-                  AvailabilityCard(
-                    group: group,
-                    onEditRequested: (onSaved) => _showWizard(group: group, onEditSaved: onSaved),
-                    onDelete: () => widget.onDeleteGroup(group.slots),
-                  ),
-              ],
+      empty: groups.isEmpty ? _emptyCard : null,
+      body: EntityCardGrid(
+        children: [
+          for (final group in groups)
+            AvailabilityCard(
+              group: group,
+              onEditRequested: (onSaved) => _showWizard(group: group, onEditSaved: onSaved),
+              onDelete: () => widget.onDeleteGroup(group.slots),
             ),
+        ],
+      ),
     );
   }
 }

@@ -1,12 +1,11 @@
 import 'package:flutter/foundation.dart';
 
-// A notification asking a week page for the week of a day: a page not built yet takes it when it
-// starts, one already shown hears of it.
+// Pending week to show: a page not built yet takes it on start, a shown one listens.
 class WeekJumpChannel
 {
   DateTime? _pending;
 
-  // The role whose page it is for: another role's, still open while the area switches, leaves it.
+  // Target role: another role's page, still open while the area switches, leaves it.
   String? _role;
 
   // The child to show, on a page that shows one at a time.
@@ -44,12 +43,12 @@ class WeekJumpChannel
 
 abstract final class WeekJumps
 {
-  // The teachers' Disponibilità.
+  // The teachers' "Disponibilità".
   static final WeekJumpChannel availability = WeekJumpChannel();
 
-  // The parents' and students' Prenotazioni.
+  // The parents' and students' "Prenotazioni".
   static final WeekJumpChannel bookings = WeekJumpChannel();
 
-  // The Associazione's Orari, every role's.
+  // The "Orari" of every role's "Associazione".
   static final WeekJumpChannel hours = WeekJumpChannel();
 }

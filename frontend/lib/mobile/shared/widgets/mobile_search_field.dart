@@ -4,8 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../mobile_palette.dart';
 
-const String kMobileNoSearchMatch = 'Nessun elemento trovato per questa ricerca.';
-
 const double _height = 46;
 const double _radius = 18;
 

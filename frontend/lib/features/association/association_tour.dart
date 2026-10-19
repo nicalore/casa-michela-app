@@ -3,40 +3,35 @@ import 'package:flutter/widgets.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
-// Orari.
 const String kTourAssociationDays = 'association.days';
 const String kTourAssociationVariation = 'association.variation';
 const String kTourAssociationWeek = 'association.week';
 const String kTourAssociationStandard = 'association.standard';
 const String kTourAssociationVariations = 'association.variations';
 
-// The rail's entries.
 const String kTourAssociationToSubjects = 'association.tab.subjects';
 const String kTourAssociationToTeachers = 'association.tab.teachers';
 const String kTourAssociationToNotices = 'association.tab.notices';
 
-// Discipline and Docenti, for parents and students.
 const String kTourAssociationSubjects = 'association.subjects';
 const String kTourAssociationReport = 'association.report';
 const String kTourAssociationTeachers = 'association.teachers';
 const String kTourAssociationTeachersTop = 'association.teachers.top';
 
-// A teacher's window, opened from Docenti.
 const String kTourAssociationTeacherProfile = 'association.teacher.profile';
 const String kTourAssociationTeacherSubjects = 'association.teacher.subjects';
 const String kTourAssociationTeacherOpinion = 'association.teacher.opinion';
 
-// Comunicazioni e avvisi.
 const String kTourAssociationNotices = 'association.notices';
 const String kTourAssociationPinned = 'association.pinned';
 const String kTourAssociationSearch = 'association.search';
 const String kTourAssociationFilters = 'association.filters';
 const String kTourAssociationPickerDays = 'association.picker.days';
 
-// True while the notices are the section on show, and while their picker is up: the tours wait for them.
+// True while the notices section is on show or its picker is up; tours wait on it.
 final ValueNotifier<bool> associationNoticesShown = ValueNotifier(false);
 
-// The section on show, by name ('hours', 'subjects', 'teachers', 'notices'): the tour's clicks wait for it.
+// Section on show: 'hours', 'subjects', 'teachers' or 'notices'; tour clicks wait on it.
 final ValueNotifier<String?> associationSection = ValueNotifier(null);
 final ValueNotifier<bool> associationPickerOpen = ValueNotifier(false);
 
@@ -49,10 +44,9 @@ const Map<String, (String, int)> _mainSeen = {
   'STUDENT': ('association.student', 3),
 };
 
-// A teacher's window, the first time a parent or a student opens one.
 const (String, int) _teacherWindowSeen = ('association.reader.teacher', 1);
 
-// What shows only sometimes: told in the main tour when there, else alone the first time it shows.
+// Conditional parts: in the main tour when present, else a late tour on first sight.
 const (String, int) _variationSeen = ('association.variation', 2);
 const (String, int) _pinnedSeen = ('association.pinned', 1);
 
@@ -76,7 +70,7 @@ bool _daughter(String? gender) => gender == 'F';
 
 bool get _self => ApiService().lastKnownIdentity?.activeRole == 'STUDENT';
 
-// [opinions]: by gender, those whose opinions on the teachers the reader gives; none, no opinions to give.
+// [opinions]: genders of those the reader gives teacher opinions for; empty if none.
 String _teachersText(List<String?> opinions)
 {
   const String intro = "In questa pagina trovi tutti i docenti che collaborano con l'Associazione. "
@@ -127,7 +121,7 @@ String _opinionText(List<String?> opinions)
   return 'Puoi segnalare se $who non fare lezione con il docente.';
 }
 
-// The roles reading the association's hours and notices; the administrator edits them instead.
+// Tax code of a reading role; null for the administrator, who edits instead.
 String? get _reader
 {
   final identity = ApiService().lastKnownIdentity;
@@ -156,7 +150,7 @@ void startAssociationTour(BuildContext context, DesktopTour tour)
   WidgetsBinding.instance.scheduleFrame();
 }
 
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
+// Radius = the part's corner + pad / 2; the hole adds the other half, so it stays concentric.
 final DesktopTourStep _variationStep = DesktopTourStep(
   targets: const [kTourAssociationVariation],
   text: "Questo simbolo indica che l'orario per questo giorno è diverso rispetto all'orario standard.",
@@ -180,7 +174,6 @@ final DesktopTourStep _pinnedStep = DesktopTourStep(
   seen: _pinnedSeen,
 );
 
-// A click on a rail entry, done once its section is on show.
 DesktopTourStep _click(String target, String text, String section)
 {
   return DesktopTourStep(
@@ -195,9 +188,8 @@ DesktopTourStep _click(String target, String text, String section)
   );
 }
 
-// Orari; for parents and students Discipline and Docenti; then a click on «Comunicazioni e avvisi» and the notices,
-// as one tour; null for whoever has none. [show]: turns the page to a section by name, when stepping back.
-// [opinions]: by gender, those whose opinions on the teachers the reader gives; none, no opinions to give.
+// Hours, then "Discipline" and "Docenti" for parents and students, then notices; null if none.
+// [show] turns the page to a section by name when stepping back.
 DesktopTour? associationTour({required ValueChanged<String> show, List<String?> opinions = const []})
 {
   final (String slug, int version)? seen = _mainSeen[ApiService().lastKnownIdentity?.activeRole];
@@ -299,7 +291,6 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
         targets: const [kTourAssociationToNotices],
         text: 'Clicca «Comunicazioni e avvisi».',
         sides: _beside,
-        // The entry spans the rail: the hole keeps inside its edges.
         pad: 0,
         radius: 12,
         listen: associationNoticesShown,
@@ -316,7 +307,6 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
         coming: () => true,
       ),
       _pinnedStep,
-      // The search and the filters under it, lit as one.
       DesktopTourStep(
         targets: const [kTourAssociationSearch, kTourAssociationFilters],
         text: 'Puoi ordinare i messaggi dal più recente al meno recente o viceversa, filtrare gli avvisi per una data '
@@ -338,7 +328,7 @@ Future<bool> associationTourSeen(DesktopTour tour) async
   return taxCode == null || await isDesktopTourSeen(taxCode: taxCode, tour: tour);
 }
 
-// The variation symbol or a pinned notice showing for the first time once the main tour was seen.
+// Variation symbol or pinned notice seen for the first time after the main tour.
 Future<DesktopTour?> associationLateTour() async
 {
   final String? taxCode = _reader;
@@ -367,9 +357,7 @@ final DesktopTour associationPickerTour = DesktopTour(
   ],
 );
 
-// A teacher's window opened by a parent or a student, the first time: what they studied and teach, then the
-// opinion when the reader gives one. [opinions]: as for the page's tour.
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
+// First time a parent or student opens a teacher's window; [opinions] as for the page's tour.
 DesktopTour associationTeacherTour({required List<String?> opinions})
 {
   return DesktopTour(

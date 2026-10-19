@@ -58,7 +58,7 @@ class _KindsDialogState extends State<_KindsDialog>
         for (final choice in _choices) choice.turned(_picked[choice.kind] ?? choice.enabled),
       ]);
 
-      // Closed by its × meanwhile, a pop would take the page under it.
+      // Closed by its close button meanwhile, a pop would take the page under it.
       if (mounted && (ModalRoute.of(context)?.isCurrent ?? false))
       {
         Navigator.of(context).pop();
@@ -126,7 +126,6 @@ class _KindsDialogState extends State<_KindsDialog>
   }
 }
 
-// As the rows of the disciplines picker: tick, light green when chosen, gold under the mouse.
 class _KindRow extends StatefulWidget
 {
   final NotificationKind kind;

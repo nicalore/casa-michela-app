@@ -50,7 +50,7 @@ class HoursGrid extends StatelessWidget
 
   final List<HoursGridDay> days;
 
-  // The widest single entry any cell holds: a time, a Chiuso, a heading line.
+  // The widest single entry any cell holds: a time, "Chiuso", a heading line.
   final double entryWidth;
 
   const HoursGrid({super.key, required this.days, required this.entryWidth});
@@ -289,7 +289,6 @@ class HoursGrid extends StatelessWidget
   }
 }
 
-// Matches the today mark of the teachers' availability.
 class TodayFrame extends StatelessWidget
 {
   static const double rim = 2.5;

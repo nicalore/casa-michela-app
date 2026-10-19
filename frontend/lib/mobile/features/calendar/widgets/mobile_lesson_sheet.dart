@@ -9,7 +9,6 @@ import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
 import '../../../../features/association/notices/notice_message_view.dart' show noticeTextStyle;
-// import '../../../../features/calendar/widgets/own_lesson_block.dart' show kSharedLessonIcon;
 import '../../../../features/calendar/widgets/own_lesson_dialog.dart';
 import '../../../../features/calendar/widgets/teacher_note_dialog.dart' show lessonHasBegun;
 import '../../../../features/lessons/models/calendar_day.dart';
@@ -71,7 +70,7 @@ List<DetailRowData> _rowsOf(List<LessonVoice> voices, {ValueChanged<LessonVoice>
   ];
 }
 
-// [withStudent] false: the lesson's facts alone, as for a day gone by. [tourLink]: what a tour reads of it.
+// [withStudent] false: the lesson's facts alone, as for a day gone by.
 Future<void> showMobileLessonSheet({
   required BuildContext context,
   required LessonItem lesson,
@@ -98,7 +97,7 @@ Future<void> showMobileLessonSheet({
   );
 }
 
-// [tourLink]: what a tour reads of it; its second page, the teacher's, counts as the student's there.
+// [tourLink]: the second page, the teacher's, counts as the student's there.
 Future<void> showMobilePupilLessonSheet({
   required BuildContext context,
   required LessonItem lesson,
@@ -381,7 +380,6 @@ class _LessonSheetState extends State<_LessonSheet>
             rows: _rowsOf(lessonVoicesOf(widget.lesson, widget.ministrySubjects, where: widget.forPupil)),
           ),
           // Co-presence hidden from students and parents for now.
-          // if (widget.forPupil && widget.lesson.isShared) _SharedLine(sharedLessonSentence(widget.lesson)),
         ],
       ),
     );
@@ -597,39 +595,3 @@ class _Note extends StatelessWidget
     );
   }
 }
-
-// class _SharedLine extends StatelessWidget
-// {
-//   final String text;
-//
-//   const _SharedLine(this.text);
-//
-//   @override
-//   Widget build(BuildContext context)
-//   {
-//     return Padding(
-//       padding: const EdgeInsets.only(top: 6, bottom: 12),
-//       child: Row(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           const Padding(
-//             padding: EdgeInsets.only(top: 2),
-//             child: Icon(kSharedLessonIcon, size: 18, color: AppTheme.trialTealDeep),
-//           ),
-//           const SizedBox(width: 8),
-//           Expanded(
-//             child: Text(
-//               text,
-//               style: GoogleFonts.plusJakartaSans(
-//                 fontSize: 14.5,
-//                 fontWeight: FontWeight.w600,
-//                 height: 1.4,
-//                 color: AppTheme.trialInk,
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }

@@ -6,8 +6,7 @@ import '../../../../../core/theme/app_theme.dart';
 
 enum _PopupPart { balloon, arrow }
 
-// Always built, even when nothing is hovered: keeping it mounted and animating
-// only opacity is what lets it fade out in place.
+// Always built, even with nothing hovered: animating only opacity lets it fade out in place.
 class ChartValuePopup extends StatelessWidget
 {
   final Offset target;

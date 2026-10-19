@@ -8,6 +8,7 @@ import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_top_bar.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../notification_board.dart';
 import '../notification_item.dart';
 import '../notification_look.dart';
@@ -257,27 +258,31 @@ class _NotificationToastLayerState extends State<NotificationToastLayer> with Ti
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.3,
-                      color: AppTheme.trialInk,
+                  DescenderRoom(
+                    child: Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        height: 1.3,
+                        color: AppTheme.trialInk,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    item.desktopBody,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                      color: AppTheme.trialMutedText,
+                  DescenderRoom(
+                    child: Text(
+                      item.desktopBody,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                        color: AppTheme.trialMutedText,
+                      ),
                     ),
                   ),
                 ],

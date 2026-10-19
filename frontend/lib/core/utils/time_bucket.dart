@@ -6,8 +6,7 @@ export 'week_range.dart' show kMinimumBandMinutes, kMinimumLessonMinutes, kQuart
 
 enum TimeBucket { morning, afternoon, evening }
 
-// Mirrors app/core/time_band.py. Half-open, except evening's close, which is
-// a real closing time and stays selectable.
+// Mirrors app/core/time_band.py: half-open, but evening's close is a selectable closing time.
 const int _morningStartHour = kDayStartMinutes ~/ 60;
 const int _afternoonStartHour = 13;
 const int _eveningStartHour = 19;

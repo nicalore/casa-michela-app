@@ -28,7 +28,7 @@ class MobileChoice<T>
 }
 
 // Null when dismissed; a tap on a choice picks it and closes.
-// [tourChoices]: the choices marked for a tour. [onShown]: told once the sheet stands still, with how to close it.
+// [tourChoices]: marked for a tour. [onShown]: called once the sheet is still, with its closer.
 Future<MobileChoice<T>?> showMobileChoiceSheet<T>({
   required BuildContext context,
   required String eyebrow,

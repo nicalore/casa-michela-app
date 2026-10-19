@@ -50,7 +50,7 @@ const double _creditsGap = 34;
 
 const String _confirmTitle = 'Confermi?';
 
-// Third of the strip: Aspetto, Accesso, Dispositivi.
+// Third of the strip: "Aspetto", "Accesso", "Dispositivi".
 const int _devicesPage = 2;
 const Duration _pageTurn = Duration(milliseconds: 320);
 

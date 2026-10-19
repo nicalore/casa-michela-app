@@ -85,9 +85,12 @@ class CombinedVariationsCard extends StatelessWidget
 
     if (runs.isEmpty)
     {
-      return Text(
-        kNoUpcomingVariations,
-        style: GoogleFonts.plusJakartaSans(fontSize: 16, color: AppTheme.trialMutedText),
+      return Center(
+        child: Text(
+          kNoUpcomingVariations,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(fontSize: 16, color: AppTheme.trialMutedText),
+        ),
       );
     }
 

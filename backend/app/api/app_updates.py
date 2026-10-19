@@ -213,7 +213,6 @@ async def edit_update(
     return update_response(await load_update(db, update.id))
 
 
-# Gone for good, for those who had not read it too.
 @router.delete("/{update_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_update(update_id: int, _: Manager, db: DbSession) -> Response:
     await db.delete(await load_update(db, update_id))

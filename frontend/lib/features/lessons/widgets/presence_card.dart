@@ -121,7 +121,7 @@ class _PresenceCardState extends State<PresenceCard>
         group: _group,
         ministrySubjects: widget.ministrySubjects,
         offeredSubjects: offeredSubjects,
-        // Over the details, which stay put: closing and reopening them replayed their entrance.
+        // Over the details, which stay put: a close and reopen would replay their entrance.
         onEditRequested: () => widget.onEditRequested(() => Navigator.of(dialogContext).pop()),
         onDelete: widget.onDelete,
         teachers: widget.teachers,
@@ -350,7 +350,7 @@ class _PresenceCardState extends State<PresenceCard>
 class _ModeColumn extends StatelessWidget
 {
   static const double _labelGap = 7;
-  // The text's own line height spaces the hours: a wider gap fitted only two.
+  // The text's own line height spaces the hours: a wider gap fits only two.
   static const double _lineGap = 1;
   static const double _totalGap = 5;
 
@@ -591,7 +591,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       return held.draft;
     }
 
-    // From the whole booking: the wizard writes back all it was handed, so a partial draft wipes fields.
+    // From the whole booking: the wizard writes back all it gets, so a partial draft wipes fields.
     final draft = SubjectRequestDraft.fromBooking(
       booking,
       ministrySubjectName: ministrySubjectName(
@@ -904,7 +904,7 @@ class _ConfirmSubjectDeletion extends StatelessWidget
 {
   final String label;
 
-  // «Materia - Disciplina» for a subject divided in disciplines.
+  // "Materia - Disciplina" for a subject divided in disciplines.
   final String? discipline;
 
   final Future<bool> Function() onConfirmed;

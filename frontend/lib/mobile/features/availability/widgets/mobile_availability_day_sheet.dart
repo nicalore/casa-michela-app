@@ -381,9 +381,9 @@ class _Empty extends StatelessWidget
   Widget build(BuildContext context)
   {
     return Align(
-      alignment: Alignment.centerLeft,
       child: Text(
         'Nessuna disponibilità',
+        textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 13.5,
           fontStyle: FontStyle.italic,

@@ -158,7 +158,7 @@ def request_for_person(person: Person) -> EnrollmentFormRequest:
         }
 
     return EnrollmentFormRequest(
-        person=payload,
+        person=PersonWizardPayloadBase.model_validate(payload),
         # The form has room for two parents.
         parents=[
             _parent_of(relationship)
@@ -280,7 +280,7 @@ def enrollment_form_values(
     today: date,
     checked: str,
 ) -> dict[str, str]:
-    """Map the wizard's payload onto the template's field names, omitting empty values."""
+    """Map the wizard's payload onto the template's field names, skipping empties."""
     values: dict[str, str] = {}
     person = request.person
 
@@ -501,7 +501,7 @@ def _homework_tariff(
 ) -> None:
     student = person.student_data
 
-    if student is None:
+    if student is None or student.homework_tariff is None:
         return
 
     field = _HOMEWORK_TARIFF_FIELDS.get(student.homework_tariff)

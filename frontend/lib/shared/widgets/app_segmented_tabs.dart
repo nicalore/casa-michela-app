@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'descender_room.dart';
 import 'desktop_tour.dart';
 
 const Duration kSegmentedSlide = Duration(milliseconds: 240);
@@ -195,11 +196,13 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
             style: _labelStyle.copyWith(
               color: active ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
             ),
-            child: Text(
-              widget.labels[index],
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.ellipsis,
+            child: DescenderRoom(
+              child: Text(
+                widget.labels[index],
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
         ),

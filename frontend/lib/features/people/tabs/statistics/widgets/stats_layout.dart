@@ -47,9 +47,7 @@ class ResponsiveCardPair extends StatelessWidget
   }
 }
 
-// Cards are builders handed (width, matched): intrinsic height matching means
-// nothing in a card's subtree may measure itself - a LayoutBuilder cannot
-// answer an intrinsic query.
+// Intrinsic height matching: nothing in a card may measure itself, e.g. no LayoutBuilder.
 class MatchedCardPair extends StatelessWidget
 {
   static const double _breakpoint = 900.0;

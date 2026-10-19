@@ -4,4 +4,6 @@ const String kAssociationTeachersLabel = 'Docenti';
 const String kAssociationMeetingsLabel = 'Colloqui';
 const String kAssociationNoticesLabel = 'Comunicazioni e avvisi';
 
+const String kNoSubjects = 'Nessuna disciplina registrata';
+
 const String kAssociationLoadFailed = 'Impossibile caricare i dati dal server.';

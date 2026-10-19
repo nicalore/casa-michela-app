@@ -124,6 +124,7 @@ class SubjectRequestList extends StatelessWidget
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
               emptyLabel,
+              textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -554,13 +555,16 @@ class _TeacherPickerState extends State<TeacherPicker>
             ),
           ),
         if (widget.offered.isEmpty)
-          Text(
-            kNoTeachers,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.trialMutedText,
-              fontStyle: FontStyle.italic,
+          Center(
+            child: Text(
+              kNoTeachers,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.trialMutedText,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           )
         else ...[
@@ -574,13 +578,16 @@ class _TeacherPickerState extends State<TeacherPicker>
           ),
           const SizedBox(height: 10),
           if (_available.isEmpty)
-            Text(
-              _full ? kTeachersFullNoMatch : kNoTeacherMatch,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.trialMutedText,
-                fontStyle: FontStyle.italic,
+            Center(
+              child: Text(
+                _full ? kTeachersFullNoMatch : kNoTeacherMatch,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.trialMutedText,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             )
           else

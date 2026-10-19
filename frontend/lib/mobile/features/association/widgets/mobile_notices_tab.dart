@@ -1,3 +1,6 @@
+import '../../../../shared/widgets/app_empty_card.dart';
+import '../../../../shared/widgets/descender_room.dart';
+import '../../../shared/widgets/mobile_empty_card.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -348,25 +351,32 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
   {
     if (_board.loading)
     {
-      return const MobileWaiting();
+      return _tourNotices(const MobileWaiting());
     }
 
     if (_board.failed)
     {
-      return const MobileAssociationStatus(kAssociationLoadFailed);
+      return _tourNotices(const MobileAssociationStatus(kAssociationLoadFailed));
     }
 
     final List<NoticeSummaryItem> notices = _board.shown;
 
     if (notices.isEmpty)
     {
-      return MobileAssociationStatus(_board.isEmpty ? kNoReceivedNotices : kMobileNoSearchMatch);
+      return Center(
+        child: _tourNotices(
+          _board.isEmpty
+              ? MobileEmptyCard(icon: Icons.campaign_rounded, message: kNoReceivedNotices, tablet: widget.tablet)
+              : MobileEmptyCard(icon: Icons.search_off_rounded, message: kNoSearchMatch, tablet: widget.tablet),
+          radius: MobileGlassPanel.cardRadius.topLeft.x + _tourCardInflate.top,
+        ),
+      );
     }
 
     final double room = MediaQuery.sizeOf(context).width - widget.margin * 2;
     final int columns = widget.tablet ? (room / _minCardWidth).floor().clamp(1, _maxColumns) : 1;
 
-    return Column(
+    final Widget list = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
@@ -383,6 +393,18 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
         ..._sections(notices, columns),
       ],
     );
+
+    return _tourNotices(list);
+  }
+
+  Widget _tourNotices(Widget child, {double radius = _tourCardRadius})
+  {
+    return MobileTourTarget(
+      id: kAssociationTourNotices,
+      inflate: _tourCardInflate,
+      radius: radius,
+      child: child,
+    );
   }
 
   @override
@@ -396,52 +418,46 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
         color: AppTheme.trialGold,
         backgroundColor: AppTheme.trialDeepWater,
         onRefresh: () => _board.load(quiet: true),
-        child: ListView(
-          clipBehavior: Clip.none,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(top: _topRoom, bottom: bottom),
-          children: [
-            MobileTourTarget(
-              id: kAssociationTourTop,
-              inflate: EdgeInsets.fromLTRB(
-                _tourTopInflate - widget.margin,
-                _tourTopInflate,
-                _tourTopInflate - widget.margin,
-                _tourTopInflate,
-              ),
-              radius: _tourTopRadius,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: widget.margin),
-                    child: MobileSearchField(
-                      controller: _board.search,
-                      hintText: kSearchNoticeHint,
-                      onChanged: (_) => _board.searched(),
+        child: ListenableBuilder(
+          listenable: _board,
+          builder: (context, _) => MobileEmptyScroll(
+            padding: EdgeInsets.only(top: _topRoom, bottom: bottom),
+            head: [
+              MobileTourTarget(
+                id: kAssociationTourTop,
+                inflate: EdgeInsets.fromLTRB(
+                  _tourTopInflate - widget.margin,
+                  _tourTopInflate,
+                  _tourTopInflate - widget.margin,
+                  _tourTopInflate,
+                ),
+                radius: _tourTopRadius,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: widget.margin),
+                      child: MobileSearchField(
+                        controller: _board.search,
+                        hintText: kSearchNoticeHint,
+                        onChanged: (_) => _board.searched(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  ListenableBuilder(listenable: _board, builder: (context, _) => _buildChips()),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            // One child: every card is laid out, so a picked day can be reached.
-            ListenableBuilder(
-              listenable: _board,
-              builder: (context, _) => Padding(
-                padding: EdgeInsets.symmetric(horizontal: widget.margin),
-                child: MobileTourTarget(
-                  id: kAssociationTourNotices,
-                  inflate: _tourCardInflate,
-                  radius: _tourCardRadius,
-                  child: _buildBody(),
+                    const SizedBox(height: 12),
+                    _buildChips(),
+                  ],
                 ),
               ),
+              const SizedBox(height: 18),
+            ],
+            // One box: every card is laid out, so a picked day can be reached.
+            body: Padding(
+              padding: EdgeInsets.symmetric(horizontal: widget.margin),
+              child: _buildBody(),
             ),
-            const MobileTourRunway(),
-          ],
+            fill: !_board.loading && !_board.failed && _board.shown.isEmpty,
+            tail: const [MobileTourRunway()],
+          ),
         ),
       ),
     );
@@ -531,16 +547,18 @@ class _NoticeCard extends StatelessWidget
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(
-                      notice.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
-                        height: 1.25,
-                        letterSpacing: -0.1,
-                        color: AppTheme.trialInk,
+                    child: DescenderRoom(
+                      child: Text(
+                        notice.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w800,
+                          height: 1.25,
+                          letterSpacing: -0.1,
+                          color: AppTheme.trialInk,
+                        ),
                       ),
                     ),
                   ),

@@ -1,10 +1,5 @@
 # Sends the test notification to everyone who can sign in, or to one person.
-#
-#     python -m scripts.send_test_notification
-#     python -m scripts.send_test_notification --tax-code RSSMRA80A01H501U
-#
-# Each person finds it in the home card; whoever turned notifications on also
-# gets it on those devices.
+# Usage: python -m scripts.send_test_notification [--tax-code CODE]
 
 import argparse
 import asyncio

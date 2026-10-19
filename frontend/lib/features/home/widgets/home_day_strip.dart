@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../association/tabs/opening_hours/mode_hours_parts.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../../dashboard/widgets/published_pill.dart';
@@ -88,14 +89,16 @@ class StripBandHead extends StatelessWidget
         runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text(
-            bandLabel(band),
-            maxLines: 1,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              height: 1.25,
-              color: AppTheme.trialOcean,
+          DescenderRoom(
+            child: Text(
+              bandLabel(band),
+              maxLines: 1,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+                color: AppTheme.trialOcean,
+              ),
             ),
           ),
           if (isPublished) PublishedPill(isDraft: isDraft),
@@ -231,6 +234,7 @@ class HomeDayStrip extends StatelessWidget
     {
       return Text(
         'Gli orari di oggi non sono disponibili.',
+        textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14.5,
           fontWeight: FontWeight.w500,
@@ -382,20 +386,22 @@ class _LaneLabel extends StatelessWidget
           Icon(icon, size: 16, color: color),
           const SizedBox(width: 5),
           Flexible(
-            child: Text.rich(
-              TextSpan(
-                text: label,
-                children: [
-                  if (note != null)
-                    TextSpan(
-                      text: '  $note',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.trialMutedText),
-                    ),
-                ],
+            child: DescenderRoom(
+              child: Text.rich(
+                TextSpan(
+                  text: label,
+                  children: [
+                    if (note != null)
+                      TextSpan(
+                        text: '  $note',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.trialMutedText),
+                      ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, height: 1.2, color: color),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, height: 1.2, color: color),
             ),
           ),
         ],

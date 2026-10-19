@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import 'app_tooltip.dart';
+import 'descender_room.dart';
 
-// Overflow is re-measured with a TextPainter at the laid-out width: didExceedMaxLines is unreliable on web.
+// Re-measured with a TextPainter at the laid-out width: didExceedMaxLines is unreliable on web.
 class OverflowTooltipText extends StatefulWidget
 {
   final String text;
@@ -100,25 +101,27 @@ class _OverflowTooltipTextState extends State<OverflowTooltipText>
   @override
   Widget build(BuildContext context)
   {
-    final Widget textWidget = widget.textSpan != null
-      ? Text.rich(
-          widget.textSpan!,
-          key: _textKey,
-          maxLines: widget.maxLines,
-          overflow: TextOverflow.ellipsis,
-          textAlign: widget.textAlign,
-          style: widget.style,
-        )
-      : Text(
-          widget.text,
-          key: _textKey,
-          maxLines: widget.maxLines,
-          overflow: TextOverflow.ellipsis,
-          textAlign: widget.textAlign,
-          style: widget.style,
-        );
+    final Widget textWidget = DescenderRoom(
+      child: widget.textSpan != null
+        ? Text.rich(
+            widget.textSpan!,
+            key: _textKey,
+            maxLines: widget.maxLines,
+            overflow: TextOverflow.ellipsis,
+            textAlign: widget.textAlign,
+            style: widget.style,
+          )
+        : Text(
+            widget.text,
+            key: _textKey,
+            maxLines: widget.maxLines,
+            overflow: TextOverflow.ellipsis,
+            textAlign: widget.textAlign,
+            style: widget.style,
+          ),
+    );
 
-    // Re-checked on every laid-out size: the available width decides the overflow as much as the text.
+    // Re-checked on every laid-out size: the width decides the overflow as much as the text.
     return _LayoutObserver(
       onLayout: _scheduleOverflowCheck,
       child: !_isOverflowing

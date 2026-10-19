@@ -125,7 +125,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
   bool _revealed = false;
 
-  // Set once the page is in place; from then on every load, band change and closed sheet looks for a tour.
+  // Set once the page is in place; then every load, band change and closed sheet looks for a tour.
   bool _toured = false;
   int? _pageSeen;
 
@@ -294,7 +294,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
     return TimeBucket.values.where((band) => _firstLessonOf(data.bandOf(band)) != null).firstOrNull;
   }
 
-  // The bands and the day picker on the first visit; the call and a lesson the first time one is shown.
+  // Bands and day picker on the first visit; the call and a lesson the first time one is shown.
   Future<void> _tourCheck() async
   {
     final MobileCalendarDay? data = _data;

@@ -336,8 +336,7 @@ class _WizardState extends State<_Wizard>
     return step == steps.length - 1 && (_draft.hoursOnly || steps[step].kind != MobileBookingStepKind.hours);
   }
 
-  // The last page's button ends the wizard: the subjects of a new booking or of an edited one, or the hours when
-  // only they are edited.
+  // Last page's button: subjects of a new or edited booking, or the hours when only they change.
   BookingWizardMark? _finish(List<MobileBookingStep> steps, int step)
   {
     if (step >= steps.length || !_isLast(steps, step))
@@ -353,7 +352,7 @@ class _WizardState extends State<_Wizard>
     };
   }
 
-  // Its tour step shows with the wizard's page on top; on the subjects, once a subject has come back chosen.
+  // Its tour step shows with the wizard's page on top; on subjects, once one comes back chosen.
   bool _finishesWith(BookingWizardMark mark)
   {
     return mounted &&

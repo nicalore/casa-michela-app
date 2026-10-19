@@ -138,7 +138,7 @@ String? _weeklyWarning(TeacherMonthSummaryItem month)
   return '$short ${short == 1 ? 'settimana' : 'settimane'} con meno di\u00a0due';
 }
 
-// A dash until the Compensi page settles how pay is counted.
+// Pay amounts show a dash while the way pay is counted is undefined.
 const bool _showsPayAmount = false;
 
 List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount = _showsPayAmount})
@@ -340,7 +340,6 @@ class HomeMonthSection extends StatelessWidget
 
   final String title;
 
-  // Named on the card's head.
   final DateTime month;
 
   // Set by the page: a LayoutBuilder cannot report a height inside a row of equal-height cards.
@@ -386,6 +385,7 @@ class HomeMonthSection extends StatelessWidget
         read == null
             ? 'Il riepilogo del mese non è disponibile.'
             : 'Nessuno studente associato.',
+        textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14.5,
           fontWeight: FontWeight.w500,

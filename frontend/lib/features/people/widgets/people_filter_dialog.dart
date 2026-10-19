@@ -28,6 +28,7 @@ class PeopleFilterDialog extends StatefulWidget
   final List<String>?                     fixedRoles;
 
   final String                            eyebrow;
+  final bool                              enrollmentFilter;
   final bool                              earlyExitFilter;
   final bool                              methodologicalNotesFilter;
 
@@ -43,6 +44,7 @@ class PeopleFilterDialog extends StatefulWidget
     required this.onApply,
     this.fixedRoles,
     this.eyebrow = 'Persone',
+    this.enrollmentFilter = true,
     this.earlyExitFilter = true,
     this.methodologicalNotesFilter = false,
   });
@@ -525,6 +527,20 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
 
                         if (showAssociateFilters) ...[
                           _buildSectionTitle('Filtri Associato'),
+                          if (widget.enrollmentFilter) ...[
+                            _buildFieldLabel('Stato iscrizione'),
+                            _buildChoiceChips<bool>(
+                              value: _currentState.isEnrolled,
+                              options: const [(true, 'Iscritto'), (false, 'Non iscritto')],
+                              onChanged: (val) => setState(()
+                              {
+                                _currentState = _currentState.copyWith(
+                                  isEnrolled:    val,
+                                  clearEnrolled: val == null,
+                                );
+                              }),
+                            ),
+                          ],
                           _buildFieldLabel('Stato collaborazione'),
                           _buildChoiceChips<bool>(
                             value: _currentState.isActiveCollaborator,

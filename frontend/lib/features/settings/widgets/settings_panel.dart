@@ -34,7 +34,6 @@ const double _trailingGap = 16;
 // Narrower rows put their control under the text.
 const double _stackedBelow = 480;
 
-// One settings section: its blocks in a centred column that scrolls.
 class SettingsColumn extends StatelessWidget
 {
   final List<Widget> children;
@@ -69,7 +68,6 @@ class SettingsColumn extends StatelessWidget
   }
 }
 
-// White card of rows split by hairlines, with an optional heading above it.
 class SettingsPanel extends StatelessWidget
 {
   final String? heading;
@@ -130,7 +128,6 @@ class _Hairline extends StatelessWidget
   }
 }
 
-// Icon, title, an optional line under it and the control on the right.
 class SettingsRow extends StatelessWidget
 {
   final IconData icon;
@@ -223,7 +220,6 @@ class SettingsRow extends StatelessWidget
   }
 }
 
-// A setting whose choices need room: title on top, the choices under it.
 class SettingsBand extends StatelessWidget
 {
   final IconData icon;

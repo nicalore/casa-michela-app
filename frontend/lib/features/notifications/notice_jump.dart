@@ -1,12 +1,11 @@
 import 'package:flutter/foundation.dart';
 
-// A notification asking Comunicazioni e avvisi to open a notice: a page not built yet takes it when
-// it starts, one already shown hears of it.
+// Pending notice to open: a page not built yet takes it on start, a shown one listens.
 class NoticeJumpChannel
 {
   int? _pending;
 
-  // The role whose page it is for: another role's, still open while the area switches, leaves it.
+  // Target role: another role's page, still open while the area switches, leaves it.
   String? _role;
 
   // Bumped on every request.
@@ -37,6 +36,6 @@ class NoticeJumpChannel
 
 abstract final class NoticeJumps
 {
-  // Every role's Comunicazioni e avvisi, the administrator's on the desktop only.
+  // Every role's "Comunicazioni e avvisi", the administrator's on the desktop only.
   static final NoticeJumpChannel reading = NoticeJumpChannel();
 }

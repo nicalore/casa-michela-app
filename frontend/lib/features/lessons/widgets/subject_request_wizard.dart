@@ -56,7 +56,7 @@ class SubjectRequestWizard extends StatefulWidget
   // The pupil's programme, to put the teachers who could take the lesson first.
   final int? studentStudyProgramId;
 
-  // Guide copy: named, "lo studente" when null, addressed directly when isSelf; gender for agreement.
+  // Copy: named, "lo studente" when null, addressed directly when isSelf; gender for agreement.
   final String? studentName;
   final bool isSelf;
   final String? studentGender;
@@ -612,7 +612,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
     final String? discipline = _discipline;
 
-    // A subject divided in disciplines: the discipline is the title, its subject goes in the eyebrow.
+    // Divided subject: the discipline is the title, its subject goes in the eyebrow.
     return AppDialogStack(
       eyebrow: [
         'Passo ${_step + 1} di $_steps',

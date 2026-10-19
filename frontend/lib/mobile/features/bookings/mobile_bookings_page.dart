@@ -1,3 +1,4 @@
+import '../../shared/widgets/mobile_empty_card.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -194,7 +195,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
     return day != null && startOfWeek(day).isAfter(_monday) && isNextWeekUnlocked(_now) ? 1 : 0;
   }
 
-  // Already open: the week asked for, read again in full.
+  // Already open: the notified week, read again in full.
   void _jump()
   {
     final ({DateTime day, String? pupil})? asked = WeekJumps.bookings.takeFor(role: widget.role);
@@ -998,9 +999,16 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
 
     final PersonItem? pupil = _pupil;
 
-    if (_failed || pupil == null)
+    if (_failed)
     {
-      return _Status(_failed ? kBookingsLoadFailed : kNoPupils);
+      return const _Status(kBookingsLoadFailed);
+    }
+
+    if (pupil == null)
+    {
+      return Center(
+        child: MobileEmptyCard(icon: Icons.family_restroom_rounded, message: kNoPupils, tablet: tablet),
+      );
     }
 
     final List<MobileBookingDay> days = _week(index, pupil);
@@ -1071,26 +1079,31 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
     );
   }
 
+  // Whether the week shows the empty card alone.
+  bool _isEmptyWeek(int index)
+  {
+    return !(index == 1 && !isNextWeekUnlocked(_now)) && !_loading && !_failed && _pupil == null;
+  }
+
   // Margin inside the scroll view so card shadows are not clipped while paging.
-  Widget _scrollable(Widget child, {required double left, required double right, required double bottom})
+  Widget _scrollable(
+    Widget child, {
+    required double left,
+    required double right,
+    required double bottom,
+    required bool fill,
+  })
   {
     return MobileSwipePage(
       child: RefreshIndicator(
         color: AppTheme.trialGold,
         backgroundColor: AppTheme.trialDeepWater,
         onRefresh: () => _load(quiet: true),
-        child: SingleChildScrollView(
-          clipBehavior: Clip.none,
-          physics: const AlwaysScrollableScrollPhysics(),
+        child: MobileEmptyScroll(
           padding: EdgeInsets.fromLTRB(left, _topRoom, right, bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              MobileLoadSwitcher(child: child),
-              const MobileTourRunway(),
-            ],
-          ),
+          body: MobileLoadSwitcher(child: child),
+          fill: fill,
+          tail: const [MobileTourRunway()],
         ),
       ),
     );
@@ -1183,6 +1196,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
             left: margin,
             right: margin,
             bottom: bottom,
+            fill: _isEmptyWeek(i),
           ),
       ],
     );

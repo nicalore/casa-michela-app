@@ -1,6 +1,14 @@
 from datetime import UTC, datetime
+from typing import Any, cast
 
-from sqlalchemy import ColumnElement, exists, select, update
+from sqlalchemy import (
+    ColumnElement,
+    ColumnExpressionArgument,
+    CursorResult,
+    exists,
+    select,
+    update,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.refresh_token import RefreshToken, TokenTypeEnum
@@ -8,8 +16,8 @@ from app.models.refresh_token import RefreshToken, TokenTypeEnum
 
 # Still signed in: one of its refresh tokens is neither revoked nor expired.
 def live_session(
-    account_tax_code: str | ColumnElement[str],
-    session_id: str | ColumnElement[str],
+    account_tax_code: str | ColumnExpressionArgument[str],
+    session_id: str | ColumnExpressionArgument[str],
     now: datetime,
 ) -> ColumnElement[bool]:
     return exists().where(
@@ -122,7 +130,7 @@ class RefreshTokenRepository:
 
         await self.session.flush()
 
-        return result.rowcount
+        return cast(CursorResult[Any], result).rowcount
 
     async def revoke_sessions_except(
         self,
@@ -142,7 +150,7 @@ class RefreshTokenRepository:
 
         await self.session.flush()
 
-        return result.rowcount
+        return cast(CursorResult[Any], result).rowcount
 
     async def delete(self, refresh_token: RefreshToken) -> None:
         await self.session.delete(refresh_token)

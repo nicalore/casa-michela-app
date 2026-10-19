@@ -27,12 +27,12 @@ const String _endLabel = 'FINE';
 const double _dimOpacity = 0.32;
 
 const double _bubbleWidth = 410;
-// Narrower, «Indietro» and «Avanti» side by side would break their words.
+// Narrower, "INDIETRO" and "AVANTI" side by side would break their words.
 const double _narrowestBubble = 400;
 const double _bubbleGap = 20;
 const double _windowMargin = 20;
 
-// The desktop tooltips' colour: the card reads as a layer over the page, the lit parts as page.
+// Same colour as the desktop tooltips (AppTheme.tooltipDecoration).
 final Color _bubbleColor = AppTheme.trialOcean.withValues(alpha: 0.97);
 final Color _closeHover = Color.alphaBlend(Colors.white.withValues(alpha: 0.14), AppTheme.trialOcean);
 
@@ -51,13 +51,11 @@ const Duration _watch = Duration(milliseconds: 900);
 
 const Duration _startPause = Duration(milliseconds: 150);
 
-// A window over the page fading out once closed.
 const Duration _windowGone = Duration(milliseconds: 300);
 
 // Clicks are never held back longer, whatever goes wrong meanwhile.
 const Duration _longestHold = Duration(seconds: 10);
 
-// A page still moving after this long is not waited for any more.
 const Duration _longestWait = Duration(seconds: 8);
 const Duration _waitStep = Duration(milliseconds: 50);
 
@@ -65,7 +63,7 @@ String _eyebrow(int index, int count) => 'TUTORIAL · $index DI $count';
 
 final Map<String, List<_DesktopTourTargetState>> _targets = {};
 
-// Marks a part a desktop tour can light; a null id leaves the child as it is.
+// A null id marks nothing, so lighting a part or not keeps the tree the same.
 class DesktopTourTarget extends StatefulWidget
 {
   final String? id;
@@ -145,7 +143,6 @@ Rect? _boxOf(BuildContext context)
   return MatrixUtils.transformRect(box.getTransformTo(null), Offset.zero & box.size);
 }
 
-// Where the part shows: a part scrolled partly out is cut at the edges of the views holding it.
 Rect? _shownOf(BuildContext context)
 {
   Rect? rect = _boxOf(context);
@@ -173,7 +170,6 @@ Rect? _rectOf(String id)
   return context == null ? null : _shownOf(context);
 }
 
-// Every copy of the part on show, for parts lit apart.
 List<Rect> _rectsOf(String id)
 {
   final Iterable<_DesktopTourTargetState> built = _targets[id]?.where((state) => state.mounted) ?? const [];
@@ -194,7 +190,7 @@ class DesktopTourStep
   // Lit together as one part; none: the bubble alone, in the middle.
   final List<String> targets;
 
-  // Each target lit by a hole of its own, for parts with others between them; every copy of one on show.
+  // A hole per target, for parts with others between them; every copy on show gets one.
   final bool apart;
 
   final String text;
@@ -205,21 +201,19 @@ class DesktopTourStep
   final double pad;
   final double radius;
 
-  // Parts lit apart, each with its own corner: one radius per target, in order.
+  // With [apart]: one radius per target, in order.
   final List<double>? radii;
 
-  // A step without a forward button: the lit part takes clicks, and the step is done once
-  // [reached] holds, checked whenever [listen] notifies.
+  // No forward button: the lit part takes clicks; done once [reached] holds on a [listen] notify.
   final Listenable? listen;
   final bool Function()? reached;
 
-  // The lit part takes clicks and the forward button stays: [reached] then only hurries the step on.
+  // The lit part takes clicks, forward button kept: [reached] then only hurries the step on.
   final bool interactive;
 
-  // Asked too whenever [listen] notifies: true ends the tour, its part gone (a window closed under it).
+  // Checked on [listen] too: true ends the tour, its part gone (a window closed under it).
   final bool Function()? gone;
 
-  // Done when the address changes (a click on a menu that opens another page).
   final bool doneByLeaving;
 
   // The part is scrolled into sight as the step begins; [revealing] names a larger one to show.
@@ -230,7 +224,7 @@ class DesktopTourStep
   final VoidCallback? enter;
   final VoidCallback? undo;
 
-  // Asked as the step comes up: false skips it. [coming] counts it ahead while it waits for its part.
+  // False skips the step as it comes up; [coming] counts it ahead while it waits for its part.
   final bool Function()? present;
   final bool Function()? coming;
 
@@ -268,8 +262,8 @@ class DesktopTourStep
   bool get isAhead => isPresent || (coming?.call() ?? false);
 }
 
-// A part listed twice in one tour (on this week and on the next), told by the first copy that shows it. [told]
-// remembers which copy did, so stepping back and on again finds that copy where it was; [when] narrows the copy.
+// A part listed twice in one tour (this week and next) is told by the first copy that shows it.
+// [told] keeps, per seen mark, the copy that told it; [when] is an extra presence check.
 DesktopTourStep desktopTourStepOnce(DesktopTourStep step, Map<(String, int), Object> told, {bool Function()? when})
 {
   final Object copy = Object();
@@ -309,20 +303,16 @@ class _Run
   final List<DesktopTourStep> steps;
   final String taxCode;
 
-  // The first step present when the tour began.
   final int first;
 
-  // The address the tour belongs to: leaving it ends the tour.
   final ValueListenable<RouteInformation>? address;
   final String? path;
 
-  // The route it was started in, a page or a window: its closing ends the tour.
   final Animation<double>? route;
 
   _Run(this.tour, this.steps, this.first, this.taxCode, this.address, this.path, this.route);
 }
 
-// Until the page has come in and stands still in front of the user.
 Future<void> settleDesktopPage(BuildContext context) async
 {
   final Animation<double>? entrance = ModalRoute.of(context)?.animation;
@@ -351,7 +341,7 @@ OverlayEntry? _entry;
 
 bool get isDesktopTourShown => _run != null;
 
-// The parts the step on show lights: one may change for it, as a row showing the bins it keeps for the mouse.
+// Parts lit by the current step; one may change for it, as a row showing its hover-only bins.
 final ValueNotifier<Set<String>> desktopTourLit = ValueNotifier(const {});
 
 // Never mid-build: the parts listening would rebuild during it.
@@ -376,7 +366,7 @@ void _setLit(Set<String> ids, bool Function() still)
 // The administrator has none: the shell is the home, and the settings are the same for every role.
 const Set<String> kDesktopTourRoles = {'TEACHER', 'PARENT', 'STUDENT', 'PSYCHOLOGIST'};
 
-// Bar sections having tours, by role and slug; a section's tours are slugged after it. Add one with its first tour.
+// Bar sections with tours, by role and slug; a section's tours are slugged after it.
 const Map<String, Set<String>> kDesktopTourSections = {
   'TEACHER': {'subjects', 'availability', 'calendar', 'association'},
   'PARENT': {'bookings', 'calendar', 'children', 'association'},
@@ -384,7 +374,6 @@ const Map<String, Set<String>> kDesktopTourSections = {
   'PSYCHOLOGIST': {'students'},
 };
 
-// Every tour of these sections shows again, its main one and those of its single parts.
 Future<void> resetDesktopToursOf(String taxCode, Iterable<String> sections) =>
     SeenTours.desktop.reset(taxCode, sections);
 
@@ -401,10 +390,9 @@ Future<bool> _seen(String taxCode, DesktopTour tour) async
   }
 }
 
-// For a tour that must wait for another to have been seen.
 Future<bool> isDesktopTourSeen({required String taxCode, required DesktopTour tour}) => _seen(taxCode, tour);
 
-// The steps on show whose marks were never seen, as one tour under the first one's mark; null when none is due.
+// Unseen steps on show, as one tour under the first one's mark; null when none is due.
 Future<DesktopTour?> dueDesktopTour({
   required String taxCode,
   required String title,
@@ -434,7 +422,7 @@ Future<DesktopTour?> dueDesktopTour({
   return DesktopTour(slug: slug, title: title, version: version, steps: due);
 }
 
-// No route above the one holding [context], in its navigator or in those holding it: windows open on the root one.
+// No route above [context]'s, in its navigator or any ancestor one: windows open on the root.
 bool _onTop(BuildContext context)
 {
   ModalRoute<Object?>? route = ModalRoute.of(context);
@@ -460,9 +448,8 @@ bool _onTop(BuildContext context)
   return true;
 }
 
-// Clicks held back while a tour gets ready to show: one would change what it is about to tell. Given to
-// [startDesktopTourOnce], it is let go once that tour shows or is dropped: for a wait (a reload) between what makes a
-// tour due and the asking.
+// Holds clicks while a tour gets ready to show: one would change what it is about to tell.
+// Given to [startDesktopTourOnce] for a wait (a reload); let go once the tour shows or is dropped.
 class DesktopTourHold
 {
   OverlayEntry? _entry;
@@ -472,7 +459,6 @@ class DesktopTourHold
 
   factory DesktopTourHold.over(BuildContext context) => DesktopTourHold()..hold(context);
 
-  // Only over what the user sees, and never over a tour on show or a window the page waits under.
   void hold(BuildContext context)
   {
     if (_entry != null || _run != null || !context.mounted || !isDestinationShown(context) || !_onTop(context))
@@ -495,7 +481,7 @@ class DesktopTourHold
   }
 }
 
-// The pointers pressed now: a tour asked during a drag (hours being moved) shows once the hand lifts.
+// Pointers down now: a tour asked during a drag (hours being moved) shows once the hand lifts.
 final Set<int> _pressed = {};
 bool _trackingPointers = false;
 
@@ -521,12 +507,9 @@ void _trackPointers()
   });
 }
 
-// Tours on their way to show, by slug: asked again meanwhile, they are not asked twice.
 final Set<String> _coming = {};
 
-// Once per account and tour, after the page's own entrance; paused while the window is narrow. From the moment it
-// is asked until it shows, clicks are held back ([hold] when given, already up). [still]: asked right before it
-// shows; false drops it.
+// Clicks are held until it shows ([hold] if given); [still] false right before showing drops it.
 Future<void> startDesktopTourOnce(
   BuildContext context, {
   required String taxCode,
@@ -558,7 +541,7 @@ Future<void> startDesktopTourOnce(
     await settleDesktopPage(context);
     await Future<void>.delayed(_startPause);
 
-    // A window over the page: its tour waits for the windows to go, never shown under them; the window stays usable.
+    // With a window over the page, the tour waits for it to go; the window stays usable.
     if (context.mounted && !_onTop(context))
     {
       held.release();
@@ -577,7 +560,6 @@ Future<void> startDesktopTourOnce(
       await Future<void>.delayed(_windowGone);
     }
 
-    // Asked during a drag: once the hand lifts, the drag never cut by the tour.
     final Stopwatch pressed = Stopwatch()..start();
 
     while (context.mounted && _pressed.isNotEmpty && pressed.elapsed < _longestWait)
@@ -647,7 +629,6 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
   List<Rect> _from = const [];
   List<Rect> _aim = const [];
 
-  // The bubble glides with the hole, from where it last stood.
   final _BubbleTrack _track = _BubbleTrack();
   Offset? _bubbleFrom;
   double? _widthFrom;
@@ -659,10 +640,8 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 
   Listenable? _listening;
 
-  // The step's part not drawn yet.
   bool _waiting = false;
 
-  // The visit whose click is waiting for the next step's part to stand still.
   int? _stilling;
 
   bool _closing = false;
@@ -767,7 +746,6 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     });
   }
 
-  // A click that brought a section in: the next step comes once its part stands still, not while it slides in.
   Future<void> _nextOnceStill(int visit) async
   {
     if (_stilling == visit)
@@ -830,7 +808,6 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     return [for (final Rect part in step.apart ? parts : [_bounds(parts)!]) part.inflate(step.pad)];
   }
 
-  // One per hole, every copy of a target with that target's radius; none: the step's radius for all.
   List<double> _radiiOf(DesktopTourStep step)
   {
     final List<double>? radii = step.radii;
@@ -910,7 +887,6 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     // A part still sliding in with its section is waited for too, so the hole never chases it.
     else if (measured.isNotEmpty && (late || !_isMoving(step)))
     {
-      // Drawn at last: the hole and the card glide to it from where they stood.
       if (_waiting)
       {
         _waiting = false;
@@ -937,7 +913,6 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 
     _glide = _bubbleFrom != null ? moved : 1.0;
 
-    // Holes as many as before move one to one; otherwise they all come out of, or into, the earlier ones' bounds.
     Rect start(int index) => _from.length == _aim.length ? _from[index] : _bounds(_from)!;
 
     _holes = _from.isEmpty ? _aim : [for (var i = 0; i < _aim.length; i++) Rect.lerp(start(i), _aim[i], t)!];
@@ -997,7 +972,6 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     }
   }
 
-  // A click on a button fading out with the step left, or a second one before the card is redrawn, does nothing.
   void _nextFrom(int visit)
   {
     if (!_closing && visit == _visit)
@@ -1043,7 +1017,6 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     left.undo?.call();
   }
 
-  // The × tells where the tour can be had again, as on the phone.
   void _close()
   {
     if (_closing)
@@ -1068,7 +1041,7 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 
     if (mark)
     {
-      // Closed by its ×, every step counts as told; otherwise only those shown.
+      // Closed by its close button, every step counts as told; otherwise only those shown.
       final Iterable<DesktopTourStep> told = all ? widget.run.steps : [..._path, _step].map((i) => widget.run.steps[i]);
 
       unawaited(SeenTours.desktop.markSeen(widget.run.taxCode, {
@@ -1160,7 +1133,6 @@ class _DimPainter extends CustomPainter
   final List<Rect> holes;
   final double radius;
 
-  // Each hole's own, when given for all.
   final List<double> radii;
 
   const _DimPainter({required this.holes, required this.radius, this.radii = const []});
@@ -1178,7 +1150,7 @@ class _DimPainter extends CustomPainter
       cut.addRRect(RRect.fromRectAndRadius(hole, Radius.circular(math.min(corner, hole.shortestSide / 2))));
     }
 
-    // The web keeps the contours of the result but not its fill: even-odd gives the same area anywhere.
+    // The web keeps the result's contours but not its fill: even-odd gives the same area anywhere.
     final Path dim = Path.combine(PathOperation.difference, Path()..addRect(Offset.zero & size), cut)
       ..fillType = PathFillType.evenOdd;
 
@@ -1192,7 +1164,6 @@ class _DimPainter extends CustomPainter
   }
 }
 
-// Takes every pointer but those inside [hole], which reach the page below.
 class _Blocker extends SingleChildRenderObjectWidget
 {
   final Rect? hole;
@@ -1238,7 +1209,6 @@ class _BubblePlace extends SingleChildLayoutDelegate
   final Rect? hole;
   final List<DesktopTourSide> sides;
 
-  // Where the glide began and how far it has gone, eased.
   final Offset? from;
   final double? widthFrom;
   final double t;
@@ -1349,7 +1319,6 @@ class _BubblePlace extends SingleChildLayoutDelegate
 
 class _Bubble extends StatelessWidget
 {
-  // Keys the content, which fades from one step to the next while the card glides.
   final int step;
   final bool animates;
 

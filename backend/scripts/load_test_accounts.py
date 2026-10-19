@@ -1,17 +1,10 @@
-"""
-Script per creare/eliminare account di test per il load testing (TC-IAM-135).
+"""Create, delete or count the accounts used for load testing.
 
-Uso:
-    python -m scripts.load_test_accounts create        # crea 100 account
-    python -m scripts.load_test_accounts create -n 50  # crea 50 account
-    python -m scripts.load_test_accounts delete        # elimina tutti gli account di test
-    python -m scripts.load_test_accounts list          # mostra quanti account di test esistono
-
-Gli account sono identificabili dal prefisso 'LDT' nelle prime lettere del
-codice fiscale (che è comunque sintatticamente valido, checksum incluso,
-per superare la validazione di Person). Nessuna persona reale può avere
-per puro caso proprio quel prefisso combinato con nome/cognome 'Load
-Test', quindi la delete è sicura.
+Usage:
+    python -m scripts.load_test_accounts create        # 500 accounts
+    python -m scripts.load_test_accounts create -n 50  # 50 accounts
+    python -m scripts.load_test_accounts delete        # every test account
+    python -m scripts.load_test_accounts list          # how many exist
 """
 
 import argparse
@@ -55,8 +48,7 @@ def _compute_check_char(code_15: str) -> str:
 
 
 def _num_to_letters(n: int, length: int = 3) -> str:
-    """Converte un intero in una sequenza di N lettere (base 26), per
-    garantire unicità nella parte 'cognome/nome' del CF sintetico."""
+    """Encode n as base-26 letters, keeping the synthetic tax codes unique."""
     letters = ""
     for _ in range(length):
         letters = chr(65 + n % 26) + letters
@@ -65,19 +57,7 @@ def _num_to_letters(n: int, length: int = 3) -> str:
 
 
 def _make_tax_code(i: int) -> str:
-    """
-    Genera un codice fiscale sintetico ma sintatticamente valido
-    (formato + checksum corretti), univoco per ogni indice i.
-
-    Struttura (identica al formato reale, dati ovviamente fittizi):
-      LDT + 3 lettere derivate da i   -> 6 lettere (pseudo cognome+nome)
-      00                              -> 2 cifre (anno)
-      A                               -> 1 lettera (mese)
-      01                              -> 2 cifre (giorno+sesso)
-      Z                               -> 1 lettera (comune)
-      i su 3 cifre                    -> 3 cifre (progressivo comune)
-      [calcolato]                     -> 1 lettera di controllo
-    """
+    """Build a synthetic tax code with a valid format and checksum, unique per i."""
     base = f"LDT{_num_to_letters(i)}00A01Z{i:03d}"
     return base + _compute_check_char(base)
 

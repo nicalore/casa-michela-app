@@ -7,6 +7,7 @@ import '../../core/utils/error_message.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_back_button.dart';
+import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_top_bar.dart';
@@ -195,6 +196,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
         availableSubjects: const [],
         fixedRoles: _listedRoles,
         eyebrow: kStudentsModule,
+        enrollmentFilter: false,
         earlyExitFilter: false,
         methodologicalNotesFilter: true,
         onApply: (state) => setState(() => _filterState = state),
@@ -232,7 +234,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
   {
     if (await showStudentNoteDialog(context, student, StudentNoteKind.methodological, note: note))
     {
-      // Its tour still due: clicks held back through the reload too, so the note cannot be left before it shows.
+      // Note tour due: clicks stay held through the reload, so the note can't be left first.
       final DesktopTourHold? hold = note == null && mounted && !await _seen(psychologistNoteTour())
           ? (mounted ? DesktopTourHold.over(context) : null)
           : null;
@@ -254,7 +256,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     return taxCode == null || await isDesktopTourSeen(taxCode: taxCode, tour: tour);
   }
 
-  // After the frame that builds what the tour lights. [hold]: clicks already held back, let go by the tour.
+  // Runs after the frame building the lit parts; [hold]: held clicks the tour releases.
   void _startTour(DesktopTour tour, {DesktopTourHold? hold})
   {
     final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
@@ -350,10 +352,22 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
+    const Widget none = Center(
+      child: PageTransitionItem(
+        slot: PageTransitionItem.list,
+        child: AppEmptyCard(icon: Icons.school_rounded, message: kNoStudents),
+      ),
+    );
+
     final List<PersonItem> students = _filteredStudents;
 
     if (size.isCompact)
     {
+      if (_students.isEmpty)
+      {
+        return none;
+      }
+
       if (_showingSheet && _selected != null)
       {
         return Column(
@@ -383,7 +397,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
           ),
         ),
         const SizedBox(width: AppSectionRail.gap),
-        Expanded(child: _buildSheet()),
+        Expanded(child: _students.isEmpty ? none : _buildSheet()),
       ],
     );
   }

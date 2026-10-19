@@ -484,7 +484,7 @@ class _HoverPainter extends CustomPainter
   }
 }
 
-// A short stroke of the series colour: legends and tooltips name lines with lines.
+// A short stroke of the series colour: the legend names lines with lines.
 class TrendLineKey extends StatelessWidget
 {
   final Color color;
@@ -536,8 +536,7 @@ class TrendLegend extends StatelessWidget
   }
 }
 
-// No colour for a row whose chart has a single series: its heading names it.
-typedef TrendTooltipRow = ({Color? color, String value, String label});
+typedef TrendTooltipRow = ({String value, String label});
 
 class TrendTooltip extends StatelessWidget
 {
@@ -552,7 +551,6 @@ class TrendTooltip extends StatelessWidget
   {
     final base = AppTheme.tooltipTextStyle;
     final muted = base.copyWith(color: Colors.white.withValues(alpha: 0.72), fontWeight: FontWeight.w500);
-    final keyed = rows.any((row) => row.color != null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -567,10 +565,6 @@ class TrendTooltip extends StatelessWidget
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (keyed) ...[
-                  row.color == null ? const SizedBox(width: 16) : TrendLineKey(color: row.color!),
-                  const SizedBox(width: 8),
-                ],
                 Text(row.value, style: base.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(width: 6),
                 Text(row.label, style: muted),

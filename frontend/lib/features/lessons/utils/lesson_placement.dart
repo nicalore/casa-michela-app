@@ -50,7 +50,6 @@ const String kOnlineCannotOverlapRefusal =
 const String kOtherPartBandRefusal =
     'Le lezioni di una prenotazione devono stare nella stessa parte della giornata.';
 
-// Activities can be as short as a quarter hour, unlike lessons (half hour).
 const int kDefaultActivityMinutes = 60;
 
 const int kMinimumActivityMinutes = kQuarterHour;
@@ -376,7 +375,6 @@ class CarriedRequest
   );
 }
 
-// Every span lying in a window of both lists.
 List<(int, int)> intersectWindows(List<(int, int)> first, List<(int, int)> second)
 {
   return [
@@ -583,7 +581,7 @@ AvailabilityItem? resolveAvailability({
   return online;
 }
 
-// The shortest a lesson of these bookings may be: a quarter of an hour only for a quarter-hour booking.
+// Shortest lesson of these bookings: a quarter hour only for a quarter-hour booking.
 int _shortestFor(Iterable<int> bookingMinutes)
 {
   return bookingMinutes.fold(kQuarterLessonMinutes, (shortest, minutes) => math.max(shortest, minimumLessonMinutes(minutes)));

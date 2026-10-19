@@ -19,8 +19,7 @@ class ChartDatum
 // Shared by the line and bar charts.
 const int gridDivisions = 4;
 
-// Tallest value plus 20% headroom, rounded up to a multiple of gridDivisions so
-// the axis labels come out as whole numbers.
+// Tallest value + 20% headroom, rounded up to a gridDivisions multiple for whole labels.
 int chartMaxValue(int rawMax)
 {
   final withHeadroom = rawMax == 0 ? gridDivisions : (rawMax * 1.2).ceil();

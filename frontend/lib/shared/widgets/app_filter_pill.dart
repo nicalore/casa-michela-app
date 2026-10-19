@@ -795,7 +795,6 @@ class _FilterMenu<T> extends StatefulWidget
 
 class _FilterMenuState<T> extends State<_FilterMenu<T>>
 {
-  // Effects off: the menu opens and closes at once.
   final bool _animates = VisualEffects.on;
 
   late bool _expanded = !_animates;

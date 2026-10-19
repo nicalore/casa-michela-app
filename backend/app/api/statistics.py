@@ -1265,7 +1265,7 @@ async def get_teacher_subjects_statistics(
         else 0.0
     )
 
-    # The universe must include groups with zero teachers for the least-covered ranking.
+    # The universe includes groups with zero teachers for the least-covered ranking.
     group_labels: dict[str, tuple[str, str | None]] = {}
 
     if ranking_mode == "program":

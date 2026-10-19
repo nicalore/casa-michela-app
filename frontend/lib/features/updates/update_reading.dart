@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_dialog_stack.dart';
+import '../../shared/widgets/descender_room.dart';
 import '../../shared/widgets/dialog_components.dart';
 import '../association/notices/notice_embeds.dart';
 import '../association/notices/notice_message_view.dart';
@@ -39,14 +40,15 @@ Future<Map<int, NoticeImages>> preloadUpdateImages(BuildContext context, List<Up
   return images;
 }
 
-// The title alone in the pill, set as the dialogs set theirs.
 Widget updatePillTitle(String text)
 {
-  return Text(
-    text,
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-    style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.trialOcean),
+  return DescenderRoom(
+    child: Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.trialOcean),
+    ),
   );
 }
 
@@ -63,10 +65,8 @@ List<List<UpdateReadingItem>> updatesByVersion(List<UpdateReadingItem> updates)
   return groups.values.toList();
 }
 
-// The title the readers' message opens with: one update or several.
 String updatesMessageTitle(int count) => count == 1 ? kUpdateSingleTitle : kUpdatesGroupTitle;
 
-// One update in its card: its own title, then what changed.
 class UpdateCardBody extends StatelessWidget
 {
   final UpdateReadingItem update;
@@ -92,7 +92,6 @@ class UpdateCardBody extends StatelessWidget
   }
 }
 
-// Each version's badge floats over its cards, one card per update, one update or several.
 Future<void> showUpdatesMessage(
   BuildContext context,
   List<UpdateReadingItem> updates, {

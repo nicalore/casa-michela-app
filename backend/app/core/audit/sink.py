@@ -1,8 +1,9 @@
 import logging
 import os
 from datetime import datetime
+from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, Final, TextIO
+from typing import Any, Final
 from zoneinfo import ZoneInfo
 
 from app.core.audit.formatting import AUDIT_HEADER, format_audit_line
@@ -30,9 +31,8 @@ class DateRotatingFileHandler(logging.FileHandler):
 
         return self.filename_template.format(date=date)
 
-    # Covers the initial open and the rotation (baseFilename is set before opening):
-    # a new or empty file gets the header, a populated one must not repeat it.
-    def _open(self) -> TextIO:
+    # Initial open and rotation alike: only a new or empty file gets the header.
+    def _open(self) -> TextIOWrapper:
         path = Path(self.baseFilename)
         is_new = not path.exists() or path.stat().st_size == 0
 

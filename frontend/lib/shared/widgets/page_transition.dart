@@ -912,7 +912,7 @@ class _HandoverState extends State<_Handover> with TickerProviderStateMixin
     super.dispose();
   }
 
-  // Dropped at _exitEnd: kept longer, the leaving section would stay laid out under the arriving one.
+  // Dropped at _exitEnd: kept longer, the leaving section stays laid out under the arriving one.
   void _onProgress()
   {
     if (_leaving != null && _controller.value >= _exitEnd)
@@ -1145,7 +1145,7 @@ class _ScreenTransition extends StatelessWidget
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Skipped where invisible: under an opaque cover, under another route's blur, or too faint to see.
+                    // Skipped when invisible: opaque cover, another route's blur, or too faint.
                     if (backgroundOpacity >= 1 || covered || blurIntensity < 0.5)
                       cover
                     else

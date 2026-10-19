@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../features/association/models/subject_taxonomy.dart';
 import '../../../../features/association/teacher_opinions.dart';
 import '../../../../features/people/models/teacher_subject_item.dart';
+import '../../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_dismiss_button.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
@@ -11,7 +12,7 @@ import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 
-// Null when dismissed; the choice applies only through "Applica", as on the desktop.
+// Null when dismissed; the choice applies only through "Applica".
 Future<Set<int>?> showMobileSubjectFilterSheet({
   required BuildContext context,
   required List<TeacherSubjectItem> options,
@@ -94,13 +95,16 @@ class _SubjectFilterSheetState extends State<_SubjectFilterSheet>
           if (shown.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 24),
-              child: Text(
-                kMobileNoSearchMatch,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w500,
-                  fontStyle: FontStyle.italic,
-                  color: MobilePalette.mutedText,
+              child: Center(
+                child: Text(
+                  kNoSearchMatch,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w500,
+                    fontStyle: FontStyle.italic,
+                    color: MobilePalette.mutedText,
+                  ),
                 ),
               ),
             )

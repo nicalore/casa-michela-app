@@ -25,7 +25,7 @@ void main() async
 {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Fonts are bundled in assets/fonts: an unbundled weight fails at startup, not by reflowing later.
+  // Fonts bundled in assets/fonts: an unbundled weight fails at startup, not by reflowing later.
   GoogleFonts.config.allowRuntimeFetching = false;
 
   usePathUrlStrategy();

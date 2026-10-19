@@ -10,8 +10,7 @@ import 'app_text_field.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
 
-// Used as both ListView itemExtent and tile height: the two must match exactly
-// or the scroll math lands on the wrong row.
+// Both ListView itemExtent and tile height: a mismatch lands the scroll math on the wrong row.
 const double _oneLineItemHeight = 44.0;
 const double _twoLineItemHeight = 58.0;
 
@@ -220,13 +219,16 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
               if (selectedGroups.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    'Nessuna selezione.',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.trialMutedText,
-                      fontStyle: FontStyle.italic,
+                  child: Center(
+                    child: Text(
+                      'Nessuna selezione.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.trialMutedText,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ),
                 )

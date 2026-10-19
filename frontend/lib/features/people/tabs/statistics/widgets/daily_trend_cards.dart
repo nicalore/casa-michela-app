@@ -19,11 +19,9 @@ const double _teachersChartHeight = 260;
 const double _hoursChartHeight = 200;
 const double _presenceChartHeight = 280;
 
-// Validated as a pair on white; the tooltip's dark surface takes their lighter siblings.
+// A pair that stays distinct on white: change them together.
 const Color _availableColor = AppTheme.chartOcean;
 const Color _convenedColor = AppTheme.chartViolet;
-const Color _availableKey = AppTheme.chartOceanOnDark;
-const Color _convenedKey = AppTheme.chartVioletOnDark;
 
 // A third entity in the card: neither of the two series colours above.
 const Color _hoursColor = AppTheme.chartNavy;
@@ -220,17 +218,14 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
         subtitle: bucket.isAverage ? _averageSubtitle : null,
         rows: [
           (
-            color: _availableKey,
             value: shownAvailable,
             label: trendCountLabel(shownAvailable, one: _availableOne, many: _availableLabel),
           ),
           (
-            color: _convenedKey,
             value: shownConvened,
             label: trendCountLabel(shownConvened, one: _convenedOne, many: _convenedLabel),
           ),
           (
-            color: null,
             value: lessonMinutes == 0 ? '0' : formatMinutes(lessonMinutes),
             label: lessonMinutes == 60 ? _hoursOne : _hoursLabel,
           ),
@@ -331,7 +326,7 @@ class _PresenceTrendCardState extends State<PresenceTrendCard>
         title: bucket.title,
         subtitle: bucket.isAverage ? _averageSubtitle : null,
         rows: [
-          (color: null, value: shown, label: trendCountLabel(shown, one: 'studente', many: 'studenti')),
+          (value: shown, label: trendCountLabel(shown, one: 'studente', many: 'studenti')),
         ],
       );
     }

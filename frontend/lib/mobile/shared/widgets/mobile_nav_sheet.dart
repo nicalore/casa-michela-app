@@ -34,6 +34,10 @@ const Duration _hideDuration = Duration(milliseconds: 260);
 const Duration _rollDuration = Duration(milliseconds: 260);
 
 const double _rowHeight = 52;
+
+// A row with something waiting, tinted in a pale gold.
+const Color _litRow = Color(0xFFFBF1DE);
+const double _litRowRadius = 14;
 const double _separatorHeight = 17;
 const double _identityHeight = 70;
 
@@ -399,11 +403,19 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
               ),
             _buildSeparator(),
             for (final destination in _otherUserDestinations)
-              _SheetRow(
-                icon: destination.icon,
-                label: destination.label,
-                trailing: destination.slug == _arriving ? const _RowSpinner() : null,
-                onTap: () => _chooseDestination(destination.slug),
+              _CountedRow(
+                count: destination.count,
+                builder: (count) => _SheetRow(
+                  icon: destination.icon,
+                  label: destination.label,
+                  lit: count > 0,
+                  trailing: destination.slug == _arriving
+                      ? const _RowSpinner()
+                      : count > 0
+                          ? _CountBadge(count)
+                          : null,
+                  onTap: () => _chooseDestination(destination.slug),
+                ),
               ),
           ],
         ),
@@ -674,6 +686,9 @@ class _SheetRow extends StatelessWidget
   final Widget? trailing;
   final VoidCallback? onTap;
 
+  // Tinted gold: something there is waiting.
+  final bool lit;
+
   const _SheetRow({
     required this.icon,
     required this.label,
@@ -681,6 +696,7 @@ class _SheetRow extends StatelessWidget
     this.danger = false,
     this.trailing,
     this.onTap,
+    this.lit = false,
   });
 
   @override
@@ -708,6 +724,9 @@ class _SheetRow extends StatelessWidget
           child: Container(
             height: _rowHeight,
             padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: lit
+                ? BoxDecoration(color: _litRow, borderRadius: BorderRadius.circular(_litRowRadius))
+                : null,
             child: Row(
               children: [
                 Icon(icon, size: 25, color: glyph),
@@ -728,6 +747,53 @@ class _SheetRow extends StatelessWidget
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// Rebuilds with the count when there is one.
+class _CountedRow extends StatelessWidget
+{
+  final ValueListenable<int>? count;
+  final Widget Function(int count) builder;
+
+  const _CountedRow({required this.count, required this.builder});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final ValueListenable<int>? count = this.count;
+
+    if (count == null)
+    {
+      return builder(0);
+    }
+
+    return ValueListenableBuilder<int>(valueListenable: count, builder: (context, value, _) => builder(value));
+  }
+}
+
+class _CountBadge extends StatelessWidget
+{
+  final int count;
+
+  const _CountBadge(this.count);
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 24),
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(color: AppTheme.trialGold, borderRadius: BorderRadius.circular(12)),
+      child: Center(
+        widthFactor: 1,
+        child: Text(
+          '$count',
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white),
         ),
       ),
     );

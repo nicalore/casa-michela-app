@@ -148,7 +148,7 @@ MobileTourStep _programsStep(ProgramsMark mark)
     ProgramsMark.list => MobileTourStep(text: text, shown: [target], scrolls: false, seen: seen),
     ProgramsMark.sector || ProgramsMark.single =>
       MobileTourStep(text: text, touched: [target], tapMovesOn: true, seen: seen),
-    // Conferma closes the sheet, Rimuovi turns it to the confirmation: nothing left to light.
+    // "Conferma" closes the sheet, "Rimuovi" turns it to the confirmation: nothing left to light.
     ProgramsMark.confirm || ProgramsMark.remove =>
       MobileTourStep(text: text, touched: [target], tapEnds: true, seen: seen),
   };

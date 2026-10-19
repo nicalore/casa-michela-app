@@ -98,7 +98,7 @@ int schoolLevelRank(String value)
   return rank < 0 ? schoolLevels.length : rank;
 }
 
-// Values must stay aligned with HighSchoolTrackEnum on the backend; the server derives the years of a fixed track.
+// Mirrors HighSchoolTrackEnum on the backend; the server derives a fixed track's years.
 class HighSchoolTrack
 {
   final String value;
@@ -159,17 +159,19 @@ String? highSchoolTrackShortLabel(String? track, int minYear, int maxYear)
   return cycle.hasFixedYears ? cycle.label : 'Anni $minYear-$maxYear';
 }
 
-// The track is part of the key: without it biennio and triennio of a course collapse into one group.
+// The track is in the key, or "biennio" and "triennio" of a course merge into one group.
 String programScopeTitle({
   required String level,
   String? sector,
   String? track,
   required int minYear,
   required int maxYear,
+  // High school always has a track, so its title stays unique without the level.
+  bool namesHighSchool = true,
 })
 {
   return <String>[
-    schoolLevelShortLabel(level),
+    if (namesHighSchool || level != 'HIGH_SCHOOL') schoolLevelShortLabel(level),
     ?sector,
     ?highSchoolTrackShortLabel(track, minYear, maxYear),
   ].join(' · ');

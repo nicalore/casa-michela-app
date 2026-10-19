@@ -185,7 +185,7 @@ class MobileHoursTable
 
   Widget closed({bool decided = false}) => Text(kClosedLabel, style: closedStyle(decided: decided));
 
-  // [marked] off when the variation's mark stands by its reason instead. [tourMark]: lit on the first mark.
+  // [marked] off when the mark stands by its reason instead; [tourMark] lights the first mark.
   Widget bands(String mode, List<OpeningDayItem> bands, {bool past = false, bool marked = true, String? tourMark})
   {
     final int first = bands.indexWhere((band) => band.isOverride);

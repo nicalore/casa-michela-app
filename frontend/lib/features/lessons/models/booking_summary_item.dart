@@ -21,7 +21,7 @@ String bookingTitle(BookingSummaryItem booking, List<MinistrySubjectItem> minist
   };
 }
 
-// A subject divided in disciplines is booked one discipline at a time: that discipline's name, null otherwise.
+// Subjects divided in disciplines are booked one discipline at a time: its name, else null.
 String? dividedDisciplineName(List<MinistrySubjectItem> subjects, int? ministrySubjectId, Iterable<int> disciplineIds)
 {
   if (disciplineIds.length != 1)
@@ -48,7 +48,7 @@ String? dividedDisciplineName(List<MinistrySubjectItem> subjects, int? ministryS
 
 String disciplineLabel(String subject, String discipline) => '$subject - $discipline';
 
-// Names the discipline too when the subject has several, as in «Storia e geografia - Storia».
+// Names the discipline too when the subject has several, as in "Storia e geografia - Storia".
 String? bookingDisciplineLabel(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects)
 {
   if (booking.kind != BookingRequestKind.ministrySubject)

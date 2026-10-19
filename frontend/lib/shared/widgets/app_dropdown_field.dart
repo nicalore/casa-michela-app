@@ -218,7 +218,6 @@ class _DropdownOverlay<T> extends StatefulWidget
 
 class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
 {
-  // Effects off: the menu opens and closes at once.
   final bool _animates = VisualEffects.on;
 
   late bool              _expanded         = !_animates;

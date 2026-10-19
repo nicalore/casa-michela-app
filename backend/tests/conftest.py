@@ -1,8 +1,9 @@
 import os
 import subprocess
 from collections.abc import AsyncIterator
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import psycopg
 import pytest
@@ -18,6 +19,7 @@ from app.models.administrator import Administrator
 from app.models.member import Member
 from app.models.person import Person
 from app.models.staff import Staff
+from app.services import started_hours
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -88,6 +90,16 @@ def audit_log(tmp_path: Path) -> Path:
     configure_audit_logger(directory / "audit_{date}.log")
 
     return directory
+
+
+# Begun hours cannot change: tests writing hours on fixed dates run before them.
+@pytest.fixture
+def clock_before_the_hours(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        started_hours,
+        "now_in_rome",
+        lambda: datetime(2026, 1, 1, tzinfo=ZoneInfo("Europe/Rome")),
+    )
 
 
 def audit_lines(directory: Path) -> list[str]:

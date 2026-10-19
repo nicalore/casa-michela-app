@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Any, Final
 
 _FIELD_LABELS: Final[dict[str, str]] = {
@@ -278,7 +279,7 @@ def _sentence(error: dict[str, Any]) -> str:
     return _message_for(error, subject)
 
 
-def humanize_validation_errors(errors: list[dict[str, Any]]) -> str:
+def humanize_validation_errors(errors: Sequence[dict[str, Any]]) -> str:
     said: list[str] = []
 
     for error in errors:

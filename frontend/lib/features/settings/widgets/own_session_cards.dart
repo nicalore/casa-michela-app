@@ -35,7 +35,6 @@ BoxDecoration _cardDecoration(double radius)
   );
 }
 
-// The session this page is open in, large and first.
 class CurrentSessionCard extends StatelessWidget
 {
   final SessionItem session;

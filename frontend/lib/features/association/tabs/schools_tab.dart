@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_choice_card.dart';
@@ -18,6 +19,9 @@ import '../models/school_item.dart';
 import '../models/study_program_item.dart';
 import '../models/subject_taxonomy.dart';
 import '../widgets/school_card.dart';
+
+// A level alone, or one of its sectors.
+typedef _ProgramScope = ({String level, String? sector});
 
 class SchoolsTab extends StatefulWidget
 {
@@ -52,8 +56,53 @@ class _SchoolsTabState extends State<SchoolsTab>
   String _searchText = '';
   SortCriterion _sortBy = SortCriterion.nameAsc;
   String? _filterCity;
+  _ProgramScope? _filterScope;
 
   Set<int> _selectedProgramIds = {};
+
+  // School options carry no sector: it is read from the full programme.
+  Map<int, StudyProgramItem> get _programsById =>
+      {for (final program in widget.studyPrograms) program.id: program};
+
+  // Only what the schools offer, each level followed by its sectors.
+  List<FilterOption<_ProgramScope>> get _scopeOptions
+  {
+    final programs = _programsById;
+    final sectorsByLevel = <String, Set<String>>{};
+
+    for (final school in widget.schools)
+    {
+      for (final offered in school.studyPrograms)
+      {
+        final sectors = sectorsByLevel.putIfAbsent(offered.level, () => {});
+        final sector = programs[offered.id]?.sector;
+
+        if (sector != null)
+        {
+          sectors.add(sector);
+        }
+      }
+    }
+
+    return [
+      for (final level in schoolLevels)
+        if (sectorsByLevel[level.value] case final sectors?) ...[
+          FilterOption(value: (level: level.value, sector: null), label: level.compactLabel),
+          for (final sector in sectors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
+            FilterOption(value: (level: level.value, sector: sector), label: sector),
+        ],
+    ];
+  }
+
+  static bool _inScope(
+    SchoolStudyProgramOption offered,
+    _ProgramScope scope,
+    Map<int, StudyProgramItem> programs,
+  )
+  {
+    return offered.level == scope.level &&
+        (scope.sector == null || programs[offered.id]?.sector == scope.sector);
+  }
 
   List<FilterOption<String>> get _cityOptions
   {
@@ -82,6 +131,8 @@ class _SchoolsTabState extends State<SchoolsTab>
   List<SchoolItem> get _filteredSchools
   {
     final query = _searchText.toLowerCase();
+    final programs = _programsById;
+    final scope = _filterScope;
 
     final result = widget.schools.where((school)
     {
@@ -89,10 +140,13 @@ class _SchoolsTabState extends State<SchoolsTab>
           (school.mechanographicCode ?? '').toLowerCase().contains(query);
       final matchesCity = _filterCity == null || school.city == _filterCity;
 
+      final matchesScope = scope == null ||
+          school.studyPrograms.any((offered) => _inScope(offered, scope, programs));
+
       final matchesPrograms = _selectedProgramIds.isEmpty ||
           school.studyPrograms.any((program) => _selectedProgramIds.contains(program.id));
 
-      return matchesSearch && matchesCity && matchesPrograms;
+      return matchesSearch && matchesCity && matchesScope && matchesPrograms;
     }).toList();
 
     sortByCriterion(
@@ -186,6 +240,16 @@ class _SchoolsTabState extends State<SchoolsTab>
             onClear: () => setState(() => _filterCity = null),
             options: _cityOptions,
           ),
+          AppFilterPill<_ProgramScope>.filter(
+            prefix: 'Livello',
+            hint: 'Tutti i livelli',
+            icon: Icons.school_outlined,
+            value: _filterScope,
+            menuWidth: 280,
+            onChanged: (value) => setState(() => _filterScope = value),
+            onClear: () => setState(() => _filterScope = null),
+            options: _scopeOptions,
+          ),
           AppCountFilterPill(
             icon: Icons.route_outlined,
             label: 'Percorsi di studio',
@@ -194,6 +258,12 @@ class _SchoolsTabState extends State<SchoolsTab>
             onClear: () => setState(() => _selectedProgramIds = {}),
           ),
         ],
+      ),
+      empty: emptyListCard(
+        shown: schools.length,
+        total: widget.schools.length,
+        icon: Icons.school_rounded,
+        none: 'Nessuna scuola registrata',
       ),
       body: EntityCardGrid(
         children: schools.map((school)

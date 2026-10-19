@@ -237,7 +237,6 @@ class NoticeItem extends NoticeSummaryItem
   }
 }
 
-// A line of the home card.
 class NoticeHeadlineItem
 {
   final int id;
@@ -268,7 +267,6 @@ class NoticeHeadlineItem
 
 typedef NoticeRecipientCount = ({int people, int emails});
 
-// A file chosen in the composer, not yet on the server.
 class NoticeUpload
 {
   final String fileName;
@@ -313,7 +311,7 @@ List<NoticeSummaryItem> noticeListingOrder(Iterable<NoticeSummaryItem> notices, 
   return [...pinned, ...others];
 }
 
-// The day's first notice, or where that day would fall among the unpinned ones; a pinned match only if no other.
+// First notice of the day, else where the day falls among unpinned ones; pinned as fallback.
 int? noticeIndexForDay(List<NoticeSummaryItem> notices, DateTime day, {required bool oldestFirst})
 {
   int? pinnedMatch;

@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
@@ -693,15 +694,17 @@ class _LaneHeader extends StatelessWidget
           ),
           const SizedBox(width: 4),
           Expanded(
-            child: Text(
-              name ?? modeLabel(kOnlineMode),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.25,
-                color: accent,
+            child: DescenderRoom(
+              child: Text(
+                name ?? modeLabel(kOnlineMode),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                  color: accent,
+                ),
               ),
             ),
           ),
@@ -733,15 +736,17 @@ class _LaneHeader extends StatelessWidget
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  lane.person.fullName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                    color: AppTheme.trialOcean,
+                DescenderRoom(
+                  child: Text(
+                    lane.person.fullName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      color: AppTheme.trialOcean,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -766,15 +771,17 @@ class _LaneHeader extends StatelessWidget
                           Icon(lessonModeIcon(offer.mode), size: 13, color: lessonAccent(offer.mode)),
                           const SizedBox(width: 4),
                           Expanded(
-                            child: Text(
-                              '${modeLabel(offer.mode)} · ${formatMinutes(offer.minutes)}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                height: 1.25,
-                                color: lessonAccent(offer.mode),
+                            child: DescenderRoom(
+                              child: Text(
+                                '${modeLabel(offer.mode)} · ${formatMinutes(offer.minutes)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.25,
+                                  color: lessonAccent(offer.mode),
+                                ),
                               ),
                             ),
                           ),
@@ -964,7 +971,6 @@ class CalendarTimeline extends StatefulWidget
 
   final Set<int> pastLessonIds;
 
-  // Lessons under way, each with the share of its hours gone by.
   final Map<int, double> elapsedLessons;
 
   // Published: each row's block height, taller where a long line wraps.

@@ -1,11 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../features/reports/report_strings.dart';
 import '../../../routing/role_sections.dart';
 
 const String kMobileHomeSlug = 'home';
 
 const String kMobileOwnPageSlug = 'profile';
 const String kMobileSettingsSlug = 'settings';
+const String kMobileReportsSlug = 'reports';
 
 // A role's sections come from role_sections.dart, so the menu matches the desktop bar.
 const Map<String, IconData> _sectionIcons = <String, IconData>{
@@ -28,11 +31,15 @@ class MobileDestination
   // Listed but not offered, as on the desktop bar.
   final bool available;
 
+  // Things waiting there, counted beside the entry.
+  final ValueListenable<int>? count;
+
   const MobileDestination({
     required this.slug,
     required this.label,
     required this.icon,
     required this.available,
+    this.count,
   });
 }
 
@@ -55,7 +62,8 @@ List<MobileDestination> mobileDestinationsFor(String role, {required bool hasPar
   ];
 }
 
-List<MobileDestination> mobileUserDestinationsFor(String firstName)
+// reports: the unread count, for those who receive reports.
+List<MobileDestination> mobileUserDestinationsFor(String firstName, {ValueListenable<int>? reports})
 {
   return [
     MobileDestination(
@@ -70,5 +78,13 @@ List<MobileDestination> mobileUserDestinationsFor(String firstName)
       icon: Icons.settings_rounded,
       available: true,
     ),
+    if (reports != null)
+      MobileDestination(
+        slug: kMobileReportsSlug,
+        label: kReportsEntry,
+        icon: Icons.flag_rounded,
+        available: true,
+        count: reports,
+      ),
   ];
 }

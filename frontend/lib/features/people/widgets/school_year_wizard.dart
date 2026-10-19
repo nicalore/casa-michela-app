@@ -39,7 +39,6 @@ const Map<String, int> _lastGradeByLevel = <String, int>{
   'HIGH_SCHOOL': 5,
 };
 
-// Ordered lowest level first.
 const List<String> _levelsUpwards = <String>[
   'PRIMARY_SCHOOL',
   'MIDDLE_SCHOOL',
@@ -825,8 +824,8 @@ void sortSchoolYearRows(List<SchoolEnrollmentRowData> rows)
   rows.sort((a, b) => yearOf(b).compareTo(yearOf(a)));
 }
 
-// Guesses the year before the oldest row: one class back, one level down when
-// there is no class before. Null when there is nothing to infer from.
+// Year before the oldest row: one class back, one level down when there is no class before.
+// Null when there is nothing to infer from.
 SchoolYearChoice? previousSchoolYearOf(List<SchoolEnrollmentRowData> rows)
 {
   SchoolEnrollmentRowData? oldest;

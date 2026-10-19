@@ -181,7 +181,7 @@ async def refresh(
             request.refresh_token,
             device=_client_device(http_request),
         )
-        # Learned quietly: devices in use before the sign-ins were told are known.
+        # Recorded without a notice, so a device already signed in becomes known.
         await device_seen(
             db,
             result.account_tax_code,
@@ -252,7 +252,7 @@ async def revoke_other_sessions(
     db: DbSession,
     background: BackgroundTasks,
 ) -> None:
-    # A token from before sessions were tracked names no session to spare.
+    # A token without a sid names no session to keep.
     if current_session_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -337,7 +337,7 @@ def _identity_payload(account: Account) -> dict[str, Any]:
         "password_reset_required": account.password_reset_required,
         # Stays required until the whole flow ends; the password change is step one.
         "onboarding_required": account.onboarding_completed_at is None,
-        # A pupil somebody answers for: parents book and pay, so their area is narrower.
+        # A pupil somebody answers for: parents book and pay, so their area is smaller.
         "has_parental_responsibility": RoleService.is_answered_for(person),
         # Such a pupil may still be allowed to book; payments stay with the parents.
         "autonomous_bookings": account.autonomous_bookings,

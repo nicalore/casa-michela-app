@@ -65,7 +65,6 @@ class NoticeCard extends StatefulWidget
   // Null for readers: the pin only says it is pinned.
   final VoidCallback? onPin;
 
-  // Rimmed in gold for a moment, as the day picked in the calendar.
   final bool highlighted;
 
   const NoticeCard({super.key, required this.notice, required this.onTap, required this.onPin, this.highlighted = false});
@@ -128,7 +127,7 @@ class _NoticeCardState extends State<NoticeCard>
       );
     }
 
-    // Where a bare pin button sits, and as tall: pinned or not, every card is.
+    // Same room as a bare pin button, so every card is as tall, pinned or not.
     return Transform.translate(
       offset: const Offset(_pinPadding, 0),
       child: SizedBox.square(
@@ -235,7 +234,6 @@ class _NoticeCardState extends State<NoticeCard>
   }
 }
 
-// The filled pin in the violet and ocean gradient.
 class NoticePinnedIcon extends StatelessWidget
 {
   final double size;
@@ -253,7 +251,6 @@ class NoticePinnedIcon extends StatelessWidget
   }
 }
 
-// Bare pin, gradient when pinned; a pin with a last day sits in a grey badge with it.
 class _PinButton extends StatefulWidget
 {
   final bool pinned;

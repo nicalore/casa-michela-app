@@ -17,7 +17,6 @@ enum PushNewsType
   renewed,
 }
 
-// What a push told the app while it was open.
 class PushNews
 {
   final PushNewsType type;

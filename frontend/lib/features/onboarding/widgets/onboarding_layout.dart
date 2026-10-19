@@ -30,7 +30,7 @@ import 'teacher_education_card.dart';
 
 const double _maxContentWidth = 1240;
 
-// No top bar here, so the flow starts where the bar used to sit.
+// No top bar here, so the flow starts where the bar would sit.
 const double _contentTopInset = 44;
 const double _compactTopInset = 24;
 
@@ -156,8 +156,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     }
   }
 
-  // All steps are built at once for the handover; set while a page is being built
-  // so the getters read its step rather than the current one.
+  // Set while a page builds (all steps build for the handover), so getters read its step.
   int? _building;
 
   int get _shown => _building ?? _index;
@@ -536,9 +535,9 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
               if (_canReport) ...[
                 AppGradientButton(
                   label: 'SEGNALA ERRORE',
-                  icon: Icons.report_gmailerrorred_rounded,
-                  gradient: AppTheme.dangerGradient,
-                  accent: AppTheme.trialDanger,
+                  icon: Icons.flag_rounded,
+                  gradient: AppTheme.dismissGradient,
+                  accent: AppTheme.trialViolet,
                   height: kPersonDialogButtonHeight,
                   fontSize: kPersonDialogButtonFontSize,
                   onPressed: _report,

@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-// Where a flock flies and how; the numbers come from the approved mockups.
 class BatFlightSpec
 {
   final Size page;
@@ -243,7 +242,6 @@ List<FlyingBat> planBats(BatFlightSpec spec, math.Random r)
 {
   Offset towards(double angle, double length) => Offset(math.cos(angle), math.sin(angle)) * length;
 
-  // Evenly spread over [from, to], one value per slot, in random order.
   List<double> spread(int n, double from, double to) =>
       [for (var k = 0; k < n; k++) _lerp(from, to, (k + r.nextDouble()) / n)]..shuffle(r);
 
@@ -508,7 +506,6 @@ double _company(List<Offset?> trail, List<List<Offset?>> others, BatFlightSpec s
 // Own ticker so the clock survives a page change; the flock is planned at its first layout.
 class BatFlight extends ChangeNotifier
 {
-  // Asked on every tick: true ends the flight early.
   final bool Function()? shouldEnd;
 
   final math.Random _random;
@@ -639,7 +636,6 @@ class BatsPainter extends CustomPainter
   final BatFlight flight;
   final List<FlyingBat> bats;
 
-  // The farthest bats are drawn in [far], the nearest in [near].
   final Color far;
   final Color near;
 

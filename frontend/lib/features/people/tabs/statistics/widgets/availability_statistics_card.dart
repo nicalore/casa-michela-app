@@ -16,8 +16,7 @@ const double _stackBelow = 900;
 
 const Duration _fetchFade = Duration(milliseconds: 150);
 
-// Max height before a warning list scrolls inside itself; the paired value
-// applies when two lists share one column.
+// Height past which a warning list scrolls; the paired one is for two lists in one column.
 const double _warningListMaxHeight = 420;
 const double _pairedWarningListMaxHeight = 232;
 
@@ -239,8 +238,7 @@ class TeacherAvailabilityCard extends StatelessWidget
 }
 
 
-// SingleChildScrollView and not ListView: the sections sit inside an
-// IntrinsicHeight, which cannot measure a lazy viewport.
+// SingleChildScrollView, not ListView: IntrinsicHeight cannot measure a lazy viewport.
 class TeacherWarningSection extends StatefulWidget
 {
   final String title;
@@ -293,12 +291,15 @@ class _TeacherWarningSectionState extends State<TeacherWarningSection>
         StatSectionTitle(widget.title),
         const SizedBox(height: 24),
         if (widget.flagged.isEmpty)
-          Text(
-            'Nessun docente da segnalare.',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.trialMutedText,
+          Center(
+            child: Text(
+              'Nessun docente da segnalare.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.trialMutedText,
+              ),
             ),
           )
         else

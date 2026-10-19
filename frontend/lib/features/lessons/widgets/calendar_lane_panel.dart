@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../models/calendar_day.dart';
 import '../models/room_day_plan.dart';
 import 'calendar_lesson_block.dart';
@@ -57,28 +58,30 @@ class CalendarLanePanel extends StatelessWidget
 
     if (roomName == null)
     {
-      return Text(said, maxLines: 2, overflow: TextOverflow.ellipsis, style: quiet);
+      return DescenderRoom(child: Text(said, maxLines: 2, overflow: TextOverflow.ellipsis, style: quiet));
     }
 
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: '$said · ', style: quiet),
-          const WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: Padding(
-              padding: EdgeInsets.only(right: 3),
-              child: Icon(Icons.meeting_room_outlined, size: 12, color: AppTheme.trialTealDeep),
+    return DescenderRoom(
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: '$said · ', style: quiet),
+            const WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: EdgeInsets.only(right: 3),
+                child: Icon(Icons.meeting_room_outlined, size: 12, color: AppTheme.trialTealDeep),
+              ),
             ),
-          ),
-          TextSpan(
-            text: roomName,
-            style: quiet.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep),
-          ),
-        ],
+            TextSpan(
+              text: roomName,
+              style: quiet.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep),
+            ),
+          ],
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -122,15 +125,17 @@ class CalendarLanePanel extends StatelessWidget
                 Row(
                   children: [
                     Flexible(
-                      child: Text(
-                        lane.person.fullName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                          color: AppTheme.trialOcean,
+                      child: DescenderRoom(
+                        child: Text(
+                          lane.person.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                            color: AppTheme.trialOcean,
+                          ),
                         ),
                       ),
                     ),
@@ -181,14 +186,17 @@ class CalendarLaneEmpty extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Text(
-      'Nessuna lezione.',
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        height: 1.3,
-        fontStyle: FontStyle.italic,
-        color: AppTheme.trialMutedText,
+    return Center(
+      child: Text(
+        'Nessuna lezione.',
+        textAlign: TextAlign.center,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          height: 1.3,
+          fontStyle: FontStyle.italic,
+          color: AppTheme.trialMutedText,
+        ),
       ),
     );
   }

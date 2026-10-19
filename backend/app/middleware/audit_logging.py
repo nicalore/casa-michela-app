@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator, Callable
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
 from fastapi import Request, Response
 
@@ -66,8 +66,13 @@ async def _replay(body: bytes) -> AsyncIterator[bytes]:
     yield body
 
 
+# What call_next really returns: Starlette's private streaming response.
+class _StreamedResponse(Protocol):
+    body_iterator: AsyncIterator[bytes]
+
+
 # The streaming body is consumed once: put it back; swapping the iterator keeps headers.
-async def _buffered_body(response: Response) -> bytes:
+async def _buffered_body(response: _StreamedResponse) -> bytes:
     body = b"".join([section async for section in response.body_iterator])
     response.body_iterator = _replay(body)
 
@@ -137,7 +142,7 @@ async def audit_logging_middleware(request: Request, call_next: Callable) -> Res
     if rule.response_field and status_code < _ERROR_STATUS:
         response_body = await _buffered_body(response)
 
-    # A lockout is a decision of its own; the triggering failure is still logged below.
+    # A lockout gets its own entry; the triggering failure is still logged below.
     locked_out = status_code == _ACCOUNT_LOCKED_STATUS
 
     if locked_out and (request.method, path) == LOCKOUT_ROUTE:

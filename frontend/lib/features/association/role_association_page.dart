@@ -108,7 +108,7 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
   {
     openSection(index, () => _selectedSection = index);
 
-    // Told after the frame: a tour waiting for it redraws itself, which a build in progress forbids.
+    // After the frame: a waiting tour redraws itself, which a build in progress forbids.
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
       if (mounted)
@@ -119,7 +119,6 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
     });
   }
 
-  // The section by name, as the tour waits for it.
   String? _sectionName(int index)
   {
     if (index == _noticesIndex)
@@ -136,7 +135,6 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
     };
   }
 
-  // Turns the page to a section by name, when the tour steps back.
   void _show(String name)
   {
     final int index = switch (name)
@@ -154,12 +152,12 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
 
   void _showNotices() => _selectSection(_noticesIndex);
 
-  // One tour for the hours and the notices, begun on the hours; once seen, what shows only sometimes comes alone.
+  // One tour from the hours to the notices; once seen, conditional parts come alone.
   Future<void> _startTours() async
   {
     await WidgetsBinding.instance.endOfFrame;
 
-    // Whose opinions on the teachers the reader gives, by gender, as the Docenti steps word them.
+    // Genders of those the reader gives teacher opinions for, as the "Docenti" steps word them.
     List<String?> opinions = const [];
 
     if (widget.role != _teacherRole && canSpeakFor(widget.role))
@@ -259,7 +257,6 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    // Top inset clears the bar overlaid on the content.
                     padding: EdgeInsets.only(
                       left: margin,
                       right: margin,

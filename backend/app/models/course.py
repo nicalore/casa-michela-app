@@ -17,8 +17,7 @@ if TYPE_CHECKING:
     from app.models.course_participant import CourseParticipant
 
 
-# Catalogue of the courses the association runs. The name is a mutable natural
-# key: course_participants points here with onupdate="CASCADE".
+# The name is a mutable natural key: course_participants uses onupdate="CASCADE".
 class Course(CreatedAtMixin, Base):
     __tablename__ = "courses"
 

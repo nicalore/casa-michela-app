@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
@@ -60,8 +61,7 @@ class PersonParentsTab extends StatefulWidget
   final PersonItem person;
   final VoidCallback onUpdate;
 
-  // Called after the parental responsibilities are removed: this tab disappears
-  // then, and the caller redirects elsewhere.
+  // This tab disappears afterwards: the caller redirects elsewhere.
   final VoidCallback onResponsibilityRemoved;
 
   final ValueChanged<String> onOpenPerson;
@@ -99,8 +99,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
         a.restrictionReason != b.restrictionReason;
   }
 
-  // Removals first: frees a slot before adding when one parent is swapped for
-  // another, avoiding the two-parents limit.
+  // Removals first: swapping a parent must free a slot under the two-parent limit.
   Future<void> _applyChanges(
     Map<String, ParentalRelationshipDraft> before,
     Map<String, ParentalRelationshipDraft> after,
@@ -142,8 +141,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     for (final code in changed)
     {
       final draft = after[code]!;
-      // The code is passed twice on purpose: the endpoint can also replace a
-      // parent, and here only the pickup fields change.
+      // Same code twice: the endpoint can also replace a parent; here only pickup changes.
       await api.updateParent(
         childCode,
         code,
@@ -326,6 +324,22 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     // Only an adult can be released from parental responsibility.
     final isAdult = widget.person.age != null && widget.person.age! >= _adultAge;
 
+    final Widget actions = _ResponsiveParentActionButtonsRow(
+      onManage: _openParentSelectionDialog,
+      onRemoveResponsibility: isAdult ? _confirmRemoveResponsibilities : null,
+    );
+
+    if (parents.isEmpty)
+    {
+      return AppEmptyRoom(
+        card: const AppEmptyCard(
+          icon: Icons.family_restroom_rounded,
+          message: 'Nessun genitore associato a questa anagrafica',
+        ),
+        below: [actions],
+      );
+    }
+
     return ScrollEdgeFade(
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(top: 16, bottom: 32),
@@ -336,10 +350,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
               children: pageTransitionBlocks([
                 RelativeCardGrid(cards: [for (final parent in parents) _buildCard(parent)]),
                 const SizedBox(height: 48),
-                _ResponsiveParentActionButtonsRow(
-                  onManage: _openParentSelectionDialog,
-                  onRemoveResponsibility: isAdult ? _confirmRemoveResponsibilities : null,
-                ),
+                actions,
               ]),
             ),
           ),

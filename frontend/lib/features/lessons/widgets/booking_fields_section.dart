@@ -42,8 +42,6 @@ List<String> bookingTagLabels(List<String> tags)
   ];
 }
 
-// Controlled form section for a booking's own fields, reused standalone and
-// inside the presence creation wizard.
 class BookingFieldsSection extends StatelessWidget
 {
   final List<MinistrySubjectItem> ministrySubjects;
@@ -114,8 +112,7 @@ class BookingFieldsSection extends StatelessWidget
           {
             onMinistrySubjectChanged(value);
 
-            // A new ministry subject invalidates the old disciplines; a lone
-            // discipline is auto-selected.
+            // A new subject drops the old disciplines; a lone discipline is auto-selected.
             final newSubject = ministrySubjects.where((subject) => subject.id == value).firstOrNull;
             final disciplines = newSubject?.associationSubjects ?? const [];
 

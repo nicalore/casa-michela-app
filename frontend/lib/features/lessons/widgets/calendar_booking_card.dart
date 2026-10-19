@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/schedulable_booking.dart';
@@ -73,15 +74,17 @@ class _TeacherPreferences extends StatelessWidget
           ),
           const SizedBox(width: 5),
           Expanded(
-            child: Text(
-              '$label ${names.join(', ')}',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                height: 1.3,
-                color: color,
+            child: DescenderRoom(
+              child: Text(
+                '$label ${names.join(', ')}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                  color: color,
+                ),
               ),
             ),
           ),
@@ -371,29 +374,33 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                  color: AppTheme.trialOcean,
+              DescenderRoom(
+                child: Text(
+                  _title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    color: AppTheme.trialOcean,
+                  ),
                 ),
               ),
               if (_discipline != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    bookingTitle(_booking, widget.ministrySubjects),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                      color: AppTheme.trialMutedText,
+                  child: DescenderRoom(
+                    child: Text(
+                      bookingTitle(_booking, widget.ministrySubjects),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                        color: AppTheme.trialMutedText,
+                      ),
                     ),
                   ),
                 ),

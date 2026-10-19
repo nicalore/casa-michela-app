@@ -41,7 +41,7 @@ List<String> uncalledNewTeacherWarnings({
 
   return [
     for (final lane in lanes)
-      if (lane.lessons.isEmpty)
+      if (lane.lessons.isEmpty && lane.activities.isEmpty)
         if (byTaxCode[lane.teacherTaxCode] case final person?)
           if (joinedRecently(person, by: day)) uncalledNewTeacherWarning(lane.teacher.fullName),
   ];

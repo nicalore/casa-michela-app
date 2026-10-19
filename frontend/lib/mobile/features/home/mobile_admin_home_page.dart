@@ -8,6 +8,7 @@ import '../../../features/dashboard/widgets/dashboard_birthdays_section.dart';
 import '../../../features/dashboard/widgets/dashboard_stats_section.dart';
 import '../../../features/dashboard/widgets/dashboard_today_section.dart';
 import '../../../features/home/widgets/home_month_section.dart';
+import '../../../features/lessons/models/activity_item.dart';
 import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/models/calendar_publication_item.dart';
 import '../../../features/lessons/models/lesson_item.dart';
@@ -161,6 +162,8 @@ class _MobileAdminHomePageState extends State<MobileAdminHomePage>
     final Future<List<LessonItem>?> lessonsFuture = _quiet(_apiService.getLessons(dateFrom: today, dateTo: today));
     final Future<List<CalendarPublicationItem>?> publicationsFuture =
         _quiet(_apiService.getCalendarPublications(dateFrom: today, dateTo: today));
+    final Future<List<ActivityItem>?> activitiesFuture =
+        _quiet(_apiService.getCalendarActivities(dateFrom: today, dateTo: today));
 
     final inBuilding = await inBuildingFuture;
     final onScreen = await onScreenFuture;
@@ -168,6 +171,7 @@ class _MobileAdminHomePageState extends State<MobileAdminHomePage>
     final presences = await presencesFuture;
     final lessons = await lessonsFuture;
     final publications = await publicationsFuture;
+    final activities = await activitiesFuture;
 
     if (!mounted || request != _dayRequest)
     {
@@ -185,6 +189,7 @@ class _MobileAdminHomePageState extends State<MobileAdminHomePage>
                 availabilities: availabilities ?? const [],
                 presences: presences ?? const [],
                 lessons: lessons ?? const [],
+                activities: activities ?? const [],
                 publications: publications ?? const [],
               ),
             );

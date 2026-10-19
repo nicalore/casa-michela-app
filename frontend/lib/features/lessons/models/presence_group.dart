@@ -4,8 +4,7 @@ import 'presence_item.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 
-// One pupil's request for one day. The backend keeps a row per stretch and
-// mode; rows are gathered here into one group and split again on write.
+// One pupil's day: backend rows (one per stretch and mode) grouped here, split again on write.
 class PresenceGroup
 {
   final String studentTaxCode;

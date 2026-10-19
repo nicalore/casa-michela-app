@@ -20,7 +20,6 @@ const double _buttonHeight = 52;
 const double _buttonFontSize = 14;
 const double _labelColumn = 110;
 
-// Titled as its readers see it, with when, who and whom above the message.
 // onEdit gets the callback that closes these details once the edit is saved.
 Future<void> showUpdateDetails(
   BuildContext context,

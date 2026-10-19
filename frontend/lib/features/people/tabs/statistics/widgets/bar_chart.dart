@@ -341,8 +341,7 @@ class _BarChartPainter extends CustomPainter
       final Rect rect = barRects[i];
       final RRect bar = RRect.fromRectAndRadius(rect, const Radius.circular(8));
 
-      // Per bar: a shader is measured against the rect it fills, and one for
-      // the whole plot would leave each bar showing a slice of the ramp.
+      // Per bar: a shader spans the rect it fills; a plot-wide one gives each bar a ramp slice.
       canvas.drawRRect(bar, Paint()..shader = _barGradient.createShader(rect));
 
       if (highlight > 0)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import date, time
 
-from sqlalchemy import Select, select
+from sqlalchemy import Exists, Select, select
 from sqlalchemy.orm import selectinload
 
 from app.models.availability import Availability
@@ -16,7 +16,7 @@ _EAGER_LOADER = (selectinload(CalendarActivity.availability),)
 
 
 # Correlated on CalendarActivity; EXISTS so unassigned activities match nobody.
-def _given_to(teacher_tax_code: str) -> Select[tuple[int]]:
+def _given_to(teacher_tax_code: str) -> Exists:
     return (
         select(Availability.id)
         .where(

@@ -44,8 +44,7 @@ def _equal_parts(minutes: int, count: int) -> list[int]:
     ]
 
 
-# Each discipline keeps what its lessons teach; the time nobody planned yet
-# goes to whoever has least, so an unplanned booking splits in equal parts.
+# Unplanned time goes to whoever has least, so an unplanned booking splits evenly.
 def _shares(duration: int, taught: dict[int, int], order: list[int]) -> list[int]:
     shares = [taught.get(discipline, 0) for discipline in order]
 
@@ -130,7 +129,7 @@ def _split_booking(
         raise _Unsplittable
 
     # The first discipline stays on the booking, the others get a copy each.
-    booking_of = {order[0]: booking_id}
+    booking_of: dict[int | None, int] = {order[0]: booking_id}
 
     connection.execute(
         sa.text(
@@ -269,9 +268,7 @@ def upgrade() -> None:
         except _Unsplittable:
             unsplittable.append(booking_id)
 
-    # Rare enough to settle by hand: a part would fall under a quarter of an
-    # hour, a quarter-hour lesson would be a slice of a longer booking, or a
-    # lesson holds another booking besides.
+    # Rare enough to settle by hand.
     if unsplittable:
         raise RuntimeError(
             "Bookings that cannot be split in equal parts: "
@@ -287,8 +284,8 @@ def upgrade() -> None:
     )
 
 
-# Split bookings stay split. Fails while a booking or lesson is shorter than
-# half an hour.
+# Split bookings stay split.
+# Fails while a booking or lesson is shorter than half an hour.
 def downgrade() -> None:
     op.drop_constraint(
         op.f("uq_subjects_requested_booking_id"),

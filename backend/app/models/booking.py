@@ -439,7 +439,7 @@ def _validate_discipline_minutes_within_day(
         }
 
         day_bookings = [
-            booking
+            (booking, presence)
             for booking in pending_bookings
             if (presence := _resolve_presence(session, booking)) is not None
             and presence.student_tax_code == student_tax_code
@@ -496,9 +496,7 @@ def _validate_discipline_minutes_within_day(
                 duration,
             )
 
-        for booking in day_bookings:
-            presence = _resolve_presence(session, booking)
-
+        for booking, presence in day_bookings:
             # A booking silent about its subjects still covers its stored ones.
             _add_minutes(
                 minutes_by_band.setdefault(band_of(presence.start_time), {}),

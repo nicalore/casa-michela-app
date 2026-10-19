@@ -66,7 +66,6 @@ const double _handleClearance = 16;
 // Room between the strip's rule and the first card.
 const double _topRoom = 16;
 
-// Cards are lit a little larger than themselves; the capsule and the ribbon too.
 const EdgeInsets _tourCardInflate = EdgeInsets.all(5);
 const double _tourCardRadius = 27;
 const EdgeInsets _tourWeekInflate = EdgeInsets.all(5);
@@ -194,7 +193,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
     NoticeJumps.reading.asked.addListener(_jumpToNotice);
   }
 
-  // Already open: the notices read again in full, then the one asked for over them.
+  // Already open: the notices read again in full, then the notified one opens over them.
   Future<void> _jumpToNotice() async
   {
     final int? id = NoticeJumps.reading.take(role: widget.role);
@@ -335,7 +334,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
 
   bool get _hasVariations => CombinedVariation.from(_variations, startsOnOrBefore: _windowEnd).isNotEmpty;
 
-  // The main tour on the first visit to the hours; later a one-step tour for a mark it could not show.
+  // Main tour on the first visit to the hours; later a one-step tour per mark it could not show.
   Future<void> _tourCheck() async
   {
     final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
@@ -972,12 +971,15 @@ class _EmptyCard extends StatelessWidget
     return MobileGlassPanel(
       padding: EdgeInsets.all(tablet ? 20 : 18),
       borderRadius: BorderRadius.circular(22),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: tablet ? 15 : 14,
-          fontWeight: FontWeight.w500,
-          color: MobilePalette.mutedText,
+      child: Center(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: tablet ? 15 : 14,
+            fontWeight: FontWeight.w500,
+            color: MobilePalette.mutedText,
+          ),
         ),
       ),
     );

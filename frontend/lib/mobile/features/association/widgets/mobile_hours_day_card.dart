@@ -170,7 +170,6 @@ class MobileHoursDayCard extends StatelessWidget
 
   Widget _buildModes()
   {
-    // Both modes shut for the same reason: one "Chiuso", like the desktop's merged cell.
     if (day.isClosedAllDay)
     {
       final String? note = _allDayNote;

@@ -94,7 +94,7 @@ abstract final class CustomSnackBar
 
   static GlobalKey<_SnackBarAnimationWidgetState>? _currentKey;
 
-  // [tone] wins where given; [isError] keeps its old meaning for older call sites.
+  // [tone] wins where given; otherwise [isError] picks the tone.
   static void show({
     required BuildContext context,
     required String message,
@@ -106,8 +106,7 @@ abstract final class CustomSnackBar
   {
     dismiss();
 
-    // The root overlay: a banner in a page's overlay would come out under a
-    // dialog and blurred by its backdrop filter.
+    // Root overlay: a page's overlay puts the banner under a dialog, blurred by its backdrop.
     final overlay = Overlay.of(context, rootOverlay: true);
     late OverlayEntry entry;
 
@@ -120,8 +119,7 @@ abstract final class CustomSnackBar
         tone: tone ?? (isError ? SnackBarTone.error : SnackBarTone.info),
         duration: duration ?? _visibleDurationWith(button),
         button: button,
-        // Identity check: a newer snackbar may have replaced this entry while it was
-        // fading, and it must not be removed twice.
+        // A newer snackbar may have replaced this fading entry: it must not be removed twice.
         onDismissed: ()
         {
           if (_currentOverlayEntry == entry)
@@ -312,8 +310,7 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
                   Expanded(
                     child: Text(
                       widget.message,
-                      // google_fonts registers the family under its own name: writing 'Plus Jakarta
-                      // Sans' by hand falls back to the platform font.
+                      // google_fonts uses its own family name; 'Plus Jakarta Sans' falls back.
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,

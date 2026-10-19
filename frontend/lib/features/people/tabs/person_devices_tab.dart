@@ -1,3 +1,4 @@
+import '../../../shared/widgets/app_empty_card.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,7 +14,6 @@ import '../../settings/utils/settings_strings.dart';
 import '../../settings/widgets/session_card.dart';
 import '../models/person_account_item.dart';
 import '../models/person_item.dart';
-import '../widgets/person_detail_widgets.dart';
 import 'person_account_shared.dart';
 
 const double _contentWidth = 1200;
@@ -147,11 +147,6 @@ class _PersonDevicesTabState extends State<PersonDevicesTab> with PersonAccountA
 
   Widget _buildSessions(List<SessionItem> sessions)
   {
-    if (sessions.isEmpty)
-    {
-      return const PersonEmptyState(message: _noSessions);
-    }
-
     // Centred as a block, so a short last row still starts on the left.
     return LayoutBuilder(
       builder: (context, constraints)
@@ -202,6 +197,11 @@ class _PersonDevicesTabState extends State<PersonDevicesTab> with PersonAccountA
 
   Widget _buildDevices(PersonAccountItem account)
   {
+    if (account.sessions.isEmpty)
+    {
+      return const AppEmptyRoom(card: AppEmptyCard(icon: Icons.devices_rounded, message: _noSessions));
+    }
+
     final List<Widget> actions = _buildActions(account);
 
     return ScrollEdgeFade(

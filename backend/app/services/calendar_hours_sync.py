@@ -22,8 +22,7 @@ from app.repositories.teacher_room_assignment_repository import (
 from app.services.availability_cleanup import PurgedHours
 from app.services.calendar_snapshot import snapshot_of
 
-# Single rule, written once, for what a change of opening hours does to a
-# published calendar: moved hours send the band back to draft; removed hours delete it.
+# Opening hours vs a published band: moved hours -> draft, removed hours -> deleted.
 
 # Shared with every write refused until its losses are confirmed.
 LOST_ERROR: Final[str] = "write_would_take_away"
@@ -79,8 +78,7 @@ class LostCalendar:
         return f"{self.day.strftime('%d/%m/%Y')} ({time_band_label(self.band).lower()})"
 
 
-# Raised after the write is done but before commit; the rollback undoes it,
-# which is what makes the reported losses exact.
+# Raised after the write, before commit: losses are exact and the rollback undoes it.
 class WriteWouldTakeAway(HTTPException):
     def __init__(
         self,
@@ -295,7 +293,7 @@ class CalendarHoursWatch:
             await _lessons_by_band(session, days),
         )
 
-    # Call after the write, before commit; a refusal leaves the transaction to roll back.
+    # After the write, before commit; a refusal leaves the transaction to roll back.
     async def settle(
         self,
         *,
@@ -359,7 +357,7 @@ class CalendarHoursWatch:
                 purged,
             )
 
-    # Unpublishes bands whose lesson count dropped through side effects not caught above.
+    # Unpublishes bands whose lessons dropped through side effects not caught above.
     async def _emptied(
         self,
         *,

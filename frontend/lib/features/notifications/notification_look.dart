@@ -5,7 +5,6 @@ import '../association/notices/notice_format.dart';
 import 'notification_item.dart';
 import 'notification_strings.dart';
 
-// The icon of each kind, in its own colour.
 class NotificationLook
 {
   final IconData icon;
@@ -42,7 +41,7 @@ class NotificationLook
   }
 }
 
-// The hour today, «Ieri», then the day.
+// The hour today, "Ieri", then the day.
 String notificationWhen(DateTime instant, {required DateTime now})
 {
   final DateTime day = DateUtils.dateOnly(instant);
@@ -61,7 +60,6 @@ String notificationWhen(DateTime instant, {required DateTime now})
   return noticeShortDay(instant, today: now);
 }
 
-// The unread one's halo around its icon.
 class NotificationIcon extends StatelessWidget
 {
   final NotificationKind kind;

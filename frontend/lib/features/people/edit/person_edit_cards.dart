@@ -251,43 +251,28 @@ const double _factLabelWidth = 230;
 
 class _ReportBlock extends StatelessWidget
 {
-  final String explanation;
   final VoidCallback onReportError;
 
-  const _ReportBlock({required this.explanation, required this.onReportError});
+  const _ReportBlock({required this.onReportError});
 
   @override
   Widget build(BuildContext context)
   {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        Text(
-          explanation,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14.5,
-            fontWeight: FontWeight.w500,
-            height: 1.5,
-            color: AppTheme.trialMutedText,
-          ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: AppGradientButton(
+          label: 'SEGNALA ERRORE',
+          icon: Icons.flag_rounded,
+          gradient: AppTheme.dismissGradient,
+          accent: AppTheme.trialViolet,
+          height: 50,
+          fontSize: 14,
+          radius: 25,
+          onPressed: onReportError,
         ),
-        const SizedBox(height: 18),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: AppGradientButton(
-            label: 'SEGNALA ERRORE',
-            icon: Icons.flag_rounded,
-            gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
-            height: 46,
-            fontSize: 13,
-            radius: 23,
-            onPressed: onReportError,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -326,10 +311,7 @@ class IdentityCard extends StatelessWidget
           value: orDash(person.fiscalCode),
           labelWidth: _factLabelWidth,
         ),
-        _ReportBlock(
-          explanation: '',
-          onReportError: onReportError,
-        ),
+        _ReportBlock(onReportError: onReportError),
       ],
     );
   }
@@ -371,10 +353,7 @@ class BirthDataCard extends StatelessWidget
           value: orDash(person.birthNation),
           labelWidth: _factLabelWidth,
         ),
-        _ReportBlock(
-          explanation: '',
-          onReportError: onReportError,
-        ),
+        _ReportBlock(onReportError: onReportError),
       ],
     );
   }
@@ -1035,7 +1014,7 @@ class PaymentCard extends StatelessWidget
 
   const PaymentCard({super.key, required this.ctx});
 
-  // The rate follows the school level, so it is asked only once the current year has a study programme.
+  // Asked only once the current year has a programme: the rate follows the school level.
   Widget? _tariff()
   {
     if (!ctx.form.activeRoles.contains('STUDENTE'))
@@ -1127,7 +1106,7 @@ class AdminCard extends StatelessWidget
       children: [
         PersonChipGroupField(
           label: 'Ruolo',
-          options: const ['Presidente', 'Vicepresidente', 'Tesoriere', 'Altro'],
+          options: const ['Presidente', 'Vicepresidente', 'Tesoriere', 'Responsabile IT', 'Altro'],
           value: ctx.form.adminRoleValue,
           errorText: ctx.errors['ruoloAmministratore'],
           onChanged: (value)
@@ -1141,7 +1120,7 @@ class AdminCard extends StatelessWidget
           AppTextField(
             controller: ctx.form.otherAdminRoleCtrl,
             label: 'Altro ruolo',
-            hintText: 'Es. Responsabile IT',
+            hintText: 'Es. Segreteria',
             maxLength: FieldLimits.otherRole,
             errorText: ctx.errors['altroRuoloAmministratore'],
             onChanged: (_) => ctx.clearError('altroRuoloAmministratore'),

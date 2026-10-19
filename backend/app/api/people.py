@@ -1930,7 +1930,7 @@ def _enrolled() -> ColumnElement[bool]:
     )
 
 
-# Whole staff in the reduced view, each with the disciplines teachable to the
+# Collaborating enrolled teachers, reduced, with the disciplines teachable to the
 # reader's pupils. Declared before /{tax_code}, which would otherwise claim it.
 @router.get(
     "/teachers",

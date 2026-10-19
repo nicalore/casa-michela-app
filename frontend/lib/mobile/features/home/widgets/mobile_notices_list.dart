@@ -113,6 +113,7 @@ class _NotificationsCard extends StatelessWidget
       padding: const EdgeInsets.fromLTRB(4, 12, 4, 10),
       child: Text(
         text,
+        textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w500,
@@ -381,6 +382,7 @@ class _NoticesCard extends StatelessWidget
       padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
       child: Text(
         text,
+        textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w500,

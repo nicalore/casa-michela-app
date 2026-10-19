@@ -1,3 +1,4 @@
+import '../../shared/widgets/app_empty_card.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -102,8 +103,7 @@ class _BookingsPageState extends State<BookingsPage>
 
   List<PersonItem> _pupils = [];
 
-  // The tour's parts the rows showed last: a new one, however it came (a booking, a deadline, the other week), is
-  // told at once.
+  // Tour parts the rows showed last: any new one is toured at once.
   Set<BookingsTourMark> _partsOnShow = const {};
 
   bool get _isParent => widget.role == _parentRole;
@@ -179,8 +179,6 @@ class _BookingsPageState extends State<BookingsPage>
     }
   }
 
-  // The page's tour, with the next week's steps once its arrow is there; the next week's alone for whoever
-  // saw the page before it unlocked, both from this week; then any part shown only later.
   Future<void> _startTours() async
   {
     // Judged on the rows the data just set will draw.
@@ -224,7 +222,6 @@ class _BookingsPageState extends State<BookingsPage>
       return;
     }
 
-    // Parts that showed up only later, as the hover buttons after the first booking.
     final DesktopTour? late = await bookingsLatePageTour(reader);
 
     if (late != null && mounted)
@@ -248,7 +245,7 @@ class _BookingsPageState extends State<BookingsPage>
     return day != null && startOfWeek(day).isAfter(_thisMonday) && _isNextWeekUnlocked ? 1 : 0;
   }
 
-  // Already open: the week asked for, read again in full.
+  // Page already open: shows the notified week and reloads it in full.
   void _jump()
   {
     final DateTime? day = WeekJumps.bookings.take(role: widget.role);
@@ -1152,8 +1149,7 @@ class _BookingsPageState extends State<BookingsPage>
     }
   }
 
-  // Each mark of the tour on the first day showing it at its best, then on the first showing it at all; a day
-  // gone by only when no other does.
+  // Each tour mark on the first day showing it at its best, else at all; past days last.
   Map<BookingsTourMark, DateTime> get _tourFirsts
   {
     final DateTime today = _today;
@@ -1180,6 +1176,8 @@ class _BookingsPageState extends State<BookingsPage>
     return {...tiers[2], ...tiers[1], ...tiers[0]};
   }
 
+  bool get _hasNoPupils => !_isLoading && !_failed && _pupils.isEmpty;
+
   Widget _buildRows()
   {
     if (_isLoading)
@@ -1193,11 +1191,6 @@ class _BookingsPageState extends State<BookingsPage>
     if (_failed)
     {
       return _buildNotice(kBookingsLoadFailed);
-    }
-
-    if (_pupils.isEmpty)
-    {
-      return _buildNotice(kNoPupils);
     }
 
     final DateTime today = _today;
@@ -1290,12 +1283,19 @@ class _BookingsPageState extends State<BookingsPage>
                             Expanded(
                               child: DesktopTourTarget(
                                 id: kTourBookingsDays,
-                                child: PageTransitionScrollView(
-                                  child: PageTransitionItem(
-                                    slot: PageTransitionItem.list,
-                                    child: _buildRows(),
-                                  ),
-                                ),
+                                child: _hasNoPupils
+                                    ? const Center(
+                                        child: PageTransitionItem(
+                                          slot: PageTransitionItem.list,
+                                          child: AppEmptyCard(icon: Icons.family_restroom_rounded, message: kNoPupils),
+                                        ),
+                                      )
+                                    : PageTransitionScrollView(
+                                        child: PageTransitionItem(
+                                          slot: PageTransitionItem.list,
+                                          child: _buildRows(),
+                                        ),
+                                      ),
                               ),
                             ),
                           ],

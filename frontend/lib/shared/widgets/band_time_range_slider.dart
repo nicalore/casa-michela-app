@@ -70,7 +70,7 @@ class BandTimeRangeSlider extends StatelessWidget
 
   void _toggle(bool open)
   {
-    // Without this, tapping "Aperta" on an open band threw away its hours.
+    // Otherwise tapping "Aperta" on an open band would throw away its hours.
     if (open == _isOpen)
     {
       return;
@@ -187,8 +187,7 @@ class BandTimeRangeSlider extends StatelessWidget
 
   Widget _buildTrack()
   {
-    // Held inside the track: RangeSlider asserts on a handle outside its ends,
-    // and stored hours can legitimately fall outside the current window.
+    // Clamped: RangeSlider asserts past its ends, and stored hours may lie outside the window.
     final start = (_isOpen ? minutesOfTimeOfDay(startTime!).toDouble() : _bandStart)
         .clamp(_bandStart, _bandEnd);
     final end = (_isOpen ? minutesOfTimeOfDay(endTime!).toDouble() : _bandEnd)

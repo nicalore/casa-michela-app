@@ -96,8 +96,7 @@ class _LoginLayoutState extends State<LoginLayout>
 
     try
     {
-      // login() updates authState; the global router redirect takes over when
-      // a password change is pending.
+      // login() updates authState; the router redirect handles a pending password change.
       await _apiService.login(username: username, password: password);
 
       if (!mounted)
@@ -114,8 +113,7 @@ class _LoginLayoutState extends State<LoginLayout>
         return;
       }
 
-      // 401 and 423 share a message: revealing a lock would confirm the
-      // username exists.
+      // 401 and 423 share a message: revealing a lock would confirm the username exists.
       final message = switch (e.response?.statusCode)
       {
         401 || 423 => "Nome utente o password non validi. Dopo 5 tentativi errati, l'account verrà bloccato per 20 minuti.",
@@ -150,8 +148,7 @@ class _LoginLayoutState extends State<LoginLayout>
             fit: BoxFit.contain,
           ),
           SizedBox(width: isNarrow ? 20 : 28),
-          // The white text is only a mask for the gradient; keep the font's own
-          // line height or descenders get clipped.
+          // The text only masks the gradient; keep the font's line height or descenders clip.
           ShaderMask(
             blendMode: BlendMode.srcIn,
             shaderCallback: (bounds) => _titleGradient.createShader(bounds),

@@ -133,7 +133,6 @@ class _InfoTabState extends State<InfoTab>
   }
 }
 
-// Who made the app, which version it is, and where to report a problem.
 class _AboutCard extends StatelessWidget
 {
   const _AboutCard();

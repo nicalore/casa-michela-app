@@ -75,8 +75,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
 
   List<AvailabilityItem> _availabilities = [];
 
-  // The tour's parts the rows showed last: a new one, however it came (hours given, a deadline, the other week), is
-  // told at once.
+  // Tour parts the rows showed last: any new one is toured at once.
   Set<AvailabilityTourMark> _partsOnShow = const {};
   List<OpeningDayItem> _openingDays = [];
 
@@ -104,7 +103,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
       }
     });
 
-    // A page opens on this week, whatever an earlier one left, unless a notification asks for another.
+    // Opens on this week unless a notification asks for another.
     _weekIndex = _weekOf(WeekJumps.availability.take());
     availabilityNextWeekShown.value = _weekIndex == 1;
 
@@ -128,7 +127,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
     return day != null && startOfWeek(day).isAfter(_thisMonday) && _isNextWeekUnlocked ? 1 : 0;
   }
 
-  // Already open: the week asked for, read again in full.
+  // Page already open: shows the notified week and reloads it in full.
   void _jump()
   {
     final DateTime? day = WeekJumps.availability.take();
@@ -149,8 +148,6 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
     _loadData();
   }
 
-  // The page's tour, with the next week's steps once its arrow is there; the next week's alone for whoever
-  // saw the page before it unlocked, both from this week; then any part shown only later.
   Future<void> _startTours() async
   {
     // Judged on the rows the data just set will draw.
@@ -188,7 +185,6 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
       return;
     }
 
-    // Parts that showed up only later, as colours and bins after the first hours given.
     final DesktopTour? late = await availabilityLatePageTour();
 
     if (late != null && mounted)

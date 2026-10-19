@@ -312,8 +312,7 @@ def _family_view(views: dict[str, str], children: set[str]) -> str:
 
 
 # Sent again: only those whose own part changed hear, and their earlier notice goes.
-# A part changed back as its reader last knew it takes the news away instead, and
-# brings back the first notice if that was not seen yet.
+# A part restored to what its reader knew withdraws the news; an unseen first returns.
 async def announce_changes(
     db: AsyncSession,
     day: date,

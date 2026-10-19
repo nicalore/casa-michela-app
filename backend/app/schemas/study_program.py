@@ -56,8 +56,7 @@ class StudyProgramBase(BaseModel):
     high_school_track: HighSchoolTrackEnum | None = None
 
 
-# The years are optional on the way in only. The response declares them
-# required again, so reading a programme never hands back a null span.
+# Years are optional on input only: the response requires them, never a null span.
 class StudyProgramWrite(StudyProgramBase):
     min_year: int | None = Field(None, ge=1)
     max_year: int | None = Field(None, ge=1)

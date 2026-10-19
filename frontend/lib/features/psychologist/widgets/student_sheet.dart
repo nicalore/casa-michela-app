@@ -362,7 +362,7 @@ class _SchoolCardState extends State<_SchoolCard>
       compact: true,
       leading: const AppCardBadge(icon: Icons.school_rounded, compact: true),
       child: current == null && past.isEmpty
-          ? Text(kNoSchoolYears, style: _labelStyle(16))
+          ? Center(child: Text(kNoSchoolYears, textAlign: TextAlign.center, style: _labelStyle(16)))
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

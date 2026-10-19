@@ -262,7 +262,7 @@ class _DialogBackdropState extends State<_DialogBackdrop>
   // Quick: the capture beats the opener's hover fade, so that button stays lit under the blur.
   static const double _fadeInShare = 0.2;
 
-  // Eased both ways and alongside the pieces: held until late, the blur gave way with a jolt.
+  // Eased both ways alongside the pieces: held until late, the blur would give way with a jolt.
   static const double _fadeOutShare = 0.5;
 
   _Backdrop? _backdrop;
@@ -312,7 +312,7 @@ class _DialogBackdropState extends State<_DialogBackdrop>
     );
   }
 
-  // After the first frame, before the dialog shows: the opening cross-fades a texture, not a live blur.
+  // After the first frame, before the dialog shows: the opening fades a texture, not a live blur.
   void _captureAfterFrame()
   {
     WidgetsBinding.instance.addPostFrameCallback((_)

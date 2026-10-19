@@ -30,6 +30,7 @@ String? _adminRoleLabel(String role)
     'PRESIDENT' || 'Presidente' => 'Presidente',
     'VICE_PRESIDENT' || 'Vicepresidente' => 'Vicepresidente',
     'TREASURER' || 'Tesoriere' => 'Tesoriere',
+    'IT_MANAGER' || 'Responsabile IT' => 'Responsabile IT',
     _ => null,
   };
 }

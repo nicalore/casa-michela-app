@@ -1,5 +1,4 @@
-// Week math and labels for the Orari weekly-hours table. Day stepping uses the
-// DateTime constructor (y, m, d + n), not Duration add(), which skews across DST.
+// Day stepping uses DateTime(y, m, d + n), not Duration add(), which skews across DST.
 
 import 'package:flutter/material.dart';
 
@@ -132,7 +131,7 @@ String formatMonthYear(DateTime month)
 
 const List<String> kWeekdayInitials = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
 
-// Six weeks from the Monday on or before the 1st, null outside the month: every month has one height.
+// Six weeks from the Monday on or before the 1st, null outside the month: same height every month.
 List<DateTime?> monthGridDays(DateTime month)
 {
   final lead = DateTime(month.year, month.month, 1).weekday - 1;
@@ -144,7 +143,7 @@ List<DateTime?> monthGridDays(DateTime month)
   ];
 }
 
-// Days read with a leading vowel (uno, otto, undici) take the elided article.
+// Days read with a leading vowel in Italian (1, 8, 11) take the elided article.
 bool _elides(int day) => day == 1 || day == 8 || day == 11;
 
 // "Dal 20 al 22 agosto", "Dall'1 all'8 agosto", collapsing the repeated month.

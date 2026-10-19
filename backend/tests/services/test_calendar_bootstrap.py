@@ -1,5 +1,6 @@
 from datetime import date, time, timedelta
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +13,8 @@ from app.schemas.opening_day import OpeningModeEnum
 from app.schemas.weekly_template import WeeklyTemplateCreate
 from app.services.calendar_bootstrap import bootstrap_calendar, calendar_horizon
 from app.services.weekly_template_service import WeeklyTemplateService
+
+pytestmark = pytest.mark.usefixtures("clock_before_the_hours")
 
 _MORNING = (time(9, 0), time(12, 0))
 

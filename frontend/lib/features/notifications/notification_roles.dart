@@ -15,10 +15,10 @@ const Map<NotificationKind, List<String>> kWeekRoles = {
   NotificationKind.bookingReminder: ['PARENT', 'STUDENT'],
 };
 
-// The roles with an Associazione to read the hours in; the administrator's is on the desktop only.
+// Roles with an "Associazione" to read the hours in; the administrator's is desktop-only.
 const List<String> kHoursRoles = ['ADMIN', 'TEACHER', 'PARENT', 'STUDENT'];
 
-// The roles with a Comunicazioni e avvisi to read a notice in; the administrator's is on the desktop only.
+// Roles with "Comunicazioni e avvisi" to read a notice in; the administrator's is desktop-only.
 const List<String> kNoticeRoles = ['ADMIN', 'TEACHER', 'PARENT', 'STUDENT'];
 
 // The active role if it is one of [roles], else the first of them the person holds.

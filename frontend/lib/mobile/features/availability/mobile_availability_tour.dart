@@ -177,7 +177,7 @@ String daySheetTourTarget(DaySheetMark mark) => 'availability.sheet.${mark.name}
 
 (String, int) _sheetSeen(DaySheetMark mark) => ('$_sheetSlug.${mark.name}', _sheetMarkVersions[mark]!);
 
-// «Modifica» opens the wizard if touched, or the tour just ends there.
+// "Modifica" opens the wizard if touched, or the tour just ends there.
 MobileTourStep _sheetStep(DaySheetMark mark)
 {
   final String target = daySheetTourTarget(mark);
@@ -246,7 +246,7 @@ Future<void> startDaySheetTour({required String taxCode, required Set<DaySheetMa
   await startMobileTourOnce(taxCode: taxCode, tour: _sheetTour(slug, version, fresh));
 }
 
-// The wizard adding or editing availability; each mark is explained once, on the first page showing it.
+// Wizard adding or editing availability; each mark explained once, on the first page showing it.
 enum WizardMark { days, yesNo, hours, add, bin, create, save }
 
 // Bump a version on every change to that step.
@@ -278,7 +278,7 @@ String wizardTourTarget(WizardMark mark, String page) => 'availability.wizard.${
 
 (String, int) _wizardSeen(WizardMark mark) => ('$_wizardSlug.${mark.name}', _wizardVersions[mark]!);
 
-// The wizard's news for its tour: the part just touched, the page it rests on (null while turning), or that it closed.
+// Wizard news for its tour: last part touched, resting page (null while turning), or closed.
 class WizardTourPulse extends ChangeNotifier
 {
   WizardMark? used;
@@ -317,7 +317,7 @@ int _stretches(MobileAvailabilityDraft draft, MobileWizardStep step, TimeBucket 
   return draft.bandsOf(step.group)[step.mode]!.of(bucket).length;
 }
 
-// The band whose «Aggiungi orario» a tour lights: the first one given.
+// The band whose "Aggiungi orario" a tour lights: the first one given.
 TimeBucket? wizardTourAddBand(MobileAvailabilityDraft draft, MobileWizardStep step)
 {
   for (final TimeBucket bucket in _openBands(draft, step))
@@ -331,7 +331,7 @@ TimeBucket? wizardTourAddBand(MobileAvailabilityDraft draft, MobileWizardStep st
   return null;
 }
 
-// Marks never seen on this page, as they stand or as its touches will make them; null page step: the days.
+// Marks never seen on this page, now or after its touches; null page step: the days.
 Future<void> startWizardTour({
   required MobileAvailabilityDraft draft,
   required MobileWizardStep? step,

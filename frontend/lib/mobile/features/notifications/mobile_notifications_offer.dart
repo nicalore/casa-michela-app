@@ -67,7 +67,7 @@ Future<void> offerMobileNotificationsOnce(BuildContext context) async
   }
 }
 
-// The question itself: true when Attiva was tapped.
+// The question itself: true when "Attiva" was tapped.
 Future<bool> askMobileNotifications(BuildContext context) async
 {
   final bool? accepted = await showMobileSheet<bool>(

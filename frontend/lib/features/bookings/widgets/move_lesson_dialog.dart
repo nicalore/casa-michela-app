@@ -107,7 +107,7 @@ String moveNothingChosen(int count) => 'Scegli dove spostare ${count == 1 ? 'la 
 
 String moveTooShort(int needed) => 'Le ore devono coprire le lezioni (${formatMinutes(needed)}).';
 
-// The row's hours to start from, as a band's only stretch; the row grown, if any, stays its stretch's.
+// Starts from the row's hours as the band's only stretch; a grown row keeps its stretch.
 BandSchedule<PresenceItem> moveScheduleFor(MoveOption option)
 {
   final BandSchedule<PresenceItem> schedule = BandSchedule<PresenceItem>();
@@ -214,7 +214,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
 
   BandSchedule<PresenceItem> _hours = BandSchedule<PresenceItem>();
 
-  // A tour already asked for the next frame: changes in between ask no more.
+  // Set once a tour start is scheduled for the next frame; later changes add none.
   bool _toursAsked = false;
 
   @override
@@ -253,7 +253,6 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
     super.dispose();
   }
 
-  // The window's parts never told, as one tour; then those showing up later, as the hours.
   void _startTours()
   {
     WidgetsBinding.instance.addPostFrameCallback((_) async

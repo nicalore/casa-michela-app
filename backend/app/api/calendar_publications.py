@@ -241,6 +241,9 @@ async def discard_draft(
     lost = await _service(db).discard(identity, publication_date, str(band))
     publication = await _service(db).repository.get(publication_date, str(band))
 
+    # discard() refuses a band that is not published, so the row is there.
+    assert publication is not None
+
     return CalendarDraftDiscarded(
         publication=(await _to_responses(db, [publication]))[0],
         lost=lost,

@@ -39,11 +39,14 @@ def _existing_name(table: str, column: str, referent: str) -> str:
     inspector = sa.inspect(op.get_bind())
 
     for foreign_key in inspector.get_foreign_keys(table):
+        name = foreign_key["name"]
+
         if (
-            foreign_key["constrained_columns"] == [column]
+            name is not None
+            and foreign_key["constrained_columns"] == [column]
             and foreign_key["referred_table"] == referent
         ):
-            return foreign_key["name"]
+            return name
 
     raise RuntimeError(
         f"Nessuna foreign key da {table}.{column} a {referent}.tax_code: "

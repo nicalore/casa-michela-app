@@ -102,7 +102,6 @@ DesktopTour parentHomeTour({required bool manyRoles, required List<String?> gend
   );
 }
 
-// The day, the month, the notifications with the notices, then the bar.
 DesktopTour _homeTour({
   required String slug,
   required int version,

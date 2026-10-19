@@ -7,8 +7,7 @@ import '../../../shared/widgets/app_tooltip.dart';
 // No AppTheme equivalent: this fill is unique to the role chips.
 const Color roleChipBackground = Color(0xFFE8F7F5);
 
-// Role chips packed into the available width; whatever does not fit becomes a
-// "+N" chip whose tooltip lists the hidden ones.
+// Chips that do not fit collapse into a "+N" chip whose tooltip lists them.
 class RoleChipsRow extends StatelessWidget
 {
   final List<String> roles;
@@ -21,8 +20,7 @@ class RoleChipsRow extends StatelessWidget
   // Slack against sub-pixel rounding.
   final double safetyMargin;
 
-  // TextPainter ignores the ambient text scaler by default, underestimating
-  // widths when the system text scale is not 1.0.
+  // TextPainter ignores the ambient text scaler by default, underestimating scaled widths.
   final bool applyTextScaler;
 
   final bool scrollable;
@@ -97,8 +95,7 @@ class RoleChipsRow extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        // Merge onto the inherited style: measured bare, the theme's letter
-        // spacing made chips measure narrower than they draw.
+        // Merge onto the inherited style: measured bare, chips skip the theme's letter spacing.
         final ambient = DefaultTextStyle.of(context).style;
 
         final chipStyle = ambient.merge(GoogleFonts.plusJakartaSans(
@@ -151,8 +148,7 @@ class RoleChipsRow extends StatelessWidget
 
         lines.add(line);
 
-        // Make room for the counter on the last row by removing chips until it
-        // fits.
+        // Remove chips until the counter fits on the last row.
         int hiddenCount = roles.length - placed;
 
         while (hiddenCount > 0)

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/descender_room.dart';
 import '../models/activity_item.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
@@ -176,15 +177,17 @@ class _CalendarActivityCardState extends State<CalendarActivityCard>
                           const SizedBox(width: 6),
                         ],
                         Expanded(
-                          child: Text(
-                            _activity.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              height: 1.2,
-                              color: AppTheme.trialOcean,
+                          child: DescenderRoom(
+                            child: Text(
+                              _activity.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                                color: AppTheme.trialOcean,
+                              ),
                             ),
                           ),
                         ),
@@ -192,15 +195,17 @@ class _CalendarActivityCardState extends State<CalendarActivityCard>
                     ),
                     if (description != null) ...[
                       const SizedBox(height: 6),
-                      Text(
-                        description,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                          color: AppTheme.trialInk,
+                      DescenderRoom(
+                        child: Text(
+                          description,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            height: 1.35,
+                            color: AppTheme.trialInk,
+                          ),
                         ),
                       ),
                     ],

@@ -147,7 +147,6 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
       }
     });
 
-    // Effects off: it shows at once.
     if (!VisualEffects.on)
     {
       _reveal.value = 1;

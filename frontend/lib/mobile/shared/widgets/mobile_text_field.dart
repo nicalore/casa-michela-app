@@ -14,6 +14,8 @@ const double _restBorder = 1;
 const double _focusBorder = 2;
 const double _sidePadding = 18;
 
+final Color _restBorderColor = AppTheme.trialOcean.withValues(alpha: 0.14);
+
 const double _restAlpha = 0.55;
 const double _focusAlpha = 0.8;
 
@@ -162,7 +164,6 @@ class _MobileTextFieldState extends State<MobileTextField>
   @override
   Widget build(BuildContext context)
   {
-    final double border = _focused ? _focusBorder : _restBorder;
     final int? limit = widget.maxLength;
 
     return Column(
@@ -191,29 +192,39 @@ class _MobileTextFieldState extends State<MobileTextField>
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _focusNode.requestFocus,
-          child: AnimatedContainer(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(end: _focused ? 1 : 0),
             duration: _focusFade,
             curve: Curves.easeOut,
-            height: _multiline ? null : _height,
-            // Thicker border, thinner padding: the text never shifts.
-            padding: EdgeInsets.symmetric(
-              horizontal: _sidePadding + _restBorder - border,
-              vertical: _multiline ? _linesPadding + _restBorder - border : 0,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: _focused ? _focusAlpha : _restAlpha),
-              borderRadius: BorderRadius.circular(_radius),
-              border: Border.all(
-                color: _focused ? AppTheme.trialGold : AppTheme.trialOcean.withValues(alpha: 0.14),
-                width: border,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.trialGold.withValues(alpha: _focused ? _focusRingAlpha : 0),
-                  spreadRadius: _focused ? _focusRingWidth : 0,
+            builder: (context, focus, row)
+            {
+              final double border = _restBorder + (_focusBorder - _restBorder) * focus;
+
+              return Container(
+                height: _multiline ? null : _height,
+                // Thicker border, thinner padding: the text never shifts.
+                padding: EdgeInsets.symmetric(
+                  horizontal: _sidePadding + _restBorder - border,
+                  vertical: _multiline ? _linesPadding + _restBorder - border : 0,
                 ),
-              ],
-            ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: _restAlpha + (_focusAlpha - _restAlpha) * focus),
+                  borderRadius: BorderRadius.circular(_radius),
+                  border: Border.all(
+                    // Gold over the rest colour: a frame iOS freezes midway stays gold, not khaki.
+                    color: Color.alphaBlend(AppTheme.trialGold.withValues(alpha: focus), _restBorderColor),
+                    width: border,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.trialGold.withValues(alpha: _focusRingAlpha * focus),
+                      spreadRadius: _focusRingWidth * focus,
+                    ),
+                  ],
+                ),
+                child: row,
+              );
+            },
             child: Row(
               crossAxisAlignment: _multiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
               children: [

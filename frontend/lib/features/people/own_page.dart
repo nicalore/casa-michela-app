@@ -28,11 +28,6 @@ import 'tabs/person_schools_tab.dart';
 import 'widgets/person_detail_cards.dart';
 import 'widgets/person_detail_header.dart';
 
-// Matches the other sections' action pills.
-const double _reportHeight = 50;
-const double _reportRadius = 25;
-const double _reportFontSize = 14;
-
 enum OwnPageSection
 {
   info('Informazioni personali'),
@@ -214,7 +209,6 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
     }
   }
 
-  // The owner's tour, begun on the personal information: a teacher's, else a student's, a parent's, a psychologist's.
   DesktopTour? _tourOf(PersonItem person)
   {
     final Set<String> roles = _rolesOf(person);
@@ -279,9 +273,6 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
         icon: Icons.flag_rounded,
         gradient: AppTheme.dismissGradient,
         accent: AppTheme.trialViolet,
-        height: _reportHeight,
-        radius: _reportRadius,
-        fontSize: _reportFontSize,
         onPressed: () => _report(person),
       ),
     );

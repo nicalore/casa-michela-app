@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../features/people/models/person_item.dart';
 import '../../../../features/people/models/school_enrollment_item.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart';
 import '../../../../features/people/widgets/school_enrollment_edit_row.dart';
+import '../../../layout/mobile_breakpoints.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
+import '../../../shared/widgets/mobile_empty_card.dart';
 import 'mobile_card_grid.dart';
 import 'mobile_detail_card.dart';
 
@@ -63,16 +64,11 @@ class MobileSchoolYears extends StatelessWidget
 
     if (years.isEmpty)
     {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text(
-          'Nessun anno scolastico registrato.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: Colors.white.withValues(alpha: 0.84),
-          ),
+      return Center(
+        child: MobileEmptyCard(
+          icon: Icons.school_rounded,
+          message: 'Nessun anno scolastico registrato.',
+          tablet: MobileBreakpoints.of(context).isTablet,
         ),
       );
     }

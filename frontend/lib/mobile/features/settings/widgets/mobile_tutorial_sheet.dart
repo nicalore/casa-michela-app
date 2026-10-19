@@ -172,7 +172,7 @@ List<MobileDestination> _sectionsOf(MeResponse user)
   return sections.values.toList();
 }
 
-// Any section may be chosen, its tours seen or not: a part may be seen and another not, or all wanted again.
+// Any section may be picked, seen or not: its parts may be partly seen, or all replayed.
 Future<void> showMobileTutorialSheet({required BuildContext context, required MeResponse user})
 {
   return showMobileSheet<void>(

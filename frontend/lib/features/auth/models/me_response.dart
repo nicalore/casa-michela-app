@@ -20,8 +20,7 @@ class MeResponse
   // Such a pupil may book too when the administration allows it; payments stay with the parents.
   final bool autonomousBookings;
 
-  // PRESIDENT, VICE_PRESIDENT or TREASURER for a seat on the board; null
-  // for everybody else. Mirrors _BOARD_ROLES on the server.
+  // PRESIDENT, VICE_PRESIDENT, TREASURER or null; mirrors _BOARD_ROLES on the server.
   final String? boardRole;
 
   // The kinds of report they receive (IT managers, the president); empty for the rest.

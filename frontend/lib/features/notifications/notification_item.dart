@@ -110,7 +110,6 @@ class NotificationItem
   // The pupil whose bookings it is about.
   final String? pupilTaxCode;
 
-  // The report it announces.
   final int? reportId;
 
   // The teacher whose rating it asks to update.

@@ -3,12 +3,10 @@ import 'package:flutter/widgets.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
-// The parents' and the students' Prenotazioni page.
 const String kTourBookingsDays = 'bookings.days';
 const String kTourBookingsNext = 'bookings.next';
 const String kTourBookingsDeadlines = 'bookings.deadlines';
 
-// Parts of a day row, each lit on the first day showing it.
 const String kTourBookingsAdd = 'bookings.add';
 const String kTourBookingsLock = 'bookings.lock';
 const String kTourBookingsModes = 'bookings.modes';
@@ -21,13 +19,11 @@ const String kTourBookingsDayBin = 'bookings.day.bin';
 
 enum BookingsTourMark { add, lock, modes, lesson, topic, notes, lessonActions, bandActions, dayBin }
 
-// The hours of a band, in the booking wizard and where lessons move.
 const String kTourBookingsSwitch = 'bookings.hours.switch';
 const String kTourBookingsHours = 'bookings.hours.cursors';
 const String kTourBookingsHoursAdd = 'bookings.hours.add';
 const String kTourBookingsHoursBin = 'bookings.hours.bin';
 
-// The booking wizard.
 const String kTourBookingsWizardDays = 'bookings.wizard.days';
 const String kTourBookingsWizardForward = 'bookings.wizard.forward';
 const String kTourBookingsWizardSave = 'bookings.wizard.save';
@@ -39,7 +35,6 @@ const String kTourBookingsWizardServices = 'bookings.wizard.services';
 const String kTourBookingsWizardList = 'bookings.wizard.list';
 const String kTourBookingsWizardOpen = 'bookings.wizard.open';
 
-// The subject's window.
 const String kTourBookingsSubjectKinds = 'bookings.subject.kinds';
 const String kTourBookingsSubjectTopic = 'bookings.subject.topic';
 const String kTourBookingsSubjectForward = 'bookings.subject.forward';
@@ -50,20 +45,18 @@ const String kTourBookingsSubjectSearch = 'bookings.subject.search';
 const String kTourBookingsSubjectNotes = 'bookings.subject.notes';
 const String kTourBookingsSubjectSave = 'bookings.subject.save';
 
-// The window moving lessons.
 const String kTourBookingsMoveDays = 'bookings.move.days';
 const String kTourBookingsMoveOptions = 'bookings.move.options';
 const String kTourBookingsMoveConfirm = 'bookings.move.confirm';
 
-// True once the next week is on show: its tour asks for it with a click.
+// True once the next week is on show; its tour step waits for it.
 final ValueNotifier<bool> bookingsNextWeekShown = ValueNotifier(false);
 
-// The wizard tells its tours: a date picked, hours given, a subject opened (its window or its disciplines).
+// The wizard tells its tours: a date picked, hours given, a subject opened.
 final ValueNotifier<int> bookingsWizardDaysPicked = ValueNotifier(0);
 final ValueNotifier<bool> bookingsWizardHasHours = ValueNotifier(false);
 final ValueNotifier<int> bookingsWizardPicked = ValueNotifier(0);
 
-// True while a subject's window is up.
 final ValueNotifier<bool> bookingsSubjectOpen = ValueNotifier(false);
 
 // The move window tells its tour: a day or a place picked.
@@ -115,7 +108,6 @@ const Map<BookingsTourMark, int> _markVersions = {
 
 (String, int) _markSeen(BookingsTourMark mark) => ('bookings.mark.${mark.name}', _markVersions[mark]!);
 
-// The wizard's and the move window's parts, each told once, the first time it shows.
 const (String, int) _daysSeen = ('bookings.wizard.days', 1);
 const (String, int) _switchSeen = ('bookings.wizard.switch', 1);
 const (String, int) _cursorsSeen = ('bookings.hours.cursors', 1);
@@ -159,8 +151,8 @@ BookingsTourReader? bookingsTourReader()
   };
 }
 
-// The same windows serve an administrator booking for a student: only parents and students are shown around.
-// [still]: asked right before the tour shows; false drops it, as a window turned to another card meanwhile.
+// Admins booking for a student share these windows: only parents and students are toured.
+// [still]: checked right before showing; false drops the tour (e.g. the card changed).
 void startBookingsTour(BuildContext context, DesktopTour tour, {bool Function()? still})
 {
   final String? taxCode = ApiService().lastKnownIdentity?.taxCode;
@@ -182,7 +174,7 @@ void startBookingsTour(BuildContext context, DesktopTour tour, {bool Function()?
   WidgetsBinding.instance.scheduleFrame();
 }
 
-// False for anyone the tours are not for.
+// False when no identity is known.
 Future<bool> bookingsTourSeen(DesktopTour tour) async
 {
   final String? taxCode = ApiService().lastKnownIdentity?.taxCode;
@@ -200,8 +192,7 @@ Future<DesktopTour?> _dueTour(List<DesktopTourStep> steps) async
       : dueDesktopTour(taxCode: taxCode, title: _title, steps: steps);
 }
 
-// The steps never told, those whose part is still to come included, under the first present one's mark; null
-// when none shows yet.
+// Unseen steps (parts still to come too) under the first present one's mark; null if none shows.
 Future<DesktopTour?> _freshTour(List<DesktopTourStep> steps) async
 {
   final String? taxCode = ApiService().lastKnownIdentity?.taxCode;
@@ -249,7 +240,7 @@ String _whose(BookingsTourReader reader, List<String?> genders)
   return genders.every((gender) => gender == 'F') ? ' per le tue figlie' : ' per i tuoi figli';
 }
 
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
+// Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
 final Map<BookingsTourMark, DesktopTourStep> _marks = {
   BookingsTourMark.add: DesktopTourStep(
     targets: const [kTourBookingsAdd],
@@ -271,7 +262,6 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
     present: () => _shown(kTourBookingsLock),
     seen: _markSeen(BookingsTourMark.lock),
   ),
-  // A band in presence and one online, each its heading and its hours.
   BookingsTourMark.modes: DesktopTourStep(
     targets: const [kTourBookingsModes],
     apart: true,
@@ -294,7 +284,7 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
     present: () => _shown(kTourBookingsLesson),
     seen: _markSeen(BookingsTourMark.lesson),
   ),
-  // The topic and the notes each on the first lesson having it: a lesson may have one without the other.
+  // Topic and notes are lit apart: a lesson may have one without the other.
   BookingsTourMark.topic: DesktopTourStep(
     targets: const [kTourBookingsTopic],
     text: "Passando il mouse su questa icona puoi leggere l'argomento della lezione.",
@@ -399,7 +389,7 @@ List<DesktopTourStep> _nextWeekSteps(VoidCallback showThisWeek)
   ];
 }
 
-// This week and its parts, then, for whoever books, the next week in the same tour and the deadlines.
+// This week and its parts, then for bookers the next week and the deadlines.
 // [genders]: the children the page shows, one each, for the first sentence.
 DesktopTour bookingsPageTour({
   required BookingsTourReader reader,
@@ -448,7 +438,6 @@ DesktopTour bookingsNextWeekTour({required VoidCallback showThisWeek})
   return DesktopTour(slug: _nextSeen.$1, title: _title, version: _nextSeen.$2, steps: _nextWeekSteps(showThisWeek));
 }
 
-// The page's parts first shown after its tour, together.
 Future<DesktopTour?> bookingsLatePageTour(BookingsTourReader reader) => _dueTour(_marksOf(reader));
 
 String _presence(bool online) => online ? 'presenza online' : 'presenza';
@@ -501,7 +490,7 @@ final DesktopTourStep _binStep = DesktopTourStep(
   seen: _binSeen,
 );
 
-// The hours card: a «Sì» brings the cursors in; then on to the subjects, or the hours saved alone.
+// The hours card: a "Sì" brings the cursors in; then the subjects, or the hours saved alone.
 Future<DesktopTour?> bookingsWizardHoursTour({
   required BookingsTourPupil pupil,
   required bool online,
@@ -558,7 +547,6 @@ Future<DesktopTour?> bookingsWizardHoursTour({
   ]);
 }
 
-// Hours and bins first shown after the card's tour.
 Future<DesktopTour?> bookingsLateHoursTour() => _dueTour([_cursorsStep, _addHoursStep, _binStep]);
 
 // A subject divided in disciplines, once open under its row.
@@ -591,7 +579,7 @@ DesktopTourStep _finishStep({required bool editing})
   );
 }
 
-// The subjects card: its band and hours left, the three lists, the list itself; a click on a subject opens it.
+// The subjects card: band and hours left, the lists; a click on a subject opens it.
 // [chosen]: some subject is already in the card, so the button saving it all is told too.
 Future<DesktopTour?> bookingsWizardSubjectsTour({
   required BookingsTourPupil pupil,
@@ -680,13 +668,12 @@ Future<DesktopTour?> bookingsWizardSubjectsTour({
   ]);
 }
 
-// The card's parts first shown after its tour: a subject opened in place, the button once one is chosen.
+// Late parts of the card: a subject opened in place, the button once one is chosen.
 Future<DesktopTour?> bookingsLateSubjectsTour({required bool editing, required bool chosen})
 {
   return _dueTour([_openStep, if (chosen) _finishStep(editing: editing)]);
 }
 
-// The cards of the subject's window, each with its parts.
 enum BookingsSubjectCard { what, duration, teachers, notes }
 
 enum _SubjectMark { intro, kinds, topic, forward, durations, count, teachers, search, notes, add, save }
@@ -707,8 +694,7 @@ const Map<_SubjectMark, int> _subjectVersions = {
 
 (String, int) _subjectSeen(_SubjectMark mark) => ('bookings.subject.${mark.name}', _subjectVersions[mark]!);
 
-// The parts of [card] never told: [first], the window's first card, comes with the intro; [editing] saves a
-// lesson already booked, else adds the subject to the wizard.
+// [first]: the window's first card, with the intro; [editing]: saves a booked lesson.
 Future<DesktopTour?> bookingsSubjectTour({
   required BookingsSubjectCard card,
   required bool first,
@@ -850,8 +836,8 @@ const Map<_MoveMark, int> _moveVersions = {
 
 (String, int) _moveSeen(_MoveMark mark) => ('bookings.move.${mark.name}', _moveVersions[mark]!);
 
-// The move window, one tour: a day, where to, the hours when asked, the button. [hoursMayCome]: an option of the
-// day picked would ask for hours.
+// The move window: a day, where to, the hours if asked, the button.
+// [hoursMayCome]: some option of the picked day would ask for hours.
 Future<DesktopTour?> bookingsMoveTour({required bool Function() hoursMayCome})
 {
   return _freshTour([
@@ -905,5 +891,4 @@ Future<DesktopTour?> bookingsMoveTour({required bool Function() hoursMayCome})
   ]);
 }
 
-// Hours and bins shown in the move window after its tour.
 Future<DesktopTour?> bookingsLateMoveTour() => _dueTour([_cursorsStep, _addHoursStep, _binStep]);

@@ -44,7 +44,7 @@ const Duration _pageBack = Duration(milliseconds: 320);
 // A page settles within a tolerance, never exactly on its index.
 const double _settled = 0.001;
 
-// The statistics' tab touched, then they and their filters read there; stepping back turns to page [back].
+// Statistics tab touched, then stats and filters read there; stepping back turns to page [back].
 List<MobileTourStep> _statsSteps({
   required PageController pages,
   required int index,
@@ -183,7 +183,7 @@ MobileTour parentOwnTour({required String title})
   );
 }
 
-// The parents' Figli page, like the own page: the page, the report, then the statistics of the child shown.
+// Parents' "Figli" page: the page, the report, then the statistics of the child shown.
 const String _childrenSlug = 'children';
 const int _childrenVersion = 3;
 
@@ -197,7 +197,7 @@ const String kChildrenTourFilters = 'children.filters';
 
 bool _daughter(String? gender) => gender == 'F';
 
-// [sections]: the strip's tabs, by name, in order. [genders]: every child's; [shown]: the gender of the child shown.
+// [genders]: every child's; [shown]: the gender of the child shown.
 // [pupil]: the child shown has statistics.
 MobileTour childrenTour({
   required PageController pages,

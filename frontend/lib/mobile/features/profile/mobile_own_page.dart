@@ -15,6 +15,7 @@ import '../../../features/people/widgets/person_detail_widgets.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
@@ -58,7 +59,6 @@ const String _parentAccountRole = 'PARENT';
 const String _studentAccountRole = 'STUDENT';
 const String _pupilRole = 'STUDENTE';
 
-// Parts are lit a little larger than themselves.
 const EdgeInsets _tourInflate = EdgeInsets.all(5);
 const double _tourCardRadius = 27;
 const double _tourRoundRadius = 40;
@@ -175,7 +175,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
       ..scheduleFrame();
   }
 
-  // The page shows the person whatever role is worn: a teacher's tour, else a student's, else a parent's.
+  // Whatever role is worn: a teacher's tour, else a student's, else a parent's.
   Future<void> _tourCheck() async
   {
     final PersonItem? person = _person;
@@ -356,6 +356,8 @@ class _MobileOwnPageState extends State<MobileOwnPage>
                 _scrollable(
                   bottom: bottom,
                   children: _buildSection(person, section, margin: margin, tablet: tablet),
+                  // Only a school section can hold nothing but the empty card.
+                  fill: section == OwnPageSection.school && MobileSchoolYears.yearsOf(person).isEmpty,
                 ),
             ],
           );
@@ -452,7 +454,8 @@ class _MobileOwnPageState extends State<MobileOwnPage>
   }
 
   // Edge to edge, inset per block: chip rows may overrun the margin, shadows cross pages.
-  Widget _scrollable({required double bottom, required List<Widget> children})
+  // [fill]: [children] is the empty card alone, centred in the room.
+  Widget _scrollable({required double bottom, required List<Widget> children, bool fill = false})
   {
     return MobileSwipePage(
       child: RefreshIndicator(
@@ -460,15 +463,22 @@ class _MobileOwnPageState extends State<MobileOwnPage>
         backgroundColor: AppTheme.trialDeepWater,
         onRefresh: _refresh,
         // Not lazy: a lazy list guesses its length from what it built, and the tour scrolls by it.
-        child: SingleChildScrollView(
-          clipBehavior: Clip.none,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(top: _shadowRoom, bottom: bottom),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [...children, const MobileTourRunway()],
-          ),
-        ),
+        child: fill
+            ? MobileEmptyScroll(
+                padding: EdgeInsets.only(top: _shadowRoom, bottom: bottom),
+                body: children.single,
+                fill: true,
+                tail: const [MobileTourRunway()],
+              )
+            : SingleChildScrollView(
+                clipBehavior: Clip.none,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.only(top: _shadowRoom, bottom: bottom),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [...children, const MobileTourRunway()],
+                ),
+              ),
       ),
     );
   }
@@ -497,7 +507,6 @@ class _MobileOwnPageState extends State<MobileOwnPage>
           editLabel: 'Modifica contatti',
         );
 
-        // Tablet order matches the desktop's pairs.
         return [
           inset(MobileCardGrid(
             tablet: tablet,
@@ -527,7 +536,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
           )),
         ];
 
-      // As on the desktop, a teacher who is also a pupil sees both.
+      // A teacher who is also a pupil sees both.
       case OwnPageSection.stats:
         return [
           if (_isTeacher(person))
@@ -568,7 +577,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
             ),
         ];
 
-      // Read-only, as on the desktop.
+      // Read-only.
       case OwnPageSection.school:
         return [inset(MobileSchoolYears(person: person))];
     }

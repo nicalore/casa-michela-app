@@ -35,19 +35,18 @@ class OpeningDayBase(OptionalTimeRangeMixin):
 
 
 class OpeningDayCreate(OpeningDayBase):
-    note: OptionalCleanStr = Field(None, max_length=field_lengths.NOTES)
+    note: OptionalCleanStr = Field(default=None, max_length=field_lengths.NOTES)
 
 
 class OpeningDayBand(TimeRangeMixin):
     pass
 
 
-# Replaces the whole day's rows at once: a row-by-row rewrite would leave the
-# day transiently closed, clearing its lessons and unpublishing its calendar.
+# Whole day at once: row by row it would close briefly, losing lessons and calendar.
 class OpeningDayReplace(BaseModel):
     date: date
     mode: OpeningModeEnum
-    note: OptionalCleanStr = Field(None, max_length=field_lengths.NOTES)
+    note: OptionalCleanStr = Field(default=None, max_length=field_lengths.NOTES)
 
     # Without confirm, a write that would unpublish a calendar is refused.
     confirm: bool = False
@@ -67,7 +66,7 @@ class OpeningDayReplace(BaseModel):
 
 
 class OpeningDayUpdate(OptionalTimeRangeMixin):
-    note: OptionalCleanStr = Field(None, max_length=field_lengths.NOTES)
+    note: OptionalCleanStr = Field(default=None, max_length=field_lengths.NOTES)
     expected_updated_at: datetime | None = None
     confirm: bool = False
 

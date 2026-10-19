@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
@@ -91,6 +92,12 @@ class _ServicesTabState extends State<ServicesTab>
         countLabel: services.length == 1
             ? '1 servizio trovato'
             : '${services.length} servizi trovati',
+      ),
+      empty: emptyListCard(
+        shown: services.length,
+        total: widget.services.length,
+        icon: Icons.handshake_rounded,
+        none: 'Nessun servizio registrato',
       ),
       body: EntityCardGrid(
         children: services.map((service)

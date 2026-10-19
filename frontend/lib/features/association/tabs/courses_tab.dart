@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
@@ -113,6 +114,12 @@ class _CoursesTabState extends State<CoursesTab>
         countLabel: courses.length == 1
             ? '1 corso trovato'
             : '${courses.length} corsi trovati',
+      ),
+      empty: emptyListCard(
+        shown: courses.length,
+        total: widget.courses.length,
+        icon: Icons.cast_for_education_rounded,
+        none: 'Nessun corso registrato',
       ),
       body: EntityCardGrid(
         children: courses.map((course)

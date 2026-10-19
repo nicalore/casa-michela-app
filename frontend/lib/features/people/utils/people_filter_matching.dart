@@ -20,6 +20,17 @@ bool matchesEarlyExit(PersonItem person, bool? expected)
   return !person.isAdult && person.earlyExit == expected;
 }
 
+// Only a member holds an enrollment: a parent who is not one matches neither.
+bool _matchesEnrollment(PersonItem person, bool? expected)
+{
+  if (expected == null)
+  {
+    return true;
+  }
+
+  return person.roles.contains(RoleLabelMapper.memberLabel) && person.isEnrolled == expected;
+}
+
 bool _matchesRoles(PersonItem person, PeopleFilterState filter)
 {
   final selectedRoles = filter.selectedRoles;
@@ -158,6 +169,7 @@ bool matchesPeopleFilter(PersonItem person, PeopleFilterState filter)
       PeopleFilterState.matchesAny(person.schoolName, filter.schoolNames) &&
       PeopleFilterState.matchesAny(person.studyProgram, filter.studyPrograms) &&
       _matchesText(person.courseType, filter.courseType) &&
+      _matchesEnrollment(person, filter.isEnrolled) &&
       _matchesExactly(person.isActiveCollaborator, filter.isActiveCollaborator) &&
       _matchesExactly(person.enrollmentYear, filter.enrollmentYear) &&
       _matchesExactly(person.educationLevel, filter.educationLevel) &&

@@ -3,22 +3,18 @@ import 'package:flutter/widgets.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
-// The teacher's Discipline page.
 const String kTourSubjectsHeld = 'subjects.held';
 const String kTourSubjectsTools = 'subjects.tools';
 const String kTourSubjectsAdd = 'subjects.add';
 
-// The catalogue the add button opens.
 const String kTourSubjectsFilters = 'subjects.catalogue.filters';
 const String kTourSubjectsList = 'subjects.catalogue.list';
 const String kTourSubjectsPlus = 'subjects.catalogue.plus';
 const String kTourSubjectsConfirm = 'subjects.catalogue.confirm';
 
-// The discipline just chosen in the catalogue.
 const String kTourSubjectsChosenBin = 'subjects.catalogue.chosen.bin';
 const String kTourSubjectsChosenRow = 'subjects.catalogue.chosen.row';
 
-// A discipline's programmes.
 const String kTourProgramsList = 'subjects.programs.list';
 const String kTourProgramsSector = 'subjects.programs.sector';
 const String kTourProgramsSingle = 'subjects.programs.single';
@@ -60,7 +56,7 @@ void startSubjectsTour(BuildContext context, DesktopTour tour)
   });
 }
 
-// Each radius is the part's own corner plus half the pad; the hole adds the other half, so it is concentric.
+// Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
 // A teacher with no discipline yet has no pencil to show.
 final DesktopTour subjectsPageTour = DesktopTour(
   slug: 'subjects',

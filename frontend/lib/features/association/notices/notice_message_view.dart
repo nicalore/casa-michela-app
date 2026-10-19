@@ -134,7 +134,6 @@ double _trailingGap(Document document)
   return _paragraphGap.bottom;
 }
 
-// A sent message as its readers see it.
 class NoticeMessageView extends StatefulWidget
 {
   final String message;

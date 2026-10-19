@@ -15,6 +15,7 @@ from app.api.rbac import CurrentIdentity, IdentityContext, require_role
 from app.models.person import Person
 from app.models.presence import Presence
 from app.repositories.presence_repository import PresenceRepository
+from app.schemas.opening_day import OpeningModeEnum
 from app.schemas.person import PersonOption
 from app.schemas.presence import (
     CompetenceWaiverResponse,
@@ -45,7 +46,7 @@ def _to_response(
     return PresenceResponse(
         id=presence.id,
         date=presence.date,
-        mode=presence.mode,
+        mode=OpeningModeEnum(presence.mode),
         start_time=presence.start_time,
         end_time=presence.end_time,
         student_tax_code=presence.student_tax_code,

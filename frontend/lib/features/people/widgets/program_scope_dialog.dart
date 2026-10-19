@@ -81,6 +81,7 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
         track: program.highSchoolTrack,
         minYear: program.minYear,
         maxYear: program.maxYear,
+        namesHighSchool: false,
       ),
     );
   }
@@ -94,8 +95,7 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
     {
       final scoped = _scope(program);
 
-      // Matched against the full name: the sector is on the heading, not the
-      // row, but is still what someone might type.
+      // Matched on the full name: the sector sits on the heading, but someone may type it.
       if (query.isNotEmpty && !program.fullName.toLowerCase().contains(query))
       {
         continue;
@@ -343,8 +343,7 @@ class _ProgramRowState extends State<_ProgramRow>
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            // Not Colors.transparent (black at zero alpha): the fade would pass
-            // through grey.
+            // Not Colors.transparent (black at zero alpha): the fade would pass through grey.
             color: widget.selected
                 ? kPickedSurface
                 : kPickedSurface.withValues(alpha: 0),

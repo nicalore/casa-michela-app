@@ -95,7 +95,6 @@ class AppUpdate(CreatedAtMixin, UpdatedAtMixin, Base):
     )
 
 
-# An image of an update's message.
 class AppUpdateImage(CreatedAtMixin, Base):
     __tablename__ = "app_update_images"
 

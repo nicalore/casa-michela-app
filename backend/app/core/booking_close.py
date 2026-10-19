@@ -8,8 +8,7 @@ from app.core.time_band import TimeBandEnum, band_bounds
 
 _ROME_TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 
-# Mirrors _closingTimes in frontend/lib/core/utils/time_bucket.dart, which
-# only decides what to draw while this side enforces it.
+# Enforced here; _closingTimes in frontend/lib/core/utils/time_bucket.dart mirrors it.
 _CLOSING_TIMES: Final[dict[TimeBandEnum, tuple[int, time]]] = {
     TimeBandEnum.MORNING: (1, time(20)),
     TimeBandEnum.AFTERNOON: (0, time(11)),

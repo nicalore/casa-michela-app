@@ -229,10 +229,9 @@ class _FilterOverlayContent<T> extends StatefulWidget
 
 class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
 {
-  // Drives both AnimatedSize and hide()'s delay: out of sync, the overlay is torn down mid-animation.
+  // Drives AnimatedSize and hide()'s delay: out of sync, the overlay is torn down mid-animation.
   static const Duration _expandDuration = Duration(milliseconds: 180);
 
-  // Effects off: the menu opens and closes at once.
   final bool _animates = VisualEffects.on;
 
   late bool _expanded = !_animates;
@@ -247,7 +246,7 @@ class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
       return;
     }
 
-    // Expanded on the next frame so the opening animation shows: frame one lays the overlay out collapsed.
+    // Expanded next frame, so the opening shows: frame one lays the overlay out collapsed.
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
       if (mounted)

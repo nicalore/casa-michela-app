@@ -163,7 +163,7 @@ class _AppSelectableChipState extends State<AppSelectableChip>
   }
 }
 
-// Sized from unpainted copies at both weights so a picked (bold) chip does not shove its neighbours.
+// Sized on unpainted copies at both weights: a picked (bold) chip does not shove its neighbours.
 class _ChipLabel extends StatelessWidget
 {
   final String label;
@@ -198,7 +198,7 @@ class _ChipLabel extends StatelessWidget
   {
     final TextStyle inherited = DefaultTextStyle.of(context).style;
 
-    // Pinned for both copies: Text takes maxLines/overflow from DefaultTextStyle, the measured RichText does not.
+    // Pinned for both: Text reads maxLines/overflow from DefaultTextStyle, RichText does not.
     return DefaultTextStyle(
       style: inherited,
       textAlign: TextAlign.center,
@@ -228,7 +228,7 @@ class _ChipLabel extends StatelessWidget
 
   Widget _buildLayers(BuildContext context, TextStyle inherited)
   {
-    // Both weights are laid out: a regular font not yet loaded can be wider than a bold one that has.
+    // Both weights laid out: a regular font not yet loaded can be wider than a loaded bold one.
     return Stack(
       clipBehavior: Clip.none,
       children: [

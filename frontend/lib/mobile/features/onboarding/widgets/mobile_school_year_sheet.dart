@@ -375,7 +375,7 @@ class _YearSheetState extends State<_YearSheet>
     );
   }
 
-  // Grouped by scope, as in the Discipline's percorsi sheet.
+  // Grouped by scope, as in showMobileProgramsSheet.
   List<Widget> _buildProgramRows(List<StudyProgramItem> shown)
   {
     final Map<String, List<StudyProgramItem>> groups = {};
@@ -431,7 +431,7 @@ class _YearSheetState extends State<_YearSheet>
       ],
       ?leading,
       if (tiles.isEmpty)
-        ?(empty == null ? null : MobileSheetText(empty))
+        ?(empty == null ? null : MobileSheetText(empty, textAlign: TextAlign.center))
       else
         ...tiles,
     ];

@@ -270,6 +270,7 @@ class _NoMemberships extends StatelessWidget
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text(
         kNoMembershipsMessage,
+        textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14.5,
           fontWeight: FontWeight.w500,

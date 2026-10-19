@@ -21,7 +21,7 @@ const String kTutorialSections = 'Sezioni';
 const String kTutorialReactivate = 'Riattiva';
 const String kTutorialPickASection = 'Scegli almeno una sezione.';
 
-// Said by every tour closed with its ×, on the phone and on the computer.
+// Shown when any tour is closed with its close button, on the phone and on the computer.
 const String kTutorialClosedEarly = 'Puoi riattivare il tutorial dalle impostazioni.';
 
 String tutorialsReactivated(int sections) => sections == 1 ? 'Tutorial riattivato.' : 'Tutorial riattivati.';
@@ -30,7 +30,7 @@ const String kAccountGroup = 'Account';
 
 const String kComingSoon = 'In arrivo';
 
-// As the top bar's sections not built yet.
+// Same delay as the top bar's sections not built yet.
 const Duration kComingSoonWait = Duration(milliseconds: 400);
 
 class AppearanceOption

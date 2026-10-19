@@ -356,7 +356,7 @@ class LessonRepository(WritableRepository[Lesson]):
             .where(LessonBooking.booking_id.in_(booking_ids))
         )
 
-        return (await self.session.execute(stmt)).all()
+        return (await self.session.execute(stmt)).tuples().all()
 
     async def list_disciplines_for_lessons(
         self,
@@ -370,4 +370,4 @@ class LessonRepository(WritableRepository[Lesson]):
             LessonDiscipline.association_subject_id,
         ).where(LessonDiscipline.lesson_id.in_(lesson_ids))
 
-        return (await self.session.execute(stmt)).all()
+        return (await self.session.execute(stmt)).tuples().all()
