@@ -12,6 +12,7 @@ from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, IdentityContext, require_role
 from app.core.time_band import TimeBandEnum
 from app.models.lesson import Lesson
+from app.models.lesson_booking import LessonBooking
 from app.models.person import Person
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.repositories.calendar_publication_repository import (
@@ -44,24 +45,46 @@ router = APIRouter(
 _ADMIN_ONLY = [Depends(require_role("ADMIN"))]
 
 
+# Its teacher and the administrators see every pupil; a family only its own.
+def _visible_links(lesson: Lesson, identity: IdentityContext) -> list[LessonBooking]:
+    if identity.is_admin or lesson.availability.teacher_tax_code == identity.tax_code:
+        return list(lesson.lesson_bookings)
+
+    return [
+        link
+        for link in lesson.lesson_bookings
+        if link.booking.presence.student_tax_code in identity.own_student_tax_codes
+        or link.booking.presence.booker_tax_code == identity.tax_code
+    ]
+
+
 def _booking_responses(
-    lesson: Lesson,
+    links: Sequence[LessonBooking],
     people: dict[str, Person],
     avoided: AvoidedTeachers,
+    identity: IdentityContext,
 ) -> list[BookingResponse]:
     responses = []
 
-    for link in lesson.lesson_bookings:
+    for link in links:
         booking = link.booking
         presence = booking.presence
+        summary = booking_summary(
+            booking,
+            people,
+            avoided.get(presence.student_tax_code, []),
+        )
+
+        # A pupil's wishes are for the pupil, the parents and the administrators.
+        if (
+            not identity.is_admin
+            and presence.student_tax_code not in identity.own_student_tax_codes
+        ):
+            summary = summary.model_copy(update={"preferred_teachers": []})
 
         responses.append(
             BookingResponse(
-                **booking_summary(
-                    booking,
-                    people,
-                    avoided.get(presence.student_tax_code, []),
-                ).model_dump(),
+                **summary.model_dump(),
                 presence_id=booking.presence_id,
                 presence=PresenceSummary(
                     id=presence.id,
@@ -103,12 +126,14 @@ def _overlaps(lesson: Lesson, hours: TeacherHours) -> list[LessonOverlap]:
 
 def _to_response(
     lesson: Lesson,
+    links: Sequence[LessonBooking],
     people: dict[str, Person],
     avoided: AvoidedTeachers,
     rooms: dict[tuple[date, str], TeacherRoomAssignment],
     settled: set[tuple[date, str]],
     hours: TeacherHours,
     warnings: list[str],
+    identity: IdentityContext,
 ) -> LessonResponse:
     teacher_tax_code = lesson.availability.teacher_tax_code
 
@@ -139,7 +164,7 @@ def _to_response(
             AssociationSubjectOption.model_validate(row.association_subject)
             for row in lesson.lesson_disciplines
         ],
-        bookings=_booking_responses(lesson, people, avoided),
+        bookings=_booking_responses(links, people, avoided, identity),
         is_locked=(lesson.date, lesson.band) in settled,
         overlaps=_overlaps(lesson, hours),
         warnings=warnings,
@@ -158,7 +183,8 @@ async def _to_responses(
     if not lessons:
         return []
 
-    bookings = [link.booking for lesson in lessons for link in lesson.lesson_bookings]
+    visible = {lesson.id: _visible_links(lesson, identity) for lesson in lessons}
+    bookings = [link.booking for links in visible.values() for link in links]
     people, avoided = await booking_people(
         db,
         bookings,
@@ -192,7 +218,17 @@ async def _to_responses(
     )
 
     return [
-        _to_response(lesson, people, avoided, rooms, settled, hours, warnings or [])
+        _to_response(
+            lesson,
+            visible[lesson.id],
+            people,
+            avoided,
+            rooms,
+            settled,
+            hours,
+            warnings or [],
+            identity,
+        )
         for lesson in lessons
     ]
 

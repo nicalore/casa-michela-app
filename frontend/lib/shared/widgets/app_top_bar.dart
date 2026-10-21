@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/config/api_config.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
@@ -16,6 +15,7 @@ import '../../features/reports/reports_board.dart';
 import '../../features/updates/unread_updates.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
+import '../../services/profile_photo_image.dart';
 import 'app_nav_drawer.dart';
 import 'app_section_rail.dart';
 import 'app_top_nav.dart';
@@ -316,22 +316,7 @@ class _AppTopBarState extends State<AppTopBar>
     context.go('/login');
   }
 
-  String? get _absoluteImageUrl
-  {
-    final url = _user?.profileImageUrl;
-
-    if (url == null || url.isEmpty)
-    {
-      return null;
-    }
-
-    final absoluteUrl = url.startsWith('http://') || url.startsWith('https://')
-        ? url
-        : '${ApiConfig.baseUrl}$url';
-
-    // Cache-buster counts picture changes: a per-build URL would blink the face on navigation.
-    return '$absoluteUrl?v=${_apiService.profileImageVersion}';
-  }
+  String? get _imageUrl => _user?.profileImageUrl;
 
   String _initials(String fullName)
   {
@@ -473,6 +458,8 @@ class _AppTopBarState extends State<AppTopBar>
 
   Widget _buildAvatar(String? imageUrl, double diameter)
   {
+    final ProfilePhotoImage? photo = ProfilePhotoImage.of(imageUrl);
+
     return Container(
       width: diameter,
       height: diameter,
@@ -482,10 +469,10 @@ class _AppTopBarState extends State<AppTopBar>
       ),
       // Keyed on the URL: a backgroundImage swap alone would not rebuild on a new picture.
       child: CircleAvatar(
-        key: ValueKey(imageUrl),
+        key: ValueKey(photo),
         backgroundColor: Colors.white,
-        backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-        child: imageUrl == null
+        backgroundImage: photo,
+        child: photo == null
             ? Text(
                 _initials(_user!.fullName),
                 style: GoogleFonts.plusJakartaSans(
@@ -650,7 +637,7 @@ class _AppTopBarState extends State<AppTopBar>
 
   Widget _buildBar(AppWindowSize size)
   {
-    final imageUrl = _absoluteImageUrl;
+    final imageUrl = _imageUrl;
     final margin = AppBreakpoints.pageMargin(size);
 
     return Positioned(

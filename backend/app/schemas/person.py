@@ -32,6 +32,11 @@ UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR: Final[str] = (
     "Un docente che frequenta le superiori non può dichiarare studi universitari."
 )
 
+HEALTH_DATA_WITHOUT_CONSENT_ERROR: Final[str] = (
+    "Senza il consenso ai dati particolari non si possono registrare allergie, "
+    "farmaci, certificazioni e sostegno psicologico."
+)
+
 _MISSING_DSA_DETAIL_ERROR: Final[str] = (
     "Per una certificazione DSA va indicato di quale disturbo si tratta."
 )
@@ -570,7 +575,7 @@ class PersonResponse(BaseModel):
     fiscal_code: str
     first_name: str
     last_name: str
-    roles: list[str]
+    roles: list[str] = []
     created_at: datetime
     profile_image_url: str | None = None
     has_account: bool = False
@@ -591,6 +596,9 @@ class PersonResponse(BaseModel):
 
     city: str | None = None
     birth_date: date | None = None
+    # Sent in its place to readers outside the household.
+    age: int | None = None
+    birthday_today: bool | None = None
     children_count: int | None = None
     is_active_collaborator: bool | None = None
     enrollment_year: str | None = None

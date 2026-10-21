@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/config/api_config.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
+import '../../../services/profile_photo_image.dart';
 import '../../../shared/widgets/app_back_button.dart';
 import '../../../shared/widgets/app_section_rail.dart';
 import '../../../shared/widgets/desktop_tour.dart';
@@ -77,17 +77,10 @@ class PersonDetailHeader extends StatelessWidget
       ),
     );
 
-    String? imageUrl = person.profileImageUrl?.trim();
-
-    if (imageUrl != null && imageUrl.isNotEmpty)
-    {
-      if (imageUrl.startsWith('/'))
-      {
-        imageUrl = ApiConfig.buildUrl(imageUrl);
-      }
-
-      imageUrl = '$imageUrl?v=$imageVersion';
-    }
+    final ProfilePhotoImage? photo = ProfilePhotoImage.of(
+      person.profileImageUrl,
+      cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+    );
 
     return Container(
       width: size,
@@ -98,11 +91,10 @@ class PersonDetailHeader extends StatelessWidget
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
       ),
       child: ClipOval(
-        child: imageUrl != null && imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
+        child: photo != null
+            ? Image(
+                image: photo,
                 fit: BoxFit.cover,
-                cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

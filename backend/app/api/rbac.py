@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, Request, status
 
 from app.api.current_account import CurrentAccount
 from app.core.audit import AUDIT_ACTOR_KEY, AuditActor
+from app.core.person_refs import KEPT_TAX_CODES_STATE_KEY, keep_for_reader
 from app.services.role_service import RoleService
 
 _FORBIDDEN_ROLE_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
@@ -112,7 +113,25 @@ async def get_current_identity(
     return identity
 
 
-CurrentIdentity = Annotated[IdentityContext, Depends(get_current_identity)]
+# Apart from the reader's own and children's, tax codes leave as references.
+async def _reading_identity(
+    request: Request,
+    identity: Annotated[IdentityContext, Depends(get_current_identity)],
+) -> IdentityContext:
+    kept = (
+        None
+        if identity.is_admin
+        else frozenset({identity.tax_code, *identity.child_tax_codes})
+    )
+    keep_for_reader(kept)
+
+    if kept is not None:
+        setattr(request.state, KEPT_TAX_CODES_STATE_KEY, kept)
+
+    return identity
+
+
+CurrentIdentity = Annotated[IdentityContext, Depends(_reading_identity)]
 
 
 def require_role(*roles: str) -> Callable[[CurrentIdentity], IdentityContext]:

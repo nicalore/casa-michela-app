@@ -107,8 +107,12 @@ async def make_person(
     )
 
 
+# Consenting, as the wizard demanded until the consent became optional.
 async def _make_member(db: AsyncSession, person: Person, *, enrolled: bool) -> None:
-    await _persist(db, Member(tax_code=person.tax_code))
+    await _persist(
+        db,
+        Member(tax_code=person.tax_code, special_category_data_consent=True),
+    )
 
     if enrolled:
         await make_membership(db, person)

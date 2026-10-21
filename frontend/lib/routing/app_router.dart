@@ -6,6 +6,7 @@ import '../features/association/role_association_page.dart';
 import '../features/availability/availability_page.dart';
 import '../features/auth/force_password_change_page.dart';
 import '../features/auth/login_page.dart';
+import '../features/auth/reset_link.dart';
 import '../features/auth/reset_password_page.dart';
 import '../features/bookings/bookings_page.dart';
 import '../features/calendar/pupil_calendar_page.dart';
@@ -289,7 +290,7 @@ final appRouter = GoRouter(
       path: '/reset-password',
       pageBuilder: (context, state)
       {
-        final token = state.uri.queryParameters['token'];
+        final token = resetTokenOf(state.uri) ?? WebResetLink.atStart;
 
         if (token == null || token.isEmpty)
         {

@@ -195,9 +195,20 @@ class PersonEditForm
     }..remove('');
   }
 
-  // Once on file the consent is settled for good, so the wizard stops asking.
-  bool get asksSpecialCategoryDataConsent =>
-      !(person?.specialCategoryDataConsent ?? false);
+  // The server then erases the health data on file instead of refusing it.
+  bool get withdrawsSpecialCategoryDataConsent =>
+      (person?.specialCategoryDataConsent ?? false) && !specialCategoryDataConsentValue;
+
+  // What the payload would carry of the health data the consent covers.
+  bool get bringsHealthData
+  {
+    final List<String> roles = activeRoles;
+
+    return allergiesCtrl.text.trim().isNotEmpty ||
+        medicationsCtrl.text.trim().isNotEmpty ||
+        (roles.contains('STUDENTE') && certificationValues.isNotEmpty) ||
+        (!roles.contains('PSICOLOGO') && hasPsychologicalSupport);
+  }
 
   // No longer enrolled: only personal/contact details show; requiring more blocks saving.
   bool get isPersonalDataOnly

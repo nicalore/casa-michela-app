@@ -1,14 +1,11 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
-from typing import Any
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.staticfiles import StaticFiles
-from starlette.responses import Response
 
 from app.api import (
     app_updates,
@@ -34,6 +31,7 @@ from app.api import (
     person_accounts,
     person_collaboration,
     presences,
+    profile_images,
     push,
     reports,
     room_supervisions,
@@ -54,20 +52,10 @@ from app.core.exception_handlers import (
     request_validation_exception_handler,
     value_error_exception_handler,
 )
-from app.core.storage import PROFILE_IMAGES_DIR, UPLOADS_DIR
-from app.middleware import audit_logging_middleware
+from app.middleware import PersonRefsMiddleware, audit_logging_middleware
 from app.services.calendar_bootstrap import bootstrap_calendar_on_startup
 from app.services.close_sweep import sweep_after_every_close
 from app.services.minute_sweep import sweep_every_minute
-
-
-# Photos are named after their content: what a URL serves never changes.
-class _ImmutableStaticFiles(StaticFiles):
-    def file_response(self, *args: Any, **kwargs: Any) -> Response:
-        response = super().file_response(*args, **kwargs)
-        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-
-        return response
 
 
 @asynccontextmanager
@@ -104,14 +92,6 @@ app.add_exception_handler(
     request_validation_exception_handler,
 )
 
-PROFILE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-
-app.mount(
-    f"/{UPLOADS_DIR.as_posix()}",
-    _ImmutableStaticFiles(directory=UPLOADS_DIR),
-    name="uploads",
-)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -123,6 +103,9 @@ app.add_middleware(
 )
 
 app.middleware("http")(audit_logging_middleware)
+
+# Outside the audit, which logs tax codes; inside GZip, so it reads plain bodies.
+app.add_middleware(PersonRefsMiddleware)
 
 # Added last, so outermost: the audit middleware keeps reading plain bodies.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
@@ -136,6 +119,7 @@ app.include_router(study_programs.router)
 app.include_router(ministry_subjects.router)
 app.include_router(opening_days.router)
 app.include_router(people.router)
+app.include_router(profile_images.router)
 app.include_router(person_accounts.router)
 app.include_router(person_collaboration.router)
 app.include_router(methodological_notes.router)

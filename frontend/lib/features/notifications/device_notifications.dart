@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/auth/models/me_response.dart';
+import '../../services/account_keys.dart';
 import '../../services/api_service.dart';
 import 'device_push_native.dart' if (dart.library.js_interop) 'device_push_web.dart' as device;
 import 'notification_board.dart';
@@ -24,11 +25,14 @@ enum NotificationSwitch
 
 abstract final class DeviceNotifications
 {
-  // Turned off by hand here: kept off even while the system allows them.
-  static const String _offKey = 'notifications_off';
+  // Before the choice was per person, false here meant someone turned them on by hand.
+  static const String _legacyOffKey = 'notifications_off';
 
-  // The first-access question was put on this device.
-  static const String _offeredKey = 'notifications_offered';
+  // Per person and device: a system that already lets the app notify is no answer.
+  static String _onKey(String taxCode) => 'notifications_on/${accountKeyOf(taxCode)}';
+
+  // The first-access question was put to this person on this device.
+  static String _askedKey(String taxCode) => 'notifications_asked/${accountKeyOf(taxCode)}';
 
   static final ValueNotifier<NotificationSwitch> _state = ValueNotifier(NotificationSwitch.unsupported);
 
@@ -165,11 +169,33 @@ abstract final class DeviceNotifications
     }
   }
 
-  static Future<bool> _turnedOff() async
+  static Future<bool> _chosen() async
   {
+    final String? taxCode = _signedIn;
     final SharedPreferences? prefs = await _quiet(SharedPreferences.getInstance());
 
-    return prefs?.getBool(_offKey) ?? false;
+    if (taxCode == null || prefs == null)
+    {
+      return false;
+    }
+
+    final bool? on = prefs.getBool(_onKey(taxCode));
+
+    if (on != null)
+    {
+      return on;
+    }
+
+    // Turned on by hand before the choice was per person: kept for whoever signs in first.
+    if (prefs.getBool(_legacyOffKey) == false)
+    {
+      await _quiet(prefs.remove(_legacyOffKey));
+      await _remember(_onKey(taxCode), true);
+
+      return true;
+    }
+
+    return false;
   }
 
   static Future<void> _remember(String key, bool value) async
@@ -177,6 +203,17 @@ abstract final class DeviceNotifications
     final SharedPreferences? prefs = await _quiet(SharedPreferences.getInstance());
 
     await _quiet(prefs?.setBool(key, value) ?? Future<bool>.value(false));
+  }
+
+  static Future<void> _rememberChoice(bool on) async
+  {
+    final String? taxCode = _signedIn;
+
+    if (taxCode != null)
+    {
+      await _remember(_onKey(taxCode), on);
+      await _remember(_askedKey(taxCode), true);
+    }
   }
 
   // [subscribe] makes the browser's subscription when missing and hands it to the server.
@@ -227,8 +264,11 @@ abstract final class DeviceNotifications
         break;
     }
 
-    if (await _turnedOff())
+    // Not chosen by this person here: whatever was subscribed before goes.
+    if (!await _chosen())
     {
+      await _unsubscribe();
+
       return NotificationSwitch.off;
     }
 
@@ -279,7 +319,7 @@ abstract final class DeviceNotifications
       return refresh();
     }
 
-    await _remember(_offKey, false);
+    await _rememberChoice(true);
 
     final NotificationSwitch result = await refresh(subscribe: true);
 
@@ -315,7 +355,7 @@ abstract final class DeviceNotifications
       _debugState = NotificationSwitch.off;
     }
 
-    await _remember(_offKey, true);
+    await _rememberChoice(false);
     await _unsubscribe();
     await refresh();
   }
@@ -352,10 +392,12 @@ abstract final class DeviceNotifications
   // The system page that turns them back on, where the device has one.
   static Future<bool> openSettings() async => await _quiet(device.openPushSettings()) ?? false;
 
-  // The first-access question: once per device, and only while the system can still ask.
+  // The first-access question: once per person and device, unless they chose already.
   static Future<bool> shouldOffer() async
   {
-    if (await refresh() != NotificationSwitch.off)
+    final String? taxCode = _signedIn;
+
+    if (taxCode == null || await refresh() != NotificationSwitch.off)
     {
       return false;
     }
@@ -363,8 +405,19 @@ abstract final class DeviceNotifications
     final PushPermission permission = await _quiet(device.readPushPermission()) ?? PushPermission.unsupported;
     final SharedPreferences? prefs = await _quiet(SharedPreferences.getInstance());
 
-    return permission == PushPermission.prompt && prefs != null && !(prefs.getBool(_offeredKey) ?? false);
+    return (permission == PushPermission.prompt || permission == PushPermission.granted) &&
+        prefs != null &&
+        !(prefs.getBool(_askedKey(taxCode)) ?? false) &&
+        prefs.getBool(_onKey(taxCode)) == null;
   }
 
-  static Future<void> markOffered() => _remember(_offeredKey, true);
+  static Future<void> markOffered() async
+  {
+    final String? taxCode = _signedIn;
+
+    if (taxCode != null)
+    {
+      await _remember(_askedKey(taxCode), true);
+    }
+  }
 }

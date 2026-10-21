@@ -477,6 +477,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       return;
     }
 
+    if (_form.withdrawsSpecialCategoryDataConsent && !await _confirmHealthDataErasure())
+    {
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     String? blockedNote;
@@ -652,6 +657,70 @@ class _PersonEditDialogState extends State<PersonEditDialog>
               parents.length == 1
                   ? 'Senza altri figli associati, l\'anagrafica di $names verrà eliminata.'
                   : 'Senza altri figli associati, le anagrafiche di $names verranno eliminate.',
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
+  }
+
+  // What the server erases with the consent: only the kinds on file are named.
+  Future<bool> _confirmHealthDataErasure() async
+  {
+    final PersonItem person = _form.person!;
+    final List<String> kinds = [
+      if ((person.allergiesNotes ?? '').trim().isNotEmpty ||
+          (person.medicationsNotes ?? '').trim().isNotEmpty)
+        'allergie e farmaci',
+      if (person.certificationTypes.isNotEmpty) 'certificazioni',
+      if (person.psychologicalSupportStartDate != null) 'sostegno psicologico',
+      if ((person.methodologicalNotes ?? const []).isNotEmpty) 'osservazioni metodologiche',
+    ];
+
+    if (kinds.isEmpty)
+    {
+      return true;
+    }
+
+    final String listed = kinds.length == 1
+        ? kinds.single
+        : '${kinds.sublist(0, kinds.length - 1).join(', ')} e ${kinds.last}';
+
+    final bool? confirmed = await showBlurredDialog<bool>(
+      context: context,
+      barrierLabel: 'ConfirmHealthDataErasure',
+      builder: (confirmContext) => AppDialogStack(
+        eyebrow: 'Dati particolari',
+        title: 'Confermi?',
+        showClose: false,
+        maxWidth: 520,
+        footer: AppDialogFooter(
+          secondary: AppGradientButton(
+            label: 'ANNULLA',
+            icon: Icons.close_rounded,
+            gradient: AppTheme.dismissGradient,
+            accent: AppTheme.trialViolet,
+            height: kPersonDialogButtonHeight,
+            fontSize: kPersonDialogButtonFontSize,
+            onPressed: () => Navigator.of(confirmContext).pop(false),
+          ),
+          primary: AppGradientButton(
+            label: 'CANCELLA',
+            icon: Icons.delete_outline_rounded,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
+            height: kPersonDialogButtonHeight,
+            fontSize: kPersonDialogButtonFontSize,
+            onPressed: () => Navigator.of(confirmContext).pop(true),
+          ),
+        ),
+        children: [
+          AppDialogPill(
+            child: Text(
+              'Senza il consenso verranno cancellati definitivamente $listed di '
+              '${person.firstName} ${person.lastName}.',
             ),
           ),
         ],

@@ -10,7 +10,6 @@ from app.models.methodological_note import MethodologicalNote
 from app.models.student import Student
 from app.services.student_notes import is_followed, note_of_student
 
-_PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
 _PERSON_FORBIDDEN_ERROR: Final[str] = "Non hai accesso ai dati di questa persona."
 _NOT_THE_AUTHOR_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
 
@@ -26,13 +25,8 @@ async def followed_student(db: AsyncSession, tax_code: str) -> Student:
     )
     student = (await db.execute(stmt)).unique().scalar_one_or_none()
 
-    if student is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
-        )
-
-    if not is_followed(student.member):
+    # Unknown codes are refused like hidden ones: the register must not be probed.
+    if student is None or not is_followed(student.member):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_PERSON_FORBIDDEN_ERROR,

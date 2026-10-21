@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../services/profile_photo_image.dart';
 import '../../people/models/person_face.dart';
 
 class PersonAvatar extends StatelessWidget
@@ -35,13 +35,10 @@ class PersonAvatar extends StatelessWidget
       ),
     );
 
-    String? imageUrl = person.profileImageUrl?.trim();
-
-    // Images are stored without a host: relative paths need prefixing.
-    if (imageUrl != null && imageUrl.startsWith('/'))
-    {
-      imageUrl = ApiConfig.buildUrl(imageUrl);
-    }
+    final ProfilePhotoImage? photo = ProfilePhotoImage.of(
+      person.profileImageUrl,
+      cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+    );
 
     return Container(
       width: size,
@@ -52,11 +49,10 @@ class PersonAvatar extends StatelessWidget
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
       ),
       child: ClipOval(
-        child: imageUrl != null && imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
+        child: photo != null
+            ? Image(
+                image: photo,
                 fit: BoxFit.cover,
-                cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

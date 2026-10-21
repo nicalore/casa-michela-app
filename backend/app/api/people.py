@@ -26,6 +26,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.core import field_lengths
+from app.core.birthdays import age_on, is_birthday
 from app.core.booking_window import today_in_rome
 from app.core.downloads import inline_disposition
 from app.core.labels import (
@@ -34,6 +35,7 @@ from app.core.labels import (
     translate_education_level,
 )
 from app.core.optimistic_concurrency import assert_not_stale
+from app.core.person_refs import guessed_tax_codes
 from app.core.storage import discard_profile_image, store_profile_image
 from app.models.account import Account, AccountStatusEnum
 from app.models.administrator import Administrator, AdministratorRoleEnum
@@ -70,6 +72,7 @@ from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.schemas.contacts import ContactsUpdate
 from app.schemas.enrollment_form import EnrollmentFormRequest
 from app.schemas.person import (
+    HEALTH_DATA_WITHOUT_CONSENT_ERROR,
     UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR,
     AdminUpdateData,
     ChildInfoResponse,
@@ -114,6 +117,7 @@ from app.services.enrollment_form import (
     enrollment_form_file_name,
     request_for_person,
 )
+from app.services.health_data import erase_health_data
 from app.services.methodological_notes import followed_student
 from app.services.person_wizard_service import (
     assert_course_exists,
@@ -123,7 +127,7 @@ from app.services.pupil_lock import lock_pupil
 from app.services.rating_reminders import rating_updated
 from app.services.reports import ReportNotSentError, record_report, send_to_readers
 from app.services.role_service import RoleService
-from app.services.student_notes import is_followed, note_response
+from app.services.student_notes import is_enrolled_pupil, is_followed, note_response
 from app.services.teacher_notes import teacher_note_response
 from app.services.teaching_competence import (
     lacks_competence,
@@ -181,6 +185,10 @@ _MEMBER_OPTIONAL_FIELDS: Final[tuple[str, ...]] = (
     "medications_notes",
 )
 
+_HEALTH_MEMBER_FIELDS: Final[frozenset[str]] = frozenset(
+    {"allergies_notes", "medications_notes"}
+)
+
 _MEMBERSHIPS_LABEL: Final[str] = "Le iscrizioni"
 _SCHOOL_ENROLLMENTS_LABEL: Final[str] = "Le iscrizioni scolastiche"
 _TEACHING_SUBJECTS_LABEL: Final[str] = "Le discipline insegnate"
@@ -201,16 +209,15 @@ _NO_EARLY_EXIT_ERROR: Final[str] = (
 _PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
 _PERSON_FORBIDDEN_ERROR: Final[str] = "Non hai accesso ai dati di questa persona."
 
+# Outside the household a person shows an age, never the birth date, sex or roles.
 _WHO_FIELDS: Final[frozenset[str]] = frozenset(
     {
         "fiscal_code",
         "first_name",
         "last_name",
-        "roles",
         "created_at",
         "profile_image_url",
-        "gender",
-        "birth_date",
+        "age",
     },
 )
 
@@ -228,11 +235,15 @@ _TEACHER_VIEW_FIELDS: Final[frozenset[str]] = _WHO_FIELDS | {
     "medications_notes",
     "methodological_notes",
     "technical_notes",
+    "birthday_today",
 }
 
 _PSYCHOLOGIST_VIEW_FIELDS: Final[frozenset[str]] = _TEACHER_VIEW_FIELDS - {
     "technical_notes",
 } | {
+    "roles",
+    "gender",
+    "birth_date",
     "birth_city",
     "birth_nation",
     "city",
@@ -592,6 +603,7 @@ def _map_person_to_response(
     show_teacher_rating: bool,
 ) -> PersonResponse:
     roles = _roles_of(person)
+    today = today_in_rome()
     children: list[ChildInfoResponse] = []
     teacher_children_tax_codes: list[str] = []
     memberships: list[MembershipResponse] = []
@@ -813,6 +825,17 @@ def _map_person_to_response(
 
     children_count = len(children) if person.parent_profile else None
 
+    # Without the consent to special categories nobody is sent health data.
+    if not special_category_data_consent:
+        allergies_notes = None
+        medications_notes = None
+        psychological_support_start_date = None
+        certification_types = []
+        certification_other_detail = None
+        certification_dsa_detail = None
+        mandatory_psych_meetings_acknowledged = None
+        methodological_notes = None if methodological_notes is None else []
+
     return PersonResponse(
         fiscal_code=person.tax_code,
         first_name=person.first_name,
@@ -835,6 +858,8 @@ def _map_person_to_response(
         postal_code=person.postal_code,
         city=person.residence_city,
         birth_date=person.birth_date,
+        age=age_on(person.birth_date, today),
+        birthday_today=is_birthday(person.birth_date, today),
         children_count=children_count,
         is_active_collaborator=is_active_collaborator,
         enrollment_year=enrollment_year,
@@ -1256,6 +1281,8 @@ async def _update_member_data(
     person: Person,
     member: Member,
     member_data: PersonMembershipsUpdate,
+    *,
+    keeps_health: bool,
 ) -> None:
     assert_not_stale(
         member,
@@ -1281,8 +1308,16 @@ async def _update_member_data(
         )
 
     for field_name in _MEMBER_OPTIONAL_FIELDS:
-        if field_name in provided_fields:
-            update_values[field_name] = getattr(member_data, field_name)
+        if field_name not in provided_fields:
+            continue
+
+        value = getattr(member_data, field_name)
+
+        # Hidden for lack of consent: only a value given now replaces it.
+        if keeps_health and field_name in _HEALTH_MEMBER_FIELDS and not value:
+            continue
+
+        update_values[field_name] = value
 
     await db.execute(
         update(Member).where(Member.tax_code == person.tax_code).values(**update_values)
@@ -1297,6 +1332,8 @@ async def _sync_student_profile(
     db: AsyncSession,
     person: Person,
     student_data: StudentUpdateData,
+    *,
+    keeps_health: bool,
 ) -> None:
     if not student_data.school_enrollments:
         raise HTTPException(
@@ -1329,6 +1366,14 @@ async def _sync_student_profile(
         if CertificationTypeEnum.DSA in certification_types
         else None
     )
+    certification_values = {
+        "certification_types": certification_types,
+        "certification_other_detail": certification_other_detail,
+        "certification_dsa_detail": certification_dsa_detail,
+        "mandatory_psych_meetings_acknowledged": (
+            student_data.mandatory_psych_meetings_acknowledged
+        ),
+    }
 
     if current_student is not None:
         assert_not_stale(
@@ -1336,6 +1381,11 @@ async def _sync_student_profile(
             student_data.expected_updated_at,
             entity_label=_SCHOOL_ENROLLMENTS_LABEL,
         )
+
+        # Hidden for lack of consent: only certifications given now replace them.
+        if keeps_health and not certification_types:
+            certification_values = {}
+
         await db.execute(
             update(Student)
             .where(Student.tax_code == person.tax_code)
@@ -1343,14 +1393,9 @@ async def _sync_student_profile(
                 authorized_early_exit=student_data.authorized_early_exit,
                 early_exit_start_date=student_data.early_exit_start_date,
                 early_exit_end_date=student_data.early_exit_end_date,
-                certification_types=certification_types,
-                certification_other_detail=certification_other_detail,
-                certification_dsa_detail=certification_dsa_detail,
-                mandatory_psych_meetings_acknowledged=(
-                    student_data.mandatory_psych_meetings_acknowledged
-                ),
                 homework_tariff=student_data.homework_tariff,
                 updated_at=datetime.now(UTC),
+                **certification_values,
             )
         )
     else:
@@ -1967,7 +2012,7 @@ async def get_followed_students(db: DbSession) -> list[PersonResponse]:
         select(Person)
         .join(Member, Member.tax_code == Person.tax_code)
         .join(Student, Student.tax_code == Member.tax_code)
-        .where(_enrolled())
+        .where(_enrolled(), Member.special_category_data_consent.is_(True))
         .options(*_person_load_options())
         .order_by(Person.first_name, Person.last_name)
     )
@@ -2000,9 +2045,16 @@ async def get_person(
     person = result.unique().scalar_one_or_none()
 
     if person is None:
+        if identity.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=_PERSON_NOT_FOUND_ERROR,
+            )
+
+        # Unknown codes are refused like hidden ones: the register must not be probed.
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_PERSON_FORBIDDEN_ERROR,
         )
 
     full = _map_person_to_response(person, show_teacher_rating=identity.is_admin)
@@ -2010,6 +2062,7 @@ async def get_person(
     if identity.is_admin:
         return full
 
+    on_register = is_enrolled_pupil(person.member_profile)
     follows = "PSYCHOLOGIST" in identity.roles and is_followed(person.member_profile)
 
     # No notes for families; a following psychologist keeps the methodological ones.
@@ -2046,9 +2099,11 @@ async def get_person(
 
     lessons = LessonRepository(db)
 
-    if "TEACHER" in identity.roles and await lessons.has_paired(
-        identity.tax_code,
-        code,
+    # Only while a published lesson with the pupil is still to come, today included.
+    if (
+        "TEACHER" in identity.roles
+        and on_register
+        and await lessons.has_paired(identity.tax_code, code, since=today_in_rome())
     ):
         return _view(full, _TEACHER_VIEW_FIELDS)
 
@@ -2080,6 +2135,26 @@ async def update_person(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_TAX_CODE_IMMUTABLE_ERROR,
+        )
+
+    consented = bool(
+        await db.scalar(
+            select(Member.special_category_data_consent).where(
+                Member.tax_code == person.tax_code
+            )
+        )
+    )
+    sent = (
+        payload.member_data.special_category_data_consent
+        if payload.member_data is not None
+        else None
+    )
+    consenting = consented if sent is None else sent
+
+    if not consented and not consenting and _brings_health_data(payload):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=HEALTH_DATA_WITHOUT_CONSENT_ERROR,
         )
 
     roles = [role.upper() for role in payload.roles]
@@ -2158,10 +2233,21 @@ async def update_person(
             await db.flush()
 
         if payload.member_data:
-            await _update_member_data(db, person, member, payload.member_data)
+            await _update_member_data(
+                db,
+                person,
+                member,
+                payload.member_data,
+                keeps_health=not consented,
+            )
 
         if _ROLE_CODE_STUDENT in roles and payload.student_data:
-            await _sync_student_profile(db, person, payload.student_data)
+            await _sync_student_profile(
+                db,
+                person,
+                payload.student_data,
+                keeps_health=not consented,
+            )
         else:
             await _delete_student_profile(db, person)
 
@@ -2178,18 +2264,22 @@ async def update_person(
                 )
             )
 
+        # The edit forms never send it: it goes only with a psychologist's role.
         if payload.psychological_support_data:
             await _sync_psychological_support(
                 db,
                 person,
                 payload.psychological_support_data,
             )
-        else:
+        elif _ROLE_CODE_PSYCHOLOGIST in roles:
             await db.execute(
                 delete(PsychologicalSupport).where(
                     PsychologicalSupport.tax_code == person.tax_code
                 )
             )
+
+        if consented and not consenting:
+            await erase_health_data(db, person.tax_code)
 
         needs_staff = any(role in roles for role in _STAFF_ROLE_CODES)
 
@@ -2223,6 +2313,17 @@ async def update_person(
         "message": _UPDATE_SUCCESS_MESSAGE,
         "new_tax_code": person.tax_code,
     }
+
+
+def _brings_health_data(payload: PersonUpdatePayload) -> bool:
+    member = payload.member_data
+    student = payload.student_data
+
+    return bool(
+        (member is not None and (member.allergies_notes or member.medications_notes))
+        or (student is not None and student.certification_types)
+        or payload.psychological_support_data is not None
+    )
 
 
 async def _commit_or_500(db: AsyncSession, error_template: str) -> None:
@@ -2845,11 +2946,7 @@ async def upload_profile_image(
             detail=_PERSON_NOT_FOUND_ERROR,
         )
 
-    image_url = store_profile_image(
-        person.tax_code,
-        person.profile_image_url,
-        await file.read(),
-    )
+    image_url = store_profile_image(person.profile_image_url, await file.read())
     person.profile_image_url = image_url
 
     await db.commit()
@@ -3141,7 +3238,7 @@ async def update_not_preferred_teachers(
     wanted = set(payload.teacher_tax_codes)
     existing = set(
         await db.scalars(select(Teacher.tax_code).where(Teacher.tax_code.in_(wanted)))
-    )
+    ) - guessed_tax_codes(wanted)
     missing = [code for code in payload.teacher_tax_codes if code not in existing]
 
     if missing:

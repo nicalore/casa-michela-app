@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.core import field_lengths
 from app.schemas.person import (
+    HEALTH_DATA_WITHOUT_CONSENT_ERROR,
     BirthPlaceData,
     ParentalRelationshipInput,
     SchoolOrHomeschooling,
@@ -39,7 +40,6 @@ _MANDATORY_CONSENTS: Final[tuple[tuple[str, str], ...]] = (
     ("statute_acknowledged", "presa visione dello Statuto"),
     ("regulation_acknowledged", "accettazione del Regolamento"),
     ("video_surveillance_acknowledged", "consapevolezza della videosorveglianza"),
-    ("special_category_data_consent", "consenso al trattamento dei dati particolari"),
 )
 
 
@@ -211,3 +211,19 @@ class PersonWizardPayloadBase(BaseModel):
 
 class PersonWizardPayload(PersonWizardPayloadBase):
     member_data: WizardMemberData | None = None
+
+    @model_validator(mode="after")
+    def _health_data_needs_consent(self) -> Self:
+        member = self.member_data
+
+        if member is not None and member.special_category_data_consent:
+            return self
+
+        if (
+            (member is not None and (member.allergies_notes or member.medications_notes))
+            or (self.student_data is not None and self.student_data.certification_types)
+            or self.psychological_support_data is not None
+        ):
+            raise ValueError(HEALTH_DATA_WITHOUT_CONSENT_ERROR)
+
+        return self

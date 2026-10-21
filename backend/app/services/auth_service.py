@@ -610,7 +610,8 @@ class AuthService:
         await self.refresh_token_repository.save(reset_token_record)
         await self.account_repository.commit()
 
-        return f"{settings.frontend_url}/reset-password?token={reset_token}"
+        # After '#': browsers never send the fragment, so no server logs the token.
+        return f"{settings.frontend_url}/reset-password#token={reset_token}"
 
     async def request_password_reset(self, username: str) -> None:
         started_at = asyncio.get_running_loop().time()
@@ -698,6 +699,9 @@ class AuthService:
 
         # Token consumed before the write so a failure cannot leave it reusable.
         await self.refresh_token_repository.revoke(stored_token)
+
+        # Whoever reset it may be locking out somebody else: every session ends.
+        await self.refresh_token_repository.revoke_all_for_account(account.tax_code)
 
         account.password_hash = await hash_password_async(new_password)
         account.password_reset_required = False

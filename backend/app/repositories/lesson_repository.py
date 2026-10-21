@@ -174,9 +174,18 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return hours
 
-    # Whether a published lesson ever paired the two: gates a teacher's read of a pupil.
-    async def has_paired(self, teacher_tax_code: str, student_tax_code: str) -> bool:
+    # Whether a published lesson paired the two, on `since` or later when given.
+    async def has_paired(
+        self,
+        teacher_tax_code: str,
+        student_tax_code: str,
+        *,
+        since: date | None = None,
+    ) -> bool:
         stmt = select(Lesson).where(_taught_by(teacher_tax_code)).limit(1)
+
+        if since is not None:
+            stmt = stmt.where(Lesson.date >= since)
 
         visibility = LessonVisibility(
             student_tax_codes=frozenset({student_tax_code}),

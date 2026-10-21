@@ -382,6 +382,8 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
 IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
     {
         ("POST", "/calendar-locks/{lock_date}/{band}/heartbeat"),
+        # A read sent as POST only to keep the token out of the access logs.
+        ("POST", "/auth/validate-reset-token"),
         ("DELETE", "/calendar-locks/{lock_date}/{band}"),
         ("PUT", "/tours/{platform}"),
         ("DELETE", "/tours/{platform}"),

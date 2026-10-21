@@ -5,6 +5,9 @@ class PasswordResetRequest(BaseModel):
     username: str
 
 
-class PasswordResetConfirm(BaseModel):
+class PasswordResetToken(BaseModel):
     token: str
+
+
+class PasswordResetConfirm(PasswordResetToken):
     new_password: str

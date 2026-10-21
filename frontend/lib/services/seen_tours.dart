@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/auth/models/me_response.dart';
+import 'account_keys.dart';
 import 'api_service.dart';
 
 enum TourPlatform
@@ -13,7 +14,7 @@ enum TourPlatform
   // In the API path.
   final String path;
 
-  // Of the device's copy: "<prefix>/<taxCode>/<slug>" holds the version seen.
+  // Of the device's copy: "<prefix>/<account key>/<slug>" holds the version seen.
   final String prefix;
 
   const TourPlatform(this.path, this.prefix);
@@ -71,15 +72,16 @@ class SeenTours
     _loading = null;
   }
 
-  String _prefixOf(String taxCode) => '${platform.prefix}/$taxCode/';
+  String _prefixOf(String taxCode) => '${platform.prefix}/${accountKeyOf(taxCode)}/';
 
   String _key(String taxCode, String slug) => '${_prefixOf(taxCode)}$slug';
 
   // Slugs marked here and not yet heard by the server.
-  String _pendingKey(String taxCode) => '${platform.prefix}_pending/$taxCode';
+  String _pendingKey(String taxCode) => '${platform.prefix}_pending/${accountKeyOf(taxCode)}';
 
   // Set once the local marks unknown to the server have all been sent.
-  String _sentKey(String taxCode) => '${platform.prefix}_sent/$taxCode';
+  String _sentKey(String taxCode) => '${platform.prefix}_sent/${accountKeyOf(taxCode)}';
+
 
   Map<String, int> _local(SharedPreferences prefs, String taxCode)
   {
@@ -129,6 +131,7 @@ class SeenTours
     }
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    moveAccountKeys(prefs, taxCode);
     final Map<String, int> local = _local(prefs, taxCode);
     final Iterable<String> pending =
         prefs.getBool(_sentKey(taxCode)) == true ? prefs.getStringList(_pendingKey(taxCode)) ?? const [] : local.keys;
@@ -147,6 +150,7 @@ class SeenTours
   Future<void> _send(String taxCode, Map<String, int> seen, {bool catchUp = false}) async
   {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    moveAccountKeys(prefs, taxCode);
 
     try
     {
@@ -177,6 +181,7 @@ class SeenTours
   Future<bool> hasSeen({required String taxCode, required String slug, required int version}) async
   {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    moveAccountKeys(prefs, taxCode);
 
     // A stored bool, not an int version, is ignored here.
     final Object? local = prefs.get(_key(taxCode, slug));
@@ -204,6 +209,7 @@ class SeenTours
     }
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    moveAccountKeys(prefs, taxCode);
 
     for (final MapEntry<String, int> entry in seen.entries)
     {
@@ -229,6 +235,7 @@ class SeenTours
     bool under(String slug) => chosen == null || chosen.any((section) => slug == section || slug.startsWith('$section.'));
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    moveAccountKeys(prefs, taxCode);
     final String prefix = _prefixOf(taxCode);
 
     for (final String key in prefs.getKeys().toList())

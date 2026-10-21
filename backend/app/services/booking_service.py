@@ -8,6 +8,7 @@ from app.api.rbac import IdentityContext, assert_may_book_for
 from app.core.booking_close import assert_still_open, bands_of
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale
+from app.core.person_refs import guessed_tax_codes
 from app.models.association_subject import AssociationSubject
 from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
@@ -137,7 +138,7 @@ class BookingService:
 
         existing = await self.repository.find_existing_teacher_tax_codes(
             preferred_tax_codes,
-        )
+        ) - guessed_tax_codes(preferred_tax_codes)
         missing = [code for code in preferred_tax_codes if code not in existing]
 
         if missing:

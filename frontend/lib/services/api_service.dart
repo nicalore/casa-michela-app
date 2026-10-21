@@ -1039,9 +1039,10 @@ class ApiService
   {
     try
     {
-      await _dio.get(
+      // In the body, not the address: request lines end up in access logs.
+      await _dio.post(
         '/auth/validate-reset-token',
-        queryParameters: {'token': token},
+        data: {'token': token},
       );
     }
     on DioException catch (e)
@@ -2314,6 +2315,17 @@ class ApiService
   }
 
   int profileImageVersion = 0;
+
+  // Errors reach the image, which falls back to the initials.
+  Future<Uint8List> fetchProfileImage(String path) async
+  {
+    final response = await _dio.get<List<int>>(
+      path,
+      options: Options(responseType: ResponseType.bytes),
+    );
+
+    return Uint8List.fromList(response.data!);
+  }
 
   // On the web one deadline (connect + receive) also covers sending the file.
   static const Duration _uploadTimeout = Duration(seconds: 60);

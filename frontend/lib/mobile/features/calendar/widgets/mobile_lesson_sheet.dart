@@ -435,7 +435,7 @@ class _LessonSheetState extends State<_LessonSheet>
               rows: [
                 for (final StudentNoteItem note in notes)
                   DetailRowData.drawn(
-                    noteDate(note.createdAt),
+                    '${noteDate(note.createdAt)} · ${note.authorName}',
                     StudentNoteText(taxCode: taxCode, kind: kind, note: note, style: _noteStyle),
                   ),
               ],

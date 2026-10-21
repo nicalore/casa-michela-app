@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
+import '../../../services/profile_photo_image.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../models/person_item.dart';
 import 'role_chips_row.dart';
@@ -63,13 +63,10 @@ class _PersonCardState extends State<PersonCard>
       ),
     );
 
-    String? imageUrl = widget.person.profileImageUrl?.trim();
-
-    // Relative paths are stored without host, so prefix the backend base URL.
-    if (imageUrl != null && imageUrl.startsWith('/'))
-    {
-      imageUrl = ApiConfig.buildUrl(imageUrl);
-    }
+    final ProfilePhotoImage? photo = ProfilePhotoImage.of(
+      widget.person.profileImageUrl,
+      cacheWidth: (PersonCard.avatarSize * MediaQuery.devicePixelRatioOf(context)).round(),
+    );
 
     return Container(
       width: PersonCard.avatarSize,
@@ -80,16 +77,11 @@ class _PersonCardState extends State<PersonCard>
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
       ),
       child: ClipOval(
-        child: imageUrl != null && imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
+        child: photo != null
+            ? Image(
+                image: photo,
                 fit: BoxFit.cover,
-                cacheWidth: (PersonCard.avatarSize * MediaQuery.devicePixelRatioOf(context)).round(),
-                errorBuilder: (context, error, stackTrace)
-                {
-                  debugPrint('Errore caricamento immagine per ${widget.person.firstName}: $error');
-                  return fallback;
-                },
+                errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,
       ),

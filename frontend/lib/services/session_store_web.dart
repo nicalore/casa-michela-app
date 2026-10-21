@@ -3,7 +3,7 @@ import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-import 'session_store_stub.dart' as legacy;
+import 'session_store_prefs.dart' as legacy;
 
 // IndexedDB, not localStorage: every tab sees a committed write; a tab's localStorage copy can lag.
 const String _databaseName = 'casa-michela';

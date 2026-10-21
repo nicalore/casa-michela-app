@@ -85,6 +85,8 @@ def request_for_person(person: Person) -> EnrollmentFormRequest:
     member = person.member_profile
     student = member.student_profile if member else None
     staff = member.staff_profile if member else None
+    # Without the consent the form is printed with the health fields blank.
+    consented = member is not None and member.special_category_data_consent
 
     payload: dict[str, Any] = {
         "general_data": _general_data_of(person),
@@ -104,11 +106,11 @@ def request_for_person(person: Person) -> EnrollmentFormRequest:
             "newsletter_consent": member.newsletter_consent,
             "emergency_contact_name": member.emergency_contact_name,
             "emergency_contact_phone": member.emergency_contact_phone,
-            "allergies_notes": member.allergies_notes,
-            "medications_notes": member.medications_notes,
+            "allergies_notes": member.allergies_notes if consented else None,
+            "medications_notes": member.medications_notes if consented else None,
         }
 
-        if member.psychological_support_profile is not None:
+        if consented and member.psychological_support_profile is not None:
             payload["psychological_support_data"] = {
                 "start_date": member.psychological_support_profile.start_date,
             }
@@ -137,12 +139,18 @@ def request_for_person(person: Person) -> EnrollmentFormRequest:
                 }
                 for schedule in student.early_exit_schedules
             ],
-            "certification_types": list(student.certification_types),
-            "certification_other_detail": student.certification_other_detail,
-            "certification_dsa_detail": student.certification_dsa_detail,
+            "certification_types": (
+                list(student.certification_types) if consented else []
+            ),
+            "certification_other_detail": (
+                student.certification_other_detail if consented else None
+            ),
+            "certification_dsa_detail": (
+                student.certification_dsa_detail if consented else None
+            ),
             "homework_tariff": student.homework_tariff,
             "mandatory_psych_meetings_acknowledged": (
-                student.mandatory_psych_meetings_acknowledged
+                consented and student.mandatory_psych_meetings_acknowledged
             ),
             "school_enrollments": [
                 {

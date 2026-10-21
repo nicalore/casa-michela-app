@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/config/api_config.dart';
 import '../../../core/constants/profile_photo.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
+import '../../../services/profile_photo_image.dart';
 import '../../../shared/widgets/app_badged_face.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -47,23 +47,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
 
   final ImagePicker _picker = ImagePicker();
 
-  String? get _absoluteImageUrl 
-  {
-    if (widget.profileImageUrl == null || widget.profileImageUrl!.isEmpty) 
-    {
-      return null;
-    }
-
-    String url = widget.profileImageUrl!;
-
-    if (!url.startsWith('http://') && !url.startsWith('https://')) 
-    {
-      url = '${ApiConfig.baseUrl}$url';
-    }
-
-    // The shared version moves only on upload, so the browser keeps the file.
-    return '$url?v=${ApiService().profileImageVersion}';
-  }
+  ProfilePhotoImage? get _photo => ProfilePhotoImage.of(widget.profileImageUrl);
 
   String get _initials
   {
@@ -208,9 +192,9 @@ class ProfileAvatarState extends State<ProfileAvatar>
     }
   }
 
-  Widget _buildFace(String? imageUrl, bool isBusy)
+  Widget _buildFace(ProfilePhotoImage? photo, bool isBusy)
   {
-    final bool hasImage = imageUrl != null;
+    final bool hasImage = photo != null;
 
     return SizedBox(
       width:  widget.size,
@@ -224,9 +208,9 @@ class ProfileAvatarState extends State<ProfileAvatar>
               shape:    BoxShape.circle,
             ),
             child: CircleAvatar(
-              key:             ValueKey(imageUrl),
+              key:             ValueKey(photo),
               backgroundColor: Colors.transparent,
-              backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
+              backgroundImage: photo,
               child:           !hasImage
                   ? Text(
                       _initials,
@@ -264,10 +248,10 @@ class ProfileAvatarState extends State<ProfileAvatar>
   @override
   Widget build(BuildContext context) 
   {
-    final String? imageUrl = _absoluteImageUrl;
-    final bool    isBusy   = _isUploading || _isDeleting;
+    final ProfilePhotoImage? photo  = _photo;
+    final bool               isBusy = _isUploading || _isDeleting;
 
-    final Widget face = _buildFace(imageUrl, widget.canEdit && isBusy);
+    final Widget face = _buildFace(photo, widget.canEdit && isBusy);
 
     if (!widget.canEdit)
     {
@@ -277,7 +261,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
     return AppBadgedFace(
       face:     face,
       size:     widget.size,
-      hasImage: imageUrl != null,
+      hasImage: photo != null,
       onPick:   isBusy ? null : _pickAndUploadImage,
       onRemove: isBusy ? null : _confirmAndDeleteImage,
     );

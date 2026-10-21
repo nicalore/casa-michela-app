@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/birthday.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -271,7 +270,7 @@ LessonVoice _studentAge(PersonItem person)
     return const LessonVoice(label: label, value: _empty);
   }
 
-  if (!isBirthdayToday(person.birthDate, romeNow()))
+  if (!person.hasBirthdayToday)
   {
     return LessonVoice(label: label, value: '$age anni');
   }
@@ -727,6 +726,12 @@ class _NotesColumnState extends State<_NotesColumn>
   // As a voice's value, in the family that carries Markdown's other weights.
   static final TextStyle _noteStyle = noticeTextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.45);
 
+  static TextStyle get _authorStyle => GoogleFonts.plusJakartaSans(
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppTheme.trialMutedText,
+  );
+
   bool _isVisible = false;
 
   bool get _masked => widget.sensitive && widget.notes.isNotEmpty;
@@ -767,8 +772,11 @@ class _NotesColumnState extends State<_NotesColumn>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              noteDate(note.createdAt),
+            Text.rich(
+              TextSpan(
+                text: noteDate(note.createdAt),
+                children: [TextSpan(text: ' · ${note.authorName}', style: _authorStyle)],
+              ),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,

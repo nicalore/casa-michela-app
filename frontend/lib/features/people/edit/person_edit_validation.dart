@@ -514,11 +514,6 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     }
   }
 
-  if (!onlyParent && !form.specialCategoryDataConsentValue)
-  {
-    collector.add('datiParticolariConsenso', 'Obbligatorio', PersonEditCardId.consents);
-  }
-
   if (form.isCreation && !onlyParent)
   {
     if (!form.statuteAcknowledged)
@@ -609,8 +604,25 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     );
   }
 
+  // Mirrored by HEALTH_DATA_WITHOUT_CONSENT_ERROR in backend/app/schemas/person.py.
+  if (!onlyParent &&
+      !form.specialCategoryDataConsentValue &&
+      !form.withdrawsSpecialCategoryDataConsent &&
+      form.bringsHealthData)
+  {
+    collector.add(
+      _healthWithoutConsent,
+      'Senza il consenso ai dati particolari non si possono registrare allergie, farmaci, '
+          'certificazioni e sostegno psicologico.',
+      PersonEditCardId.consents,
+    );
+  }
+
   return _resultOf(collector, futureSchoolYear: futureSchoolYear);
 }
+
+// No field shows it: the refusal reads only as the snackbar.
+const String _healthWithoutConsent = 'datiSanitariSenzaConsenso';
 
 PersonEditValidation _resultOf(
   _Collector collector, {
@@ -625,18 +637,23 @@ PersonEditValidation _resultOf(
   return PersonEditValidation(
     errors: collector.errors,
     issues: collector.issues,
-    message: _messageFor(collector.issues.first.card, futureSchoolYear),
+    message: _messageFor(collector.issues.first, futureSchoolYear),
   );
 }
 
-String _messageFor(PersonEditCardId card, bool futureSchoolYear)
+String _messageFor(PersonEditIssue issue, bool futureSchoolYear)
 {
-  if (futureSchoolYear && card == PersonEditCardId.schoolEnrollments)
+  if (issue.field == _healthWithoutConsent)
+  {
+    return issue.message;
+  }
+
+  if (futureSchoolYear && issue.card == PersonEditCardId.schoolEnrollments)
   {
     return 'Non è possibile inserire anni scolastici futuri.';
   }
 
-  return switch (card)
+  return switch (issue.card)
   {
     PersonEditCardId.identity ||
     PersonEditCardId.birthData ||
@@ -644,7 +661,7 @@ String _messageFor(PersonEditCardId card, bool futureSchoolYear)
     PersonEditCardId.contacts =>
       'Ci sono errori nei dati inseriti. Correggi i campi.',
     PersonEditCardId.payment => 'Completa i dati sul pagamento.',
-    PersonEditCardId.consents => 'Tutti i consensi sono obbligatori, tranne i notiziari periodici.',
+    PersonEditCardId.consents => 'Statuto, regolamento e videosorveglianza sono obbligatori.',
     PersonEditCardId.parents => 'Seleziona almeno un genitore o tutore legale.',
     PersonEditCardId.subjects => 'Seleziona almeno una disciplina.',
     _ => 'Ci sono errori nelle informazioni associative. Correggi i campi.',

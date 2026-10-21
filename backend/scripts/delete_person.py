@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.storage import discard_profile_image
 from app.db.session import engine
 from app.models.person import Person
 
@@ -34,19 +35,15 @@ async def delete_person_data(tax_code: str):
             return
 
         try:
-            # 2. Delete physical profile image if it exists
-            if person.profile_image_url:
-                file_path = person.profile_image_url.lstrip("/")
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    print(f"Physical profile image deleted: {file_path}")
-
-            # 3. Direct SQL Delete
+            # 2. Direct SQL Delete
             # Bypassing the Python ORM completely and letting PostgreSQL handle the CASCADE
             stmt = delete(Person).where(Person.tax_code == tax_code)
             await db.execute(stmt)
             await db.commit()
-            
+
+            # 3. The photo goes only once the record is gone: a failed delete keeps both
+            discard_profile_image(person.profile_image_url)
+
             print(f"\nSUCCESS: Person {person.tax_code} and all related profiles have been deleted.")
             
         except Exception as e:

@@ -3,10 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../core/config/api_config.dart';
 import '../../core/constants/profile_photo.dart';
 import '../../core/theme/app_theme.dart';
-import '../../services/api_service.dart';
+import '../../services/profile_photo_image.dart';
 import 'app_badged_face.dart';
 import 'app_check_mark.dart';
 import 'snackbar.dart';
@@ -94,18 +93,9 @@ class _AppPhotoUploaderState
     {
       imageProvider = MemoryImage(widget.imageBytes!);
     }
-    else if (!_isDeleted &&
-        widget.initialImageUrl != null &&
-        widget.initialImageUrl!.isNotEmpty)
+    else if (!_isDeleted)
     {
-      String url = widget.initialImageUrl!;
-
-      if (url.startsWith('/'))
-      {
-        url = '${ApiConfig.buildUrl(url)}?v=${ApiService().profileImageVersion}';
-      }
-
-      imageProvider = NetworkImage(url);
+      imageProvider = ProfilePhotoImage.of(widget.initialImageUrl);
     }
 
     final bool hasImage = imageProvider != null;

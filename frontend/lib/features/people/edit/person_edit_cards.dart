@@ -666,19 +666,18 @@ class ConsentsCard extends StatelessWidget
             },
           ),
           ],
-          if (ctx.form.asksSpecialCategoryDataConsent)
-            _consent(
-              label: 'Dati particolari',
-              description: 'Acconsente al trattamento dei dati particolari (salute, '
-                  'certificazioni) per le finalità dell\'Associazione.',
-              value: ctx.form.specialCategoryDataConsentValue,
-              errorText: ctx.errors['datiParticolariConsenso'],
-              onChanged: (value)
-              {
-                ctx.form.specialCategoryDataConsentValue = value;
-                ctx.clearError('datiParticolariConsenso');
-              },
-            ),
+          _consent(
+            label: 'Dati particolari (opzionale)',
+            description: 'Acconsente al trattamento dei dati particolari (salute, '
+                'certificazioni) per le finalità dell\'Associazione.',
+            value: ctx.form.specialCategoryDataConsentValue,
+            errorText: null,
+            onChanged: (value)
+            {
+              ctx.form.specialCategoryDataConsentValue = value;
+              ctx.onChanged();
+            },
+          ),
           _consent(
             label: 'Notiziari periodici (opzionale)',
             description: 'Acconsente a ricevere i notiziari periodici dell\'Associazione.',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../services/account_keys.dart';
 import 'mobile_sheet.dart';
 
 const String _seenPrefix = 'mobile_section_intro';
@@ -39,7 +40,10 @@ Future<void> showMobileInfoSheetOnce({
 }) async
 {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
-  final String key = '$_seenPrefix/$taxCode/$slug';
+
+  moveAccountKeys(prefs, taxCode);
+
+  final String key = '$_seenPrefix/${accountKeyOf(taxCode)}/$slug';
 
   if (prefs.getBool(key) ?? false)
   {

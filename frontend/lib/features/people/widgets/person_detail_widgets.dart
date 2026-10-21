@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../shared/widgets/app_check_mark.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../services/profile_photo_image.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
@@ -423,12 +423,10 @@ class _PersonPickerCardState extends State<PersonPickerCard>
       ),
     );
 
-    String? imageUrl = widget.person.profileImageUrl?.trim();
-
-    if (imageUrl != null && imageUrl.startsWith('/'))
-    {
-      imageUrl = ApiConfig.buildUrl(imageUrl);
-    }
+    final ProfilePhotoImage? photo = ProfilePhotoImage.of(
+      widget.person.profileImageUrl,
+      cacheWidth: (PersonPickerCard._avatarSize * MediaQuery.devicePixelRatioOf(context)).round(),
+    );
 
     return Container(
       width: PersonPickerCard._avatarSize,
@@ -439,11 +437,10 @@ class _PersonPickerCardState extends State<PersonPickerCard>
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
       ),
       child: ClipOval(
-        child: imageUrl != null && imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
+        child: photo != null
+            ? Image(
+                image: photo,
                 fit: BoxFit.cover,
-                cacheWidth: (PersonPickerCard._avatarSize * MediaQuery.devicePixelRatioOf(context)).round(),
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

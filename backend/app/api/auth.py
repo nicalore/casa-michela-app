@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Annotated, Any, Final
 
 from fastapi import (
@@ -26,7 +25,7 @@ from app.core.client_device import (
     describe_client,
 )
 from app.core.password_policy import PasswordPolicyError
-from app.core.storage import PROFILE_IMAGES_DIR, store_profile_image
+from app.core.storage import discard_profile_image, store_profile_image
 from app.models.account import Account
 from app.models.person import Person
 from app.repositories.account_repository import AccountRepository
@@ -36,7 +35,11 @@ from app.schemas.auth.change_password_request import ChangePasswordRequest
 from app.schemas.auth.login_request import LoginRequest
 from app.schemas.auth.login_response import LoginResponse
 from app.schemas.auth.logout_request import LogoutRequest
-from app.schemas.auth.password_reset import PasswordResetConfirm, PasswordResetRequest
+from app.schemas.auth.password_reset import (
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    PasswordResetToken,
+)
 from app.schemas.auth.refresh_request import RefreshRequest
 from app.schemas.auth.session_response import SessionResponse
 from app.services import push
@@ -431,7 +434,6 @@ async def upload_profile_image(
         )
 
     profile_image_url = store_profile_image(
-        current_account.tax_code,
         current_account.person.profile_image_url,
         await file.read(),
     )
@@ -456,14 +458,11 @@ async def delete_profile_image(
             detail=_NO_PROFILE_IMAGE_ERROR,
         )
 
-    file_path = PROFILE_IMAGES_DIR / Path(profile_image_url).name
-
-    if file_path.exists():
-        file_path.unlink()
-
     person.profile_image_url = None
 
     await db.commit()
+
+    discard_profile_image(profile_image_url)
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
@@ -546,12 +545,16 @@ async def reset_password(
     return {"message": _PASSWORD_RESET_DONE_MESSAGE}
 
 
-@router.get("/validate-reset-token")
-async def validate_reset_token(token: str, db: DbSession) -> dict[str, bool]:
+# A POST body, not a query: request lines end up in access logs.
+@router.post("/validate-reset-token")
+async def validate_reset_token(
+    payload: PasswordResetToken,
+    db: DbSession,
+) -> dict[str, bool]:
     auth_service = _build_auth_service(db)
 
     try:
-        await auth_service.validate_reset_token(token=token)
+        await auth_service.validate_reset_token(token=payload.token)
     except AuthenticationError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

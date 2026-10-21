@@ -1,5 +1,6 @@
 import '../../../core/utils/birthday.dart';
 import '../../../core/utils/json_parsing.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../lessons/models/person_option_item.dart';
 
 import 'child_item.dart';
@@ -49,6 +50,10 @@ class PersonItem implements PersonFace
   final String? city;
   final DateTime? birthDate;
 
+  // What readers outside the household get instead of the birth date.
+  final int? sentAge;
+  final bool birthdayToday;
+
   final int? childrenCount;
   final bool? isActiveCollaborator;
   final String? enrollmentYear;
@@ -83,6 +88,7 @@ class PersonItem implements PersonFace
   final String? emergencyContactPhone;
   final String? allergiesNotes;
   final String? medicationsNotes;
+  final DateTime? psychologicalSupportStartDate;
 
   final String? iban;
 
@@ -152,6 +158,8 @@ class PersonItem implements PersonFace
     this.zipCode,
     this.city,
     this.birthDate,
+    this.sentAge,
+    this.birthdayToday = false,
     this.childrenCount,
     this.isActiveCollaborator,
     this.enrollmentYear,
@@ -178,6 +186,7 @@ class PersonItem implements PersonFace
     this.emergencyContactPhone,
     this.allergiesNotes,
     this.medicationsNotes,
+    this.psychologicalSupportStartDate,
     this.iban,
     this.grossCompensation,
     this.adminRole,
@@ -233,6 +242,8 @@ class PersonItem implements PersonFace
       // Endpoints are inconsistent on this field; the prefixed key wins.
       city: json['residence_city'] ?? json['city'],
       birthDate: parseDate(json['birth_date']),
+      sentAge: json['age'],
+      birthdayToday: json['birthday_today'] == true,
       childrenCount: json['children_count'],
       isActiveCollaborator: json['is_active_collaborator'],
       enrollmentYear: json['enrollment_year']?.toString(),
@@ -262,6 +273,7 @@ class PersonItem implements PersonFace
       emergencyContactPhone: json['emergency_contact_phone'],
       allergiesNotes: json['allergies_notes'],
       medicationsNotes: json['medications_notes'],
+      psychologicalSupportStartDate: parseDate(json['psychological_support_start_date']),
       iban: json['iban'],
       grossCompensation: json['gross_compensation']?.toString(),
       adminRole: json['admin_role'],
@@ -327,7 +339,9 @@ class PersonItem implements PersonFace
     );
   }
 
-  int? get age => ageToday(birthDate);
+  int? get age => ageToday(birthDate) ?? sentAge;
+
+  bool get hasBirthdayToday => birthDate == null ? birthdayToday : isBirthdayToday(birthDate, romeNow());
 
   // An unknown birth date reads as a minor: the safer of the two.
   bool get isAdult => (age ?? 0) >= adultAge;

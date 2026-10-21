@@ -1,3 +1,4 @@
 from .audit_logging import audit_logging_middleware
+from .person_refs import PersonRefsMiddleware
 
-__all__ = ["audit_logging_middleware"]
+__all__ = ["PersonRefsMiddleware", "audit_logging_middleware"]

@@ -9,6 +9,7 @@ import 'core/platform/app_platform.dart';
 import 'core/platform/visual_effects.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/splash_bridge.dart';
+import 'features/auth/reset_link.dart';
 import 'features/notifications/device_notifications.dart';
 import 'features/notifications/notification_board.dart';
 import 'features/notifications/widgets/notification_toast.dart';
@@ -27,6 +28,11 @@ void main() async
 
   // Fonts bundled in assets/fonts: an unbundled weight fails at startup, not by reflowing later.
   GoogleFonts.config.allowRuntimeFetching = false;
+
+  if (kIsWeb)
+  {
+    WebResetLink.capture();
+  }
 
   usePathUrlStrategy();
   await ApiService().restoreSession();

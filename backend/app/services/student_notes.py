@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload, selectinload, undefer
 
 from app.api.rbac import IdentityContext
 from app.core import field_lengths
+from app.core.booking_window import today_in_rome
 from app.models.member import Member
 from app.models.methodological_note import MethodologicalNote
 from app.models.student import Student
@@ -39,12 +40,21 @@ NoteText = Annotated[
 NoteImages = Annotated[list[UploadFile] | None, File()]
 
 
-# The pupils a psychologist follows: those on the register.
-def is_followed(member: Member | None) -> bool:
+# On the register: the pupils teachers may read.
+def is_enrolled_pupil(member: Member | None) -> bool:
     return (
         member is not None
         and member.student_profile is not None
         and RoleService.is_enrolled(member)
+    )
+
+
+# Psychologists keep health data: only pupils who consented to it.
+def is_followed(member: Member | None) -> bool:
+    return (
+        member is not None
+        and is_enrolled_pupil(member)
+        and member.special_category_data_consent
     )
 
 
@@ -139,25 +149,41 @@ async def check_note_reader(
     *,
     methodological: bool,
 ) -> None:
-    if identity.is_admin:
+    if identity.is_admin and not methodological:
         return
 
-    if methodological and "PSYCHOLOGIST" in identity.roles:
-        member = await db.scalar(
-            select(Member)
-            .options(
-                selectinload(Member.memberships),
-                joinedload(Member.student_profile),
-            )
-            .where(Member.tax_code == student_tax_code)
+    member = await db.scalar(
+        select(Member)
+        .options(
+            selectinload(Member.memberships),
+            joinedload(Member.student_profile),
+        )
+        .where(Member.tax_code == student_tax_code)
+    )
+
+    # Methodological notes are health data: without the consent nobody opens them.
+    consented = member is not None and member.special_category_data_consent
+
+    if identity.is_admin and consented:
+        return
+
+    if methodological and not consented:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_FORBIDDEN_ERROR,
         )
 
-        if is_followed(member):
-            return
+    if methodological and "PSYCHOLOGIST" in identity.roles and is_followed(member):
+        return
 
-    if "TEACHER" in identity.roles and await LessonRepository(db).has_paired(
-        identity.tax_code,
-        student_tax_code,
+    if (
+        "TEACHER" in identity.roles
+        and is_enrolled_pupil(member)
+        and await LessonRepository(db).has_paired(
+            identity.tax_code,
+            student_tax_code,
+            since=today_in_rome(),
+        )
     ):
         return
 

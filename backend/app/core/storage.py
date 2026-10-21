@@ -1,4 +1,5 @@
-import hashlib
+import re
+import secrets
 from io import BytesIO
 from pathlib import Path
 from typing import Final
@@ -9,8 +10,10 @@ UPLOADS_DIR: Final[Path] = Path("uploads")
 
 PROFILE_IMAGES_DIR: Final[Path] = UPLOADS_DIR / "profile-images"
 
-# Must match the StaticFiles mount of UPLOADS_DIR, so both derive from the same path.
-PROFILE_IMAGES_URL_PREFIX: Final[str] = f"/{PROFILE_IMAGES_DIR.as_posix()}"
+# The prefix of the route that serves them, stored with each name.
+PROFILE_IMAGES_URL_PREFIX: Final[str] = "/profile-images"
+
+_PROFILE_IMAGE_NAME: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{32}\.jpg")
 
 # Avatars are drawn small: a phone photo shrinks to this before it is kept.
 PROFILE_IMAGE_MAX_SIDE: Final[int] = 512
@@ -19,8 +22,8 @@ PROFILE_IMAGE_QUALITY: Final[int] = 85
 INVALID_IMAGE_ERROR: Final[str] = "Sono ammesse solo immagini JPEG, PNG e WEBP"
 
 
-# Named after its content, so a URL always serves the same bytes and caches for good.
-def store_profile_image(tax_code: str, previous_url: str | None, content: bytes) -> str:
+# A random name per upload: the URL says nothing of its owner and moves with the photo.
+def store_profile_image(previous_url: str | None, content: bytes) -> str:
     try:
         with Image.open(BytesIO(content)) as image:
             oriented = ImageOps.exif_transpose(image).convert("RGBA")
@@ -35,8 +38,7 @@ def store_profile_image(tax_code: str, previous_url: str | None, content: bytes)
     PROFILE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     discard_profile_image(previous_url)
 
-    digest = hashlib.sha256(content).hexdigest()[:12]
-    filename = f"{tax_code}-{digest}.jpg"
+    filename = f"{secrets.token_hex(16)}.jpg"
     flattened.save(
         PROFILE_IMAGES_DIR / filename,
         format="JPEG",
@@ -50,6 +52,14 @@ def store_profile_image(tax_code: str, previous_url: str | None, content: bytes)
 def discard_profile_image(url: str | None) -> None:
     if url is not None:
         (PROFILE_IMAGES_DIR / Path(url).name).unlink(missing_ok=True)
+
+
+# None for a name this module never gives out, so no path leaves the folder.
+def profile_image_file(name: str) -> Path | None:
+    if _PROFILE_IMAGE_NAME.fullmatch(name) is None:
+        return None
+
+    return PROFILE_IMAGES_DIR / name
 
 
 # Resolved from the package, not the working directory, which varies by entry point.

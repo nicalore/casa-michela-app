@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../services/api_service.dart';
+import '../../../services/profile_photo_image.dart';
 
 class MobileAvatar extends StatelessWidget
 {
@@ -36,19 +35,11 @@ class MobileAvatar extends StatelessWidget
       if (lastName.isNotEmpty) lastName[0],
     ].join().toUpperCase();
 
-    String? url = imageUrl?.trim();
-
-    // Images are stored without a host: relative paths need prefixing.
-    if (url != null && url.startsWith('/'))
-    {
-      url = ApiConfig.buildUrl(url);
-    }
-
-    // Cache buster: an uploaded photo keeps its URL.
-    if (url != null && url.isNotEmpty)
-    {
-      url = '$url?v=${ApiService().profileImageVersion}';
-    }
+    // Twice the width keeps landscape photos up to 2:1 sharp when covering the circle.
+    final ProfilePhotoImage? face = ProfilePhotoImage.of(
+      imageUrl,
+      cacheWidth: (size * MediaQuery.devicePixelRatioOf(context) * 2).round(),
+    );
 
     final Widget fallback = this.fallback ?? Center(
       child: Text(
@@ -78,12 +69,10 @@ class MobileAvatar extends StatelessWidget
         ],
       ),
       child: ClipOval(
-        child: url != null && url.isNotEmpty
-            ? Image.network(
-                url,
+        child: face != null
+            ? Image(
+                image: face,
                 fit: BoxFit.cover,
-                // Twice the width keeps landscape photos up to 2:1 sharp when covering the circle.
-                cacheWidth: (size * MediaQuery.devicePixelRatioOf(context) * 2).round(),
                 frameBuilder: (context, photo, frame, synchronous) =>
                     synchronous || frame != null ? photo : fallback,
                 errorBuilder: (context, error, stackTrace) => fallback,

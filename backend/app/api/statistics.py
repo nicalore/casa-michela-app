@@ -1141,8 +1141,12 @@ async def get_student_certification_distribution(
     db: DbSession,
 ) -> list[CertificationDistributionItem]:
     # One count per certification, not per pupil, so the slices exceed the pupil count.
+    # Pupils without the consent to special categories are left out of both counts.
+    consented = select(Member.tax_code).where(
+        Member.special_category_data_consent.is_(True)
+    )
     kind = func.unnest(Student.certification_types).label("kind")
-    certified = select(kind).subquery()
+    certified = select(kind).where(Student.tax_code.in_(consented)).subquery()
 
     result = await db.execute(
         select(certified.c.kind, func.count().label("student_count"))
@@ -1161,7 +1165,8 @@ async def get_student_certification_distribution(
     # unnest yields nothing for an empty set, so uncertified pupils are counted apart.
     without = await db.scalar(
         select(func.count(Student.tax_code)).where(
-            func.cardinality(Student.certification_types) == 0
+            func.cardinality(Student.certification_types) == 0,
+            Student.tax_code.in_(consented),
         ),
     )
 
