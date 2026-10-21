@@ -6,6 +6,10 @@ const String kNotificationsTitle = 'Attività e notifiche';
 String notificationsNewLabel(int count) => count == 1 ? '1 nuova' : '$count nuove';
 
 const String kNotificationsEmpty = 'Nessuna notifica.';
+
+// Where the page scrolls the card shows the newest few and lengthens in place.
+const String kNotificationsShowAll = 'Mostra tutte';
+const String kNotificationsShowFewer = 'Mostra meno';
 const String kNotificationsUnavailable = 'Le notifiche non sono disponibili.';
 const String kNotificationsYesterday = 'Ieri';
 
@@ -59,19 +63,19 @@ const Map<NotificationKind, (String, String)> kNotificationKindLabels = {
   ),
   NotificationKind.availabilityOpened: (
     'Disponibilità della settimana',
-    'Avvisa il venerdì alle 20:00 quando si possono inserire le disponibilità per la settimana prossima.',
+    'Avvisa il venerdì alle 20:00 quando si possono inserire le disponibilità per la settimana successiva.',
   ),
   NotificationKind.bookingsOpened: (
     'Prenotazioni della settimana',
-    'Avvisa il venerdì alle 20:00 quando si possono prenotare le lezioni per la settimana prossima.',
+    'Avvisa il venerdì alle 20:00 quando si possono prenotare le lezioni per la settimana successiva.',
   ),
   NotificationKind.availabilityReminder: (
     'Promemoria delle disponibilità',
-    'Avvisa alle 19 se non hai dato disponibilità per il giorno dopo.',
+    'Avvisa alle 19:00 se non hai dato disponibilità per il giorno dopo.',
   ),
   NotificationKind.bookingReminder: (
     'Promemoria delle prenotazioni',
-    'Avvisa alle 19 se non hai prenotato lezioni per il giorno dopo.',
+    'Avvisa alle 19:00 se non hai prenotato lezioni per il giorno dopo.',
   ),
   NotificationKind.openingHoursChanged: (
     'Orari di apertura',
@@ -107,7 +111,7 @@ const Map<NotificationKind, (String, String)> kNotificationKindLabels = {
   ),
   NotificationKind.newDevice: (
     'Nuovi accessi',
-    'Avvisa quando qualcuno entra nel tuo account da un nuovo dispositivo.',
+    'Avvisa quando un nuovo dispositivo effettua l\'accesso al tuo account.',
   ),
   NotificationKind.reportReceived: (
     'Segnalazioni',
@@ -116,5 +120,9 @@ const Map<NotificationKind, (String, String)> kNotificationKindLabels = {
   NotificationKind.ratingReminder: (
     'Valutazione docenti',
     'Avvisa di aggiornare la valutazione di un docente due settimane dopo la sua iscrizione.',
+  ),
+  NotificationKind.teacherNoteAdded: (
+    'Osservazioni dei docenti',
+    'Avvisa quando un docente inserisce una nuova osservazione per uno studente.',
   ),
 };

@@ -726,7 +726,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final bool compact = AppBreakpoints.fromWidth(constraints.maxWidth).isCompact;
+        final bool compact = AppBreakpoints.isNarrowWidth(constraints.maxWidth);
 
         final Widget content = compact
             ? _roomy(

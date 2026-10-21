@@ -260,7 +260,7 @@ final appRouter = GoRouter(
     if (authState == AuthState.authenticated)
     {
       // The first access owns the whole app until it is walked through.
-      if (apiService.lastKnownIdentity?.onboardingRequired ?? false)
+      if (apiService.lastKnownIdentity?.firstAccessPending ?? false)
       {
         return path == onboardingRoute ? null : onboardingRoute;
       }

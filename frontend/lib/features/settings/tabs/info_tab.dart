@@ -9,6 +9,7 @@ import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/association_logo.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../utils/association_documents.dart';
 import '../utils/settings_strings.dart';
 import '../widgets/problem_report_dialog.dart';
 import '../widgets/settings_panel.dart';
@@ -40,40 +41,40 @@ class InfoTab extends StatefulWidget
 
 class _InfoTabState extends State<InfoTab>
 {
-  bool _isOpeningRegulation = false;
+  AssociationDocument? _opening;
 
   // The tab must open before the first await, or the browser blocks it as a popup.
-  Future<void> _openRegulation() async
+  Future<void> _open(AssociationDocument document) async
   {
-    if (_isOpeningRegulation)
+    if (_opening != null)
     {
       return;
     }
 
-    final PdfTab? tab = openPdfTab(title: kRegulationTitle);
+    final PdfTab? tab = openPdfTab(title: document.title);
 
-    setState(() => _isOpeningRegulation = true);
+    setState(() => _opening = document);
 
     try
     {
-      final ApiFile regulation = await ApiService().fetchRegulation();
+      final ApiFile file = await ApiService().fetchDocument(document.path, fallbackName: document.title);
 
       if (tab != null)
       {
-        tab.present(regulation.bytes, fileName: regulation.fileName);
+        tab.present(file.bytes, fileName: file.fileName);
       }
-      else if (downloadPdf(regulation.bytes, fileName: regulation.fileName) && mounted)
+      else if (downloadPdf(file.bytes, fileName: file.fileName) && mounted)
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Il browser ha bloccato la scheda: il regolamento è stato scaricato.',
+          message: 'Il browser ha bloccato la scheda: il documento è stato scaricato.',
           isError: false,
         );
       }
     }
     catch (e)
     {
-      tab?.fail(kRegulationOpenFailed);
+      tab?.fail(kDocumentOpenFailed);
 
       if (mounted)
       {
@@ -84,7 +85,7 @@ class _InfoTabState extends State<InfoTab>
     {
       if (mounted)
       {
-        setState(() => _isOpeningRegulation = false);
+        setState(() => _opening = null);
       }
     }
   }
@@ -92,13 +93,6 @@ class _InfoTabState extends State<InfoTab>
   @override
   Widget build(BuildContext context)
   {
-    final List<(IconData, String, VoidCallback)> documents = [
-      (Icons.gavel_rounded, kStatuteTitle, () {}),
-      (Icons.menu_book_rounded, kRegulationTitle, _openRegulation),
-      (Icons.description_rounded, kTermsTitle, () {}),
-      (Icons.privacy_tip_rounded, kPrivacyTitle, () {}),
-    ];
-
     return SettingsColumn(
       children: [
         const _AboutCard(),
@@ -117,10 +111,14 @@ class _InfoTabState extends State<InfoTab>
                   spacing: _documentGap,
                   runSpacing: _documentGap,
                   children: [
-                    for (final (icon, title, onTap) in documents)
+                    for (final document in AssociationDocument.values)
                       SizedBox(
                         width: width,
-                        child: _InfoDocumentCard(icon: icon, title: title, onTap: onTap),
+                        child: _InfoDocumentCard(
+                          icon: document.icon,
+                          title: document.title,
+                          onTap: () => _open(document),
+                        ),
                       ),
                   ],
                 );

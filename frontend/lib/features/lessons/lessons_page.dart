@@ -12,6 +12,7 @@ import '../../core/utils/time_bucket.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
+import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
@@ -1809,7 +1810,7 @@ class _LessonsPageState extends State<LessonsPage>
           slot: PageTransitionItem.header,
           child: LessonsDayHeader(
             day: _selectedDay,
-            showDay: !size.isCompact,
+            showDay: true,
             availableTeachers: _availableTeachersToday,
             presentStudents: _presentStudentsToday,
           ),
@@ -1923,7 +1924,7 @@ class _LessonsPageState extends State<LessonsPage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final size = AppBreakpoints.fromWidth(width);
+          final size = AppBreakpoints.of(context);
           final margin = AppBreakpoints.pageMargin(size);
 
           return Container(
@@ -1974,15 +1975,17 @@ class _LessonsPageState extends State<LessonsPage>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (size.isCompact) ...[
+                              if (!size.hasRail) ...[
                                 PageTransitionItem(
                                   slot: PageTransitionItem.frame,
-                                  child: AppSectionHeading(
-                                    module: 'Lezioni',
-                                    section: railEntryAt(_sections, _selectedSection),
+                                  child: AppSectionTabs(
+                                    title: 'Lezioni',
+                                    groups: _sections,
+                                    selectedIndex: _selectedSection,
+                                    onSelected: _selectSection,
                                   ),
                                 ),
-                                const SizedBox(height: 18),
+                                const SizedBox(height: kSectionTabsGap),
                               ],
                               Expanded(
                                 key: const ValueKey('lessons-sections'),
@@ -1995,13 +1998,7 @@ class _LessonsPageState extends State<LessonsPage>
                     ),
                   ),
                 ),
-                AppTopBar(
-                  currentRoute: '/lessons',
-                  sectionTitle: 'Lezioni',
-                  sectionGroups: _sections,
-                  selectedSection: _selectedSection,
-                  onSectionSelected: _selectSection,
-                ),
+                AppTopBar(currentRoute: '/lessons'),
               ],
             ),
           );

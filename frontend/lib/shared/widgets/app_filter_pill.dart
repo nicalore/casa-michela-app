@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
+import 'close_on_resize.dart';
 import 'filter_menu.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
@@ -11,6 +13,15 @@ import 'scroll_edge_fade.dart';
 const double _pillHeight = 44;
 const double _pillRadius = 22;
 const double _borderWidth = 1.5;
+
+const double _densePillHeight = 36;
+
+// Below the wide window every pill steps down: height, text and icons together.
+bool _densePill(BuildContext context) => AppBreakpoints.of(context).isDense;
+
+double _pillText(BuildContext context) => _densePill(context) ? 13 : 14;
+
+double _pillIcon(BuildContext context) => _densePill(context) ? 17 : 18;
 
 const Duration _hoverFade = Duration(milliseconds: 180);
 const Duration _menuFade = Duration(milliseconds: 180);
@@ -129,7 +140,7 @@ class AppFilterPill<T> extends StatefulWidget
   State<AppFilterPill<T>> createState() => _AppFilterPillState<T>();
 }
 
-class _AppFilterPillState<T> extends State<AppFilterPill<T>>
+class _AppFilterPillState<T> extends State<AppFilterPill<T>> with CloseOnResize
 {
   final GlobalKey _pillKey = GlobalKey();
   final GlobalKey<_FilterMenuState<T>> _menuKey = GlobalKey();
@@ -138,6 +149,12 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
   bool _hover = false;
 
   bool get _isOpen => _overlay != null;
+
+  @override
+  bool get menuShown => _isOpen;
+
+  @override
+  void closeMenuForResize() => _closeMenu();
 
   bool get _isFilled => widget._kind == _PillKind.filter && widget.value != null;
 
@@ -158,7 +175,7 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
     final String? selected = _selectedLabel;
 
     final TextStyle valueStyle = GoogleFonts.plusJakartaSans(
-      fontSize: 14,
+      fontSize: _pillText(context),
       fontWeight: FontWeight.w700,
       color: contentColor,
     );
@@ -305,15 +322,15 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
       onExit: () => setState(() => _hover = false),
       onTap: _toggleMenu,
       children: [
-        Icon(widget.icon, size: 18, color: contentColor),
-        const SizedBox(width: 9),
+        Icon(widget.icon, size: _pillIcon(context), color: contentColor),
+        SizedBox(width: _densePill(context) ? 8 : 9),
         _pillLabel(_buildLabel(contentColor), widget.maxLabelWidth),
         const SizedBox(width: 6),
         AnimatedRotation(
           turns: _isOpen ? 0.5 : 0,
           duration: VisualEffects.of(context) ? _menuFade : Duration.zero,
           curve: Curves.easeOut,
-          child: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: contentColor),
+          child: Icon(Icons.keyboard_arrow_down_rounded, size: _pillIcon(context), color: contentColor),
         ),
         ClipRect(
           child: Align(
@@ -388,8 +405,8 @@ class _AppCountFilterPillState extends State<AppCountFilterPill>
       onExit: () => setState(() => _hover = false),
       onTap: widget.onOpen,
       children: [
-        Icon(widget.icon, size: 18, color: contentColor),
-        const SizedBox(width: 9),
+        Icon(widget.icon, size: _pillIcon(context), color: contentColor),
+        SizedBox(width: _densePill(context) ? 8 : 9),
         _pillLabel(
           Text.rich(
             TextSpan(
@@ -405,7 +422,7 @@ class _AppCountFilterPillState extends State<AppCountFilterPill>
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
+              fontSize: _pillText(context),
               fontWeight: FontWeight.w500,
               color: contentColor,
             ),
@@ -413,7 +430,7 @@ class _AppCountFilterPillState extends State<AppCountFilterPill>
           widget.maxLabelWidth,
         ),
         const SizedBox(width: 6),
-        Icon(Icons.tune_rounded, size: 16, color: contentColor),
+        Icon(Icons.tune_rounded, size: _pillIcon(context) - 2, color: contentColor),
         ClipRect(
           child: Align(
             alignment: Alignment.centerLeft,
@@ -483,15 +500,15 @@ class _AppTogglePillState extends State<AppTogglePill>
       onExit: () => setState(() => _hover = false),
       onTap: () => widget.onChanged(!widget.active),
       children: [
-        Icon(widget.icon, size: 18, color: contentColor),
-        const SizedBox(width: 9),
+        Icon(widget.icon, size: _pillIcon(context), color: contentColor),
+        SizedBox(width: _densePill(context) ? 8 : 9),
         _pillLabel(
           Text(
             widget.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
+              fontSize: _pillText(context),
               fontWeight: widget.active ? FontWeight.w700 : FontWeight.w500,
               color: contentColor,
             ),
@@ -575,8 +592,10 @@ class _PillSurface extends StatelessWidget
         onTap: onTap,
         child: Container(
           key: anchorKey,
-          height: _pillHeight,
-          padding: const EdgeInsets.only(left: 16, right: 14),
+          height: _densePill(context) ? _densePillHeight : _pillHeight,
+          padding: _densePill(context)
+              ? const EdgeInsets.only(left: 13, right: 11)
+              : const EdgeInsets.only(left: 16, right: 14),
           decoration: BoxDecoration(
             gradient: _ground,
             borderRadius: BorderRadius.circular(_pillRadius),
@@ -682,7 +701,7 @@ class AppMenuButton<T> extends StatefulWidget
   State<AppMenuButton<T>> createState() => _AppMenuButtonState<T>();
 }
 
-class _AppMenuButtonState<T> extends State<AppMenuButton<T>>
+class _AppMenuButtonState<T> extends State<AppMenuButton<T>> with CloseOnResize
 {
   final GlobalKey _anchorKey = GlobalKey();
   final GlobalKey<_FilterMenuState<T>> _menuKey = GlobalKey();
@@ -697,6 +716,12 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>>
     _overlay = null;
     super.dispose();
   }
+
+  @override
+  bool get menuShown => _overlay != null;
+
+  @override
+  void closeMenuForResize() => _close();
 
   void _open()
   {

@@ -3,9 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
+import '../../../features/onboarding/legal_documents.dart';
 import '../../../features/onboarding/onboarding_steps.dart';
 import '../../../features/onboarding/widgets/contacts_card.dart' show ContactsDraft;
 import '../../../features/onboarding/widgets/teacher_education_card.dart' show TeacherEducationDraft;
+import '../../../features/people/models/child_item.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../features/people/widgets/school_enrollment_edit_row.dart';
 import '../../../services/api_service.dart';
@@ -22,6 +24,7 @@ import '../subjects/mobile_subjects_page.dart';
 import 'widgets/mobile_first_access_parts.dart';
 import 'widgets/mobile_record_step.dart';
 import 'widgets/mobile_school_step.dart';
+import 'widgets/mobile_terms_step.dart';
 
 // Before the first step: the welcome page.
 const int _welcome = -1;
@@ -65,6 +68,9 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
   ContactsDraft? _contacts;
   TeacherEducationDraft? _education;
 
+  bool _termsAccepted = false;
+  bool _termsSaved = false;
+
   // One per school step: two consecutive school steps are both mounted mid-slide.
   final Map<int, GlobalKey<MobileSchoolStepState>> _schoolKeys = {};
 
@@ -82,7 +88,8 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
       final MeResponse me = await _apiService.me();
       final PersonItem person = await _apiService.getPerson(me.taxCode);
 
-      final children = person.children ?? const [];
+      // Past the flow only the terms are left, and they ask nothing about the children.
+      final children = me.onboardingRequired ? person.children ?? const [] : const <ChildItem>[];
 
       for (final child in children)
       {
@@ -98,9 +105,20 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
       {
         _me = me;
         _person = person;
-        _steps = onboardingStepsFor(roles: me.availableRoles, children: children);
+        _steps = onboardingStepsFor(
+          roles: me.availableRoles,
+          children: children,
+          terms: me.termsRequired,
+          onboarding: me.onboardingRequired,
+        );
+        _index = _start;
         _loading = false;
       });
+
+      if (_index >= 0)
+      {
+        _introduceLater(_index);
+      }
     }
     catch (e, stackTrace)
     {
@@ -147,6 +165,9 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
   }
 
   OnboardingStep get _step => _steps[_index];
+
+  // The welcome page belongs to the first access; terms alone go straight to their step.
+  int get _start => (_me?.onboardingRequired ?? true) ? _welcome : 0;
 
   PersonItem _subjectOf(OnboardingStep step)
   {
@@ -222,17 +243,20 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
 
     if (index >= 0)
     {
-      final OnboardingStep step = _steps[index];
-
-      // After the slide, not over it.
-      Future<void>.delayed(kMobileFlowTurn, ()
-      {
-        if (mounted && _index == index)
-        {
-          _introduceOnce(step);
-        }
-      });
+      _introduceLater(index);
     }
+  }
+
+  // After the slide, not over it.
+  void _introduceLater(int index)
+  {
+    Future<void>.delayed(kMobileFlowTurn, ()
+    {
+      if (mounted && _index == index)
+      {
+        _introduceOnce(_steps[index]);
+      }
+    });
   }
 
   Future<void> _saveContacts(PersonItem subject) async
@@ -295,12 +319,24 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
       return;
     }
 
+    if (step.kind == OnboardingStepKind.terms && !_termsAccepted)
+    {
+      MobileNotice.show(context, kTermsRefusal, error: true);
+      return;
+    }
+
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _busy = true);
 
     try
     {
       final PersonItem subject = _subjectOf(step);
+
+      if (step.kind == OnboardingStepKind.terms && !_termsSaved)
+      {
+        await _apiService.acceptTerms();
+        _termsSaved = true;
+      }
 
       await _saveContacts(subject);
 
@@ -335,7 +371,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
 
   void _back()
   {
-    if (!_busy && _index > _welcome)
+    if (!_busy && _index > _start)
     {
       _go(_index - 1);
     }
@@ -348,8 +384,15 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
     await _apiService.logout();
   }
 
-  // Discipline brings its own buttons.
-  bool _hasOwnButton(OnboardingStep step) => step.kind != OnboardingStepKind.teacherSubjects;
+  // Discipline brings its own buttons; the terms need none.
+  bool _hasOwnButton(OnboardingStep step)
+  {
+    return switch (step.kind)
+    {
+      OnboardingStepKind.teacherSubjects || OnboardingStepKind.terms => false,
+      _ => true,
+    };
+  }
 
   void _report(OnboardingStep step)
   {
@@ -383,7 +426,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
           icon: Icons.add_rounded,
           onPressed: () => _schoolKeys[index]?.currentState?.add(),
         ),
-      OnboardingStepKind.teacherSubjects => null,
+      OnboardingStepKind.teacherSubjects || OnboardingStepKind.terms => null,
     };
   }
 
@@ -421,6 +464,13 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
 
     final Widget body = switch (step.kind)
     {
+      OnboardingStepKind.terms => Padding(
+          padding: EdgeInsets.symmetric(horizontal: margin),
+          child: MobileTermsStep(
+            accepted: _termsAccepted,
+            onChanged: (accepted) => setState(() => _termsAccepted = accepted),
+          ),
+        ),
       OnboardingStepKind.ownRecord || OnboardingStepKind.childRecord => MobileRecordStep(
           person: subject,
           owner: step.isAboutAChild ? null : _me,
@@ -519,7 +569,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
       icon: _isLast ? Icons.done_all_rounded : Icons.arrow_forward_rounded,
       busy: _busy,
       onPressed: _forward,
-      onBack: _back,
+      onBack: _index > _start ? _back : null,
     );
   }
 
@@ -547,7 +597,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
     );
 
     return PopScope(
-      canPop: _index == _welcome,
+      canPop: _index == _start,
       onPopInvokedWithResult: (didPop, _)
       {
         if (!didPop)

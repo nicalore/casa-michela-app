@@ -7,7 +7,11 @@ import 'notification_item.dart';
 import 'push_types.dart';
 
 // Mirrors _GONE_ONCE_READ in backend/app/api/notifications.py.
-const Set<NotificationKind> _goneOnceRead = {NotificationKind.newDevice, NotificationKind.ratingReminder};
+const Set<NotificationKind> _goneOnceRead = {
+  NotificationKind.newDevice,
+  NotificationKind.ratingReminder,
+  NotificationKind.teacherNoteAdded,
+};
 
 class NotificationBoard extends ChangeNotifier
 {
@@ -183,6 +187,12 @@ class NotificationBoard extends ChangeNotifier
   void dropRatingReminder(String teacherTaxCode)
   {
     _drop(NotificationKind.ratingReminder, (item) => item.teacherTaxCode == teacherTaxCode);
+  }
+
+  // A teacher's note deleted: its news goes, as the server took it away.
+  void dropTeacherNote(int id)
+  {
+    _drop(NotificationKind.teacherNoteAdded, (item) => item.teacherNoteId == id);
   }
 
   void _drop(NotificationKind kind, bool Function(NotificationItem item) gone)

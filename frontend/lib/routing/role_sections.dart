@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 // An unavailable section is still listed on the bar, muted and unclickable.
 class RoleSection
 {
@@ -38,6 +40,18 @@ const Map<String, List<RoleSection>> _sectionsByRole = {
   'PSYCHOLOGIST': [
     RoleSection('students', 'Studenti', available: true),
   ],
+};
+
+// Shared by the mobile menu and the desktop bar's menus.
+const Map<String, IconData> kSectionIcons = <String, IconData>{
+  'subjects': Icons.menu_book_rounded,
+  'availability': Icons.event_available_rounded,
+  'calendar': Icons.calendar_month_rounded,
+  'compensation': Icons.payments_rounded,
+  'association': Icons.groups_rounded,
+  'bookings': Icons.bookmark_added_rounded,
+  'payments': Icons.receipt_long_rounded,
+  'children': Icons.family_restroom_rounded,
 };
 
 List<RoleSection> allSectionsOf(String role)

@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
-import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/tab_layout.dart';
-
-const double _actionHeight = 50;
-const double _actionRadius = 25;
-const double _actionFontSize = 14;
 
 enum LessonsDayView
 {
@@ -39,13 +34,15 @@ class LessonsToolbar extends StatelessWidget
     required this.onAction,
   });
 
-  Widget _buildTabs()
+  Widget _buildTabs(bool dense)
   {
     return AppSegmentedTabs(
       labels: const ['Disponibilità', 'Prenotazioni'],
       selectedIndex: view.index,
       onSelected: (index) => onViewSelected(LessonsDayView.values[index]),
       padding: EdgeInsets.zero,
+      height: dense ? 40 : 44,
+      fontSize: dense ? 13.5 : 14,
     );
   }
 
@@ -60,32 +57,27 @@ class LessonsToolbar extends StatelessWidget
 
   Widget _buildAction()
   {
-    return AppGradientButton(
-      label: actionLabel,
-      icon: Icons.add_rounded,
-      height: _actionHeight,
-      radius: _actionRadius,
-      fontSize: _actionFontSize,
-      onPressed: onAction,
-    );
+    return tabActionButton(label: actionLabel, onPressed: onAction);
   }
 
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (AppBreakpoints.fromWidth(constraints.maxWidth).isCompact)
+        if (AppBreakpoints.isNarrowWidth(constraints.maxWidth))
         {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Align(
                 alignment: Alignment.centerLeft,
-                child: _buildTabs(),
+                child: _buildTabs(dense),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: dense ? 10 : 16),
               TabHeaderRow(search: _buildSearch(), action: _buildAction()),
             ],
           );
@@ -93,10 +85,10 @@ class LessonsToolbar extends StatelessWidget
 
         return Row(
           children: [
-            _buildTabs(),
-            const SizedBox(width: 20),
+            _buildTabs(dense),
+            SizedBox(width: dense ? 12 : 20),
             Expanded(child: _buildSearch()),
-            const SizedBox(width: 24),
+            SizedBox(width: dense ? 12 : 24),
             _buildAction(),
           ],
         );

@@ -567,7 +567,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
       return facts;
     }
 
-    if (size.isCompact)
+    if (size.isNarrow)
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -732,7 +732,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final AppWindowSize size = AppBreakpoints.fromWidth(width);
+          final AppWindowSize size = AppBreakpoints.of(context);
           final double margin = AppBreakpoints.pageMargin(size);
 
           final double contentWidth = width - 2 * margin;

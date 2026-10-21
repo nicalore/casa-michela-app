@@ -61,6 +61,7 @@ class NotificationResponse(BaseModel):
     report_id: int | None
     pupil_tax_code: str | None
     teacher_tax_code: str | None
+    teacher_note_id: int | None
     # Of a notice announced: the account's roles it reached, whose pages list it.
     notice_roles: list[str] = []
 

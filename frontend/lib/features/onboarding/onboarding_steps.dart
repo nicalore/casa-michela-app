@@ -2,6 +2,8 @@ import '../people/models/child_item.dart';
 
 enum OnboardingStepKind
 {
+  terms,
+
   ownRecord,
   childRecord,
 
@@ -28,14 +30,24 @@ const String kParentRole = 'PARENT';
 const String kStudentRole = 'STUDENT';
 
 // The password change precedes this list on its own page and is not counted.
+// [onboarding] false: only the terms, for an account already past the flow.
 List<OnboardingStep> onboardingStepsFor({
   required List<String> roles,
   required List<ChildItem> children,
+  bool terms = false,
+  bool onboarding = true,
 })
 {
   final steps = <OnboardingStep>[
-    const OnboardingStep(OnboardingStepKind.ownRecord),
+    if (terms) const OnboardingStep(OnboardingStepKind.terms),
   ];
+
+  if (!onboarding)
+  {
+    return steps;
+  }
+
+  steps.add(const OnboardingStep(OnboardingStepKind.ownRecord));
 
   if (roles.contains(kParentRole))
   {
@@ -85,6 +97,7 @@ String onboardingStepTitle(OnboardingStep step)
 
   return switch (step.kind)
   {
+    OnboardingStepKind.terms => 'Termini e privacy',
     OnboardingStepKind.ownRecord => 'I tuoi dati',
     OnboardingStepKind.childRecord => 'I dati di $name',
     OnboardingStepKind.childSchool => 'Il percorso scolastico di $name',
@@ -100,6 +113,9 @@ String onboardingStepQuestion(OnboardingStep step, {bool arrows = true})
 
   return switch (step.kind)
   {
+    OnboardingStepKind.terms =>
+      "Prima di iniziare, leggi i documenti che regolano l'uso dell'applicazione e spiegano come trattiamo i tuoi dati. "
+          'Per proseguire, conferma di averli letti e di accettarli.',
     OnboardingStepKind.ownRecord =>
       '$scroll che le informazioni siano corrette. '
           'Se trovi un errore, ti preghiamo di segnalarlo utilizzando il bottone in fondo. Puoi modificare direttamente la foto profilo e i dati di contatto.',

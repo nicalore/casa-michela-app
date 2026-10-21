@@ -5,6 +5,7 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../notifications/notification_board.dart';
 import '../models/person_item.dart';
 import '../models/student_note_item.dart';
 import '../utils/student_notes_strings.dart';
@@ -44,6 +45,11 @@ class PersonObservationsTab extends StatelessWidget
     try
     {
       await ApiService().deleteStudentNote(person.fiscalCode, kind, note.id);
+
+      if (kind == StudentNoteKind.teacher)
+      {
+        NotificationBoard.instance.dropTeacherNote(note.id);
+      }
 
       if (context.mounted)
       {

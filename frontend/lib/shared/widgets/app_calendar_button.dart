@@ -10,6 +10,7 @@ import '../../core/utils/week_range.dart';
 import '../utils/day_marks.dart';
 import 'app_tooltip.dart';
 import 'carousel_arrow_button.dart';
+import 'close_on_resize.dart';
 import 'desktop_tour.dart';
 
 const double _popoverWidth = 336;
@@ -72,7 +73,7 @@ class AppCalendarButton extends StatefulWidget
   State<AppCalendarButton> createState() => _AppCalendarButtonState();
 }
 
-class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTickerProviderStateMixin
+class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTickerProviderStateMixin, CloseOnResize
 {
   final OverlayPortalController _portal = OverlayPortalController();
   final LayerLink _link = LayerLink();
@@ -89,6 +90,12 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
   final Set<DateTime> _reading = {};
 
   bool get _isOpen => _portal.isShowing && _reveal.status != AnimationStatus.reverse;
+
+  @override
+  bool get menuShown => _isOpen;
+
+  @override
+  void closeMenuForResize() => _close();
 
   @override
   void initState()

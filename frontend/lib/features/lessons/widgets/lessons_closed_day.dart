@@ -96,7 +96,7 @@ class LessonsClosedDay extends StatelessWidget
               ),
             ),
             const SizedBox(height: 16),
-            EntityCardGrid(children: leftovers),
+            EntityCardGrid(denseWidth: kDenseWideCardWidth, children: leftovers),
           ],
         ],
       ),

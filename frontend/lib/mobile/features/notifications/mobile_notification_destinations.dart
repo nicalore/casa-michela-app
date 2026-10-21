@@ -116,8 +116,9 @@ void followMobileNotification(NotificationItem item)
       {
         MobileShellRequests.openReport(id);
       }
-    // No person editing on the phone yet: a tap only reads it, which takes it away.
+    // No person pages on the phone yet: a tap only reads them, which takes them away.
     case NotificationKind.ratingReminder:
+    case NotificationKind.teacherNoteAdded:
     case NotificationKind.test:
     case NotificationKind.bookingsClosed:
     case NotificationKind.arrivalReminder:

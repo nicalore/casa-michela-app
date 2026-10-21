@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
@@ -48,6 +49,8 @@ String _timeRangeLabel(PresenceItem presence)
 class PresenceCard extends StatefulWidget
 {
   static const double height = 190;
+
+  static const double denseHeight = 136;
 
   final PresenceGroup group;
 
@@ -269,6 +272,7 @@ class _PresenceCardState extends State<PresenceCard>
     final online = group.slotsFor(kOnlineMode);
 
     final bothWays = presence.isNotEmpty && online.isNotEmpty;
+    final bool dense = AppBreakpoints.of(context).isDense;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -276,70 +280,79 @@ class _PresenceCardState extends State<PresenceCard>
       onExit: (_) => setState(() => _isHovering = false),
       child: GestureDetector(
         onTap: _showDetailsDialog,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+        child: SizedBox(
           width: EntityCardGrid.preferredWidth,
-          height: PresenceCard.height,
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: _isHovering
-                  ? AppTheme.trialGold
-                  : AppTheme.trialGold.withValues(alpha: 0),
-              width: 2,
+          height: dense ? PresenceCard.denseHeight : PresenceCard.height,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(dense ? 20 : 30),
+              border: Border.all(
+                color: _isHovering
+                    ? AppTheme.trialGold
+                    : AppTheme.trialGold.withValues(alpha: 0),
+                width: 2,
+              ),
+              boxShadow: AppTheme.cardShadow,
             ),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              OverflowTooltipText(
-                text: group.student.fullName,
-                maxLines: 1,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  height: 1.15,
-                  color: AppTheme.trialOcean,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints)
-                  {
-                    final double room = constraints.maxHeight;
+            child: Padding(
+              padding: dense ? const EdgeInsets.fromLTRB(14, 12, 14, 12) : const EdgeInsets.fromLTRB(24, 20, 24, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OverflowTooltipText(
+                    text: group.student.fullName,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: dense ? 15 : 19,
+                      fontWeight: FontWeight.w700,
+                      height: 1.15,
+                      color: AppTheme.trialOcean,
+                    ),
+                  ),
+                  SizedBox(height: dense ? 8 : 12),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints)
+                      {
+                        final double room = constraints.maxHeight;
 
-                    return Center(
-                      child: bothWays
-                          ? IntrinsicHeight(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(child: _ModeColumn(mode: kPresenceMode, group: group, room: room)),
-                                  Container(
-                                    width: 1,
-                                    margin: const EdgeInsets.symmetric(horizontal: 14),
-                                    color: AppTheme.trialLine,
+                        return Center(
+                          child: bothWays
+                              ? IntrinsicHeight(
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: _ModeColumn(mode: kPresenceMode, group: group, room: room, dense: dense),
+                                      ),
+                                      Container(
+                                        width: 1,
+                                        margin: const EdgeInsets.symmetric(horizontal: 14),
+                                        color: AppTheme.trialLine,
+                                      ),
+                                      Expanded(
+                                        child: _ModeColumn(mode: kOnlineMode, group: group, room: room, dense: dense),
+                                      ),
+                                    ],
                                   ),
-                                  Expanded(child: _ModeColumn(mode: kOnlineMode, group: group, room: room)),
-                                ],
-                              ),
-                            )
-                          : _ModeColumn(
-                              mode: presence.isNotEmpty ? kPresenceMode : kOnlineMode,
-                              group: group,
-                              room: room,
-                            ),
-                    );
-                  },
-                ),
+                                )
+                              : _ModeColumn(
+                                  mode: presence.isNotEmpty ? kPresenceMode : kOnlineMode,
+                                  group: group,
+                                  room: room,
+                                  dense: dense,
+                                ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -359,29 +372,31 @@ class _ModeColumn extends StatelessWidget
 
   final double room;
 
-  const _ModeColumn({required this.mode, required this.group, required this.room});
+  final bool dense;
+
+  const _ModeColumn({required this.mode, required this.group, required this.room, this.dense = false});
 
   TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(
-        fontSize: 10,
+        fontSize: dense ? 9.5 : 10,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.2,
         color: AppTheme.trialMutedText,
       );
 
   TextStyle get _hoursStyle => GoogleFonts.plusJakartaSans(
-        fontSize: 15,
+        fontSize: dense ? 14 : 15,
         fontWeight: FontWeight.w700,
         color: mode == kOnlineMode ? AppTheme.modifiedAccent : AppTheme.trialTealDeep,
       );
 
   TextStyle get _moreStyle => GoogleFonts.plusJakartaSans(
-        fontSize: 14,
+        fontSize: dense ? 13 : 14,
         fontWeight: FontWeight.w700,
         color: AppTheme.trialMutedText,
       );
 
   TextStyle get _totalStyle => GoogleFonts.plusJakartaSans(
-        fontSize: 12,
+        fontSize: dense ? 11.5 : 12,
         fontWeight: FontWeight.w600,
         color: AppTheme.trialMutedText,
       );
@@ -440,7 +455,7 @@ class _ModeColumn extends StatelessWidget
           children: [
             Icon(
               lessonModeIcon(mode),
-              size: 15,
+              size: dense ? 14 : 15,
               color: AppTheme.trialMutedText,
             ),
             const SizedBox(width: 6),

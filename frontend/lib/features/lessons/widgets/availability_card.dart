@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
@@ -31,6 +32,8 @@ String _timeRangeLabel(AvailabilityItem availability)
 class AvailabilityCard extends StatefulWidget
 {
   static const double height = 172;
+
+  static const double denseHeight = 120;
 
   final AvailabilityGroup group;
 
@@ -75,6 +78,7 @@ class _AvailabilityCardState extends State<AvailabilityCard>
     final online = group.slotsFor(kOnlineMode);
 
     final bothWays = presence.isNotEmpty && online.isNotEmpty;
+    final bool dense = AppBreakpoints.of(context).isDense;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -82,62 +86,67 @@ class _AvailabilityCardState extends State<AvailabilityCard>
       onExit: (_) => setState(() => _isHovering = false),
       child: GestureDetector(
         onTap: _showDetailsDialog,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+        child: SizedBox(
           width: EntityCardGrid.preferredWidth,
-          height: AvailabilityCard.height,
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: _isHovering
-                  ? AppTheme.trialGold
-                  : AppTheme.trialGold.withValues(alpha: 0),
-              width: 2,
+          height: dense ? AvailabilityCard.denseHeight : AvailabilityCard.height,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(dense ? 20 : 30),
+              border: Border.all(
+                color: _isHovering
+                    ? AppTheme.trialGold
+                    : AppTheme.trialGold.withValues(alpha: 0),
+                width: 2,
+              ),
+              boxShadow: AppTheme.cardShadow,
             ),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              OverflowTooltipText(
-                text: group.teacher.fullName,
-                maxLines: 1,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  height: 1.15,
-                  color: AppTheme.trialOcean,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: Center(
-                  child: bothWays
-                      ? IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(child: _ModeColumn(mode: kPresenceMode, slots: presence)),
-                              Container(
-                                width: 1,
-                                margin: const EdgeInsets.symmetric(horizontal: 14),
-                                color: AppTheme.trialLine,
+            child: Padding(
+              padding: dense ? const EdgeInsets.fromLTRB(14, 12, 14, 12) : const EdgeInsets.fromLTRB(24, 20, 24, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OverflowTooltipText(
+                    text: group.teacher.fullName,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: dense ? 15 : 19,
+                      fontWeight: FontWeight.w700,
+                      height: 1.15,
+                      color: AppTheme.trialOcean,
+                    ),
+                  ),
+                  SizedBox(height: dense ? 8 : 12),
+                  Expanded(
+                    child: Center(
+                      child: bothWays
+                          ? IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(child: _ModeColumn(mode: kPresenceMode, slots: presence, dense: dense)),
+                                  Container(
+                                    width: 1,
+                                    margin: const EdgeInsets.symmetric(horizontal: 14),
+                                    color: AppTheme.trialLine,
+                                  ),
+                                  Expanded(child: _ModeColumn(mode: kOnlineMode, slots: online, dense: dense)),
+                                ],
                               ),
-                              Expanded(child: _ModeColumn(mode: kOnlineMode, slots: online)),
-                            ],
-                          ),
-                        )
-                      : _ModeColumn(
-                          mode: presence.isNotEmpty ? kPresenceMode : kOnlineMode,
-                          slots: presence.isNotEmpty ? presence : online,
-                        ),
-                ),
+                            )
+                          : _ModeColumn(
+                              mode: presence.isNotEmpty ? kPresenceMode : kOnlineMode,
+                              slots: presence.isNotEmpty ? presence : online,
+                              dense: dense,
+                            ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -147,12 +156,16 @@ class _AvailabilityCardState extends State<AvailabilityCard>
 
 class _ModeColumn extends StatelessWidget
 {
-  static const int maxLines = 3;
+  static const int _maxLines = 3;
+
+  static const int _denseMaxLines = 2;
 
   final String mode;
   final List<AvailabilityItem> slots;
 
-  const _ModeColumn({required this.mode, required this.slots});
+  final bool dense;
+
+  const _ModeColumn({required this.mode, required this.slots, this.dense = false});
 
   @override
   Widget build(BuildContext context)
@@ -160,6 +173,7 @@ class _ModeColumn extends StatelessWidget
     final online = mode == kOnlineMode;
     final accent = online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
 
+    final int maxLines = dense ? _denseMaxLines : _maxLines;
     final fits = slots.length <= maxLines;
     final shown = fits ? slots : slots.take(maxLines - 1).toList();
     final hidden = fits ? const <AvailabilityItem>[] : slots.sublist(maxLines - 1);
@@ -173,7 +187,7 @@ class _ModeColumn extends StatelessWidget
           children: [
             Icon(
               lessonModeIcon(mode),
-              size: 15,
+              size: dense ? 14 : 15,
               color: AppTheme.trialMutedText,
             ),
             const SizedBox(width: 6),
@@ -183,7 +197,7 @@ class _ModeColumn extends StatelessWidget
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10,
+                  fontSize: dense ? 9.5 : 10,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.2,
                   color: AppTheme.trialMutedText,
@@ -192,7 +206,7 @@ class _ModeColumn extends StatelessWidget
             ),
           ],
         ),
-        const SizedBox(height: 7),
+        SizedBox(height: dense ? 5 : 7),
         for (final slot in shown)
           Padding(
             padding: const EdgeInsets.only(bottom: 3),
@@ -202,7 +216,7 @@ class _ModeColumn extends StatelessWidget
                 _timeRangeLabel(slot),
                 maxLines: 1,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
+                  fontSize: dense ? 14 : 15,
                   fontWeight: FontWeight.w700,
                   color: accent,
                 ),
@@ -220,7 +234,7 @@ class _ModeColumn extends StatelessWidget
                   hidden.length == 1 ? '+1 orario' : '+${hidden.length} orari',
                   maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
+                    fontSize: dense ? 13 : 14,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.trialMutedText,
                   ),

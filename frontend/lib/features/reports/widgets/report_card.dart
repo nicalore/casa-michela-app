@@ -10,6 +10,8 @@ const double _radius = 24;
 const double _badgeHeight = 24;
 const double _dotSize = 10;
 const double _reporterMaxWidth = 280;
+const double _dateGap = 24;
+const double _headLeast = 220;
 
 class ReportUnreadDot extends StatelessWidget
 {
@@ -97,6 +99,51 @@ class _ReportCardState extends State<ReportCard>
     );
   }
 
+  double _textWidth(String text, TextStyle style)
+  {
+    final TextPainter painter = TextPainter(
+      text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+
+    final double width = painter.width;
+    painter.dispose();
+
+    return width;
+  }
+
+  // The date at the end while the head keeps its least room, else under it.
+  Widget _top(ReportItem report, double width)
+  {
+    final String sent = noticeSent(report.createdAt);
+
+    if (width - _textWidth(sent, _muted) - _dateGap >= _headLeast)
+    {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: _head(report)),
+          const SizedBox(width: _dateGap),
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(sent, maxLines: 1, style: _muted),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _head(report),
+        const SizedBox(height: 4),
+        Text(sent, maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted),
+      ],
+    );
+  }
+
   String? _preview(ReportItem report)
   {
     return switch (report.kind)
@@ -130,52 +177,52 @@ class _ReportCardState extends State<ReportCard>
             border: Border.all(color: AppTheme.trialGold.withValues(alpha: _hover ? 1 : 0), width: 2),
             boxShadow: AppTheme.cardShadow,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _head(report)),
-                  const SizedBox(width: 24),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: Text(noticeSent(report.createdAt), maxLines: 1, style: _muted),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: _reporterMaxWidth),
-                    child: Text(
-                      report.reporterName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep),
+          child: LayoutBuilder(
+            builder: (context, constraints) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _top(report, constraints.maxWidth),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: _reporterMaxWidth),
+                              child: Text(
+                                report.reporterName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep),
+                              ),
+                            ),
+                          ),
+                          if (role != null) ...[
+                            const SizedBox(width: 8),
+                            Text('·', style: _muted),
+                            const SizedBox(width: 8),
+                            Flexible(child: Text(role, maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted)),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
-                  if (role != null) ...[
-                    const SizedBox(width: 8),
-                    Text('·', style: _muted),
-                    const SizedBox(width: 8),
-                    Text(role, maxLines: 1, style: _muted),
+                    const SizedBox(width: 12),
+                    ReportKindBadge(kind: report.kind),
                   ],
-                  const Spacer(),
-                  ReportKindBadge(kind: report.kind),
-                ],
-              ),
-              if (preview != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  preview,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w500, height: 1.45, color: const Color(0xFF33495A)),
                 ),
+                if (preview != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w500, height: 1.45, color: const Color(0xFF33495A)),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

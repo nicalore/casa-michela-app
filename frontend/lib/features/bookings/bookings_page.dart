@@ -1051,7 +1051,7 @@ class _BookingsPageState extends State<BookingsPage>
       return facts;
     }
 
-    if (size.isCompact)
+    if (size.isNarrow)
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1243,7 +1243,7 @@ class _BookingsPageState extends State<BookingsPage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final AppWindowSize size = AppBreakpoints.fromWidth(width);
+          final AppWindowSize size = AppBreakpoints.of(context);
           final double margin = AppBreakpoints.pageMargin(size);
 
           final double contentWidth = width - 2 * margin;

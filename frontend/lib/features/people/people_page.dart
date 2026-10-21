@@ -6,6 +6,7 @@ import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
+import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
@@ -110,7 +111,7 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final size = AppBreakpoints.fromWidth(width);
+          final size = AppBreakpoints.of(context);
           final margin = AppBreakpoints.pageMargin(size);
 
           return Container(
@@ -159,34 +160,30 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
                           const SizedBox(width: AppSectionRail.gap),
                         ],
                         Expanded(
-                          child: size.isCompact
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    PageTransitionItem(
-                                      slot: PageTransitionItem.frame,
-                                      child: AppSectionHeading(
-                                        module: 'Persone',
-                                        section: railEntryAt(_sections, _selectedSection),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 18),
-                                    Expanded(child: _buildSectionContent()),
-                                  ],
-                                )
-                              : _buildSectionContent(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (!size.hasRail) ...[
+                                PageTransitionItem(
+                                  slot: PageTransitionItem.frame,
+                                  child: AppSectionTabs(
+                                    title: 'Persone',
+                                    groups: _sections,
+                                    selectedIndex: _selectedSection,
+                                    onSelected: _selectSection,
+                                  ),
+                                ),
+                                const SizedBox(height: kSectionTabsGap),
+                              ],
+                              Expanded(key: const ValueKey('people-sections'), child: _buildSectionContent()),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                AppTopBar(
-                  currentRoute: '/people',
-                  sectionTitle: 'Persone',
-                  sectionGroups: _sections,
-                  selectedSection: _selectedSection,
-                  onSectionSelected: _selectSection,
-                ),
+                AppTopBar(currentRoute: '/people'),
               ],
             ),
           );

@@ -23,7 +23,7 @@ from app.models.constraints import (
 )
 from app.models.mixins import CreatedAtMixin
 
-NOTIFICATION_TITLE_LENGTH: Final[int] = 120
+NOTIFICATION_TITLE_LENGTH: Final[int] = 500
 NOTIFICATION_BODY_LENGTH: Final[int] = 500
 
 
@@ -48,6 +48,7 @@ class NotificationKindEnum(StrEnum):
     NEW_DEVICE = "NEW_DEVICE"
     REPORT_RECEIVED = "REPORT_RECEIVED"
     RATING_REMINDER = "RATING_REMINDER"
+    TEACHER_NOTE_ADDED = "TEACHER_NOTE_ADDED"
 
 
 # What an account was told; the home card lists these, a push only announces one.
@@ -180,7 +181,7 @@ class Notification(CreatedAtMixin, Base):
         index=True,
     )
 
-    # The pupil whose bookings it is about, and who wrote what it tells of.
+    # The pupil it is about, and who wrote what it tells of.
     pupil_tax_code: Mapped[str | None] = mapped_column(
         # tax_code is a mutable natural key, so onupdate is required here.
         ForeignKey("people.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
@@ -196,6 +197,12 @@ class Notification(CreatedAtMixin, Base):
     teacher_tax_code: Mapped[str | None] = mapped_column(
         # tax_code is a mutable natural key, so onupdate is required here.
         ForeignKey("people.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
+        index=True,
+    )
+
+    # The teacher's note it announces; gone with it.
+    teacher_note_id: Mapped[int | None] = mapped_column(
+        ForeignKey("teacher_notes.id", ondelete="CASCADE"),
         index=True,
     )
 

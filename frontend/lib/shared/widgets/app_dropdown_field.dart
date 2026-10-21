@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
+import 'close_on_resize.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
 
@@ -64,13 +65,19 @@ class AppDropdownField<T> extends StatefulWidget
   State<AppDropdownField<T>> createState() => _AppDropdownFieldState<T>();
 }
 
-class _AppDropdownFieldState<T> extends State<AppDropdownField<T>>
+class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> with CloseOnResize
 {
   final GlobalKey _buttonKey = GlobalKey();
   OverlayEntry?   _overlayEntry;
 
   final GlobalKey<_DropdownOverlayState> _menuKey = GlobalKey();
   bool _isHovered = false;
+
+  @override
+  bool get menuShown => _overlayEntry != null;
+
+  @override
+  void closeMenuForResize() => _closeMenu();
 
   void _toggleMenu()
   {

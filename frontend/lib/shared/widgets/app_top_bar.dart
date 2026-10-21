@@ -1,10 +1,3 @@
-import 'dart:async';
-import 'dart:math' as math;
-
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
@@ -16,32 +9,55 @@ import '../../features/updates/unread_updates.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../services/profile_photo_image.dart';
-import 'app_nav_drawer.dart';
-import 'app_section_rail.dart';
+
+
 import 'app_top_nav.dart';
 import 'birthday_confetti.dart';
+import 'close_on_resize.dart';
+import 'dart:async';
+import 'dart:math' as math;
 import 'desktop_tour.dart';
 import 'halloween_bats.dart';
 import 'overflow_tooltip_text.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'page_transition.dart';
 import 'role_switch_dialog.dart';
-import 'shared_components.dart';
 import 'snackbar.dart';
 import 'user_menu.dart';
 
 const Color _headerShadow = Color(0x14000000);
 
+const Color _denseHeaderShadow = Color(0x0D000000);
+
 const double _topMargin = 20;
 const double _barHeight = 80;
 
-const double _compactTopMargin = 12;
-const double _compactBarHeight = 64;
+const double _denseTopMargin = 10;
+const double _denseBarHeight = 56;
+
+const double _minimalTopMargin = 8;
+const double _minimalBarHeight = 52;
 
 const double _shadowReach = 50;
 
-double _topMarginFor(AppWindowSize size) => size.isCompact ? _compactTopMargin : _topMargin;
+const double _denseContentGap = 18;
+const double _minimalContentGap = 14;
 
-double _barHeightFor(AppWindowSize size) => size.isCompact ? _compactBarHeight : _barHeight;
+double _topMarginFor(AppWindowSize size) => switch (size)
+{
+  AppWindowSize.wide => _topMargin,
+  AppWindowSize.minimal => _minimalTopMargin,
+  _ => _denseTopMargin,
+};
+
+double _barHeightFor(AppWindowSize size) => switch (size)
+{
+  AppWindowSize.wide => _barHeight,
+  AppWindowSize.minimal => _minimalBarHeight,
+  _ => _denseBarHeight,
+};
 
 const String kTourTopBar = 'topbar';
 const String kTourTopBarRole = 'topbar.role';
@@ -57,7 +73,14 @@ class AppTopBar extends StatefulWidget
 
   static double contentTopInsetFor(AppWindowSize size)
   {
-    return _topMarginFor(size) + _barHeightFor(size) + (size.isCompact ? 44 : _shadowReach);
+    final double gap = switch (size)
+    {
+      AppWindowSize.wide => _shadowReach,
+      AppWindowSize.minimal => _minimalContentGap,
+      _ => _denseContentGap,
+    };
+
+    return _topMarginFor(size) + _barHeightFor(size) + gap;
   }
 
   static double bottomFor(AppWindowSize size) => _topMarginFor(size) + _barHeightFor(size);
@@ -66,22 +89,13 @@ class AppTopBar extends StatefulWidget
 
   final MeResponse? user;
 
-  final String? sectionTitle;
-  final List<RailGroup> sectionGroups;
-  final int selectedSection;
-  final ValueChanged<int>? onSectionSelected;
-
-  // False for single-page roles: the bar keeps the wordmark and user area, dropping nav and drawer.
+  // False for single-page roles: the bar keeps the wordmark and user area, dropping the destinations.
   final bool showNavigation;
 
   const AppTopBar({
     super.key,
     required this.currentRoute,
     this.user,
-    this.sectionTitle,
-    this.sectionGroups = const [],
-    this.selectedSection = 0,
-    this.onSectionSelected,
     this.showNavigation = true,
   });
 
@@ -89,27 +103,35 @@ class AppTopBar extends StatefulWidget
   State<AppTopBar> createState() => _AppTopBarState();
 }
 
-class _AppTopBarState extends State<AppTopBar>
+class _AppTopBarState extends State<AppTopBar> with CloseOnResize
 {
   static const double _avatarSize = 54;
-  static const double _compactAvatarSize = 42;
+  static const double _denseAvatarSize = 38;
+  static const double _minimalAvatarSize = 34;
   static const double _maxRoleWidth = 190;
+  static const double _denseRoleWidth = 170;
   static const double _wordmarkWidth = 124;
+  static const double _denseWordmarkWidth = 100;
 
   static const double _sideSlotWidth = 290;
 
-  static const double _mediumRoleWidth = 170;
-
   static const double _navGutter = 20;
+  static const double _denseGutter = 16;
 
   static const double _userMenuGap = 15;
+  static const double _denseUserMenuGap = 12;
 
   final ApiService _apiService = ApiService();
 
   bool _isMenuOpen = false;
-  bool _isDrawerOpen = false;
 
-  // Effects off: the user menu, its arrow and the drawer snap open and shut.
+  @override
+  bool get menuShown => _isMenuOpen;
+
+  @override
+  void closeMenuForResize() => _closeOverlays();
+
+  // Effects off: the user menu and its arrow snap open and shut.
   bool _animates = true;
 
   @override
@@ -157,11 +179,7 @@ class _AppTopBarState extends State<AppTopBar>
       return;
     }
 
-    setState(()
-    {
-      _isMenuOpen = open;
-      _isDrawerOpen = false;
-    });
+    setState(() => _isMenuOpen = open);
   }
 
   void _syncMenu() => AppTopBar.userMenuOpen.value = _isMenuOpen;
@@ -200,11 +218,7 @@ class _AppTopBarState extends State<AppTopBar>
 
   void _toggleMenu()
   {
-    setState(()
-    {
-      _isMenuOpen = !_isMenuOpen;
-      _isDrawerOpen = false;
-    });
+    setState(() => _isMenuOpen = !_isMenuOpen);
     _syncMenu();
 
     if (_isMenuOpen)
@@ -213,25 +227,11 @@ class _AppTopBarState extends State<AppTopBar>
     }
   }
 
-  void _toggleDrawer()
-  {
-    setState(()
-    {
-      _isDrawerOpen = !_isDrawerOpen;
-      _isMenuOpen = false;
-    });
-    _syncMenu();
-  }
-
   void _closeOverlays()
   {
-    if (_isMenuOpen || _isDrawerOpen)
+    if (_isMenuOpen)
     {
-      setState(()
-      {
-        _isMenuOpen = false;
-        _isDrawerOpen = false;
-      });
+      setState(() => _isMenuOpen = false);
       _syncMenu();
     }
   }
@@ -339,12 +339,10 @@ class _AppTopBarState extends State<AppTopBar>
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
-  Widget _buildProfileButton(AppWindowSize size)
+  Widget _buildProfileButton()
   {
-    final medium = size == AppWindowSize.medium;
-
     final Widget button = ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: medium ? _mediumRoleWidth : _maxRoleWidth),
+      constraints: const BoxConstraints(maxWidth: _maxRoleWidth),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
@@ -358,24 +356,23 @@ class _AppTopBarState extends State<AppTopBar>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    if (size == AppWindowSize.expanded)
-                      Text(
-                        'SEI AUTENTICATO COME',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.4,
-                          height: 1.2,
-                          color: AppTheme.trialMutedText,
-                        ),
+                    Text(
+                      'SEI AUTENTICATO COME',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.4,
+                        height: 1.2,
+                        color: AppTheme.trialMutedText,
                       ),
+                    ),
                     OverflowTooltipText(
                       text: _activeRoleLabel,
                       maxLines: 1,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: medium ? 15 : 17,
+                        fontSize: 17,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
                         color: AppTheme.trialTealDeep,
@@ -385,16 +382,7 @@ class _AppTopBarState extends State<AppTopBar>
                 ),
               ),
               const SizedBox(width: 6),
-              AnimatedRotation(
-                turns: _isMenuOpen ? 0.5 : 0,
-                duration: _animates ? const Duration(milliseconds: 200) : Duration.zero,
-                curve: Curves.easeInOut,
-                child: const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 20,
-                  color: AppTheme.trialTealDeep,
-                ),
-              ),
+              _buildMenuArrow(),
             ],
           ),
         ),
@@ -404,10 +392,68 @@ class _AppTopBarState extends State<AppTopBar>
     return DesktopTourTarget(id: kTourTopBarRole, child: button);
   }
 
-  Widget _buildWordmark()
+  Widget _buildMenuArrow()
+  {
+    return AnimatedRotation(
+      turns: _isMenuOpen ? 0.5 : 0,
+      duration: _animates ? const Duration(milliseconds: 200) : Duration.zero,
+      curve: Curves.easeInOut,
+      child: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        size: 20,
+        color: AppTheme.trialTealDeep,
+      ),
+    );
+  }
+
+  // Compact: the role, its arrow and the face; narrow: the face and its arrow; minimal: the face.
+  Widget _buildDenseUser(AppWindowSize size, String? imageUrl)
+  {
+    final bool minimal = size.isMinimal;
+
+    final Widget button = MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _toggleMenu,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (size == AppWindowSize.compact) ...[
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _denseRoleWidth),
+                child: OverflowTooltipText(
+                  text: _activeRoleLabel,
+                  maxLines: 1,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    color: AppTheme.trialTealDeep,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              _buildMenuArrow(),
+              const SizedBox(width: 8),
+            ],
+            _buildAvatar(imageUrl, minimal ? _minimalAvatarSize : _denseAvatarSize),
+            if (size == AppWindowSize.narrow) ...[
+              const SizedBox(width: 2),
+              _buildMenuArrow(),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    return DesktopTourTarget(id: kTourTopBarRole, child: button);
+  }
+
+  Widget _buildWordmark({double width = _wordmarkWidth})
   {
     return SizedBox(
-      width: _wordmarkWidth,
+      width: width,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -446,16 +492,6 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  Widget _buildDrawerButton()
-  {
-    return FadeHoverIconButton(
-      icon: _isDrawerOpen ? Icons.close_rounded : Icons.menu_rounded,
-      color: AppTheme.trialTealDeep,
-      hoverColor: AppTheme.trialGoldSurface,
-      onTap: _toggleDrawer,
-    );
-  }
-
   Widget _buildAvatar(String? imageUrl, double diameter)
   {
     final ProfilePhotoImage? photo = ProfilePhotoImage.of(imageUrl);
@@ -488,9 +524,11 @@ class _AppTopBarState extends State<AppTopBar>
 
   Widget _buildMenu(AppWindowSize size)
   {
+    final bool dense = size.isDense;
+
     return Positioned(
-      top: _topMarginFor(size) + _barHeightFor(size) + _userMenuGap,
-      right: AppBreakpoints.pageMargin(size) + 20,
+      top: _topMarginFor(size) + _barHeightFor(size) + (dense ? _denseUserMenuGap : _userMenuGap),
+      right: AppBreakpoints.pageMargin(size) + (dense ? 4 : 20),
       child: AnimatedSwitcher(
         duration: _animates ? const Duration(milliseconds: 180) : Duration.zero,
         switchInCurve: Curves.easeOutCubic,
@@ -523,6 +561,9 @@ class _AppTopBarState extends State<AppTopBar>
                   onChangeRole: _openRoleSwitcher,
                   onLogout: _logout,
                   unreadReports: ReportsBoard.instance.unread,
+                  // Only where the bar has no room to write it.
+                  role: size.isNarrow ? _activeRoleLabel : null,
+                  dense: dense,
                 ),
               )
             : const SizedBox(key: ValueKey('empty')),
@@ -530,35 +571,8 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  Widget _buildWideBar(AppWindowSize size, String? imageUrl)
+  Widget _buildWideBar(String? imageUrl)
   {
-    if (size == AppWindowSize.medium)
-    {
-      return Row(
-        children: [
-          _buildWordmark(),
-          const SizedBox(width: _navGutter),
-          Expanded(
-            child: widget.showNavigation
-                ? Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: DesktopTourTarget(
-                        id: kTourTopBarSections,
-                        child: AppTopNav(destinations: _destinations, dense: true),
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-          const SizedBox(width: _navGutter),
-          _buildProfileButton(size),
-          const SizedBox(width: 12),
-          _buildAvatar(imageUrl, _avatarSize),
-        ],
-      );
-    }
-
     return LayoutBuilder(
       builder: (context, constraints)
       {
@@ -596,7 +610,7 @@ class _AppTopBarState extends State<AppTopBar>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Flexible(child: _buildProfileButton(size)),
+                  Flexible(child: _buildProfileButton()),
                   const SizedBox(width: 12),
                   _buildAvatar(imageUrl, _avatarSize),
                 ],
@@ -608,29 +622,87 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  Widget _buildCompactBar(String? imageUrl)
+  List<AppDestination> get _menuPages
   {
+    final MenuDestinations menu = menuDestinationsFor(_user!, role: _role);
+
+    return [menu.ownPage, menu.settings, ?menu.reports, ?menu.updates];
+  }
+
+  // The user's entries closing the minimal bar's one menu, the role on top as the bar has no face.
+  Widget _buildUserEntries(VoidCallback close)
+  {
+    return UserMenu(
+      destinations: menuDestinationsFor(_user!, role: _role, from: widget.currentRoute),
+      canChangeRole: _user!.availableRoles.length > 1,
+      onGo: (route)
+      {
+        close();
+        _goTo(route);
+      },
+      onChangeRole: ()
+      {
+        close();
+        _openRoleSwitcher();
+      },
+      onLogout: ()
+      {
+        close();
+        _logout();
+      },
+      unreadReports: ReportsBoard.instance.unread,
+      role: _activeRoleLabel,
+      dense: true,
+      bare: true,
+    );
+  }
+
+  Widget _buildDenseBar(AppWindowSize size, String? imageUrl)
+  {
+    final bool minimal = size.isMinimal;
+
+    if (widget.showNavigation && minimal)
+    {
+      return Row(
+        children: [
+          _buildWordmark(width: _denseWordmarkWidth),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: DesktopTourTarget(
+                id: kTourTopBarSections,
+                child: AppNavSwitch(
+                  destinations: _destinations,
+                  others: _menuPages,
+                  alignEnd: true,
+                  footer: (context, close) => _buildUserEntries(close),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
+        _buildWordmark(width: _denseWordmarkWidth),
         if (widget.showNavigation) ...[
-          _buildDrawerButton(),
-          const SizedBox(width: 4),
-        ],
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: _buildWordmark(),
+          const SizedBox(width: _denseGutter),
+          Expanded(
+            child: Center(
+              child: DesktopTourTarget(
+                id: kTourTopBarSections,
+                child: AppTopNav(destinations: _destinations, dense: true, folds: true),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _toggleMenu,
-            child: _buildAvatar(imageUrl, _compactAvatarSize),
-          ),
-        ),
+          const SizedBox(width: _denseGutter),
+        ]
+        else
+          const Spacer(),
+        _buildDenseUser(size, imageUrl),
       ],
     );
   }
@@ -640,27 +712,31 @@ class _AppTopBarState extends State<AppTopBar>
     final imageUrl = _imageUrl;
     final margin = AppBreakpoints.pageMargin(size);
 
+    final EdgeInsets padding = switch (size)
+    {
+      AppWindowSize.wide => const EdgeInsets.symmetric(horizontal: 20),
+      AppWindowSize.minimal => const EdgeInsets.only(left: 20, right: 8),
+      _ => const EdgeInsets.only(left: 24, right: 9),
+    };
+
     return Positioned(
       left: margin,
       right: margin,
       top: _topMarginFor(size),
       child: DesktopTourTarget(
         id: kTourTopBar,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+        // Not animated: the page below moves to the new size at once, a bar still growing would cover it.
+        child: Container(
           height: _barHeightFor(size),
-          padding: EdgeInsets.symmetric(horizontal: size.isCompact ? 12 : 20),
+          padding: padding,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(100),
-            boxShadow: const [
-              BoxShadow(color: _headerShadow, blurRadius: 24, spreadRadius: 19),
-            ],
+            boxShadow: size.isDense
+                ? const [BoxShadow(color: _denseHeaderShadow, blurRadius: 16, spreadRadius: 8)]
+                : const [BoxShadow(color: _headerShadow, blurRadius: 24, spreadRadius: 19)],
           ),
-          child: size.isCompact
-              ? _buildCompactBar(imageUrl)
-              : _buildWideBar(size, imageUrl),
+          child: size.isDense ? _buildDenseBar(size, imageUrl) : _buildWideBar(imageUrl),
         ),
       ),
     );
@@ -694,45 +770,6 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  Widget _buildDrawer(AppWindowSize size)
-  {
-    return Positioned(
-      left: 0,
-      top: 0,
-      bottom: 0,
-      child: AnimatedSwitcher(
-        duration: _animates ? const Duration(milliseconds: 220) : Duration.zero,
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation)
-        {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(-1, 0),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          );
-        },
-        child: widget.showNavigation && _isDrawerOpen && size.isCompact
-            ? AppNavDrawer(
-                key: const ValueKey('drawer'),
-                currentRoute: widget.currentRoute,
-                destinations: _destinations,
-                sectionTitle: widget.sectionTitle,
-                sectionGroups: widget.sectionGroups,
-                selectedSection: widget.selectedSection,
-                onSectionSelected: widget.onSectionSelected,
-                onDismiss: _closeOverlays,
-              )
-            : const SizedBox(key: ValueKey('empty')),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
@@ -753,24 +790,19 @@ class _AppTopBarState extends State<AppTopBar>
       child: LayoutBuilder(
         builder: (context, constraints)
         {
-          final size = AppBreakpoints.fromWidth(constraints.maxWidth);
+          // The window's, not the page's: a page may be taller than the window it scrolls in.
+          final AppWindowSize size = AppBreakpoints.of(context);
 
           return Stack(
             children: [
               // Always present, only deaf: a new first child would rebuild the whole bar.
               Positioned.fill(
                 child: IgnorePointer(
-                  ignoring: !(_isMenuOpen || _isDrawerOpen),
+                  ignoring: !_isMenuOpen,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _closeOverlays,
-                    child: AnimatedContainer(
-                      duration: _animates ? const Duration(milliseconds: 220) : Duration.zero,
-                      curve: Curves.easeOut,
-                      color: _isDrawerOpen
-                          ? AppTheme.trialInk.withValues(alpha: 0.28)
-                          : Colors.transparent,
-                    ),
+                    child: const SizedBox.expand(),
                   ),
                 ),
               ),
@@ -778,7 +810,6 @@ class _AppTopBarState extends State<AppTopBar>
               _buildBats(size, constraints.maxWidth),
               _buildBar(size),
               _buildMenu(size),
-              _buildDrawer(size),
             ],
           );
         },

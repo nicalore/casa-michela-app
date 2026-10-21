@@ -14,6 +14,9 @@ class MeResponse
   // First-access flow; the password change is its first step.
   final bool onboardingRequired;
 
+  // The legal documents to accept: the flow's first step, or the only one if it is done.
+  final bool termsRequired;
+
   // True for a pupil a parent answers for, not for the parent; their area is narrower.
   final bool hasParentalResponsibility;
 
@@ -46,6 +49,8 @@ class MeResponse
 
   bool get readsReports => reportKinds.isNotEmpty;
 
+  bool get firstAccessPending => onboardingRequired || termsRequired;
+
   const MeResponse({
     required this.taxCode,
     required this.username,
@@ -58,6 +63,7 @@ class MeResponse
     required this.status,
     required this.passwordResetRequired,
     this.onboardingRequired = false,
+    this.termsRequired = false,
     this.hasParentalResponsibility = false,
     this.autonomousBookings = false,
     this.boardRole,
@@ -91,6 +97,7 @@ class MeResponse
       status: json['status'],
       passwordResetRequired: json['password_reset_required'],
       onboardingRequired: json['onboarding_required'] ?? false,
+      termsRequired: json['terms_required'] ?? false,
       hasParentalResponsibility: json['has_parental_responsibility'] ?? false,
       autonomousBookings: json['autonomous_bookings'] ?? false,
       boardRole: json['board_role'] as String?,

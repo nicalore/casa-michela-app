@@ -62,6 +62,9 @@ class Settings(BaseSettings):
 
     audit_log_path: str = "logs/audit_{date}.log"
 
+    # Off while the legal documents are drafts; on, whoever has not accepted is asked.
+    terms_acceptance_enabled: bool = False
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",")]

@@ -43,7 +43,7 @@ class SettingsColumn extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final bool compact = AppBreakpoints.of(context).isCompact;
+    final bool compact = AppBreakpoints.of(context).isNarrow;
 
     return PageTransitionScrollView(
       child: Padding(

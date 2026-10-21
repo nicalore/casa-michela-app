@@ -209,8 +209,9 @@ const String kStatuteTitle = "Statuto dell'Associazione";
 const String kRegulationTitle = "Regolamento dell'Associazione";
 const String kTermsTitle = 'Termini e condizioni';
 const String kPrivacyTitle = 'Privacy policy';
+const String kCookieTitle = 'Cookie policy';
 
-const String kRegulationOpenFailed = 'Non è stato possibile aprire il regolamento.';
+const String kDocumentOpenFailed = 'Non è stato possibile aprire il documento.';
 
 const String kAppVersion = '0.5.2 - Alpha';
 

@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../routing/app_router.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
+import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/desktop_tour.dart';
@@ -103,6 +104,14 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
     NoticeJumps.reading.asked.removeListener(_showNotices);
     super.dispose();
   }
+
+  Map<int, String> get _tours => {
+        if (widget.role != _teacherRole) ...{
+          _subjectsIndex: kTourAssociationToSubjects,
+          _teachersIndex: kTourAssociationToTeachers,
+        },
+        _noticesIndex: kTourAssociationToNotices,
+      };
 
   void _selectSection(int index)
   {
@@ -234,7 +243,7 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final size = AppBreakpoints.fromWidth(width);
+          final size = AppBreakpoints.of(context);
           final margin = AppBreakpoints.pageMargin(size);
 
           return Container(
@@ -276,48 +285,39 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
                                 groups: _sections,
                                 selectedIndex: _selectedSection,
                                 onSelected: _selectSection,
-                                tours: {
-                                  if (widget.role != _teacherRole) ...{
-                                    _subjectsIndex: kTourAssociationToSubjects,
-                                    _teachersIndex: kTourAssociationToTeachers,
-                                  },
-                                  _noticesIndex: kTourAssociationToNotices,
-                                },
+                                tours: _tours,
                               ),
                             ),
                           ),
                           const SizedBox(width: AppSectionRail.gap),
                         ],
                         Expanded(
-                          child: size.isCompact
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    PageTransitionItem(
-                                      slot: PageTransitionItem.frame,
-                                      child: AppSectionHeading(
-                                        module: 'Associazione',
-                                        section: railEntryAt(_sections, _selectedSection),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 18),
-                                    Expanded(child: _buildSectionContent()),
-                                  ],
-                                )
-                              : _buildSectionContent(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (!size.hasRail) ...[
+                                PageTransitionItem(
+                                  slot: PageTransitionItem.frame,
+                                  child: AppSectionTabs(
+                                    title: 'Associazione',
+                                    groups: _sections,
+                                    selectedIndex: _selectedSection,
+                                    onSelected: _selectSection,
+                                    tours: _tours,
+                                  ),
+                                ),
+                                const SizedBox(height: kSectionTabsGap),
+                              ],
+                              Expanded(key: const ValueKey('association-sections'), child: _buildSectionContent()),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
                 // Last in the stack so the bar and its menu stay above the page.
-                AppTopBar(
-                  currentRoute: '${homeForRole(widget.role)}/association',
-                  sectionTitle: 'Associazione',
-                  sectionGroups: _sections,
-                  selectedSection: _selectedSection,
-                  onSectionSelected: _selectSection,
-                ),
+                AppTopBar(currentRoute: '${homeForRole(widget.role)}/association'),
               ],
             ),
           );

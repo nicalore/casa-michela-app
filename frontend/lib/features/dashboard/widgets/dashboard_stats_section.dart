@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
@@ -70,6 +71,8 @@ class _StatScale
 
   final bool inline;
 
+  final double label;
+
   const _StatScale({
     required this.value,
     required this.change,
@@ -83,6 +86,7 @@ class _StatScale
     required this.valueGap,
     required this.spacing,
     required this.inline,
+    this.label = 10.5,
   });
 
   static const _StatScale spacious = _StatScale(
@@ -128,6 +132,22 @@ class _StatScale
     valueGap: 5,
     spacing: 0.9,
     inline: false,
+  );
+
+  static const _StatScale denseStrip = _StatScale(
+    value: 20,
+    change: 11.5,
+    icon: 14,
+    sideGap: 3,
+    padX: 11,
+    padY: 7,
+    gap: 8,
+    radius: 14,
+    labelGap: 5,
+    valueGap: 3,
+    spacing: 0.9,
+    inline: false,
+    label: 9.5,
   );
 }
 
@@ -182,8 +202,8 @@ class DashboardStatsSection extends StatelessWidget
     this.fill = false,
   });
 
-  _StatScale get _scale => strip
-      ? _StatScale.strip
+  _StatScale _scaleOf(BuildContext context) => strip
+      ? (AppBreakpoints.of(context).isDense ? _StatScale.denseStrip : _StatScale.strip)
       : compact
           ? _StatScale.compact
           : _StatScale.spacious;
@@ -207,14 +227,14 @@ class DashboardStatsSection extends StatelessWidget
                 child: CircularProgressIndicator(color: Color.fromARGB(255, 36, 43, 42)),
               ),
             )
-          : _grid(),
+          : _grid(context),
     );
   }
 
   // A partial last row keeps normal-width tiles rather than stretching them.
-  Widget _grid()
+  Widget _grid(BuildContext context)
   {
-    final _StatScale scale = _scale;
+    final _StatScale scale = _scaleOf(context);
     final List<DashboardStat> stats = _stats;
     final List<Widget> rows = [];
 
@@ -277,7 +297,7 @@ class _StatTile extends StatelessWidget
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 10.5,
+        fontSize: scale.label,
         fontWeight: FontWeight.w600,
         letterSpacing: scale.spacing,
         color: AppTheme.trialMutedText,

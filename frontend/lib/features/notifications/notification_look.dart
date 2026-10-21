@@ -36,6 +36,7 @@ class NotificationLook
       NotificationKind.newDevice => const NotificationLook(Icons.devices_rounded, AppTheme.trialOcean),
       NotificationKind.reportReceived => const NotificationLook(Icons.flag_rounded, AppTheme.trialOcean),
       NotificationKind.ratingReminder => const NotificationLook(Icons.rate_review_rounded, AppTheme.trialTealDeep),
+      NotificationKind.teacherNoteAdded => const NotificationLook(Icons.speaker_notes_rounded, AppTheme.trialOcean),
       NotificationKind.unknown => const NotificationLook(Icons.notifications_rounded, AppTheme.trialOcean),
     };
   }

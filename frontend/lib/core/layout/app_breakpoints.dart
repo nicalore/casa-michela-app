@@ -1,56 +1,79 @@
 import 'package:flutter/widgets.dart';
 
+// The shape of the window, from its width and its height.
 enum AppWindowSize
 {
+  minimal,
+
+  narrow,
+
+  // Wide enough for the wide layouts, too short or too narrow for their sizes.
   compact,
 
-  medium,
-
-  expanded,
+  wide,
 }
 
 class AppBreakpoints
 {
-  // Also the minimum width of the wide layout, so the change of shape is a
-  // swap rather than a band of widths where neither layout fits.
-  static const double compactMax = 1024;
+  static const double minimalMax = 640;
 
-  static const double mediumMax = 1280;
+  // Also the minimum width of the wide layouts, so the change of shape is a swap.
+  static const double narrowMax = 1000;
 
-  static AppWindowSize fromWidth(double width)
+  static const double wideMinWidth = 1280;
+
+  // About what the homes need to fit without scrolling at their full sizes.
+  static const double wideMinHeight = 860;
+
+  static AppWindowSize fromSize(Size size)
   {
-    if (width < compactMax)
+    if (size.width < minimalMax)
+    {
+      return AppWindowSize.minimal;
+    }
+
+    if (size.width < narrowMax)
+    {
+      return AppWindowSize.narrow;
+    }
+
+    if (size.width < wideMinWidth || size.height < wideMinHeight)
     {
       return AppWindowSize.compact;
     }
 
-    if (width < mediumMax)
-    {
-      return AppWindowSize.medium;
-    }
-
-    return AppWindowSize.expanded;
+    return AppWindowSize.wide;
   }
 
   static AppWindowSize of(BuildContext context)
   {
-    return fromWidth(MediaQuery.sizeOf(context).width);
+    return fromSize(MediaQuery.sizeOf(context));
   }
+
+  // For layouts that only reflow by width: below it they stack.
+  static bool isNarrowWidth(double width) => width < narrowMax;
 
   static double pageMargin(AppWindowSize size)
   {
     return switch (size)
     {
-      AppWindowSize.compact => 16,
-      AppWindowSize.medium => 28,
-      AppWindowSize.expanded => 40,
+      AppWindowSize.minimal => 12,
+      AppWindowSize.narrow => 20,
+      AppWindowSize.compact => 20,
+      AppWindowSize.wide => 40,
     };
   }
 }
 
 extension AppWindowSizeX on AppWindowSize
 {
-  bool get isCompact => this == AppWindowSize.compact;
+  // Under 1000 px: content stacks and the page scrolls as one.
+  bool get isNarrow => this == AppWindowSize.minimal || this == AppWindowSize.narrow;
 
-  bool get hasRail => this != AppWindowSize.compact;
+  bool get isMinimal => this == AppWindowSize.minimal;
+
+  bool get hasRail => this == AppWindowSize.wide;
+
+  // Every size but the wide one steps its bar, cards and buttons down together.
+  bool get isDense => this != AppWindowSize.wide;
 }

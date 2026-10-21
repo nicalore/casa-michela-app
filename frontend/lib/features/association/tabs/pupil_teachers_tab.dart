@@ -229,37 +229,24 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
           hintText: kTeachersSearchHint,
         ),
       ),
-      const SizedBox(height: 28),
-      DesktopTourTarget(
-        id: kTourAssociationTeachersTop,
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _buildSortPill(),
-            const FilterGroupDivider(),
-            AppCountFilterPill(
-              icon: Icons.auto_stories_outlined,
-              label: kSubjectsFilterLabel,
-              count: _selectedSubjectIds.length,
-              onOpen: _showSubjectFilterDialog,
-              onClear: () => setState(() => _selectedSubjectIds = {}),
-            ),
-            if (widget.canReport) _buildDislikedPill(),
-          ],
-        ),
+      const TabHeaderGap(wide: 28, dense: 10),
+      TabFiltersRow(
+        tour: kTourAssociationTeachersTop,
+        filters: [
+          _buildSortPill(),
+          const FilterGroupDivider(),
+          AppCountFilterPill(
+            icon: Icons.auto_stories_outlined,
+            label: kSubjectsFilterLabel,
+            count: _selectedSubjectIds.length,
+            onOpen: _showSubjectFilterDialog,
+            onClear: () => setState(() => _selectedSubjectIds = {}),
+          ),
+          if (widget.canReport) _buildDislikedPill(),
+        ],
+        countLabel: teachersFoundLabel(count),
       ),
-      const SizedBox(height: 20),
-      Text(
-        teachersFoundLabel(count),
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.trialMutedText,
-        ),
-      ),
-      const SizedBox(height: 16),
+      const TabHeaderGap(wide: 16, dense: 12),
     ];
   }
 
@@ -284,6 +271,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
       ),
       body: EntityCardGrid(
         cardWidth: TeacherCard.width,
+        denseWidth: kDenseSmallCardWidth,
         children: [
           for (final teacher in teachers)
             TeacherCard(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -21,6 +22,10 @@ const double _hoverBorder = 2;
 const double _tileGap = 8;
 const double _iconSize = 36;
 
+const double _denseTileRadius = 13;
+const double _denseTileGap = 6;
+const double _denseIconSize = 28;
+
 const Duration _arrival = Duration(milliseconds: 380);
 
 // In a column the card grows with the list up to this, then scrolls.
@@ -31,10 +36,14 @@ class HomeNotificationsSection extends StatelessWidget
   final double minHeight;
   final bool fill;
 
+  // Given where the page scrolls: the newest this many, the rest one click away, never a scroll inside.
+  final int? limit;
+
   const HomeNotificationsSection({
     super.key,
     this.minHeight = 0,
     this.fill = false,
+    this.limit,
   });
 
   @override
@@ -75,21 +84,26 @@ class HomeNotificationsSection extends StatelessWidget
       );
     }
 
+    final int? limit = this.limit;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (row != null) ...[row, const SizedBox(height: 12)],
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: _columnMaxHeight),
-          child: list,
-        ),
+        if (limit != null)
+          _list(board, showEmpty: !off, limit: limit)
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: _columnMaxHeight),
+            child: list,
+          ),
       ],
     );
   }
 
   // While they are off, an empty list says nothing: the row above says enough.
-  Widget _list(NotificationBoard board, {required bool showEmpty})
+  Widget _list(NotificationBoard board, {required bool showEmpty, int? limit})
   {
     if (board.loading)
     {
@@ -123,7 +137,122 @@ class HomeNotificationsSection extends StatelessWidget
       );
     }
 
+    if (limit != null)
+    {
+      return _CappedNotifications(items: items, limit: limit);
+    }
+
     return _NotificationScroll(items: items);
+  }
+}
+
+class _CappedNotifications extends StatefulWidget
+{
+  final List<NotificationItem> items;
+  final int limit;
+
+  const _CappedNotifications({required this.items, required this.limit});
+
+  @override
+  State<_CappedNotifications> createState() => _CappedNotificationsState();
+}
+
+class _CappedNotificationsState extends State<_CappedNotifications>
+{
+  bool _all = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final DateTime now = romeNow();
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final double gap = dense ? _denseTileGap : _tileGap;
+
+    final List<NotificationItem> items = widget.items;
+    final bool more = items.length > widget.limit;
+    final List<NotificationItem> shown = _all || !more ? items : items.take(widget.limit).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (index, item) in shown.indexed)
+          Padding(
+            key: ValueKey<int>(item.id),
+            padding: EdgeInsets.only(bottom: index < shown.length - 1 ? gap : 0),
+            child: _NotificationTile(item: item, when: notificationWhen(item.createdAt, now: now)),
+          ),
+        if (more) ...[
+          const SizedBox(height: 10),
+          Center(
+            child: _ShowMoreButton(
+              label: _all ? kNotificationsShowFewer : kNotificationsShowAll,
+              open: _all,
+              onTap: () => setState(() => _all = !_all),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ShowMoreButton extends StatefulWidget
+{
+  final String label;
+  final bool open;
+  final VoidCallback onTap;
+
+  const _ShowMoreButton({required this.label, required this.open, required this.onTap});
+
+  @override
+  State<_ShowMoreButton> createState() => _ShowMoreButtonState();
+}
+
+class _ShowMoreButtonState extends State<_ShowMoreButton>
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 34,
+          padding: const EdgeInsets.only(left: 14, right: 10),
+          decoration: BoxDecoration(
+            color: _hover ? AppTheme.closedSurface : AppTheme.todaySurface,
+            borderRadius: BorderRadius.circular(17),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.trialTealDeep,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                widget.open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                size: 18,
+                color: AppTheme.trialTealDeep,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -277,7 +406,11 @@ class _NotificationScrollState extends State<_NotificationScroll>
                   key: ValueKey<int>(item.id),
                   arriving: _arrived.contains(item.id),
                   child: Padding(
-                    padding: EdgeInsets.only(bottom: index < widget.items.length - 1 ? _tileGap : 0),
+                    padding: EdgeInsets.only(
+                      bottom: index < widget.items.length - 1
+                          ? (AppBreakpoints.of(context).isDense ? _denseTileGap : _tileGap)
+                          : 0,
+                    ),
                     child: _NotificationTile(item: item, when: notificationWhen(item.createdAt, now: now)),
                   ),
                 ),
@@ -365,19 +498,26 @@ class _NotificationTileState extends State<_NotificationTile>
   Widget build(BuildContext context)
   {
     final NotificationItem item = widget.item;
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final double radius = dense ? _denseTileRadius : _tileRadius;
 
     final Widget tile = DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.trialPaper,
-        borderRadius: BorderRadius.circular(_tileRadius - _tileBorder),
+        borderRadius: BorderRadius.circular(radius - _tileBorder),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 14, 11),
+        padding: dense ? const EdgeInsets.fromLTRB(8, 7, 11, 8) : const EdgeInsets.fromLTRB(10, 10, 14, 11),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            NotificationIcon(kind: item.kind, unread: !item.read, size: _iconSize, surface: Colors.white),
-            const SizedBox(width: 12),
+            NotificationIcon(
+              kind: item.kind,
+              unread: !item.read,
+              size: dense ? _denseIconSize : _iconSize,
+              surface: Colors.white,
+            ),
+            SizedBox(width: dense ? 9 : 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -386,7 +526,7 @@ class _NotificationTileState extends State<_NotificationTile>
                   Text(
                     item.title,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
+                      fontSize: dense ? 13.5 : 15,
                       fontWeight: item.read ? FontWeight.w700 : FontWeight.w800,
                       color: item.read ? AppTheme.trialOcean : AppTheme.trialInk,
                     ),
@@ -395,7 +535,7 @@ class _NotificationTileState extends State<_NotificationTile>
                   Text(
                     item.desktopBody,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13.5,
+                      fontSize: dense ? 12 : 13.5,
                       fontWeight: FontWeight.w600,
                       height: 1.35,
                       color: AppTheme.trialMutedText,
@@ -404,11 +544,11 @@ class _NotificationTileState extends State<_NotificationTile>
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: dense ? 9 : 12),
             Text(
               widget.when,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
+                fontSize: dense ? 11.5 : 13,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.trialMutedText,
                 fontFeatures: const [FontFeature.tabularFigures()],
@@ -434,11 +574,11 @@ class _NotificationTileState extends State<_NotificationTile>
             padding: const EdgeInsets.all(_tileBorder),
             decoration: BoxDecoration(
               color: AppTheme.trialLine,
-              borderRadius: BorderRadius.circular(_tileRadius),
+              borderRadius: BorderRadius.circular(radius),
             ),
             // Gold kept at full colour, only its alpha fading: no dark tint midway.
             foregroundDecoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_tileRadius),
+              borderRadius: BorderRadius.circular(radius),
               border: Border.all(color: AppTheme.trialGold.withValues(alpha: lit), width: _hoverBorder),
             ),
             child: child,

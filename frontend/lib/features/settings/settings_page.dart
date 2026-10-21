@@ -9,7 +9,7 @@ import '../../services/api_service.dart';
 import '../../shared/widgets/app_back_button.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
-import '../../shared/widgets/app_segmented_tabs.dart';
+import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
@@ -36,7 +36,7 @@ const List<RailGroup> _groups = [
   RailGroup(entries: [_info]),
 ];
 
-// The compact bar has no groups: the same entries, flat.
+// The tabs have no groups: the same entries, flat.
 const List<String> _sections = [_appearance, _access, _devices, _system, _info];
 
 const int _appearanceIndex = 0;
@@ -159,19 +159,21 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
           const SizedBox(width: AppSectionRail.gap),
         ],
         Expanded(
-          child: size.hasRail
-              ? content
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AppSegmentedTabs(
-                      labels: _sections,
-                      selectedIndex: _selectedSection,
-                      onSelected: _selectSection,
-                    ),
-                    Expanded(child: content),
-                  ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!size.hasRail) ...[
+                AppSectionTabs(
+                  title: kSettingsTitle,
+                  groups: const [RailGroup(entries: _sections)],
+                  selectedIndex: _selectedSection,
+                  onSelected: _selectSection,
                 ),
+                const SizedBox(height: kSectionTabsGap),
+              ],
+              Expanded(key: const ValueKey('settings-sections'), child: content),
+            ],
+          ),
         ),
       ],
     );
@@ -186,7 +188,7 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final AppWindowSize size = AppBreakpoints.fromWidth(width);
+          final AppWindowSize size = AppBreakpoints.of(context);
           final double margin = AppBreakpoints.pageMargin(size);
 
           return Container(

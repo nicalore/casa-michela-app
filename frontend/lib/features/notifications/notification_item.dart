@@ -24,6 +24,7 @@ enum NotificationKind
   newDevice,
   reportReceived,
   ratingReminder,
+  teacherNoteAdded,
   unknown,
 }
 
@@ -48,6 +49,7 @@ const Map<NotificationKind, String> _kindCodes = {
   NotificationKind.newDevice: 'NEW_DEVICE',
   NotificationKind.reportReceived: 'REPORT_RECEIVED',
   NotificationKind.ratingReminder: 'RATING_REMINDER',
+  NotificationKind.teacherNoteAdded: 'TEACHER_NOTE_ADDED',
 };
 
 NotificationKind _kindOf(Object? value)
@@ -107,13 +109,16 @@ class NotificationItem
   final int? noticeId;
   final List<String> noticeRoles;
 
-  // The pupil whose bookings it is about.
+  // The pupil whose bookings or teacher's note it is about.
   final String? pupilTaxCode;
 
   final int? reportId;
 
   // The teacher whose rating it asks to update.
   final String? teacherTaxCode;
+
+  // The teacher's note it announces.
+  final int? teacherNoteId;
 
   const NotificationItem({
     required this.id,
@@ -131,6 +136,7 @@ class NotificationItem
     this.pupilTaxCode,
     this.reportId,
     this.teacherTaxCode,
+    this.teacherNoteId,
   });
 
   String get desktopBody => webBody ?? body;
@@ -155,6 +161,7 @@ class NotificationItem
       pupilTaxCode: json['pupil_tax_code'] as String?,
       reportId: json['report_id'] as int?,
       teacherTaxCode: json['teacher_tax_code'] as String?,
+      teacherNoteId: json['teacher_note_id'] as int?,
     );
   }
 
@@ -174,6 +181,7 @@ class NotificationItem
         pupilTaxCode: pupilTaxCode,
         reportId: reportId,
         teacherTaxCode: teacherTaxCode,
+        teacherNoteId: teacherNoteId,
       );
 }
 

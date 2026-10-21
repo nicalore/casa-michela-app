@@ -362,6 +362,7 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         body_fields=("role",),
     ),
     ("POST", "/auth/complete-onboarding"): AuditRule("Onboarding completion"),
+    ("POST", "/auth/accept-terms"): AuditRule("Terms acceptance"),
     ("POST", "/auth/profile-image"): AuditRule("Profile image upload"),
     ("DELETE", "/auth/profile-image"): AuditRule("Profile image removal"),
     ("POST", "/auth/change-password"): AuditRule(
@@ -393,6 +394,7 @@ IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
         ("PUT", "/notifications/calendar/{calendar_date}/{band}/seen"),
         ("PUT", "/notifications/bookings/{pupil_tax_code}/seen"),
         ("PUT", "/notifications/availabilities/seen"),
+        ("PUT", "/notifications/teacher-notes/{pupil_tax_code}/seen"),
         ("PUT", "/push/devices"),
         ("DELETE", "/push/devices"),
     }

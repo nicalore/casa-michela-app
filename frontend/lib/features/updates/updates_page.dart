@@ -46,6 +46,7 @@ const double _yearGapBelow = 12;
 
 // The back button's width and a gap.
 const double _backRoom = 84 + 36;
+const double _belowBackGap = 24;
 
 class UpdatesPage extends StatefulWidget
 {
@@ -340,7 +341,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final AppWindowSize size = AppBreakpoints.fromWidth(width);
+          final AppWindowSize size = AppBreakpoints.of(context);
           final double margin = AppBreakpoints.pageMargin(size);
 
           return Container(
@@ -376,11 +377,12 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
                         LayoutBuilder(
                           builder: (context, constraints)
                           {
-                            // Centred, and clear of the back button on both sides.
-                            final double side = math.max(_backRoom, (constraints.maxWidth - _columnWidth) / 2);
+                            // Centred, and clear of the back button on both sides; below it where that leaves too little.
+                            final bool below = size.isNarrow;
+                            final double side = below ? 0 : math.max(_backRoom, (constraints.maxWidth - _columnWidth) / 2);
 
                             return Padding(
-                              padding: EdgeInsets.symmetric(horizontal: side),
+                              padding: EdgeInsets.only(left: side, right: side, top: below ? AppBackButton.height + _belowBackGap : 0),
                               child: Stack(
                                 children: [
                                   Column(

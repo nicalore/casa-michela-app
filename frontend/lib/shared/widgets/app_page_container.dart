@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/layout/app_breakpoints.dart';
 
+// Widget tests run with kIsWeb false; this forces the scrolling web container.
+@visibleForTesting
+bool debugAlwaysUseWebPageLayout = false;
+
 typedef PageContentBuilder = Widget Function(
   BuildContext context,
   double width,
@@ -33,11 +37,6 @@ class _AppPageContainerState extends State<AppPageContainer>
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
 
-  // The two web layouts use different scroll views: without its own key the page loses its state at the compact breakpoint.
-  final GlobalKey _contentKey = GlobalKey();
-
-  Widget _keyed(Widget content) => KeyedSubtree(key: _contentKey, child: content);
-
   @override
   void dispose()
   {
@@ -62,43 +61,34 @@ class _AppPageContainerState extends State<AppPageContainer>
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (AppBreakpoints.fromWidth(constraints.maxWidth).isCompact)
-        {
-          return SingleChildScrollView(
-            controller: _verticalController,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: _keyed(
-                widget.builder(
-                  context,
-                  constraints.maxWidth,
-                  constraints.maxHeight,
-                ),
-              ),
-            ),
-          );
-        }
+        // Narrow windows reflow the page to their width; wider ones keep its least size and scroll to it.
+        final bool narrow = AppBreakpoints.isNarrowWidth(constraints.maxWidth);
+        final double width = narrow ? constraints.maxWidth : math.max(constraints.maxWidth, widget.minWidth);
+        final double height = narrow ? constraints.maxHeight : math.max(constraints.maxHeight, widget.minHeight);
 
-        final width = math.max(constraints.maxWidth, widget.minWidth);
-        final height = math.max(constraints.maxHeight, widget.minHeight);
-
+        // The same scroll views at every width: rebuilt at the breakpoint, they would lose their offsets.
         // A ConstrainedBox alone clamps minWidth to the width it is handed; the scroll view's unbounded axis makes it real.
         return Scrollbar(
           controller: _verticalController,
-          thumbVisibility: true,
-          trackVisibility: true,
+          thumbVisibility: !narrow,
+          trackVisibility: !narrow,
           child: SingleChildScrollView(
             controller: _verticalController,
             child: Scrollbar(
               controller: _horizontalController,
-              thumbVisibility: true,
-              trackVisibility: true,
+              thumbVisibility: !narrow,
+              trackVisibility: !narrow,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 controller: _horizontalController,
+                physics: narrow ? const NeverScrollableScrollPhysics() : null,
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: width, minHeight: height),
-                  child: _keyed(widget.builder(context, width, height)),
+                  constraints: BoxConstraints(
+                    minWidth: width,
+                    maxWidth: narrow ? width : double.infinity,
+                    minHeight: height,
+                  ),
+                  child: widget.builder(context, width, height),
                 ),
               ),
             ),
@@ -112,6 +102,6 @@ class _AppPageContainerState extends State<AppPageContainer>
   @override
   Widget build(BuildContext context)
   {
-    return kIsWeb ? _buildWebLayout() : _buildNativeLayout();
+    return kIsWeb || debugAlwaysUseWebPageLayout ? _buildWebLayout() : _buildNativeLayout();
   }
 }

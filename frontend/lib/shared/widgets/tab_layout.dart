@@ -13,11 +13,27 @@ import 'filter_menu.dart';
 import 'page_transition.dart';
 
 const double _actionHeight = 50;
-const double _actionRadius = 25;
 const double _actionFontSize = 14;
+
+const double _denseActionHeight = 40;
+const double _denseActionFontSize = 13;
 
 const double _filterSpacing = 12;
 const double _countFontSize = 17;
+
+const double _denseFilterSpacing = 8;
+const double _denseCountFontSize = 13.5;
+
+// Below the wide window: the gap under the search row and under the filters.
+const double _denseHeaderGap = 10;
+const double _denseBodyGap = 12;
+
+// Least widths of a dense grid's cards, which then grow to fill the row.
+const double kDenseCatalogueWidth = 270;
+const double kDenseWideCardWidth = 300;
+const double kDenseSmallCardWidth = 240;
+
+const double kDenseCardGap = 12;
 
 const double _footerGap = 28;
 
@@ -45,15 +61,22 @@ Widget tabActionButton({
   Color accent = AppTheme.trialTealDeep,
 })
 {
-  return AppGradientButton(
-    label: label,
-    icon: icon,
-    gradient: gradient,
-    accent: accent,
-    height: _actionHeight,
-    radius: _actionRadius,
-    fontSize: _actionFontSize,
-    onPressed: onPressed,
+  return Builder(
+    builder: (context)
+    {
+      final bool dense = AppBreakpoints.of(context).isDense;
+
+      return AppGradientButton(
+        label: label,
+        icon: icon,
+        gradient: gradient,
+        accent: accent,
+        height: dense ? _denseActionHeight : _actionHeight,
+        radius: (dense ? _denseActionHeight : _actionHeight) / 2,
+        fontSize: dense ? _denseActionFontSize : _actionFontSize,
+        onPressed: onPressed,
+      );
+    },
   );
 }
 
@@ -91,33 +114,132 @@ List<Widget> entityTabHeader({
             )
           : null,
     ),
-    const SizedBox(height: 28),
-    Wrap(
-      spacing: _filterSpacing,
-      runSpacing: _filterSpacing,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
+    const TabHeaderGap(wide: 28, dense: _denseHeaderGap),
+    TabFiltersRow(
+      filters: [
         AppSortPill(value: sort, onChanged: onSortChanged, criteria: sortCriteria),
         ...filters,
       ],
+      countLabel: countLabel,
     ),
-    const SizedBox(height: 20),
-    Text(
-      countLabel,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: _countFontSize,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.trialMutedText,
-      ),
-    ),
-    const SizedBox(height: 16),
+    const TabHeaderGap(wide: 16, dense: _denseBodyGap),
   ];
 }
 
-class TabHeaderRow extends StatelessWidget
+// A gap of the list header that narrows below the wide window.
+class TabHeaderGap extends StatelessWidget
+{
+  final double wide;
+  final double dense;
+
+  const TabHeaderGap({super.key, required this.wide, required this.dense});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return SizedBox(height: AppBreakpoints.of(context).isDense ? dense : wide);
+  }
+}
+
+// The pills, then the count: under them when wide, at their right end when dense.
+class TabFiltersRow extends StatelessWidget
+{
+  final List<Widget> filters;
+
+  final String? countLabel;
+
+  // The pills alone, for a tour to light.
+  final String? tour;
+
+  // Wide only: from the pills down to the count.
+  final double countGap;
+
+  const TabFiltersRow({super.key, required this.filters, this.countLabel, this.tour, this.countGap = 20});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final String? countLabel = this.countLabel;
+
+    if (!AppBreakpoints.of(context).isDense)
+    {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DesktopTourTarget(
+            id: tour,
+            child: Wrap(
+              spacing: _filterSpacing,
+              runSpacing: _filterSpacing,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: filters,
+            ),
+          ),
+          if (countLabel != null) ...[
+            SizedBox(height: countGap),
+            Text(
+              countLabel,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: _countFontSize,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.trialMutedText,
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            heightFactor: 1,
+            child: DesktopTourTarget(
+              id: tour,
+              child: Wrap(
+                spacing: _denseFilterSpacing,
+                runSpacing: _denseFilterSpacing,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: filters,
+              ),
+            ),
+          ),
+        ),
+        if (countLabel != null) ...[
+          const SizedBox(width: 12),
+          // Level with the first row of pills.
+          SizedBox(
+            height: 36,
+            child: Center(
+              child: Text(
+                countLabel,
+                maxLines: 1,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: _denseCountFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.trialMutedText,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class TabHeaderRow extends StatefulWidget
 {
   static const double _gap = 24;
+  static const double _denseGap = 12;
   static const double _stackedGap = 12;
+
+  // Below it the search would be too short beside the button; the button then goes under it, its own width.
+  static const double _stackBelow = 480;
 
   final Widget search;
   final Widget? action;
@@ -129,9 +251,19 @@ class TabHeaderRow extends StatelessWidget
   });
 
   @override
+  State<TabHeaderRow> createState() => _TabHeaderRowState();
+}
+
+class _TabHeaderRowState extends State<TabHeaderRow>
+{
+  // Moved, not rebuilt, when the button goes under it: the field keeps its focus.
+  final GlobalKey _searchKey = GlobalKey();
+
+  @override
   Widget build(BuildContext context)
   {
-    final Widget? action = this.action;
+    final Widget? action = widget.action;
+    final Widget search = KeyedSubtree(key: _searchKey, child: widget.search);
 
     if (action == null)
     {
@@ -141,12 +273,12 @@ class TabHeaderRow extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (!AppBreakpoints.fromWidth(constraints.maxWidth).isCompact)
+        if (constraints.maxWidth >= TabHeaderRow._stackBelow)
         {
           return Row(
             children: [
               Expanded(child: search),
-              const SizedBox(width: _gap),
+              SizedBox(width: AppBreakpoints.of(context).isDense ? TabHeaderRow._denseGap : TabHeaderRow._gap),
               action,
             ],
           );
@@ -156,8 +288,8 @@ class TabHeaderRow extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             search,
-            const SizedBox(height: _stackedGap),
-            action,
+            const SizedBox(height: TabHeaderRow._stackedGap),
+            Align(alignment: Alignment.centerRight, child: action),
           ],
         );
       },
@@ -165,7 +297,7 @@ class TabHeaderRow extends StatelessWidget
   }
 }
 
-class TabContent extends StatelessWidget
+class TabContent extends StatefulWidget
 {
   final List<Widget> header;
   final Widget body;
@@ -188,19 +320,33 @@ class TabContent extends StatelessWidget
     this.empty,
   });
 
-  List<Widget> get _head
+  @override
+  State<TabContent> createState() => _TabContentState();
+}
+
+class _TabContentState extends State<TabContent>
+{
+  // Moved, not rebuilt, when the header goes into the scroll view: the field keeps its focus, the list its offset.
+  final GlobalKey _headKey = GlobalKey();
+  final GlobalKey _scrollKey = GlobalKey();
+
+  Widget get _head
   {
-    return [
-      for (final entry in header)
-        PageTransitionItem(slot: PageTransitionItem.header, child: entry),
-    ];
+    return Column(
+      key: _headKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final entry in widget.header)
+          PageTransitionItem(slot: PageTransitionItem.header, child: entry),
+      ],
+    );
   }
 
   List<Widget> get _body
   {
-    final Widget body = this.body;
-    final Widget? footer = this.footer;
-    final Widget? empty = this.empty;
+    final Widget body = widget.body;
+    final Widget? footer = widget.footer;
+    final Widget? empty = widget.empty;
 
     if (empty != null)
     {
@@ -241,16 +387,12 @@ class TabContent extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (AppBreakpoints.fromWidth(constraints.maxWidth).isCompact)
+        if (AppBreakpoints.isNarrowWidth(constraints.maxWidth))
         {
           return PageTransitionScrollView.slivers(
+            key: _scrollKey,
             slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _head,
-                ),
-              ),
+              SliverToBoxAdapter(child: _head),
               ..._body,
             ],
           );
@@ -259,11 +401,11 @@ class TabContent extends StatelessWidget
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ..._head,
+            _head,
             Expanded(
               child: DesktopTourTarget(
-                id: bodyTour,
-                child: PageTransitionScrollView.slivers(slivers: _body),
+                id: widget.bodyTour,
+                child: PageTransitionScrollView.slivers(key: _scrollKey, slivers: _body),
               ),
             ),
           ],
@@ -282,7 +424,23 @@ class EntityCardGrid extends StatelessWidget
 
   final double cardWidth;
 
-  const EntityCardGrid({super.key, required this.children, this.cardWidth = preferredWidth});
+  // Below the wide window: the least width; the cards grow to fill the row.
+  final double denseWidth;
+
+  const EntityCardGrid({
+    super.key,
+    required this.children,
+    this.cardWidth = preferredWidth,
+    this.denseWidth = kDenseCatalogueWidth,
+  });
+
+  // As many as fit, filling the row, the last row from the left.
+  static ({int perRow, double width}) denseLayout(double available, double least)
+  {
+    final int perRow = math.max(1, ((available + kDenseCardGap) / (least + kDenseCardGap)).floor());
+
+    return (perRow: perRow, width: (available - kDenseCardGap * (perRow - 1)) / perRow);
+  }
 
   static double widthFor(double available, [double preferred = preferredWidth])
   {
@@ -303,6 +461,19 @@ class EntityCardGrid extends StatelessWidget
       {
         final double available = constraints.crossAxisExtent;
 
+        if (AppBreakpoints.of(context).isDense)
+        {
+          final dense = denseLayout(available, denseWidth);
+
+          return CardRows(
+            cards: children,
+            cardWidth: dense.width,
+            perRow: dense.perRow,
+            gap: kDenseCardGap,
+            fromStart: true,
+          );
+        }
+
         return CardRows(
           cards: children,
           cardWidth: widthFor(available, cardWidth),
@@ -319,8 +490,10 @@ class EntityCardGrid extends StatelessWidget
       builder: (context, constraints)
       {
         final double available = constraints.maxWidth;
-        final double width = widthFor(available, cardWidth);
-        final int columns = columnsFor(available, cardWidth);
+        final bool dense = AppBreakpoints.of(context).isDense;
+        final layout = denseLayout(available, denseWidth);
+        final double width = dense ? layout.width : widthFor(available, cardWidth);
+        final int columns = dense ? layout.perRow : columnsFor(available, cardWidth);
         final int rows = CardRows.rowsFor(children.length, columns);
 
         return SizedBox(
@@ -334,6 +507,8 @@ class EntityCardGrid extends StatelessWidget
                   perRow: columns,
                   cardWidth: width,
                   last: row == rows - 1,
+                  gap: dense ? kDenseCardGap : EntityCardGrid.gap,
+                  fromStart: dense,
                 ),
             ],
           ),
@@ -350,7 +525,7 @@ class FilterGroupDivider extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    if (AppBreakpoints.of(context).isCompact)
+    if (AppBreakpoints.of(context).isDense)
     {
       return const SizedBox.shrink();
     }
@@ -373,12 +548,16 @@ class CardRows extends StatelessWidget
 
   final double gap;
 
+  // A short last row starts at the left, as in a grid, instead of the middle.
+  final bool fromStart;
+
   const CardRows({
     super.key,
     required this.cards,
     required this.cardWidth,
     required this.perRow,
     this.gap = EntityCardGrid.gap,
+    this.fromStart = false,
   });
 
   static int rowsFor(int count, int perRow) => perRow < 1 ? 0 : (count + perRow - 1) ~/ perRow;
@@ -390,6 +569,7 @@ class CardRows extends StatelessWidget
     required double cardWidth,
     required bool last,
     double gap = EntityCardGrid.gap,
+    bool fromStart = false,
   })
   {
     final int start = row * perRow;
@@ -398,7 +578,7 @@ class CardRows extends StatelessWidget
     return Padding(
       padding: EdgeInsets.only(bottom: last ? 0 : gap),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: fromStart ? MainAxisAlignment.start : MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var i = start; i < end; i++) ...[
@@ -427,6 +607,7 @@ class CardRows extends StatelessWidget
           cardWidth: cardWidth,
           last: index == rows - 1,
           gap: gap,
+          fromStart: fromStart,
         ),
         childCount: rows,
       ),

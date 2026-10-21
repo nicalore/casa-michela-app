@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -13,18 +14,93 @@ import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/calendar_lesson_block.dart';
 import 'home_schedule_data.dart';
 
-const double _columnGap = 16;
-const double _rowGap = 8;
-const double _trackHeight = 17;
-const double _timeGap = 6;
-
 const List<String> kStripModes = [kPresenceMode, kOnlineMode];
 
 // A mode the band does not open, or a closed band: greyer than the muted text.
 final Color kStripClosedColor = AppTheme.trialMutedText.withValues(alpha: 0.62);
 
-TextStyle _caps() => GoogleFonts.plusJakartaSans(
-      fontSize: 10.5,
+// Below this the three bands go one under the other, each with its name beside its rows.
+const double kStripStackedBelow = 480;
+
+const double _stackedHeadWidth = 112;
+
+class StripScale
+{
+  final double columnGap;
+  final double rowGap;
+  final double track;
+  final double timeGap;
+  final double caps;
+  final double time;
+  final double bandName;
+  final double label;
+  final double note;
+  final double icon;
+  final double closed;
+  final double labelGap;
+  final double hours;
+  final double figure;
+  final double figureLabel;
+
+  const StripScale._({
+    required this.columnGap,
+    required this.rowGap,
+    required this.track,
+    required this.timeGap,
+    required this.caps,
+    required this.time,
+    required this.bandName,
+    required this.label,
+    required this.note,
+    required this.icon,
+    required this.closed,
+    required this.labelGap,
+    required this.hours,
+    required this.figure,
+    required this.figureLabel,
+  });
+
+  static const StripScale _wide = StripScale._(
+    columnGap: 16,
+    rowGap: 8,
+    track: 17,
+    timeGap: 6,
+    caps: 10.5,
+    time: 11.5,
+    bandName: 16,
+    label: 13,
+    note: 12,
+    icon: 16,
+    closed: 13,
+    labelGap: 5,
+    hours: 15,
+    figure: 18,
+    figureLabel: 12.5,
+  );
+
+  static const StripScale _dense = StripScale._(
+    columnGap: 12,
+    rowGap: 6,
+    track: 14,
+    timeGap: 5,
+    caps: 9.5,
+    time: 10.5,
+    bandName: 14.5,
+    label: 12,
+    note: 11.5,
+    icon: 15,
+    closed: 12.5,
+    labelGap: 4,
+    hours: 13.5,
+    figure: 16,
+    figureLabel: 11.5,
+  );
+
+  static StripScale of(BuildContext context) => AppBreakpoints.of(context).isDense ? _dense : _wide;
+}
+
+TextStyle _caps(StripScale scale) => GoogleFonts.plusJakartaSans(
+      fontSize: scale.caps,
       fontWeight: FontWeight.w600,
       letterSpacing: 1.1,
       height: 1.3,
@@ -33,38 +109,93 @@ TextStyle _caps() => GoogleFonts.plusJakartaSans(
 
 String _clock(int minutes) => formatTimeOfDayShort(timeOfDayFromMinutes(minutes));
 
-TextStyle _time() => GoogleFonts.plusJakartaSans(
-      fontSize: 11.5,
+TextStyle _time(StripScale scale) => GoogleFonts.plusJakartaSans(
+      fontSize: scale.time,
       fontWeight: FontWeight.w600,
       height: 1.2,
       color: AppTheme.trialMutedText,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-// Mattina, Pomeriggio and Sera side by side, always all three, parted by hairlines.
+// Mattina, Pomeriggio and Sera side by side, always all three, parted by hairlines; stacked, one under the other.
 class DayStripFrame extends StatelessWidget
 {
   final Widget Function(TimeBucket band) column;
 
-  const DayStripFrame({super.key, required this.column});
+  final bool stacked;
+
+  const DayStripFrame({super.key, required this.column, this.stacked = false});
 
   @override
   Widget build(BuildContext context)
   {
+    final StripScale scale = StripScale.of(context);
+
+    if (stacked)
+    {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (index, band) in TimeBucket.values.indexed) ...[
+            if (index > 0) ...[
+              SizedBox(height: scale.rowGap + 2),
+              Container(height: 1, color: AppTheme.trialLine),
+              SizedBox(height: scale.rowGap + 2),
+            ],
+            column(band),
+          ],
+        ],
+      );
+    }
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final (index, band) in TimeBucket.values.indexed) ...[
             if (index > 0) ...[
-              const SizedBox(width: _columnGap),
+              SizedBox(width: scale.columnGap),
               Container(width: 1, color: AppTheme.trialLine),
-              const SizedBox(width: _columnGap),
+              SizedBox(width: scale.columnGap),
             ],
             Expanded(child: column(band)),
           ],
         ],
       ),
+    );
+  }
+}
+
+// Stacked bands: the name and its line on the left, the rows beside them.
+class StripStackedBand extends StatelessWidget
+{
+  final Widget head;
+  final List<Widget> rows;
+
+  const StripStackedBand({super.key, required this.head, required this.rows});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final StripScale scale = StripScale.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: _stackedHeadWidth, child: head),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (index, row) in rows.indexed) ...[
+                if (index > 0) SizedBox(height: scale.rowGap),
+                row,
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -81,6 +212,8 @@ class StripBandHead extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final StripScale scale = StripScale.of(context);
+
     // On a narrow column the pill goes under the name.
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 22),
@@ -94,7 +227,7 @@ class StripBandHead extends StatelessWidget
               bandLabel(band),
               maxLines: 1,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
+                fontSize: scale.bandName,
                 fontWeight: FontWeight.w700,
                 height: 1.25,
                 color: AppTheme.trialOcean,
@@ -112,33 +245,44 @@ class ClosedBandColumn extends StatelessWidget
 {
   final TimeBucket band;
 
-  const ClosedBandColumn({super.key, required this.band});
+  final bool stacked;
+
+  const ClosedBandColumn({super.key, required this.band, this.stacked = false});
 
   @override
   Widget build(BuildContext context)
   {
+    final StripScale scale = StripScale.of(context);
+
+    final Widget closed = Row(
+      children: [
+        Icon(Icons.event_busy_rounded, size: scale.icon + 3, color: kStripClosedColor),
+        const SizedBox(width: 7),
+        Flexible(
+          child: Text(
+            "L'Associazione è chiusa",
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: scale.closed,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (stacked)
+    {
+      return StripStackedBand(head: StripBandHead(band: band), rows: [closed]);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         StripBandHead(band: band),
-        const SizedBox(height: _rowGap),
-        Row(
-          children: [
-            Icon(Icons.event_busy_rounded, size: 19, color: kStripClosedColor),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                "L'Associazione è chiusa",
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                  color: AppTheme.trialMutedText,
-                ),
-              ),
-            ),
-          ],
-        ),
+        SizedBox(height: scale.rowGap),
+        closed,
       ],
     );
   }
@@ -156,16 +300,18 @@ class StripClosedMode extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final StripScale scale = StripScale.of(context);
+
     return SizedBox(
       height: height,
       child: Row(
         children: [
-          Icon(lessonModeIcon(mode), size: 16, color: kStripClosedColor),
+          Icon(lessonModeIcon(mode), size: scale.icon, color: kStripClosedColor),
           const SizedBox(width: 5),
           Text(
             kClosedLabel,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 12.5,
+              fontSize: scale.closed - 0.5,
               fontWeight: FontWeight.w600,
               height: 1.2,
               color: kStripClosedColor,
@@ -214,11 +360,13 @@ class HomeDayStrip extends StatelessWidget
       icon: Icons.today_rounded,
       title: title,
       action: DashboardCardNote(formatWeekdayColumnLabel(day)),
-      child: _body(),
+      child: LayoutBuilder(
+        builder: (context, constraints) => _body(context, stacked: constraints.maxWidth < kStripStackedBelow),
+      ),
     );
   }
 
-  Widget _body()
+  Widget _body(BuildContext context, {required bool stacked})
   {
     if (isLoading)
     {
@@ -245,11 +393,14 @@ class HomeDayStrip extends StatelessWidget
     }
 
     return DayStripFrame(
+      stacked: stacked,
       column: (band)
       {
         final HomeBandStatus? status = read.where((status) => status.band == band).firstOrNull;
 
-        return status == null ? ClosedBandColumn(band: band) : _column(status);
+        return status == null
+            ? ClosedBandColumn(band: band, stacked: stacked)
+            : _column(context, status, stacked: stacked);
       },
     );
   }
@@ -267,8 +418,9 @@ class HomeDayStrip extends StatelessWidget
     return status.isPublished && status.offered && unconvened != null ? unconvened : emptyBandLabel;
   }
 
-  Widget _column(HomeBandStatus status)
+  Widget _column(BuildContext context, HomeBandStatus status, {required bool stacked})
   {
+    final StripScale scale = StripScale.of(context);
     final List<Widget> rows = [];
 
     // Children with lessons get a lane each; an empty band shows its opening instead.
@@ -281,7 +433,7 @@ class HomeDayStrip extends StatelessWidget
         rows.add(Text(
           '$name · ${emptyBandLabel.toLowerCase()}',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 12.5,
+            fontSize: scale.closed - 0.5,
             fontWeight: FontWeight.w600,
             fontStyle: FontStyle.italic,
             height: 1.35,
@@ -314,14 +466,36 @@ class HomeDayStrip extends StatelessWidget
       }
     }
 
+    final Widget heading = Text(
+      _headingOf(status).toUpperCase(),
+      maxLines: stacked ? 2 : 1,
+      overflow: TextOverflow.ellipsis,
+      style: _caps(scale),
+    );
+
+    if (stacked)
+    {
+      return StripStackedBand(
+        head: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            StripBandHead(band: status.band, isPublished: status.isPublished),
+            const SizedBox(height: 2),
+            heading,
+          ],
+        ),
+        rows: rows,
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         StripBandHead(band: status.band, isPublished: status.isPublished),
         const SizedBox(height: 2),
-        Text(_headingOf(status).toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: _caps()),
+        heading,
         for (final row in rows) ...[
-          const SizedBox(height: _rowGap),
+          SizedBox(height: scale.rowGap),
           row,
         ],
       ],
@@ -339,19 +513,21 @@ class _ClosedLane extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final StripScale scale = StripScale.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _LaneLabel(icon: lessonModeIcon(mode), label: modeLabel(mode), color: kStripClosedColor),
-        const SizedBox(height: 5),
+        SizedBox(height: scale.labelGap),
         SizedBox(
-          height: _trackHeight,
+          height: scale.track,
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
               kClosedLabel,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
+                fontSize: scale.closed - 1,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
                 color: kStripClosedColor,
@@ -378,12 +554,13 @@ class _LaneLabel extends StatelessWidget
   Widget build(BuildContext context)
   {
     final String? note = this.note;
+    final StripScale scale = StripScale.of(context);
 
     return SizedBox(
-      height: 18,
+      height: scale.label + 5,
       child: Row(
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: scale.icon, color: color),
           const SizedBox(width: 5),
           Flexible(
             child: DescenderRoom(
@@ -394,13 +571,22 @@ class _LaneLabel extends StatelessWidget
                     if (note != null)
                       TextSpan(
                         text: '  $note',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.trialMutedText),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: scale.note,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.trialMutedText,
+                        ),
                       ),
                   ],
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, height: 1.2, color: color),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: scale.label,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                  color: color,
+                ),
               ),
             ),
           ),
@@ -422,6 +608,7 @@ class StripLane extends StatelessWidget
   {
     final OpeningWindow opening = lane.opening;
     final bool named = lane.name.isNotEmpty;
+    final StripScale scale = StripScale.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -432,16 +619,16 @@ class StripLane extends StatelessWidget
           color: named ? AppTheme.trialInk : lessonAccent(lane.mode),
           note: lane.subjects > 0 ? homeSubjectsLabel(lane.subjects) : null,
         ),
-        const SizedBox(height: 5),
+        SizedBox(height: scale.labelGap),
         SizedBox(
-          height: _trackHeight,
+          height: scale.track,
           child: Row(
             children: [
-              Text(_clock(opening.startMinutes), style: _time()),
-              const SizedBox(width: _timeGap),
+              Text(_clock(opening.startMinutes), style: _time(scale)),
+              SizedBox(width: scale.timeGap),
               Expanded(child: _Track(lane: lane)),
-              const SizedBox(width: _timeGap),
-              Text(_clock(opening.endMinutes), style: _time()),
+              SizedBox(width: scale.timeGap),
+              Text(_clock(opening.endMinutes), style: _time(scale)),
             ],
           ),
         ),
@@ -467,6 +654,7 @@ class _Track extends StatelessWidget
     final OpeningWindow opening = lane.opening;
     final Color accent = lessonAccent(lane.mode);
     final double width = constraints.maxWidth;
+    final double radius = constraints.maxHeight / 2;
 
     double x(int minutes) => (minutes - opening.startMinutes) / opening.minutes * width;
 
@@ -476,7 +664,7 @@ class _Track extends StatelessWidget
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: AppTheme.trialPaper,
-              borderRadius: BorderRadius.circular(_trackHeight / 2),
+              borderRadius: BorderRadius.circular(radius),
             ),
           ),
         ),
@@ -489,7 +677,7 @@ class _Track extends StatelessWidget
             child: AppTooltip(
               message: formatMinutesRange(start, end),
               child: DecoratedBox(
-                decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(_trackHeight / 2)),
+                decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(radius)),
               ),
             ),
           ),

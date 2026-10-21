@@ -80,7 +80,7 @@ class _Body extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final AppWindowSize size = AppBreakpoints.fromWidth(width);
+    final AppWindowSize size = AppBreakpoints.of(context);
     final double margin = AppBreakpoints.pageMargin(size);
 
     return Container(

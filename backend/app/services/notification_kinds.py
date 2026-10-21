@@ -73,6 +73,7 @@ CHOOSABLE: Final[dict[NotificationKindEnum, frozenset[str]]] = {
     ),
     NotificationKindEnum.REPORT_RECEIVED: frozenset({_REPORT_READER}),
     NotificationKindEnum.RATING_REMINDER: frozenset({_PRESIDENT}),
+    NotificationKindEnum.TEACHER_NOTE_ADDED: frozenset({"ADMIN"}),
 }
 
 

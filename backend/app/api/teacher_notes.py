@@ -1,12 +1,17 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Response, status
 
 from app.api.dependencies import DbSession
 from app.api.rbac import IdentityContext, require_role
 from app.models.teacher_note import TeacherNote
 from app.schemas.student_note import StudentNoteWrite
+from app.services import push
 from app.services.student_notes import note_of_student
+from app.services.teacher_note_notifications import (
+    announce_teacher_note,
+    teacher_note_deleted,
+)
 from app.services.teacher_notes import write_teacher_note
 
 # Written by the teacher once the lesson begins; only administrators read or delete it.
@@ -25,6 +30,7 @@ async def create_teacher_note(
     payload: StudentNoteWrite,
     identity: Teacher,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> dict[str, int]:
     note = await write_teacher_note(
         db,
@@ -32,7 +38,9 @@ async def create_teacher_note(
         lesson_id=lesson_id,
         payload=payload,
     )
+    batch = await announce_teacher_note(db, note)
     await db.commit()
+    background.add_task(push.deliver, batch)
 
     return {"id": note.id}
 
@@ -46,6 +54,7 @@ async def delete_teacher_note(
     note_id: int,
     _: Administrator,
     db: DbSession,
+    background: BackgroundTasks,
 ) -> Response:
     note = await note_of_student(
         db,
@@ -54,7 +63,9 @@ async def delete_teacher_note(
         note_id=note_id,
     )
 
+    batch = await teacher_note_deleted(db, note.id)
     await db.delete(note)
     await db.commit()
+    background.add_task(push.deliver, batch)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

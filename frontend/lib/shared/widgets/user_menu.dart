@@ -3,19 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'app_menu.dart';
 import 'app_top_nav.dart';
 import 'overflow_tooltip_text.dart';
 
 const Color _logoutColor = AppTheme.trialDanger;
 
 const double _menuWidth = 210;
-const double _leadingSpace = 14;
-const double _iconSize = 18;
-const double _iconTextGap = 10;
-const double _itemRadius = 10;
-const double _hoverBarHeight = 20;
-
-const EdgeInsets _itemPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+const double _headedMenuWidth = 230;
 
 class UserMenu extends StatelessWidget
 {
@@ -30,6 +25,14 @@ class UserMenu extends StatelessWidget
   // The reports still unread, beside their entry.
   final ValueListenable<int>? unreadReports;
 
+  // Given where the bar has no room to write the role: the menu heads with it.
+  final String? role;
+
+  final bool dense;
+
+  // The entries alone, for a menu that holds them under its own.
+  final bool bare;
+
   const UserMenu({
     super.key,
     required this.destinations,
@@ -38,6 +41,9 @@ class UserMenu extends StatelessWidget
     required this.onChangeRole,
     required this.onLogout,
     this.unreadReports,
+    this.role,
+    this.dense = false,
+    this.bare = false,
   });
 
   Widget _buildReports(AppDestination destination)
@@ -46,12 +52,12 @@ class UserMenu extends StatelessWidget
 
     return ValueListenableBuilder<int>(
       valueListenable: unread,
-      builder: (context, count, _) => _HoverMenuItem(
+      builder: (context, count, _) => AppMenuItem(
         icon: Icons.flag_rounded,
         text: destination.label,
-        color: AppTheme.trialTealDeep,
         marked: count > 0,
         trailing: count > 0 ? _CountBadge(count) : null,
+        dense: dense,
         onTap: () => onGo(destination.route!),
       ),
     );
@@ -77,141 +83,88 @@ class UserMenu extends StatelessWidget
 
   Widget _buildDestination(IconData icon, AppDestination destination)
   {
-    return _HoverMenuItem(
+    return AppMenuItem(
       icon: icon,
       text: destination.label,
-      color: AppTheme.trialTealDeep,
+      dense: dense,
       onTap: () => onGo(destination.route!),
     );
   }
 
-  @override
-  Widget build(BuildContext context)
+  Widget _buildHead(String role)
   {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: _menuWidth,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: AppTheme.overlayShadow,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDestination(Icons.person_rounded, destinations.ownPage),
-            _buildDestination(Icons.settings_rounded, destinations.settings),
-            const Divider(height: 1),
-            ..._buildManagement(),
-            if (canChangeRole) ...[
-              _HoverMenuItem(
-                icon: Icons.swap_horiz_rounded,
-                text: 'Cambia ruolo',
-                color: AppTheme.trialTealDeep,
-                onTap: onChangeRole,
-              ),
-              const Divider(height: 1),
-            ],
-            _HoverMenuItem(
-              icon: Icons.logout_rounded,
-              text: 'Logout',
-              color: _logoutColor,
-              onTap: onLogout,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(30, 14, 16, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SEI AUTENTICATO COME',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.4,
+              height: 1.2,
+              color: AppTheme.trialMutedText,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 2),
+          OverflowTooltipText(
+            text: role,
+            maxLines: 1,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+              color: AppTheme.trialTealDeep,
+            ),
+          ),
+        ],
       ),
     );
   }
-}
-
-class _HoverMenuItem extends StatefulWidget
-{
-  final IconData icon;
-  final String text;
-  final Color color;
-
-  final VoidCallback onTap;
-
-  // The gold bar stays without the pointer: something there is waiting.
-  final bool marked;
-
-  final Widget? trailing;
-
-  const _HoverMenuItem({
-    required this.icon,
-    required this.text,
-    required this.color,
-    required this.onTap,
-    this.marked = false,
-    this.trailing,
-  });
-
-  @override
-  State<_HoverMenuItem> createState() => _HoverMenuItemState();
-}
-
-class _HoverMenuItemState extends State<_HoverMenuItem>
-{
-  bool _hover = false;
 
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(_itemRadius),
-        child: Padding(
-          padding: _itemPadding,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.centerLeft,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeOut,
-                width: 2,
-                height: _hover || widget.marked ? _hoverBarHeight : 0,
-                decoration: BoxDecoration(
-                  color: AppTheme.trialGold,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Row(
-                children: [
-                  const SizedBox(width: _leadingSpace),
-                  SizedBox(
-                    width: _iconSize,
-                    child: Icon(widget.icon, size: _iconSize, color: widget.color),
-                  ),
-                  const SizedBox(width: _iconTextGap),
-                  Expanded(
-                    child: OverflowTooltipText(
-                      text: widget.text,
-                      maxLines: 1,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: widget.color,
-                      ),
-                    ),
-                  ),
-                  if (widget.trailing case final Widget trailing) ...[
-                    const SizedBox(width: 8),
-                    trailing,
-                  ],
-                ],
-              ),
-            ],
-          ),
+    final String? role = this.role;
+
+    final List<Widget> entries = [
+      if (role != null) ...[
+        _buildHead(role),
+        const Divider(height: 1),
+      ],
+      _buildDestination(Icons.person_rounded, destinations.ownPage),
+      _buildDestination(Icons.settings_rounded, destinations.settings),
+      const Divider(height: 1),
+      ..._buildManagement(),
+      if (canChangeRole) ...[
+        AppMenuItem(
+          icon: Icons.swap_horiz_rounded,
+          text: 'Cambia ruolo',
+          dense: dense,
+          onTap: onChangeRole,
         ),
+        const Divider(height: 1),
+      ],
+      AppMenuItem(
+        icon: Icons.logout_rounded,
+        text: 'Logout',
+        color: _logoutColor,
+        dense: dense,
+        onTap: onLogout,
       ),
-    );
+    ];
+
+    if (bare)
+    {
+      return Column(mainAxisSize: MainAxisSize.min, children: entries);
+    }
+
+    return AppMenuCard(width: role != null ? _headedMenuWidth : _menuWidth, children: entries);
   }
 }
 

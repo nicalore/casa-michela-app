@@ -163,7 +163,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
   Widget build(BuildContext context)
   {
     final hasDescription = subject.description != null && subject.description!.isNotEmpty;
-    final compact = AppBreakpoints.of(context).isCompact;
+    final compact = AppBreakpoints.of(context).isNarrow;
 
     // Fixed-width column: "Scuola Secondaria di II Grado" needs 254px and must
     // not wrap.

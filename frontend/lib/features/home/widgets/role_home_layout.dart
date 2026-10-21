@@ -109,6 +109,17 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   // The greeting sits nearer the bar than other pages' content: the home must fit one screen.
   static const double _greetingTopGap = 16;
 
+  static const double _denseGreetingBottomGap = 8;
+  static const double _denseSectionGap = 12;
+  static const double _denseGreetingTopGap = 14;
+  static const double _minimalGreetingTopGap = 12;
+
+  // Where the page scrolls, the notifications show the newest few.
+  static const int _cappedTasks = 4;
+
+  // On a short laptop two rows of notices leave the rest of the left column room.
+  static const int _compactNotices = 4;
+
   static const double _maxContentWidth = 1600;
 
   // Below it the day's three bands get too narrow beside the notifications, and the cards stack.
@@ -478,7 +489,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     );
   }
 
-  Widget _noticesCard({required int columns})
+  Widget _noticesCard({required int columns, int shown = kHomeNoticesShown})
   {
     return _staggered(
       slot: 3,
@@ -488,58 +499,98 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
         isLoading: _loadingNotices,
         onOpen: (notice) => openNoticeReading(context, notice.id),
         columns: columns,
+        shown: shown,
       ),
     );
   }
 
-  // Tall: as high as the column beside it, scrolling inside; otherwise it grows up to five.
-  Widget _tasksCard({required bool tall})
+  // Tall: as high as the column beside it, scrolling inside; capped: the newest few, where the page scrolls.
+  Widget _tasksCard({bool tall = false, int? limit})
   {
     return _staggered(
       slot: 2,
       tour: kTourHomeNotifications,
-      card: HomeNotificationsSection(fill: tall),
+      card: HomeNotificationsSection(fill: tall, limit: limit),
     );
   }
 
-  Widget _buildHome(double width)
+  Widget _buildHome(double width, AppWindowSize size)
   {
-    final double inset = 2 * DashboardSectionCard.badgedPadding.left;
+    final double inset = 2 * DashboardSectionCard.badgedPaddingOf(context).left;
+    final double gap = size.isDense ? _denseSectionGap : _sectionGap;
 
-    if (width >= _besideFrom)
+    // The wide window as before; the compact one keeps its two columns at every width it has.
+    if (size == AppWindowSize.compact || (size == AppWindowSize.wide && width >= _besideFrom))
     {
-      final double left = ((width - _sectionGap) * _leftShare).floorToDouble();
+      final double left = ((width - gap) * _leftShare).floorToDouble();
+      final bool compact = size == AppWindowSize.compact;
 
       return homeBeside(
         left: _column([
           _dayCard(),
           _monthCard(cardWidth: left - inset),
-          _noticesCard(columns: 2),
-        ]),
+          _noticesCard(columns: 2, shown: compact ? _compactNotices : kHomeNoticesShown),
+        ], gap: gap),
         right: _tasksCard(tall: true),
         leftWidth: left,
-        gap: _sectionGap,
-        floor: _tasksFloor,
+        gap: gap,
+        floor: compact ? 0 : _tasksFloor,
       );
+    }
+
+    // Narrow: the day across, the rest in two columns; the page scrolls, nothing inside it.
+    if (size == AppWindowSize.narrow)
+    {
+      final double left = ((width - gap) * _narrowLeftShare).floorToDouble();
+
+      return _column([
+        _dayCard(),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: left,
+              child: _column([
+                _monthCard(cardWidth: left - inset),
+                _noticesCard(columns: 1),
+              ], gap: gap),
+            ),
+            SizedBox(width: gap),
+            Expanded(child: _tasksCard(limit: _cappedTasks)),
+          ],
+        ),
+      ], gap: gap);
+    }
+
+    if (size == AppWindowSize.minimal)
+    {
+      return _column([
+        _dayCard(),
+        _tasksCard(limit: _cappedTasks),
+        _monthCard(cardWidth: width - inset),
+        _noticesCard(columns: 1),
+      ], gap: gap);
     }
 
     return _column([
       _dayCard(),
       _monthCard(cardWidth: width - inset),
-      _tasksCard(tall: false),
+      _tasksCard(limit: _cappedTasks),
       _noticesCard(columns: width >= _twoNoticeColumnsFrom ? 2 : 1),
-    ]);
+    ], gap: gap);
   }
 
   static const double _twoNoticeColumnsFrom = 700;
 
-  Widget _column(List<Widget> rows)
+  static const double _narrowLeftShare = 0.52;
+
+  Widget _column(List<Widget> rows, {double gap = _sectionGap})
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) const SizedBox(height: _sectionGap),
+          if (i > 0) SizedBox(height: gap),
           rows[i],
         ],
       ],
@@ -549,14 +600,22 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   @override
   Widget build(BuildContext context)
   {
-    // widget.width is the page width, not the window width.
-    final AppWindowSize size = AppBreakpoints.fromWidth(widget.width);
+    final AppWindowSize size = AppBreakpoints.of(context);
     final double margin = AppBreakpoints.pageMargin(size);
 
-    final double topInset = size.isCompact
-        ? AppTopBar.contentTopInsetFor(size)
-        : AppTopBar.bottomFor(size) + _greetingTopGap;
-    final double greetingFontSize = size.isCompact ? 34.0 : 42.0;
+    final double topInset = AppTopBar.bottomFor(size) + switch (size)
+    {
+      AppWindowSize.wide => _greetingTopGap,
+      AppWindowSize.minimal => _minimalGreetingTopGap,
+      _ => _denseGreetingTopGap,
+    };
+
+    final double greetingFontSize = switch (size)
+    {
+      AppWindowSize.wide => 42.0,
+      AppWindowSize.minimal => 24.0,
+      _ => 28.0,
+    };
 
     final double contentWidth = math.min(widget.width - 2 * margin, _maxContentWidth);
 
@@ -582,7 +641,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
           const PageWatermark(),
           Positioned.fill(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(margin, topInset, margin, 28),
+              padding: EdgeInsets.fromLTRB(margin, topInset, margin, size.isDense ? 16 : 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -599,7 +658,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
                       ),
                     ),
                   ),
-                  const SizedBox(height: _greetingBottomGap),
+                  SizedBox(height: size.isDense ? _denseGreetingBottomGap : _greetingBottomGap),
                   Expanded(
                     child: widget.role == kPsychologistRole
                         ? const Center(
@@ -612,7 +671,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
                             child: Center(
                               child: SizedBox(
                                 width: contentWidth,
-                                child: _buildHome(contentWidth),
+                                child: _buildHome(contentWidth, size),
                               ),
                             ),
                           ),

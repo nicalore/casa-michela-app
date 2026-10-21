@@ -9,6 +9,7 @@ import '../../../services/auth_state.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_brand.dart';
+import '../../shared/widgets/mobile_development_warning.dart';
 import '../../shared/widgets/mobile_entrance_motion.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
 import '../../shared/widgets/mobile_gold_button.dart';
@@ -170,33 +171,6 @@ class _MobileLoginPageState extends State<MobileLoginPage>
     }
   }
 
-  Widget _buildTerms()
-  {
-    final TextStyle link = GoogleFonts.plusJakartaSans(
-      fontWeight: FontWeight.w700,
-      color: AppTheme.trialTealDeep,
-    );
-
-    return Text.rich(
-      TextSpan(
-        children: [
-          const TextSpan(text: 'Accedendo, accetti le '),
-          TextSpan(text: "Condizioni d'Uso", style: link),
-          const TextSpan(text: " e l'"),
-          TextSpan(text: 'Informativa sulla Privacy', style: link),
-          const TextSpan(text: '.'),
-        ],
-      ),
-      textAlign: TextAlign.center,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: 12.5,
-        fontWeight: FontWeight.w500,
-        height: 1.5,
-        color: AppTheme.trialInk.withValues(alpha: 0.8),
-      ),
-    );
-  }
-
   Widget _buildCard()
   {
     return AnimatedBuilder(
@@ -267,8 +241,6 @@ class _MobileLoginPageState extends State<MobileLoginPage>
               busy: _spinning,
               onPressed: _login,
             ),
-            const SizedBox(height: 18),
-            _buildTerms(),
           ],
         ),
       ),
@@ -309,17 +281,24 @@ class _MobileLoginPageState extends State<MobileLoginPage>
 
   Widget _buildFooterText()
   {
-    return Text(
-      '© ${DateTime.now().year} Nicolò Calore\n'
-      'ATTENZIONE: applicazione attualmente in sviluppo. '
-      'Potrebbero verificarsi comportamenti inaspettati.',
-      textAlign: TextAlign.center,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w500,
-        height: 1.5,
-        color: Colors.white.withValues(alpha: 0.5),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const MobileDevelopmentWarning(
+          'ATTENZIONE: applicazione attualmente in sviluppo. '
+          'Potrebbero verificarsi comportamenti inaspettati.',
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '© ${DateTime.now().year} Nicolò Calore',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.72),
+          ),
+        ),
+      ],
     );
   }
 
@@ -345,7 +324,10 @@ class _MobileLoginPageState extends State<MobileLoginPage>
             _buildCard(),
           const Spacer(),
           SizedBox(height: tablet ? _tabletBrandGap : _phoneBrandGap),
-          _buildFooter(),
+          if (tablet)
+            Center(child: SizedBox(width: _tabletCardWidth, child: _buildFooter()))
+          else
+            _buildFooter(),
         ],
       ),
     );
@@ -373,7 +355,7 @@ class _MobileLoginPageState extends State<MobileLoginPage>
             ),
           ),
           const SizedBox(height: _tabletBrandGap),
-          _buildFooter(),
+          Center(child: SizedBox(width: _tabletCardWidth, child: _buildFooter())),
         ],
       ),
     );

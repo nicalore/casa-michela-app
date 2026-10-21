@@ -26,12 +26,17 @@ from app.services.new_devices import about_session
 from app.services.notice_notifications import reached_roles
 from app.services.notification_kinds import choices_of, choose
 from app.services.notifications import dismissals, withdraw
+from app.services.teacher_note_notifications import teacher_notes_seen
 
 _NOTIFICATION_NOT_FOUND_ERROR: Final[str] = "Notifica non trovata."
 
-# Withdrawn on read: the rating reminder opens the rating, new devices need nothing.
+# Withdrawn on read: these open what they tell of, or a new device needs nothing.
 _GONE_ONCE_READ: Final[frozenset[NotificationKindEnum]] = frozenset(
-    {NotificationKindEnum.NEW_DEVICE, NotificationKindEnum.RATING_REMINDER},
+    {
+        NotificationKindEnum.NEW_DEVICE,
+        NotificationKindEnum.RATING_REMINDER,
+        NotificationKindEnum.TEACHER_NOTE_ADDED,
+    },
 )
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -212,6 +217,28 @@ async def own_availabilities_seen(
     background: BackgroundTasks,
 ) -> Response:
     batch = await availabilities_seen(db, current_account.tax_code, date_from, date_to)
+    await db.commit()
+    background.add_task(push.deliver, batch)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# A pupil's notes on screen: what announced teachers' new ones has done its work.
+@router.put(
+    "/teacher-notes/{pupil_tax_code}/seen",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def pupil_teacher_notes_seen(
+    pupil_tax_code: str,
+    current_account: CurrentAccount,
+    db: DbSession,
+    background: BackgroundTasks,
+) -> Response:
+    batch = await teacher_notes_seen(
+        db,
+        current_account.tax_code,
+        pupil_tax_code.upper(),
+    )
     await db.commit()
     background.add_task(push.deliver, batch)
 

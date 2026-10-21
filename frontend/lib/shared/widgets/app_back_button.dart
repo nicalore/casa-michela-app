@@ -8,6 +8,8 @@ const double _height = 52;
 
 class AppBackButton extends StatefulWidget
 {
+  static const double height = _height;
+
   final String tooltip;
   final VoidCallback onTap;
 

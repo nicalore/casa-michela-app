@@ -16,7 +16,8 @@ class RoleHomePage extends StatelessWidget
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // The homes fit any height, scrolling inside.
+        minHeight: 0,
         builder: (context, width, height) => RoleHomeLayout(
           role: role,
           width: width,

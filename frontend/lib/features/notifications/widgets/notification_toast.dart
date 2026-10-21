@@ -206,7 +206,7 @@ class _NotificationToastLayerState extends State<NotificationToastLayer> with Ti
     }
 
     final Size window = MediaQuery.sizeOf(context);
-    final AppWindowSize size = AppBreakpoints.fromWidth(window.width);
+    final AppWindowSize size = AppBreakpoints.fromSize(window);
     final double margin = AppBreakpoints.pageMargin(size);
     final double width = math.min(_width, window.width - 2 * margin);
     final bool effects = VisualEffects.of(context);

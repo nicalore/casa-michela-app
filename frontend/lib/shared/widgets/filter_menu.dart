@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
+import 'close_on_resize.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
 
@@ -58,13 +59,19 @@ class CustomFilterMenu<T> extends StatefulWidget
   State<CustomFilterMenu<T>> createState() => _CustomFilterMenuState<T>();
 }
 
-class _CustomFilterMenuState<T> extends State<CustomFilterMenu<T>>
+class _CustomFilterMenuState<T> extends State<CustomFilterMenu<T>> with CloseOnResize
 {
   final GlobalKey _buttonKey = GlobalKey();
   final GlobalKey<_FilterOverlayContentState> _menuKey = GlobalKey();
 
   OverlayEntry? _overlayEntry;
   bool _isHovered = false;
+
+  @override
+  bool get menuShown => _overlayEntry != null;
+
+  @override
+  void closeMenuForResize() => _closeMenu();
 
   void _toggleMenu()
   {

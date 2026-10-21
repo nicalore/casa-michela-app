@@ -9,6 +9,7 @@ import '../../../features/auth/models/me_response.dart';
 import '../../../features/people/widgets/person_detail_widgets.dart';
 import '../../../features/settings/models/session_item.dart';
 import '../../../features/settings/settings_jump.dart';
+import '../../../features/settings/utils/association_documents.dart';
 import '../../../features/settings/utils/settings_strings.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
@@ -54,9 +55,9 @@ const String _confirmTitle = 'Confermi?';
 const int _devicesPage = 2;
 const Duration _pageTurn = Duration(milliseconds: 320);
 
-// Mobile only: the desktop opens the regulation in a tab instead.
-const String _regulationSaved = 'Il regolamento è stato scaricato.';
-const String _regulationSaveFailed = 'Non è stato possibile salvare il regolamento.';
+// Mobile only: the desktop opens the document in a tab instead.
+const String _documentSaved = 'Il documento è stato scaricato.';
+const String _documentSaveFailed = 'Non è stato possibile salvare il documento.';
 
 // Page data lives here: the pages are not kept alive.
 class MobileSettingsPage extends StatefulWidget
@@ -83,7 +84,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
   int _sessionsRequest = 0;
 
   bool _revokingOthers = false;
-  bool _savingRegulation = false;
+  AssociationDocument? _saving;
 
   // Set once the shell has stopped moving the page in.
   bool _settledIn = false;
@@ -323,32 +324,32 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
     }
   }
 
-  Future<void> _saveRegulation() async
+  Future<void> _saveDocument(AssociationDocument document) async
   {
-    if (_savingRegulation)
+    if (_saving != null)
     {
       return;
     }
 
-    setState(() => _savingRegulation = true);
+    setState(() => _saving = document);
 
     try
     {
-      final ApiFile regulation = await _apiService.fetchRegulation();
-      final bool saved = await saveToDevice(regulation.bytes, fileName: regulation.fileName);
+      final ApiFile file = await _apiService.fetchDocument(document.path, fallbackName: document.title);
+      final bool saved = await saveToDevice(file.bytes, fileName: file.fileName);
 
       if (saved && mounted)
       {
-        MobileNotice.show(context, _regulationSaved);
+        MobileNotice.show(context, _documentSaved);
       }
     }
     on PlatformException catch (e, stackTrace)
     {
-      reportCaughtError(e, stackTrace, during: 'il salvataggio del regolamento');
+      reportCaughtError(e, stackTrace, during: 'il salvataggio di un documento');
 
       if (mounted)
       {
-        MobileNotice.show(context, _regulationSaveFailed, error: true);
+        MobileNotice.show(context, _documentSaveFailed, error: true);
       }
     }
     catch (e)
@@ -362,7 +363,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
     {
       if (mounted)
       {
-        setState(() => _savingRegulation = false);
+        setState(() => _saving = null);
       }
     }
   }
@@ -485,7 +486,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
   List<Widget> _buildInfo({required bool tablet})
   {
     return [
-      MobileDocumentsCard(onRegulation: _saveRegulation, regulationBusy: _savingRegulation),
+      MobileDocumentsCard(onDocument: _saveDocument, busy: _saving),
       const SizedBox(height: _reportGap),
       _ButtonWidth(
         tablet: tablet,

@@ -98,7 +98,7 @@ class _AuthGate extends StatelessWidget
                 AuthState.unauthenticated => _Entrance.signIn,
                 AuthState.passwordChangeRequired => _Entrance.passwordChange,
                 AuthState.authenticated =>
-                  identity?.onboardingRequired ?? false ? _Entrance.firstAccess : _Entrance.home,
+                  identity?.firstAccessPending ?? false ? _Entrance.firstAccess : _Entrance.home,
               };
 
         final Widget page = switch (entrance)

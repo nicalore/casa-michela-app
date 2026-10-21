@@ -180,7 +180,7 @@ class PersonDetailHeader extends StatelessWidget
       return Align(alignment: Alignment.centerLeft, child: _buildBackButton());
     }
 
-    if (size.isCompact)
+    if (size.isNarrow)
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,

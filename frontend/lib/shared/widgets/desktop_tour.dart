@@ -1069,7 +1069,7 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     final Size window = MediaQuery.sizeOf(context);
 
     // Narrow windows lose the menus the tour speaks of: it waits for a wider one.
-    if (AppBreakpoints.fromWidth(window.width).isCompact)
+    if (AppBreakpoints.isNarrowWidth(window.width))
     {
       return const SizedBox.shrink();
     }

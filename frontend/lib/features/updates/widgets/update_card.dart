@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,6 +11,10 @@ import 'update_badges.dart';
 
 const double _radius = 24;
 const double _authorMaxWidth = 280;
+const double _dateGap = 24;
+
+// The version badge, its gap and the least of the title.
+const double _headLeast = 220;
 
 class UpdateCard extends StatefulWidget
 {
@@ -27,20 +33,68 @@ class _UpdateCardState extends State<UpdateCard>
 
   TextStyle get _muted => GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.trialMutedText);
 
-  Widget _sent()
+  String _sentText()
   {
     final UpdateSummaryItem update = widget.update;
     final DateTime? editedAt = update.editedAt;
+    final String sent = noticeSent(update.createdAt);
 
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: noticeSent(update.createdAt)),
-          if (editedAt != null) TextSpan(text: ' ${updateEditedLabel(noticeDay(editedAt))}'),
-        ],
-      ),
+    return editedAt == null ? sent : '$sent ${updateEditedLabel(noticeDay(editedAt))}';
+  }
+
+  double _textWidth(String text, TextStyle style)
+  {
+    final TextPainter painter = TextPainter(
+      text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
-      style: _muted,
+    )..layout();
+
+    final double width = painter.width;
+    painter.dispose();
+
+    return width;
+  }
+
+  // The version and the title, with the date at the end while the title keeps its least room, else under them.
+  Widget _head(double width)
+  {
+    final UpdateSummaryItem update = widget.update;
+    final String sent = _sentText();
+    final bool beside = width - _textWidth(sent, _muted) - _dateGap >= _headLeast;
+
+    final Widget title = Row(
+      children: [
+        UpdateVersionBadge(update.version),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            update.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+          ),
+        ),
+        if (beside) ...[
+          const SizedBox(width: _dateGap),
+          Text(sent, maxLines: 1, style: _muted),
+        ],
+      ],
+    );
+
+    if (beside)
+    {
+      return title;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        title,
+        const SizedBox(height: 4),
+        Text(sent, maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted),
+      ],
     );
   }
 
@@ -65,54 +119,42 @@ class _UpdateCardState extends State<UpdateCard>
             border: Border.all(color: AppTheme.trialGold.withValues(alpha: _hover ? 1 : 0), width: 2),
             boxShadow: AppTheme.cardShadow,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  UpdateVersionBadge(update.version),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      update.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+          child: LayoutBuilder(
+            builder: (context, constraints) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _head(constraints.maxWidth),
+                const SizedBox(height: 7),
+                Row(
+                  children: [
+                    ConstrainedBox(
+                      // Half the card at most, so the badges keep room beside it.
+                      constraints: BoxConstraints(maxWidth: math.min(_authorMaxWidth, constraints.maxWidth / 2)),
+                      child: Text(
+                        update.authorName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 24),
-                  _sent(),
-                ],
-              ),
-              const SizedBox(height: 7),
-              Row(
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: _authorMaxWidth),
-                    child: Text(
-                      update.authorName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: UpdateRoleBadges(roles: update.recipients, alignment: WrapAlignment.end),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: UpdateRoleBadges(roles: update.recipients, alignment: WrapAlignment.end),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                update.preview,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w500, height: 1.45, color: const Color(0xFF33495A)),
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  update.preview,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w500, height: 1.45, color: const Color(0xFF33495A)),
+                ),
+              ],
+            ),
           ),
         ),
       ),

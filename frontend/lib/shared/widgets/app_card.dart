@@ -10,6 +10,7 @@ const double _cardRadius = 40;
 
 const double _compactBadgeSize = 64;
 const double _smallBadgeSize = 40;
+const double _denseBadgeSize = 32;
 const double _compactCardPadding = 26;
 const double _compactCardRadius = 32;
 
@@ -161,11 +162,24 @@ class AppCardBadge extends StatelessWidget
   // The home cards' header.
   final bool small;
 
-  const AppCardBadge({super.key, required this.icon, this.compact = false, this.small = false});
+  // The home cards' header below the wide window.
+  final bool dense;
+
+  const AppCardBadge({super.key, required this.icon, this.compact = false, this.small = false, this.dense = false});
 
   @override
   Widget build(BuildContext context)
   {
+    if (dense)
+    {
+      return Container(
+        width: _denseBadgeSize,
+        height: _denseBadgeSize,
+        decoration: const BoxDecoration(gradient: AppTheme.brandGradient, shape: BoxShape.circle),
+        child: Icon(icon, size: 17, color: Colors.white),
+      );
+    }
+
     final double size = small ? _smallBadgeSize : compact ? _compactBadgeSize : _badgeSize;
 
     return Container(
@@ -225,7 +239,7 @@ class AppInfoRow extends StatelessWidget
           ),
         );
 
-    if (AppBreakpoints.of(context).isCompact)
+    if (AppBreakpoints.of(context).isNarrow)
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,

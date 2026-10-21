@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/week_range.dart' show formatMinutes, formatMonthYear;
@@ -247,12 +248,9 @@ List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool with
 
 class _TileScale
 {
-  static const double label = 11;
   static const double lineHeight = 1.3;
   static const double border = 1.5;
 
-  static const double labelGap = 10;
-  static const double warningGap = 8;
   static const double warningLineHeight = 1.25;
 
   final double value;
@@ -263,6 +261,11 @@ class _TileScale
   final double side;
   final double gap;
 
+  final double label;
+  final double labelGap;
+  final double warningGap;
+  final double radius;
+
   const _TileScale({
     required this.value,
     required this.unit,
@@ -270,6 +273,10 @@ class _TileScale
     required this.padding,
     required this.side,
     required this.gap,
+    this.label = 11,
+    this.labelGap = 10,
+    this.warningGap = 8,
+    this.radius = 20,
   });
 
   static const _TileScale _wide =
@@ -279,8 +286,27 @@ class _TileScale
   static const _TileScale _quad =
       _TileScale(value: 24, unit: 13, warning: 12.5, padding: 10, side: 12, gap: 10);
 
-  static _TileScale of(int columns)
+  // Every count of columns below the wide window.
+  static const _TileScale _dense = _TileScale(
+    value: 20,
+    unit: 12,
+    warning: 11.5,
+    padding: 7,
+    side: 11,
+    gap: 8,
+    label: 9.5,
+    labelGap: 6,
+    warningGap: 5,
+    radius: 14,
+  );
+
+  static _TileScale of(int columns, {required bool dense})
   {
+    if (dense)
+    {
+      return _dense;
+    }
+
     if (columns >= 4)
     {
       return _quad;
@@ -302,6 +328,9 @@ class HomeMonthSection extends StatelessWidget
 
   static const double _tableNameWidth = 96;
   static const double _tableRowHeight = 42;
+
+  static const double _denseTableNameWidth = 76;
+  static const double _denseTableRowHeight = 34;
 
   // Past two people the card scrolls, the third's name peeking under the fold.
   static const int _scrollPast = 2;
@@ -361,11 +390,11 @@ class HomeMonthSection extends StatelessWidget
       icon: Icons.insights_rounded,
       title: title,
       action: DashboardCardNote(formatMonthYear(month)),
-      child: _buildBody(),
+      child: _buildBody(dense: AppBreakpoints.of(context).isDense),
     );
   }
 
-  Widget _buildBody()
+  Widget _buildBody({required bool dense})
   {
     if (isLoading)
     {
@@ -395,19 +424,22 @@ class HomeMonthSection extends StatelessWidget
       );
     }
 
-    return read.length > 1 ? _table(read) : _grid(read.first.figures, _TileScale.of(columns));
+    return read.length > 1
+        ? _table(read, dense: dense)
+        : _grid(read.first.figures, _TileScale.of(columns, dense: dense));
   }
 
   // One person a row, the figures as columns; past two the rows scroll under a fixed head.
-  Widget _table(List<HomeFigureGroup> read)
+  Widget _table(List<HomeFigureGroup> read, {required bool dense})
   {
     final bool scrolls = read.length > _scrollPast;
+    final double rowHeight = dense ? _denseTableRowHeight : _tableRowHeight;
 
     final Widget head = Padding(
-      padding: EdgeInsets.only(right: scrolls ? 14 : 0, bottom: 6),
+      padding: EdgeInsets.only(right: scrolls ? 14 : 0, bottom: dense ? 4 : 6),
       child: Row(
         children: [
-          const SizedBox(width: _tableNameWidth),
+          SizedBox(width: dense ? _denseTableNameWidth : _tableNameWidth),
           for (final figure in read.first.figures)
             Expanded(
               child: Text(
@@ -415,9 +447,9 @@ class HomeMonthSection extends StatelessWidget
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: _TileScale.label,
+                  fontSize: dense ? 9.5 : 11,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 1.1,
+                  letterSpacing: dense ? 0.6 : 1.1,
                   height: _TileScale.lineHeight,
                   color: AppTheme.trialMutedText,
                 ),
@@ -430,7 +462,7 @@ class HomeMonthSection extends StatelessWidget
     final Widget rows = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [for (final group in read) _TableRow(group: group)],
+      children: [for (final group in read) _TableRow(group: group, dense: dense)],
     );
 
     return Column(
@@ -440,7 +472,7 @@ class HomeMonthSection extends StatelessWidget
         head,
         if (scrolls)
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: _scrollPast * _tableRowHeight + _peek),
+            constraints: BoxConstraints(maxHeight: _scrollPast * rowHeight + _peek),
             child: _PeopleScroll(child: rows),
           )
         else
@@ -496,30 +528,36 @@ class _TableRow extends StatelessWidget
 {
   final HomeFigureGroup group;
 
-  const _TableRow({required this.group});
+  final bool dense;
+
+  const _TableRow({required this.group, this.dense = false});
 
   @override
   Widget build(BuildContext context)
   {
     return Container(
-      height: HomeMonthSection._tableRowHeight,
+      height: dense ? HomeMonthSection._denseTableRowHeight : HomeMonthSection._tableRowHeight,
       decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppTheme.trialLine))),
       child: Row(
         children: [
           SizedBox(
-            width: HomeMonthSection._tableNameWidth,
+            width: dense ? HomeMonthSection._denseTableNameWidth : HomeMonthSection._tableNameWidth,
             child: Text(
               group.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.trialInk),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: dense ? 13.5 : 15,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.trialInk,
+              ),
             ),
           ),
           for (final figure in group.figures)
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: FittedBox(fit: BoxFit.scaleDown, child: _TableValue(figure: figure)),
+                child: FittedBox(fit: BoxFit.scaleDown, child: _TableValue(figure: figure, dense: dense)),
               ),
             ),
         ],
@@ -532,7 +570,9 @@ class _TableValue extends StatelessWidget
 {
   final HomeFigure figure;
 
-  const _TableValue({required this.figure});
+  final bool dense;
+
+  const _TableValue({required this.figure, this.dense = false});
 
   @override
   Widget build(BuildContext context)
@@ -544,14 +584,14 @@ class _TableValue extends StatelessWidget
     };
 
     final TextStyle number = GoogleFonts.plusJakartaSans(
-      fontSize: figure.isWord ? 16 : 20,
+      fontSize: dense ? (figure.isWord ? 14 : 17) : (figure.isWord ? 16 : 20),
       fontWeight: FontWeight.w700,
       height: 1,
       color: color,
     );
 
     final TextStyle unit = GoogleFonts.plusJakartaSans(
-      fontSize: 12.5,
+      fontSize: dense ? 11.5 : 12.5,
       fontWeight: FontWeight.w600,
       height: 1,
       color: AppTheme.trialMutedText,
@@ -642,7 +682,7 @@ class _FigureTile extends StatelessWidget
       figure.label.toUpperCase(),
       maxLines: 1,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: _TileScale.label,
+        fontSize: scale.label,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.1,
         height: _TileScale.lineHeight,
@@ -747,7 +787,7 @@ class _FigureTile extends StatelessWidget
       padding: EdgeInsets.symmetric(horizontal: scale.side, vertical: scale.padding),
       decoration: BoxDecoration(
         color: warned ? AppTheme.modifiedAccentSurface : AppTheme.trialPaper,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(scale.radius),
         border: Border.all(
           color: warned ? AppTheme.modifiedAccent.withValues(alpha: 0.28) : AppTheme.trialLine,
           width: _TileScale.border,
@@ -759,10 +799,10 @@ class _FigureTile extends StatelessWidget
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           label,
-          const SizedBox(height: _TileScale.labelGap),
+          SizedBox(height: scale.labelGap),
           SizedBox(height: scale.value, child: value),
           if (figure.hasAside || keepsAsideLine) ...[
-            const SizedBox(height: _TileScale.warningGap),
+            SizedBox(height: scale.warningGap),
             asideLine,
           ],
         ],

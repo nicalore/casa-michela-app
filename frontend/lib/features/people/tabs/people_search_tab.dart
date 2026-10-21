@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
-import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
@@ -289,13 +288,16 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         builder: (context, constraints)
         {
           final available = constraints.maxWidth;
+          final bool dense = AppBreakpoints.of(context).isDense;
+          final denseLayout = EntityCardGrid.denseLayout(available, kDenseWideCardWidth);
 
           final columns = _columnsFor(available);
-          final width = ((available - _cardGap * (columns - 1)) / columns)
-              .clamp(PersonCard.minWidth, PersonCard.maxWidth);
+          final width = dense
+              ? denseLayout.width
+              : ((available - _cardGap * (columns - 1)) / columns).clamp(PersonCard.minWidth, PersonCard.maxWidth);
 
           // Rows use the count that actually fits after the width is clamped.
-          final fitting = ((available + _cardGap) / (width + _cardGap)).floor();
+          final fitting = dense ? denseLayout.perRow : ((available + _cardGap) / (width + _cardGap)).floor();
 
           return PageTransitionScrollView.slivers(
             slivers: [
@@ -310,7 +312,8 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
                 ],
                 cardWidth: width,
                 perRow: fitting < 1 ? 1 : fitting,
-                gap: _cardGap,
+                gap: dense ? kDenseCardGap : _cardGap,
+                fromStart: dense,
               ),
             ],
           );
@@ -352,24 +355,20 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
               }),
               hintText: 'Cerca persona...',
             ),
-            action: AppGradientButton(
+            action: tabActionButton(
               label: 'NUOVA PERSONA',
               icon: Icons.person_add_alt_1_rounded,
-              height: 50,
-              radius: 25,
-              fontSize: 14,
               onPressed: _openCreationDialog,
             ),
           ),
         ),
-        const SizedBox(height: 28),
+        const TabHeaderGap(wide: 28, dense: 10),
         PageTransitionItem(
           slot: PageTransitionItem.header,
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
+          child: TabFiltersRow(
+            countGap: 36,
+            countLabel: people.length == 1 ? '1 persona trovata' : '${people.length} persone trovate',
+            filters: [
               AppFilterPill<_PeopleSort>.setting(
                 prefix: 'Ordina',
                 hint: 'Ordina per',
@@ -396,20 +395,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        const SizedBox(height: 16),
-        PageTransitionItem(
-          slot: PageTransitionItem.header,
-          child: Text(
-            people.length == 1 ? '1 persona trovata' : '${people.length} persone trovate',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
+        const TabHeaderGap(wide: 16, dense: 12),
         if (_isLoading)
           const Padding(
             padding: EdgeInsets.only(top: 60),

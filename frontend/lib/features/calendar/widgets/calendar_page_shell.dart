@@ -302,7 +302,7 @@ class CalendarPageShell extends StatelessWidget
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final AppWindowSize size = AppBreakpoints.fromWidth(width);
+          final AppWindowSize size = AppBreakpoints.of(context);
           final double margin = AppBreakpoints.pageMargin(size);
 
           return Container(

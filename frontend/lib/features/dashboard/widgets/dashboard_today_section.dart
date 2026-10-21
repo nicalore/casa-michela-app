@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -171,6 +172,13 @@ List<DashboardBandStatus> openBands({
 const double _hoursRow = 22;
 const double _figureRow = 24;
 
+const double _denseHoursRow = 19;
+const double _denseFigureRow = 20;
+
+double _hoursRowOf(BuildContext context) => AppBreakpoints.of(context).isDense ? _denseHoursRow : _hoursRow;
+
+double _figureRowOf(BuildContext context) => AppBreakpoints.of(context).isDense ? _denseFigureRow : _figureRow;
+
 // "Docenti", "studenti" and "lezioni": a band that has fewer keeps the empty rows.
 const int _figureRows = 3;
 
@@ -197,11 +205,13 @@ class DashboardTodaySection extends StatelessWidget
       icon: Icons.today_rounded,
       title: 'Orari e prenotazioni',
       action: DashboardCardNote(formatWeekdayColumnLabel(day)),
-      child: _buildBody(),
+      child: LayoutBuilder(
+        builder: (context, constraints) => _buildBody(stacked: constraints.maxWidth < kStripStackedBelow),
+      ),
     );
   }
 
-  Widget _buildBody()
+  Widget _buildBody({required bool stacked})
   {
     if (isLoading)
     {
@@ -230,11 +240,14 @@ class DashboardTodaySection extends StatelessWidget
     }
 
     return DayStripFrame(
+      stacked: stacked,
       column: (band)
       {
         final DashboardBandStatus? status = open.where((status) => status.band == band).firstOrNull;
 
-        return status == null ? ClosedBandColumn(band: band) : _BandColumn(status: status);
+        return status == null
+            ? ClosedBandColumn(band: band, stacked: stacked)
+            : _BandColumn(status: status, stacked: stacked);
       },
     );
   }
@@ -244,7 +257,9 @@ class _BandColumn extends StatelessWidget
 {
   final DashboardBandStatus status;
 
-  const _BandColumn({required this.status});
+  final bool stacked;
+
+  const _BandColumn({required this.status, this.stacked = false});
 
   // Openings name their modes in words, the same hours both ways as one.
   BandOpening? _openingOf(String mode)
@@ -258,20 +273,40 @@ class _BandColumn extends StatelessWidget
   Widget build(BuildContext context)
   {
     final List<DashboardBandFigure> figures = status.figures;
+    final Widget head = StripBandHead(band: status.band, isPublished: status.isPublished, isDraft: status.isDraft);
+
+    final List<Widget> hours = [
+      for (final mode in kStripModes)
+        if (_openingOf(mode) case final opening?)
+          _Hours(mode: mode, opening: opening)
+        else
+          StripClosedMode(mode: mode, height: _hoursRowOf(context)),
+    ];
+
+    // Stacked, a band keeps only the figures it has.
+    if (stacked)
+    {
+      return StripStackedBand(
+        head: head,
+        rows: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: hours),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [for (final figure in figures) _Figure(figure: figure)],
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        StripBandHead(band: status.band, isPublished: status.isPublished, isDraft: status.isDraft),
+        head,
         const SizedBox(height: 6),
-        for (final mode in kStripModes)
-          if (_openingOf(mode) case final opening?)
-            _Hours(mode: mode, opening: opening)
-          else
-            StripClosedMode(mode: mode, height: _hoursRow),
+        ...hours,
         const SizedBox(height: 6),
         for (var i = 0; i < _figureRows; i++)
-          i < figures.length ? _Figure(figure: figures[i]) : const SizedBox(height: _figureRow),
+          i < figures.length ? _Figure(figure: figures[i]) : SizedBox(height: _figureRowOf(context)),
       ],
     );
   }
@@ -287,11 +322,13 @@ class _Hours extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final StripScale scale = StripScale.of(context);
+
     return SizedBox(
-      height: _hoursRow,
+      height: _hoursRowOf(context),
       child: Row(
         children: [
-          Icon(lessonModeIcon(mode), size: 16, color: lessonAccent(mode)),
+          Icon(lessonModeIcon(mode), size: scale.icon, color: lessonAccent(mode)),
           const SizedBox(width: 6),
           Flexible(
             child: FittedBox(
@@ -300,7 +337,7 @@ class _Hours extends StatelessWidget
               child: Text(
                 formatMinutesRange(opening.startMinutes, opening.endMinutes),
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
+                  fontSize: scale.hours,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
                   color: AppTheme.trialInk,
@@ -325,8 +362,10 @@ class _Figure extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final StripScale scale = StripScale.of(context);
+
     return SizedBox(
-      height: _figureRow,
+      height: _figureRowOf(context),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
@@ -337,7 +376,7 @@ class _Figure extends StatelessWidget
               '${figure.value}',
               textAlign: TextAlign.right,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 18,
+                fontSize: scale.figure,
                 fontWeight: FontWeight.w800,
                 height: 1.2,
                 color: AppTheme.trialOcean,
@@ -353,7 +392,7 @@ class _Figure extends StatelessWidget
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12.5,
+                  fontSize: scale.figureLabel,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
                   color: AppTheme.trialMutedText,

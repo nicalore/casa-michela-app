@@ -262,6 +262,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
       ),
       body: EntityCardGrid(
         cardWidth: _cardWidth,
+        denseWidth: kDenseWideCardWidth,
         children: programs.map((program)
         {
           return StudyProgramCard(

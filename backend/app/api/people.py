@@ -1840,8 +1840,15 @@ def _view(full: PersonResponse, fields: frozenset[str]) -> PersonResponse:
     return PersonResponse(**full.model_dump(include=set(fields)))
 
 
+# Pickup settings stay with the administrators, even the reader's own.
 def _with_children(full: PersonResponse, kept: frozenset[str]) -> PersonResponse:
-    children = [child for child in full.children or [] if child.fiscal_code in kept]
+    children = [
+        child.model_copy(
+            update={"authorized_pickup": None, "pickup_restriction_reason": None}
+        )
+        for child in full.children or []
+        if child.fiscal_code in kept
+    ]
     count = None if full.children_count is None else len(children)
 
     return full.model_copy(
@@ -2066,11 +2073,13 @@ async def get_person(
     follows = "PSYCHOLOGIST" in identity.roles and is_followed(person.member_profile)
 
     # No notes for families; a following psychologist keeps the methodological ones.
+    # Parents' records and pickup restrictions stay with the administrators.
     household = full.model_copy(
         update={
             "technical_notes": None,
             "teacher_notes": None,
             "methodological_notes": full.methodological_notes if follows else None,
+            "parents": None,
         }
     )
 

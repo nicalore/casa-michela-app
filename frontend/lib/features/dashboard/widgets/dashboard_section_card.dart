@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/descender_room.dart';
@@ -11,6 +12,15 @@ class DashboardSectionCard extends StatelessWidget
   static const EdgeInsets padding = EdgeInsets.fromLTRB(28, 24, 28, 26);
 
   static const EdgeInsets badgedPadding = EdgeInsets.fromLTRB(22, 14, 22, 16);
+
+  static const EdgeInsets denseBadgedPadding = EdgeInsets.fromLTRB(16, 12, 16, 13);
+
+  static const double _denseRadius = 22;
+
+  static EdgeInsets badgedPaddingOf(BuildContext context)
+  {
+    return AppBreakpoints.of(context).isDense ? denseBadgedPadding : badgedPadding;
+  }
 
   static const EdgeInsets _compactPadding = EdgeInsets.fromLTRB(22, 20, 22, 20);
 
@@ -46,25 +56,26 @@ class DashboardSectionCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     final IconData? icon = this.icon;
+    final bool dense = icon != null && AppBreakpoints.of(context).isDense;
 
     return ConstrainedBox(
       constraints: BoxConstraints(minHeight: minHeight),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(radius),
+          borderRadius: BorderRadius.circular(dense ? _denseRadius : radius),
           boxShadow: AppTheme.cardShadow,
         ),
-        padding: icon != null ? badgedPadding : compact ? _compactPadding : padding,
+        padding: icon != null ? (dense ? denseBadgedPadding : badgedPadding) : compact ? _compactPadding : padding,
         child: Column(
           mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (icon != null) ...[
-              _badgedHead(icon),
-              const SizedBox(height: 10),
+              _badgedHead(icon, dense: dense),
+              SizedBox(height: dense ? 8 : 10),
               Container(height: 1, color: AppTheme.trialLine),
-              const SizedBox(height: 12),
+              SizedBox(height: dense ? 10 : 12),
             ] else ...[
               _plainHead(),
               SizedBox(height: compact ? 14 : 20),
@@ -76,12 +87,12 @@ class DashboardSectionCard extends StatelessWidget
     );
   }
 
-  Widget _badgedHead(IconData icon)
+  Widget _badgedHead(IconData icon, {required bool dense})
   {
     return Row(
       children: [
-        AppCardBadge(icon: icon, small: true),
-        const SizedBox(width: 12),
+        AppCardBadge(icon: icon, small: true, dense: dense),
+        SizedBox(width: dense ? 10 : 12),
         Expanded(
           child: DescenderRoom(
             child: Text(
@@ -89,7 +100,7 @@ class DashboardSectionCard extends StatelessWidget
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 18,
+                fontSize: dense ? 15.5 : 18,
                 fontWeight: FontWeight.w700,
                 height: 1.2,
                 color: AppTheme.trialOcean,
@@ -160,7 +171,7 @@ class DashboardCardNote extends StatelessWidget
       text,
       maxLines: 1,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 13.5,
+        fontSize: AppBreakpoints.of(context).isDense ? 12.5 : 13.5,
         fontWeight: FontWeight.w700,
         color: AppTheme.trialMutedText,
       ),

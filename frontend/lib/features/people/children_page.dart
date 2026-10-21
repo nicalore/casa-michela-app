@@ -11,6 +11,7 @@ import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_gradient_button.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
+import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/desktop_tour.dart';
@@ -98,8 +99,6 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
     for (final child in _children)
       RailGroup(title: child.firstName, entries: _entries),
   ];
-
-  PersonItem get _selectedChild => _children[_selectedSection ~/ _entries.length];
 
   // The child the tour follows: the first with statistics, else the first.
   int get _toured
@@ -361,22 +360,25 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
           const SizedBox(width: AppSectionRail.gap),
         ],
         Expanded(
-          child: size.isCompact
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    PageTransitionItem(
-                      slot: PageTransitionItem.frame,
-                      child: AppSectionHeading(
-                        module: '$_module · ${_selectedChild.firstName}',
-                        section: railEntryAt(_sections, _selectedSection),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Expanded(child: _buildSectionContent()),
-                  ],
-                )
-              : _buildSectionContent(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!size.hasRail) ...[
+                PageTransitionItem(
+                  slot: PageTransitionItem.frame,
+                  child: AppSectionTabs(
+                    title: _module,
+                    groups: _sections,
+                    selectedIndex: _selectedSection,
+                    onSelected: _selectSection,
+                    tours: {_toured * _entries.length + _statsIndex: kTourChildrenToStats},
+                  ),
+                ),
+                const SizedBox(height: kSectionTabsGap),
+              ],
+              Expanded(key: const ValueKey('children-sections'), child: _buildSectionContent()),
+            ],
+          ),
         ),
       ],
     );
@@ -391,7 +393,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final AppWindowSize size = AppBreakpoints.fromWidth(width);
+          final AppWindowSize size = AppBreakpoints.of(context);
           final double margin = AppBreakpoints.pageMargin(size);
 
           return Container(
@@ -425,13 +427,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
                   ),
                 ),
                 // Last in the stack so the bar and its menu stay above the page.
-                AppTopBar(
-                  currentRoute: '${homeForRole(_parentRole)}/children',
-                  sectionTitle: _module,
-                  sectionGroups: _sections,
-                  selectedSection: _selectedSection,
-                  onSectionSelected: _selectSection,
-                ),
+                AppTopBar(currentRoute: '${homeForRole(_parentRole)}/children'),
               ],
             ),
           );

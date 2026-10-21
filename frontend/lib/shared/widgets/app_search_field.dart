@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 
 const double _height = 50;
+const double _denseHeight = 42;
 
 const double _focusRingWidth = 4;
 const double _focusRingOpacity = 0.14;
@@ -96,50 +98,58 @@ class _AppSearchFieldState extends State<AppSearchField>
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final double height = dense ? _denseHeight : _height;
+    final double fontSize = dense ? 15 : 17;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: AnimatedContainer(
-        duration: _focusFade,
-        curve: Curves.easeOut,
-        height: _height,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(_height),
-          border: Border.all(
-            color: _hasFocus || _hover ? AppTheme.trialGold : AppTheme.trialLine,
-            width: 1.5,
-          ),
-          boxShadow: [
-            ...AppTheme.cardShadow,
-            BoxShadow(
-              color: AppTheme.trialGold.withValues(alpha: _hasFocus ? _focusRingOpacity : 0),
-              spreadRadius: _hasFocus ? _focusRingWidth : 0,
+      child: SizedBox(
+        height: height,
+        child: AnimatedContainer(
+          duration: _focusFade,
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(height),
+            border: Border.all(
+              color: _hasFocus || _hover ? AppTheme.trialGold : AppTheme.trialLine,
+              width: 1.5,
             ),
-          ],
-        ),
-        child: TextField(
-          controller: widget.controller,
-          focusNode: _focusNode,
-          onChanged: widget.onChanged,
-          textAlignVertical: TextAlignVertical.center,
-          cursorColor: AppTheme.trialTealDeep,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 17,
-            fontWeight: FontWeight.w500,
-            color: AppTheme.trialInk,
+            boxShadow: [
+              ...AppTheme.cardShadow,
+              BoxShadow(
+                color: AppTheme.trialGold.withValues(alpha: _hasFocus ? _focusRingOpacity : 0),
+                spreadRadius: _hasFocus ? _focusRingWidth : 0,
+              ),
+            ],
           ),
-          decoration: InputDecoration(
-            hintText: widget.hintText,
-            hintStyle: GoogleFonts.plusJakartaSans(
-              fontSize: 17,
+          child: TextField(
+            controller: widget.controller,
+            focusNode: _focusNode,
+            onChanged: widget.onChanged,
+            textAlignVertical: TextAlignVertical.center,
+            cursorColor: AppTheme.trialTealDeep,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: fontSize,
               fontWeight: FontWeight.w500,
-              color: AppTheme.trialMutedText,
+              color: AppTheme.trialInk,
             ),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.only(left: 26),
-            suffixIcon: _buildTrailing(),
-            suffixIconConstraints: const BoxConstraints(minWidth: 60, minHeight: _height),
+            decoration: InputDecoration(
+              // The field's own least height would overflow the low box and push the text down.
+              isDense: dense,
+              hintText: widget.hintText,
+              hintStyle: GoogleFonts.plusJakartaSans(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.trialMutedText,
+              ),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.only(left: dense ? 20 : 26),
+              suffixIcon: _buildTrailing(),
+              suffixIconConstraints: BoxConstraints(minWidth: dense ? 52 : 60, minHeight: height),
+            ),
           ),
         ),
       ),

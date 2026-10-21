@@ -2179,6 +2179,23 @@ class ApiService
     }
   }
 
+  Future<MeResponse> acceptTerms() async
+  {
+    try
+    {
+      final response = await _dio.post('/auth/accept-terms');
+      final me = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
+
+      identity.value = me;
+
+      return me;
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Non è stato possibile registrare l'accettazione. Riprova più tardi.");
+    }
+  }
+
   Future<MeResponse> setActiveRole(String role) async
   {
     try
@@ -2772,6 +2789,12 @@ class ApiService
     );
   }
 
+  // A pupil's Osservazioni on screen: the notifications of teachers' new notes go.
+  Future<void> markTeacherNotesSeen(String pupilTaxCode) async
+  {
+    await _dio.put('/notifications/teacher-notes/$pupilTaxCode/seen');
+  }
+
   // The kinds of the account's roles that can be turned on or off.
   Future<List<NotificationKindChoice>> getNotificationKinds() async
   {
@@ -3107,23 +3130,23 @@ class ApiService
     }
   }
 
-  Future<ApiFile> fetchRegulation() async
+  Future<ApiFile> fetchDocument(String path, {required String fallbackName}) async
   {
     try
     {
       final response = await _dio.get<List<int>>(
-        '/documents/regulation',
+        '/documents/$path',
         options: Options(responseType: ResponseType.bytes),
       );
 
       return (
         bytes: Uint8List.fromList(response.data!),
-        fileName: fileNameOf(response.headers.value('content-disposition')) ?? 'Regolamento.pdf',
+        fileName: fileNameOf(response.headers.value('content-disposition')) ?? '$fallbackName.pdf',
       );
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Errore imprevisto durante il recupero del regolamento. Riprova più tardi.');
+      _refusedBytes(e, 'Errore imprevisto durante il recupero del documento. Riprova più tardi.');
     }
   }
 

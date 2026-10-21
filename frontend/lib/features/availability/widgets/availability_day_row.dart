@@ -214,14 +214,14 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
+        // The pill goes under the weekday when the column is too narrow for both.
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             AppEyebrow(weekdayFullName(widget.day.weekday)),
-            if (widget.isToday) ...[
-              const SizedBox(width: 8),
-              const _TodayPill(),
-            ],
+            if (widget.isToday) const _TodayPill(),
           ],
         ),
         const SizedBox(height: 4),

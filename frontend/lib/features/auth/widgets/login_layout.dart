@@ -284,50 +284,38 @@ class _LoginLayoutState extends State<LoginLayout>
                   _buildTitle(isNarrow),
                   SizedBox(height: isNarrow ? 32 : 48),
                   _buildCredentials(isNarrow),
-                  const SizedBox(height: 26),
-                  AppDialogPill(
-                    expand: true,
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          const TextSpan(text: 'Accedendo, accetti le '),
-                          TextSpan(
-                            text: "Condizioni d'Uso",
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.trialTealDeep,
-                            ),
+                  const SizedBox(height: 34),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'ATTENZIONE: ',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.modifiedAccent,
                           ),
-                          const TextSpan(text: " e l'"),
-                          TextSpan(
-                            text: 'Informativa sulla Privacy',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.trialTealDeep,
-                            ),
-                          ),
-                          const TextSpan(text: '.'),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
-                        color: AppTheme.trialMutedText,
-                      ),
+                        ),
+                        const TextSpan(
+                          text: 'applicazione attualmente in sviluppo. '
+                              'Potrebbero verificarsi comportamenti inaspettati.',
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 28),
-                  Text(
-                    '© ${DateTime.now().year} Nicolò Calore\n'
-                    'ATTENZIONE: applicazione attualmente in sviluppo. '
-                    'Potrebbero verificarsi comportamenti inaspettati.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
                       height: 1.5,
+                      color: AppTheme.trialInk.withValues(alpha: 0.82),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '© ${DateTime.now().year} Nicolò Calore',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
                       color: AppTheme.trialMutedText,
                     ),
                   ),

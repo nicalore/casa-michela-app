@@ -24,6 +24,7 @@ from app.core.client_device import (
     ClientDevice,
     describe_client,
 )
+from app.core.config import settings
 from app.core.password_policy import PasswordPolicyError
 from app.core.storage import discard_profile_image, store_profile_image
 from app.models.account import Account
@@ -340,6 +341,10 @@ def _identity_payload(account: Account) -> dict[str, Any]:
         "password_reset_required": account.password_reset_required,
         # Stays required until the whole flow ends; the password change is step one.
         "onboarding_required": account.onboarding_completed_at is None,
+        # Asked in the first-access flow, or alone to those already past it.
+        "terms_required": (
+            settings.terms_acceptance_enabled and account.terms_accepted_at is None
+        ),
         # A pupil somebody answers for: parents book and pay, so their area is smaller.
         "has_parental_responsibility": RoleService.is_answered_for(person),
         # Such a pupil may still be allowed to book; payments stay with the parents.
@@ -409,6 +414,22 @@ async def complete_onboarding(
 
     if account.onboarding_completed_at is None:
         account.onboarding_completed_at = datetime.now(UTC)
+
+        await db.commit()
+
+    return _identity_payload(account)
+
+
+# The first acceptance stays: a later call never moves its date.
+@router.post("/accept-terms")
+async def accept_terms(
+    current_account: CurrentAccount,
+    db: DbSession,
+) -> dict[str, Any]:
+    account = current_account
+
+    if account.terms_accepted_at is None:
+        account.terms_accepted_at = datetime.now(UTC)
 
         await db.commit()
 

@@ -10,18 +10,6 @@ const String kMobileOwnPageSlug = 'profile';
 const String kMobileSettingsSlug = 'settings';
 const String kMobileReportsSlug = 'reports';
 
-// A role's sections come from role_sections.dart, so the menu matches the desktop bar.
-const Map<String, IconData> _sectionIcons = <String, IconData>{
-  'subjects': Icons.menu_book_rounded,
-  'availability': Icons.event_available_rounded,
-  'calendar': Icons.calendar_month_rounded,
-  'compensation': Icons.payments_rounded,
-  'association': Icons.groups_rounded,
-  'bookings': Icons.bookmark_added_rounded,
-  'payments': Icons.receipt_long_rounded,
-  'children': Icons.family_restroom_rounded,
-};
-
 class MobileDestination
 {
   final String slug;
@@ -56,7 +44,7 @@ List<MobileDestination> mobileDestinationsFor(String role, {required bool hasPar
       MobileDestination(
         slug: section.slug,
         label: section.label,
-        icon: _sectionIcons[section.slug] ?? Icons.grid_view_rounded,
+        icon: kSectionIcons[section.slug] ?? Icons.grid_view_rounded,
         available: section.available,
       ),
   ];

@@ -173,7 +173,8 @@ class _RelatedPersonResponse(BaseModel):
     profile_image_url: str | None = None
     roles: list[str] = []
 
-    authorized_pickup: bool = True
+    # None for readers who are not administrators.
+    authorized_pickup: bool | None = True
     pickup_restriction_reason: str | None = None
 
 

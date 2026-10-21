@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -14,15 +15,17 @@ import '../../services/api_service.dart';
 import '../../shared/export/pdf_tab.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
+import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/dialog_components.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/snackbar.dart';
-import '../../shared/widgets/app_segmented_tabs.dart';
 import '../auth/models/me_response.dart';
+import '../notifications/teacher_notes_seen.dart';
 import '../settings/utils/settings_strings.dart';
 import 'models/person_item.dart';
+import 'person_jump.dart';
 import 'edit/person_edit_dialog.dart';
 import 'tabs/person_account_shared.dart';
 import 'tabs/person_account_tab.dart';
@@ -39,6 +42,8 @@ import 'tabs/person_subjects_tab.dart';
 import 'tabs/person_teacher_parent_tab.dart';
 import 'widgets/create_account_dialog.dart';
 import 'widgets/person_detail_header.dart';
+
+const String _observationsSection = 'Osservazioni';
 
 class PersonDetailPage extends StatefulWidget
 {
@@ -68,12 +73,17 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
   late String _currentFiscalCode;
 
+  // Asked by a notification: the Osservazioni, once the record is read.
+  bool _observationsAsked = false;
+
   @override
   void initState()
   {
     super.initState();
     _currentFiscalCode = widget.fiscalCode;
+    _observationsAsked = PersonJumps.takeObservations(_currentFiscalCode);
     visitedSections.add(_selectedSection);
+    PersonJumps.asked.addListener(_onObservationsAsked);
     _fetchPersonData();
     _fetchCurrentUser();
   }
@@ -81,8 +91,46 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   @override
   void dispose()
   {
+    PersonJumps.asked.removeListener(_onObservationsAsked);
     _accountController?.dispose();
     super.dispose();
+  }
+
+  // Read again first: the note announced may be newer than the record shown.
+  void _onObservationsAsked()
+  {
+    if (!mounted || !PersonJumps.takeObservations(_currentFiscalCode))
+    {
+      return;
+    }
+
+    _observationsAsked = true;
+    _fetchPersonData(quiet: true);
+  }
+
+  // Straight on it when the record first shows; a record already shown turns to it.
+  void _showObservations({required bool turn})
+  {
+    final int index = _sections.indexWhere((section) => section.label == _observationsSection);
+
+    if (index < 0)
+    {
+      return;
+    }
+
+    if (turn)
+    {
+      _selectSection(index);
+
+      return;
+    }
+
+    setState(()
+    {
+      _selectedSection = index;
+      visitedSections.add(index);
+    });
+    _observationsSeen(index);
   }
 
   // Failure is silent: _isOwnProfile just stays false.
@@ -143,6 +191,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
             _selectedSection = 0;
           }
         });
+
+        if (_observationsAsked)
+        {
+          _observationsAsked = false;
+          _showObservations(turn: quiet);
+        }
       }
     }
     catch (e)
@@ -279,7 +333,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         view: PersonNotPreferredTeachersTab(person: person, onUpdate: _fetchPersonData),
       ));
       sections.add(PersonSection(
-        label: 'Osservazioni',
+        label: _observationsSection,
         view: PersonObservationsTab(person: person, onUpdate: _fetchPersonData),
       ));
     }
@@ -534,19 +588,21 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           const SizedBox(width: AppSectionRail.gap),
         ],
         Expanded(
-          child: size.hasRail
-              ? content
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AppSegmentedTabs(
-                      labels: [for (final section in sections) section.label],
-                      selectedIndex: _selectedSection,
-                      onSelected: _selectSection,
-                    ),
-                    Expanded(child: content),
-                  ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!size.hasRail) ...[
+                AppSectionTabs(
+                  title: 'Persone',
+                  groups: personRailGroups(sections),
+                  selectedIndex: _selectedSection,
+                  onSelected: _selectSection,
                 ),
+                const SizedBox(height: kSectionTabsGap),
+              ],
+              Expanded(key: const ValueKey('person-sections'), child: content),
+            ],
+          ),
         ),
       ],
     );
@@ -555,6 +611,18 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   void _selectSection(int index)
   {
     openSection(index, () => _selectedSection = index);
+    _observationsSeen(index);
+  }
+
+  // The teachers' notes on screen: the news of new ones goes.
+  void _observationsSeen(int index)
+  {
+    final PersonItem? person = _person;
+
+    if (person != null && _sections[index].label == _observationsSection)
+    {
+      unawaited(markTeacherNotesSeen(person.fiscalCode));
+    }
   }
 
   @override
@@ -568,7 +636,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final size = AppBreakpoints.fromWidth(width);
+          final size = AppBreakpoints.of(context);
           final margin = AppBreakpoints.pageMargin(size);
 
           return Container(

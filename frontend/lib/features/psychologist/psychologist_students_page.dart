@@ -50,6 +50,10 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
   final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
 
+  // Moved, not rebuilt, between side by side and one at a time: the list keeps its offset and its field.
+  final GlobalKey _listKey = GlobalKey();
+  final GlobalKey _sheetKey = GlobalKey();
+
   bool _isLoading = true;
 
   List<PersonItem> _students = [];
@@ -308,6 +312,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
   Widget _buildList(List<PersonItem> students)
   {
     return StudentListPanel(
+      key: _listKey,
       students: students,
       selectedCode: _selectedCode,
       searchController: _searchController,
@@ -329,6 +334,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     }
 
     return PageSections(
+      key: _sheetKey,
       index: 0,
       step: student.fiscalCode,
       children: [
@@ -361,7 +367,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
 
     final List<PersonItem> students = _filteredStudents;
 
-    if (size.isCompact)
+    if (size.isNarrow)
     {
       if (_students.isEmpty)
       {
@@ -392,7 +398,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
         PageTransitionItem(
           slot: PageTransitionItem.frame,
           child: SizedBox(
-            width: size == AppWindowSize.expanded ? _listWidth : _narrowListWidth,
+            width: MediaQuery.sizeOf(context).width >= AppBreakpoints.wideMinWidth ? _listWidth : _narrowListWidth,
             child: _buildList(students),
           ),
         ),
@@ -411,7 +417,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final AppWindowSize size = AppBreakpoints.fromWidth(width);
+          final AppWindowSize size = AppBreakpoints.of(context);
           final double margin = AppBreakpoints.pageMargin(size);
 
           return Container(

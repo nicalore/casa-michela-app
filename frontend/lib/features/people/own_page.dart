@@ -11,7 +11,7 @@ import '../../services/api_service.dart';
 import '../../shared/widgets/app_gradient_button.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
-import '../../shared/widgets/app_segmented_tabs.dart';
+import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/page_transition.dart';
@@ -346,6 +346,14 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
 
     final Widget content = _buildSectionContent(person, sections);
 
+    final Map<int, String> tours = {
+      for (final (int index, OwnPageSection section) in sections.indexed)
+        if (section == OwnPageSection.other)
+          index: kTourOwnToOther
+        else if (section == OwnPageSection.stats)
+          index: kTourOwnToStats,
+    };
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -357,31 +365,28 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
               groups: [RailGroup(entries: labels)],
               selectedIndex: _selectedSection,
               onSelected: _selectSection,
-              tours: {
-                for (final (int index, OwnPageSection section) in sections.indexed)
-                  if (section == OwnPageSection.other)
-                    index: kTourOwnToOther
-                  else if (section == OwnPageSection.stats)
-                    index: kTourOwnToStats,
-              },
+              tours: tours,
             ),
           ),
           const SizedBox(width: AppSectionRail.gap),
         ],
         Expanded(
-          child: size.hasRail
-              ? content
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AppSegmentedTabs(
-                      labels: labels,
-                      selectedIndex: _selectedSection,
-                      onSelected: _selectSection,
-                    ),
-                    Expanded(child: content),
-                  ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!size.hasRail) ...[
+                AppSectionTabs(
+                  title: person.firstName,
+                  groups: [RailGroup(entries: labels)],
+                  selectedIndex: _selectedSection,
+                  onSelected: _selectSection,
+                  tours: tours,
                 ),
+                const SizedBox(height: kSectionTabsGap),
+              ],
+              Expanded(key: const ValueKey('own-sections'), child: content),
+            ],
+          ),
         ),
       ],
     );
@@ -396,7 +401,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final AppWindowSize size = AppBreakpoints.fromWidth(width);
+          final AppWindowSize size = AppBreakpoints.of(context);
           final double margin = AppBreakpoints.pageMargin(size);
 
           return Container(

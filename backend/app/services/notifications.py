@@ -95,6 +95,7 @@ async def notify(
     pupil_tax_code: str | None = None,
     author_tax_code: str | None = None,
     teacher_tax_code: str | None = None,
+    teacher_note_id: int | None = None,
     item_ids: Sequence[int] | None = None,
     known: dict[str, Any] | None = None,
 ) -> PushBatch:
@@ -117,6 +118,7 @@ async def notify(
             pupil_tax_code=pupil_tax_code,
             author_tax_code=author_tax_code,
             teacher_tax_code=teacher_tax_code,
+            teacher_note_id=teacher_note_id,
             item_ids=None if item_ids is None else list(item_ids),
             known=known,
         )

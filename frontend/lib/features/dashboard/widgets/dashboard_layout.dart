@@ -79,6 +79,19 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   // Two to a row under the notifications.
   static const int _birthdaysShown = 4;
 
+  static const double _denseGreetingBottomGap = 8;
+  static const double _denseSectionGap = 12;
+  static const double _denseGreetingTopGap = 14;
+  static const double _minimalGreetingTopGap = 12;
+
+  static const double _narrowLeftShare = 0.52;
+
+  // Where the page scrolls, the notifications show the newest few.
+  static const int _cappedTasks = 4;
+
+  // On a short laptop two rows of notices leave the rest of the left column room.
+  static const int _compactNotices = 4;
+
   final ApiService _apiService = ApiService();
 
   bool _loadingUser = true;
@@ -356,7 +369,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
           builder: (context, constraints) => ScrollEdgeFade(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: _buildHome(constraints.maxWidth - 32),
+              child: _buildHome(constraints.maxWidth - 32, AppBreakpoints.of(context)),
             ),
           ),
         ),
@@ -404,7 +417,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  Widget _noticesCard({required int columns})
+  Widget _noticesCard({required int columns, int shown = kHomeNoticesShown})
   {
     return _staggered(
       slot: 2,
@@ -413,16 +426,17 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
         isLoading: _loadingNotices,
         onOpen: (notice) => openNoticeReading(context, notice.id),
         columns: columns,
+        shown: shown,
       ),
     );
   }
 
-  // Tall: fills the room the column leaves, scrolling inside; else it grows up to five.
-  Widget _tasksCard({required bool tall})
+  // Tall: fills the room the column leaves, scrolling inside; capped: the newest few, where the page scrolls.
+  Widget _tasksCard({bool tall = false, int? limit})
   {
     return _staggered(
       slot: 3,
-      card: HomeNotificationsSection(fill: tall),
+      card: HomeNotificationsSection(fill: tall, limit: limit),
     );
   }
 
@@ -455,53 +469,97 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  Widget _buildHome(double width)
+  Widget _buildHome(double width, AppWindowSize size)
   {
-    final double inset = 2 * DashboardSectionCard.badgedPadding.left;
+    final double inset = 2 * DashboardSectionCard.badgedPaddingOf(context).left;
+    final double gap = size.isDense ? _denseSectionGap : _sectionGap;
 
-    if (width >= _besideFrom)
+    // The wide window as before; the compact one keeps its two columns at every width it has.
+    if (size == AppWindowSize.compact || (size == AppWindowSize.wide && width >= _besideFrom))
     {
-      final double left = ((width - _sectionGap) * _leftShare).floorToDouble();
-      final double right = width - _sectionGap - left;
+      final double left = ((width - gap) * _leftShare).floorToDouble();
+      final double right = width - gap - left;
+      final bool compact = size == AppWindowSize.compact;
 
       return homeBeside(
         left: _column([
           _todayCard(),
           _statsCard(cardWidth: left - inset),
-          _noticesCard(columns: 2),
-        ]),
+          _noticesCard(columns: 2, shown: compact ? _compactNotices : kHomeNoticesShown),
+        ], gap: gap),
         right: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(child: _tasksCard(tall: true)),
-            const SizedBox(height: _sectionGap),
+            SizedBox(height: gap),
             _birthdaysCard(cardWidth: right - inset),
           ],
         ),
         leftWidth: left,
-        gap: _sectionGap,
-        floor: _tasksFloor,
+        gap: gap,
+        floor: compact ? 0 : _tasksFloor,
       );
+    }
+
+    // Narrow: the day across, the rest in two columns; the page scrolls, nothing inside it.
+    if (size == AppWindowSize.narrow)
+    {
+      final double left = ((width - gap) * _narrowLeftShare).floorToDouble();
+      final double right = width - gap - left;
+
+      return _column([
+        _todayCard(),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: left,
+              child: _column([
+                _statsCard(cardWidth: left - inset),
+                _noticesCard(columns: 1),
+              ], gap: gap),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: _column([
+                _tasksCard(limit: _cappedTasks),
+                _birthdaysCard(cardWidth: right - inset),
+              ], gap: gap),
+            ),
+          ],
+        ),
+      ], gap: gap);
     }
 
     final double cardWidth = width - inset;
 
+    if (size == AppWindowSize.minimal)
+    {
+      return _column([
+        _todayCard(),
+        _tasksCard(limit: _cappedTasks),
+        _statsCard(cardWidth: cardWidth),
+        _noticesCard(columns: 1),
+        _birthdaysCard(cardWidth: cardWidth),
+      ], gap: gap);
+    }
+
     return _column([
       _todayCard(),
       _statsCard(cardWidth: cardWidth),
-      _tasksCard(tall: false),
+      _tasksCard(limit: _cappedTasks),
       _noticesCard(columns: width >= _twoColumnsFrom ? 2 : 1),
       _birthdaysCard(cardWidth: cardWidth),
-    ]);
+    ], gap: gap);
   }
 
-  Widget _column(List<Widget> rows)
+  Widget _column(List<Widget> rows, {double gap = _sectionGap})
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) const SizedBox(height: _sectionGap),
+          if (i > 0) SizedBox(height: gap),
           rows[i],
         ],
       ],
@@ -510,14 +568,22 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
 
   Widget _buildWebLayout(BuildContext context)
   {
-    // widget.width is the page width, not the window width.
-    final AppWindowSize size = AppBreakpoints.fromWidth(widget.width);
+    final AppWindowSize size = AppBreakpoints.of(context);
     final double margin = AppBreakpoints.pageMargin(size);
 
-    final double topInset = size.isCompact
-        ? AppTopBar.contentTopInsetFor(size)
-        : AppTopBar.bottomFor(size) + _greetingTopGap;
-    final double greetingFontSize = size.isCompact ? 34.0 : 42.0;
+    final double topInset = AppTopBar.bottomFor(size) + switch (size)
+    {
+      AppWindowSize.wide => _greetingTopGap,
+      AppWindowSize.minimal => _minimalGreetingTopGap,
+      _ => _denseGreetingTopGap,
+    };
+
+    final double greetingFontSize = switch (size)
+    {
+      AppWindowSize.wide => 42.0,
+      AppWindowSize.minimal => 24.0,
+      _ => 28.0,
+    };
 
     final double contentWidth =
         math.min(widget.width - 2 * margin, _maxContentWidth);
@@ -542,7 +608,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
           const PageWatermark(),
           Positioned.fill(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(margin, topInset, margin, 28),
+              padding: EdgeInsets.fromLTRB(margin, topInset, margin, size.isDense ? 16 : 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -559,13 +625,13 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
                       ),
                     ),
                   ),
-                  const SizedBox(height: _greetingBottomGap),
+                  SizedBox(height: size.isDense ? _denseGreetingBottomGap : _greetingBottomGap),
                   Expanded(
                     child: PageTransitionScrollView(
                       child: Center(
                         child: SizedBox(
                           width: contentWidth,
-                          child: _buildHome(contentWidth),
+                          child: _buildHome(contentWidth, size),
                         ),
                       ),
                     ),

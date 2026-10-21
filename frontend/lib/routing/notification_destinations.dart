@@ -10,6 +10,7 @@ import '../features/notifications/notice_jump.dart';
 import '../features/people/edit/person_edit_dialog.dart';
 import '../features/people/edit/person_edit_pages.dart';
 import '../features/people/models/person_item.dart';
+import '../features/people/person_jump.dart';
 import '../features/settings/settings_jump.dart';
 import '../features/notifications/week_jump.dart';
 import '../features/notifications/notification_item.dart';
@@ -64,6 +65,8 @@ void followNotification(NotificationItem item)
       _openReport(item);
     case NotificationKind.ratingReminder:
       unawaited(_openRating(item));
+    case NotificationKind.teacherNoteAdded:
+      unawaited(_openObservations(item));
     case NotificationKind.test:
     case NotificationKind.arrivalReminder:
     case NotificationKind.unknown:
@@ -174,6 +177,23 @@ void _openReport(NotificationItem item)
   {
     unawaited(openReport(context, id));
   }
+}
+
+// The pupil's record on Osservazioni, as administrator even from another role.
+Future<void> _openObservations(NotificationItem item) async
+{
+  final String? pupil = item.pupilTaxCode;
+
+  if (pupil == null)
+  {
+    return;
+  }
+
+  await _openAs(
+    const [_adminRole],
+    jump: (_) => PersonJumps.requestObservations(pupil),
+    route: (_) => '$_peopleRoute/$pupil',
+  );
 }
 
 // The teacher's Docente card, where the rating is; from another role, as admin over Anagrafiche.

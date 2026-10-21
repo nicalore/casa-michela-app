@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../lessons/widgets/person_avatar.dart';
@@ -21,6 +22,8 @@ class TeacherCard extends StatefulWidget
   static const double width = 320;
 
   static const double height = 84;
+
+  static const double denseHeight = 60;
 
   final PersonItem teacher;
 
@@ -46,47 +49,53 @@ class _TeacherCardState extends State<TeacherCard>
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          height: TeacherCard.height,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(_radius),
-            border: Border.all(
-              color: _isHovering ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
-              width: 2,
-            ),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Row(
-            children: [
-              PersonAvatar(person: widget.teacher, size: _avatarSize),
-              const SizedBox(width: _avatarGap),
-              Expanded(
-                child: OverflowTooltipText(
-                  text: '${widget.teacher.firstName} ${widget.teacher.lastName}',
-                  maxLines: 2,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: _nameFontSize,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                    color: AppTheme.trialOcean,
-                  ),
-                ),
+        child: SizedBox(
+          height: dense ? TeacherCard.denseHeight : TeacherCard.height,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(dense ? 20 : _radius),
+              border: Border.all(
+                color: _isHovering ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
+                width: 2,
               ),
-              if (widget.disliked) ...[
-                const SizedBox(width: _markGap),
-                const Icon(Icons.thumb_down_rounded, size: _markSize, color: AppTheme.trialDanger),
-              ],
-            ],
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: dense ? 12 : 16),
+              child: Row(
+                children: [
+                  PersonAvatar(person: widget.teacher, size: dense ? 38 : _avatarSize),
+                  SizedBox(width: dense ? 12 : _avatarGap),
+                  Expanded(
+                    child: OverflowTooltipText(
+                      text: '${widget.teacher.firstName} ${widget.teacher.lastName}',
+                      maxLines: 2,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: dense ? 14.5 : _nameFontSize,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                        color: AppTheme.trialOcean,
+                      ),
+                    ),
+                  ),
+                  if (widget.disliked) ...[
+                    const SizedBox(width: _markGap),
+                    const Icon(Icons.thumb_down_rounded, size: _markSize, color: AppTheme.trialDanger),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

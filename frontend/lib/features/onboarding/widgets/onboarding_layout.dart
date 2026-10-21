@@ -16,7 +16,9 @@ import '../../../shared/widgets/page_watermark.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
 import '../../dashboard/widgets/dashboard_greeting.dart';
+import '../legal_documents.dart';
 import '../../people/edit/person_edit_report_dialog.dart';
+import '../../people/models/child_item.dart';
 import '../../people/models/person_item.dart';
 import '../../people/widgets/person_detail_widgets.dart';
 import '../../people/widgets/school_enrollment_edit_row.dart';
@@ -26,6 +28,7 @@ import 'contacts_card.dart';
 import 'onboarding_record_step.dart';
 import 'onboarding_school_step.dart';
 import 'onboarding_subjects_step.dart';
+import 'onboarding_terms_step.dart';
 import 'teacher_education_card.dart';
 
 const double _maxContentWidth = 1240;
@@ -74,6 +77,9 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   ContactsDraft? _contacts;
   TeacherCompetencesDraft? _competences;
 
+  bool _termsAccepted = false;
+  bool _termsSaved = false;
+
   @override
   void initState()
   {
@@ -89,7 +95,8 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       final me = await _apiService.me();
       final person = await _apiService.getPerson(me.taxCode);
 
-      final children = person.children ?? const [];
+      // Past the flow only the terms are left, and they ask nothing about the children.
+      final children = me.onboardingRequired ? person.children ?? const [] : const <ChildItem>[];
 
       for (final child in children)
       {
@@ -110,6 +117,8 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
         _steps = onboardingStepsFor(
           roles: me.availableRoles,
           children: children,
+          terms: me.termsRequired,
+          onboarding: me.onboardingRequired,
         );
         _isLoading = false;
       });
@@ -199,6 +208,34 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       CustomSnackBar.show(context: context, message: _currentYearReason, isError: true);
 
       return;
+    }
+
+    if (_step.kind == OnboardingStepKind.terms)
+    {
+      if (!_termsAccepted)
+      {
+        CustomSnackBar.show(context: context, message: kTermsRefusal, isError: true);
+
+        return;
+      }
+
+      if (!_termsSaved)
+      {
+        try
+        {
+          await _apiService.acceptTerms();
+          _termsSaved = true;
+        }
+        catch (e)
+        {
+          if (mounted)
+          {
+            CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+          }
+
+          return;
+        }
+      }
     }
 
     final ContactsDraft? contacts = _contacts;
@@ -358,6 +395,14 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   {
     switch (_step.kind)
     {
+      case OnboardingStepKind.terms:
+        return OnboardingTermsStep(
+          key: const ValueKey('terms'),
+          accepted: _termsAccepted,
+          onChanged: (accepted) => setState(() => _termsAccepted = accepted),
+          footer: footer,
+        );
+
       case OnboardingStepKind.ownRecord:
         return OnboardingRecordStep(
           key: const ValueKey('own-record'),
@@ -421,7 +466,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       firstName: _person!.firstName,
       text: _welcome,
       alignment: Alignment.center,
-      fontSize: size.isCompact ? 40 : 58,
+      fontSize: size.isNarrow ? 40 : 58,
     );
   }
 
@@ -443,7 +488,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
         Text(
           _title,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: size.isCompact ? 28 : 38,
+            fontSize: size.isNarrow ? 28 : 38,
             fontWeight: FontWeight.w700,
             height: 1.15,
             color: AppTheme.trialOcean,
@@ -571,7 +616,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   @override
   Widget build(BuildContext context)
   {
-    final AppWindowSize size = AppBreakpoints.fromWidth(widget.width);
+    final AppWindowSize size = AppBreakpoints.of(context);
     final double margin = AppBreakpoints.pageMargin(size);
 
     final double contentWidth = math.min(
@@ -601,7 +646,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 margin,
-                size.isCompact ? _compactTopInset : _contentTopInset,
+                size.isNarrow ? _compactTopInset : _contentTopInset,
                 margin,
                 _contentBottomInset,
               ),

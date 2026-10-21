@@ -142,6 +142,12 @@ class Account(CreatedAtMixin, UpdatedAtMixin, Base):
         nullable=True,
     )
 
+    # Terms and conditions, privacy and cookie policy; cleared to ask everyone again.
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     person: Mapped[Person] = relationship(
         back_populates="account",
         uselist=False,

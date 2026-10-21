@@ -181,11 +181,8 @@ class _AvailabilityTabState extends State<AvailabilityTab>
   {
     final subjects = _subjectOptions;
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
+    return TabFiltersRow(
+      filters: [
         AppFilterPill<String>.filter(
           prefix: 'Modalità',
           hint: 'Presenza e online',
@@ -295,12 +292,13 @@ class _AvailabilityTabState extends State<AvailabilityTab>
           actionLabel: 'NUOVA DISPONIBILITÀ',
           onAction: _showWizard,
         ),
-        const SizedBox(height: 20),
+        const TabHeaderGap(wide: 20, dense: 10),
         _buildFilters(),
-        const SizedBox(height: 28),
+        const TabHeaderGap(wide: 28, dense: 12),
       ],
       empty: groups.isEmpty ? _emptyCard : null,
       body: EntityCardGrid(
+        denseWidth: kDenseWideCardWidth,
         children: [
           for (final group in groups)
             AvailabilityCard(
