@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../models/calendar_day.dart';
@@ -54,29 +55,44 @@ class CalendarLanePanel extends StatelessWidget
       color: AppTheme.trialMutedText,
     );
 
-    final roomName = room?.roomName;
+    final label = room;
 
-    if (roomName == null)
+    if (label == null || label.roomName == null)
     {
       return DescenderRoom(child: Text(said, maxLines: 2, overflow: TextOverflow.ellipsis, style: quiet));
     }
 
+    final named = quiet.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep);
+
+    // Hours and the shield only for a lane changing room: with one, the band says it all.
     return DescenderRoom(
       child: Text.rich(
         TextSpan(
           children: [
-            TextSpan(text: '$said · ', style: quiet),
-            const WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
-              child: Padding(
-                padding: EdgeInsets.only(right: 3),
-                child: Icon(Icons.meeting_room_outlined, size: 12, color: AppTheme.trialTealDeep),
+            TextSpan(text: said, style: quiet),
+            for (final stay in label.stays) ...[
+              TextSpan(text: ' · ', style: quiet),
+              const WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: EdgeInsets.only(right: 3),
+                  child: Icon(Icons.meeting_room_outlined, size: 12, color: AppTheme.trialTealDeep),
+                ),
               ),
-            ),
-            TextSpan(
-              text: roomName,
-              style: quiet.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep),
-            ),
+              TextSpan(text: stay.room.name, style: named),
+              if (label.changesRoom) TextSpan(text: ' ${formatMinutesRange(stay.startMinutes, stay.endMinutes)}', style: quiet),
+              if (label.changesRoom && stay.isSupervisor)
+                const WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 4),
+                    child: AppTooltip(
+                      message: kSupervisorLabel,
+                      child: Icon(Icons.shield_rounded, size: 12, color: kSupervisorColor),
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
         maxLines: 2,
@@ -87,7 +103,8 @@ class CalendarLanePanel extends StatelessWidget
 
   Widget _buildHeader()
   {
-    final isSupervisor = room?.isSupervisor ?? false;
+    // A lane changing room marks each room it answers for instead.
+    final isSupervisor = (room?.isSupervisor ?? false) && !(room?.changesRoom ?? false);
 
     return Row(
       children: [

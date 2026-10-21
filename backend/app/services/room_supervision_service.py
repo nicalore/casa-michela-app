@@ -4,6 +4,7 @@ from typing import Final
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.rbac import IdentityContext
 from app.core.booking_close import bands_of
@@ -20,6 +21,7 @@ from app.schemas.room_supervision import (
     RoomSupervisionUpdate,
 )
 from app.services.lesson_guard import assert_bands_claimed
+from app.services.room_occupancy import stretch_at
 
 _ENTITY_LABEL: Final[str] = "il turno"
 _NOT_FOUND_ERROR: Final[str] = "Turno da responsabile non trovato"
@@ -28,7 +30,7 @@ _CREATE_ERROR: Final[str] = (
 )
 _UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
 
-_NOT_ASSIGNED_ERROR: Final[str] = (
+NOT_ASSIGNED_ERROR: Final[str] = (
     "Solo un docente assegnato a questa stanza può esserne responsabile."
 )
 
@@ -37,9 +39,46 @@ _OUTSIDE_AVAILABILITY_ERROR: Final[str] = (
     "questa giornata."
 )
 
-_OVERLAPPING_SHIFT_ERROR: Final[str] = (
+OVERLAPPING_SHIFT_ERROR: Final[str] = (
     "Il docente ha già un turno da responsabile sovrapposto a quest'orario."
 )
+
+
+# The shift must fall inside the union of the teacher's in-person stretches.
+async def assert_within_presence(
+    session: AsyncSession,
+    day: date,
+    teacher_tax_code: str,
+    start_time: time,
+    end_time: time,
+) -> None:
+    stretches = (
+        await session.execute(
+            select(Availability.start_time, Availability.end_time)
+            .where(
+                Availability.teacher_tax_code == teacher_tax_code,
+                Availability.date == day,
+                Availability.mode == "presence",
+            )
+            .order_by(Availability.start_time),
+        )
+    ).all()
+
+    reached = start_time
+
+    for stretch_start, stretch_end in stretches:
+        if stretch_start > reached:
+            break
+
+        reached = max(reached, stretch_end)
+
+        if reached >= end_time:
+            return
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=_OUTSIDE_AVAILABILITY_ERROR,
+    )
 
 
 class RoomSupervisionService:
@@ -70,21 +109,28 @@ class RoomSupervisionService:
         )
 
     # The composite FK already enforces this; checked for a readable message.
-    async def _assert_assigned(
+    async def _assignment_start(
         self,
         day: date,
         teacher_tax_code: str,
         room_id: int,
-    ) -> None:
-        assignment = await self.assignments.get(day, teacher_tax_code)
+        start_time: time,
+        end_time: time,
+    ) -> time:
+        stretch = stretch_at(
+            await self.assignments.list_for_teacher(day, teacher_tax_code),
+            start_time,
+            end_time,
+        )
 
-        if assignment is None or assignment.room_id != room_id:
+        if stretch is None or stretch.room_id != room_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_NOT_ASSIGNED_ERROR,
+                detail=NOT_ASSIGNED_ERROR,
             )
 
-    # The shift must fall inside the union of the teacher's in-person stretches.
+        return stretch.start_time
+
     async def _assert_within_availability(
         self,
         day: date,
@@ -92,32 +138,12 @@ class RoomSupervisionService:
         start_time: time,
         end_time: time,
     ) -> None:
-        stretches = (
-            await self.session.execute(
-                select(Availability.start_time, Availability.end_time)
-                .where(
-                    Availability.teacher_tax_code == teacher_tax_code,
-                    Availability.date == day,
-                    Availability.mode == "presence",
-                )
-                .order_by(Availability.start_time),
-            )
-        ).all()
-
-        reached = start_time
-
-        for stretch_start, stretch_end in stretches:
-            if stretch_start > reached:
-                break
-
-            reached = max(reached, stretch_end)
-
-            if reached >= end_time:
-                return
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_OUTSIDE_AVAILABILITY_ERROR,
+        await assert_within_presence(
+            self.session,
+            day,
+            teacher_tax_code,
+            start_time,
+            end_time,
         )
 
     # Day-wide: nobody supervises two rooms at once.
@@ -141,7 +167,7 @@ class RoomSupervisionService:
         if clash is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_OVERLAPPING_SHIFT_ERROR,
+                detail=OVERLAPPING_SHIFT_ERROR,
             )
 
     async def list_for_day(
@@ -174,10 +200,12 @@ class RoomSupervisionService:
             payload.start_time,
             payload.end_time,
         )
-        await self._assert_assigned(
+        assignment_start = await self._assignment_start(
             payload.date,
             payload.teacher_tax_code,
             payload.room_id,
+            payload.start_time,
+            payload.end_time,
         )
         await self._assert_within_availability(
             payload.date,
@@ -197,6 +225,7 @@ class RoomSupervisionService:
             date=payload.date,
             teacher_tax_code=payload.teacher_tax_code,
             room_id=payload.room_id,
+            assignment_start=assignment_start,
             start_time=payload.start_time,
             end_time=payload.end_time,
         )
@@ -249,6 +278,13 @@ class RoomSupervisionService:
             exclude_id=supervision.id,
         )
 
+        supervision.assignment_start = await self._assignment_start(
+            supervision.date,
+            supervision.teacher_tax_code,
+            supervision.room_id,
+            payload.start_time,
+            payload.end_time,
+        )
         supervision.start_time = payload.start_time
         supervision.end_time = payload.end_time
 

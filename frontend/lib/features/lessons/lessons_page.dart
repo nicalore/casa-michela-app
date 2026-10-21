@@ -46,7 +46,7 @@ import 'utils/calendar_jump.dart';
 import 'utils/opening_window.dart';
 import 'widgets/lessons_day_header.dart';
 import 'widgets/lessons_toolbar.dart';
-import 'widgets/room_assignment_wizard.dart' show PlannedShift;
+import 'widgets/room_assignment_wizard.dart' show PlannedRooms, PlannedShift;
 
 const int _availabilityContentIndex = 0;
 const int _bookingsContentIndex = 1;
@@ -665,25 +665,39 @@ class _LessonsPageState extends State<LessonsPage>
 
   Future<bool> _executeSaveRoomPlan({
     required DateTime day,
-    required List<TeacherRoomAssignmentItem> assignments,
-    required Map<String, int?> rooms,
+    required PlannedRooms rooms,
     required List<PlannedShift> shifts,
     required Function(String) onError,
   }) async
   {
     String? failure;
 
-    void report(Object e) => failure ??= readableApiError(e);
-
-    await _writeRoomAssignments(day, assignments, rooms, report);
-
-    await _writeRoomSupervisions(day, shifts, report);
+    try
+    {
+      await _apiService.saveRoomPlan(
+        day: day,
+        rooms: rooms,
+        shifts: [
+          for (final shift in shifts)
+            (
+              teacherTaxCode: shift.teacherTaxCode,
+              roomId: shift.roomId,
+              startTime: shift.startTime,
+              endTime: shift.endTime,
+            ),
+        ],
+      );
+    }
+    catch (e)
+    {
+      failure = readableApiError(e);
+    }
 
     await _refreshDay(day);
 
     if (failure != null)
     {
-      onError(failure!);
+      onError(failure);
 
       return false;
     }
@@ -1120,143 +1134,6 @@ class _LessonsPageState extends State<LessonsPage>
       for (final row in _publications)
         if (!(isSameDate(row.date, day) && row.band == band)) row,
     ];
-  }
-
-  Future<bool> _writeRoomAssignments(
-    DateTime day,
-    List<TeacherRoomAssignmentItem> existing,
-    Map<String, int?> desired,
-    void Function(Object e) report,
-  ) async
-  {
-    final before = {for (final row in existing) row.teacherTaxCode: row};
-
-    final removals = <String>[];
-    final writes = <String, int>{};
-
-    desired.forEach((teacherTaxCode, roomId)
-    {
-      final was = before[teacherTaxCode];
-
-      if (roomId == null)
-      {
-        if (was != null)
-        {
-          removals.add(teacherTaxCode);
-        }
-
-        return;
-      }
-
-      if (was == null || was.room.id != roomId)
-      {
-        writes[teacherTaxCode] = roomId;
-      }
-    });
-
-    for (final teacherTaxCode in removals)
-    {
-      try
-      {
-        await _apiService.unassignTeacherRoom(day: day, teacherTaxCode: teacherTaxCode);
-      }
-      catch (e)
-      {
-        report(e);
-      }
-    }
-
-    for (final entry in writes.entries)
-    {
-      final was = before[entry.key];
-
-      try
-      {
-        if (was == null)
-        {
-          await _apiService.assignTeacherRoom(
-            day: day,
-            teacherTaxCode: entry.key,
-            roomId: entry.value,
-          );
-        }
-        else
-        {
-          await _apiService.moveTeacherRoom(
-            day: day,
-            teacherTaxCode: entry.key,
-            roomId: entry.value,
-            expectedUpdatedAt: was.updatedAt,
-          );
-        }
-      }
-      catch (e)
-      {
-        report(e);
-      }
-    }
-
-    return removals.isNotEmpty || writes.isNotEmpty;
-  }
-
-  Future<void> _writeRoomSupervisions(
-    DateTime day,
-    List<PlannedShift> desired,
-    void Function(Object e) report,
-  ) async
-  {
-    final List<RoomSupervisionItem> existing;
-
-    try
-    {
-      existing = await _apiService.getRoomSupervisions(day);
-    }
-    catch (e)
-    {
-      report(e);
-
-      return;
-    }
-
-    final stale = [
-      for (final row in existing)
-        if (!desired.any((shift) => shift.matches(row))) row,
-    ];
-
-    final missing = [
-      for (final shift in desired)
-        if (!existing.any(shift.matches)) shift,
-    ];
-
-    for (final row in stale)
-    {
-      try
-      {
-        await _apiService.deleteRoomSupervision(row.id);
-      }
-      catch (e)
-      {
-        report(e);
-      }
-    }
-
-    for (final shift in missing)
-    {
-      try
-      {
-        await _apiService.createRoomSupervision(
-          day: day,
-          teacherTaxCode: shift.teacherTaxCode,
-          roomId: shift.roomId,
-          startTime: shift.startTime,
-          endTime: shift.endTime,
-        );
-      }
-      catch (e)
-      {
-        report(e);
-      }
-    }
   }
 
   // One setState for lessons, publications and activities: two would show a half-updated frame.

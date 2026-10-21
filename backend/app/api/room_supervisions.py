@@ -54,7 +54,7 @@ def _to_response(
     )
 
 
-async def _to_responses(
+async def supervision_responses(
     db: DbSession,
     supervisions: Sequence[RoomSupervision],
 ) -> list[RoomSupervisionResponse]:
@@ -104,7 +104,7 @@ async def list_supervisions(
             )
         ]
 
-    return await _to_responses(db, supervisions)
+    return await supervision_responses(db, supervisions)
 
 
 @router.post("/", response_model=RoomSupervisionResponse, dependencies=_ADMIN_ONLY)
@@ -115,7 +115,7 @@ async def create_supervision(
 ) -> RoomSupervisionResponse:
     supervision = await _service(db).create(identity, payload)
 
-    return (await _to_responses(db, [supervision]))[0]
+    return (await supervision_responses(db, [supervision]))[0]
 
 
 @router.put(
@@ -131,7 +131,7 @@ async def update_supervision(
 ) -> RoomSupervisionResponse:
     supervision = await _service(db).update(identity, supervision_id, payload)
 
-    return (await _to_responses(db, [supervision]))[0]
+    return (await supervision_responses(db, [supervision]))[0]
 
 
 @router.delete("/{supervision_id}", dependencies=_ADMIN_ONLY)

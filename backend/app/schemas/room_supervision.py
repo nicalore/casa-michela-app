@@ -4,7 +4,7 @@ from pydantic import ConfigDict
 
 from app.schemas.person import PersonOption
 from app.schemas.room import RoomOption
-from app.schemas.validators import TimeBandMixin
+from app.schemas.validators import QuarterHourTimeRangeMixin, TimeBandMixin
 
 
 class RoomSupervisionBase(TimeBandMixin):
@@ -21,7 +21,8 @@ class RoomSupervisionUpdate(TimeBandMixin):
     expected_updated_at: datetime | None = None
 
 
-class RoomSupervisionResponse(TimeBandMixin):
+# Shorter than a band: a room may hold a single 15-minute lesson.
+class RoomSupervisionResponse(QuarterHourTimeRangeMixin):
     model_config = ConfigDict(from_attributes=True)
 
     id: int

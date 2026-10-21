@@ -19,6 +19,7 @@ import '../../association/models/room_item.dart';
 import '../../association/widgets/room_card.dart' show roomCapacityLabel;
 import '../../people/edit/widgets/person_edit_guide.dart';
 import '../models/calendar_day.dart';
+import '../models/room_day_plan.dart';
 import '../models/room_supervision_item.dart';
 import '../models/teacher_room_assignment_item.dart';
 import '../utils/opening_window.dart';
@@ -44,6 +45,12 @@ const double _supervisorAvatarSize = 34;
 const double _supervisorCardIdealWidth = 260;
 const double _supervisorCardGap = 8;
 
+const double _clockSize = 30;
+
+const double _knobSize = 22;
+const double _trackHeight = 6;
+const double _unitGap = 4;
+
 final TextStyle _supervisorHoursStyle = GoogleFonts.plusJakartaSans(
   fontSize: 11,
   fontWeight: FontWeight.w600,
@@ -51,10 +58,19 @@ final TextStyle _supervisorHoursStyle = GoogleFonts.plusJakartaSans(
   color: AppTheme.trialMutedText,
 );
 
+final TextStyle _elsewhereStyle = GoogleFonts.plusJakartaSans(
+  fontSize: 11,
+  fontWeight: FontWeight.w700,
+  height: 1.2,
+  color: AppTheme.trialTealDeep,
+);
+
 // Keeps a 15-minute stretch visible: it would otherwise be under 2 px.
 const double _minBarWidth = 3;
 
 const Duration _fillDuration = Duration(milliseconds: 320);
+
+const Duration _openDuration = Duration(milliseconds: 180);
 
 List<TeacherLane> teachersInBuilding(List<TeacherLane> lanes)
 {
@@ -70,7 +86,7 @@ bool isRoomPlanSettled({
   required List<RoomSupervisionItem> supervisions,
 })
 {
-  final roomOf = {for (final row in assignments) row.teacherTaxCode: row.room.id};
+  final stretches = stretchesByTeacher(assignments);
   final watching = {for (final shift in supervisions) (shift.room.id, shift.teacherTaxCode)};
 
   final occupied = <int, List<(int, int)>>{};
@@ -78,20 +94,30 @@ bool isRoomPlanSettled({
 
   for (final lane in lanes)
   {
-    final room = roomOf[lane.teacherTaxCode];
+    final own = stretches[lane.teacherTaxCode] ?? const <TeacherRoomAssignmentItem>[];
 
-    if (room == null)
+    for (final lesson in lane.lessons)
     {
-      return false;
-    }
+      if (lesson.teacherMode != kPresenceMode)
+      {
+        continue;
+      }
 
-    final hours = _lessonSpans(lane);
+      final room = stretchAt(own, lesson.startMinutes, lesson.endMinutes)?.room.id;
 
-    occupied.putIfAbsent(room, () => []).addAll(hours);
+      if (room == null)
+      {
+        return false;
+      }
 
-    if (watching.contains((room, lane.teacherTaxCode)))
-    {
-      covered.putIfAbsent(room, () => []).addAll(hours);
+      final hours = (lesson.startMinutes, lesson.endMinutes);
+
+      occupied.putIfAbsent(room, () => []).add(hours);
+
+      if (watching.contains((room, lane.teacherTaxCode)))
+      {
+        covered.putIfAbsent(room, () => []).add(hours);
+      }
     }
   }
 
@@ -121,51 +147,93 @@ class PlannedShift
   TimeOfDay get startTime => TimeOfDay(hour: startMinutes ~/ 60, minute: startMinutes % 60);
 
   TimeOfDay get endTime => TimeOfDay(hour: endMinutes ~/ 60, minute: endMinutes % 60);
-
-  bool matches(RoomSupervisionItem row)
-  {
-    return row.room.id == roomId &&
-        row.teacherTaxCode == teacherTaxCode &&
-        row.startMinutes == startMinutes &&
-        row.endMinutes == endMinutes;
-  }
 }
 
-String _hoursLabel(TeacherLane lane)
-{
-  final spans = _lessonSpans(lane);
+// The wizard's answer: each teacher's rooms in clock order, by the hour they move in.
+typedef PlannedRooms = Map<String, List<({int roomId, TimeOfDay startTime})>>;
 
-  if (spans.isEmpty)
-  {
-    return '';
-  }
-
-  return formatMinutesRange(spans.first.$1, spans.last.$2);
-}
+// Lessons that overlap move together: a room change never falls inside one.
+typedef _Unit = ({int start, int end, int lessons});
 
 // Only in-person lessons count, not availabilities or activities.
-List<(int, int)> _lessonSpans(TeacherLane lane)
+List<_Unit> _unitsOf(TeacherLane lane)
 {
-  return mergeSpans([
+  final lessons = [
     for (final lesson in lane.lessons)
       if (lesson.teacherMode == kPresenceMode) (lesson.startMinutes, lesson.endMinutes),
-  ]);
+  ]..sort((a, b) => a.$1.compareTo(b.$1));
+
+  final units = <_Unit>[];
+
+  for (final (start, end) in lessons)
+  {
+    final last = units.isEmpty ? null : units.last;
+
+    if (last != null && start < last.end)
+    {
+      units.last = (start: last.start, end: math.max(last.end, end), lessons: last.lessons + 1);
+
+      continue;
+    }
+
+    units.add((start: start, end: end, lessons: 1));
+  }
+
+  return units;
+}
+
+String _lessonsLabel(int count) => count == 1 ? '1 lezione' : '$count lezioni';
+
+// Consecutive lessons of one teacher in one room, or waiting for one.
+class _Piece
+{
+  final TeacherLane lane;
+  final int first;
+  final int last;
+  final int? roomId;
+
+  const _Piece({
+    required this.lane,
+    required this.first,
+    required this.last,
+    required this.roomId,
+  });
+
+  String get teacherTaxCode => lane.teacherTaxCode;
+
+  bool holds(int unit) => first <= unit && unit <= last;
 }
 
 class _TeacherCard extends StatefulWidget
 {
-  final TeacherLane lane;
+  final _Piece piece;
 
-  final int? fromRoomId;
+  final String hours;
+
+  final int lessons;
+
+  final String? elsewhere;
 
   // Long-press drag on the stacked layout so a drag does not fight the scroll.
   final bool longPress;
 
+  final bool isOpen;
+
+  // Null in the waiting list, where there is no room to keep hours for.
+  final VoidCallback? onClock;
+
+  final Widget? hoursEditor;
+
   const _TeacherCard({
     super.key,
-    required this.lane,
-    required this.fromRoomId,
+    required this.piece,
+    required this.hours,
+    required this.lessons,
+    required this.elsewhere,
     required this.longPress,
+    this.isOpen = false,
+    this.onClock,
+    this.hoursEditor,
   });
 
   @override
@@ -176,123 +244,213 @@ class _TeacherCardState extends State<_TeacherCard>
 {
   bool _hover = false;
 
-  Widget _buildBody({required bool inHand})
+  Widget _buildClock()
   {
-    final lane = widget.lane;
-    final hours = _hoursLabel(lane);
-    final lessons = lane.lessons.where((lesson) => lesson.teacherMode == kPresenceMode).length;
+    final onClock = widget.onClock;
+
+    if (onClock == null)
+    {
+      return const SizedBox.shrink();
+    }
+
+    final open = widget.isOpen;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onClock,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            width: _clockSize,
+            height: _clockSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: open ? AppTheme.trialTealDeep : AppTheme.trialPaper,
+            ),
+            child: Icon(
+              Icons.schedule_rounded,
+              size: 18,
+              color: open ? Colors.white : AppTheme.trialMutedText,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow({required bool inHand})
+  {
+    final lane = widget.piece.lane;
+    final elsewhere = widget.elsewhere;
+
+    return Row(
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(right: 6),
+          child: Icon(Icons.drag_indicator_rounded, size: 18, color: AppTheme.trialMutedText),
+        ),
+        PersonAvatar(person: lane.teacher, size: PersonAvatar.listSize),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DescenderRoom(
+                child: Text(
+                  lane.teacher.fullName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    color: AppTheme.trialOcean,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              DescenderRoom(
+                child: Text(
+                  '${widget.hours} · ${_lessonsLabel(widget.lessons)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                    color: AppTheme.trialMutedText,
+                  ),
+                ),
+              ),
+              if (elsewhere != null) ...[
+                const SizedBox(height: 2),
+                _Elsewhere(text: elsewhere),
+              ],
+            ],
+          ),
+        ),
+        if (!inHand) _buildClock(),
+      ],
+    );
+  }
+
+  Widget _buildFrame({required bool inHand, required Widget child})
+  {
+    final lit = _hover || inHand || widget.isOpen;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       curve: Curves.easeOut,
-      padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
       decoration: BoxDecoration(
-        color: _hover || inHand ? AppTheme.todaySurface : Colors.white,
+        color: (_hover || inHand) && !widget.isOpen ? AppTheme.todaySurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _hover || inHand ? AppTheme.trialTealDeep : AppTheme.trialLine,
+          color: lit ? AppTheme.trialTealDeep : AppTheme.trialLine,
           width: 1.5,
         ),
       ),
-      child: Row(
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(right: 6),
-            child: Icon(Icons.drag_indicator_rounded, size: 18, color: AppTheme.trialMutedText),
-          ),
-          PersonAvatar(person: lane.teacher, size: PersonAvatar.listSize),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DescenderRoom(
-                  child: Text(
-                    lane.teacher.fullName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                      color: AppTheme.trialOcean,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                DescenderRoom(
-                  child: Text(
-                    '$hours · ${lessons == 1 ? '1 lezione' : '$lessons lezioni'}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                      color: AppTheme.trialMutedText,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      child: child,
     );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    final card = _buildBody(inHand: false);
-
-    final payload = _CarriedTeacher(lane: widget.lane, fromRoomId: widget.fromRoomId);
+    final payload = _CarriedPiece(piece: widget.piece);
 
     // Material required: the feedback lives in the Overlay, where a bare Text throws.
     final feedback = Material(
       type: MaterialType.transparency,
-      child: SizedBox(width: _teacherColumnWidth, child: _buildBody(inHand: true)),
+      child: SizedBox(
+        width: _teacherColumnWidth,
+        child: _buildFrame(inHand: true, child: _buildRow(inHand: true)),
+      ),
     );
 
-    final faded = CalendarLeftBehind(opacity: 0.35, child: card);
+    final row = _buildRow(inHand: false);
 
-    final Widget draggable = widget.longPress
-        ? LongPressDraggable<_CarriedTeacher>(
+    // Only the row drags: the hours editor below takes its own drags.
+    final Widget handle = widget.longPress
+        ? LongPressDraggable<_CarriedPiece>(
             data: payload,
             feedback: feedback,
-            childWhenDragging: faded,
-            child: card,
+            childWhenDragging: CalendarLeftBehind(opacity: 0.35, child: row),
+            child: row,
           )
-        : Draggable<_CarriedTeacher>(
+        : Draggable<_CarriedPiece>(
             data: payload,
             feedback: feedback,
-            childWhenDragging: faded,
-            child: card,
+            childWhenDragging: CalendarLeftBehind(opacity: 0.35, child: row),
+            child: row,
           );
 
+    final editor = widget.hoursEditor;
+
     return MouseRegion(
-      cursor: SystemMouseCursors.grab,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: draggable,
+      child: _buildFrame(
+        inHand: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MouseRegion(cursor: SystemMouseCursors.grab, child: handle),
+            AnimatedSize(
+              duration: _openDuration,
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: editor ?? const SizedBox(width: double.infinity),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Elsewhere extends StatelessWidget
+{
+  final String text;
+
+  const _Elsewhere({required this.text});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Row(
+      children: [
+        const Icon(Icons.call_split_rounded, size: 13, color: AppTheme.trialTealDeep),
+        const SizedBox(width: 4),
+        Expanded(
+          child: DescenderRoom(
+            child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: _elsewhereStyle),
+          ),
+        ),
+      ],
     );
   }
 }
 
 // Not a bare tax code: a `DragTarget<String>` would accept any string dragged in the app.
-class _CarriedTeacher
+class _CarriedPiece
 {
-  final TeacherLane lane;
-  final int? fromRoomId;
+  final _Piece piece;
 
-  const _CarriedTeacher({required this.lane, required this.fromRoomId});
+  const _CarriedPiece({required this.piece});
+
+  int? get fromRoomId => piece.roomId;
 }
 
 class _DropBox extends StatelessWidget
 {
-  final bool Function(_CarriedTeacher carried) accepts;
-  final ValueChanged<_CarriedTeacher> onAccept;
+  final bool Function(_CarriedPiece carried) accepts;
+  final ValueChanged<_CarriedPiece> onAccept;
   final Widget child;
 
   const _DropBox({
@@ -304,7 +462,7 @@ class _DropBox extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return DragTarget<_CarriedTeacher>(
+    return DragTarget<_CarriedPiece>(
       onWillAcceptWithDetails: (details) => accepts(details.data),
       onAcceptWithDetails: (details) => onAccept(details.data),
       builder: (context, candidate, rejected) => AnimatedContainer(
@@ -325,10 +483,211 @@ class _DropBox extends StatelessWidget
   }
 }
 
+// Knobs stop only where a lesson starts or ends: a lesson never spans two rooms.
+class _UnitRangeSlider extends StatefulWidget
+{
+  final List<_Unit> units;
+  final int first;
+  final int last;
+  final void Function(int first, int last) onChanged;
+
+  const _UnitRangeSlider({
+    required this.units,
+    required this.first,
+    required this.last,
+    required this.onChanged,
+  });
+
+  @override
+  State<_UnitRangeSlider> createState() => _UnitRangeSliderState();
+}
+
+class _UnitRangeSliderState extends State<_UnitRangeSlider>
+{
+  // Which knob the current drag holds: true for the right one.
+  bool _holdsEnd = false;
+
+  int get _from => widget.units.first.start;
+
+  int get _to => widget.units.last.end;
+
+  // Knob centres stay inside the track so the outer knobs are never clipped.
+  double _x(int minutes, double width)
+  {
+    final usable = width - _knobSize;
+
+    return _knobSize / 2 + (minutes - _from) / (_to - _from) * usable;
+  }
+
+  int _nearest(Iterable<(int, int)> stops, double x, double width)
+  {
+    var best = stops.first.$1;
+    var distance = double.infinity;
+
+    for (final (index, minutes) in stops)
+    {
+      final away = (_x(minutes, width) - x).abs();
+
+      if (away < distance)
+      {
+        distance = away;
+        best = index;
+      }
+    }
+
+    return best;
+  }
+
+  void _grab(double x, double width)
+  {
+    final start = _x(widget.units[widget.first].start, width);
+    final end = _x(widget.units[widget.last].end, width);
+
+    _holdsEnd = (x - end).abs() < (x - start).abs() || (x > end);
+  }
+
+  void _move(double x, double width)
+  {
+    final units = widget.units;
+
+    if (_holdsEnd)
+    {
+      final last = _nearest([
+        for (var index = widget.first; index < units.length; index++) (index, units[index].end),
+      ], x, width);
+
+      if (last != widget.last)
+      {
+        widget.onChanged(widget.first, last);
+      }
+
+      return;
+    }
+
+    final first = _nearest([
+      for (var index = 0; index <= widget.last; index++) (index, units[index].start),
+    ], x, width);
+
+    if (first != widget.first)
+    {
+      widget.onChanged(first, widget.last);
+    }
+  }
+
+  Widget _buildLabel(int minutes, double width, {required bool picked})
+  {
+    return Positioned(
+      left: _x(minutes, width) - 24,
+      width: 48,
+      top: 0,
+      child: Center(
+        child: Text(
+          formatTimeOfDayShort(timeOfDayFromMinutes(minutes)),
+          maxLines: 1,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 11.5,
+            fontWeight: picked ? FontWeight.w700 : FontWeight.w600,
+            height: 1.2,
+            color: picked ? AppTheme.trialMutedText : AppTheme.trialMutedText.withValues(alpha: 0.6),
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final width = constraints.maxWidth;
+        final units = widget.units;
+        final start = units[widget.first].start;
+        final end = units[widget.last].end;
+
+        final labels = <int>{_from, _to, start, end}.toList()..sort();
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MouseRegion(
+              cursor: SystemMouseCursors.resizeLeftRight,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: (details) => _grab(details.localPosition.dx, width),
+                onHorizontalDragUpdate: (details) => _move(details.localPosition.dx, width),
+                onTapDown: (details)
+                {
+                  _grab(details.localPosition.dx, width);
+                  _move(details.localPosition.dx, width);
+                },
+                child: SizedBox(
+                  height: _knobSize,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      for (var index = 0; index < units.length; index++)
+                        Positioned(
+                          left: _x(units[index].start, width) + _unitGap / 2,
+                          width: math.max(0, _x(units[index].end, width) - _x(units[index].start, width) - _unitGap),
+                          top: (_knobSize - _trackHeight) / 2,
+                          height: _trackHeight,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            decoration: BoxDecoration(
+                              color: widget.first <= index && index <= widget.last
+                                  ? AppTheme.trialTealDeep
+                                  : AppTheme.trialLine,
+                              borderRadius: BorderRadius.circular(_trackHeight / 2),
+                            ),
+                          ),
+                        ),
+                      for (final minutes in [start, end])
+                        Positioned(
+                          left: _x(minutes, width) - _knobSize / 2,
+                          top: 0,
+                          width: _knobSize,
+                          height: _knobSize,
+                          child: const DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(color: Color(0x40000000), blurRadius: 4, offset: Offset(0, 1)),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 16,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  for (final minutes in labels)
+                    _buildLabel(minutes, width, picked: minutes == start || minutes == end),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _SupervisorCard extends StatefulWidget
 {
   final TeacherLane lane;
   final String hours;
+  final String? elsewhere;
   final double width;
   final bool isSelected;
   final VoidCallback onTap;
@@ -337,6 +696,7 @@ class _SupervisorCard extends StatefulWidget
     super.key,
     required this.lane,
     required this.hours,
+    required this.elsewhere,
     required this.width,
     required this.isSelected,
     required this.onTap,
@@ -353,6 +713,8 @@ class _SupervisorCardState extends State<_SupervisorCard>
   @override
   Widget build(BuildContext context)
   {
+    final elsewhere = widget.elsewhere;
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
@@ -402,6 +764,10 @@ class _SupervisorCardState extends State<_SupervisorCard>
                       alignment: Alignment.centerLeft,
                       child: Text(widget.hours, maxLines: 1, style: _supervisorHoursStyle),
                     ),
+                    if (elsewhere != null) ...[
+                      const SizedBox(height: 2),
+                      _Elsewhere(text: elsewhere),
+                    ],
                   ],
                 ),
               ),
@@ -718,18 +1084,18 @@ class _RoomPlan
 {
   final RoomItem room;
 
-  final List<TeacherLane> teachers;
-
-  final List<(int, int)> occupied;
+  // One entry per teacher, with their hours in this room only.
+  final List<({TeacherLane lane, List<(int, int)> hours})> teachers;
 
   final Set<String> supervisors;
 
   const _RoomPlan({
     required this.room,
     required this.teachers,
-    required this.occupied,
     required this.supervisors,
   });
+
+  List<(int, int)> get occupied => mergeSpans([for (final entry in teachers) ...entry.hours]);
 
   bool get isEmpty => teachers.isEmpty || occupied.isEmpty;
 
@@ -737,13 +1103,11 @@ class _RoomPlan
 
   int get windowEnd => occupied.last.$2;
 
-  List<(int, int)> coverageOf(TeacherLane lane) => _lessonSpans(lane);
-
   List<(int, int)> get covered
   {
     return mergeSpans([
-      for (final lane in teachers)
-        if (supervisors.contains(lane.teacherTaxCode)) ...coverageOf(lane),
+      for (final entry in teachers)
+        if (supervisors.contains(entry.lane.teacherTaxCode)) ...entry.hours,
     ]);
   }
 
@@ -752,12 +1116,12 @@ class _RoomPlan
   List<PlannedShift> get shifts
   {
     return [
-      for (final lane in teachers)
-        if (supervisors.contains(lane.teacherTaxCode))
-          for (final span in coverageOf(lane))
+      for (final entry in teachers)
+        if (supervisors.contains(entry.lane.teacherTaxCode))
+          for (final span in entry.hours)
             PlannedShift(
               roomId: room.id,
-              teacherTaxCode: lane.teacherTaxCode,
+              teacherTaxCode: entry.lane.teacherTaxCode,
               startMinutes: span.$1,
               endMinutes: span.$2,
             ),
@@ -777,11 +1141,9 @@ class RoomAssignmentWizard extends StatefulWidget
   final List<TeacherRoomAssignmentItem> assignments;
   final List<RoomSupervisionItem> supervisions;
 
-  // A null room means the teacher's assignment is removed.
   final Future<bool> Function({
     required DateTime day,
-    required List<TeacherRoomAssignmentItem> assignments,
-    required Map<String, int?> rooms,
+    required PlannedRooms rooms,
     required List<PlannedShift> shifts,
     required Function(String) onError,
   })? onSave;
@@ -802,31 +1164,41 @@ class RoomAssignmentWizard extends StatefulWidget
 
 class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 {
-  late final Map<String, int> _roomOf = _initialBoard();
+  late final Map<String, List<_Unit>> _units = {
+    for (final lane in widget.lanes) lane.teacherTaxCode: _unitsOf(lane),
+  };
 
-  // Only who, not when: hours are recomputed from the teacher's current lessons.
+  // Per teacher, the room of each of their units; null while it waits for one.
+  late final Map<String, List<int?>> _roomOfUnit = _initialBoard();
+
+  // Only who, not when: hours are recomputed from the teacher's current lessons there.
   late final Map<int, Set<String>> _supervisorsOf = _initialSupervisors();
+
+  // The card whose hours are being edited: its teacher and a unit inside it.
+  ({String teacherTaxCode, int unit})? _open;
 
   int _stepIndex = 0;
   bool _movingForward = true;
 
   bool _isSaving = false;
 
-  Map<String, int> _initialBoard()
+  Map<String, List<int?>> _initialBoard()
   {
-    final rooms = {for (final room in widget.rooms) room.id};
-    final board = <String, int>{};
+    final known = {for (final room in widget.rooms) room.id};
+    final stretches = stretchesByTeacher(widget.assignments);
 
-    for (final assignment in widget.assignments)
-    {
-      // Skip assignments to rooms no longer in the catalogue.
-      if (rooms.contains(assignment.room.id))
-      {
-        board[assignment.teacherTaxCode] = assignment.room.id;
-      }
-    }
-
-    return board;
+    return {
+      for (final lane in widget.lanes)
+        lane.teacherTaxCode: [
+          for (final unit in _units[lane.teacherTaxCode]!)
+            // Rows of rooms no longer in the catalogue count as no room.
+            switch (stretchAt(stretches[lane.teacherTaxCode] ?? const [], unit.start, unit.end)?.room.id)
+            {
+              final int id when known.contains(id) => id,
+              _ => null,
+            },
+        ],
+    };
   }
 
   Map<int, Set<String>> _initialSupervisors()
@@ -835,7 +1207,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
     for (final shift in widget.supervisions)
     {
-      if (_roomOf[shift.teacherTaxCode] == shift.room.id)
+      if (_roomOfUnit[shift.teacherTaxCode]?.contains(shift.room.id) ?? false)
       {
         supervisors.putIfAbsent(shift.room.id, () => <String>{}).add(shift.teacherTaxCode);
       }
@@ -844,33 +1216,123 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     return supervisors;
   }
 
-  List<TeacherLane> get _unassigned
+  List<_Piece> _piecesOf(TeacherLane lane)
   {
-    return widget.lanes.where((lane) => !_roomOf.containsKey(lane.teacherTaxCode)).toList();
+    final rooms = _roomOfUnit[lane.teacherTaxCode]!;
+    final pieces = <_Piece>[];
+
+    for (var index = 0; index < rooms.length; index++)
+    {
+      final last = pieces.isEmpty ? null : pieces.last;
+
+      if (last != null && last.roomId == rooms[index])
+      {
+        pieces.last = _Piece(lane: lane, first: last.first, last: index, roomId: last.roomId);
+
+        continue;
+      }
+
+      pieces.add(_Piece(lane: lane, first: index, last: index, roomId: rooms[index]));
+    }
+
+    return pieces;
   }
 
-  List<TeacherLane> _inRoom(int roomId)
+  List<_Piece> _piecesIn(int? roomId)
   {
-    return widget.lanes.where((lane) => _roomOf[lane.teacherTaxCode] == roomId).toList();
+    return [
+      for (final lane in widget.lanes)
+        for (final piece in _piecesOf(lane))
+          if (piece.roomId == roomId) piece,
+    ];
   }
 
-  void _put(_CarriedTeacher carried, int? roomId)
+  String _roomName(int roomId)
   {
-    final taxCode = carried.lane.teacherTaxCode;
+    return widget.rooms.firstWhere((room) => room.id == roomId).name;
+  }
+
+  // The next room the teacher goes to that day, if any.
+  String? _elsewhere(TeacherLane lane, {required int last, required int roomId})
+  {
+    final rooms = _roomOfUnit[lane.teacherTaxCode]!;
+
+    for (var index = last + 1; index < rooms.length; index++)
+    {
+      final other = rooms[index];
+
+      if (other != null && other != roomId)
+      {
+        return 'Poi in ${_roomName(other)}';
+      }
+    }
+
+    return null;
+  }
+
+  // A teacher who left a room stops answering for it: the server refuses the shift.
+  void _forgetSupervisorsWhoLeft()
+  {
+    for (final MapEntry(key: roomId, value: chosen) in _supervisorsOf.entries)
+    {
+      chosen.removeWhere((taxCode) => !(_roomOfUnit[taxCode]?.contains(roomId) ?? false));
+    }
+  }
+
+  void _put(_CarriedPiece carried, int? roomId)
+  {
+    final piece = carried.piece;
 
     setState(()
     {
-      // The shift follows the teacher: the database rejects a supervisor of a room they left.
-      _supervisorsOf[carried.fromRoomId]?.remove(taxCode);
+      final rooms = _roomOfUnit[piece.teacherTaxCode]!;
 
-      if (roomId == null)
+      for (var index = piece.first; index <= piece.last; index++)
       {
-        _roomOf.remove(taxCode);
-
-        return;
+        rooms[index] = roomId;
       }
 
-      _roomOf[taxCode] = roomId;
+      if (_open?.teacherTaxCode == piece.teacherTaxCode)
+      {
+        _open = null;
+      }
+
+      _forgetSupervisorsWhoLeft();
+    });
+  }
+
+  void _toggleOpen(_Piece piece)
+  {
+    setState(()
+    {
+      final open = _open;
+
+      _open = open != null && open.teacherTaxCode == piece.teacherTaxCode && piece.holds(open.unit)
+          ? null
+          : (teacherTaxCode: piece.teacherTaxCode, unit: piece.first);
+    });
+  }
+
+  // Lessons taken in join this room; those let go wait for another.
+  void _resize(_Piece piece, int first, int last)
+  {
+    setState(()
+    {
+      final rooms = _roomOfUnit[piece.teacherTaxCode]!;
+
+      for (var index = piece.first; index <= piece.last; index++)
+      {
+        rooms[index] = null;
+      }
+
+      for (var index = first; index <= last; index++)
+      {
+        rooms[index] = piece.roomId;
+      }
+
+      _open = (teacherTaxCode: piece.teacherTaxCode, unit: first);
+
+      _forgetSupervisorsWhoLeft();
     });
   }
 
@@ -887,11 +1349,19 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     });
   }
 
-  // Includes every teacher: a null room signals removal, not omission.
-  Map<String, int?> get _desiredRooms
+  // Every teacher listed: an empty list takes their rooms away rather than leaving them.
+  PlannedRooms get _desiredRooms
   {
     return {
-      for (final lane in widget.lanes) lane.teacherTaxCode: _roomOf[lane.teacherTaxCode],
+      for (final lane in widget.lanes)
+        lane.teacherTaxCode: [
+          for (final piece in _piecesOf(lane))
+            if (piece.roomId case final int roomId)
+              (
+                roomId: roomId,
+                startTime: timeOfDayFromMinutes(_units[lane.teacherTaxCode]![piece.first].start),
+              ),
+        ],
     };
   }
 
@@ -901,7 +1371,23 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
     for (final room in widget.rooms)
     {
-      final teachers = _inRoom(room.id);
+      final teachers = <({TeacherLane lane, List<(int, int)> hours})>[];
+
+      for (final lane in widget.lanes)
+      {
+        final units = _units[lane.teacherTaxCode]!;
+        final rooms = _roomOfUnit[lane.teacherTaxCode]!;
+
+        final hours = mergeSpans([
+          for (var index = 0; index < units.length; index++)
+            if (rooms[index] == room.id) (units[index].start, units[index].end),
+        ]);
+
+        if (hours.isNotEmpty)
+        {
+          teachers.add((lane: lane, hours: hours));
+        }
+      }
 
       if (teachers.isEmpty)
       {
@@ -911,7 +1397,6 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
       plans.add(_RoomPlan(
         room: room,
         teachers: teachers,
-        occupied: mergeSpans([for (final lane in teachers) ..._lessonSpans(lane)]),
         supervisors: _supervisorsOf[room.id] ?? const <String>{},
       ));
     }
@@ -923,13 +1408,13 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
   ({String message, int step})? get _refusal
   {
-    final waiting = _unassigned;
+    final waiting = {for (final piece in _piecesIn(null)) piece.teacherTaxCode: piece.lane};
 
     if (waiting.isNotEmpty)
     {
       return (
         message: waiting.length == 1
-            ? '${waiting.first.teacher.fullName} è in sede e non ha una stanza.'
+            ? '${waiting.values.first.teacher.fullName} è in sede e non ha una stanza.'
             : '${waiting.length} docenti in sede non hanno una stanza.',
         step: 0,
       );
@@ -986,7 +1471,6 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
     final saved = await save(
       day: widget.day,
-      assignments: widget.assignments,
       rooms: _desiredRooms,
       shifts: _desiredShifts,
       onError: (message)
@@ -1105,13 +1589,91 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     );
   }
 
-  Widget _buildTeacherCard(TeacherLane lane, {required int? fromRoomId, required bool longPress})
+  Widget _buildHoursEditor(_Piece piece)
   {
+    final units = _units[piece.teacherTaxCode]!;
+    final rooms = _roomOfUnit[piece.teacherTaxCode]!;
+
+    final waiting = mergeSpans([
+      for (var index = 0; index < units.length; index++)
+        if (rooms[index] == null) (units[index].start, units[index].end),
+    ]);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        padding: const EdgeInsets.only(top: 12, left: 2, right: 2),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.trialLine)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _UnitRangeSlider(
+              units: units,
+              first: piece.first,
+              last: piece.last,
+              onChanged: (first, last) => _resize(piece, first, last),
+            ),
+            if (waiting.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.east_rounded, size: 14, color: AppTheme.trialTealDeep),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: DescenderRoom(
+                      child: Text(
+                        '${waiting.map((span) => formatMinutesRange(span.$1, span.$2)).join(', ')} torna da assegnare',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          color: AppTheme.trialMutedText,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeacherCard(_Piece piece, {required bool longPress})
+  {
+    final units = _units[piece.teacherTaxCode]!;
+    final roomId = piece.roomId;
+    final open = _open;
+
+    final isOpen = roomId != null &&
+        open != null &&
+        open.teacherTaxCode == piece.teacherTaxCode &&
+        piece.holds(open.unit);
+
+    var lessons = 0;
+
+    for (var index = piece.first; index <= piece.last; index++)
+    {
+      lessons += units[index].lessons;
+    }
+
     return _TeacherCard(
-      key: ValueKey(lane.teacherTaxCode),
-      lane: lane,
-      fromRoomId: fromRoomId,
+      key: ValueKey('${piece.teacherTaxCode}:${piece.first}'),
+      piece: piece,
+      hours: formatMinutesRange(units[piece.first].start, units[piece.last].end),
+      lessons: lessons,
+      elsewhere: roomId == null ? null : _elsewhere(piece.lane, last: piece.last, roomId: roomId),
       longPress: longPress,
+      isOpen: isOpen,
+      onClock: roomId == null ? null : () => _toggleOpen(piece),
+      hoursEditor: isOpen ? _buildHoursEditor(piece) : null,
     );
   }
 
@@ -1129,9 +1691,16 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     );
   }
 
+  int _byNameThenHour(_Piece a, _Piece b)
+  {
+    final byName = a.lane.teacher.fullName.toLowerCase().compareTo(b.lane.teacher.fullName.toLowerCase());
+
+    return byName != 0 ? byName : a.first.compareTo(b.first);
+  }
+
   Widget _buildPool({required bool twoColumns})
   {
-    final waiting = _unassigned;
+    final waiting = _piecesIn(null)..sort(_byNameThenHour);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1151,7 +1720,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
                     children: [
                       for (var i = 0; i < waiting.length; i++) ...[
                         if (i > 0) const SizedBox(height: 8),
-                        _buildTeacherCard(waiting[i], fromRoomId: null, longPress: !twoColumns),
+                        _buildTeacherCard(waiting[i], longPress: !twoColumns),
                       ],
                     ],
                   ),
@@ -1163,7 +1732,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
   Widget _buildRoomBox(RoomItem room, {required bool twoColumns})
   {
-    final inside = _inRoom(room.id);
+    final inside = _piecesIn(room.id)..sort(_byNameThenHour);
 
     return _DropBox(
       accepts: (carried) => carried.fromRoomId != room.id,
@@ -1185,7 +1754,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
           else
             for (var i = 0; i < inside.length; i++) ...[
               if (i > 0) const SizedBox(height: 8),
-              _buildTeacherCard(inside[i], fromRoomId: room.id, longPress: !twoColumns),
+              _buildTeacherCard(inside[i], longPress: !twoColumns),
             ],
         ],
       ),
@@ -1206,8 +1775,10 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
       );
     }
 
-    // Counted over the visible lanes: _roomOf may hold teachers this window is not about.
-    final assigned = widget.lanes.where((lane) => _roomOf.containsKey(lane.teacherTaxCode)).length;
+    // Teachers with every lesson in some room.
+    final assigned = widget.lanes
+        .where((lane) => !_roomOfUnit[lane.teacherTaxCode]!.contains(null))
+        .length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1366,6 +1937,13 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     );
   }
 
+  String? _elsewhereOfRoom(TeacherLane lane, int roomId)
+  {
+    final rooms = _roomOfUnit[lane.teacherTaxCode]!;
+
+    return _elsewhere(lane, last: rooms.lastIndexOf(roomId), roomId: roomId);
+  }
+
   Widget _buildSupervisorCards(_RoomPlan plan)
   {
     return LayoutBuilder(
@@ -1380,28 +1958,26 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
         final width = (available - (columns - 1) * _supervisorCardGap) / columns;
 
+        final entries = [...plan.teachers]..sort((a, b) => a.hours.first.$1.compareTo(b.hours.first.$1));
+
         return Wrap(
           spacing: _supervisorCardGap,
           runSpacing: _supervisorCardGap,
           children: [
-            for (final lane in plan.teachers)
+            for (final entry in entries)
               _SupervisorCard(
-                key: ValueKey('${plan.room.id}:${lane.teacherTaxCode}'),
-                lane: lane,
-                hours: _coverageLabel(plan, lane),
+                key: ValueKey('${plan.room.id}:${entry.lane.teacherTaxCode}'),
+                lane: entry.lane,
+                hours: entry.hours.map((span) => formatMinutesRange(span.$1, span.$2)).join(', '),
+                elsewhere: _elsewhereOfRoom(entry.lane, plan.room.id),
                 width: width,
-                isSelected: plan.supervisors.contains(lane.teacherTaxCode),
-                onTap: () => _toggleSupervisor(plan.room.id, lane.teacherTaxCode),
+                isSelected: plan.supervisors.contains(entry.lane.teacherTaxCode),
+                onTap: () => _toggleSupervisor(plan.room.id, entry.lane.teacherTaxCode),
               ),
           ],
         );
       },
     );
-  }
-
-  String _coverageLabel(_RoomPlan plan, TeacherLane lane)
-  {
-    return plan.coverageOf(lane).map((span) => formatMinutesRange(span.$1, span.$2)).join(', ');
   }
 
   Widget _buildShifts()
@@ -1431,7 +2007,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     {
       0 => (
         question: 'A quali stanze sono assegnati i docenti?',
-        hint: 'Trascina ogni docente dentro una stanza.',
+        hint: 'Trascina ogni docente dentro una stanza.\nUn docente può essere assegnato a più stanze in orari diversi, selezionabili tramite l\'icona dell\'orologio',
       ),
       _ => (
         question: 'Chi sono i responsabili?',
@@ -1505,8 +2081,7 @@ Future<bool?> showRoomAssignmentWizard({
   List<RoomSupervisionItem> supervisions = const [],
   Future<bool> Function({
     required DateTime day,
-    required List<TeacherRoomAssignmentItem> assignments,
-    required Map<String, int?> rooms,
+    required PlannedRooms rooms,
     required List<PlannedShift> shifts,
     required Function(String) onError,
   })? onSave,

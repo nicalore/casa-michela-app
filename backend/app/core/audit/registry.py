@@ -147,9 +147,9 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Teacher room assignment creation",
         body_fields=("date", "teacher_tax_code"),
     ),
-    ("PUT", "/teacher-room-assignments/{day}/{teacher_tax_code}"): AuditRule(
-        "Teacher room assignment modification",
-        path_params=("day", "teacher_tax_code"),
+    ("PUT", "/teacher-room-assignments/{day}"): AuditRule(
+        "Room plan replacement",
+        path_params=("day",),
     ),
     ("DELETE", "/teacher-room-assignments/{day}/{teacher_tax_code}"): AuditRule(
         "Teacher room assignment elimination",

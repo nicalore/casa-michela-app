@@ -42,6 +42,7 @@ from app.services.lesson_guard import assert_band_claimed
 from app.services.room_occupancy import (
     capacity_warnings,
     rooms_left_open,
+    teachers_adrift,
     teachers_in_building,
 )
 
@@ -310,6 +311,7 @@ class CalendarPublicationService:
 
     # Scoped to the band's lessons (days are published a band at a time) but the
     # day's supervision shifts. Checked only at publish: later edits could undo it.
+    # A lesson cut by a room change counts as one without a room.
     async def _assert_rooms_settled(
         self,
         day: date,
@@ -321,7 +323,7 @@ class CalendarPublicationService:
             return
 
         assignments = await self.assignments.find_for_teachers(day, expected)
-        adrift = expected - {row.teacher_tax_code for row in assignments}
+        adrift = teachers_adrift(lessons, assignments)
 
         if adrift:
             people = await PersonRepository(self.session).get_options(adrift)

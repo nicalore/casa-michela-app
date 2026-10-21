@@ -99,11 +99,13 @@ class MobileCalendarEntry
     this.tourId,
   });
 
+  // [showsRoom]: the teacher changes room in the band, so each lesson says its own.
   factory MobileCalendarEntry.lesson(
     LessonItem lesson,
     List<MinistrySubjectItem> ministrySubjects, {
     required VoidCallback onTap,
     String? tourId,
+    bool showsRoom = false,
   })
   {
     final topic = lessonTopic(lesson, ministrySubjects);
@@ -118,6 +120,9 @@ class MobileCalendarEntry
       subject: topic.subject,
       person: lessonTitle(lesson),
       modeWord: lesson.mode == kOnlineMode ? modeLabel(kOnlineMode) : null,
+      where: showsRoom
+          ? (icon: lessonWhere(lesson).icon, label: lessonWhere(lesson).label, accent: lessonWhereAccent(lesson))
+          : null,
       onTap: onTap,
       tourId: tourId,
     );

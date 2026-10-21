@@ -258,6 +258,9 @@ class OwnLessonBlock extends StatelessWidget
 
   final VoidCallback? onTap;
 
+  // A teacher changing room in the band reads the room on each lesson.
+  final bool showsRoom;
+
   const OwnLessonBlock({
     super.key,
     required this.lesson,
@@ -266,9 +269,12 @@ class OwnLessonBlock extends StatelessWidget
     required this.isPast,
     this.isCurrent = false,
     this.onTap,
+    this.showsRoom = false,
   });
 
   bool get _byStudent => view == CalendarView.byStudent;
+
+  bool get _saysWhere => _byStudent || showsRoom;
 
   String get _title => lessonTitle(lesson, view: view);
 
@@ -294,7 +300,7 @@ class OwnLessonBlock extends StatelessWidget
       capped(blockLineWidth(context, topic.discipline, _titleStyle)),
       if (topic.subject case final subject?) capped(blockLineWidth(context, subject, _subjectStyle)),
       capped(blockLineWidth(context, _title, _personStyle)),
-      if (_byStudent)
+      if (_saysWhere)
         _whereIcon + _whereIconGap + capped(blockLineWidth(context, _where.label, _whereStyle(_whereAccent))),
     ];
 
@@ -319,7 +325,7 @@ class OwnLessonBlock extends StatelessWidget
 
     height += 4 + tall(_title, _personStyle);
 
-    if (_byStudent)
+    if (_saysWhere)
     {
       height += 3 + math.max(whereIcon == 0 ? 0.0 : _whereIcon, tall(_where.label, _whereStyle(_whereAccent), whereIcon));
     }
@@ -368,7 +374,7 @@ class OwnLessonBlock extends StatelessWidget
         ],
         const SizedBox(height: 4),
         Text(_title, style: _personStyle),
-        if (_byStudent) ...[
+        if (_saysWhere) ...[
           const SizedBox(height: 3),
           _buildWhere(narrow: narrow),
         ],

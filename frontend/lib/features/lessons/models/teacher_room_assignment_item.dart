@@ -1,8 +1,11 @@
+import 'package:flutter/material.dart';
+
 import '../../../core/utils/json_parsing.dart';
+import '../../../core/utils/week_range.dart';
 import 'lesson_item.dart';
 import 'person_option_item.dart';
 
-// One per teacher per day (not per hour); only teachers in the building have one.
+// In [room] from [startTime] until the teacher's next row; the first row starts at midnight.
 class TeacherRoomAssignmentItem
 {
   final DateTime date;
@@ -12,12 +15,13 @@ class TeacherRoomAssignmentItem
   // Not [RoomItem]: the catalogue row insists on a created_at this lacks.
   final RoomOptionItem room;
 
+  final TimeOfDay startTime;
+
   // Present only on the write's answer, not on later reads.
   final List<String> warnings;
 
   final DateTime createdAt;
 
-  // Goes back as expected_updated_at when the room is moved.
   final DateTime updatedAt;
 
   const TeacherRoomAssignmentItem({
@@ -25,10 +29,13 @@ class TeacherRoomAssignmentItem
     required this.teacherTaxCode,
     required this.teacher,
     required this.room,
+    required this.startTime,
     this.warnings = const [],
     required this.createdAt,
     required this.updatedAt,
   });
+
+  int get startMinutes => minutesOfTimeOfDay(startTime);
 
   factory TeacherRoomAssignmentItem.fromJson(Map<String, dynamic> json)
   {
@@ -37,6 +44,7 @@ class TeacherRoomAssignmentItem
       teacherTaxCode: json['teacher_tax_code'] as String,
       teacher: PersonOptionItem.fromJson(json['teacher'] as Map<String, dynamic>),
       room: RoomOptionItem.fromJson(json['room'] as Map<String, dynamic>),
+      startTime: parseTimeOfDay(json['start_time']),
       warnings: parseStringList(json['warnings']),
       createdAt: parseInstant(json['created_at'])!,
       updatedAt: parseInstant(json['updated_at'])!,

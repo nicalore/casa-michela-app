@@ -596,6 +596,81 @@ class _MarkedAvatar extends StatelessWidget
   }
 }
 
+final TextStyle _laneNameStyle = GoogleFonts.plusJakartaSans(
+  fontSize: 15,
+  fontWeight: FontWeight.w700,
+  height: 1.2,
+  color: AppTheme.trialOcean,
+);
+
+final TextStyle _laneRoomStyle = GoogleFonts.plusJakartaSans(
+  fontSize: 12,
+  fontWeight: FontWeight.w600,
+  height: 1.25,
+  color: AppTheme.trialTealDeep,
+);
+
+final TextStyle _laneHoursStyle = GoogleFonts.plusJakartaSans(
+  fontSize: 11.5,
+  fontWeight: FontWeight.w600,
+  height: 1.3,
+  color: AppTheme.trialMutedText,
+  fontFeatures: const [FontFeature.tabularFigures()],
+);
+
+const double _laneRoomIcon = 13;
+const double _laneRoomIconGap = 4;
+const double _laneShieldGap = 4;
+const double _laneShield = 12;
+const double _laneHoursGap = 2;
+
+// The header's text column: the avatar with its ring, the gaps and the right padding taken out.
+const double _laneTextWidth = kTimelineLeadingWidth - 12 - (_MarkedAvatar._size + 6) - 12;
+
+// Name plus each room, wrapped whole, with its hours: a lane changing room grows to hold them.
+double laneHeaderMinHeight(BuildContext context, CalendarLane lane, LaneRoomLabel? room)
+{
+  if (room == null || !room.changesRoom)
+  {
+    return 0;
+  }
+
+  final ambient = DefaultTextStyle.of(context).style;
+  final scaler = MediaQuery.textScalerOf(context);
+
+  double tall(InlineSpan span, double width, {int? maxLines})
+  {
+    final painter = TextPainter(
+      text: span,
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: maxLines,
+    );
+
+    painter.layout(maxWidth: width);
+
+    final height = painter.height;
+
+    painter.dispose();
+
+    return height;
+  }
+
+  var height = tall(TextSpan(text: lane.person.fullName, style: ambient.merge(_laneNameStyle)), _laneTextWidth, maxLines: 2) + 3;
+
+  for (final stay in room.stays)
+  {
+    final roomSpan = TextSpan(text: stay.room.name, style: ambient.merge(_laneRoomStyle));
+    final hours = TextSpan(text: formatMinutesRange(stay.startMinutes, stay.endMinutes), style: ambient.merge(_laneHoursStyle));
+    final indented = _laneTextWidth - _laneRoomIcon - _laneRoomIconGap;
+
+    height += tall(roomSpan, indented) + math.max(_laneShield, tall(hours, indented)) + _laneHoursGap;
+  }
+
+  // A few pixels spare: rounding must never clip the last line.
+  return 2 * kTimelineRowPadding + height + 4;
+}
+
 class _LaneHeader extends StatelessWidget
 {
   final CalendarLane lane;
@@ -673,8 +748,45 @@ class _LaneHeader extends StatelessWidget
     );
   }
 
+  // Each room written whole, its hours and shield under it; laneHeaderMinHeight measures the same.
+  List<Widget> _buildRooms(LaneRoomLabel room)
+  {
+    return [
+      for (final stay in room.stays) ...[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(Icons.meeting_room_outlined, size: _laneRoomIcon, color: AppTheme.trialTealDeep),
+            ),
+            const SizedBox(width: _laneRoomIconGap),
+            Expanded(child: Text(stay.room.name, style: _laneRoomStyle)),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: _laneRoomIcon + _laneRoomIconGap, bottom: _laneHoursGap),
+          child: Row(
+            children: [
+              Text(formatMinutesRange(stay.startMinutes, stay.endMinutes), maxLines: 1, style: _laneHoursStyle),
+              if (stay.isSupervisor) ...[
+                const SizedBox(width: _laneShieldGap),
+                const Icon(Icons.shield_rounded, size: _laneShield, color: AppTheme.trialTealDeep),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ];
+  }
+
   List<Widget> _buildWhere(LaneRoomLabel room)
   {
+    if (room.changesRoom)
+    {
+      return _buildRooms(room);
+    }
+
     final name = room.roomName;
     final atHome = name == null;
 
@@ -741,12 +853,7 @@ class _LaneHeader extends StatelessWidget
                     lane.person.fullName,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                      color: AppTheme.trialOcean,
-                    ),
+                    style: _laneNameStyle,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -1710,6 +1817,9 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       isMovable: !lesson.isLocked && !lesson.isProvisional && widget.onPlan != null,
       isComposing: widget.isComposing,
       hasCaption: _hasCaption(lesson),
+      showsRoom: !widget.isComposing &&
+          widget.view == CalendarView.byTeacher &&
+          (widget.roomByTeacher[lesson.teacherTaxCode]?.changesRoom ?? false),
       litLesson: _litLesson,
       onHover: (isLit) => _light(lesson, isLit),
       carriedAt: _carriedAt,

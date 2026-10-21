@@ -386,6 +386,12 @@ pw.Widget _footer(pw.Context context, CalendarExportData data, _Styles styles)
   );
 }
 
+// By student every lesson says where; by teacher only those of a teacher changing room.
+bool _saysWhere(CalendarExportData data, LessonItem lesson)
+{
+  return data.isByStudent || (data.roomByTeacher[lesson.teacherTaxCode]?.changesRoom ?? false);
+}
+
 // The width a block needs to write each of its lines whole.
 double _lessonNeed(CalendarExportData data, _Styles styles, LessonItem lesson)
 {
@@ -399,7 +405,7 @@ double _lessonNeed(CalendarExportData data, _Styles styles, LessonItem lesson)
     capped(topic.discipline, styles.blockTitle),
     if (topic.subject case final subject?) capped(subject, styles.blockSubject),
     capped(lessonTitle(lesson, view: data.view), styles.blockWho),
-    if (data.isByStudent) capped(lessonWhere(lesson).label, styles.blockWhere(lesson.mode)),
+    if (_saysWhere(data, lesson)) capped(lessonWhere(lesson).label, styles.blockWhere(lesson.mode)),
   ];
 
   return _withChrome(lines.reduce(math.max));
@@ -662,7 +668,17 @@ pw.Widget _laneHead(CalendarExportData data, _Styles styles, CalendarLane lane)
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(lane.person.fullName, style: styles.laneName),
-        if (room != null) ...[
+        if (room != null && room.changesRoom) ...[
+          for (final stay in room.stays) ...[
+            pw.SizedBox(height: 1),
+            pw.Text(
+              '${stay.room.name} ${formatMinutesRange(stay.startMinutes, stay.endMinutes)}',
+              style: styles.laneRoom,
+            ),
+            if (stay.isSupervisor) pw.Text(kSupervisorLabel, style: styles.laneSupervisor),
+          ],
+        ]
+        else if (room != null) ...[
           pw.SizedBox(height: 1),
           if (room.roomName != null)
             pw.Text(room.roomName!, style: styles.laneRoom)
@@ -711,7 +727,7 @@ pw.Widget _block(CalendarExportData data, _Styles styles, LessonItem lesson, dou
         if (topic.subject case final subject?) pw.Text(subject, style: styles.blockSubject),
         pw.SizedBox(height: 1.5),
         pw.Text(lessonTitle(lesson, view: data.view), style: styles.blockWho),
-        if (data.isByStudent) pw.Text(where.label, style: styles.blockWhere(lesson.mode)),
+        if (_saysWhere(data, lesson)) pw.Text(where.label, style: styles.blockWhere(lesson.mode)),
       ],
     ),
   );
@@ -848,8 +864,18 @@ pw.Widget _nameCell(CalendarExportData data, _Styles styles, CalendarLane lane)
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
       pw.Text(lane.person.fullName, style: styles.cellName),
-      if (room?.roomName != null) pw.Text(room!.roomName!, style: styles.cellRoom),
-      if (room?.isSupervisor == true) pw.Text(kSupervisorLabel, style: styles.cellSupervisor),
+      if (room != null && room.changesRoom)
+        for (final stay in room.stays) ...[
+          pw.Text(
+            '${stay.room.name} ${formatMinutesRange(stay.startMinutes, stay.endMinutes)}',
+            style: styles.cellRoom,
+          ),
+          if (stay.isSupervisor) pw.Text(kSupervisorLabel, style: styles.cellSupervisor),
+        ]
+      else ...[
+        if (room?.roomName != null) pw.Text(room!.roomName!, style: styles.cellRoom),
+        if (room?.isSupervisor == true) pw.Text(kSupervisorLabel, style: styles.cellSupervisor),
+      ],
     ],
   ));
 }

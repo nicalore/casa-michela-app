@@ -62,22 +62,123 @@ class MobileConvocationCard extends StatelessWidget
       tablet: tablet,
       stretched: stretched,
       // In the building the room speaks for the mode; "In presenza" only while no room is set.
+      // Changing room, each room has a section of its own below instead.
       chips: [
-        if (room != null)
-          MobileBandChip(
-            icon: Icons.meeting_room_outlined,
-            label: room.name,
-            accent: AppTheme.trialTealDeep,
-            surface: AppTheme.todaySurface,
-            tablet: tablet,
-          )
-        else if (modes.contains(kPresenceMode))
+        if (!call.changesRoom && room != null)
+          _roomChip(room.name, tablet: tablet)
+        else if (room == null && modes.contains(kPresenceMode))
           MobileBandChip.mode(kPresenceMode, tablet: tablet),
         if (modes.contains(kOnlineMode)) MobileBandChip.mode(kOnlineMode, tablet: tablet),
       ],
-      footer: call.roomSupervisors.isEmpty
-          ? null
-          : _RoomSupervisors(supervisors: call.roomSupervisors, tablet: tablet, inline: stretched),
+      footer: call.changesRoom
+          ? _RoomSections(rooms: call.rooms, tablet: tablet, inline: stretched)
+          : switch (call.rooms.firstOrNull?.supervisors)
+            {
+              final List<RoomSupervisor> supervisors when supervisors.isNotEmpty =>
+                _RoomSupervisors(supervisors: supervisors, tablet: tablet, inline: stretched),
+              _ => null,
+            },
+    );
+  }
+}
+
+MobileBandChip _roomChip(String name, {required bool tablet})
+{
+  return MobileBandChip(
+    icon: Icons.meeting_room_outlined,
+    label: name,
+    accent: AppTheme.trialTealDeep,
+    surface: AppTheme.todaySurface,
+    tablet: tablet,
+  );
+}
+
+// One section per room: the room, its hours, then who supervises it meanwhile.
+class _RoomSections extends StatelessWidget
+{
+  final List<RoomStay> rooms;
+  final bool tablet;
+
+  // Side by side, as in the stretched card.
+  final bool inline;
+
+  const _RoomSections({required this.rooms, required this.tablet, required this.inline});
+
+  Widget _buildSection(RoomStay stay)
+  {
+    final Widget hours = Text(
+      formatMinutesRange(stay.startMinutes, stay.endMinutes),
+      maxLines: 1,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: tablet ? 17 : 16,
+        fontWeight: FontWeight.w800,
+        height: 1.2,
+        color: AppTheme.trialInk,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+
+    // Side by side the section is narrow: the room and its hours shrink together, never wrap.
+    final Widget head = inline
+        ? FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [_roomChip(stay.room.name, tablet: tablet), const SizedBox(width: 12), hours],
+            ),
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(child: _roomChip(stay.room.name, tablet: tablet)),
+              const SizedBox(width: 12),
+              hours,
+            ],
+          );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        head,
+        if (stay.supervisors.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _RoomSupervisors(supervisors: stay.supervisors, tablet: tablet, inline: inline, stacked: inline),
+        ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    if (inline)
+    {
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, stay) in rooms.indexed) ...[
+              if (i > 0) const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: VerticalDivider(width: 1, thickness: 1, color: _hairline),
+              ),
+              Flexible(child: _buildSection(stay)),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (i, stay) in rooms.indexed) ...[
+          if (i > 0) const _Rule(),
+          _buildSection(stay),
+        ],
+      ],
     );
   }
 }
@@ -90,7 +191,15 @@ class _RoomSupervisors extends StatelessWidget
   // Side by side, each name above its hours, as in the stretched card.
   final bool inline;
 
-  const _RoomSupervisors({required this.supervisors, required this.tablet, required this.inline});
+  // Inline, but one under the other: a room section is narrow.
+  final bool stacked;
+
+  const _RoomSupervisors({
+    required this.supervisors,
+    required this.tablet,
+    required this.inline,
+    this.stacked = false,
+  });
 
   // The mark rides the name's last line, so a wrapped name keeps it close.
   Widget _buildName(RoomSupervisor supervisor)
@@ -195,11 +304,17 @@ class _RoomSupervisors extends StatelessWidget
         children: [
           heading,
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 28,
-            runSpacing: 10,
-            children: [for (final supervisor in supervisors) _buildSupervisor(supervisor)],
-          ),
+          if (stacked)
+            for (final (i, supervisor) in supervisors.indexed) ...[
+              if (i > 0) const SizedBox(height: 10),
+              _buildSupervisor(supervisor),
+            ]
+          else
+            Wrap(
+              spacing: 28,
+              runSpacing: 10,
+              children: [for (final supervisor in supervisors) _buildSupervisor(supervisor)],
+            ),
         ],
       );
     }

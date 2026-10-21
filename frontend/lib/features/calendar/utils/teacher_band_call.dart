@@ -24,19 +24,39 @@ class RoomSupervisor
   const RoomSupervisor({required this.person, required this.spans, required this.isSelf});
 }
 
+// One room of the band: the hours of the teacher's own lessons there.
+class RoomStay
+{
+  final RoomOptionItem room;
+  final int startMinutes;
+  final int endMinutes;
+
+  // Whoever supervises the room while the teacher is there, the teacher included.
+  final List<RoomSupervisor> supervisors;
+
+  const RoomStay({
+    required this.room,
+    required this.startMinutes,
+    required this.endMinutes,
+    required this.supervisors,
+  });
+}
+
 class TeacherBandCall
 {
   final List<LessonItem> lessons;
   final List<ScheduledActivity> activities;
 
-  // Everybody supervising the teacher's room in the band, the teacher included.
-  final List<RoomSupervisor> roomSupervisors;
+  // In clock order; more than one when the teacher changes room in the band.
+  final List<RoomStay> rooms;
 
   const TeacherBandCall({
     required this.lessons,
     required this.activities,
-    required this.roomSupervisors,
+    required this.rooms,
   });
+
+  bool get changesRoom => rooms.length > 1;
 
   bool get isEmpty => lessons.isEmpty && activities.isEmpty;
 
@@ -91,8 +111,7 @@ class TeacherBandCall
     return result;
   }
 
-  // One room per teacher per day, so the first lesson's room suffices.
-  RoomOptionItem? get room => lessons.map((lesson) => lesson.room).nonNulls.firstOrNull;
+  RoomOptionItem? get room => rooms.firstOrNull?.room;
 
   int get studentCount => {for (final lesson in lessons) ...lesson.studentTaxCodes}.length;
 
@@ -145,40 +164,98 @@ TeacherBandCall teacherBandCall({
 
   given.sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
-  final int? roomId = own.map((lesson) => lesson.room).nonNulls.firstOrNull?.id;
+  // The server gives each lesson the room of its hour; consecutive ones in a room are one stay.
+  final stays = <({RoomOptionItem room, int startMinutes, int endMinutes})>[];
+
+  for (final lesson in own)
+  {
+    final room = lesson.room;
+
+    if (room == null)
+    {
+      continue;
+    }
+
+    final last = stays.lastOrNull;
+
+    if (last != null && last.room.id == room.id)
+    {
+      stays.last = (room: room, startMinutes: last.startMinutes, endMinutes: math.max(last.endMinutes, lesson.endMinutes));
+
+      continue;
+    }
+
+    stays.add((room: room, startMinutes: lesson.startMinutes, endMinutes: lesson.endMinutes));
+  }
+
+  return TeacherBandCall(
+    lessons: own,
+    activities: given,
+    rooms: [
+      for (final stay in stays)
+        RoomStay(
+          room: stay.room,
+          startMinutes: stay.startMinutes,
+          endMinutes: stay.endMinutes,
+          supervisors: _supervisorsWhile(
+            stay,
+            day: day,
+            bandStart: bandStart,
+            bandEnd: bandEnd,
+            supervisions: supervisions,
+            teacherTaxCode: teacherTaxCode,
+          ),
+        ),
+    ],
+  );
+}
+
+// Only who overlaps the stay; their hours in the room are shown whole within the band.
+List<RoomSupervisor> _supervisorsWhile(
+  ({RoomOptionItem room, int startMinutes, int endMinutes}) stay, {
+  required DateTime day,
+  required int bandStart,
+  required int bandEnd,
+  required List<RoomSupervisionItem> supervisions,
+  required String? teacherTaxCode,
+})
+{
   final people = <String, PersonOptionItem>{};
   final shifts = <String, List<(int, int)>>{};
+  final present = <String>{};
 
   for (final shift in supervisions)
   {
-    if (roomId == null || shift.room.id != roomId || !isSameDate(shift.date, day))
+    if (shift.room.id != stay.room.id || !isSameDate(shift.date, day))
     {
       continue;
     }
 
     final clipped = intersectSpan(shift.startMinutes, shift.endMinutes, bandStart, bandEnd);
 
-    if (clipped != null)
+    if (clipped == null)
     {
-      people[shift.teacherTaxCode] = shift.teacher;
-      (shifts[shift.teacherTaxCode] ??= []).add(clipped);
+      continue;
+    }
+
+    people[shift.teacherTaxCode] = shift.teacher;
+    (shifts[shift.teacherTaxCode] ??= []).add(clipped);
+
+    if (spansOverlap(shift.startMinutes, shift.endMinutes, stay.startMinutes, stay.endMinutes))
+    {
+      present.add(shift.teacherTaxCode);
     }
   }
 
-  final supervisors = [
+  return [
     for (final MapEntry(key: taxCode, value: spans) in shifts.entries)
-      RoomSupervisor(
-        person: people[taxCode]!,
-        spans: mergeSpans(spans),
-        isSelf: taxCode == teacherTaxCode,
-      ),
+      if (present.contains(taxCode))
+        RoomSupervisor(
+          person: people[taxCode]!,
+          spans: mergeSpans(spans),
+          isSelf: taxCode == teacherTaxCode,
+        ),
   ]..sort((a, b) => a.spans.first.$1.compareTo(b.spans.first.$1));
-
-  return TeacherBandCall(
-    lessons: own,
-    activities: given,
-    roomSupervisors: supervisors,
-  );
 }
 
 List<AvailabilityItem> availabilitiesIn({

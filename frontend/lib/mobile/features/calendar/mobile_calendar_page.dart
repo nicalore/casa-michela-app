@@ -622,6 +622,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
           _ministrySubjects,
           onTap: () => _openLesson(lesson),
           tourId: identical(lesson, first) ? calendarTourLesson(band.band) : null,
+          showsRoom: call.changesRoom,
         ),
       for (final activity in call.activities)
         MobileCalendarEntry.activity(

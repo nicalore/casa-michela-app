@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
+from app.api.room_supervisions import supervision_responses
 from app.models.person import Person
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.repositories.calendar_publication_repository import (
@@ -19,9 +20,10 @@ from app.repositories.teacher_room_assignment_repository import (
 from app.schemas.person import PersonOption
 from app.schemas.room import RoomOption
 from app.schemas.teacher_room_assignment import (
+    RoomPlanResponse,
+    RoomPlanUpdate,
     TeacherRoomAssignmentCreate,
     TeacherRoomAssignmentResponse,
-    TeacherRoomAssignmentUpdate,
 )
 from app.services.teacher_room_assignment_service import (
     TeacherRoomAssignmentService,
@@ -47,6 +49,7 @@ def _to_response(
         teacher_tax_code=assignment.teacher_tax_code,
         teacher=PersonOption.model_validate(people[assignment.teacher_tax_code]),
         room=RoomOption.model_validate(assignment.room),
+        start_time=assignment.start_time,
         warnings=warnings,
         created_at=assignment.created_at,
         updated_at=assignment.updated_at,
@@ -108,26 +111,24 @@ async def assign_room(
     return (await _to_responses(db, [assignment], warnings=warnings))[0]
 
 
-@router.put(
-    "/{day}/{teacher_tax_code}",
-    response_model=TeacherRoomAssignmentResponse,
-    dependencies=_ADMIN_ONLY,
-)
-async def update_assignment(
+@router.put("/{day}", response_model=RoomPlanResponse, dependencies=_ADMIN_ONLY)
+async def replace_room_plan(
     day: date,
-    teacher_tax_code: str,
-    payload: TeacherRoomAssignmentUpdate,
+    payload: RoomPlanUpdate,
     identity: CurrentIdentity,
     db: DbSession,
-) -> TeacherRoomAssignmentResponse:
-    assignment, warnings = await _service(db).update(
+) -> RoomPlanResponse:
+    assignments, supervisions, warnings = await _service(db).replace_day(
         identity,
         day,
-        teacher_tax_code,
         payload,
     )
 
-    return (await _to_responses(db, [assignment], warnings=warnings))[0]
+    return RoomPlanResponse(
+        assignments=await _to_responses(db, assignments),
+        supervisions=await supervision_responses(db, supervisions),
+        warnings=warnings,
+    )
 
 
 @router.delete("/{day}/{teacher_tax_code}", dependencies=_ADMIN_ONLY)

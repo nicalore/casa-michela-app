@@ -18,32 +18,95 @@ def teacher_of(lesson: Lesson) -> str:
     return lesson.availability.teacher_tax_code
 
 
-def rooms_by_teacher(
-    assignments: Sequence[TeacherRoomAssignment],
-) -> dict[str, int]:
-    return {
-        assignment.teacher_tax_code: assignment.room_id
-        for assignment in assignments
-    }
+# One day's rows, by teacher, in clock order.
+def stretches_by_teacher(
+    assignments: Iterable[TeacherRoomAssignment],
+) -> dict[str, list[TeacherRoomAssignment]]:
+    grouped: dict[str, list[TeacherRoomAssignment]] = defaultdict(list)
+
+    for assignment in sorted(assignments, key=lambda row: row.start_time):
+        grouped[assignment.teacher_tax_code].append(assignment)
+
+    return dict(grouped)
+
+
+# None before the first row or across a room change. Mirrors stretchAt in Dart.
+def stretch_index(
+    starts: Sequence[time],
+    start_time: time,
+    end_time: time,
+) -> int | None:
+    found = None
+
+    for index, start in enumerate(starts):
+        if start <= start_time:
+            found = index
+        elif start < end_time:
+            return None
+        else:
+            break
+
+    return found
+
+
+def stretch_at(
+    stretches: Sequence[TeacherRoomAssignment],
+    start_time: time,
+    end_time: time,
+) -> TeacherRoomAssignment | None:
+    index = stretch_index(
+        [stretch.start_time for stretch in stretches],
+        start_time,
+        end_time,
+    )
+
+    return stretches[index] if index is not None else None
+
+
+def room_of(
+    lesson: Lesson,
+    stretches: dict[str, list[TeacherRoomAssignment]],
+) -> int | None:
+    if lesson.teacher_mode != "presence":
+        return None
+
+    stretch = stretch_at(
+        stretches.get(teacher_of(lesson), []),
+        lesson.start_time,
+        lesson.end_time,
+    )
+
+    return stretch.room_id if stretch is not None else None
 
 
 def lessons_by_room(
     lessons: Sequence[Lesson],
     assignments: Sequence[TeacherRoomAssignment],
 ) -> dict[int, list[Lesson]]:
-    rooms = rooms_by_teacher(assignments)
+    stretches = stretches_by_teacher(assignments)
     grouped: dict[int, list[Lesson]] = defaultdict(list)
 
     for lesson in lessons:
-        if lesson.teacher_mode != "presence":
-            continue
-
-        room_id = rooms.get(teacher_of(lesson))
+        room_id = room_of(lesson, stretches)
 
         if room_id is not None:
             grouped[room_id].append(lesson)
 
     return dict(grouped)
+
+
+# In-building teachers with a lesson in no single room.
+def teachers_adrift(
+    lessons: Sequence[Lesson],
+    assignments: Sequence[TeacherRoomAssignment],
+) -> set[str]:
+    stretches = stretches_by_teacher(assignments)
+
+    return {
+        teacher_of(lesson)
+        for lesson in lessons
+        if lesson.teacher_mode == "presence" and room_of(lesson, stretches) is None
+    }
 
 
 def students_of(lesson: Lesson) -> set[str]:
@@ -167,7 +230,7 @@ def rooms_left_open(
     assignments: Sequence[TeacherRoomAssignment],
     supervisions: Sequence[RoomSupervision],
 ) -> set[int]:
-    rooms = rooms_by_teacher(assignments)
+    stretches = stretches_by_teacher(assignments)
     watching = {
         (shift.room_id, shift.teacher_tax_code) for shift in supervisions
     }
@@ -176,14 +239,12 @@ def rooms_left_open(
     covered: dict[int, list[tuple[time, time]]] = defaultdict(list)
 
     for lesson in lessons:
-        if lesson.teacher_mode != "presence":
-            continue
-
-        teacher = teacher_of(lesson)
-        room_id = rooms.get(teacher)
+        room_id = room_of(lesson, stretches)
 
         if room_id is None:
             continue
+
+        teacher = teacher_of(lesson)
 
         occupied[room_id].append((lesson.start_time, lesson.end_time))
 

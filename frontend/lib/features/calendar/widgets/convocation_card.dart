@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/week_range.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/calendar_lesson_block.dart';
 import '../../lessons/widgets/person_avatar.dart';
@@ -18,20 +19,16 @@ class ConvocationCard extends StatelessWidget
   const ConvocationCard({super.key, required this.call, required this.isFeminine});
 
   // In the building the room speaks for the mode; "In presenza" only while no room is set.
+  // Changing room, each room has a section of its own below instead.
   List<Widget> _buildChips()
   {
     final room = call.room;
     final modes = {for (final span in call.byMode) span.mode};
 
     return [
-      if (room != null)
-        BandChip(
-          icon: Icons.meeting_room_outlined,
-          label: room.name,
-          accent: AppTheme.trialTealDeep,
-          surface: AppTheme.todaySurface,
-        )
-      else if (modes.contains(kPresenceMode))
+      if (!call.changesRoom && room != null)
+        _RoomChip(name: room.name)
+      else if (room == null && modes.contains(kPresenceMode))
         BandChip(
           icon: lessonModeIcon(kPresenceMode),
           label: modeLabel(kPresenceMode),
@@ -48,6 +45,18 @@ class ConvocationCard extends StatelessWidget
     ];
   }
 
+  Widget? _buildFooter()
+  {
+    if (call.changesRoom)
+    {
+      return _RoomSections(rooms: call.rooms);
+    }
+
+    final supervisors = call.rooms.firstOrNull?.supervisors ?? const <RoomSupervisor>[];
+
+    return supervisors.isEmpty ? null : _RoomSupervisors(supervisors: supervisors);
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -55,7 +64,112 @@ class ConvocationCard extends StatelessWidget
       title: convocationTitle(call, feminine: isFeminine),
       summary: convocationSummary(call),
       chips: _buildChips(),
-      footer: call.roomSupervisors.isEmpty ? null : _RoomSupervisors(supervisors: call.roomSupervisors),
+      footer: _buildFooter(),
+    );
+  }
+}
+
+class _RoomChip extends StatelessWidget
+{
+  final String name;
+
+  const _RoomChip({required this.name});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return BandChip(
+      icon: Icons.meeting_room_outlined,
+      label: name,
+      accent: AppTheme.trialTealDeep,
+      surface: AppTheme.todaySurface,
+    );
+  }
+}
+
+const double _sectionGap = 40;
+
+// Side by side while each section keeps this much room, else one under the other.
+const double _sectionMinWidth = 320;
+
+// One section per room: the room, its hours, then who supervises it meanwhile.
+class _RoomSections extends StatelessWidget
+{
+  final List<RoomStay> rooms;
+
+  const _RoomSections({required this.rooms});
+
+  Widget _buildSection(RoomStay stay)
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: _RoomChip(name: stay.room.name)),
+            const SizedBox(width: 12),
+            Text(
+              formatMinutesRange(stay.startMinutes, stay.endMinutes),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+                color: AppTheme.trialOcean,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+        if (stay.supervisors.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _RoomSupervisors(supervisors: stay.supervisors),
+        ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final sideBySide =
+            constraints.maxWidth >= rooms.length * _sectionMinWidth + (rooms.length - 1) * (_sectionGap * 2 + 1);
+
+        if (!sideBySide)
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, stay) in rooms.indexed) ...[
+                if (i > 0) const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+                ),
+                _buildSection(stay),
+              ],
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, stay) in rooms.indexed) ...[
+                if (i > 0) const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: _sectionGap),
+                  child: VerticalDivider(width: 1, thickness: 1, color: AppTheme.trialLine),
+                ),
+                Flexible(child: _buildSection(stay)),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

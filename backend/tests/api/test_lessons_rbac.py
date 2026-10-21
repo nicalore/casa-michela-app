@@ -300,3 +300,54 @@ async def test_a_lesson_from_home_has_no_room(
 
     assert rows[in_building.id]["room"]["id"] == room.id
     assert rows[at_home.id]["room"] is None
+
+
+# A teacher may change room between lessons: each lesson carries its own.
+async def test_a_lesson_takes_the_room_of_its_hour(
+    db: AsyncSession,
+    client: AsyncClient,
+) -> None:
+    built = await scene(db)
+    other = await _second_pupil_on(db, built.teacher)
+    first, _ = await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
+    second, _ = await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        pupil_payload(built.availability, other, start=time(16), end=time(17)),
+    )
+
+    red, blue = await make_room(db), await make_room(db)
+
+    as_user(ADMIN_IDENTITY)
+
+    response = await client.put(
+        f"/teacher-room-assignments/{DAY}",
+        json={
+            "teachers": [
+                {
+                    "teacher_tax_code": built.teacher.tax_code,
+                    "stretches": [
+                        {"room_id": red.id, "start_time": "15:00:00"},
+                        {"room_id": blue.id, "start_time": "16:00:00"},
+                    ],
+                },
+            ],
+            "supervisions": [
+                {
+                    "teacher_tax_code": built.teacher.tax_code,
+                    "room_id": blue.id,
+                    "start_time": "16:00:00",
+                    "end_time": "17:00:00",
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert [
+        (row["room"]["id"], row["start_time"]) for row in response.json()["assignments"]
+    ] == [(red.id, "00:00:00"), (blue.id, "16:00:00")]
+
+    rows = {row["id"]: row for row in (await client.get("/lessons/")).json()}
+
+    assert rows[first.id]["room"]["id"] == red.id
+    assert rows[second.id]["room"]["id"] == blue.id

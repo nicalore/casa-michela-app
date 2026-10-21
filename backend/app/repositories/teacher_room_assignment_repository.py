@@ -19,7 +19,10 @@ class TeacherRoomAssignmentRepository(WritableRepository[TeacherRoomAssignment])
             select(TeacherRoomAssignment)
             .options(*_EAGER_LOADER)
             .where(TeacherRoomAssignment.date == day)
-            .order_by(TeacherRoomAssignment.teacher_tax_code)
+            .order_by(
+                TeacherRoomAssignment.teacher_tax_code,
+                TeacherRoomAssignment.start_time,
+            )
         )
 
         return (await self.session.execute(stmt)).scalars().all()
@@ -35,16 +38,20 @@ class TeacherRoomAssignmentRepository(WritableRepository[TeacherRoomAssignment])
             select(TeacherRoomAssignment)
             .options(*_EAGER_LOADER)
             .where(TeacherRoomAssignment.date.in_(days))
-            .order_by(TeacherRoomAssignment.date, TeacherRoomAssignment.teacher_tax_code)
+            .order_by(
+                TeacherRoomAssignment.date,
+                TeacherRoomAssignment.teacher_tax_code,
+                TeacherRoomAssignment.start_time,
+            )
         )
 
         return (await self.session.execute(stmt)).scalars().all()
 
-    async def get(
+    async def list_for_teacher(
         self,
         day: date,
         teacher_tax_code: str,
-    ) -> TeacherRoomAssignment | None:
+    ) -> Sequence[TeacherRoomAssignment]:
         stmt = (
             select(TeacherRoomAssignment)
             .options(*_EAGER_LOADER)
@@ -52,9 +59,10 @@ class TeacherRoomAssignmentRepository(WritableRepository[TeacherRoomAssignment])
                 TeacherRoomAssignment.date == day,
                 TeacherRoomAssignment.teacher_tax_code == teacher_tax_code,
             )
+            .order_by(TeacherRoomAssignment.start_time)
         )
 
-        return await self.session.scalar(stmt)
+        return (await self.session.execute(stmt)).scalars().all()
 
     async def find_for_teachers(
         self,

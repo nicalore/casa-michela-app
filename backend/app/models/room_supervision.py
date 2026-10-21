@@ -15,20 +15,22 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
+from app.models.teacher_room_assignment import MIDNIGHT
 
 
 # Gap coverage is checked at publication, not here. No FKs to teachers or
-# rooms on purpose: the composite FK to the assignment makes "supervisor is
-# assigned to that room" a DB fact, and deleting the assignment cascades here.
+# rooms on purpose: the composite FK to the assignment row makes "supervisor
+# is in that room then" a DB fact, and deleting the row cascades here.
 class RoomSupervision(CreatedAtMixin, UpdatedAtMixin, Base):
     __tablename__ = "room_supervisions"
 
     __table_args__ = (
         ForeignKeyConstraint(
-            ["date", "teacher_tax_code", "room_id"],
+            ["date", "teacher_tax_code", "assignment_start", "room_id"],
             [
                 "teacher_room_assignments.date",
                 "teacher_room_assignments.teacher_tax_code",
+                "teacher_room_assignments.start_time",
                 "teacher_room_assignments.room_id",
             ],
             ondelete="CASCADE",
@@ -69,6 +71,13 @@ class RoomSupervision(CreatedAtMixin, UpdatedAtMixin, Base):
     )
 
     room_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+
+    # Start of the assignment row the shift falls in.
+    assignment_start: Mapped[time] = mapped_column(
+        Time,
+        nullable=False,
+        default=MIDNIGHT,
+    )
 
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
 

@@ -38,7 +38,6 @@ import '../models/person_option_item.dart';
 import '../models/presence_item.dart';
 import '../models/room_day_plan.dart';
 import '../models/schedulable_booking.dart';
-import '../models/teacher_room_assignment_item.dart';
 import '../export/calendar_pdf_export.dart';
 import '../utils/calendar_jump.dart';
 import '../utils/excluded_teachers.dart';
@@ -250,8 +249,7 @@ class CalendarTab extends StatefulWidget
 
   final Future<bool> Function({
     required DateTime day,
-    required List<TeacherRoomAssignmentItem> assignments,
-    required Map<String, int?> rooms,
+    required PlannedRooms rooms,
     required List<PlannedShift> shifts,
     required Function(String) onError,
   })? onSaveRoomPlan;
@@ -583,6 +581,20 @@ class _CalendarTabState extends State<CalendarTab>
       lanes: lanes.whereType<TeacherLane>().toList(),
       plan: _hasRoomPlan ? _roomPlan : null,
     );
+  }
+
+  // Published by teacher: lanes changing room in the band write the room on each lesson.
+  Set<String> _lanesChangingRoom(List<CalendarLane> lanes)
+  {
+    if (!_isSettled || _view != CalendarView.byTeacher)
+    {
+      return const {};
+    }
+
+    return {
+      for (final MapEntry(key: taxCode, value: label) in _roomLabelsFor(lanes).entries)
+        if (label.changesRoom) taxCode,
+    };
   }
 
   int? get _nowMinutes
@@ -1852,6 +1864,8 @@ class _CalendarTabState extends State<CalendarTab>
   // Published: each row's blocks as tall as the one whose long lines wrap the most.
   List<double> _blockHeightsFor(List<CalendarLane> lanes, TimelineMetrics metrics)
   {
+    final moving = _lanesChangingRoom(lanes);
+
     return [
       for (final lane in lanes)
         lane.lessons.fold(
@@ -1864,6 +1878,7 @@ class _CalendarTabState extends State<CalendarTab>
               metrics.widthOf(lesson.startMinutes, lesson.endMinutes),
               view: _view,
               ministrySubjects: widget.ministrySubjects,
+              showsRoom: moving.contains(lane.personTaxCode),
             ),
           ),
         ),
@@ -1875,6 +1890,7 @@ class _CalendarTabState extends State<CalendarTab>
   {
     final marked = _markedLessons(lanes);
     final past = _pastLessons(lanes);
+    final moving = _lanesChangingRoom(lanes);
 
     final scale = TimeScale.elastic(
       start: window.$1,
@@ -1895,6 +1911,7 @@ class _CalendarTabState extends State<CalendarTab>
                 past: past.contains(lesson.id),
                 warned: marked.warned.contains(lesson.id),
                 preferred: marked.preferred.contains(lesson.id),
+                showsRoom: moving.contains(lane.personTaxCode),
               ),
             ),
           for (final activity in lane.activities)
@@ -1960,8 +1977,15 @@ class _CalendarTabState extends State<CalendarTab>
 
       final heights = blockHeights = _blockHeightsFor(lanes, metrics);
 
+      // Only the published headers list the rooms, so only they may need the taller row.
+      final rooms = _roomLabelsFor(lanes);
+
       metrics = metrics.withRowHeights([
-        for (var i = 0; i < lanes.length; i++) timelineRowHeightOf(stacking.laneCounts[i], heights[i]),
+        for (var i = 0; i < lanes.length; i++)
+          math.max(
+            timelineRowHeightOf(stacking.laneCounts[i], heights[i]),
+            laneHeaderMinHeight(context, lanes[i], rooms[lanes[i].personTaxCode]),
+          ),
       ]);
     }
     else if (metrics.pixelsPerMinute < kMinPixelsPerMinute)

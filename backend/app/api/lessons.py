@@ -35,6 +35,7 @@ from app.schemas.person import PersonOption
 from app.schemas.room import RoomOption
 from app.services.lesson_overlaps import overlaps_of
 from app.services.lesson_service import LessonService
+from app.services.room_occupancy import stretch_at
 
 router = APIRouter(
     prefix="/lessons",
@@ -129,7 +130,7 @@ def _to_response(
     links: Sequence[LessonBooking],
     people: dict[str, Person],
     avoided: AvoidedTeachers,
-    rooms: dict[tuple[date, str], TeacherRoomAssignment],
+    rooms: dict[tuple[date, str], list[TeacherRoomAssignment]],
     settled: set[tuple[date, str]],
     hours: TeacherHours,
     warnings: list[str],
@@ -137,9 +138,13 @@ def _to_response(
 ) -> LessonResponse:
     teacher_tax_code = lesson.availability.teacher_tax_code
 
-    # The room is the day's, for teachers in the building: none for a lesson from home.
+    # The teacher's room at that hour: none from home, nor across a room change.
     assignment = (
-        rooms.get((lesson.date, teacher_tax_code))
+        stretch_at(
+            rooms.get((lesson.date, teacher_tax_code), []),
+            lesson.start_time,
+            lesson.end_time,
+        )
         if lesson.teacher_mode == "presence"
         else None
     )
@@ -201,12 +206,14 @@ async def _to_responses(
         }
 
     assignments = TeacherRoomAssignmentRepository(db)
-    rooms: dict[tuple[date, str], TeacherRoomAssignment] = {
-        (assignment.date, assignment.teacher_tax_code): assignment
-        for assignment in await assignments.list_for_days(
-            {lesson.date for lesson in lessons},
+    rooms: dict[tuple[date, str], list[TeacherRoomAssignment]] = {}
+
+    for assignment in await assignments.list_for_days(
+        {lesson.date for lesson in lessons},
+    ):
+        rooms.setdefault((assignment.date, assignment.teacher_tax_code), []).append(
+            assignment,
         )
-    }
 
     settled = await CalendarPublicationRepository(db).find_settled_pairs(
         {(lesson.date, lesson.band) for lesson in lessons},

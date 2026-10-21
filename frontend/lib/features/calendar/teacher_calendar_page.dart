@@ -485,7 +485,12 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   }
 
   // The earliest lesson is the one a tour lights.
-  TimelineEntry _lessonEntry(LessonItem lesson, {required bool onTimeline, required bool lit})
+  TimelineEntry _lessonEntry(
+    LessonItem lesson, {
+    required bool onTimeline,
+    required bool lit,
+    required bool showsRoom,
+  })
   {
     final TimelineEntry entry = OwnLessonBlock(
       key: ValueKey('lesson-${lesson.id}'),
@@ -495,6 +500,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       isPast: isLessonPast(lesson, _now),
       isCurrent: !onTimeline && isLessonRunning(lesson, _now),
       onTap: () => _openLesson(lesson),
+      showsRoom: showsRoom,
     ).asEntry(context);
 
     return (
@@ -512,7 +518,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
     return [
       for (final lesson in call.lessons)
-        _lessonEntry(lesson, onTimeline: onTimeline, lit: lesson.id == first?.id),
+        _lessonEntry(lesson, onTimeline: onTimeline, lit: lesson.id == first?.id, showsRoom: call.changesRoom),
       for (final activity in call.activities)
         OwnActivityBlock(
           key: ValueKey('activity-${activity.id}'),

@@ -675,6 +675,9 @@ class CalendarLessonBlock extends StatefulWidget
 
   final ValueChanged<bool>? onHover;
 
+  // By teacher, for one who changes room in the band: each lesson says its own.
+  final bool showsRoom;
+
   const CalendarLessonBlock({
     super.key,
     required this.lesson,
@@ -696,6 +699,7 @@ class CalendarLessonBlock extends StatefulWidget
     this.hasCaption = false,
     this.litLesson,
     this.onHover,
+    this.showsRoom = false,
   });
 
   @override
@@ -853,6 +857,8 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
 
   bool get _byStudent => widget.view == CalendarView.byStudent;
 
+  bool get _saysWhere => _byStudent || widget.showsRoom;
+
   bool get _saysOnline => !_byStudent && widget.lesson.mode == kOnlineMode;
 
   ({IconData icon, String label}) get _where => lessonWhere(widget.lesson);
@@ -866,7 +872,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
       topic.discipline,
       ?topic.subject,
       _title,
-      if (_byStudent) _where.label,
+      if (_saysWhere) _where.label,
     ].join('\n');
   }
 
@@ -1139,7 +1145,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
                                   style: _blockPersonStyle,
                                 ),
                               ),
-                              if (_byStudent) ...[
+                              if (_saysWhere) ...[
                                 const SizedBox(height: 2),
                                 _buildWhere(),
                               ],
@@ -1321,6 +1327,7 @@ double publishedLessonBlockWidth(
   bool past = false,
   bool warned = false,
   bool preferred = false,
+  bool showsRoom = false,
 })
 {
   final topic = lessonTopic(lesson, ministrySubjects);
@@ -1338,7 +1345,7 @@ double publishedLessonBlockWidth(
     capped(blockLineWidth(context, topic.discipline, _blockDisciplineStyle)),
     if (topic.subject case final subject?) capped(blockLineWidth(context, subject, _blockSubjectStyle)),
     capped(blockLineWidth(context, lessonTitle(lesson, view: view), _blockPersonStyle)),
-    if (view == CalendarView.byStudent)
+    if (view == CalendarView.byStudent || showsRoom)
       _blockWhereIcon + _blockWhereIconGap + capped(blockLineWidth(context, lessonWhere(lesson).label, _blockWhereStyle)),
   ];
 
@@ -1368,6 +1375,7 @@ double publishedLessonBlockHeight(
   double width, {
   required CalendarView view,
   required List<MinistrySubjectItem> ministrySubjects,
+  bool showsRoom = false,
 })
 {
   final topic = lessonTopic(lesson, ministrySubjects);
@@ -1384,7 +1392,7 @@ double publishedLessonBlockHeight(
 
   height += 4 + tall(lessonTitle(lesson, view: view), _blockPersonStyle);
 
-  if (view == CalendarView.byStudent)
+  if (view == CalendarView.byStudent || showsRoom)
   {
     final where = tall(lessonWhere(lesson).label, _blockWhereStyle, _blockWhereIcon + _blockWhereIconGap);
 

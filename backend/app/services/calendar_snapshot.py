@@ -14,7 +14,7 @@ from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
 from app.models.room_supervision import RoomSupervision
 from app.models.teacher import Teacher
-from app.models.teacher_room_assignment import TeacherRoomAssignment
+from app.models.teacher_room_assignment import MIDNIGHT, TeacherRoomAssignment
 
 # Full row snapshot (not a hash) so closing a draft without publishing can
 # recreate the band; rows carry no ids because they are recreated, not resurrected.
@@ -46,6 +46,7 @@ def _assignment_row(assignment: TeacherRoomAssignment) -> dict[str, Any]:
     return {
         "teacher_tax_code": assignment.teacher_tax_code,
         "room_id": assignment.room_id,
+        "start_time": assignment.start_time.isoformat(),
     }
 
 
@@ -53,8 +54,30 @@ def _supervision_row(shift: RoomSupervision) -> dict[str, Any]:
     return {
         "teacher_tax_code": shift.teacher_tax_code,
         "room_id": shift.room_id,
+        "assignment_start": shift.assignment_start.isoformat(),
         "start_time": shift.start_time.isoformat(),
         "end_time": shift.end_time.isoformat(),
+    }
+
+
+# Snapshots taken before rooms had hours: one room from midnight.
+def _with_stretches(snapshot: dict[str, Any]) -> dict[str, Any]:
+    midnight = MIDNIGHT.isoformat()
+
+    return {
+        **snapshot,
+        _ASSIGNMENTS: _ordered(
+            [
+                {"start_time": midnight, **row}
+                for row in snapshot.get(_ASSIGNMENTS, [])
+            ],
+        ),
+        _SUPERVISIONS: _ordered(
+            [
+                {"assignment_start": midnight, **row}
+                for row in snapshot.get(_SUPERVISIONS, [])
+            ],
+        ),
     }
 
 
@@ -115,7 +138,9 @@ def _as_published(snapshot: dict[str, Any]) -> dict[str, Any]:
 
 
 def differs(before: dict[str, Any], after: dict[str, Any]) -> bool:
-    return _as_published(before) != _as_published(after)
+    return _as_published(_with_stretches(before)) != _as_published(
+        _with_stretches(after),
+    )
 
 
 def _time(value: str) -> time:
@@ -341,21 +366,30 @@ async def _restore_rooms(
 
     await session.flush()
 
-    rooms = {
-        row["teacher_tax_code"]: row["room_id"]
-        for row in snapshot.get(_ASSIGNMENTS, [])
+    stored = _with_stretches(snapshot)
+
+    rows = {
+        (row["teacher_tax_code"], row["start_time"], row["room_id"])
+        for row in stored[_ASSIGNMENTS]
         if row["teacher_tax_code"] in teachers
     }
 
-    for teacher, room_id in rooms.items():
+    for teacher, start, room_id in rows:
         session.add(
-            TeacherRoomAssignment(date=day, teacher_tax_code=teacher, room_id=room_id),
+            TeacherRoomAssignment(
+                date=day,
+                teacher_tax_code=teacher,
+                start_time=_time(start),
+                room_id=room_id,
+            ),
         )
 
     await session.flush()
 
-    for row in snapshot.get(_SUPERVISIONS, []):
-        if rooms.get(row["teacher_tax_code"]) != row["room_id"]:
+    for row in stored[_SUPERVISIONS]:
+        stretch = (row["teacher_tax_code"], row["assignment_start"], row["room_id"])
+
+        if stretch not in rows:
             continue
 
         session.add(
@@ -363,6 +397,7 @@ async def _restore_rooms(
                 date=day,
                 teacher_tax_code=row["teacher_tax_code"],
                 room_id=row["room_id"],
+                assignment_start=_time(row["assignment_start"]),
                 start_time=_time(row["start_time"]),
                 end_time=_time(row["end_time"]),
             ),

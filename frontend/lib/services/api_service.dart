@@ -2065,11 +2065,6 @@ class ApiService
     }
   }
 
-  String _assignmentPath(DateTime day, String teacherTaxCode)
-  {
-    return '/teacher-room-assignments/${formatDateOnly(day)}/$teacherTaxCode';
-  }
-
   Future<List<TeacherRoomAssignmentItem>> getTeacherRoomAssignments(DateTime day) async
   {
     final response = await _dio.get(
@@ -2080,65 +2075,43 @@ class ApiService
     return parseList(response.data, TeacherRoomAssignmentItem.fromJson);
   }
 
-  Future<TeacherRoomAssignmentItem> assignTeacherRoom({
+  // Replaces the listed teachers' rooms and shifts in one go; the first room runs from midnight.
+  Future<void> saveRoomPlan({
     required DateTime day,
-    required String teacherTaxCode,
-    required int roomId,
+    required Map<String, List<({int roomId, TimeOfDay startTime})>> rooms,
+    required List<({String teacherTaxCode, int roomId, TimeOfDay startTime, TimeOfDay endTime})> shifts,
   }) async
   {
     try
     {
-      final response = await _dio.post(
-        '/teacher-room-assignments/',
+      await _dio.put(
+        '/teacher-room-assignments/${formatDateOnly(day)}',
         data: {
-          'date': formatDateOnly(day),
-          'teacher_tax_code': teacherTaxCode,
-          'room_id': roomId,
+          'teachers': [
+            for (final MapEntry(key: teacherTaxCode, value: stretches) in rooms.entries)
+              {
+                'teacher_tax_code': teacherTaxCode,
+                'stretches': [
+                  for (final stretch in stretches)
+                    {'room_id': stretch.roomId, 'start_time': formatTimeOfDay(stretch.startTime)},
+                ],
+              },
+          ],
+          'supervisions': [
+            for (final shift in shifts)
+              {
+                'teacher_tax_code': shift.teacherTaxCode,
+                'room_id': shift.roomId,
+                'start_time': formatTimeOfDay(shift.startTime),
+                'end_time': formatTimeOfDay(shift.endTime),
+              },
+          ],
         },
       );
-
-      return TeacherRoomAssignmentItem.fromJson(response.data);
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'assegnazione della stanza.');
-    }
-  }
-
-  Future<TeacherRoomAssignmentItem> moveTeacherRoom({
-    required DateTime day,
-    required String teacherTaxCode,
-    required int roomId,
-    DateTime? expectedUpdatedAt,
-  }) async
-  {
-    try
-    {
-      final response = await _dio.put(
-        _assignmentPath(day, teacherTaxCode),
-        data: {
-          'room_id': roomId,
-          'expected_updated_at': expectedUpdatedAt?.toIso8601String(),
-        },
-      );
-
-      return TeacherRoomAssignmentItem.fromJson(response.data);
-    }
-    on DioException catch (e)
-    {
-      _refused(e, 'Errore durante lo spostamento di stanza.');
-    }
-  }
-
-  Future<void> unassignTeacherRoom({required DateTime day, required String teacherTaxCode}) async
-  {
-    try
-    {
-      await _dio.delete(_assignmentPath(day, teacherTaxCode));
-    }
-    on DioException catch (e)
-    {
-      _refused(e, 'Errore durante la rimozione dell\'assegnazione.');
+      _refused(e, 'Errore durante il salvataggio delle stanze.');
     }
   }
 
@@ -2150,47 +2123,6 @@ class ApiService
     );
 
     return parseList(response.data, RoomSupervisionItem.fromJson);
-  }
-
-  Future<RoomSupervisionItem> createRoomSupervision({
-    required DateTime day,
-    required String teacherTaxCode,
-    required int roomId,
-    required TimeOfDay startTime,
-    required TimeOfDay endTime,
-  }) async
-  {
-    try
-    {
-      final response = await _dio.post(
-        '/room-supervisions/',
-        data: {
-          'date': formatDateOnly(day),
-          'teacher_tax_code': teacherTaxCode,
-          'room_id': roomId,
-          'start_time': formatTimeOfDay(startTime),
-          'end_time': formatTimeOfDay(endTime),
-        },
-      );
-
-      return RoomSupervisionItem.fromJson(response.data);
-    }
-    on DioException catch (e)
-    {
-      _refused(e, 'Errore durante l\'assegnazione del responsabile.');
-    }
-  }
-
-  Future<void> deleteRoomSupervision(int id) async
-  {
-    try
-    {
-      await _dio.delete('/room-supervisions/$id');
-    }
-    on DioException catch (e)
-    {
-      _refused(e, 'Errore durante la rimozione del responsabile.');
-    }
   }
 
   MeResponse? get lastKnownIdentity => identity.value;

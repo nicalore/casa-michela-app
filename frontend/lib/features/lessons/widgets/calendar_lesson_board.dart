@@ -111,6 +111,11 @@ class CalendarLessonBoard extends StatelessWidget
     this.onActivityTap,
   });
 
+  bool _showsRoom(CalendarLane lane)
+  {
+    return view == CalendarView.byTeacher && (roomByTeacher[lane.personTaxCode]?.changesRoom ?? false);
+  }
+
   // Every card as wide as the one that needs most room: no line is ever cut.
   double _widestCard(BuildContext context)
   {
@@ -128,6 +133,7 @@ class CalendarLessonBoard extends StatelessWidget
           past: pastLessonIds.contains(lesson.id),
           warned: warnedLessonIds.contains(lesson.id),
           preferred: preferredLessonIds.contains(lesson.id),
+          showsRoom: _showsRoom(lane),
         );
 
         widest = math.max(widest, width);
@@ -159,6 +165,7 @@ class CalendarLessonBoard extends StatelessWidget
             isPreferred: preferredLessonIds.contains(lesson.id),
             isPast: pastLessonIds.contains(lesson.id),
             elapsed: elapsedLessons[lesson.id],
+            showsRoom: _showsRoom(lane),
             onTap: onLessonTap == null || lesson.isProvisional ? null : () => onLessonTap!(lesson),
           ),
         ),
@@ -194,7 +201,14 @@ class CalendarLessonBoard extends StatelessWidget
       lessonBlockHeight(view, composing: false),
       (tallest, lesson) => math.max(
         tallest,
-        publishedLessonBlockHeight(context, lesson, cardWidth, view: view, ministrySubjects: ministrySubjects),
+        publishedLessonBlockHeight(
+          context,
+          lesson,
+          cardWidth,
+          view: view,
+          ministrySubjects: ministrySubjects,
+          showsRoom: _showsRoom(lane),
+        ),
       ),
     );
 
