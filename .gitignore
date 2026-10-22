@@ -20,6 +20,8 @@ frontend/android/app/google-services.json
 *.pem
 *.key
 *.crt
+# Apple's push key.
+*.p8
 
 # ============================================================
 # Python

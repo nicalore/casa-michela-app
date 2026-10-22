@@ -57,16 +57,12 @@ async def reachable_administrators(db: AsyncSession) -> list[str]:
     ]
 
 
-# iOS waits for APNs: its devices get nothing yet. A device signed out or blocked
-# gets nothing either, though its address is still on file.
+# A device signed out or blocked gets nothing, though its address is still on file.
 async def _devices_of(db: AsyncSession, tax_codes: Sequence[str]) -> list[PushDevice]:
     return list(
         await db.scalars(
             select(PushDevice)
             .where(
-                PushDevice.platform.in_(
-                    [PushPlatformEnum.WEB, PushPlatformEnum.ANDROID]
-                ),
                 PushDevice.account_tax_code.in_(list(tax_codes)),
                 live_session(
                     PushDevice.account_tax_code,
@@ -151,6 +147,11 @@ async def notify(
             for device in devices
             if device.platform == PushPlatformEnum.ANDROID
         ],
+        ios=[
+            _app_push(device.address, by_account[device.account_tax_code])
+            for device in devices
+            if device.platform == PushPlatformEnum.IOS
+        ],
     )
 
 
@@ -190,6 +191,13 @@ async def dismissals(
             for device in devices
             if device.account_tax_code == notification.account_tax_code
             and device.platform == PushPlatformEnum.ANDROID
+        ],
+        ios=[
+            AppDismissal(token=device.address, id=notification.id)
+            for notification in notifications
+            for device in devices
+            if device.account_tax_code == notification.account_tax_code
+            and device.platform == PushPlatformEnum.IOS
         ],
     )
 

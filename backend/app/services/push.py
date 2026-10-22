@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final
 
@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.models.push_device import PushDevice
 from app.repositories.refresh_token_repository import live_session
-from app.services import fcm
+from app.services import apns, fcm
 from app.services.fcm import AppDismissal, AppPush
 
 logger = logging.getLogger("push")
@@ -36,17 +36,19 @@ class WebPush:
     payload: str
 
 
-# Pushes to browsers through their services, to Android through FCM.
+# Pushes to browsers through their services, to Android via FCM, to iOS via APNs.
 @dataclass(frozen=True)
 class PushBatch:
     web: list[WebPush]
     android: list[AppPush | AppDismissal]
+    ios: list[AppPush | AppDismissal] = field(default_factory=list)
 
 
 def joined(batches: Sequence[PushBatch]) -> PushBatch:
     return PushBatch(
         web=[push for batch in batches for push in batch.web],
         android=[push for batch in batches for push in batch.android],
+        ios=[push for batch in batches for push in batch.ios],
     )
 
 
@@ -119,7 +121,11 @@ async def forget_ended_sessions(db: AsyncSession, now: datetime) -> None:
 
 # Every push of the batch; returns the addresses given up on, browsers' and apps' alike.
 async def send_batch(batch: PushBatch) -> list[str]:
-    return [*await send(batch.web), *await fcm.send(batch.android)]
+    return [
+        *await send(batch.web),
+        *await fcm.send(batch.android),
+        *await apns.send(batch.ios),
+    ]
 
 
 # Runs after the request: the request's session is closed by then.

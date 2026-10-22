@@ -7,7 +7,7 @@ from typing import Final
 
 from app.db.session import AsyncSessionLocal
 from app.models.notification import NotificationKindEnum
-from app.services import fcm, push
+from app.services import apns, fcm, push
 from app.services.notifications import notify, reachable_accounts
 
 TITLE: Final[str] = "Notifica di prova"
@@ -45,8 +45,12 @@ async def main(tax_code: str | None) -> None:
     if batch.android and not fcm.fcm_enabled():
         print("Chiave Firebase mancante in backend/.env: nessun push ad Android.")
 
+    if batch.ios and not apns.apns_enabled():
+        print("Chiave Apple mancante in backend/.env: nessun push a iPhone e iPad.")
+
     print(
-        f"Push tentati: {len(batch.web)} browser, {len(batch.android)} Android; "
+        f"Push tentati: {len(batch.web)} browser, {len(batch.android)} Android, "
+        f"{len(batch.ios)} iOS; "
         f"{len(gone)} indirizzi scaduti rimossi."
     )
 

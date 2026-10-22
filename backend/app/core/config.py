@@ -16,6 +16,15 @@ _REQUIRED_DATABASE_FIELDS: Final[tuple[str, ...]] = (
 )
 
 
+def _anchored(file: str | None) -> Path | None:
+    if not file:
+        return None
+
+    path = Path(file)
+
+    return path if path.is_absolute() else _BACKEND_DIR / path
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE,
@@ -60,6 +69,13 @@ class Settings(BaseSettings):
     # The Firebase service account's JSON key, for pushes to the Android app.
     fcm_credentials_file: str | None = None
 
+    # Apple's .p8 push key with its team and key ids. Unset, iPhones and iPads get none.
+    apns_team_id: str | None = None
+    apns_key_id: str | None = None
+    apns_key_file: str | None = None
+    # The iOS app's bundle id, which every push to it is addressed to.
+    apns_topic: str = "it.casamichela.app"
+
     audit_log_path: str = "logs/audit_{date}.log"
 
     # Off while the legal documents are drafts; on, whoever has not accepted is asked.
@@ -79,12 +95,11 @@ class Settings(BaseSettings):
     # Anchored to the backend package, like the audit log.
     @property
     def fcm_credentials_path(self) -> Path | None:
-        if not self.fcm_credentials_file:
-            return None
+        return _anchored(self.fcm_credentials_file)
 
-        path = Path(self.fcm_credentials_file)
-
-        return path if path.is_absolute() else _BACKEND_DIR / path
+    @property
+    def apns_key_path(self) -> Path | None:
+        return _anchored(self.apns_key_file)
 
     def sqlalchemy_database_url(self, drivername: str) -> str:
         # A full database_url beats the postgres_* fields; only its driver is replaced.

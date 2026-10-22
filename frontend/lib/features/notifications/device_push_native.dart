@@ -12,8 +12,8 @@ String get pushPlatform => Platform.isIOS ? 'ios' : 'android';
 
 bool get pushPlatformSupported => Platform.isAndroid || Platform.isIOS;
 
-// Android is reached through its Firebase token; iOS has no push service yet.
-bool get pushNeedsSubscription => Platform.isAndroid;
+// Android is reached through its Firebase token, iOS through its APNs token.
+bool get pushNeedsSubscription => pushPlatformSupported;
 
 const bool pushNeedsServerKey = false;
 
@@ -69,7 +69,7 @@ Future<PushPermission> askPushPermission() async
   }
 }
 
-// The token Firebase gives this install; asking for it registers the app the first time.
+// The token Firebase or APNs gives this install; asking for it registers the app the first time.
 Future<PushAddress?> currentPushAddress() async
 {
   if (!pushNeedsSubscription)
@@ -84,7 +84,7 @@ Future<PushAddress?> currentPushAddress() async
 
 Future<PushAddress?> subscribePush(String? serverKey) => currentPushAddress();
 
-// The token dies with it; the caller tells the server which one it was.
+// The Firebase token dies with it, the APNs one stays; the caller tells the server to forget it.
 Future<String?> unsubscribePush() async
 {
   if (pushNeedsSubscription)

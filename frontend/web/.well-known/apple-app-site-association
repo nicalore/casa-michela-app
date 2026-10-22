@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["Q29U9MLU76.it.casamichela.app"],
+        "components": [
+          { "/": "/reset-password" }
+        ]
+      }
+    ]
+  }
+}

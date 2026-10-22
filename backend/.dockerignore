@@ -13,6 +13,7 @@ test.http
 # Firebase key: mounted, like the .env.
 *firebase-adminsdk*.json
 casa-michela-locale-*.json
+*.p8
 # Mounted volumes.
 logs/
 uploads/
