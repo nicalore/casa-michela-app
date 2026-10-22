@@ -5,6 +5,8 @@
       "namespace": "android_app",
       "package_name": "it.casamichela.app",
       "sha256_cert_fingerprints": [
+        "70:4D:B8:FA:02:3D:FC:83:EB:4B:6C:46:12:AD:27:1F:8A:12:8E:28:15:0B:53:98:01:75:DC:97:FB:94:49:20",
+        "5C:38:02:6C:1C:8D:75:12:7F:BC:DE:34:AD:0D:D4:F5:23:0F:1D:28:B1:A7:78:ED:BB:45:D9:ED:01:BC:9C:8B",
         "95:67:52:67:B7:4A:8E:B5:4B:76:08:74:58:A9:FB:E7:4B:72:C3:0C:D2:4A:42:0C:6D:D1:E4:9D:21:26:C6:1C"
       ]
     }
