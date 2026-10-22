@@ -20,6 +20,7 @@ from app.models.constraints import (
 from app.models.mixins import UpdatedAtMixin
 
 if TYPE_CHECKING:
+    from app.models.administrator_note import AdministratorNote
     from app.models.availability import Availability
     from app.models.staff import Staff
     from app.models.teacher_service import TeacherService
@@ -109,4 +110,10 @@ class Teacher(UpdatedAtMixin, Base):
     availabilities: Mapped[list[Availability]] = relationship(
         back_populates="teacher",
         cascade="all, delete-orphan",
+    )
+
+    administrator_notes: Mapped[list[AdministratorNote]] = relationship(
+        back_populates="teacher",
+        cascade="all, delete-orphan",
+        order_by="[AdministratorNote.created_at.desc(), AdministratorNote.id.desc()]",
     )

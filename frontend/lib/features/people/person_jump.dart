@@ -27,3 +27,26 @@ abstract final class PersonJumps
     return true;
   }
 }
+
+// One's own Osservazioni asked for: a page not built yet takes it on start, a shown one listens.
+abstract final class OwnPageJumps
+{
+  static bool _observations = false;
+
+  // Bumped on every request.
+  static final ValueNotifier<int> asked = ValueNotifier<int>(0);
+
+  static void requestObservations()
+  {
+    _observations = true;
+    asked.value++;
+  }
+
+  static bool takeObservations()
+  {
+    final bool pending = _observations;
+    _observations = false;
+
+    return pending;
+  }
+}

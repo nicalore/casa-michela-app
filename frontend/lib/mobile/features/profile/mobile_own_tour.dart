@@ -4,7 +4,7 @@ import '../../shared/widgets/mobile_tour.dart';
 
 // Bump a version on every change to that tour.
 const String _slug = 'profile.teacher';
-const int _version = 6;
+const int _version = 8;
 const String _parentSlug = 'profile.parent';
 const int _parentVersion = 1;
 const String _studentSlug = 'profile.student';
@@ -17,6 +17,7 @@ const String kOwnTourFace = 'profile.face';
 const String kOwnTourStudies = 'profile.studies';
 const String kOwnTourStats = 'profile.stats';
 const String kOwnTourFilters = 'profile.filters';
+const String kOwnTourObservations = 'profile.observations';
 
 const String _about = 'In questo menù puoi consultare tutte le tue informazioni personali.';
 const String _report = 'Se noti inesattezze o alcune informazioni sono cambiate, ti preghiamo di farcelo sapere.';
@@ -35,6 +36,10 @@ const String _stats =
 const String _filters =
     "Puoi consultare le statistiche delle lezioni in presenza oppure online, e scegliere l'intervallo di tempo che "
     'desideri analizzare.';
+const String _toObservations = 'Tocca «Osservazioni».';
+const String _observations =
+    'Qui trovi le osservazioni che gli amministratori scrivono su di te, derivate dai feedback ricevuti da studenti e '
+    'genitori sulle tue lezioni.';
 const String _studentStats =
     'Qui puoi vedere le presenze che hai fatto nel tempo, le materie su cui hai svolto più ore di lezione e i docenti '
     'con cui hai lavorato di più.';
@@ -82,6 +87,7 @@ MobileTour ownTour({required PageController pages, required String title, requir
 {
   final int other = sections.indexOf('other');
   final int stats = sections.indexOf('stats');
+  final int observations = sections.indexOf('observations');
 
   bool onPage(int index) => pages.hasClients && ((pages.page ?? 0) - index).abs() < _settled;
 
@@ -130,6 +136,22 @@ MobileTour ownTour({required PageController pages, required String title, requir
           filters: kOwnTourFilters,
           text: _stats,
         ),
+      if (observations >= 0) ...[
+        MobileTourStep(
+          text: _toObservations,
+          touched: [ownTourTab('observations')],
+          reveal: ownTourTab('observations'),
+          watch: pages,
+          reached: () => onPage(observations),
+          undo: () => backTo(stats >= 0 ? stats : 0),
+        ),
+        MobileTourStep(
+          text: _observations,
+          shown: const [kOwnTourObservations],
+          present: () => onPage(observations),
+          coming: () => true,
+        ),
+      ],
     ],
     // A teacher who is a parent or a student too has read what their tours say.
     covers: const [(_parentSlug, _parentVersion), (_studentSlug, _studentVersion)],

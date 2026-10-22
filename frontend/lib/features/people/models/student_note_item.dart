@@ -1,12 +1,14 @@
 import '../../../core/utils/json_parsing.dart';
 import '../../association/notices/notice_item.dart' show NoticeImageItem;
 
-// Methodological by psychologists, technical by administrators, teacher after a lesson.
+// Methodological by psychologists, technical by administrators, teacher after a lesson;
+// administrator: an administrator's note on a teacher.
 enum StudentNoteKind
 {
   methodological('methodological-notes'),
   technical('technical-notes'),
-  teacher('teacher-notes');
+  teacher('teacher-notes'),
+  administrator('administrator-notes');
 
   // The collection under /people/{tax_code}/.
   final String path;

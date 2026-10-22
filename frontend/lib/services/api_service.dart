@@ -2795,6 +2795,12 @@ class ApiService
     await _dio.put('/notifications/teacher-notes/$pupilTaxCode/seen');
   }
 
+  // One's own Osservazioni on screen: the server withdraws the news of new ones.
+  Future<void> markAdministratorNotesSeen() async
+  {
+    await _dio.put('/notifications/administrator-notes/seen');
+  }
+
   // The kinds of the account's roles that can be turned on or off.
   Future<List<NotificationKindChoice>> getNotificationKinds() async
   {

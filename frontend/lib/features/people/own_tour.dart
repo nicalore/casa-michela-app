@@ -11,6 +11,8 @@ const String kTourOwnStudiesEdit = 'profile.studies.edit';
 const String kTourOwnToStats = 'profile.tab.stats';
 const String kTourOwnStats = 'profile.stats';
 const String kTourOwnFilters = 'profile.filters';
+const String kTourOwnToObservations = 'profile.tab.observations';
+const String kTourOwnObservations = 'profile.observations';
 
 const String kTourOwnMode = 'profile.mode';
 const String kTourOwnPeriod = 'profile.period';
@@ -19,7 +21,7 @@ const String kTourOwnPeriod = 'profile.period';
 final ValueNotifier<String?> ownPageSection = ValueNotifier(null);
 
 // Bump a version on every change to that tour.
-const int _teacherVersion = 2;
+const int _teacherVersion = 5;
 const int _studentVersion = 1;
 const int _parentVersion = 1;
 const int _psychologistVersion = 1;
@@ -30,6 +32,9 @@ const String _faceEdit = 'Cliccando sulla tua foto profilo puoi modificarla.';
 const String _filters =
     "Puoi consultare le statistiche delle lezioni in presenza oppure online, e scegliere l'intervallo di tempo che "
     'desideri analizzare.';
+const String _observations =
+    'Qui trovi le osservazioni che gli amministratori scrivono su di te, derivate dai feedback ricevuti da studenti e '
+    'genitori sulle tue lezioni.';
 
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.right];
 const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.below];
@@ -82,7 +87,7 @@ List<DesktopTourStep> _pageSteps({required String face})
       text: _report,
       sides: _over,
       pad: 6,
-      radius: 28,
+      radius: 17,
       reveal: true,
     ),
     DesktopTourStep(
@@ -166,7 +171,8 @@ DesktopTour psychologistOwnTour({required String title})
   );
 }
 
-DesktopTour teacherOwnTour({required String title, required ValueChanged<String> show})
+// [noted]: the Osservazioni hold a card of notes, not the empty one.
+DesktopTour teacherOwnTour({required String title, required ValueChanged<String> show, required bool noted})
 {
   return DesktopTour(
     slug: 'profile.teacher',
@@ -214,6 +220,17 @@ DesktopTour teacherOwnTour({required String title, required ValueChanged<String>
         radius: 25,
         present: () => _on('stats'),
         coming: () => _shown(kTourOwnToStats),
+      ),
+      _click(kTourOwnToObservations, 'Clicca «Osservazioni».', 'observations'),
+      DesktopTourStep(
+        targets: const [kTourOwnObservations],
+        text: _observations,
+        sides: _below,
+        pad: 6,
+        radius: noted ? 35 : 31,
+        undo: () => show('stats'),
+        present: () => _on('observations'),
+        coming: () => _shown(kTourOwnToObservations),
       ),
     ],
   );

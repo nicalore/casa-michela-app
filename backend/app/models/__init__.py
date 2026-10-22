@@ -1,5 +1,6 @@
 from app.models.account import Account
 from app.models.administrator import Administrator
+from app.models.administrator_note import AdministratorNote
 from app.models.app_update import AppUpdate, AppUpdateImage, AppUpdateRead
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
@@ -60,6 +61,7 @@ from app.models.weekly_template import WeeklyTemplate
 __all__ = [
     "Account",
     "Administrator",
+    "AdministratorNote",
     "AppUpdate",
     "AppUpdateImage",
     "AppUpdateRead",

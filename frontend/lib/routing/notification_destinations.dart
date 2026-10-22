@@ -67,6 +67,8 @@ void followNotification(NotificationItem item)
       unawaited(_openRating(item));
     case NotificationKind.teacherNoteAdded:
       unawaited(_openObservations(item));
+    case NotificationKind.administratorNoteAdded:
+      _openOwnObservations();
     case NotificationKind.test:
     case NotificationKind.arrivalReminder:
     case NotificationKind.unknown:
@@ -265,6 +267,20 @@ void _openDevices()
 
   SettingsJumps.requestDevices();
   appRouter.go(settingsPageForRole(me.activeRole));
+}
+
+// One's own page on the Osservazioni, in the role worn: every role has the page.
+void _openOwnObservations()
+{
+  final MeResponse? me = apiService.identity.value;
+
+  if (me == null)
+  {
+    return;
+  }
+
+  OwnPageJumps.requestObservations();
+  appRouter.go(ownPageForRole(me.activeRole));
 }
 
 // Comunicazioni e avvisi with the notice open, in a role it reached; admins list every notice.

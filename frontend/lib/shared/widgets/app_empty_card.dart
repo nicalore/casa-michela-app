@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'desktop_tour.dart';
 import 'page_transition.dart';
 import 'scroll_edge_fade.dart';
 
@@ -55,7 +56,10 @@ class AppEmptyRoom extends StatelessWidget
 
   final double gap;
 
-  const AppEmptyRoom({super.key, required this.card, this.below = const [], this.gap = 28});
+  // The desktop tour's id for the card.
+  final String? tourId;
+
+  const AppEmptyRoom({super.key, required this.card, this.below = const [], this.gap = 28, this.tourId});
 
   @override
   Widget build(BuildContext context)
@@ -69,7 +73,7 @@ class AppEmptyRoom extends StatelessWidget
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: pageTransitionBlocks([
-                  card,
+                  DesktopTourTarget(id: tourId, child: card),
                   for (final widget in below) ...[
                     SizedBox(height: gap),
                     widget,

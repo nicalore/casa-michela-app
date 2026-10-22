@@ -44,7 +44,12 @@ const double _revealEdge = 48;
 
 const Duration _move = Duration(milliseconds: 380);
 const Duration _fade = Duration(milliseconds: 220);
-const Duration _reveal = Duration(milliseconds: 450);
+
+// Same as the hole's move, so page, hole and card come to rest together.
+const Duration _reveal = _move;
+
+// A part that moved less than this since the last frame stands still.
+const double _stillness = 0.5;
 
 // Parts keep moving a while after a step begins (menus opening, pages scrolling).
 const Duration _watch = Duration(milliseconds: 900);
@@ -123,12 +128,32 @@ class _DesktopTourTargetState extends State<DesktopTourTarget>
   Widget build(BuildContext context) => widget.child;
 }
 
-// Destinations kept behind build their parts too: the one on show wins, then the latest built.
+// Sections kept behind are laid out offstage, where they would show.
+bool _onShow(BuildContext context)
+{
+  RenderObject? node = context.findRenderObject();
+
+  while (node != null)
+  {
+    if (node is RenderOffstage && node.offstage)
+    {
+      return false;
+    }
+
+    node = node.parent;
+  }
+
+  return true;
+}
+
+bool _visible(BuildContext context) => isDestinationShownNow(context) && _onShow(context);
+
+// Destinations and sections kept behind build parts too: the one on show wins, then the latest.
 BuildContext? _contextOf(String id)
 {
   final Iterable<_DesktopTourTargetState> built = _targets[id]?.where((state) => state.mounted) ?? const [];
 
-  return (built.where((state) => isDestinationShownNow(state.context)).lastOrNull ?? built.lastOrNull)?.context;
+  return (built.where((state) => _visible(state.context)).lastOrNull ?? built.lastOrNull)?.context;
 }
 
 Rect? _boxOf(BuildContext context)
@@ -175,7 +200,7 @@ List<Rect> _rectsOf(String id)
   final Iterable<_DesktopTourTargetState> built = _targets[id]?.where((state) => state.mounted) ?? const [];
   final List<Rect> shown = [
     for (final _DesktopTourTargetState state in built)
-      if (isDestinationShownNow(state.context)) ?_shownOf(state.context),
+      if (_visible(state.context)) ?_shownOf(state.context),
   ];
 
   return shown.isNotEmpty ? shown : [?_rectOf(id)];
@@ -638,11 +663,21 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
   Duration _moveStart = Duration.zero;
   Duration _watchUntil = Duration.zero;
 
+  // Start of the wait for the current step's parts.
+  Duration _since = Duration.zero;
+
   Listenable? _listening;
 
+  // The step entered waits for its parts; the card and the holes still show the last one.
   bool _waiting = false;
 
-  int? _stilling;
+  // The step on show, as the visit it was set off in, and its card as built then.
+  int _drawn = 0;
+  int _drawnVisit = 0;
+  Widget? _drawnBubble;
+
+  // Parts measured a frame ago: still ones measure the same twice.
+  List<Rect> _lastMeasured = const [];
 
   bool _closing = false;
 
@@ -733,46 +768,37 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
       return;
     }
 
-    _nextOnceStill(_visit);
+    // The clicked part stays lit while what it opened comes in.
+    _next();
   }
 
-  bool _isMoving(DesktopTourStep step)
+  // Kept offstage, or still out of sight with its section: not to be lit yet.
+  bool _coming(DesktopTourStep step)
   {
     return step.targets.any((id)
     {
       final BuildContext? part = _contextOf(id);
 
-      return part != null && part.mounted && isPageTransitionMoving(part);
+      return part != null && part.mounted && (!_onShow(part) || isPageTransitionPartComing(part));
     });
   }
 
-  Future<void> _nextOnceStill(int visit) async
+  // In a section sliding in, a part counts once in sight; elsewhere once still for a frame.
+  bool _ready(DesktopTourStep step, List<Rect> measured, List<Rect> before)
   {
-    if (_stilling == visit)
+    if (_coming(step))
     {
-      return;
+      return false;
     }
 
-    _stilling = visit;
-
-    final Stopwatch waited = Stopwatch()..start();
-
-    while (mounted && !_closing && visit == _visit && waited.elapsed < _longestWait)
+    final bool sliding = step.targets.any((id)
     {
-      final int? next = _nextIndex;
+      final BuildContext? part = _contextOf(id);
 
-      if (next == null || !_isMoving(widget.run.steps[next]))
-      {
-        break;
-      }
+      return part != null && part.mounted && isPageTransitionMoving(part);
+    });
 
-      await Future<void>.delayed(_waitStep);
-    }
-
-    if (mounted && !_closing && visit == _visit)
-    {
-      _next();
-    }
+    return sliding || _same(measured, before);
   }
 
   // Steps are judged as they come up: what one does may bring or drop the parts of the next.
@@ -828,7 +854,6 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     _listening?.removeListener(_onListened);
     _step = index;
     _visit++;
-    _waiting = false;
 
     final DesktopTourStep step = _current;
     final int visit = _visit;
@@ -839,16 +864,42 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     _listening = step.listen;
     _listening?.addListener(_onListened);
 
+    // Measured now, a part already standing still sets off on the next frame.
+    _lastMeasured = _measure(step);
+
+    if (_drawnBubble == null || step.targets.isEmpty)
+    {
+      _begin();
+
+      return;
+    }
+
+    // The card keeps telling of the last part until this step's are ready to be lit.
+    _waiting = true;
+    _watchFor(_watch + _move);
+    _since = _elapsed;
+  }
+
+  // The card and the holes set off for the step entered.
+  void _begin()
+  {
+    final DesktopTourStep step = _current;
+    final int visit = _visit;
+
+    _waiting = false;
+    _drawn = _step;
+    _drawnVisit = visit;
     _from = _holes;
     _bubbleFrom = _track.position;
     _widthFrom = _track.width;
     _glide = _bubbleFrom == null || !_animates ? 1 : 0;
-    _moveStart = _elapsed;
     _watchFor(_watch + _move);
+    _moveStart = _elapsed;
+    _since = _elapsed;
 
     if (step.reveal && step.targets.isNotEmpty)
     {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _revealPart(step.revealing ?? step.targets.first));
+      WidgetsBinding.instance.addPostFrameCallback((_) => _revealPart(step.revealing ?? step.targets.first, visit));
     }
   }
 
@@ -863,8 +914,10 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 
     if (!_ticker.isActive)
     {
+      // The ticker rests only once a move has ended: it stays ended.
       _elapsed = Duration.zero;
-      _moveStart = Duration.zero;
+      _moveStart = -_move;
+      _since = Duration.zero;
       _watchUntil = span;
       _ticker.start();
     }
@@ -876,7 +929,10 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 
     final DesktopTourStep step = _current;
     final List<Rect> measured = _measure(step);
-    final bool late = elapsed - _moveStart >= _longestWait;
+    final List<Rect> before = _lastMeasured;
+    final bool late = elapsed - _since >= _longestWait;
+
+    _lastMeasured = measured;
 
     if (step.targets.isEmpty)
     {
@@ -884,17 +940,12 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 
       _aim = [Rect.fromCenter(center: middle, width: 0, height: 0)];
     }
-    // A part still sliding in with its section is waited for too, so the hole never chases it.
-    else if (measured.isNotEmpty && (late || !_isMoving(step)))
+    // Parts still coming in, or moving into place, are waited for: the hole never chases them.
+    else if (measured.isNotEmpty && (late || (_waiting ? _ready(step, measured, before) : !_coming(step))))
     {
       if (_waiting)
       {
-        _waiting = false;
-        _from = _holes;
-        _bubbleFrom = _track.position;
-        _widthFrom = _track.width;
-        _moveStart = elapsed;
-        _watchFor(_watch + _move);
+        _begin();
       }
 
       _aim = measured;
@@ -904,6 +955,11 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     {
       _waiting = true;
       _watchFor(_watch);
+    }
+    // It never came: the card tells of it all the same.
+    else if (_drawnVisit != _visit)
+    {
+      _begin();
     }
 
     final double moved = _animates
@@ -925,11 +981,32 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     setState(() {});
   }
 
-  Future<void> _revealPart(String id) async
+  Future<void> _revealPart(String id, int visit) async
   {
+    final Stopwatch waited = Stopwatch()..start();
+
+    // Measured at rest: a part still sliding in is not yet where it stays.
+    while (waited.elapsed < _longestWait)
+    {
+      final BuildContext? part = _contextOf(id);
+
+      if (part == null || !part.mounted || !isPageTransitionPartMoving(part))
+      {
+        break;
+      }
+
+      await Future<void>.delayed(_waitStep);
+    }
+
     final BuildContext? target = _contextOf(id);
-    final ScrollableState? scrollable = target == null ? null : Scrollable.maybeOf(target);
-    final Rect? part = target == null ? null : _boxOf(target);
+
+    if (!mounted || _closing || visit != _visit || target == null || !target.mounted)
+    {
+      return;
+    }
+
+    final ScrollableState? scrollable = Scrollable.maybeOf(target);
+    final Rect? part = _boxOf(target);
     final RenderObject? view = scrollable?.context.findRenderObject();
 
     if (scrollable == null || part == null || view is! RenderBox || !view.hasSize)
@@ -1074,26 +1151,31 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
       return const SizedBox.shrink();
     }
 
-    final DesktopTourStep step = _current;
+    // Until the step entered sets off, the last one stays drawn, its buttons inert.
+    final DesktopTourStep step = widget.run.steps[_drawn];
     final List<Rect> holes = _holes.where((hole) => !hole.isEmpty).toList();
     final List<double> stepRadii = _radiiOf(step);
     final List<double> radii = stepRadii.length == holes.length ? stepRadii : const [];
     final Rect? place = step.targets.isEmpty ? null : _bounds(_aim);
 
-    final bool last = _nextIndex == null;
-    final int visit = _visit;
+    if (_drawnVisit == _visit || _drawnBubble == null)
+    {
+      final int visit = _visit;
 
-    final Widget bubble = _Bubble(
-      step: _step,
-      animates: _animates,
-      eyebrow: _eyebrow(_path.length + 1, _count),
-      title: widget.run.tour.title,
-      text: step.text,
-      onClose: _close,
-      onBack: _path.isEmpty ? null : () => _backFrom(visit),
-      onNext: step.waitsForClick ? null : () => _nextFrom(visit),
-      last: last,
-    );
+      _drawnBubble = _Bubble(
+        step: _step,
+        animates: _animates,
+        eyebrow: _eyebrow(_path.length + 1, _count),
+        title: widget.run.tour.title,
+        text: _current.text,
+        onClose: _close,
+        onBack: _path.isEmpty ? null : () => _backFrom(visit),
+        onNext: _current.waitsForClick ? null : () => _nextFrom(visit),
+        last: _nextIndex == null,
+      );
+    }
+
+    final Widget bubble = _drawnBubble!;
 
     return FadeTransition(
       opacity: _shown,
@@ -1127,6 +1209,29 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 }
 
 Rect? _bounds(List<Rect> rects) => rects.isEmpty ? null : rects.reduce((a, b) => a.expandToInclude(b));
+
+bool _same(List<Rect> now, List<Rect> before)
+{
+  if (now.length != before.length)
+  {
+    return false;
+  }
+
+  for (final (int index, Rect rect) in now.indexed)
+  {
+    final Rect other = before[index];
+
+    if ((rect.left - other.left).abs() > _stillness ||
+        (rect.top - other.top).abs() > _stillness ||
+        (rect.right - other.right).abs() > _stillness ||
+        (rect.bottom - other.bottom).abs() > _stillness)
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 class _DimPainter extends CustomPainter
 {

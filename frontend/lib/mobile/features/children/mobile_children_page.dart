@@ -62,8 +62,15 @@ const double _handleClearance = 16;
 const double _tourStatsInflate = 8;
 const double _tourStatsRadius = 26;
 
-// Every child has every section, so switching child keeps the page.
-const List<OwnPageSection> _sections = OwnPageSection.values;
+// Every child has every section, so switching child keeps the page; a teacher's
+// Osservazioni are their own, never their parents'.
+const List<OwnPageSection> _sections = [
+  OwnPageSection.info,
+  OwnPageSection.memberships,
+  OwnPageSection.school,
+  OwnPageSection.other,
+  OwnPageSection.stats,
+];
 
 class MobileChildrenPage extends StatefulWidget
 {
@@ -595,6 +602,10 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
           else
             inset(Center(child: MobileEmptyCard(icon: Icons.insights_rounded, message: 'Nessun dato', tablet: tablet))),
         ];
+
+      // Not among the sections above.
+      case OwnPageSection.observations:
+        return const [];
     }
   }
 }

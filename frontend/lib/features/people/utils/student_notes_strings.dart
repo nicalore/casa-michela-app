@@ -2,6 +2,10 @@ const String kMethodologicalNotesTitle = 'Osservazioni metodologiche';
 const String kTechnicalNotesTitle = 'Osservazioni tecniche';
 const String kTeacherNotesTitle = 'Osservazioni dei docenti';
 
+// An administrator's notes on a teacher, for the administrators and the teacher alike.
+const String kObservationsTitle = 'Osservazioni';
+const String kNoObservations = 'Nessuna osservazione';
+
 String notesCountLabel(int count) => count == 1 ? '1 osservazione' : '$count osservazioni';
 
 const String kNewNoteEyebrow = 'Nuova osservazione';
@@ -11,6 +15,9 @@ const String kEditTechnicalNoteEyebrow = 'Modifica osservazione tecnica';
 
 String notesReadersHint(String firstName) =>
     'Queste indicazioni saranno lette dai docenti che di volta in volta seguiranno $firstName.';
+
+String administratorNoteHint(String fullName) =>
+    "$fullName riceverà una notifica e potrà leggere l'osservazione nella sua pagina personale.";
 
 const String kTeacherNoteHint = 'Questa osservazione sarà inviata agli amministratori.';
 const String kTeacherNoteFieldLabel = 'Osservazione';

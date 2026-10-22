@@ -125,4 +125,8 @@ const Map<NotificationKind, (String, String)> kNotificationKindLabels = {
     'Osservazioni dei docenti',
     'Avvisa quando un docente inserisce una nuova osservazione per uno studente.',
   ),
+  NotificationKind.administratorNoteAdded: (
+    'Osservazioni degli amministratori',
+    'Avvisa quando un amministratore inserisce una nuova osservazione che ti riguarda.',
+  ),
 };

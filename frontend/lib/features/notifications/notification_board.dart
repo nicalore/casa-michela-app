@@ -11,6 +11,7 @@ const Set<NotificationKind> _goneOnceRead = {
   NotificationKind.newDevice,
   NotificationKind.ratingReminder,
   NotificationKind.teacherNoteAdded,
+  NotificationKind.administratorNoteAdded,
 };
 
 class NotificationBoard extends ChangeNotifier

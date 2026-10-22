@@ -49,6 +49,7 @@ class NotificationKindEnum(StrEnum):
     REPORT_RECEIVED = "REPORT_RECEIVED"
     RATING_REMINDER = "RATING_REMINDER"
     TEACHER_NOTE_ADDED = "TEACHER_NOTE_ADDED"
+    ADMINISTRATOR_NOTE_ADDED = "ADMINISTRATOR_NOTE_ADDED"
 
 
 # What an account was told; the home card lists these, a push only announces one.
@@ -203,6 +204,12 @@ class Notification(CreatedAtMixin, Base):
     # The teacher's note it announces; gone with it.
     teacher_note_id: Mapped[int | None] = mapped_column(
         ForeignKey("teacher_notes.id", ondelete="CASCADE"),
+        index=True,
+    )
+
+    # The administrator's note on the reader it announces; gone with it.
+    administrator_note_id: Mapped[int | None] = mapped_column(
+        ForeignKey("administrator_notes.id", ondelete="CASCADE"),
         index=True,
     )
 

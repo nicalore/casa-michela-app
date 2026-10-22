@@ -668,3 +668,4 @@ class PersonResponse(BaseModel):
     technical_notes: list[StudentNoteResponse] | None = None
     # Administrators only.
     teacher_notes: list[TeacherNoteResponse] | None = None
+    administrator_notes: list[StudentNoteResponse] | None = None

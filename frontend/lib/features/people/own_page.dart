@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,11 +18,14 @@ import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
+import '../notifications/administrator_notes_seen.dart';
 import '../onboarding/onboarding_steps.dart';
 import 'edit/person_edit_report_dialog.dart';
 import 'models/person_item.dart';
 import 'own_tour.dart';
+import 'person_jump.dart';
 import 'tabs/own_info_tab.dart';
+import 'tabs/own_observations_tab.dart';
 import 'tabs/own_other_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
@@ -34,7 +39,8 @@ enum OwnPageSection
   memberships('Iscrizioni'),
   school('Scuola'),
   other('Altre informazioni'),
-  stats('Statistiche personali');
+  stats('Statistiche personali'),
+  observations('Osservazioni');
 
   final String label;
 
@@ -60,6 +66,7 @@ List<OwnPageSection> ownPageSectionsOf(PersonItem person)
     if (isPupil) OwnPageSection.school,
     if (ownOtherCards(person).isNotEmpty) OwnPageSection.other,
     if (isPupil || isTeacher) OwnPageSection.stats,
+    if (isTeacher) OwnPageSection.observations,
   ];
 }
 
@@ -110,6 +117,9 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
 
   int _selectedSection = 0;
 
+  // Asked by a notification: the Osservazioni, once the record is read.
+  bool _observationsAsked = false;
+
   List<OwnPageSection> get _sections
   {
     final PersonItem? person = _person;
@@ -124,7 +134,48 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
 
     visitedSections.add(_selectedSection);
     ownPageSection.value = null;
+    _observationsAsked = OwnPageJumps.takeObservations();
+    OwnPageJumps.asked.addListener(_onObservationsAsked);
     _load();
+  }
+
+  @override
+  void dispose()
+  {
+    OwnPageJumps.asked.removeListener(_onObservationsAsked);
+    super.dispose();
+  }
+
+  // Read again first: the note announced may be newer than the record shown.
+  void _onObservationsAsked()
+  {
+    if (!mounted || !OwnPageJumps.takeObservations())
+    {
+      return;
+    }
+
+    _observationsAsked = true;
+    _load();
+  }
+
+  // Straight on it when the record first shows; a record already shown turns to it.
+  void _showObservations()
+  {
+    final int index = _sections.indexOf(OwnPageSection.observations);
+
+    if (index < 0)
+    {
+      return;
+    }
+
+    if (index != _selectedSection)
+    {
+      _selectSection(index);
+    }
+    else
+    {
+      unawaited(markAdministratorNotesSeen());
+    }
   }
 
   // The bar reads the face off the identity, so a change reloads that too.
@@ -150,7 +201,17 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
       });
 
       _tellSection();
-      _startTour();
+
+      // A tour would take the page back to its start: it waits for the next visit.
+      if (_observationsAsked)
+      {
+        _observationsAsked = false;
+        _showObservations();
+      }
+      else
+      {
+        _startTour();
+      }
     }
     catch (e, stackTrace)
     {
@@ -183,6 +244,12 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
   {
     openSection(index, () => _selectedSection = index);
     _tellSection();
+
+    // The administrators' notes on screen: the news of new ones goes.
+    if (_sections[index] == OwnPageSection.observations)
+    {
+      unawaited(markAdministratorNotesSeen());
+    }
   }
 
   // Told after the frame: a tour waiting for it redraws itself, which a build in progress forbids.
@@ -216,7 +283,11 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
 
     if (roles.contains('DOCENTE') && standing)
     {
-      return teacherOwnTour(title: person.firstName, show: _show);
+      return teacherOwnTour(
+        title: person.firstName,
+        show: _show,
+        noted: person.administratorNotes?.isNotEmpty ?? false,
+      );
     }
 
     if (roles.contains('STUDENTE'))
@@ -294,6 +365,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
           forOwner: true,
           footer: centred,
         ),
+      OwnPageSection.observations => OwnObservationsTab(person: person),
     };
   }
 
@@ -351,7 +423,9 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
         if (section == OwnPageSection.other)
           index: kTourOwnToOther
         else if (section == OwnPageSection.stats)
-          index: kTourOwnToStats,
+          index: kTourOwnToStats
+        else if (section == OwnPageSection.observations)
+          index: kTourOwnToObservations,
     };
 
     return Row(

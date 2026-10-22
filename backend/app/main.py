@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api import (
+    administrator_notes,
     app_updates,
     association_subjects,
     auth,
@@ -124,6 +125,7 @@ app.include_router(person_accounts.router)
 app.include_router(person_collaboration.router)
 app.include_router(methodological_notes.router)
 app.include_router(technical_notes.router)
+app.include_router(administrator_notes.router)
 app.include_router(teacher_notes.router)
 app.include_router(documents.router)
 app.include_router(support.router)

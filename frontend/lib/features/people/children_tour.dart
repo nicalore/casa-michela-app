@@ -94,7 +94,7 @@ DesktopTour childrenTour({
         text: 'Se noti inesattezze o alcune informazioni sono cambiate, ti preghiamo di farcelo sapere.',
         sides: _over,
         pad: 6,
-        radius: 28,
+        radius: 17,
         reveal: true,
         present: () => _shown(kTourChildrenReport),
       ),

@@ -294,6 +294,19 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Technical note elimination",
         path_params=("tax_code", "note_id"),
     ),
+    ("POST", "/people/{tax_code}/administrator-notes/"): AuditRule(
+        "Administrator note creation",
+        path_params=("tax_code",),
+        response_field="id",
+    ),
+    ("PUT", "/people/{tax_code}/administrator-notes/{note_id}"): AuditRule(
+        "Administrator note modification",
+        path_params=("tax_code", "note_id"),
+    ),
+    ("DELETE", "/people/{tax_code}/administrator-notes/{note_id}"): AuditRule(
+        "Administrator note elimination",
+        path_params=("tax_code", "note_id"),
+    ),
     ("POST", "/lessons/{lesson_id}/teacher-notes/"): AuditRule(
         "Teacher note creation",
         path_params=("lesson_id",),
@@ -395,6 +408,7 @@ IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
         ("PUT", "/notifications/bookings/{pupil_tax_code}/seen"),
         ("PUT", "/notifications/availabilities/seen"),
         ("PUT", "/notifications/teacher-notes/{pupil_tax_code}/seen"),
+        ("PUT", "/notifications/administrator-notes/seen"),
         ("PUT", "/push/devices"),
         ("DELETE", "/push/devices"),
     }

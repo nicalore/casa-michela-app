@@ -136,6 +136,9 @@ class PersonItem implements PersonFace
   // Sent to administrators only.
   final List<StudentNoteItem>? teacherNotes;
 
+  // A teacher's: sent to administrators and to the teacher; newest first.
+  final List<StudentNoteItem>? administratorNotes;
+
   const PersonItem({
     required this.fiscalCode,
     required this.firstName,
@@ -212,6 +215,7 @@ class PersonItem implements PersonFace
     this.methodologicalNotes,
     this.technicalNotes,
     this.teacherNotes,
+    this.administratorNotes,
   });
 
   List<String> get notPreferredTeacherTaxCodes =>
@@ -304,6 +308,7 @@ class PersonItem implements PersonFace
       methodologicalNotes: parseOptionalList(json['methodological_notes'], StudentNoteItem.fromJson),
       technicalNotes: parseOptionalList(json['technical_notes'], StudentNoteItem.fromJson),
       teacherNotes: parseOptionalList(json['teacher_notes'], StudentNoteItem.fromJson),
+      administratorNotes: parseOptionalList(json['administrator_notes'], StudentNoteItem.fromJson),
     );
   }
 

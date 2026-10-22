@@ -20,6 +20,7 @@ from app.models.notice import Notice, NoticeRoleEnum
 from app.models.notification import Notification, NotificationKindEnum
 from app.schemas.notification import NotificationKindChoice, NotificationResponse
 from app.services import push
+from app.services.administrator_note_notifications import administrator_notes_seen
 from app.services.availability_notifications import availabilities_seen
 from app.services.booking_notifications import bookings_seen
 from app.services.new_devices import about_session
@@ -36,6 +37,7 @@ _GONE_ONCE_READ: Final[frozenset[NotificationKindEnum]] = frozenset(
         NotificationKindEnum.NEW_DEVICE,
         NotificationKindEnum.RATING_REMINDER,
         NotificationKindEnum.TEACHER_NOTE_ADDED,
+        NotificationKindEnum.ADMINISTRATOR_NOTE_ADDED,
     },
 )
 
@@ -217,6 +219,23 @@ async def own_availabilities_seen(
     background: BackgroundTasks,
 ) -> Response:
     batch = await availabilities_seen(db, current_account.tax_code, date_from, date_to)
+    await db.commit()
+    background.add_task(push.deliver, batch)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# One's own notes on screen: what announced the administrators' new ones is done.
+@router.put(
+    "/administrator-notes/seen",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def own_administrator_notes_seen(
+    current_account: CurrentAccount,
+    db: DbSession,
+    background: BackgroundTasks,
+) -> Response:
+    batch = await administrator_notes_seen(db, current_account.tax_code)
     await db.commit()
     background.add_task(push.deliver, batch)
 

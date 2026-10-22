@@ -321,6 +321,17 @@ class _RenderWaveItem extends RenderProxyBox
 
   bool get _moving => _leaving || _progress < 1;
 
+  // How far through its way in: 0 while leaving, 1 at rest.
+  double get arrival
+  {
+    if (_leaving)
+    {
+      return 0;
+    }
+
+    return _progress >= 1 ? 1 : _slotProgress(_progress, wait: _wait ?? _waitForPlace(), leaving: false);
+  }
+
   set progress(double value)
   {
     if (_progress == value)
@@ -591,7 +602,10 @@ double _enterOffset(double elapsed, double travel)
 
 double _exitOpacity(double elapsed) => 1 - ((elapsed - 0.45) / 0.5).clamp(0.0, 1.0);
 
-double _enterOpacity(double elapsed) => (elapsed / 0.45).clamp(0.0, 1.0);
+// Share of a block's way in over which it fades in; the rest it travels fully opaque.
+const double _enterFade = 0.45;
+
+double _enterOpacity(double elapsed) => (elapsed / _enterFade).clamp(0.0, 1.0);
 
 double _arrivalOpacity(double progress)
 {
@@ -1064,6 +1078,73 @@ bool isDestinationShownNow(BuildContext context) =>
 // Whether the page around [context] is still coming in or going; read without depending on it.
 bool isPageTransitionMoving(BuildContext context) =>
     context.getInheritedWidgetOfExactType<_PageTransitionScope>()?.moving ?? false;
+
+// How far the blocks holding [context] are on their way in: 0 while leaving, 1 at rest.
+double _arrivalOf(BuildContext context)
+{
+  final _PageTransitionScope? scope = context.getInheritedWidgetOfExactType<_PageTransitionScope>();
+
+  if (scope == null || !scope.moving)
+  {
+    return 1;
+  }
+
+  if (scope.leaving)
+  {
+    return 0;
+  }
+
+  double least = 1;
+  bool inner = false;
+  bool past = false;
+
+  // Blocks inside blocks each carry it their own way: the latest to arrive counts.
+  context.visitAncestorElements((element)
+  {
+    final Widget widget = element.widget;
+    double? arrival;
+
+    if (widget is _PageTransitionScope)
+    {
+      past = true;
+    }
+    else if (widget is PageTransitionItem && widget.slot != null)
+    {
+      final _PageTransitionScope? outer = element.getInheritedWidgetOfExactType<_PageTransitionScope>();
+
+      arrival = outer == null || !outer.moving
+          ? 1
+          : outer.leaving
+              ? 0
+              : _slotProgress(outer.progress, wait: _slotWait(widget.slot!), leaving: false);
+    }
+    else if (widget is _WaveItem && element.renderObject is _RenderWaveItem)
+    {
+      arrival = (element.renderObject! as _RenderWaveItem).arrival;
+    }
+
+    if (arrival != null)
+    {
+      inner = inner || !past;
+
+      if (arrival < least)
+      {
+        least = arrival;
+      }
+    }
+
+    return true;
+  });
+
+  // Outside any block of its own section, it settles only with the whole section.
+  return inner ? least : 0;
+}
+
+// Whether the part at [context] is still out of sight with its page: leaving, or not yet faded in.
+bool isPageTransitionPartComing(BuildContext context) => _arrivalOf(context) < _enterFade;
+
+// Whether the part at [context] still travels with its page, its block not yet at rest.
+bool isPageTransitionPartMoving(BuildContext context) => _arrivalOf(context) < 1;
 
 class _DestinationScope extends InheritedWidget
 {

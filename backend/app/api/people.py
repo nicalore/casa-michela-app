@@ -39,6 +39,7 @@ from app.core.person_refs import guessed_tax_codes
 from app.core.storage import discard_profile_image, store_profile_image
 from app.models.account import Account, AccountStatusEnum
 from app.models.administrator import Administrator, AdministratorRoleEnum
+from app.models.administrator_note import AdministratorNote
 from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.course_participant import CourseParticipant
@@ -616,6 +617,7 @@ def _map_person_to_response(
     methodological_notes: list[StudentNoteResponse] | None = None
     technical_notes: list[StudentNoteResponse] | None = None
     teacher_notes: list[TeacherNoteResponse] | None = None
+    administrator_notes: list[StudentNoteResponse] | None = None
 
     is_active_collaborator = None
     enrollment_year = None
@@ -822,6 +824,9 @@ def _map_person_to_response(
                 teacher_services = sorted(
                     entry.service_name for entry in teacher.teacher_services
                 )
+                administrator_notes = [
+                    note_response(note) for note in teacher.administrator_notes
+                ]
 
     children_count = len(children) if person.parent_profile else None
 
@@ -886,6 +891,7 @@ def _map_person_to_response(
         methodological_notes=methodological_notes,
         technical_notes=technical_notes,
         teacher_notes=teacher_notes,
+        administrator_notes=administrator_notes,
         member_updated_at=member_updated_at,
         student_updated_at=student_updated_at,
         teacher_updated_at=teacher_updated_at,
@@ -995,6 +1001,12 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         competences.joinedload(TeachingCompetence.association_subject),
         competences.joinedload(TeachingCompetence.study_program),
         teacher.selectinload(Teacher.teacher_services),
+        teacher.selectinload(Teacher.administrator_notes).joinedload(
+            AdministratorNote.author
+        ),
+        teacher.selectinload(Teacher.administrator_notes).selectinload(
+            AdministratorNote.images
+        ),
     )
 
 
@@ -2078,6 +2090,7 @@ async def get_person(
         update={
             "technical_notes": None,
             "teacher_notes": None,
+            "administrator_notes": None,
             "methodological_notes": full.methodological_notes if follows else None,
             "parents": None,
         }
@@ -2090,6 +2103,8 @@ async def get_person(
     # own certifications, nor their tariff when a parent answers for them.
     if code == identity.tax_code:
         hidden: dict[str, Any] = {
+            # Teachers read the administrators' notes on them.
+            "administrator_notes": full.administrator_notes,
             "certification_types": [],
             "certification_other_detail": None,
             "certification_dsa_detail": None,

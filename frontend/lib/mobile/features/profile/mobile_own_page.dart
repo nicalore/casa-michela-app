@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,13 +7,20 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/role_label_mapper.dart';
+import '../../../features/association/notices/notice_message_view.dart' show noticeTextStyle;
 import '../../../features/auth/models/me_response.dart';
+import '../../../features/notifications/administrator_notes_seen.dart';
 import '../../../features/people/models/person_item.dart';
+import '../../../features/people/models/student_note_item.dart';
 import '../../../features/people/own_page.dart'
     show OwnPageSection, ownPageSectionsOf, ownReportableFields;
+import '../../../features/people/person_jump.dart';
 import '../../../features/people/tabs/own_other_info_tab.dart' show ownOtherCards;
+import '../../../features/people/utils/student_notes_strings.dart';
 import '../../../features/people/widgets/person_detail_cards.dart';
 import '../../../features/people/widgets/person_detail_widgets.dart';
+import '../../../features/people/widgets/student_note_text.dart';
+import '../../../features/people/widgets/student_notes_card.dart' show noteDate;
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
@@ -59,6 +68,8 @@ const String _parentAccountRole = 'PARENT';
 const String _studentAccountRole = 'STUDENT';
 const String _pupilRole = 'STUDENTE';
 
+final TextStyle _noteStyle = noticeTextStyle(fontSize: 15.5, height: 1.45);
+
 const EdgeInsets _tourInflate = EdgeInsets.all(5);
 const double _tourCardRadius = 27;
 const double _tourRoundRadius = 40;
@@ -95,13 +106,61 @@ class _MobileOwnPageState extends State<MobileOwnPage>
   // Set once the shell has stopped moving the page in.
   bool _settledIn = false;
 
+  // Asked by a notification: the Osservazioni, once the record is read.
+  bool _observationsAsked = false;
+
   @override
   void initState()
   {
     super.initState();
+    _observationsAsked = OwnPageJumps.takeObservations();
     _load().then((_) => _loadStats()).whenComplete(MobileHoldScope.hold(context));
     mobileTourChanges.addListener(_tourLater);
     MobileNavSheet.hidden.addListener(_tourLater);
+    OwnPageJumps.asked.addListener(_onObservationsAsked);
+  }
+
+  // Already open: read again, as the note announced may be newer than the one shown.
+  void _onObservationsAsked()
+  {
+    if (!mounted || !OwnPageJumps.takeObservations())
+    {
+      return;
+    }
+
+    _observationsAsked = true;
+    _load(quiet: true);
+  }
+
+  // Before the tour's check, which leaves a page not on its start alone.
+  void _showObservations(PersonItem person)
+  {
+    final int index = ownPageSectionsOf(person).indexOf(OwnPageSection.observations);
+
+    if (index < 0 || !_pages.hasClients)
+    {
+      return;
+    }
+
+    if ((_pages.page ?? 0).round() == index)
+    {
+      unawaited(markAdministratorNotesSeen());
+    }
+    else
+    {
+      _pages.jumpToPage(index);
+    }
+  }
+
+  void _onPageChanged(int index)
+  {
+    final PersonItem? person = _person;
+
+    // The administrators' notes on screen: the news of new ones goes.
+    if (person != null && ownPageSectionsOf(person).elementAtOrNull(index) == OwnPageSection.observations)
+    {
+      unawaited(markAdministratorNotesSeen());
+    }
   }
 
   @override
@@ -121,6 +180,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
   {
     mobileTourChanges.removeListener(_tourLater);
     MobileNavSheet.hidden.removeListener(_tourLater);
+    OwnPageJumps.asked.removeListener(_onObservationsAsked);
     _pages.dispose();
     _teacherStats?.dispose();
     _pupilStats?.dispose();
@@ -146,6 +206,18 @@ class _MobileOwnPageState extends State<MobileOwnPage>
         _loading = false;
         _failed = false;
       });
+
+      if (_observationsAsked)
+      {
+        _observationsAsked = false;
+        SchedulerBinding.instance.addPostFrameCallback((_)
+        {
+          if (mounted)
+          {
+            _showObservations(person);
+          }
+        });
+      }
 
       _tourLater();
     }
@@ -350,14 +422,20 @@ class _MobileOwnPageState extends State<MobileOwnPage>
           )
         : PageView(
             controller: _pages,
+            onPageChanged: _onPageChanged,
             children: [
               // Not kept alive: a mounted, scrolled page stalls the shared header.
               for (final section in sections)
                 _scrollable(
                   bottom: bottom,
                   children: _buildSection(person, section, margin: margin, tablet: tablet),
-                  // Only a school section can hold nothing but the empty card.
-                  fill: section == OwnPageSection.school && MobileSchoolYears.yearsOf(person).isEmpty,
+                  // Only the school and the Osservazioni can hold nothing but the empty card.
+                  fill: switch (section)
+                  {
+                    OwnPageSection.school => MobileSchoolYears.yearsOf(person).isEmpty,
+                    OwnPageSection.observations => person.administratorNotes?.isEmpty ?? true,
+                    _ => false,
+                  },
                 ),
             ],
           );
@@ -580,7 +658,50 @@ class _MobileOwnPageState extends State<MobileOwnPage>
       // Read-only.
       case OwnPageSection.school:
         return [inset(MobileSchoolYears(person: person))];
+
+      case OwnPageSection.observations:
+        return [inset(_observations(person, tablet: tablet))];
     }
+  }
+
+  // Read-only: what the administrators wrote about the teacher, newest first.
+  Widget _observations(PersonItem person, {required bool tablet})
+  {
+    final List<StudentNoteItem> notes = person.administratorNotes ?? const [];
+
+    if (notes.isEmpty)
+    {
+      return Center(
+        child: MobileTourTarget(
+          id: kOwnTourObservations,
+          inflate: _tourInflate,
+          radius: _tourCardRadius,
+          child: MobileEmptyCard(icon: Icons.speaker_notes_off_rounded, message: kNoObservations, tablet: tablet),
+        ),
+      );
+    }
+
+    return MobileTourTarget(
+      id: kOwnTourObservations,
+      inflate: _tourInflate,
+      radius: _tourCardRadius,
+      child: MobileDetailCard(
+        icon: Icons.edit_note_rounded,
+        title: kObservationsTitle,
+        rows: [
+          for (final StudentNoteItem note in notes)
+            DetailRowData.drawn(
+              '${noteDate(note.createdAt)} · ${note.authorName}',
+              StudentNoteText(
+                taxCode: person.fiscalCode,
+                kind: StudentNoteKind.administrator,
+                note: note,
+                style: _noteStyle,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   bool _isTeacher(PersonItem person)

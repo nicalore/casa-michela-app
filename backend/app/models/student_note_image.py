@@ -14,15 +14,17 @@ from app.db.base import Base
 from app.models.mixins import CreatedAtMixin
 
 
-# An image of a technical or methodological note, written ![](image:<key>) in it.
+# An image of a technical, methodological or administrator's note: ![](image:<key>).
 class StudentNoteImage(CreatedAtMixin, Base):
     __tablename__ = "student_note_images"
 
     __table_args__ = (
         UniqueConstraint("technical_note_id", "image_key"),
         UniqueConstraint("methodological_note_id", "image_key"),
+        UniqueConstraint("administrator_note_id", "image_key"),
         CheckConstraint(
-            "num_nonnulls(technical_note_id, methodological_note_id) = 1",
+            "num_nonnulls(technical_note_id, methodological_note_id, "
+            "administrator_note_id) = 1",
             name="one_note",
         ),
         CheckConstraint("size >= 0", name="size_not_negative"),
@@ -38,6 +40,12 @@ class StudentNoteImage(CreatedAtMixin, Base):
 
     methodological_note_id: Mapped[int | None] = mapped_column(
         ForeignKey("methodological_notes.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
+    administrator_note_id: Mapped[int | None] = mapped_column(
+        ForeignKey("administrator_notes.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )

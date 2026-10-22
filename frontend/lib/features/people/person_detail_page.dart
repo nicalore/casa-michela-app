@@ -326,15 +326,28 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       ));
     }
 
-    if (roles.contains('STUDENTE') && !isRevoked)
+    final bool isPupil = roles.contains('STUDENTE') && !isRevoked;
+    final bool isTeacher = roles.contains('DOCENTE') && !isRevoked;
+
+    if (isPupil)
     {
       sections.add(PersonSection(
         label: 'Docenti non graditi',
         view: PersonNotPreferredTeachersTab(person: person, onUpdate: _fetchPersonData),
       ));
+    }
+
+    // One tab for a teacher who is also a pupil.
+    if (isPupil || isTeacher)
+    {
       sections.add(PersonSection(
         label: _observationsSection,
-        view: PersonObservationsTab(person: person, onUpdate: _fetchPersonData),
+        view: PersonObservationsTab(
+          person: person,
+          onUpdate: _fetchPersonData,
+          pupil: isPupil,
+          teacher: isTeacher,
+        ),
       ));
     }
 
@@ -614,12 +627,14 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     _observationsSeen(index);
   }
 
-  // The teachers' notes on screen: the news of new ones goes.
+  // A pupil's teachers' notes on screen: the news of new ones goes.
   void _observationsSeen(int index)
   {
     final PersonItem? person = _person;
 
-    if (person != null && _sections[index].label == _observationsSection)
+    if (person != null &&
+        _sections[index].label == _observationsSection &&
+        person.shownRoles.any((role) => role.toUpperCase() == 'STUDENTE'))
     {
       unawaited(markTeacherNotesSeen(person.fiscalCode));
     }

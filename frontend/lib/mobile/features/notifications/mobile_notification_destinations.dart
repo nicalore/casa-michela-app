@@ -4,6 +4,7 @@ import '../../../features/notifications/notice_jump.dart';
 import '../../../features/notifications/week_jump.dart';
 import '../../../features/notifications/notification_item.dart';
 import '../../../features/notifications/notification_roles.dart';
+import '../../../features/people/person_jump.dart';
 import '../../../features/settings/settings_jump.dart';
 import '../../../services/api_service.dart';
 import '../../shared/navigation/mobile_destinations.dart';
@@ -95,6 +96,9 @@ void followMobileNotification(NotificationItem item)
     case NotificationKind.newDevice:
       SettingsJumps.requestDevices();
       MobileShellRequests.open(me.activeRole, kMobileSettingsSlug);
+    case NotificationKind.administratorNoteAdded:
+      OwnPageJumps.requestObservations();
+      MobileShellRequests.open(me.activeRole, kMobileOwnPageSlug);
     case NotificationKind.noticeReceived:
       final int? id = item.noticeId;
       final String? role = calendarRoleFor(

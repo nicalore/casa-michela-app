@@ -280,7 +280,9 @@ class _StudentNoteDialogState extends State<_StudentNoteDialog>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                notesReadersHint(student.firstName),
+                widget.kind == StudentNoteKind.administrator
+                    ? administratorNoteHint('${student.firstName} ${student.lastName}')
+                    : notesReadersHint(student.firstName),
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
