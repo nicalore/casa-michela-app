@@ -6,6 +6,28 @@ typedef StoredSession = ({String? accessToken, String? refreshToken});
 
 class SessionService
 {
+  static const String _demoKey = 'session_on_demo_server';
+
+  // Whether the stored pair belongs to the demo server, read before it is renewed.
+  static Future<bool> readDemo() async
+  {
+    return (await SharedPreferences.getInstance()).getBool(_demoKey) ?? false;
+  }
+
+  static Future<void> saveDemo(bool demo) async
+  {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    if (demo)
+    {
+      await prefs.setBool(_demoKey, true);
+    }
+    else
+    {
+      await prefs.remove(_demoKey);
+    }
+  }
+
   static Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,

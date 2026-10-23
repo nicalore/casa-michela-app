@@ -75,7 +75,8 @@ const Map<LessonSheetMark, String> _sheetTexts = {
       'rispetto dello studente.',
   LessonSheetMark.note:
       'Puoi aggiungere alcune note relative al comportamento e al rendimento dello studente durante la lezione. '
-      'Queste note verranno lette dal Direttivo e in seguito potrebbero essere comunicate alle famiglie.',
+      'Queste note verranno lette dal Direttivo e in seguito potrebbero essere comunicate alle famiglie oppure, '
+      'se ritenute utili per tutti i docenti, aggiunte alle osservazioni tecniche.',
 };
 
 String lessonSheetTourTarget(LessonSheetMark mark) => 'calendar.sheet.${mark.name}';

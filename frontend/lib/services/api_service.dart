@@ -827,7 +827,16 @@ class ApiService
   void _leaveSession()
   {
     _forgetSession();
+    _useDemoServer(false);
+    unawaited(SessionService.saveDemo(false));
     authState.value = AuthState.unauthenticated;
+  }
+
+  void _useDemoServer(bool demo)
+  {
+    ApiConfig.demo = demo;
+    _dio.options.baseUrl = ApiConfig.baseUrl;
+    _tokenDio.options.baseUrl = ApiConfig.baseUrl;
   }
 
   void _forgetSession()
@@ -868,6 +877,7 @@ class ApiService
       return false;
     }
 
+    _useDemoServer(await SessionService.readDemo());
     _wornRole = await SessionService.readRole();
 
     try
@@ -898,13 +908,29 @@ class ApiService
   {
     _forgetAll();
 
-    final response = await _dio.post(
-      '/auth/login',
-      data: {'username': username, 'password': password},
-    );
+    final bool demo = ApiConfig.isDemoUsername(username);
 
-    final loginResponse = LoginResponse.fromJson(response.data);
+    _useDemoServer(demo);
 
+    final LoginResponse loginResponse;
+
+    try
+    {
+      final response = await _dio.post(
+        '/auth/login',
+        data: {'username': username, 'password': password},
+      );
+
+      loginResponse = LoginResponse.fromJson(response.data);
+    }
+    catch (_)
+    {
+      // A refused demo sign-in must not send the next request to the demo server.
+      _useDemoServer(false);
+      rethrow;
+    }
+
+    await SessionService.saveDemo(demo);
     await _adoptSession(loginResponse);
 
     tellOtherTabs({'news': _TabNews.signedIn});

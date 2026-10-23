@@ -7,6 +7,22 @@ abstract final class ApiConfig
 
   static const String _productionBaseUrl = '/api';
 
+  // Store reviewers' accounts live on the demo server, with fictitious people only.
+  static const String _demoBaseUrl = String.fromEnvironment(
+    'DEMO_API_BASE_URL',
+    defaultValue: 'https://dev.app.casamichela.it/api',
+  );
+
+  static const String _demoUsernamePrefix = 'demo.';
+
+  // Set while a demo account is signed in; the browser always talks to its own origin.
+  static bool demo = false;
+
+  static bool isDemoUsername(String username)
+  {
+    return !kIsWeb && username.trim().toLowerCase().startsWith(_demoUsernamePrefix);
+  }
+
   // The Android emulator reaches the host on 10.0.2.2; iOS simulator and browser share its loopback.
   static String get _developmentBaseUrl =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android
@@ -15,6 +31,11 @@ abstract final class ApiConfig
 
   static String get baseUrl
   {
+    if (demo)
+    {
+      return _demoBaseUrl;
+    }
+
     if (_definedBaseUrl.isNotEmpty)
     {
       return _definedBaseUrl;
