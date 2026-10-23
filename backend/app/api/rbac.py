@@ -77,15 +77,17 @@ class IdentityContext:
         return frozenset(own)
 
 
+# The role this client shows; the stored one follows the last switch on any device.
+def worn_role(request: Request) -> str | None:
+    return request.headers.get(_ACTIVE_ROLE_HEADER)
+
+
 async def get_current_identity(
     request: Request,
     current_account: CurrentAccount,
 ) -> IdentityContext:
     account = current_account
     roles = frozenset(RoleService.get_available_roles(account.person))
-
-    # The header's role, not the stored one, which follows the last switch anywhere.
-    worn = request.headers.get(_ACTIVE_ROLE_HEADER)
 
     identity = IdentityContext(
         tax_code=account.tax_code,
@@ -94,7 +96,8 @@ async def get_current_identity(
         onboarding_completed=account.onboarding_completed_at is not None,
         active_role=RoleService.resolve_active_role(
             roles,
-            worn if worn in roles else account.last_active_role,
+            account.last_active_role,
+            worn_role(request),
         ),
         answered_for=RoleService.is_answered_for(account.person),
         autonomous_bookings=account.autonomous_bookings,

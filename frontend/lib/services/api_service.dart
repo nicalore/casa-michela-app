@@ -246,6 +246,9 @@ class ApiService
   // The router's synchronous redirect needs the active role: the identity lives in a notifier.
   final ValueNotifier<MeResponse?> identity = ValueNotifier(null);
 
+  // The role worn before the identity arrives: read from storage at start.
+  String? _wornRole;
+
   final _ListMemo<PersonItem> _peopleMemo = _ListMemo();
   final _ListMemo<PersonItem> _teachersMemo = _ListMemo();
   final _ListMemo<SchoolItem> _schoolsMemo = _ListMemo();
@@ -374,7 +377,7 @@ class ApiService
           }
 
           // The role this app is showing: the server's stored one follows a switch on any device.
-          if (identity.value?.activeRole case final String role)
+          if (identity.value?.activeRole ?? _wornRole case final String role)
           {
             options.headers[_activeRoleHeader] = role;
           }
@@ -467,6 +470,21 @@ class ApiService
     );
 
     listenToOtherTabs(_hearFromOtherTab);
+    identity.addListener(_rememberRole);
+  }
+
+  // Kept per device, so a start or a return to the app opens where this device left off.
+  void _rememberRole()
+  {
+    final String? role = identity.value?.activeRole;
+
+    if (role == null || role == _wornRole)
+    {
+      return;
+    }
+
+    _wornRole = role;
+    unawaited(SessionService.saveRole(role));
   }
 
   // Login and refresh name the device for the sessions list.
@@ -817,6 +835,7 @@ class ApiService
     _forgetAll();
     _accessToken = null;
     _refreshToken = null;
+    _wornRole = null;
     identity.value = null;
   }
 
@@ -848,6 +867,8 @@ class ApiService
       authState.value = AuthState.unauthenticated;
       return false;
     }
+
+    _wornRole = await SessionService.readRole();
 
     try
     {

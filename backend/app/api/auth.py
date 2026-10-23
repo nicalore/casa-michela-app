@@ -18,6 +18,7 @@ from app.api.current_account import (
     CurrentSessionId,
 )
 from app.api.dependencies import DbSession
+from app.api.rbac import worn_role
 from app.core.client_device import (
     DEVICE_KEY_HEADER,
     FORM_FACTOR_HEADER,
@@ -319,11 +320,15 @@ def _board_role(person: Person) -> str | None:
     return administrator.role.value
 
 
-def _identity_payload(account: Account) -> dict[str, Any]:
+def _identity_payload(account: Account, worn: str | None = None) -> dict[str, Any]:
     person = account.person
     roles = RoleService.sorted_by_label(RoleService.get_available_roles(person))
 
-    active_role = RoleService.resolve_active_role(roles, account.last_active_role)
+    active_role = RoleService.resolve_active_role(
+        roles,
+        account.last_active_role,
+        worn,
+    )
 
     has_address = bool(person.residence_type and person.residence_address)
     address = f"{person.residence_type} {person.residence_address}".strip()
@@ -371,8 +376,8 @@ def _identity_payload(account: Account) -> dict[str, Any]:
 
 
 @router.get("/me")
-async def me(current_account: CurrentAccount) -> dict[str, Any]:
-    return _identity_payload(current_account)
+async def me(request: Request, current_account: CurrentAccount) -> dict[str, Any]:
+    return _identity_payload(current_account, worn_role(request))
 
 
 # Presentation only: RBAC still reads every role, so switching changes no permission.
@@ -407,6 +412,7 @@ async def set_active_role(
 # Only reaching the end writes anything; abandoning halfway restarts the flow.
 @router.post("/complete-onboarding")
 async def complete_onboarding(
+    request: Request,
     current_account: CurrentAccount,
     db: DbSession,
 ) -> dict[str, Any]:
@@ -417,12 +423,13 @@ async def complete_onboarding(
 
         await db.commit()
 
-    return _identity_payload(account)
+    return _identity_payload(account, worn_role(request))
 
 
 # The first acceptance stays: a later call never moves its date.
 @router.post("/accept-terms")
 async def accept_terms(
+    request: Request,
     current_account: CurrentAccount,
     db: DbSession,
 ) -> dict[str, Any]:
@@ -433,7 +440,7 @@ async def accept_terms(
 
         await db.commit()
 
-    return _identity_payload(account)
+    return _identity_payload(account, worn_role(request))
 
 
 @router.post("/profile-image")

@@ -157,15 +157,15 @@ class RoleService:
     def resolve_active_role(
         roles: Iterable[str],
         last_active_role: str | None,
+        worn: str | None = None,
     ) -> str | None:
         available = list(roles)
 
+        # The client's own role first: the stored one follows a switch on any device.
         # A role since taken away must not strand the account on an unusable page.
-        if (
-            last_active_role in available
-            and last_active_role in RoleService.ROLES_WITH_UI
-        ):
-            return last_active_role
+        for wanted in (worn, last_active_role):
+            if wanted in available and wanted in RoleService.ROLES_WITH_UI:
+                return wanted
 
         usable = [role for role in available if role in RoleService.ROLES_WITH_UI]
 
