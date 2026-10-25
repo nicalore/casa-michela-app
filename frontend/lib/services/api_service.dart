@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show AppLifecycleListener, TimeOfDay;
 
 import '../core/config/api_config.dart';
+import '../core/utils/alphabetical_order.dart';
 import '../core/utils/content_disposition.dart';
 import '../core/utils/json_parsing.dart';
 import '../core/utils/time_bucket.dart';
@@ -58,8 +59,6 @@ import 'client_device_key.dart';
 import 'client_form_factor.dart';
 import 'session_service.dart';
 
-int _byName(String a, String b) => a.toLowerCase().compareTo(b.toLowerCase());
-
 List<AssociationSubjectOption> _associationSubjectOptions(dynamic value)
 {
   return value == null
@@ -67,7 +66,7 @@ List<AssociationSubjectOption> _associationSubjectOptions(dynamic value)
       : ((value as List)
           .map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>))
           .toList()
-        ..sort((a, b) => _byName(a.name, b.name)));
+        ..sort((a, b) => compareAlphabetically(a.name, b.name)));
 }
 
 SchoolStudyProgramOption _schoolStudyProgramOption(dynamic json)
@@ -90,7 +89,7 @@ SchoolItem _schoolFromJson(dynamic json)
     createdAt: DateTime.parse(json['created_at']),
     studyPrograms: json['study_programs'] != null
         ? ((json['study_programs'] as List).map(_schoolStudyProgramOption).toList()
-          ..sort((a, b) => _byName(a.name, b.name)))
+          ..sort((a, b) => compareAlphabetically(a.name, b.name)))
         : [],
   );
 }
@@ -118,7 +117,7 @@ StudyProgramItem _studyProgramFromJson(dynamic json)
     createdAt: DateTime.parse(json['created_at']),
     ministrySubjects: json['ministry_subjects'] != null
         ? ((json['ministry_subjects'] as List).map(_ministrySubjectOption).toList()
-          ..sort((a, b) => _byName(a.name, b.name)))
+          ..sort((a, b) => compareAlphabetically(a.name, b.name)))
         : [],
   );
 }
@@ -3280,6 +3279,33 @@ class ApiService
       await _dio.put(
         '/people/$fiscalCode/collaboration',
         data: {'active': active, 'confirm': confirm},
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetPeople();
+    }
+  }
+
+  // One criterion of a teacher's evaluation; answers the criteria met and the rating they make.
+  Future<({List<String> met, double rating})> setTeacherCriterion(
+    String fiscalCode,
+    String criterion, {
+    required bool met,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put('/people/$fiscalCode/evaluation/$criterion', data: {'met': met});
+      final Map<String, dynamic> body = response.data as Map<String, dynamic>;
+
+      return (
+        met: (body['met_criteria'] as List<dynamic>).cast<String>(),
+        rating: (body['rating'] as num).toDouble(),
       );
     }
     on DioException catch (e)

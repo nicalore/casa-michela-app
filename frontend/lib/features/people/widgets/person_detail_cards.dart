@@ -7,7 +7,6 @@ import '../../../core/utils/week_range.dart';
 import '../edit/homework_tariffs.dart';
 import '../models/early_exit_schedule_item.dart';
 import '../models/person_item.dart';
-import '../widgets/teacher_rating_dots.dart';
 import 'person_detail_widgets.dart';
 
 // Backend convention: province 'EE' means born abroad, so the nation is shown.
@@ -313,7 +312,7 @@ PersonDetailCard adminDetailsCard(PersonItem person)
   );
 }
 
-// forOwner hides rating and high-school rows; the server sends the rating to admins only.
+// forOwner hides the high-school row.
 PersonDetailCard teacherDetailsCard(PersonItem person, {bool forOwner = false})
 {
   return PersonDetailCard(
@@ -321,11 +320,6 @@ PersonDetailCard teacherDetailsCard(PersonItem person, {bool forOwner = false})
     icon: Icons.school_outlined,
     labelWidth: kPersonWideCardLabelWidth,
     rows: [
-      if (!forOwner && person.teacherRating != null)
-        DetailRowData.drawn(
-          'Valutazione',
-          TeacherRatingDots(value: person.teacherRating!),
-        ),
       if (!forOwner)
         DetailRowData('Studente delle superiori', _highSchoolStudentText(person)),
       DetailRowData('Studi scolastici', orDash(person.schoolEducation)),

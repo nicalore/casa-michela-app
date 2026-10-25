@@ -307,6 +307,10 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Administrator note elimination",
         path_params=("tax_code", "note_id"),
     ),
+    ("PUT", "/people/{tax_code}/evaluation/{criterion}"): AuditRule(
+        "Teacher evaluation change",
+        path_params=("tax_code", "criterion"),
+    ),
     ("POST", "/lessons/{lesson_id}/teacher-notes/"): AuditRule(
         "Teacher note creation",
         path_params=("lesson_id",),

@@ -540,8 +540,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         imageBytes: _form.fotoProfilo,
       );
 
-      // Rated anew, or a teacher no more: the server took the reminder to rate them away.
-      if (!_form.activeRoles.contains('DOCENTE') || _form.teacherRating != widget.person!.teacherRating)
+      // A teacher no more: the server took the reminder to rate them away.
+      if (!_form.activeRoles.contains('DOCENTE'))
       {
         NotificationBoard.instance.dropRatingReminder(widget.person!.fiscalCode);
       }

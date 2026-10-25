@@ -7,9 +7,9 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     ForeignKey,
-    Numeric,
     String,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -27,12 +27,23 @@ if TYPE_CHECKING:
     from app.models.teaching_competence import TeachingCompetence
 
 
-RATING_MINIMUM: Final[Decimal] = Decimal("0")
-RATING_MAXIMUM: Final[Decimal] = Decimal("5")
-RATING_STEP: Final[Decimal] = Decimal("0.5")
+# What the administrators judge a teacher on; mirrored by kCriteria in the frontend.
+TEACHER_CRITERIA: Final[tuple[str, ...]] = (
+    "competence",
+    "clarity",
+    "empathy",
+    "motivation",
+    "relationship",
+    "transparency",
+    "flexibility",
+    "proactivity",
+    "reliability",
+    "rules",
+)
 
-# Value carried by a not-yet-rated teacher.
-RATING_DEFAULT: Final[Decimal] = Decimal("2.5")
+CRITERION_POINTS: Final[Decimal] = Decimal("0.5")
+
+_CRITERION_LENGTH: Final[int] = 20
 
 
 class Teacher(UpdatedAtMixin, Base):
@@ -44,12 +55,10 @@ class Teacher(UpdatedAtMixin, Base):
             name="high_school_student_has_no_university_education",
         ),
         CheckConstraint(
-            f"rating BETWEEN {RATING_MINIMUM} AND {RATING_MAXIMUM}",
-            name="rating_within_bounds",
-        ),
-        CheckConstraint(
-            f"rating % {RATING_STEP} = 0",
-            name="rating_in_half_points",
+            "met_criteria <@ ARRAY["
+            + ", ".join(f"'{key}'" for key in TEACHER_CRITERIA)
+            + "]::varchar[]",
+            name="met_criteria_known",
         ),
         *not_blank_when_present_constraints(
             "school_education",
@@ -77,12 +86,12 @@ class Teacher(UpdatedAtMixin, Base):
 
     university_education: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # Numeric, not float: binary rounding would miscount half points.
-    rating: Mapped[Decimal] = mapped_column(
-        Numeric(2, 1),
+    # The criteria the administrators judged met; a new teacher meets none.
+    met_criteria: Mapped[list[str]] = mapped_column(
+        ARRAY(String(_CRITERION_LENGTH)),
         nullable=False,
-        default=RATING_DEFAULT,
-        server_default=str(RATING_DEFAULT),
+        default=list,
+        server_default="{}",
     )
 
     staff_member: Mapped[Staff] = relationship(

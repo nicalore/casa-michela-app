@@ -90,7 +90,7 @@ from app.models.study_program import (
 )
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
-from app.models.teacher import Teacher
+from app.models.teacher import CRITERION_POINTS, TEACHER_CRITERIA, Teacher
 from app.models.teacher_note import TeacherNote
 from app.models.teacher_room_assignment import MIDNIGHT, TeacherRoomAssignment
 from app.models.teacher_service import TeacherService
@@ -1911,7 +1911,10 @@ class Seeder:
                     is_high_school_student=spec.high_school_student,
                     school_education=spec.school_education,
                     university_education=spec.university_education,
-                    rating=Decimal(spec.rating),
+                    # The rating met as the first criteria, half a point each.
+                    met_criteria=list(
+                        TEACHER_CRITERIA[: int(Decimal(spec.rating) / CRITERION_POINTS)]
+                    ),
                 ),
             )
 

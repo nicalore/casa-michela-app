@@ -25,6 +25,7 @@ import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
+import '../../shared/widgets/mobile_info_button.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
@@ -33,6 +34,7 @@ import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_face_editor.dart';
 import 'mobile_own_tour.dart';
 import 'widgets/mobile_card_grid.dart';
+import 'widgets/mobile_criteria_sheet.dart';
 import 'widgets/mobile_detail_card.dart';
 import 'widgets/mobile_memberships.dart';
 import 'widgets/mobile_own_edit_sheets.dart';
@@ -75,6 +77,8 @@ const double _tourCardRadius = 27;
 const double _tourRoundRadius = 40;
 const double _tourStatsInflate = 8;
 const double _tourStatsRadius = 26;
+const EdgeInsets _tourInfoInflate = EdgeInsets.all(6);
+const double _tourInfoRadius = 30;
 
 class MobileOwnPage extends StatefulWidget
 {
@@ -270,7 +274,12 @@ class _MobileOwnPageState extends State<MobileOwnPage>
     await startMobileTourOnce(
       taxCode: widget.user.taxCode,
       tour: _isTeacher(person)
-          ? ownTour(pages: _pages, title: widget.user.firstName, sections: sections)
+          ? ownTour(
+              pages: _pages,
+              title: widget.user.firstName,
+              sections: sections,
+              noted: person.administratorNotes?.isNotEmpty ?? false,
+            )
           : roles.contains(_studentAccountRole)
               ? studentOwnTour(pages: _pages, title: widget.user.firstName, sections: sections)
               : parentOwnTour(title: widget.user.firstName),
@@ -428,6 +437,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
               for (final section in sections)
                 _scrollable(
                   bottom: bottom,
+                  head: _buildHead(person, section, margin: margin),
                   children: _buildSection(person, section, margin: margin, tablet: tablet),
                   // Only the school and the Osservazioni can hold nothing but the empty card.
                   fill: switch (section)
@@ -533,7 +543,12 @@ class _MobileOwnPageState extends State<MobileOwnPage>
 
   // Edge to edge, inset per block: chip rows may overrun the margin, shadows cross pages.
   // [fill]: [children] is the empty card alone, centred in the room.
-  Widget _scrollable({required double bottom, required List<Widget> children, bool fill = false})
+  Widget _scrollable({
+    required double bottom,
+    required List<Widget> children,
+    List<Widget> head = const [],
+    bool fill = false,
+  })
   {
     return MobileSwipePage(
       child: RefreshIndicator(
@@ -544,6 +559,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
         child: fill
             ? MobileEmptyScroll(
                 padding: EdgeInsets.only(top: _shadowRoom, bottom: bottom),
+                head: head,
                 body: children.single,
                 fill: true,
                 tail: const [MobileTourRunway()],
@@ -559,6 +575,30 @@ class _MobileOwnPageState extends State<MobileOwnPage>
               ),
       ),
     );
+  }
+
+  // Above the empty Osservazioni, whose card holds the (i) once there are notes.
+  List<Widget> _buildHead(PersonItem person, OwnPageSection section, {required double margin})
+  {
+    if (section != OwnPageSection.observations || (person.administratorNotes?.isNotEmpty ?? false))
+    {
+      return const [];
+    }
+
+    return [
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: margin),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: MobileTourTarget(
+            id: kOwnTourCriteria,
+            inflate: _tourInfoInflate,
+            radius: _tourInfoRadius,
+            child: MobileInfoButton(onTap: () => showMobileCriteriaSheet(context)),
+          ),
+        ),
+      ),
+    ];
   }
 
   List<Widget> _buildSection(
@@ -688,6 +728,16 @@ class _MobileOwnPageState extends State<MobileOwnPage>
       child: MobileDetailCard(
         icon: Icons.edit_note_rounded,
         title: kObservationsTitle,
+        trailing: MobileTourTarget(
+          id: kOwnTourCriteria,
+          inflate: _tourInfoInflate,
+          radius: _tourInfoRadius,
+          child: MobileCardButton(
+            icon: Icons.info_outline_rounded,
+            label: kCriteriaTitle,
+            onTap: () => showMobileCriteriaSheet(context),
+          ),
+        ),
         rows: [
           for (final StudentNoteItem note in notes)
             DetailRowData.drawn(

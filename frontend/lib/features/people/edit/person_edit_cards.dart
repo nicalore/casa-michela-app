@@ -21,7 +21,6 @@ import '../widgets/person_detail_widgets.dart';
 import '../widgets/person_row_models.dart';
 import '../widgets/school_enrollment_edit_row.dart' hide currentSchoolYearStart;
 import '../widgets/school_year_wizard.dart';
-import '../widgets/teacher_rating_dots.dart';
 import 'homework_tariffs.dart';
 import 'person_edit_form.dart';
 import 'widgets/person_chip_group_field.dart';
@@ -1142,22 +1141,6 @@ class TeacherCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Only admins receive the rating; on creation it does not exist yet.
-        if (ctx.form.teacherRating != null) ...[
-          cardSection(
-            'Valutazione',
-            TeacherRatingDots(
-              value: ctx.form.teacherRating!,
-              dotSize: 24,
-              onChanged: (value)
-              {
-                ctx.form.teacherRating = value;
-                ctx.onChanged();
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
         cardSection(
           'Studente delle superiori',
           AppSegmentedSwitch(

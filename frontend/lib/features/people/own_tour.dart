@@ -13,6 +13,7 @@ const String kTourOwnStats = 'profile.stats';
 const String kTourOwnFilters = 'profile.filters';
 const String kTourOwnToObservations = 'profile.tab.observations';
 const String kTourOwnObservations = 'profile.observations';
+const String kTourOwnCriteria = 'profile.criteria';
 
 const String kTourOwnMode = 'profile.mode';
 const String kTourOwnPeriod = 'profile.period';
@@ -20,8 +21,11 @@ const String kTourOwnPeriod = 'profile.period';
 // The section on show, by name ('info', 'other', 'stats'...): the tour's clicks wait for it.
 final ValueNotifier<String?> ownPageSection = ValueNotifier(null);
 
+// The criteria's window is open: the tour's click on the (i) waits for it.
+final ValueNotifier<bool> ownCriteriaShown = ValueNotifier(false);
+
 // Bump a version on every change to that tour.
-const int _teacherVersion = 5;
+const int _teacherVersion = 6;
 const int _studentVersion = 1;
 const int _parentVersion = 1;
 const int _psychologistVersion = 1;
@@ -33,8 +37,9 @@ const String _filters =
     "Puoi consultare le statistiche delle lezioni in presenza oppure online, e scegliere l'intervallo di tempo che "
     'desideri analizzare.';
 const String _observations =
-    'Qui trovi le osservazioni che gli amministratori scrivono su di te, derivate dai feedback ricevuti da studenti e '
-    'genitori sulle tue lezioni.';
+    'Qui trovi le osservazioni che gli amministratori scrivono su di te, derivate sia dai feedback ricevuti da '
+    'studenti e genitori sulle tue lezioni, sia da una valutazione del tuo operato in base ad alcuni criteri.';
+const String _criteria = 'Cliccando su questa icona puoi leggere i criteri su cui si basa questa valutazione.';
 
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.right];
 const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.below];
@@ -229,6 +234,19 @@ DesktopTour teacherOwnTour({required String title, required ValueChanged<String>
         pad: 6,
         radius: noted ? 35 : 31,
         undo: () => show('stats'),
+        present: () => _on('observations'),
+        coming: () => _shown(kTourOwnToObservations),
+      ),
+      // Ended by the click that opens the criteria, or by FINE.
+      DesktopTourStep(
+        targets: const [kTourOwnCriteria],
+        text: _criteria,
+        sides: const [DesktopTourSide.below, DesktopTourSide.left, DesktopTourSide.above],
+        pad: 6,
+        radius: 26,
+        listen: ownCriteriaShown,
+        reached: () => ownCriteriaShown.value,
+        interactive: true,
         present: () => _on('observations'),
         coming: () => _shown(kTourOwnToObservations),
       ),

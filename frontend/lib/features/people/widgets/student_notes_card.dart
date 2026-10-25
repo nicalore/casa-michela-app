@@ -30,6 +30,9 @@ class StudentNotesCard extends StatelessWidget
   // Null for a reader who only reads.
   final VoidCallback? onAdd;
 
+  // In the head when there is no AGGIUNGI.
+  final Widget? trailing;
+
   final bool Function(StudentNoteItem note) mayChange;
   final ValueChanged<StudentNoteItem>? onEdit;
   final ValueChanged<StudentNoteItem>? onDelete;
@@ -46,6 +49,7 @@ class StudentNotesCard extends StatelessWidget
     required this.kind,
     required this.notes,
     this.onAdd,
+    this.trailing,
     this.mayChange = _never,
     this.onEdit,
     this.onDelete,
@@ -172,7 +176,7 @@ class StudentNotesCard extends StatelessWidget
       compact: true,
       leading: AppCardBadge(icon: icon, compact: true),
       trailing: add == null
-          ? null
+          ? trailing
           : AppGradientButton(
               label: kAddLabel,
               icon: Icons.add_rounded,

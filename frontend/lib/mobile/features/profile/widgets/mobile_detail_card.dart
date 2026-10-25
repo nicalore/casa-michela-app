@@ -13,6 +13,7 @@ const EdgeInsets _padding = EdgeInsets.fromLTRB(16, 14, 16, 16);
 const double _badgeSize = 34;
 const double _badgeIconSize = 19;
 const double _editSize = 38;
+const double _editIconShare = 0.5;
 
 const double _headGap = 8;
 const double _rowPadding = 9;
@@ -85,7 +86,7 @@ class MobileDetailCard extends StatelessWidget
             title: title,
             eyebrow: eyebrow,
             trailing: onEdit != null
-                ? _EditButton(label: editLabel ?? title, onTap: onEdit)
+                ? MobileCardButton(icon: Icons.edit_rounded, label: editLabel ?? title, onTap: onEdit)
                 : trailing,
           ),
           const SizedBox(height: _headGap),
@@ -360,12 +361,17 @@ class _HiddenValueState extends State<_HiddenValue>
   }
 }
 
-class _EditButton extends StatelessWidget
+// A round light button in a card's head: the pencil, the (i).
+class MobileCardButton extends StatelessWidget
 {
+  final IconData icon;
   final String label;
   final VoidCallback onTap;
 
-  const _EditButton({required this.label, required this.onTap});
+  const MobileCardButton({super.key, required this.icon, required this.label, required this.onTap});
+
+  // As drawn in a tour's text, as tall as given.
+  static Widget glyph(IconData icon, double size) => _CardButtonFace(icon: icon, size: size);
 
   @override
   Widget build(BuildContext context)
@@ -376,17 +382,31 @@ class _EditButton extends StatelessWidget
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Container(
-          width: _editSize,
-          height: _editSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.85),
-            border: Border.all(color: AppTheme.trialOcean.withValues(alpha: 0.13)),
-          ),
-          child: const Icon(Icons.edit_rounded, size: 19, color: AppTheme.trialTealDeep),
-        ),
+        child: _CardButtonFace(icon: icon, size: _editSize),
       ),
+    );
+  }
+}
+
+class _CardButtonFace extends StatelessWidget
+{
+  final IconData icon;
+  final double size;
+
+  const _CardButtonFace({required this.icon, required this.size});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: 0.85),
+        border: Border.all(color: AppTheme.trialOcean.withValues(alpha: 0.13)),
+      ),
+      child: Icon(icon, size: size * _editIconShare, color: AppTheme.trialTealDeep),
     );
   }
 }

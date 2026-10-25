@@ -12,11 +12,12 @@ import '../utils/student_notes_strings.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/student_note_dialog.dart';
 import '../widgets/student_notes_card.dart';
+import '../widgets/teacher_evaluation_card.dart';
 
 const double _cardsWidth = 1600;
 
 // Any admin edits any technical note; methodological ones are read-only, teachers' only deletable.
-// A teacher's: the administrators' notes on them, which any admin edits too.
+// A teacher's: their evaluation, then the administrators' notes on them, which any admin edits too.
 class PersonObservationsTab extends StatelessWidget
 {
   final PersonItem person;
@@ -100,7 +101,7 @@ class PersonObservationsTab extends StatelessWidget
                     onEdit: (note) => _write(context, StudentNoteKind.technical, note: note),
                     onDelete: (note) => _delete(context, StudentNoteKind.technical, note),
                   ),
-                  const SizedBox(height: kPersonCardGap),
+                  SizedBox(height: personCardGap(context)),
                   StudentNotesCard(
                     title: kMethodologicalNotesTitle,
                     icon: Icons.psychology_rounded,
@@ -108,7 +109,7 @@ class PersonObservationsTab extends StatelessWidget
                     kind: StudentNoteKind.methodological,
                     notes: person.methodologicalNotes ?? const [],
                   ),
-                  const SizedBox(height: kPersonCardGap),
+                  SizedBox(height: personCardGap(context)),
                   StudentNotesCard(
                     title: kTeacherNotesTitle,
                     icon: Icons.rate_review_outlined,
@@ -119,8 +120,10 @@ class PersonObservationsTab extends StatelessWidget
                     onDelete: (note) => _delete(context, StudentNoteKind.teacher, note),
                   ),
                 ],
-                if (pupil && teacher) const SizedBox(height: kPersonCardGap),
-                if (teacher)
+                if (pupil && teacher) SizedBox(height: personCardGap(context)),
+                if (teacher) ...[
+                  TeacherEvaluationCard(person: person),
+                  SizedBox(height: personCardGap(context)),
                   StudentNotesCard(
                     title: kObservationsTitle,
                     icon: Icons.edit_note_rounded,
@@ -132,6 +135,7 @@ class PersonObservationsTab extends StatelessWidget
                     onEdit: (note) => _write(context, StudentNoteKind.administrator, note: note),
                     onDelete: (note) => _delete(context, StudentNoteKind.administrator, note),
                   ),
+                ],
               ]),
             ),
           ),

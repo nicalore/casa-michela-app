@@ -16,11 +16,15 @@ class AppCheckMark extends StatelessWidget
   final bool partial;
   final VoidCallback? onTap;
 
+  // Grey instead of the brand gradient: a choice kept but not counting.
+  final bool muted;
+
   const AppCheckMark({
     super.key,
     required this.selected,
     this.partial = false,
     this.onTap,
+    this.muted = false,
   });
 
   @override
@@ -47,7 +51,8 @@ class AppCheckMark extends StatelessWidget
             curve: Curves.easeOutCubic,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: AppTheme.brandGradient,
+                gradient: muted ? null : AppTheme.brandGradient,
+                color: muted ? AppTheme.trialMutedText.withValues(alpha: 0.45) : null,
                 borderRadius: _radius,
               ),
               child: Center(

@@ -356,9 +356,6 @@ class PersonEditForm
   // True hides university studies instead of clearing them.
   bool isHighSchoolStudent = false;
 
-  // Null for non-admin viewers and on creation; omitted from the payload.
-  double? teacherRating;
-
   bool uscitaAnticipata = false;
 
   // False means the authorisation lasts as long as the membership, with both dates left empty.
@@ -544,7 +541,6 @@ class PersonEditForm
     }
 
     isHighSchoolStudent = person.isHighSchoolStudent ?? false;
-    teacherRating = person.teacherRating;
     studiScolasticiCtrl.text = person.schoolEducation ?? '';
     studiUniversitariCtrl.text = person.universityEducation ?? '';
 
@@ -1118,8 +1114,6 @@ class PersonEditForm
                 })
             .toList(),
         'service_names': selectedServices.toList(),
-        // Omitted when null; the server rejects a rating from non-admins.
-        if (teacherRating != null) 'rating': teacherRating,
         if (person?.teacherUpdatedAt != null)
           'expected_updated_at': person!.teacherUpdatedAt!.toIso8601String(),
       };

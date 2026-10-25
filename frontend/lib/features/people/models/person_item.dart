@@ -1,3 +1,4 @@
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/birthday.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -101,8 +102,11 @@ class PersonItem implements PersonFace
   final String? schoolEducation;
   final String? universityEducation;
 
-  // 0 to 5 in half points; null for non-teachers and for non-admin viewers.
+  // 0 to 5 in half points, 0 while not collaborating; null for non-teachers and for non-admin viewers.
   final double? teacherRating;
+
+  // Keys of the criteria the administrators judged met; null as teacherRating is.
+  final List<String>? teacherCriteria;
 
   final DateTime? medicalCertificateExpiration;
 
@@ -198,6 +202,7 @@ class PersonItem implements PersonFace
     this.schoolEducation,
     this.universityEducation,
     this.teacherRating,
+    this.teacherCriteria,
     this.medicalCertificateExpiration,
     this.specialCategoryDataConsent,
     this.newsletterConsent,
@@ -263,7 +268,7 @@ class PersonItem implements PersonFace
         EarlyExitScheduleItem.fromJson,
       ),
       collaborationType: json['collaboration_type'],
-      taughtSubjects: parseStringList(json['taught_subjects']),
+      taughtSubjects: parseStringList(json['taught_subjects'])..sort(compareAlphabetically),
       courseType: json['course_type'],
       isMedicalCertificateValid: json['is_medical_certificate_valid'],
       certificationTypes: parseStringList(json['certification_types']),
@@ -286,6 +291,7 @@ class PersonItem implements PersonFace
       schoolEducation: json['school_education'],
       universityEducation: json['university_education'],
       teacherRating: (json['teacher_rating'] as num?)?.toDouble(),
+      teacherCriteria: (json['teacher_criteria'] as List<dynamic>?)?.cast<String>(),
       medicalCertificateExpiration: parseDate(json['medical_certificate_expiration']),
       specialCategoryDataConsent: json['special_category_data_consent'] as bool?,
       newsletterConsent: json['newsletter_consent'] as bool?,
@@ -297,14 +303,15 @@ class PersonItem implements PersonFace
       parents: parseOptionalList(json['parents'], ParentItem.fromJson),
       children: parseOptionalList(json['children'], ChildItem.fromJson),
       teacherChildrenTaxCodes: parseStringList(json['teacher_children_tax_codes']),
-      teacherSubjects: parseOptionalList(json['teacher_subjects'], TeacherSubjectItem.fromJson),
+      teacherSubjects: parseOptionalList(json['teacher_subjects'], TeacherSubjectItem.fromJson)
+        ?..sort((a, b) => compareAlphabetically(a.subjectName, b.subjectName)),
       teacherServices: json['teacher_services'] == null
           ? null
-          : parseStringList(json['teacher_services']),
+          : (parseStringList(json['teacher_services'])..sort(compareAlphabetically)),
       notPreferredTeachers: parseOptionalList(
         json['not_preferred_teachers'],
         PersonOptionItem.fromJson,
-      ),
+      )?..sort(compareBySurname),
       methodologicalNotes: parseOptionalList(json['methodological_notes'], StudentNoteItem.fromJson),
       technicalNotes: parseOptionalList(json['technical_notes'], StudentNoteItem.fromJson),
       teacherNotes: parseOptionalList(json['teacher_notes'], StudentNoteItem.fromJson),

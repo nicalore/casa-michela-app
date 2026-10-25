@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/widgets/mobile_info_button.dart';
+import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_tour.dart';
+import 'widgets/mobile_detail_card.dart';
 
 // Bump a version on every change to that tour.
 const String _slug = 'profile.teacher';
-const int _version = 8;
+const int _version = 9;
 const String _parentSlug = 'profile.parent';
 const int _parentVersion = 1;
 const String _studentSlug = 'profile.student';
@@ -18,6 +21,7 @@ const String kOwnTourStudies = 'profile.studies';
 const String kOwnTourStats = 'profile.stats';
 const String kOwnTourFilters = 'profile.filters';
 const String kOwnTourObservations = 'profile.observations';
+const String kOwnTourCriteria = 'profile.criteria';
 
 const String _about = 'In questo menù puoi consultare tutte le tue informazioni personali.';
 const String _report = 'Se noti inesattezze o alcune informazioni sono cambiate, ti preghiamo di farcelo sapere.';
@@ -38,8 +42,9 @@ const String _filters =
     'desideri analizzare.';
 const String _toObservations = 'Tocca «Osservazioni».';
 const String _observations =
-    'Qui trovi le osservazioni che gli amministratori scrivono su di te, derivate dai feedback ricevuti da studenti e '
-    'genitori sulle tue lezioni.';
+    'Qui trovi le osservazioni che gli amministratori scrivono su di te, derivate sia dai feedback ricevuti da '
+    'studenti e genitori sulle tue lezioni, sia da una valutazione del tuo operato in base ad alcuni criteri.';
+const String _criteria = 'In $kMobileTourGlyph trovi i criteri su cui si basa questa valutazione: toccalo per leggerli.';
 const String _studentStats =
     'Qui puoi vedere le presenze che hai fatto nel tempo, le materie su cui hai svolto più ore di lezione e i docenti '
     'con cui hai lavorato di più.';
@@ -83,7 +88,13 @@ List<MobileTourStep> _statsSteps({
 }
 
 // [title]: the page's name in the menu. [sections]: the strip's tabs, by name, in order.
-MobileTour ownTour({required PageController pages, required String title, required List<String> sections})
+// [noted]: the Osservazioni hold a card, whose head has the (i); else it floats above the empty card.
+MobileTour ownTour({
+  required PageController pages,
+  required String title,
+  required List<String> sections,
+  bool noted = false,
+})
 {
   final int other = sections.indexOf('other');
   final int stats = sections.indexOf('stats');
@@ -148,6 +159,16 @@ MobileTour ownTour({required PageController pages, required String title, requir
         MobileTourStep(
           text: _observations,
           shown: const [kOwnTourObservations],
+          present: () => onPage(observations),
+          coming: () => true,
+        ),
+        // Ends as the criteria sheet rises, which drops the menu bar.
+        MobileTourStep(
+          text: _criteria,
+          touched: const [kOwnTourCriteria],
+          glyph: noted ? (size) => MobileCardButton.glyph(Icons.info_outline_rounded, size) : MobileInfoButton.glyph,
+          watch: MobileNavSheet.hidden,
+          reached: () => MobileNavSheet.hidden.value,
           present: () => onPage(observations),
           coming: () => true,
         ),

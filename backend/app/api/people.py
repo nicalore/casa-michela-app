@@ -1,7 +1,6 @@
 from collections import defaultdict
 from collections.abc import Collection, Sequence
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
 from html import escape
 from typing import Annotated, Any, Final
 
@@ -129,6 +128,8 @@ from app.services.rating_reminders import rating_updated
 from app.services.reports import ReportNotSentError, record_report, send_to_readers
 from app.services.role_service import RoleService
 from app.services.student_notes import is_enrolled_pupil, is_followed, note_response
+from app.services.teacher_evaluation import ordered_criteria
+from app.services.teacher_evaluation import teacher_rating as teacher_rating_of
 from app.services.teacher_notes import teacher_note_response
 from app.services.teaching_competence import (
     lacks_competence,
@@ -640,6 +641,7 @@ def _map_person_to_response(
     school_education = None
     university_education = None
     teacher_rating = None
+    teacher_criteria = None
     medical_certificate_expiration = None
 
     certification_types: list[str] = []
@@ -818,7 +820,15 @@ def _map_person_to_response(
                 is_high_school_student = teacher.is_high_school_student
                 school_education = teacher.school_education
                 university_education = teacher.university_education
-                teacher_rating = float(teacher.rating) if show_teacher_rating else None
+                if show_teacher_rating:
+                    teacher_criteria = ordered_criteria(teacher.met_criteria)
+                    teacher_rating = float(
+                        teacher_rating_of(
+                            teacher.met_criteria,
+                            collaborating=is_active_collaborator is True,
+                        )
+                    )
+
                 teacher_updated_at = teacher.updated_at
                 taught_subjects, teacher_subjects = _map_teacher_subjects(teacher)
                 teacher_services = sorted(
@@ -903,6 +913,7 @@ def _map_person_to_response(
         school_education=school_education,
         university_education=university_education,
         teacher_rating=teacher_rating,
+        teacher_criteria=teacher_criteria,
         medical_certificate_expiration=medical_certificate_expiration,
         certification_types=certification_types,
         certification_other_detail=certification_other_detail,
@@ -1591,9 +1602,11 @@ async def _sync_administrator_profile(
     )
 
 
-# None for one who is no teacher.
-async def _teacher_rating(db: AsyncSession, tax_code: str) -> Decimal | None:
-    return await db.scalar(select(Teacher.rating).where(Teacher.tax_code == tax_code))
+# Asked of the database: the session may still hold a profile just deleted.
+async def _is_teacher(db: AsyncSession, tax_code: str) -> bool:
+    found = await db.scalar(select(Teacher.tax_code).where(Teacher.tax_code == tax_code))
+
+    return found is not None
 
 
 async def _sync_teacher_profile(
@@ -1610,10 +1623,6 @@ async def _sync_teacher_profile(
         "school_education": teacher_data.school_education,
         "university_education": teacher_data.university_education,
     }
-
-    # Omitted when not sent: the stored rating stays unchanged.
-    if teacher_data.rating is not None:
-        values["rating"] = teacher_data.rating
 
     if existing is not None:
         entity_label = (
@@ -2182,7 +2191,7 @@ async def update_person(
         )
 
     roles = [role.upper() for role in payload.roles]
-    rating_before = await _teacher_rating(db, person.tax_code)
+    was_teacher = await _is_teacher(db, person.tax_code)
 
     # Self-demotion refused: only another admin may remove the role.
     if person.tax_code == identity.tax_code and _ROLE_CODE_ADMIN not in roles:
@@ -2320,10 +2329,10 @@ async def update_person(
     else:
         await _delete_all_member_profiles(db, person)
 
-    # A rating moved, or one no longer a teacher: the reminder to rate them goes.
+    # One no longer a teacher: the reminder to rate them goes.
     batch = (
         await rating_updated(db, person.tax_code)
-        if await _teacher_rating(db, person.tax_code) != rating_before
+        if was_teacher and not await _is_teacher(db, person.tax_code)
         else push.joined([])
     )
 

@@ -3,7 +3,6 @@ from decimal import Decimal
 from typing import Annotated, Final, Self
 
 from pydantic import (
-    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
@@ -17,7 +16,6 @@ from app.models.early_exit_schedule import MAXIMUM_SCHEDULES, WEEKDAYS
 from app.models.person import BORN_ABROAD_PROVINCE
 from app.models.student import CertificationTypeEnum, HomeworkTariffEnum
 from app.models.study_program import EducationLevelEnum, HighSchoolTrackEnum
-from app.models.teacher import RATING_MAXIMUM, RATING_MINIMUM, RATING_STEP
 from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
 from app.schemas.validators import (
     OpeningCapitalStr,
@@ -47,10 +45,6 @@ _MISSING_BIRTH_CITY_ERROR: Final[str] = (
 
 _REPEATED_CERTIFICATION_ERROR: Final[str] = (
     "Ogni certificazione può essere indicata una sola volta."
-)
-
-_RATING_STEP_ERROR: Final[str] = (
-    "La valutazione di un docente si muove di mezzo punto alla volta."
 )
 
 _REPEATED_WEEKDAY_ERROR: Final[str] = (
@@ -89,22 +83,7 @@ _UNAUTHORIZED_EARLY_EXIT_SCHEDULES_ERROR: Final[str] = (
 )
 
 
-def _half_point(value: Decimal) -> Decimal:
-    if value % RATING_STEP != 0:
-        raise ValueError(_RATING_STEP_ERROR)
-
-    return value
-
-
 Weekday = Annotated[int, Field(ge=min(WEEKDAYS), le=max(WEEKDAYS))]
-
-
-# Decimal, not float: a float like 3.4999 would pass here and fail in the DB.
-TeacherRating = Annotated[
-    Decimal,
-    Field(ge=RATING_MINIMUM, le=RATING_MAXIMUM),
-    AfterValidator(_half_point),
-]
 
 
 class PersonOption(BaseModel):
@@ -278,9 +257,6 @@ class OwnEducationData(BaseModel):
 
 class TeacherUpdateData(TeacherEducationData):
     competences: list[TeacherCompetenceUpdateItem] | None = None
-
-    # None means "leave unchanged": only administrators see or write the rating.
-    rating: TeacherRating | None = None
 
     service_names: list[str] | None = None
     expected_updated_at: datetime | None = None
@@ -645,6 +621,7 @@ class PersonResponse(BaseModel):
     university_education: str | None = None
     # None for non-teachers, and never sent to non-administrator viewers.
     teacher_rating: float | None = None
+    teacher_criteria: list[str] | None = None
     medical_certificate_expiration: date | None = None
 
     member_updated_at: datetime | None = None

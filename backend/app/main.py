@@ -42,6 +42,7 @@ from app.api import (
     statistics,
     study_programs,
     support,
+    teacher_evaluation,
     teacher_notes,
     teacher_room_assignments,
     technical_notes,
@@ -126,6 +127,7 @@ app.include_router(person_collaboration.router)
 app.include_router(methodological_notes.router)
 app.include_router(technical_notes.router)
 app.include_router(administrator_notes.router)
+app.include_router(teacher_evaluation.router)
 app.include_router(teacher_notes.router)
 app.include_router(documents.router)
 app.include_router(support.router)
