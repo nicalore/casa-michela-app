@@ -150,23 +150,62 @@ class NotificationBoard extends ChangeNotifier
     notifyListeners();
   }
 
-  // Whatever a notification leads to, opening it reads it.
+  // Whatever a notification leads to, opening it reads it; some kinds go once opened.
   Future<void> open(NotificationItem item) async
   {
     follow?.call(item);
 
-    if (item.read)
+    if (item.read && !_goneOnceRead.contains(item.kind))
     {
       return;
     }
 
-    _markRead(item.id);
+    _setRead(item.id, read: true, opened: true);
 
     try
     {
       await ApiService().markNotificationRead(item.id);
     }
     catch (_) {}
+  }
+
+  // The tick: read, or new again if it was read; every kind stays on the card.
+  Future<void> toggleRead(NotificationItem item) async
+  {
+    final bool read = !item.read;
+
+    _setRead(item.id, read: read);
+
+    try
+    {
+      if (read)
+      {
+        await ApiService().markNotificationRead(item.id, opened: false);
+      }
+      else
+      {
+        await ApiService().markNotificationUnread(item.id);
+      }
+    }
+    catch (_)
+    {
+      await load();
+    }
+  }
+
+  // The bin: off the card on every device.
+  Future<void> delete(NotificationItem item) async
+  {
+    _drop(item.kind, (other) => other.id == item.id);
+
+    try
+    {
+      await ApiService().deleteNotification(item.id);
+    }
+    catch (_)
+    {
+      await load();
+    }
   }
 
   // A report resolved: the news of it goes, as the server took it away.
@@ -217,7 +256,7 @@ class NotificationBoard extends ChangeNotifier
     }
   }
 
-  void _markRead(int id)
+  void _setRead(int id, {required bool read, bool opened = false})
   {
     final List<NotificationItem>? items = _items;
 
@@ -228,8 +267,8 @@ class NotificationBoard extends ChangeNotifier
 
     _items = [
       for (final item in items)
-        // Some have said all they had to once read: the server takes them away too.
-        if (item.id != id) item else if (!_goneOnceRead.contains(item.kind)) item.asRead(),
+        // Some have said all they had to once opened: the server takes them away too.
+        if (item.id != id) item else if (!opened || !_goneOnceRead.contains(item.kind)) item.withRead(read),
     ];
     notifyListeners();
   }

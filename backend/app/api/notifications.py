@@ -97,14 +97,11 @@ async def my_notifications(
     ]
 
 
-# Read means seen: it leaves the tray of every device it reached.
-@router.put("/{notification_id}/read", status_code=status.HTTP_204_NO_CONTENT)
-async def mark_read(
-    notification_id: int,
-    current_account: CurrentAccount,
+async def _own_notification(
     db: DbSession,
-    background: BackgroundTasks,
-) -> Response:
+    current_account: CurrentAccount,
+    notification_id: int,
+) -> Notification:
     notification = await db.scalar(
         select(Notification).where(
             Notification.id == notification_id,
@@ -118,13 +115,74 @@ async def mark_read(
             detail=_NOTIFICATION_NOT_FOUND_ERROR,
         )
 
-    if notification.read_at is None:
-        notification.read_at = func.now()
+    return notification
 
-        if notification.kind in _GONE_ONCE_READ:
+
+# Read means seen: it leaves the tray of every device it reached.
+# Marked by hand rather than opened, every kind stays on the card.
+@router.put("/{notification_id}/read", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_read(
+    notification_id: int,
+    current_account: CurrentAccount,
+    db: DbSession,
+    background: BackgroundTasks,
+    opened: Annotated[bool, Query()] = True,
+) -> Response:
+    notification = await _own_notification(db, current_account, notification_id)
+    unread = notification.read_at is None
+    gone = (
+        opened
+        and notification.kind in _GONE_ONCE_READ
+        and notification.withdrawn_at is None
+    )
+
+    if unread or gone:
+        batch = await dismissals(db, [notification] if unread else [])
+
+        if unread:
+            notification.read_at = func.now()
+
+        if gone:
             notification.withdrawn_at = func.now()
 
-        batch = await dismissals(db, [notification])
+        await db.commit()
+        background.add_task(push.deliver, batch)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# Among the new ones again on the card; the trays it left stay as they are.
+@router.put("/{notification_id}/unread", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_unread(
+    notification_id: int,
+    current_account: CurrentAccount,
+    db: DbSession,
+) -> Response:
+    notification = await _own_notification(db, current_account, notification_id)
+
+    if notification.read_at is not None:
+        notification.read_at = None
+        await db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# Off the card of every device, and off every tray while unread.
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_notification(
+    notification_id: int,
+    current_account: CurrentAccount,
+    db: DbSession,
+    background: BackgroundTasks,
+) -> Response:
+    notification = await _own_notification(db, current_account, notification_id)
+
+    if notification.withdrawn_at is None:
+        batch = await dismissals(
+            db,
+            [notification] if notification.read_at is None else [],
+        )
+        notification.withdrawn_at = func.now()
         await db.commit()
         background.add_task(push.deliver, batch)
 

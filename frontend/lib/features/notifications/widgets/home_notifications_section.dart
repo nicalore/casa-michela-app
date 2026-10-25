@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -6,6 +8,7 @@ import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../device_notifications.dart';
@@ -26,7 +29,20 @@ const double _denseTileRadius = 13;
 const double _denseTileGap = 6;
 const double _denseIconSize = 28;
 
+// The two buttons under the time.
+const double _actionSize = 28;
+const double _actionIcon = 17;
+const double _actionGap = 6;
+const double _denseActionSize = 24;
+const double _denseActionIcon = 15;
+const double _denseActionGap = 5;
+const Color _actionGround = Color(0x0F122438);
+const Color _readHover = Color(0xFFD5EEEA);
+const Color _deleteHover = Color(0xFFF8DFDA);
+const Duration _hoverFade = Duration(milliseconds: 150);
+
 const Duration _arrival = Duration(milliseconds: 380);
+const Duration _leaving = Duration(milliseconds: 280);
 
 // In a column the card grows with the list up to this, then scrolls.
 const double _columnMaxHeight = 5 * 62 + 4 * _tileGap;
@@ -177,10 +193,14 @@ class _CappedNotificationsState extends State<_CappedNotifications>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (index, item) in shown.indexed)
-          Padding(
+          _ListRow(
             key: ValueKey<int>(item.id),
-            padding: EdgeInsets.only(bottom: index < shown.length - 1 ? gap : 0),
-            child: _NotificationTile(item: item, when: notificationWhen(item.createdAt, now: now)),
+            arriving: false,
+            onLeft: () => NotificationBoard.instance.delete(item),
+            builder: (leave) => Padding(
+              padding: EdgeInsets.only(bottom: index < shown.length - 1 ? gap : 0),
+              child: _NotificationTile(item: item, when: notificationWhen(item.createdAt, now: now), onDelete: leave),
+            ),
           ),
         if (more) ...[
           const SizedBox(height: 10),
@@ -402,16 +422,21 @@ class _NotificationScrollState extends State<_NotificationScroll>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final (index, item) in widget.items.indexed)
-                _ArrivingRow(
+                _ListRow(
                   key: ValueKey<int>(item.id),
                   arriving: _arrived.contains(item.id),
-                  child: Padding(
+                  onLeft: () => NotificationBoard.instance.delete(item),
+                  builder: (leave) => Padding(
                     padding: EdgeInsets.only(
                       bottom: index < widget.items.length - 1
                           ? (AppBreakpoints.of(context).isDense ? _denseTileGap : _tileGap)
                           : 0,
                     ),
-                    child: _NotificationTile(item: item, when: notificationWhen(item.createdAt, now: now)),
+                    child: _NotificationTile(
+                      item: item,
+                      when: notificationWhen(item.createdAt, now: now),
+                      onDelete: leave,
+                    ),
                   ),
                 ),
             ],
@@ -422,27 +447,33 @@ class _NotificationScrollState extends State<_NotificationScroll>
   }
 }
 
-// A row arriving while the card shows opens its room from the top and slides down into it.
-class _ArrivingRow extends StatefulWidget
+// A row arriving while the card shows opens its room from the top and slides down into it;
+// one deleted closes its room before it leaves the list.
+class _ListRow extends StatefulWidget
 {
   final bool arriving;
-  final Widget child;
+  final VoidCallback onLeft;
+  final Widget Function(VoidCallback leave) builder;
 
-  const _ArrivingRow({super.key, required this.arriving, required this.child});
+  const _ListRow({super.key, required this.arriving, required this.onLeft, required this.builder});
 
   @override
-  State<_ArrivingRow> createState() => _ArrivingRowState();
+  State<_ListRow> createState() => _ListRowState();
 }
 
-class _ArrivingRowState extends State<_ArrivingRow> with SingleTickerProviderStateMixin
+class _ListRowState extends State<_ListRow> with SingleTickerProviderStateMixin
 {
   late final AnimationController _entrance = AnimationController(
     vsync: this,
     duration: VisualEffects.on ? _arrival : VisualEffects.plainFade,
+    reverseDuration: VisualEffects.on ? _leaving : VisualEffects.plainFade,
     value: widget.arriving ? 0 : 1,
   );
 
   late final Animation<double> _eased = CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic);
+
+  bool _leavingList = false;
+  bool _left = false;
 
   @override
   void initState()
@@ -455,9 +486,35 @@ class _ArrivingRowState extends State<_ArrivingRow> with SingleTickerProviderSta
     }
   }
 
+  void _leave()
+  {
+    if (_leavingList)
+    {
+      return;
+    }
+
+    setState(() => _leavingList = true);
+    _entrance.reverse().then((_) => _done());
+  }
+
+  void _done()
+  {
+    if (!_left)
+    {
+      _left = true;
+      widget.onLeft();
+    }
+  }
+
   @override
   void dispose()
   {
+    // Taken off the screen midway: the deletion still goes through.
+    if (_leavingList && !_left)
+    {
+      scheduleMicrotask(_done);
+    }
+
     _entrance.dispose();
     super.dispose();
   }
@@ -465,16 +522,19 @@ class _ArrivingRowState extends State<_ArrivingRow> with SingleTickerProviderSta
   @override
   Widget build(BuildContext context)
   {
+    final Widget child = IgnorePointer(ignoring: _leavingList, child: widget.builder(_leave));
+
     if (!VisualEffects.of(context))
     {
-      return FadeTransition(opacity: _entrance, child: widget.child);
+      return FadeTransition(opacity: _entrance, child: child);
     }
 
-    // Bottom edge first: the row seems to come down from above the list.
+    // Arriving, bottom edge first: the row seems to come down from above the list.
+    // Leaving, the rows below rise into its room.
     return SizeTransition(
       sizeFactor: _eased,
-      alignment: Alignment.bottomCenter,
-      child: FadeTransition(opacity: _eased, child: widget.child),
+      alignment: _leavingList ? Alignment.topCenter : Alignment.bottomCenter,
+      child: FadeTransition(opacity: _eased, child: child),
     );
   }
 }
@@ -483,8 +543,9 @@ class _NotificationTile extends StatefulWidget
 {
   final NotificationItem item;
   final String when;
+  final VoidCallback onDelete;
 
-  const _NotificationTile({required this.item, required this.when});
+  const _NotificationTile({required this.item, required this.when, required this.onDelete});
 
   @override
   State<_NotificationTile> createState() => _NotificationTileState();
@@ -493,6 +554,11 @@ class _NotificationTile extends StatefulWidget
 class _NotificationTileState extends State<_NotificationTile>
 {
   bool _hover = false;
+
+  // Over one of its buttons the tile is not lit: a click there does not open it.
+  bool _overAction = false;
+
+  void _actionHover(bool over) => setState(() => _overAction = over);
 
   @override
   Widget build(BuildContext context)
@@ -545,14 +611,44 @@ class _NotificationTileState extends State<_NotificationTile>
               ),
             ),
             SizedBox(width: dense ? 9 : 12),
-            Text(
-              widget.when,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: dense ? 11.5 : 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.trialMutedText,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  widget.when,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: dense ? 11.5 : 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.trialMutedText,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                SizedBox(height: dense ? 5 : 7),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _TileAction(
+                      icon: item.read ? Icons.remove_done_rounded : Icons.done_all_rounded,
+                      tip: item.read ? kNotificationMarkUnread : kNotificationMarkRead,
+                      color: AppTheme.trialTealDeep,
+                      hover: _readHover,
+                      dense: dense,
+                      onHover: _actionHover,
+                      onTap: () => NotificationBoard.instance.toggleRead(item),
+                    ),
+                    SizedBox(width: dense ? _denseActionGap : _actionGap),
+                    _TileAction(
+                      icon: Icons.delete_outline_rounded,
+                      tip: kNotificationDelete,
+                      color: AppTheme.trialDanger,
+                      hover: _deleteHover,
+                      dense: dense,
+                      onHover: _actionHover,
+                      onTap: widget.onDelete,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -566,7 +662,7 @@ class _NotificationTileState extends State<_NotificationTile>
       child: GestureDetector(
         onTap: () => NotificationBoard.instance.open(item),
         child: TweenAnimationBuilder<double>(
-          tween: Tween<double>(end: _hover ? 1 : 0),
+          tween: Tween<double>(end: _hover && !_overAction ? 1 : 0),
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
           child: tile,
@@ -582,6 +678,75 @@ class _NotificationTileState extends State<_NotificationTile>
               border: Border.all(color: AppTheme.trialGold.withValues(alpha: lit), width: _hoverBorder),
             ),
             child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TileAction extends StatefulWidget
+{
+  final IconData icon;
+  final String tip;
+  final Color color;
+  final Color hover;
+  final bool dense;
+  final ValueChanged<bool> onHover;
+  final VoidCallback onTap;
+
+  const _TileAction({
+    required this.icon,
+    required this.tip,
+    required this.color,
+    required this.hover,
+    required this.dense,
+    required this.onHover,
+    required this.onTap,
+  });
+
+  @override
+  State<_TileAction> createState() => _TileActionState();
+}
+
+class _TileActionState extends State<_TileAction>
+{
+  bool _hover = false;
+
+  void _setHover(bool hover)
+  {
+    setState(() => _hover = hover);
+    widget.onHover(hover);
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final double size = widget.dense ? _denseActionSize : _actionSize;
+
+    return AppTooltip(
+      message: widget.tip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => _setHover(true),
+        onExit: (_) => _setHover(false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: _hover ? 1 : 0),
+            duration: _hoverFade,
+            curve: Curves.easeOut,
+            // The hover hue laid over the grey: no muddy shade midway.
+            builder: (context, lit, child) => Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color.alphaBlend(widget.hover.withValues(alpha: lit), _actionGround),
+              ),
+              child: child,
+            ),
+            child: Icon(widget.icon, size: widget.dense ? _denseActionIcon : _actionIcon, color: widget.color),
           ),
         ),
       ),

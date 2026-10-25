@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -14,6 +16,7 @@ import '../../../../features/notifications/notification_look.dart';
 import '../../../../features/notifications/notification_strings.dart';
 import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_card_delete_buttons.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
 import '../../association/widgets/mobile_notice_sheet.dart';
@@ -21,6 +24,11 @@ import '../../notifications/mobile_notifications_offer.dart';
 
 const double _cardGap = 12;
 const double _iconSize = 34;
+
+// A notification's buttons, under its text.
+const double _actionsGap = 10;
+const double _actionTouchRoom = 5;
+const Duration _leaveDuration = Duration(milliseconds: 320);
 const double _pinSize = 17;
 
 // Mirrors HOME_LIMIT in backend/app/services/notices.py.
@@ -158,7 +166,12 @@ class _NotificationsCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (index, item) in items.indexed)
-          _NotificationLine(item: item, when: notificationWhen(item.createdAt, now: now), first: index == 0),
+          _NotificationLine(
+            key: ValueKey<int>(item.id),
+            item: item,
+            when: notificationWhen(item.createdAt, now: now),
+            first: index == 0,
+          ),
       ],
     );
   }
@@ -274,73 +287,169 @@ class _OffRow extends StatelessWidget
   }
 }
 
-class _NotificationLine extends StatelessWidget
+class _NotificationLine extends StatefulWidget
 {
   final NotificationItem item;
   final String when;
   final bool first;
 
-  const _NotificationLine({required this.item, required this.when, required this.first});
+  const _NotificationLine({super.key, required this.item, required this.when, required this.first});
+
+  @override
+  State<_NotificationLine> createState() => _NotificationLineState();
+}
+
+class _NotificationLineState extends State<_NotificationLine> with SingleTickerProviderStateMixin
+{
+  // Deleted, the line slides away to the side as its room closes.
+  late final AnimationController _leaving = AnimationController(vsync: this, duration: _leaveDuration);
+
+  late final Animation<double> _room = Tween<double>(begin: 1, end: 0).animate(
+    CurvedAnimation(parent: _leaving, curve: Curves.easeInOutCubic),
+  );
+
+  late final Animation<Offset> _away = Tween<Offset>(begin: Offset.zero, end: const Offset(1, 0)).animate(
+    CurvedAnimation(parent: _leaving, curve: Curves.easeInCubic),
+  );
+
+  bool _deleting = false;
+  bool _left = false;
+
+  void _delete()
+  {
+    if (_deleting)
+    {
+      return;
+    }
+
+    setState(() => _deleting = true);
+    _leaving.forward().then((_) => _done());
+  }
+
+  void _done()
+  {
+    if (!_left)
+    {
+      _left = true;
+      NotificationBoard.instance.delete(widget.item);
+    }
+  }
+
+  @override
+  void dispose()
+  {
+    // Taken off the screen midway: the deletion still goes through.
+    if (_deleting && !_left)
+    {
+      scheduleMicrotask(_done);
+    }
+
+    _leaving.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context)
   {
-    return GestureDetector(
+    final NotificationItem item = widget.item;
+
+    final Widget line = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => NotificationBoard.instance.open(item),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(4, 12, 0, 12),
+        // The buttons' touch room stands in for the bottom of the padding.
+        padding: const EdgeInsets.fromLTRB(4, 12, 0, 12 - _actionTouchRoom),
         decoration: BoxDecoration(
-          border: first ? null : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.1))),
+          border: widget.first ? null : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.1))),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            NotificationIcon(
-              kind: item.kind,
-              unread: !item.read,
-              size: _iconSize,
-              surface: Colors.white.withValues(alpha: 0.85),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    withoutOrphans(item.title),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14.5,
-                      fontWeight: item.read ? FontWeight.w700 : FontWeight.w800,
-                      letterSpacing: -0.1,
-                      color: AppTheme.trialInk,
-                    ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // The halo fades over the frames of the tick's roll: repaint it alone.
+                RepaintBoundary(
+                  child: NotificationIcon(
+                    kind: item.kind,
+                    unread: !item.read,
+                    size: _iconSize,
+                    surface: Colors.white.withValues(alpha: 0.85),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    withoutOrphans(item.body),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                      color: MobilePalette.mutedText,
-                    ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        withoutOrphans(item.title),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14.5,
+                          fontWeight: item.read ? FontWeight.w700 : FontWeight.w800,
+                          letterSpacing: -0.1,
+                          color: AppTheme.trialInk,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        withoutOrphans(item.body),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                          color: MobilePalette.mutedText,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.when,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: MobilePalette.mutedText,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(
-              when,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: MobilePalette.mutedText,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+            const SizedBox(height: _actionsGap - _actionTouchRoom),
+            // The tick keeps one width whatever it says, so both pills line up from row to row.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Flexible(
+                  child: MobileCardPillButton(
+                    label: item.read ? kNotificationMarkUnread : kNotificationMarkRead,
+                    labels: const [kNotificationMarkRead, kNotificationMarkUnread],
+                    icon: item.read ? Icons.remove_done_rounded : Icons.done_all_rounded,
+                    color: AppTheme.trialTealDeep,
+                    onPressed: () => NotificationBoard.instance.toggleRead(item),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                MobileCardPillButton(
+                  label: kNotificationDelete,
+                  icon: Icons.delete_outline_rounded,
+                  color: AppTheme.trialDanger,
+                  onPressed: _delete,
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+
+    return SizeTransition(
+      sizeFactor: _room,
+      alignment: Alignment.topCenter,
+      child: SlideTransition(
+        position: _away,
+        child: IgnorePointer(ignoring: _deleting, child: line),
       ),
     );
   }

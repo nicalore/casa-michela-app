@@ -13,6 +13,11 @@ const String kNotificationsShowFewer = 'Mostra meno';
 const String kNotificationsUnavailable = 'Le notifiche non sono disponibili.';
 const String kNotificationsYesterday = 'Ieri';
 
+// The two buttons of each notification.
+const String kNotificationMarkRead = 'Segna come letta';
+const String kNotificationMarkUnread = 'Segna come da leggere';
+const String kNotificationDelete = 'Elimina';
+
 // The card's row while they are off.
 const String kNotificationsOffTitle = 'Le notifiche sono spente';
 const String kNotificationsOffDesktop = 'Attivale per ricevere gli avvisi.';

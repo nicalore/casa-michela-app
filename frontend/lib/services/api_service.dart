@@ -2808,9 +2808,20 @@ class ApiService
     }
   }
 
-  Future<void> markNotificationRead(int id) async
+  // Marked by hand rather than opened, every kind stays on the card.
+  Future<void> markNotificationRead(int id, {bool opened = true}) async
   {
-    await _dio.put('/notifications/$id/read');
+    await _dio.put('/notifications/$id/read', queryParameters: opened ? null : {'opened': false});
+  }
+
+  Future<void> markNotificationUnread(int id) async
+  {
+    await _dio.put('/notifications/$id/unread');
+  }
+
+  Future<void> deleteNotification(int id) async
+  {
+    await _dio.delete('/notifications/$id');
   }
 
   Future<void> markCalendarSeen(DateTime day, TimeBucket band) async

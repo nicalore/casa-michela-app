@@ -167,13 +167,15 @@ class NotificationItem
     );
   }
 
-  NotificationItem asRead() => NotificationItem(
+  NotificationItem asRead() => withRead(true);
+
+  NotificationItem withRead(bool read) => NotificationItem(
         id: id,
         kind: kind,
         title: title,
         body: body,
         createdAt: createdAt,
-        read: true,
+        read: read,
         calendarDate: calendarDate,
         calendarBand: calendarBand,
         webBody: webBody,
