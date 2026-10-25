@@ -16,19 +16,27 @@ const String kTourSubjectsChosenBin = 'subjects.catalogue.chosen.bin';
 const String kTourSubjectsChosenRow = 'subjects.catalogue.chosen.row';
 
 const String kTourProgramsList = 'subjects.programs.list';
+const String kTourProgramsAll = 'subjects.programs.all';
+const String kTourProgramsBranch = 'subjects.programs.branch';
+const String kTourProgramsLevel = 'subjects.programs.level';
+const String kTourProgramsCycle = 'subjects.programs.cycle';
 const String kTourProgramsSector = 'subjects.programs.sector';
+const String kTourProgramsSectors = 'subjects.programs.sectors';
 const String kTourProgramsSingle = 'subjects.programs.single';
 const String kTourProgramsConfirm = 'subjects.programs.confirm';
 
 // True while the catalogue is open: the page's tour asks for it with a click.
 final ValueNotifier<bool> subjectsCatalogueOpen = ValueNotifier(false);
 
+// Set once a sector of the programmes window is opened: its tour asks for it with a click.
+final ValueNotifier<bool> programsSectorOpened = ValueNotifier(false);
+
 const String _title = 'Discipline';
 
 // Bump a version on every change to that tour.
 const int _pageVersion = 2;
 const int _catalogueVersion = 2;
-const int _programsVersion = 2;
+const int _programsVersion = 4;
 const int _chosenVersion = 1;
 
 const List<DesktopTourSide> _belowFirst = [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.right];
@@ -149,12 +157,13 @@ const DesktopTour subjectsChosenTour = DesktopTour(
   ],
 );
 
-const DesktopTour subjectsProgramsTour = DesktopTour(
+// The group rows lit are those of the first level split further: its first cycle and that cycle's first sector.
+final DesktopTour subjectsProgramsTour = DesktopTour(
   slug: 'subjects.programs',
   title: _title,
   version: _programsVersion,
   steps: [
-    DesktopTourStep(
+    const DesktopTourStep(
       targets: [kTourProgramsList],
       text: "L'elenco mostra tutti gli indirizzi in cui la disciplina viene studiata. Puoi selezionare quelli in cui "
           'desideri insegnare.',
@@ -162,20 +171,46 @@ const DesktopTour subjectsProgramsTour = DesktopTour(
       pad: 6,
       radius: 31,
     ),
-    DesktopTourStep(
-      targets: [kTourProgramsSector],
-      text: 'Puoi selezionare direttamente un intero settore.',
+    const DesktopTourStep(
+      targets: [kTourProgramsAll],
+      text: 'Con «Seleziona tutto» selezioni immediatamente tutti i percorsi.',
+      sides: _belowFirst,
+      pad: 6,
+      radius: 13,
+    ),
+    // One hole round the three rows: apart, their holes overlapped.
+    const DesktopTourStep(
+      targets: [kTourProgramsLevel, kTourProgramsCycle, kTourProgramsSector],
+      radius: 19,
+      text: 'Puoi selezionare direttamente un intero grado scolastico, un settore o un gruppo di anni (biennio, '
+          'triennio).',
       sides: _rightFirst,
       pad: 6,
-      radius: 10,
+      reveal: true,
+      revealing: kTourProgramsBranch,
     ),
     DesktopTourStep(
-      targets: [kTourProgramsSingle],
-      text: 'Altrimenti, puoi selezionare i singoli percorsi di studio.',
+      targets: const [kTourProgramsSectors],
+      text: 'Clicca un settore per vedere i percorsi che lo compongono.',
+      sides: _rightFirst,
+      pad: 6,
+      radius: 19,
+      reveal: true,
+      listen: programsSectorOpened,
+      reached: () => programsSectorOpened.value,
+      present: () => isDesktopTourTargetShown(kTourProgramsSectors),
+    ),
+    DesktopTourStep(
+      targets: const [kTourProgramsSingle],
+      text: 'Puoi selezionare i singoli percorsi di studio in cui vuoi insegnare.',
       sides: _rightFirst,
       pad: 4,
       radius: 16,
+      reveal: true,
+      // The click that opens a sector moves the tour on before its rows are built.
+      present: () => programsSectorOpened.value || isDesktopTourTargetShown(kTourProgramsSingle),
+      coming: () => isDesktopTourTargetShown(kTourProgramsSectors),
     ),
-    DesktopTourStep(targets: [kTourProgramsConfirm], text: _confirm, sides: _rightFirst, pad: 6, radius: 17),
+    const DesktopTourStep(targets: [kTourProgramsConfirm], text: _confirm, sides: _rightFirst, pad: 6, radius: 17),
   ],
 );

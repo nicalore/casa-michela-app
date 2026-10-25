@@ -194,6 +194,94 @@ class MobileSelectRow extends StatelessWidget
   }
 }
 
+// A row inside a glass panel: no fill of its own until taken, so the panel reads as one surface.
+// Set 6 in from the panel's right edge, its ring lines up with a MobileSelectAllToggle at that edge.
+class MobileSelectLine extends StatelessWidget
+{
+  final String title;
+  final String? subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const MobileSelectLine({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final String? subtitle = this.subtitle;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: _taken(
+          selected: selected,
+          builder: (t) => Container(
+            constraints: const BoxConstraints(minHeight: 46),
+            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+            decoration: BoxDecoration(
+              gradient: mobileSelectFill(Colors.white.withValues(alpha: 0), t),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: t == 0
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: AppTheme.trialTealDeep.withValues(alpha: 0.2 * t),
+                        offset: const Offset(0, 5),
+                        blurRadius: 12,
+                      ),
+                    ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                          color: Color.lerp(AppTheme.trialInk, Colors.white, t),
+                        ),
+                      ),
+                      if (subtitle != null && subtitle.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            subtitle,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                              color: Color.lerp(MobilePalette.mutedText, Colors.white.withValues(alpha: 0.85), t),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _Ring(t: t),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Ring extends StatelessWidget
 {
   final double t;

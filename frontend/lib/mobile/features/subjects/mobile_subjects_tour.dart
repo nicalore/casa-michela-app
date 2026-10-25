@@ -110,30 +110,43 @@ MobileTour subjectsSwipeTour(String card)
 }
 
 // The programmes sheet: a new discipline's, or a held one's, which adds its removal.
-enum ProgramsMark { list, sector, single, confirm, remove }
+enum ProgramsMark { list, all, groups, open, single, confirm, remove }
 
 // Bump a version on every change to that step.
 const String _programsSlug = 'subjects.programs';
 
 const Map<ProgramsMark, int> _programsVersions = {
-  ProgramsMark.list: 2,
-  ProgramsMark.sector: 2,
-  ProgramsMark.single: 1,
-  ProgramsMark.confirm: 1,
-  ProgramsMark.remove: 4,
+  ProgramsMark.list: 4,
+  ProgramsMark.all: 2,
+  ProgramsMark.groups: 2,
+  ProgramsMark.open: 2,
+  ProgramsMark.single: 3,
+  ProgramsMark.confirm: 3,
+  ProgramsMark.remove: 6,
 };
 
 const Map<ProgramsMark, String> _programsTexts = {
   ProgramsMark.list:
       "L'elenco mostra tutti gli indirizzi in cui la disciplina viene studiata. Puoi selezionare quelli in cui "
       'desideri insegnare.',
-  ProgramsMark.sector: 'Puoi selezionare direttamente un intero settore.',
-  ProgramsMark.single: 'Altrimenti, puoi selezionare i singoli percorsi di studio.',
+  ProgramsMark.all: 'Con «Seleziona tutto» selezioni immediatamente tutti i percorsi.',
+  ProgramsMark.groups:
+      'Puoi selezionare direttamente un intero grado scolastico, un settore o un gruppo di anni (biennio, triennio).',
+  ProgramsMark.open: 'Tocca un settore per vedere i percorsi che lo compongono.',
+  ProgramsMark.single: 'Puoi selezionare i singoli percorsi di studio in cui vuoi insegnare.',
   ProgramsMark.confirm: 'Quando hai finito, tocca «Conferma».',
   ProgramsMark.remove: 'Con «Rimuovi disciplina» smetti di insegnarla.',
 };
 
+// Set once a sector of the sheet is opened: the tour asks for it with a touch.
+final ValueNotifier<bool> mobileProgramsSectorOpened = ValueNotifier(false);
+
 String programsTourTarget(ProgramsMark mark) => 'subjects.programs.${mark.name}';
+
+// The group rows lit together: a level, its first cycle and that cycle's first sector.
+enum ProgramsGroupPart { level, cycle, sector }
+
+String programsGroupTarget(ProgramsGroupPart part) => 'subjects.programs.groups.${part.name}';
 
 (String, int) _programsSeen(ProgramsMark mark) => ('$_programsSlug.${mark.name}', _programsVersions[mark]!);
 
@@ -146,8 +159,33 @@ MobileTourStep _programsStep(ProgramsMark mark)
   return switch (mark)
   {
     ProgramsMark.list => MobileTourStep(text: text, shown: [target], scrolls: false, seen: seen),
-    ProgramsMark.sector || ProgramsMark.single =>
-      MobileTourStep(text: text, touched: [target], tapMovesOn: true, seen: seen),
+    ProgramsMark.all => MobileTourStep(text: text, shown: [target], seen: seen),
+    ProgramsMark.groups => MobileTourStep(
+        text: text,
+        shown: [for (final ProgramsGroupPart part in ProgramsGroupPart.values) programsGroupTarget(part)],
+        // One hole round the three rows: apart, their holes overlapped.
+        joined: true,
+        present: () => isMobileTourTargetShown(programsGroupTarget(ProgramsGroupPart.level)),
+        seen: seen,
+      ),
+    ProgramsMark.open => MobileTourStep(
+        text: text,
+        touched: [target],
+        reveal: target,
+        watch: mobileProgramsSectorOpened,
+        reached: () => mobileProgramsSectorOpened.value,
+        present: () => isMobileTourTargetShown(target),
+        seen: seen,
+      ),
+    ProgramsMark.single => MobileTourStep(
+        text: text,
+        touched: [target],
+        tapMovesOn: true,
+        // The touch that opens a sector moves the tour on before its rows are built.
+        present: () => mobileProgramsSectorOpened.value || isMobileTourTargetShown(target),
+        coming: () => isMobileTourTargetShown(programsTourTarget(ProgramsMark.open)),
+        seen: seen,
+      ),
     // "Conferma" closes the sheet, "Rimuovi" turns it to the confirmation: nothing left to light.
     ProgramsMark.confirm || ProgramsMark.remove =>
       MobileTourStep(text: text, touched: [target], tapEnds: true, seen: seen),
