@@ -83,7 +83,7 @@ class OwnOtherInfoTab extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
                 for (var i = 0; i < cards.length; i++) ...[
-                  if (i > 0) const SizedBox(height: kPersonCardGap),
+                  if (i > 0) SizedBox(height: personCardGap(context)),
                   // The teacher's details come last.
                   DesktopTourTarget(
                     id: isTeacher && i == cards.length - 1 ? kTourOwnStudies : null,

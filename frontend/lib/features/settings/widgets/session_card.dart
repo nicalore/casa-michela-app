@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../models/session_item.dart';
 import '../utils/settings_strings.dart';
 
@@ -229,8 +230,10 @@ class CurrentSessionChip extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      padding: dense ? const EdgeInsets.symmetric(horizontal: 9, vertical: 3) : const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
         color: AppTheme.todaySurface,
         borderRadius: BorderRadius.circular(22),
@@ -239,7 +242,7 @@ class CurrentSessionChip extends StatelessWidget
       child: Text(
         kCurrentSessionLabel,
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 13,
+          fontSize: dense ? 11.5 : 13,
           fontWeight: FontWeight.w700,
           color: AppTheme.trialTealDeep,
         ),

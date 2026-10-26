@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -114,7 +115,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         if (program.sector != null) program.sector!,
     }.toList();
 
-    sectors.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    sectors.sort(compareAlphabetically);
 
     return sectors;
   }

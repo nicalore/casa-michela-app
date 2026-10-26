@@ -11,9 +11,6 @@ import 'stat_widgets.dart';
 
 const Color _sectionDivider = AppTheme.trialLine;
 
-// Below this width the ranking and the warnings stack instead of pairing up.
-const double _stackBelow = 900;
-
 const Duration _fetchFade = Duration(milliseconds: 150);
 
 // Height past which a warning list scrolls; the paired one is for two lists in one column.
@@ -42,33 +39,7 @@ class TeacherAvailabilityCard extends StatelessWidget
     this.isLoading = false,
   });
 
-  Widget _figure(String label, String value)
-  {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.trialTealDeep,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _figure(String label, String value) => Expanded(child: StatFigure(label: label, value: value));
 
   static const String _topTitle = '10 docenti più disponibili';
 
@@ -87,36 +58,7 @@ class TeacherAvailabilityCard extends StatelessWidget
 
   Widget _topRanking() => PersonRankingSection(title: _topTitle, rows: _topRows());
 
-  Widget _splitRanking()
-  {
-    final rows = _topRows();
-    final half = (rows.length + 1) ~/ 2;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const StatSectionTitle(_topTitle),
-        const SizedBox(height: 24),
-        if (rows.isEmpty)
-          const EmptyChartMessage(fontSize: 14)
-        else
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: Column(children: rows.sublist(0, half))),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24),
-                  child: VerticalDivider(color: _sectionDivider, thickness: 1),
-                ),
-                Expanded(child: Column(children: rows.sublist(half))),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
+  Widget _splitRanking() => SplitRanking(title: _topTitle, rows: _topRows());
 
   Widget _warnings()
   {
@@ -135,9 +77,7 @@ class TeacherAvailabilityCard extends StatelessWidget
           listMaxHeight: listHeight,
         ),
         if (paired) ...[
-          const SizedBox(height: 24),
-          const Divider(color: _sectionDivider, thickness: 1),
-          const SizedBox(height: 24),
+          const StatPartDivider(color: _sectionDivider, lists: true),
           TeacherWarningSection(
             title: 'Sotto 9 disponibilità nel mese',
             flagged: statistics.lowMonthlyTeachers,
@@ -149,14 +89,15 @@ class TeacherAvailabilityCard extends StatelessWidget
     );
   }
 
-  Widget _sections()
+  Widget _sections(BuildContext context)
   {
     final ranking = _topRanking();
+    final double stackBelow = StatMetrics.of(context).listsFrom;
 
     if (mode == kOnlineMode)
     {
       return LayoutBuilder(
-        builder: (context, constraints) => constraints.maxWidth < _stackBelow ? ranking : _splitRanking(),
+        builder: (context, constraints) => constraints.maxWidth < stackBelow ? ranking : _splitRanking(),
       );
     }
 
@@ -165,15 +106,13 @@ class TeacherAvailabilityCard extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < _stackBelow)
+        if (constraints.maxWidth < stackBelow)
         {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ranking,
-              const SizedBox(height: 24),
-              const Divider(color: _sectionDivider, thickness: 1),
-              const SizedBox(height: 24),
+              const StatPartDivider(color: _sectionDivider, lists: true),
               warnings,
             ],
           );
@@ -184,10 +123,7 @@ class TeacherAvailabilityCard extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(child: ranking),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: VerticalDivider(color: _sectionDivider, thickness: 1),
-              ),
+              const StatColumnDivider(),
               Expanded(child: warnings),
             ],
           ),
@@ -226,10 +162,8 @@ class TeacherAvailabilityCard extends StatelessWidget
                 _figure('Totale nel periodo', '${statistics.totalAvailabilities}'),
               ],
             ),
-            const SizedBox(height: 32),
-            const Divider(color: _sectionDivider, thickness: 1),
-            const SizedBox(height: 32),
-            _sections(),
+            const StatPartDivider(color: _sectionDivider),
+            _sections(context),
           ],
         ),
       ),
@@ -289,7 +223,7 @@ class _TeacherWarningSectionState extends State<TeacherWarningSection>
       mainAxisSize: MainAxisSize.min,
       children: [
         StatSectionTitle(widget.title),
-        const SizedBox(height: 24),
+        SizedBox(height: StatMetrics.of(context).titleGap),
         if (widget.flagged.isEmpty)
           Center(
             child: Text(

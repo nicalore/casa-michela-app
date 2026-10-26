@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import 'dialog_density.dart';
+
 class AppDialogFooter extends StatelessWidget
 {
   static const double defaultWidth = 520;
 
   static const double _gap = 16;
+  static const double _denseGap = 12;
 
-  static double _halfOf(double width) => (width - _gap) / 2;
+  static double _halfOf(double width, double gap) => (width - gap) / 2;
 
   final Widget? secondary;
 
@@ -32,12 +35,13 @@ class AppDialogFooter extends StatelessWidget
   Widget build(BuildContext context)
   {
     final Widget? secondary = this.secondary;
+    final double gap = AppDialogDensity.of(context) ? _denseGap : _gap;
 
     if (secondary == null)
     {
       return Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: _halfOf(maxWidth)),
+          constraints: BoxConstraints(maxWidth: _halfOf(maxWidth, gap)),
           child: SizedBox(width: double.infinity, child: primary),
         ),
       );
@@ -55,8 +59,8 @@ class AppDialogFooter extends StatelessWidget
             {
               return Wrap(
                 alignment: WrapAlignment.center,
-                spacing: _gap,
-                runSpacing: _gap,
+                spacing: gap,
+                runSpacing: gap,
                 children: [tertiary, secondary, primary],
               );
             }
@@ -66,9 +70,9 @@ class AppDialogFooter extends StatelessWidget
               child: Row(
                 children: [
                   Expanded(child: tertiary),
-                  const SizedBox(width: _gap),
+                  SizedBox(width: gap),
                   Expanded(child: secondary),
-                  const SizedBox(width: _gap),
+                  SizedBox(width: gap),
                   Expanded(child: primary),
                 ],
               ),
@@ -84,7 +88,7 @@ class AppDialogFooter extends StatelessWidget
         child: Row(
           children: [
             Expanded(child: secondary),
-            const SizedBox(width: _gap),
+            SizedBox(width: gap),
             Expanded(child: primary),
           ],
         ),

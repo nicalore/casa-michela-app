@@ -43,7 +43,8 @@ class SectionPlaceholderPage extends StatelessWidget
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: the card sits in its middle.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height) => _Body(page: this, width: width, height: height),
       ),
     );

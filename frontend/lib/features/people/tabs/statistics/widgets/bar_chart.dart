@@ -5,6 +5,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../../../shared/widgets/page_density.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
@@ -28,6 +30,12 @@ const double _barWidthRatio = 0.6;
 const double _labelFontSize = 13;
 
 const double _labelGap = 10;
+
+// Bars laid across: the names' column, and the room between rows.
+const double _acrossNamesShare = 0.4;
+const double _acrossNamesMax = 200;
+const double _acrossRowGap = 10;
+const double _acrossBarHeight = 14;
 
 class BarChart extends StatefulWidget
 {
@@ -175,71 +183,201 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
   Widget build(BuildContext context)
   {
     final maxValue = chartMaxValue(widget.data.map((item) => item.count).reduce(math.max));
+    final bool dense = AppPageDensity.of(context);
 
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final innerWidth = math.max(
-          constraints.maxWidth - _yAxisWidth,
-          widget.data.length * _minBarSlotWidth,
-        );
+        final double room = constraints.maxWidth - _yAxisWidth;
 
-        final chartHeight = constraints.maxHeight - _plotBottomPadding;
+        // Dense, nothing scrolls sideways: columns too narrow for their names lay the bars across.
+        if (dense && room / widget.data.length < _minBarSlotWidth)
+        {
+          return _BarsAcross(data: widget.data, maxValue: maxValue);
+        }
+
+        final innerWidth = dense ? room : math.max(room, widget.data.length * _minBarSlotWidth);
+
+        // A card that lets the chart size itself gives its height as a minimum.
+        final double height = constraints.hasBoundedHeight ? constraints.maxHeight : constraints.minHeight;
+        final chartHeight = height - _plotBottomPadding;
         final barRects = _computeBarRects(innerWidth, chartHeight, maxValue);
         final popupIndex = _popupIndex;
         final scrolled = _scroll.hasClients ? _scroll.offset : 0.0;
 
         // The popup lives outside the scroll view, which would clip it.
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Row(
-              children: [
-                SizedBox(
-                  width: _yAxisWidth,
-                  child: CustomPaint(
-                    size: Size(_yAxisWidth, constraints.maxHeight),
-                    painter: _YAxisPainter(maxValue: maxValue),
+        return SizedBox(
+          height: height,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: _yAxisWidth,
+                    child: CustomPaint(
+                      size: Size(_yAxisWidth, height),
+                      painter: _YAxisPainter(maxValue: maxValue),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: _scroll,
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: SizedBox(
-                      width: innerWidth,
-                      height: constraints.maxHeight,
-                      child: MouseRegion(
-                        onHover: (event) => _hoverAt(event.localPosition, innerWidth),
-                        onExit: (_) => _hoverSlot(null),
-                        child: CustomPaint(
-                          size: Size.infinite,
-                          painter: _BarChartPainter(
-                            data: widget.data,
-                            barRects: barRects,
-                            hoveredIndex: _hoveredIndex,
-                            fills: _fills,
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _scroll,
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: SizedBox(
+                        width: innerWidth,
+                        height: height,
+                        child: MouseRegion(
+                          onHover: (event) => _hoverAt(event.localPosition, innerWidth),
+                          onExit: (_) => _hoverSlot(null),
+                          child: CustomPaint(
+                            size: Size.infinite,
+                            painter: _BarChartPainter(
+                              data: widget.data,
+                              barRects: barRects,
+                              hoveredIndex: _hoveredIndex,
+                              fills: _fills,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            if (popupIndex != null && popupIndex < barRects.length)
-              ChartValuePopup(
-                target: Offset(
-                  _yAxisWidth + barRects[popupIndex].center.dx - scrolled,
-                  barRects[popupIndex].top,
-                ),
-                text: _popupText(popupIndex),
-                isVisible: _hoveredIndex != null,
+                ],
               ),
+              if (popupIndex != null && popupIndex < barRects.length)
+                ChartValuePopup(
+                  target: Offset(
+                    _yAxisWidth + barRects[popupIndex].center.dx - scrolled,
+                    barRects[popupIndex].top,
+                  ),
+                  text: _popupText(popupIndex),
+                  isVisible: _hoveredIndex != null,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// One row per bar, the name on the left and the count at the end: nothing scrolls, a cut name shows whole on hover.
+class _BarsAcross extends StatefulWidget
+{
+  final List<ChartDatum> data;
+  final int maxValue;
+
+  const _BarsAcross({required this.data, required this.maxValue});
+
+  @override
+  State<_BarsAcross> createState() => _BarsAcrossState();
+}
+
+class _BarsAcrossState extends State<_BarsAcross>
+{
+  int? _hoveredIndex;
+
+  Widget _row(int index, double namesWidth)
+  {
+    final ChartDatum datum = widget.data[index];
+    final bool hovered = index == _hoveredIndex;
+    final TextStyle style = GoogleFonts.plusJakartaSans(
+      fontSize: 12.5,
+      fontWeight: hovered ? FontWeight.w700 : FontWeight.w600,
+      color: hovered ? AppTheme.trialOcean : AppTheme.trialInk,
+    );
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredIndex = index),
+      onExit: (_) => setState(() => _hoveredIndex = _hoveredIndex == index ? null : _hoveredIndex),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: index < widget.data.length - 1 ? _acrossRowGap : 0),
+        child: Row(
+          children: [
+            SizedBox(
+              width: namesWidth,
+              child: OverflowTooltipText(text: datum.label, maxLines: 2, style: style),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _AcrossBar(fraction: widget.maxValue == 0 ? 0 : datum.count / widget.maxValue, lit: hovered),
+            ),
+            const SizedBox(width: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 24),
+              child: Text(
+                '${datum.count}',
+                textAlign: TextAlign.right,
+                style: style.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final double namesWidth = math.min(constraints.maxWidth * _acrossNamesShare, _acrossNamesMax);
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < widget.data.length; i++) _row(i, namesWidth),
           ],
         );
       },
+    );
+  }
+}
+
+// The hovered bar fills with the accent from its start, as an upright one does from its foot.
+class _AcrossBar extends StatelessWidget
+{
+  final double fraction;
+  final bool lit;
+
+  const _AcrossBar({required this.fraction, required this.lit});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final BorderRadius radius = BorderRadius.circular(_acrossBarHeight / 2);
+
+    return Container(
+      height: _acrossBarHeight,
+      decoration: BoxDecoration(color: AppTheme.slate200.withValues(alpha: 0.6), borderRadius: radius),
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: fraction.clamp(0, 1),
+        heightFactor: 1,
+        child: ClipRRect(
+          borderRadius: radius,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [AppTheme.chartNavy, AppTheme.chartViolet]),
+            ),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: lit ? 1 : 0),
+              duration: _hoverFill,
+              curve: Curves.easeOut,
+              builder: (context, level, _) => FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: level,
+                heightFactor: 1,
+                child: const ColoredBox(color: _hoveredBarColor),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/rome_clock.dart';
 import '../../core/utils/time_bucket.dart';
@@ -47,6 +48,8 @@ const String _pupilRole = 'Studente';
 const double _cardGap = 16;
 
 const double _stackGap = 36;
+const double _denseStackGap = 20;
+const double _denseCardGap = 10;
 
 const double _listMaxWidth = 640;
 
@@ -575,7 +578,8 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     {
       return Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _listMaxWidth),
+          // Below the wide window the rows take the whole width.
+          constraints: BoxConstraints(maxWidth: AppBreakpoints.of(context).isDense ? double.infinity : _listMaxWidth),
           child: OwnLessonList(entries: _entriesOf(presences.single, onTimeline: false), nowMinutes: _nowMinutes),
         ),
       );
@@ -594,14 +598,22 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     );
   }
 
-  Widget _buildNamedList(_Pupil pupil, PupilBandPresence presence)
+  // [named] false under the child's own strip, which names the child already.
+  Widget _buildNamedList(_Pupil pupil, PupilBandPresence presence, {bool named = true})
   {
+    final Widget list = OwnLessonList(entries: _entriesOf(presence, onTimeline: false), nowMinutes: _nowMinutes);
+
+    if (!named)
+    {
+      return list;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TimelineLaneName(name: pupil.firstName),
         const SizedBox(height: _listNameGap),
-        OwnLessonList(entries: _entriesOf(presence, onTimeline: false), nowMinutes: _nowMinutes),
+        list,
       ],
     );
   }
@@ -652,6 +664,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     }
 
     final named = pupils.length > 1;
+    final bool dense = AppBreakpoints.of(context).isDense;
 
     if (named && isNarrow)
     {
@@ -659,49 +672,44 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (var index = 0; index < pupils.length; index++) ...[
-            if (index > 0) const SizedBox(height: _stackGap),
+            if (index > 0) SizedBox(height: dense ? _denseStackGap : _stackGap),
             _buildCard(pupils[index], presences[index], named: true),
             if (!presences[index].isEmpty) ...[
-              const SizedBox(height: _cardGap),
-              _buildNamedList(pupils[index], presences[index]),
+              SizedBox(height: dense ? _denseCardGap : _cardGap),
+              _buildNamedList(pupils[index], presences[index], named: !dense),
             ],
           ],
         ],
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        DesktopTourTarget(
-          id: kTourPupilCalendarCards,
-          child: named
-              ? IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var index = 0; index < pupils.length; index++) ...[
-                        if (index > 0) const SizedBox(width: _cardGap),
-                        Expanded(child: _buildCard(pupils[index], presences[index], named: true)),
-                      ],
+    return CalendarSplitBody(
+      top: DesktopTourTarget(
+        id: kTourPupilCalendarCards,
+        child: named
+            ? IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < pupils.length; index++) ...[
+                      if (index > 0) SizedBox(width: dense ? _denseCardGap : _cardGap),
+                      Expanded(child: _buildCard(pupils[index], presences[index], named: true)),
                     ],
-                  ),
-                )
-              : _buildCard(pupils.single, presences.single, named: false),
-        ),
-        const SizedBox(height: kCalendarCardGap),
-        if (isNarrow || _layout == CalendarLayout.byLesson)
-          _buildLists(pupils, presences)
-        else
-          OwnDayTimeline(
-            window: window,
-            lanes: [
-              for (var index = 0; index < pupils.length; index++)
-                if (!presences[index].isEmpty) _laneOf(pupils[index], presences[index], named: named),
-            ],
-            nowMinutes: _nowMinutes,
-          ),
-      ],
+                  ],
+                ),
+              )
+            : _buildCard(pupils.single, presences.single, named: false),
+      ),
+      day: isNarrow || _layout == CalendarLayout.byLesson
+          ? _buildLists(pupils, presences)
+          : OwnDayTimeline(
+              window: window,
+              lanes: [
+                for (var index = 0; index < pupils.length; index++)
+                  if (!presences[index].isEmpty) _laneOf(pupils[index], presences[index], named: named),
+              ],
+              nowMinutes: _nowMinutes,
+            ),
     );
   }
 

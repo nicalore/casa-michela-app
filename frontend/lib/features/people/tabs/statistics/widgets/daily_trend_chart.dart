@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../shared/widgets/page_density.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
@@ -511,8 +512,10 @@ class TrendLegend extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+
     return Wrap(
-      spacing: 24,
+      spacing: dense ? 18 : 24,
       runSpacing: 8,
       children: [
         for (final line in series)
@@ -524,7 +527,7 @@ class TrendLegend extends StatelessWidget
               Text(
                 line.label,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
+                  fontSize: dense ? 12.5 : 14,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.trialMutedText,
                 ),

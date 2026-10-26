@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart' show formatMinutes;
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/desktop_tour.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../lessons/utils/opening_window.dart' show kOnlineMode, kPresenceMode;
@@ -27,6 +29,10 @@ const Color _sectionDivider = AppTheme.trialLine;
 const Duration _fetchFade = Duration(milliseconds: 150);
 
 const double _chartHeight = 280;
+
+// Dense Gradimento card: thirds from the first width, each piece its own width down to the second, then wrapped.
+const double _appreciationThirdsFrom = 600;
+const double _appreciationWrapBelow = 400;
 
 // Ranking size; must match the backend limits.
 const int kRankingLimit = 10;
@@ -297,6 +303,10 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
       );
     }
 
+    // Dense below the wide window wherever the tab sits (the children's page included), its footer as the page has it.
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final double gap = StatMetrics.forDensity(dense).cardGap;
+
     return ScrollEdgeFade(
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -305,11 +315,11 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: pageTransitionBlocks([
             for (final card in cards) ...[
-              card,
-              const SizedBox(height: 24),
+              AppPageDensity(dense: dense, child: card),
+              SizedBox(height: gap),
             ],
             if (footer != null) ...[
-              const SizedBox(height: 24),
+              SizedBox(height: gap),
               footer,
             ],
           ]),
@@ -329,30 +339,7 @@ class _Figure extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.trialTealDeep,
-            ),
-          ),
-        ],
-      ),
-    );
+    return Expanded(child: StatFigure(label: label, value: value));
   }
 }
 
@@ -437,20 +424,20 @@ class PersonalAvailabilityCard extends StatelessWidget
     this.tour = false,
   });
 
-  Widget _banner(String message)
+  Widget _banner(String message, bool dense)
   {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: dense ? 14 : 16, vertical: dense ? 10 : 12),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppTheme.modifiedAccentSurface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(dense ? 14 : 16),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.warning_amber_rounded,
-            size: 20,
+            size: dense ? 19 : 20,
             color: AppTheme.modifiedAccent,
           ),
           const SizedBox(width: 10),
@@ -458,7 +445,7 @@ class PersonalAvailabilityCard extends StatelessWidget
             child: Text(
               message,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
+                fontSize: dense ? 13 : 14,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.modifiedAccent,
               ),
@@ -472,8 +459,9 @@ class PersonalAvailabilityCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final StatMetrics metrics = StatMetrics.of(context);
     final banners = [
-      for (final shortfall in availabilityShortfalls(statistics, forOwner: forOwner)) _banner(shortfall),
+      for (final shortfall in availabilityShortfalls(statistics, forOwner: forOwner)) _banner(shortfall, metrics.dense),
     ];
 
     return DesktopTourTarget(
@@ -515,13 +503,11 @@ class PersonalAvailabilityCard extends StatelessWidget
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
-              const Divider(color: _sectionDivider, thickness: 1),
-              const SizedBox(height: 32),
+              const StatPartDivider(color: _sectionDivider),
               const StatSectionTitle('Disponibilità per mese, ultimi 12 mesi'),
-              const SizedBox(height: 24),
+              SizedBox(height: metrics.titleGap),
               SizedBox(
-                height: _chartHeight,
+                height: statChartHeight(context, _chartHeight),
                 child: statistics.monthlyTrend.isEmpty
                     ? const EmptyChartMessage()
                     : TrendLineChart(
@@ -529,9 +515,7 @@ class PersonalAvailabilityCard extends StatelessWidget
                         isMonthly: true,
                       ),
               ),
-              const SizedBox(height: 32),
-              const Divider(color: _sectionDivider, thickness: 1),
-              const SizedBox(height: 32),
+              const StatPartDivider(color: _sectionDivider),
               RankingPair(
                 first: _subjectHoursRanking(kTaughtDisciplinesTitle, statistics.taughtDisciplines),
                 second: _peopleHoursRanking(kTopStudentsTitle, statistics.topStudents),
@@ -571,24 +555,87 @@ class PersonalAppreciationCard extends StatelessWidget
     );
   }
 
-  Widget _place()
+  Widget _place(bool dense)
   {
     final rank = statistics.rank;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: dense ? 12 : 14, vertical: dense ? 6 : 8),
       decoration: BoxDecoration(
         color: AppTheme.trialDeepWater.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         rank == null ? 'Non in classifica' : '$rank° in classifica',
+        maxLines: 1,
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 14,
+          fontSize: dense ? 13 : 14,
           fontWeight: FontWeight.w700,
           color: AppTheme.trialDeepWater,
         ),
       ),
+    );
+  }
+
+  Widget _thumbs(BuildContext context)
+  {
+    return ThumbCounts(
+      up: statistics.preferringStudentCount,
+      down: statistics.avoidingStudentCount,
+      large: true,
+      onUpTap: () => _showStudents(context, up: true),
+      onDownTap: () => _showStudents(context, up: false),
+    );
+  }
+
+  // Dense, the score and two centred thirds while they fit; then place and thumbs at their own width, then under the score.
+  Widget _denseFigures(BuildContext context)
+  {
+    final Widget score = StatFigure(label: 'Punteggio', value: formatAppreciationScore(statistics.score));
+
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        if (constraints.maxWidth >= _appreciationThirdsFrom)
+        {
+          return Row(
+            children: [
+              Expanded(child: score),
+              const StatDivider(),
+              Expanded(child: Center(child: _place(true))),
+              const StatDivider(),
+              Expanded(child: Center(child: _thumbs(context))),
+            ],
+          );
+        }
+
+        if (constraints.maxWidth < _appreciationWrapBelow)
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              score,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 18,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [_place(true), _thumbs(context)],
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: score),
+            const StatDivider(),
+            _place(true),
+            const StatDivider(),
+            _thumbs(context),
+          ],
+        );
+      },
     );
   }
 
@@ -604,28 +651,20 @@ class PersonalAppreciationCard extends StatelessWidget
       child: AnimatedOpacity(
         opacity: isLoading ? 0.4 : 1,
         duration: _fetchFade,
-        child: Row(
-          children: [
-            _Figure(
-              label: 'Punteggio',
-              value: formatAppreciationScore(statistics.score),
-            ),
-            const StatDivider(),
-            Expanded(child: Center(child: _place())),
-            const StatDivider(),
-            Expanded(
-              child: Center(
-                child: ThumbCounts(
-                  up: statistics.preferringStudentCount,
-                  down: statistics.avoidingStudentCount,
-                  large: true,
-                  onUpTap: () => _showStudents(context, up: true),
-                  onDownTap: () => _showStudents(context, up: false),
-                ),
+        child: StatMetrics.of(context).dense
+            ? _denseFigures(context)
+            : Row(
+                children: [
+                  _Figure(
+                    label: 'Punteggio',
+                    value: formatAppreciationScore(statistics.score),
+                  ),
+                  const StatDivider(),
+                  Expanded(child: Center(child: _place(false))),
+                  const StatDivider(),
+                  Expanded(child: Center(child: _thumbs(context))),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -712,20 +751,16 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
                 ),
               ],
             ),
-            const SizedBox(height: 32),
-            const Divider(color: _sectionDivider, thickness: 1),
-            const SizedBox(height: 32),
+            const StatPartDivider(color: _sectionDivider),
             StatSectionTitle(presenceTrendTitle(online: online)),
-            const SizedBox(height: 24),
+            SizedBox(height: StatMetrics.of(context).titleGap),
             SizedBox(
-              height: _chartHeight,
+              height: statChartHeight(context, _chartHeight),
               child: widget.statistics.monthlyTrend.isEmpty
                   ? const EmptyChartMessage()
                   : TrendLineChart(data: widget.statistics.monthlyTrend, isMonthly: true),
             ),
-            const SizedBox(height: 32),
-            const Divider(color: _sectionDivider, thickness: 1),
-            const SizedBox(height: 32),
+            const StatPartDivider(color: _sectionDivider),
             RankingPair(
               first: _subjectHoursRanking(subjectHoursTitle(_kind), widget.statistics.lessonHours.of(_kind)),
               second: _peopleHoursRanking(kTopTeachersTitle, widget.statistics.topTeachers),

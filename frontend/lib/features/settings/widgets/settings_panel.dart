@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 
@@ -34,6 +35,20 @@ const double _trailingGap = 16;
 // Narrower rows put their control under the text.
 const double _stackedBelow = 480;
 
+// Below the wide window (AppPageDensity).
+const double _densePanelGap = 18;
+const double _densePanelRadius = 20;
+const double _denseRowSide = 16;
+const double _denseRowVertical = 8;
+const double _denseRowMinHeight = 56;
+const double _denseTileSize = 34;
+const double _denseTileRadius = 11;
+const double _denseTileGap = 12;
+const double _denseBandTop = 12;
+const double _denseBandBottom = 14;
+const double _denseBandGap = 10;
+const double _denseTrailingGap = 12;
+
 class SettingsColumn extends StatelessWidget
 {
   final List<Widget> children;
@@ -44,6 +59,7 @@ class SettingsColumn extends StatelessWidget
   Widget build(BuildContext context)
   {
     final bool compact = AppBreakpoints.of(context).isNarrow;
+    final double gap = AppPageDensity.of(context) ? _densePanelGap : kSettingsPanelGap;
 
     return PageTransitionScrollView(
       child: Padding(
@@ -56,7 +72,7 @@ class SettingsColumn extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
                 for (var i = 0; i < children.length; i++) ...[
-                  if (i > 0) const SizedBox(height: kSettingsPanelGap),
+                  if (i > 0) SizedBox(height: gap),
                   children[i],
                 ],
               ]),
@@ -81,7 +97,7 @@ class SettingsPanel extends StatelessWidget
     final Widget card = DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(_panelRadius),
+        borderRadius: BorderRadius.circular(AppPageDensity.of(context) ? _densePanelRadius : _panelRadius),
         boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
@@ -120,9 +136,15 @@ class _Hairline extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+    final double side = dense ? _denseRowSide : _rowSide;
+
     return Container(
       height: 1,
-      margin: const EdgeInsets.only(left: _rowSide + _tileSize + _tileGap, right: _rowSide),
+      margin: EdgeInsets.only(
+        left: side + (dense ? _denseTileSize + _denseTileGap : _tileSize + _tileGap),
+        right: side,
+      ),
       color: AppTheme.trialLine,
     );
   }
@@ -157,6 +179,11 @@ class SettingsRow extends StatelessWidget
     final Widget? titleMark = this.titleMark;
     final Widget? trailing = this.trailing;
 
+    final bool dense = AppPageDensity.of(context);
+    final double vertical = dense ? _denseRowVertical : _rowVertical;
+    final double tile = dense ? _denseTileSize : _tileSize;
+    final double tileGap = dense ? _denseTileGap : _tileGap;
+
     final Widget text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -166,31 +193,31 @@ class SettingsRow extends StatelessWidget
           runSpacing: 6,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(title, style: settingsTitleStyle()),
+            Text(title, style: settingsTitleStyle(dense: dense)),
             ?titleMark,
           ],
         ),
         if (subtitle != null) ...[
-          const SizedBox(height: 3),
-          Text(subtitle, style: settingsLineStyle()),
+          SizedBox(height: dense ? 1 : 3),
+          Text(subtitle, style: settingsLineStyle(dense: dense)),
         ],
       ],
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: _rowSide, vertical: _rowVertical),
+      padding: EdgeInsets.symmetric(horizontal: dense ? _denseRowSide : _rowSide, vertical: vertical),
       child: LayoutBuilder(
         builder: (context, constraints)
         {
           final Widget head = ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: _rowMinHeight - 2 * _rowVertical),
+            constraints: BoxConstraints(minHeight: (dense ? _denseRowMinHeight : _rowMinHeight) - 2 * vertical),
             child: Row(
               children: [
                 SettingsIconTile(icon: icon, tint: tint),
-                const SizedBox(width: _tileGap),
+                SizedBox(width: tileGap),
                 Expanded(child: text),
                 if (trailing != null && constraints.maxWidth >= _stackedBelow) ...[
-                  const SizedBox(width: _trailingGap),
+                  SizedBox(width: dense ? _denseTrailingGap : _trailingGap),
                   trailing,
                 ],
               ],
@@ -207,9 +234,9 @@ class SettingsRow extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               head,
-              const SizedBox(height: _bandGap),
+              SizedBox(height: dense ? _denseBandGap : _bandGap),
               Padding(
-                padding: const EdgeInsets.only(left: _tileSize + _tileGap),
+                padding: EdgeInsets.only(left: tile + tileGap),
                 child: trailing,
               ),
             ],
@@ -231,21 +258,25 @@ class SettingsBand extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+    final double side = dense ? _denseRowSide : _rowSide;
+    final double tileGap = dense ? _denseTileGap : _tileGap;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(_rowSide, _bandTop, _rowSide, _bandBottom),
+      padding: EdgeInsets.fromLTRB(side, dense ? _denseBandTop : _bandTop, side, dense ? _denseBandBottom : _bandBottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               SettingsIconTile(icon: icon),
-              const SizedBox(width: _tileGap),
-              Text(title, style: settingsTitleStyle()),
+              SizedBox(width: tileGap),
+              Text(title, style: settingsTitleStyle(dense: dense)),
             ],
           ),
-          const SizedBox(height: _bandGap),
+          SizedBox(height: dense ? _denseBandGap : _bandGap),
           Padding(
-            padding: const EdgeInsets.only(left: _tileSize + _tileGap),
+            padding: EdgeInsets.only(left: (dense ? _denseTileSize : _tileSize) + tileGap),
             child: child,
           ),
         ],
@@ -264,26 +295,28 @@ class SettingsIconTile extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+
     return Container(
-      width: _tileSize,
-      height: _tileSize,
+      width: dense ? _denseTileSize : _tileSize,
+      height: dense ? _denseTileSize : _tileSize,
       decoration: BoxDecoration(
         color: tint.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(_tileRadius),
+        borderRadius: BorderRadius.circular(dense ? _denseTileRadius : _tileRadius),
       ),
-      child: Icon(icon, size: 24, color: tint),
+      child: Icon(icon, size: dense ? 18 : 24, color: tint),
     );
   }
 }
 
-TextStyle settingsTitleStyle() => GoogleFonts.plusJakartaSans(
-      fontSize: 16,
+TextStyle settingsTitleStyle({bool dense = false}) => GoogleFonts.plusJakartaSans(
+      fontSize: dense ? 14.5 : 16,
       fontWeight: FontWeight.w700,
       color: AppTheme.trialOcean,
     );
 
-TextStyle settingsLineStyle() => GoogleFonts.plusJakartaSans(
-      fontSize: 13.5,
+TextStyle settingsLineStyle({bool dense = false}) => GoogleFonts.plusJakartaSans(
+      fontSize: dense ? 12.5 : 13.5,
       fontWeight: FontWeight.w500,
       height: 1.42,
       color: AppTheme.trialMutedText,

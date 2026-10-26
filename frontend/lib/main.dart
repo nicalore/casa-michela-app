@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'core/layout/dense_text_scale.dart';
 import 'core/platform/app_platform.dart';
 import 'core/platform/visual_effects.dart';
 import 'core/theme/app_theme.dart';
@@ -84,21 +85,23 @@ class CasaMichelaApp extends StatelessWidget
       routerConfig: appRouter,
       builder: (context, child) 
       {
-        return _ScrollTooltipDismisser(
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              tooltipTheme: Theme.of(context).tooltipTheme.copyWith(
-                exitDuration: Duration.zero,
+        return DenseTextScale(
+          child: _ScrollTooltipDismisser(
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                tooltipTheme: Theme.of(context).tooltipTheme.copyWith(
+                  exitDuration: Duration.zero,
+                ),
               ),
-            ),
-            child: VisualEffects.scope(
-              // Over every page and dialog, outside what dialogs blur behind them.
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  RepaintBoundary(key: dialogBackdropKey, child: child!),
-                  const NotificationToastLayer(),
-                ],
+              child: VisualEffects.scope(
+                // Over every page and dialog, outside what dialogs blur behind them.
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    RepaintBoundary(key: dialogBackdropKey, child: child!),
+                    const NotificationToastLayer(),
+                  ],
+                ),
               ),
             ),
           ),

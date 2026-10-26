@@ -11,6 +11,7 @@ import '../../../routing/app_router.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/corner_glow.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/page_watermark.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -38,6 +39,23 @@ const double _contentTopInset = 44;
 const double _compactTopInset = 24;
 
 const double _contentBottomInset = 28;
+
+// Below the wide window (AppPageDensity): a lower heading, the step's buttons pinned under its content.
+const double _denseWelcomeSize = 32;
+const double _denseTitleSize = 24;
+const double _denseQuestionSize = 14;
+const double _denseWelcomeGap = 14;
+const double _denseHeaderGap = 12;
+const double _denseBottomInset = 16;
+const double _footerTopGap = 14;
+
+// The wide window's gaps around the step.
+const double _headerGap = 20;
+const double _wideFooterTopGap = 20;
+const double _footerRowGap = 10;
+
+// Between the pinned buttons and a message raised over them.
+const double _messageGap = 12;
 
 class OnboardingLayout extends StatefulWidget
 {
@@ -201,11 +219,28 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   static const String _currentYearReason =
       "Inserisci l'anno scolastico in corso per proseguire.";
 
+  // On the pinned buttons: the shown step's, keyed so a message can be raised above them.
+  final GlobalKey _footerKey = GlobalKey();
+
+  // An error raised over the step's buttons, which sit at the window's bottom.
+  void _refuse(String message)
+  {
+    final RenderObject? footer = _footerKey.currentContext?.findRenderObject();
+    double above = 0;
+
+    if (footer is RenderBox && footer.hasSize)
+    {
+      above = MediaQuery.sizeOf(context).height - footer.localToGlobal(Offset.zero).dy + _messageGap;
+    }
+
+    CustomSnackBar.show(context: context, message: message, isError: true, above: above);
+  }
+
   Future<void> _forward() async
   {
     if (_missingCurrentSchoolYear)
     {
-      CustomSnackBar.show(context: context, message: _currentYearReason, isError: true);
+      _refuse(_currentYearReason);
 
       return;
     }
@@ -214,7 +249,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     {
       if (!_termsAccepted)
       {
-        CustomSnackBar.show(context: context, message: kTermsRefusal, isError: true);
+        _refuse(kTermsRefusal);
 
         return;
       }
@@ -230,7 +265,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
         {
           if (mounted)
           {
-            CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+            _refuse(readableApiError(e));
           }
 
           return;
@@ -254,11 +289,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       {
         if (mounted)
         {
-          CustomSnackBar.show(
-            context: context,
-            message: readableApiError(e),
-            isError: true,
-          );
+          _refuse(readableApiError(e));
         }
 
         return;
@@ -286,7 +317,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       {
         if (mounted)
         {
-          CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+          _refuse(readableApiError(e));
         }
 
         return;
@@ -309,11 +340,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       {
         if (mounted)
         {
-          CustomSnackBar.show(
-            context: context,
-            message: readableApiError(e),
-            isError: true,
-          );
+          _refuse(readableApiError(e));
         }
 
         return;
@@ -352,11 +379,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       if (mounted)
       {
         setState(() => _isFinishing = false);
-        CustomSnackBar.show(
-          context: context,
-          message: readableApiError(e),
-          isError: true,
-        );
+        _refuse(readableApiError(e));
       }
     }
   }
@@ -391,7 +414,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     context.go('/login');
   }
 
-  Widget _buildBody(Widget footer)
+  Widget _buildBody()
   {
     switch (_step.kind)
     {
@@ -400,7 +423,6 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
           key: const ValueKey('terms'),
           accepted: _termsAccepted,
           onChanged: (accepted) => setState(() => _termsAccepted = accepted),
-          footer: footer,
         );
 
       case OnboardingStepKind.ownRecord:
@@ -412,7 +434,6 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
           onEducationChanged: (draft) => _education = draft,
           onContactsChanged: (draft) => _contacts = draft,
           onUpdated: () => _reload(_me!.taxCode),
-          footer: footer,
         );
 
       case OnboardingStepKind.childRecord:
@@ -423,7 +444,6 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
           onContactsChanged: (draft) => _contacts = draft,
           accountRoles: const [],
           onUpdated: () => _reload(_subject.fiscalCode),
-          footer: footer,
         );
 
       case OnboardingStepKind.childSchool:
@@ -432,7 +452,6 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
           key: ValueKey('school-${_subject.fiscalCode}'),
           person: _subject,
           onUpdate: () => _reload(_subject.fiscalCode),
-          footer: footer,
         );
 
       case OnboardingStepKind.teacherSubjects:
@@ -440,7 +459,6 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
           key: ValueKey('subjects-${_subject.fiscalCode}'),
           person: _subject,
           onChanged: (draft) => _competences = draft,
-          footer: footer,
         );
     }
   }
@@ -466,7 +484,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       firstName: _person!.firstName,
       text: _welcome,
       alignment: Alignment.center,
-      fontSize: size.isNarrow ? 40 : 58,
+      fontSize: size.isDense ? _denseWelcomeSize : 58,
     );
   }
 
@@ -488,17 +506,17 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
         Text(
           _title,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: size.isNarrow ? 28 : 38,
+            fontSize: size.isDense ? _denseTitleSize : 38,
             fontWeight: FontWeight.w700,
             height: 1.15,
             color: AppTheme.trialOcean,
           ),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: size.isDense ? 6 : 10),
         Text(
           _question,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
+            fontSize: size.isDense ? _denseQuestionSize : 15,
             fontWeight: FontWeight.w500,
             height: 1.5,
             color: AppTheme.trialMutedText,
@@ -514,6 +532,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
 
     try
     {
+      // The step's buttons stay in sight under it at every size; only the step scrolls.
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -521,8 +540,16 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
             slot: PageTransitionItem.frame,
             child: _buildHeader(size),
           ),
-          const SizedBox(height: 20),
-          Expanded(child: _buildBody(_buildFooter())),
+          SizedBox(height: size.isDense ? _denseHeaderGap : _headerGap),
+          Expanded(child: _buildBody()),
+          SizedBox(height: size.isDense ? _footerTopGap : _wideFooterTopGap),
+          PageTransitionItem(
+            slot: PageTransitionItem.frame,
+            child: KeyedSubtree(
+              key: index == _index ? _footerKey : null,
+              child: size.isMinimal ? _buildTwoRowFooter() : _buildFooter(),
+            ),
+          ),
         ],
       );
     }
@@ -532,9 +559,9 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     }
   }
 
-  Widget _buildFooter()
+  Widget get _exitButton
   {
-    final Widget exit = AppGradientButton(
+    return AppGradientButton(
       label: 'TORNA AL LOGIN',
       icon: Icons.logout_rounded,
       gradient: AppTheme.dismissGradient,
@@ -544,31 +571,67 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       fontSize: kPersonDialogButtonFontSize,
       onPressed: _backToLogin,
     );
+  }
 
+  Widget get _backButton
+  {
+    return _shown > 0
+        ? AppGradientButton(
+            label: 'INDIETRO',
+            icon: Icons.chevron_left_rounded,
+            gradient: AppTheme.dismissGradient,
+            accent: AppTheme.trialViolet,
+            height: kPersonDialogButtonHeight,
+            fontSize: kPersonDialogButtonFontSize,
+            onPressed: () => setState(()
+            {
+              _index--;
+              _movingForward = false;
+              _education = null;
+              _contacts = null;
+              _competences = null;
+            }),
+          )
+        : const SizedBox.shrink();
+  }
+
+  Widget get _reportButton
+  {
+    return AppGradientButton(
+      label: 'SEGNALA ERRORE',
+      icon: Icons.flag_rounded,
+      gradient: AppTheme.dismissGradient,
+      accent: AppTheme.trialViolet,
+      height: kPersonDialogButtonHeight,
+      fontSize: kPersonDialogButtonFontSize,
+      onPressed: _report,
+    );
+  }
+
+  Widget get _forwardButton
+  {
+    return AppGradientButton(
+      label: _isLast ? 'CONCLUDI' : 'AVANTI',
+      icon: _isLast
+          ? Icons.done_all_rounded
+          : Icons.chevron_right_rounded,
+      busy: _isFinishing,
+      disabledReason: _missingCurrentSchoolYear ? _currentYearReason : null,
+      height: kPersonDialogButtonHeight,
+      fontSize: kPersonDialogButtonFontSize,
+      onPressed: _forward,
+    );
+  }
+
+  Widget _buildFooter()
+  {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Align(
             alignment: Alignment.topLeft,
-            child: _shown > 0
-                ? AppGradientButton(
-                    label: 'INDIETRO',
-                    icon: Icons.chevron_left_rounded,
-                    gradient: AppTheme.dismissGradient,
-                    accent: AppTheme.trialViolet,
-                    height: kPersonDialogButtonHeight,
-                    fontSize: kPersonDialogButtonFontSize,
-                    onPressed: () => setState(()
-                    {
-                      _index--;
-                      _movingForward = false;
-                      _education = null;
-                      _contacts = null;
-                      _competences = null;
-                    }),
-                  )
-                : const SizedBox.shrink(),
+            child: _backButton,
           ),
         ),
         // Stacked, the two take the width of the wider one.
@@ -578,36 +641,46 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_canReport) ...[
-                AppGradientButton(
-                  label: 'SEGNALA ERRORE',
-                  icon: Icons.flag_rounded,
-                  gradient: AppTheme.dismissGradient,
-                  accent: AppTheme.trialViolet,
-                  height: kPersonDialogButtonHeight,
-                  fontSize: kPersonDialogButtonFontSize,
-                  onPressed: _report,
-                ),
+                _reportButton,
                 const SizedBox(height: 14),
               ],
-              exit,
+              _exitButton,
             ],
           ),
         ),
         Expanded(
           child: Align(
             alignment: Alignment.topRight,
-            child: AppGradientButton(
-              label: _isLast ? 'CONCLUDI' : 'AVANTI',
-              icon: _isLast
-                  ? Icons.done_all_rounded
-                  : Icons.chevron_right_rounded,
-              busy: _isFinishing,
-              disabledReason: _missingCurrentSchoolYear ? _currentYearReason : null,
-              height: kPersonDialogButtonHeight,
-              fontSize: kPersonDialogButtonFontSize,
-              onPressed: _forward,
-            ),
+            child: _forwardButton,
           ),
+        ),
+      ],
+    );
+  }
+
+  // Minimal windows: back and forward on one line, report and exit on the next.
+  Widget _buildTwoRowFooter()
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            _backButton,
+            const Spacer(),
+            _forwardButton,
+          ],
+        ),
+        const SizedBox(height: _footerRowGap),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: _footerRowGap,
+          runSpacing: _footerRowGap,
+          children: [
+            if (_canReport) _reportButton,
+            _exitButton,
+          ],
         ),
       ],
     );
@@ -646,14 +719,14 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 margin,
-                size.isNarrow ? _compactTopInset : _contentTopInset,
+                size.isDense ? _compactTopInset : _contentTopInset,
                 margin,
-                _contentBottomInset,
+                size.isDense ? _denseBottomInset : _contentBottomInset,
               ),
               child: Center(
                 child: SizedBox(
                   width: contentWidth,
-                  child: _buildContent(size),
+                  child: AppPageDensity(dense: size.isDense, child: _buildContent(size)),
                 ),
               ),
             ),
@@ -689,7 +762,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildWelcome(size),
-        const SizedBox(height: 28),
+        SizedBox(height: size.isDense ? _denseWelcomeGap : 28),
         Expanded(
           child: ShellDestinations(
             currentIndex: _index,

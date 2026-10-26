@@ -333,12 +333,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
                     text: group.teacher.fullName,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                   ),
-                  TextSpan(text: ' di ${formatAvailableDayLabel(group.date).toLowerCase()} verrà eliminata definitivamente'),
-                  TextSpan(
-                    text: group.slots.length == 1
-                        ? '.'
-                        : ', con tutti e ${group.slots.length} i suoi orari.',
-                  ),
+                  TextSpan(text: ' di ${formatAvailableDayLabel(group.date).toLowerCase()} verrà eliminata definitivamente.'),
                 ],
               ),
               style: GoogleFonts.plusJakartaSans(

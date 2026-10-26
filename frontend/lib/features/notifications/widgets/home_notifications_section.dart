@@ -10,6 +10,7 @@ import '../../../core/utils/rome_clock.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
+import '../../../shared/widgets/show_more_button.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../device_notifications.dart';
 import '../notification_board.dart';
@@ -37,8 +38,7 @@ const double _denseActionSize = 24;
 const double _denseActionIcon = 15;
 const double _denseActionGap = 5;
 const Color _actionGround = Color(0x0F122438);
-const Color _readHover = Color(0xFFD5EEEA);
-const Color _deleteHover = Color(0xFFF8DFDA);
+const double _actionRim = 1.5;
 const Duration _hoverFade = Duration(milliseconds: 150);
 
 const Duration _arrival = Duration(milliseconds: 380);
@@ -94,7 +94,7 @@ class HomeNotificationsSection extends StatelessWidget
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (row != null) ...[row, const SizedBox(height: 12)],
+          if (row != null) ...[row, SizedBox(height: AppBreakpoints.of(context).isDense ? _denseTileGap : 12)],
           Expanded(child: list),
         ],
       );
@@ -106,7 +106,7 @@ class HomeNotificationsSection extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (row != null) ...[row, const SizedBox(height: 12)],
+        if (row != null) ...[row, SizedBox(height: AppBreakpoints.of(context).isDense ? _denseTileGap : 12)],
         if (limit != null)
           _list(board, showEmpty: !off, limit: limit)
         else
@@ -205,7 +205,7 @@ class _CappedNotificationsState extends State<_CappedNotifications>
         if (more) ...[
           const SizedBox(height: 10),
           Center(
-            child: _ShowMoreButton(
+            child: ShowMoreButton(
               label: _all ? kNotificationsShowFewer : kNotificationsShowAll,
               open: _all,
               onTap: () => setState(() => _all = !_all),
@@ -213,65 +213,6 @@ class _CappedNotificationsState extends State<_CappedNotifications>
           ),
         ],
       ],
-    );
-  }
-}
-
-class _ShowMoreButton extends StatefulWidget
-{
-  final String label;
-  final bool open;
-  final VoidCallback onTap;
-
-  const _ShowMoreButton({required this.label, required this.open, required this.onTap});
-
-  @override
-  State<_ShowMoreButton> createState() => _ShowMoreButtonState();
-}
-
-class _ShowMoreButtonState extends State<_ShowMoreButton>
-{
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 34,
-          padding: const EdgeInsets.only(left: 14, right: 10),
-          decoration: BoxDecoration(
-            color: _hover ? AppTheme.closedSurface : AppTheme.todaySurface,
-            borderRadius: BorderRadius.circular(17),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                widget.label,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.trialTealDeep,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                widget.open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                size: 18,
-                color: AppTheme.trialTealDeep,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -304,6 +245,7 @@ class _NewBadge extends StatelessWidget
   }
 }
 
+// Below the wide window the button goes under the words, sized like the tiles: beside them it squeezed the title.
 class _OffRow extends StatelessWidget
 {
   const _OffRow();
@@ -311,47 +253,67 @@ class _OffRow extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+
+    final Widget words = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          kNotificationsOffTitle,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: dense ? 13 : 14.5,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.trialInk,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          kNotificationsOffDesktop,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: dense ? 12 : 13.5,
+            fontWeight: FontWeight.w600,
+            height: 1.35,
+            color: AppTheme.modifiedAccent,
+          ),
+        ),
+      ],
+    );
+
+    final Widget button = AppGradientButton(
+      label: kNotificationsTurnOn.toUpperCase(),
+      icon: Icons.notifications_active_rounded,
+      height: dense ? 32 : 40,
+      fontSize: dense ? 11.5 : 13,
+      horizontalPadding: dense ? 14 : 30,
+      onPressed: () => turnNotificationsOn(context),
+    );
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      padding: dense ? const EdgeInsets.fromLTRB(11, 9, 11, 10) : const EdgeInsets.fromLTRB(14, 12, 12, 12),
       decoration: BoxDecoration(
         color: AppTheme.trialGoldSurface,
-        borderRadius: BorderRadius.circular(_tileRadius),
+        borderRadius: BorderRadius.circular(dense ? _denseTileRadius : _tileRadius),
         border: Border.all(color: AppTheme.modifiedAccentSurface, width: _tileBorder),
       ),
       child: Row(
+        crossAxisAlignment: dense ? CrossAxisAlignment.start : CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.notifications_off_rounded, size: 22, color: AppTheme.modifiedAccent),
-          const SizedBox(width: 12),
+          Icon(Icons.notifications_off_rounded, size: dense ? 19 : 22, color: AppTheme.modifiedAccent),
+          SizedBox(width: dense ? 9 : 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  kNotificationsOffTitle,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w800, color: AppTheme.trialInk),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  kNotificationsOffDesktop,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                    color: AppTheme.modifiedAccent,
-                  ),
-                ),
-              ],
-            ),
+            child: dense
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [words, const SizedBox(height: 8), button],
+                  )
+                : words,
           ),
-          const SizedBox(width: 12),
-          AppGradientButton(
-            label: kNotificationsTurnOn.toUpperCase(),
-            icon: Icons.notifications_active_rounded,
-            height: 40,
-            fontSize: 13,
-            onPressed: () => turnNotificationsOn(context),
-          ),
+          if (!dense) ...[
+            const SizedBox(width: 12),
+            button,
+          ],
         ],
       ),
     );
@@ -592,7 +554,7 @@ class _NotificationTileState extends State<_NotificationTile>
                   Text(
                     item.title,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: dense ? 13.5 : 15,
+                      fontSize: dense ? 13 : 15,
                       fontWeight: item.read ? FontWeight.w700 : FontWeight.w800,
                       color: item.read ? AppTheme.trialOcean : AppTheme.trialInk,
                     ),
@@ -601,7 +563,7 @@ class _NotificationTileState extends State<_NotificationTile>
                   Text(
                     item.desktopBody,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: dense ? 12 : 13.5,
+                      fontSize: dense ? 11.5 : 13.5,
                       fontWeight: FontWeight.w600,
                       height: 1.35,
                       color: AppTheme.trialMutedText,
@@ -617,7 +579,7 @@ class _NotificationTileState extends State<_NotificationTile>
                 Text(
                   widget.when,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: dense ? 11.5 : 13,
+                    fontSize: dense ? 11 : 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.trialMutedText,
                     fontFeatures: const [FontFeature.tabularFigures()],
@@ -631,7 +593,6 @@ class _NotificationTileState extends State<_NotificationTile>
                       icon: item.read ? Icons.remove_done_rounded : Icons.done_all_rounded,
                       tip: item.read ? kNotificationMarkUnread : kNotificationMarkRead,
                       color: AppTheme.trialTealDeep,
-                      hover: _readHover,
                       dense: dense,
                       onHover: _actionHover,
                       onTap: () => NotificationBoard.instance.toggleRead(item),
@@ -641,7 +602,6 @@ class _NotificationTileState extends State<_NotificationTile>
                       icon: Icons.delete_outline_rounded,
                       tip: kNotificationDelete,
                       color: AppTheme.trialDanger,
-                      hover: _deleteHover,
                       dense: dense,
                       onHover: _actionHover,
                       onTap: widget.onDelete,
@@ -690,7 +650,6 @@ class _TileAction extends StatefulWidget
   final IconData icon;
   final String tip;
   final Color color;
-  final Color hover;
   final bool dense;
   final ValueChanged<bool> onHover;
   final VoidCallback onTap;
@@ -699,7 +658,6 @@ class _TileAction extends StatefulWidget
     required this.icon,
     required this.tip,
     required this.color,
-    required this.hover,
     required this.dense,
     required this.onHover,
     required this.onTap,
@@ -736,13 +694,14 @@ class _TileActionState extends State<_TileAction>
             tween: Tween<double>(end: _hover ? 1 : 0),
             duration: _hoverFade,
             curve: Curves.easeOut,
-            // The hover hue laid over the grey: no muddy shade midway.
+            // Gold as every hover, laid over the grey: no muddy shade midway.
             builder: (context, lit, child) => Container(
               width: size,
               height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color.alphaBlend(widget.hover.withValues(alpha: lit), _actionGround),
+                color: Color.alphaBlend(AppTheme.trialGoldSurface.withValues(alpha: lit), _actionGround),
+                border: Border.all(color: AppTheme.trialGold.withValues(alpha: lit), width: _actionRim),
               ),
               child: child,
             ),

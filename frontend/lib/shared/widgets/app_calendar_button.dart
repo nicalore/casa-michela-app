@@ -56,6 +56,8 @@ class AppCalendarButton extends StatefulWidget
   final String? tourDays;
   final void Function(BuildContext context, bool open)? onOpen;
 
+  final double size;
+
   const AppCalendarButton({
     super.key,
     required this.selected,
@@ -67,6 +69,7 @@ class AppCalendarButton extends StatefulWidget
     this.loadMarks,
     this.tourDays,
     this.onOpen,
+    this.size = CarouselArrowButton.defaultSize,
   });
 
   @override
@@ -285,19 +288,21 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
               onExit: (_) => setState(() => _isHovered = false),
               child: GestureDetector(
                 onTap: _toggle,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: CarouselArrowButton.defaultSize,
-                  height: CarouselArrowButton.defaultSize,
-                  decoration: BoxDecoration(
-                    color: lit ? AppTheme.trialTealDeep : Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: AppTheme.cardShadow,
-                  ),
-                  child: Icon(
-                    Icons.calendar_month_rounded,
-                    size: 21,
-                    color: lit ? Colors.white : AppTheme.trialTealDeep,
+                // Sized outside the animation: only the colours fade, a new size never animates.
+                child: SizedBox.square(
+                  dimension: widget.size,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      color: lit ? AppTheme.trialTealDeep : Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: AppTheme.cardShadow,
+                    ),
+                    child: Icon(
+                      Icons.calendar_month_rounded,
+                      size: widget.size * 21 / CarouselArrowButton.defaultSize,
+                      color: lit ? Colors.white : AppTheme.trialTealDeep,
+                    ),
                   ),
                 ),
               ),

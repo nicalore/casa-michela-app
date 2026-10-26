@@ -41,6 +41,7 @@ AppFilterPill<String> resolutionPill({
     options: resolutionOptions(),
     onChanged: onChanged,
     menuWidth: _menuWidth,
+    bareWhenMinimal: true,
   );
 }
 
@@ -57,6 +58,7 @@ AppFilterPill<String> trendResolutionPill({
     options: trendResolutionOptions(),
     onChanged: onChanged,
     menuWidth: 190,
+    bareWhenMinimal: true,
   );
 }
 
@@ -73,6 +75,7 @@ AppFilterPill<int> startYearPill({
     options: yearOptions(),
     onChanged: onChanged,
     menuWidth: _menuWidth,
+    bareWhenMinimal: true,
   );
 }
 
@@ -89,6 +92,7 @@ AppFilterPill<int> endYearPill({
     options: yearOptions(),
     onChanged: onChanged,
     menuWidth: _menuWidth,
+    bareWhenMinimal: true,
   );
 }
 
@@ -105,6 +109,7 @@ AppFilterPill<int> yearPill({
     options: yearOptions(),
     onChanged: onChanged,
     menuWidth: _menuWidth,
+    bareWhenMinimal: true,
   );
 }
 
@@ -123,6 +128,7 @@ AppFilterPill<int> monthPill({
     options: monthOptions(year),
     onChanged: onChanged,
     menuWidth: _menuWidth,
+    bareWhenMinimal: true,
   );
 }
 
@@ -139,6 +145,7 @@ AppFilterPill<String> statsPeriodPill({
     options: statsPeriodOptions(),
     onChanged: onChanged,
     menuWidth: 200,
+    bareWhenMinimal: true,
   );
 }
 
@@ -159,6 +166,7 @@ AppFilterPill<String> statsModePill({
     ],
     onChanged: onChanged,
     menuWidth: 190,
+    bareWhenMinimal: true,
   );
 }
 
@@ -179,6 +187,7 @@ AppFilterPill<RequestedSubjectKind> requestedKindPill({
     ],
     onChanged: onChanged,
     menuWidth: 220,
+    bareWhenMinimal: true,
     // Room for "Classifica: Discipline" in one piece.
     maxLabelWidth: 250,
   );

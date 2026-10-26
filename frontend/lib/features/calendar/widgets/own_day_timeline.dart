@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/descender_room.dart';
@@ -19,6 +20,7 @@ const double _subLaneGap = kTimelineSubLaneGap;
 const double _trackInset = 28;
 
 const double kTimelineNameWidth = 160;
+const double _denseNameWidth = 96;
 
 typedef TimelineStretch = ({String mode, int startMinutes, int endMinutes});
 
@@ -73,7 +75,8 @@ class _OwnDayTimelineState extends State<OwnDayTimeline>
 
   bool get _isNamed => lanes.any((lane) => lane.name != null);
 
-  double _nameWidthIn(double maxWidth) => _isNamed ? math.min(kTimelineNameWidth, maxWidth * 0.22) : 0;
+  double _nameWidthIn(double maxWidth, bool dense) =>
+      _isNamed ? math.min(dense ? _denseNameWidth : kTimelineNameWidth, maxWidth * 0.22) : 0;
 
   static List<(int, int)> _spansOf(TimelineLane lane)
   {
@@ -88,12 +91,12 @@ class _OwnDayTimelineState extends State<OwnDayTimeline>
   }
 
   // Each row's cards as tall as the most-wrapped one, at the width the scale gives.
-  static List<double> _blockHeightsOf(List<TimelineLane> lanes, TimelineMetrics metrics)
+  static List<double> _blockHeightsOf(List<TimelineLane> lanes, TimelineMetrics metrics, double least)
   {
     return [
       for (final lane in lanes)
         lane.entries.fold(
-          kOwnBlockHeight,
+          least,
           (tallest, entry) => math.max(
             tallest,
             entry.heightAt(metrics.widthOf(entry.startMinutes, entry.endMinutes) - 2 * kBlockSideGap),
@@ -220,7 +223,8 @@ class _OwnDayTimelineState extends State<OwnDayTimeline>
   @override
   Widget build(BuildContext context)
   {
-    final rowHeights = [for (final lane in lanes) _rowHeightOf(lane, kOwnBlockHeight)];
+    final double least = AppBreakpoints.of(context).isDense ? kDenseOwnBlockHeight : kOwnBlockHeight;
+    final rowHeights = [for (final lane in lanes) _rowHeightOf(lane, least)];
 
     final clock = widget.nowMinutes;
     final now = clock != null && clock >= window.$1 && clock <= window.$2 ? clock : null;
@@ -231,7 +235,7 @@ class _OwnDayTimelineState extends State<OwnDayTimeline>
       builder: (context, _) => LayoutBuilder(
         builder: (context, constraints)
         {
-          final nameWidth = _nameWidthIn(constraints.maxWidth);
+          final nameWidth = _nameWidthIn(constraints.maxWidth, AppBreakpoints.of(context).isDense);
           final room = math.max(0.0, constraints.maxWidth - nameWidth - 2 * _trackInset);
 
           final scaled = TimelineMetrics.scaled(
@@ -249,7 +253,7 @@ class _OwnDayTimelineState extends State<OwnDayTimeline>
             rowHeights: rowHeights,
           );
 
-          final blockHeights = _blockHeightsOf(lanes, scaled);
+          final blockHeights = _blockHeightsOf(lanes, scaled, least);
           final metrics = scaled.withRowHeights([
             for (var row = 0; row < lanes.length; row++) _rowHeightOf(lanes[row], blockHeights[row]),
           ]);
@@ -308,8 +312,10 @@ class TimelineLaneName extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+
     return Padding(
-      padding: const EdgeInsets.only(right: 16),
+      padding: EdgeInsets.only(right: dense ? 10 : 16),
       child: Align(
         alignment: Alignment.centerLeft,
         child: DescenderRoom(
@@ -318,7 +324,7 @@ class TimelineLaneName extends StatelessWidget
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 18,
+              fontSize: dense ? 15 : 18,
               fontWeight: FontWeight.w700,
               height: 1.2,
               color: AppTheme.trialOcean,

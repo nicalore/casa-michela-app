@@ -329,8 +329,17 @@ class HomeMonthSection extends StatelessWidget
   static const double _tableNameWidth = 96;
   static const double _tableRowHeight = 42;
 
-  static const double _denseTableNameWidth = 76;
   static const double _denseTableRowHeight = 34;
+
+  // Below the wide window the name column is as wide as the longest name; without room it goes over the figures.
+  static const double _denseNameGap = 12;
+  static const double _denseColumnGap = 10;
+  static const double _denseStackedPadding = 8;
+  static const double _denseStackedGap = 4;
+  static const double _denseLineGap = 6;
+
+  // The scrollbar's lane beside rows that scroll.
+  static const double _scrollRoom = 14;
 
   // Past two people the card scrolls, the third's name peeking under the fold.
   static const int _scrollPast = 2;
@@ -429,40 +438,176 @@ class HomeMonthSection extends StatelessWidget
         : _grid(read.first.figures, _TileScale.of(columns, dense: dense));
   }
 
+  static TextStyle _headStyle({required bool dense})
+  {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: dense ? 9.5 : 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: dense ? 0.6 : 1.1,
+      height: _TileScale.lineHeight,
+      color: AppTheme.trialMutedText,
+    );
+  }
+
+  static TextStyle _nameStyle({required bool dense})
+  {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: dense ? 13.5 : 15,
+      fontWeight: FontWeight.w700,
+      color: AppTheme.trialInk,
+    );
+  }
+
+  static double _textWidth(BuildContext context, InlineSpan span)
+  {
+    final TextPainter painter = TextPainter(
+      text: TextSpan(style: DefaultTextStyle.of(context).style, children: [span]),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+
+    final double width = painter.width;
+    painter.dispose();
+
+    return width;
+  }
+
   // One person a row, the figures as columns; past two the rows scroll under a fixed head.
   Widget _table(List<HomeFigureGroup> read, {required bool dense})
   {
+    if (!dense)
+    {
+      return _tableOf(read, dense: false, nameWidth: _tableNameWidth, rowHeight: _tableRowHeight);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final double room = constraints.maxWidth - (read.length > _scrollPast ? _scrollRoom : 0);
+
+        double name = 0;
+
+        for (final group in read)
+        {
+          name = math.max(name, _textWidth(context, TextSpan(text: group.name, style: _nameStyle(dense: true))));
+        }
+
+        // Each column as wide as its widest label or value, the room left shared out in proportion:
+        // labels and values never clip, nor shrink while the columns fit.
+        final List<double> widths = [];
+
+        for (final (index, figure) in read.first.figures.indexed)
+        {
+          double column = _textWidth(context, TextSpan(text: figure.label.toUpperCase(), style: _headStyle(dense: true)));
+
+          for (final group in read)
+          {
+            if (index < group.figures.length)
+            {
+              column = math.max(column, _textWidth(context, _TableValue.spanOf(group.figures[index], dense: true)));
+            }
+          }
+
+          widths.add(column + _denseColumnGap);
+        }
+
+        final List<int> flexes = [for (final width in widths) width.round()];
+        final double columns = widths.fold(0, (sum, width) => sum + width);
+
+        if (name + _denseNameGap + columns <= room)
+        {
+          return _tableOf(
+            read,
+            dense: true,
+            nameWidth: name + _denseNameGap,
+            rowHeight: _denseTableRowHeight,
+            flexes: flexes,
+          );
+        }
+
+        // The name over its figures; where even those do not fit in a line, two to a line.
+        final int perLine = columns <= room ? widths.length : 2;
+        final int lines = (widths.length / perLine).ceil();
+        final TextScaler scaler = MediaQuery.textScalerOf(context);
+        final double stacked = 2 * _denseStackedPadding +
+            _denseStackedGap +
+            scaler.scale(13.5 * _TileScale.lineHeight) +
+            lines * scaler.scale(_TableValue.denseNumberSize) +
+            (lines - 1) * _denseLineGap;
+
+        return _tableOf(
+          read,
+          dense: true,
+          nameWidth: null,
+          rowHeight: stacked,
+          flexes: [
+            for (var column = 0; column < perLine; column++)
+              [for (var index = column; index < widths.length; index += perLine) widths[index]].reduce(math.max).round(),
+          ],
+          perLine: perLine,
+        );
+      },
+    );
+  }
+
+  // [nameWidth] null: each name over its figures, the figures across the whole width.
+  // [flexes]: the columns' shares of the width, equal without; [perLine]: figures to a line, all without.
+  Widget _tableOf(
+    List<HomeFigureGroup> read, {
+    required bool dense,
+    required double? nameWidth,
+    required double rowHeight,
+    List<int>? flexes,
+    int? perLine,
+  })
+  {
     final bool scrolls = read.length > _scrollPast;
-    final double rowHeight = dense ? _denseTableRowHeight : _tableRowHeight;
+    final List<HomeFigure> labels = read.first.figures;
+    final int across = perLine ?? labels.length;
+
+    Widget labelLine(int start) => Row(
+          children: [
+            if (nameWidth != null) SizedBox(width: nameWidth),
+            for (var index = start; index < start + across; index++)
+              Expanded(
+                flex: flexes?[index - start] ?? 1,
+                child: index < labels.length
+                    ? Text(
+                        labels[index].label.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _headStyle(dense: dense),
+                      )
+                    : const SizedBox(),
+              ),
+          ],
+        );
 
     final Widget head = Padding(
-      padding: EdgeInsets.only(right: scrolls ? 14 : 0, bottom: dense ? 4 : 6),
-      child: Row(
-        children: [
-          SizedBox(width: dense ? _denseTableNameWidth : _tableNameWidth),
-          for (final figure in read.first.figures)
-            Expanded(
-              child: Text(
-                figure.label.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: dense ? 9.5 : 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: dense ? 0.6 : 1.1,
-                  height: _TileScale.lineHeight,
-                  color: AppTheme.trialMutedText,
-                ),
-              ),
+      padding: EdgeInsets.only(right: scrolls ? _scrollRoom : 0, bottom: dense ? 4 : 6),
+      child: across >= labels.length
+          ? labelLine(0)
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [for (var start = 0; start < labels.length; start += across) labelLine(start)],
             ),
-        ],
-      ),
     );
 
     final Widget rows = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [for (final group in read) _TableRow(group: group, dense: dense)],
+      children: [
+        for (final group in read)
+          _TableRow(
+            group: group,
+            dense: dense,
+            nameWidth: nameWidth,
+            height: rowHeight,
+            flexes: flexes,
+            perLine: perLine,
+          ),
+      ],
     );
 
     return Column(
@@ -530,38 +675,79 @@ class _TableRow extends StatelessWidget
 
   final bool dense;
 
-  const _TableRow({required this.group, this.dense = false});
+  // Null: the name on a line of its own over the figures.
+  final double? nameWidth;
+  final double height;
+
+  final List<int>? flexes;
+  final int? perLine;
+
+  const _TableRow({
+    required this.group,
+    required this.dense,
+    required this.nameWidth,
+    required this.height,
+    this.flexes,
+    this.perLine,
+  });
 
   @override
   Widget build(BuildContext context)
   {
-    return Container(
-      height: dense ? HomeMonthSection._denseTableRowHeight : HomeMonthSection._tableRowHeight,
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppTheme.trialLine))),
-      child: Row(
-        children: [
-          SizedBox(
-            width: dense ? HomeMonthSection._denseTableNameWidth : HomeMonthSection._tableNameWidth,
-            child: Text(
-              group.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: dense ? 13.5 : 15,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.trialInk,
-              ),
-            ),
+    final Widget name = Text(
+      group.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: nameWidth == null
+          ? HomeMonthSection._nameStyle(dense: dense).copyWith(height: _TileScale.lineHeight)
+          : HomeMonthSection._nameStyle(dense: dense),
+    );
+
+    final int across = perLine ?? group.figures.length;
+
+    // Scaled down only past the measured room, on the narrowest windows.
+    final List<Widget> figures = [
+      for (final (index, figure) in group.figures.indexed)
+        Expanded(
+          flex: flexes?[index % across] ?? 1,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FittedBox(fit: BoxFit.scaleDown, child: _TableValue(figure: figure, dense: dense)),
           ),
-          for (final figure in group.figures)
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: FittedBox(fit: BoxFit.scaleDown, child: _TableValue(figure: figure, dense: dense)),
-              ),
+        ),
+    ];
+
+    final double? width = nameWidth;
+
+    return Container(
+      height: height,
+      decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppTheme.trialLine))),
+      child: width == null
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                name,
+                const SizedBox(height: HomeMonthSection._denseStackedGap),
+                for (var start = 0; start < figures.length; start += across) ...[
+                  if (start > 0) const SizedBox(height: HomeMonthSection._denseLineGap),
+                  Row(
+                    children: [
+                      ...figures.sublist(start, math.min(start + across, figures.length)),
+                      // A short last line keeps the columns of the lines above.
+                      for (var gap = figures.length; gap < start + across; gap++)
+                        Expanded(flex: flexes?[gap % across] ?? 1, child: const SizedBox()),
+                    ],
+                  ),
+                ],
+              ],
+            )
+          : Row(
+              children: [
+                SizedBox(width: width, child: name),
+                ...figures,
+              ],
             ),
-        ],
-      ),
     );
   }
 }
@@ -574,8 +760,10 @@ class _TableValue extends StatelessWidget
 
   const _TableValue({required this.figure, this.dense = false});
 
-  @override
-  Widget build(BuildContext context)
+  static const double denseNumberSize = 17;
+
+  // Also measured by the table, to tell whether its columns fit.
+  static TextSpan spanOf(HomeFigure figure, {required bool dense})
   {
     final Color color = switch (figure.tone)
     {
@@ -584,7 +772,7 @@ class _TableValue extends StatelessWidget
     };
 
     final TextStyle number = GoogleFonts.plusJakartaSans(
-      fontSize: dense ? (figure.isWord ? 14 : 17) : (figure.isWord ? 16 : 20),
+      fontSize: dense ? (figure.isWord ? 14 : denseNumberSize) : (figure.isWord ? 16 : 20),
       fontWeight: FontWeight.w700,
       height: 1,
       color: color,
@@ -597,14 +785,17 @@ class _TableValue extends StatelessWidget
       color: AppTheme.trialMutedText,
     );
 
-    return Text.rich(
-      TextSpan(
-        children: [
-          for (final part in figure.parts) TextSpan(text: part.text, style: part.isUnit ? unit : number),
-        ],
-      ),
-      maxLines: 1,
+    return TextSpan(
+      children: [
+        for (final part in figure.parts) TextSpan(text: part.text, style: part.isUnit ? unit : number),
+      ],
     );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Text.rich(spanOf(figure, dense: dense), maxLines: 1);
   }
 }
 

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
@@ -50,33 +49,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
 {
   RequestedSubjectKind _kind = RequestedSubjectKind.ministrySubject;
 
-  Widget _figure(String label, String value)
-  {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.trialTealDeep,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _figure(String label, String value) => Expanded(child: StatFigure(label: label, value: value));
 
   Widget _topStudents()
   {
@@ -142,9 +115,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
                 ),
               ],
             ),
-            const SizedBox(height: 32),
-            const Divider(color: _sectionDivider, thickness: 1),
-            const SizedBox(height: 32),
+            const StatPartDivider(color: _sectionDivider),
             RankingPair(first: _topStudents(), second: _topSubjects()),
           ],
         ),

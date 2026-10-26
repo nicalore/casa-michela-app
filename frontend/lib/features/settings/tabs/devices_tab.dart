@@ -11,6 +11,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../models/session_item.dart';
 import '../utils/settings_strings.dart';
 import '../widgets/own_session_cards.dart';
@@ -24,8 +25,10 @@ const double _confirmWidth = 480;
 // Two cards side by side once each gets this much.
 const double _minCardWidth = 300;
 const double _cardGap = 20;
+const double _denseCardGap = 12;
 
 const double _buttonGap = 40;
+const double _denseButtonGap = 18;
 
 
 class DevicesTab extends StatefulWidget
@@ -271,7 +274,7 @@ class _DevicesTabState extends State<DevicesTab>
                 revoking: _revoking,
                 onRevoke: _confirmRevoke,
               ),
-              const SizedBox(height: _buttonGap),
+              SizedBox(height: AppPageDensity.of(context) ? _denseButtonGap : _buttonGap),
               Center(
                 child: AppGradientButton(
                   label: kRevokeOthersLabel.toUpperCase(),
@@ -310,22 +313,24 @@ class _OtherSessions extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final double gap = AppPageDensity.of(context) ? _denseCardGap : _cardGap;
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final int columns = constraints.maxWidth >= 2 * _minCardWidth + _cardGap ? 2 : 1;
+        final int columns = constraints.maxWidth >= 2 * _minCardWidth + gap ? 2 : 1;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var first = 0; first < sessions.length; first += columns) ...[
-              if (first > 0) const SizedBox(height: _cardGap),
+              if (first > 0) SizedBox(height: gap),
               IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (var i = first; i < first + columns; i++) ...[
-                      if (i > first) const SizedBox(width: _cardGap),
+                      if (i > first) SizedBox(width: gap),
                       Expanded(child: i < sessions.length ? _card(sessions[i]) : const SizedBox.shrink()),
                     ],
                   ],

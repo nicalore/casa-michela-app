@@ -11,6 +11,7 @@ import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/page_density.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import 'tabs/access_tab.dart';
@@ -44,6 +45,8 @@ const int _accessIndex = 1;
 const int _devicesIndex = 2;
 const int _systemIndex = 3;
 const int _infoIndex = 4;
+
+const double _afterBack = 14;
 
 class SettingsPage extends StatefulWidget
 {
@@ -114,6 +117,15 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
     openSection(index, () => _selectedSection = index);
   }
 
+  Widget _buildBackButton({bool dense = false})
+  {
+    return AppBackButton(
+      tooltip: 'Torna indietro',
+      onTap: () => context.go(_origin),
+      dense: dense,
+    );
+  }
+
   // Not one transition element: each section times its own cards.
   Widget _buildSectionContent()
   {
@@ -165,6 +177,11 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
               if (!size.hasRail) ...[
                 AppSectionTabs(
                   title: kSettingsTitle,
+                  leading: Padding(
+                    padding: const EdgeInsets.only(right: _afterBack),
+                    child: _buildBackButton(dense: true),
+                  ),
+                  leadingWidth: AppBackButton.denseWidth + _afterBack,
                   groups: const [RailGroup(entries: _sections)],
                   selectedIndex: _selectedSection,
                   onSelected: _selectSection,
@@ -185,7 +202,8 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: its sections scroll, not the page.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final AppWindowSize size = AppBreakpoints.of(context);
@@ -214,21 +232,20 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
                     padding: EdgeInsets.only(
                       left: margin,
                       right: margin,
-                      top: 24,
+                      top: size.isDense ? 16 : 24,
                       bottom: 24,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: AppBackButton(
-                            tooltip: 'Torna indietro',
-                            onTap: () => context.go(_origin),
-                          ),
+                        // Below the wide window the back button leads the line of the tabs.
+                        if (!size.isDense) ...[
+                          Align(alignment: Alignment.centerLeft, child: _buildBackButton()),
+                          const SizedBox(height: 24),
+                        ],
+                        Expanded(
+                          child: AppPageDensity(dense: size.isDense, child: _buildBody(size)),
                         ),
-                        const SizedBox(height: 24),
-                        Expanded(child: _buildBody(size)),
                       ],
                     ),
                   ),

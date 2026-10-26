@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
 
-const double _badgeSize = 27;
+const double kFaceBadgeSize = 27;
 const double _badgeIconSize = 18;
 const double _badgeGap = 4;
 
@@ -26,6 +26,9 @@ class AppBadgedFace extends StatelessWidget
   final VoidCallback? onPick;
   final VoidCallback? onRemove;
 
+  // Smaller on a small face, so the pair still sits on the rim.
+  final double badgeSize;
+
   const AppBadgedFace({
     super.key,
     required this.face,
@@ -33,36 +36,58 @@ class AppBadgedFace extends StatelessWidget
     required this.hasImage,
     required this.onPick,
     required this.onRemove,
+    this.badgeSize = kFaceBadgeSize,
   });
 
   // Angle measured counter-clockwise from the right.
-  Offset _onRim(double angle)
+  static Offset _onRim(double size, double angle)
   {
     final double radius = size / 2;
 
     return Offset(radius + radius * math.cos(angle), radius - radius * math.sin(angle));
   }
 
+  static ({Offset pencil, Offset bin, double left, double top}) _placesOf(double size, double badgeSize, bool hasImage)
+  {
+    // A badge's width and the gap, as an angle along the rim.
+    final double apart = 2 * math.asin((badgeSize + _badgeGap) / size);
+
+    final Offset pencil = _onRim(size, _badgesAngle + (hasImage ? apart / 2 : 0));
+    final Offset bin = _onRim(size, _badgesAngle - apart / 2);
+
+    return (
+      pencil: pencil,
+      bin: bin,
+      left: math.max(0, badgeSize / 2 - pencil.dx),
+      top: math.max(0, badgeSize / 2 - (hasImage ? bin : pencil).dy),
+    );
+  }
+
+  // The box the face takes with its badges.
+  static Size extentOf(double size, {double badgeSize = kFaceBadgeSize, required bool hasImage})
+  {
+    final places = _placesOf(size, badgeSize, hasImage);
+
+    return Size(size + places.left, size + places.top);
+  }
+
   // The badges' overhang is part of the box so they stay pressable there.
   @override
   Widget build(BuildContext context)
   {
-    final double radius = size / 2;
+    final places = _placesOf(size, badgeSize, hasImage);
 
-    // A badge's width and the gap, as an angle along the rim.
-    final double apart = 2 * math.asin((_badgeSize + _badgeGap) / (2 * radius));
+    final Offset pencil = places.pencil;
+    final Offset bin = places.bin;
 
-    final Offset pencil = _onRim(_badgesAngle + (hasImage ? apart / 2 : 0));
-    final Offset bin = _onRim(_badgesAngle - apart / 2);
-
-    final double overhangLeft = math.max(0, _badgeSize / 2 - pencil.dx);
-    final double overhangTop = math.max(0, _badgeSize / 2 - (hasImage ? bin : pencil).dy);
+    final double overhangLeft = places.left;
+    final double overhangTop = places.top;
 
     Widget place(Offset centre, Widget badge)
     {
       return Positioned(
-        left: overhangLeft + centre.dx - _badgeSize / 2,
-        top: overhangTop + centre.dy - _badgeSize / 2,
+        left: overhangLeft + centre.dx - badgeSize / 2,
+        top: overhangTop + centre.dy - badgeSize / 2,
         child: badge,
       );
     }
@@ -77,6 +102,7 @@ class AppBadgedFace extends StatelessWidget
           place(
             pencil,
             _Badge(
+              size: badgeSize,
               icon: Icons.edit_outlined,
               color: AppTheme.trialTealDeep,
               tooltip: hasImage ? 'Cambia la foto' : 'Carica una foto',
@@ -87,6 +113,7 @@ class AppBadgedFace extends StatelessWidget
             place(
               bin,
               _Badge(
+                size: badgeSize,
                 icon: Icons.delete_outline_rounded,
                 color: AppTheme.trialDanger,
                 tooltip: 'Rimuovi la foto',
@@ -101,12 +128,15 @@ class AppBadgedFace extends StatelessWidget
 
 class _Badge extends StatefulWidget
 {
+  final double size;
+
   final IconData icon;
   final Color color;
   final String tooltip;
   final VoidCallback? onTap;
 
   const _Badge({
+    required this.size,
     required this.icon,
     required this.color,
     required this.tooltip,
@@ -136,8 +166,8 @@ class _BadgeState extends State<_Badge>
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: _hoverFade,
-            width: _badgeSize,
-            height: _badgeSize,
+            width: widget.size,
+            height: widget.size,
             decoration: BoxDecoration(
               color: _hover && enabled ? AppTheme.trialGoldSurface : Colors.white,
               shape: BoxShape.circle,
@@ -149,7 +179,7 @@ class _BadgeState extends State<_Badge>
             ),
             child: Icon(
               widget.icon,
-              size: _badgeIconSize,
+              size: widget.size * _badgeIconSize / kFaceBadgeSize,
               color: enabled ? widget.color : AppTheme.trialMutedText.withValues(alpha: 0.5),
             ),
           ),

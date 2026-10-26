@@ -2,13 +2,16 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../lessons/utils/timeline_geometry.dart';
 import '../../lessons/widgets/calendar_lane_panel.dart' show CalendarLaneEmpty;
 import '../../lessons/widgets/calendar_lesson_block.dart' show ElapsedShare;
 import 'own_day_timeline.dart' show TimelineEntry;
+import 'own_lesson_block.dart' show OwnListRows, kDenseOwnRowHeight;
 
 const double _rowGap = 10;
+const double _denseRowGap = 8;
 const double _columnGap = 10;
 
 const double _nowLineHeight = 2;
@@ -66,20 +69,24 @@ class OwnLessonList extends StatelessWidget
   }
 
   // Pixels per minute: the shortest card keeps its full height, any card the height its lines need.
-  static double _scaleOf(_Cluster row, double width)
+  // Rows below the wide window are all as tall: a lesson alone in its row takes exactly that.
+  static double _scaleOf(_Cluster row, double width, bool dense)
   {
     final cardWidth = _cardWidthIn(row, width);
 
     return row.entries
-        .map((entry) => entry.heightAt(cardWidth) / math.max(1, entry.endMinutes - entry.startMinutes))
+        .map((entry) => (dense ? kDenseOwnRowHeight : entry.heightAt(cardWidth)) / math.max(1, entry.endMinutes - entry.startMinutes))
         .reduce(math.max);
   }
 
-  static double _heightOf(_Cluster row, double width) => (row.endMinutes - row.startMinutes) * _scaleOf(row, width);
+  static double _heightOf(_Cluster row, double width, bool dense) =>
+      (row.endMinutes - row.startMinutes) * _scaleOf(row, width, dense);
 
   // Only between rows: a lesson under way is framed, not crossed.
-  double? _gapLineTop(List<_Cluster> rows, double width)
+  double? _gapLineTop(List<_Cluster> rows, double width, bool dense)
   {
+    final double gap = dense ? _denseRowGap : _rowGap;
+
     final now = nowMinutes;
 
     if (now == null || rows.isEmpty || now < rows.first.startMinutes)
@@ -93,7 +100,7 @@ class OwnLessonList extends StatelessWidget
     {
       if (now < row.startMinutes)
       {
-        return top - _rowGap / 2;
+        return top - gap / 2;
       }
 
       if (now < row.endMinutes)
@@ -101,7 +108,7 @@ class OwnLessonList extends StatelessWidget
         return null;
       }
 
-      top += _heightOf(row, width) + _rowGap;
+      top += _heightOf(row, width, dense) + gap;
     }
 
     return null;
@@ -131,14 +138,14 @@ class OwnLessonList extends StatelessWidget
     return ElapsedShare(share: (now - entry.startMinutes) / (entry.endMinutes - entry.startMinutes), child: entry.block);
   }
 
-  Widget _buildRow(_Cluster row, double rowWidth)
+  Widget _buildRow(_Cluster row, double rowWidth, bool dense)
   {
-    final scale = _scaleOf(row, rowWidth);
+    final scale = _scaleOf(row, rowWidth, dense);
     final lanes = _lanesOf(row);
     final width = _cardWidthIn(row, rowWidth);
 
     return SizedBox(
-      height: _heightOf(row, rowWidth),
+      height: _heightOf(row, rowWidth, dense),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -165,14 +172,17 @@ class OwnLessonList extends StatelessWidget
       return const CalendarLaneEmpty();
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) => _buildRows(rows, constraints.maxWidth),
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final Widget list = LayoutBuilder(
+      builder: (context, constraints) => _buildRows(rows, constraints.maxWidth, dense),
     );
+
+    return dense ? OwnListRows(child: list) : list;
   }
 
-  Widget _buildRows(List<_Cluster> rows, double width)
+  Widget _buildRows(List<_Cluster> rows, double width, bool dense)
   {
-    final gapTop = _gapLineTop(rows, width);
+    final gapTop = _gapLineTop(rows, width, dense);
 
     return Stack(
       clipBehavior: Clip.none,
@@ -181,8 +191,8 @@ class OwnLessonList extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var index = 0; index < rows.length; index++) ...[
-              if (index > 0) const SizedBox(height: _rowGap),
-              _buildRow(rows[index], width),
+              if (index > 0) SizedBox(height: dense ? _denseRowGap : _rowGap),
+              _buildRow(rows[index], width, dense),
             ],
           ],
         ),

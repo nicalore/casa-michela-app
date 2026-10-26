@@ -93,7 +93,7 @@ class PersonNotPreferredTeachersTab extends StatelessWidget
                     runSpacing: _cardGap,
                     children: [for (final teacher in teachers) _buildCard(teacher)],
                   ),
-                const SizedBox(height: kPersonSectionGap),
+                SizedBox(height: personSectionGap(context)),
                 Center(
                   child: AppGradientButton(
                     label: 'MODIFICA DOCENTI',

@@ -869,12 +869,12 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       children: [
         AppDialogPill(
           child: SelectionArea(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            // The second fact goes under the first when the window is too narrow for both.
+            child: Wrap(
+              spacing: 32,
+              runSpacing: 12,
               children: [
                 _buildFact('Giornata', formatAvailableDayLabel(group.date)),
-                const SizedBox(width: 32),
                 _buildFact('Richiesta da', group.booker.fullName),
               ],
             ),

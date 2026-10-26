@@ -1,28 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/alphabetical_order.dart';
 import '../../core/utils/error_message.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
-import '../../shared/widgets/app_back_button.dart';
 import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
+import '../../shared/widgets/app_section_tabs.dart' show AppTitleMenu;
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/dialog_components.dart';
+import '../../shared/widgets/page_density.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/snackbar.dart';
 import '../people/edit/person_edit_form.dart' show kBornInItalyNation;
 import '../people/models/people_filter_state.dart';
+import '../people/models/person_face.dart';
 import '../people/models/person_item.dart';
 import '../people/models/student_note_item.dart';
 import '../people/utils/people_filter_matching.dart';
 import '../people/widgets/people_filter_dialog.dart';
+import '../people/widgets/person_detail_header.dart'
+    show kPersonHeadingFace, kPersonHeadingFaceGap, kPersonHeadingNameSize, personHeadingFace;
 import '../people/widgets/student_note_dialog.dart';
 import 'psychologist_strings.dart';
 import 'psychologist_tour.dart';
@@ -35,7 +41,17 @@ const String _psychologistRole = 'PSYCHOLOGIST';
 const List<String> _listedRoles = ['Studente'];
 
 const double _listWidth = 400;
-const double _narrowListWidth = 340;
+const double _denseListWidth = 300;
+
+// Below 1000 px the pupil's face and name head the page and open the list as a menu.
+const double _headingFactsGap = 28;
+const double _headingBottom = 10;
+const double _headingLineGap = 16;
+const double _menuWidth = 340;
+const double _menuTallest = 460;
+const double _menuLeast = 220;
+const double _menuGap = 8;
+const double _menuWindowRoom = 16;
 
 class PsychologistStudentsPage extends StatefulWidget
 {
@@ -63,8 +79,6 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
 
   String? _selectedCode;
 
-  bool _showingSheet = false;
-
   @override
   void initState()
   {
@@ -88,12 +102,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     {
       final List<PersonItem> students = await _apiService.getFollowedStudents();
 
-      students.sort((a, b)
-      {
-        final int byName = a.firstName.compareTo(b.firstName);
-
-        return byName != 0 ? byName : a.lastName.compareTo(b.lastName);
-      });
+      students.sort(compareByName);
 
       if (!mounted)
       {
@@ -163,7 +172,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
         .toSet()
         .toList();
 
-    result.sort();
+    result.sort(compareAlphabetically);
 
     return result;
   }
@@ -208,14 +217,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     );
   }
 
-  void _select(PersonItem student)
-  {
-    setState(()
-    {
-      _selectedCode = student.fiscalCode;
-      _showingSheet = true;
-    });
-  }
+  void _select(PersonItem student) => setState(() => _selectedCode = student.fiscalCode);
 
   void _confirm(String message)
   {
@@ -309,10 +311,11 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     }
   }
 
-  Widget _buildList(List<PersonItem> students)
+  // [close]: the heading's menu holding the list, shut once a pupil is chosen.
+  Widget _buildList(List<PersonItem> students, {VoidCallback? close})
   {
     return StudentListPanel(
-      key: _listKey,
+      key: close == null ? _listKey : null,
       students: students,
       selectedCode: _selectedCode,
       searchController: _searchController,
@@ -320,11 +323,75 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
       filtersCount: _filterState.activeFiltersCount,
       onOpenFilters: _openFilters,
       onClearFilters: () => setState(() => _filterState = const PeopleFilterState()),
-      onSelected: _select,
+      onSelected: (student)
+      {
+        _select(student);
+        close?.call();
+      },
+      inMenu: close != null,
     );
   }
 
-  Widget _buildSheet()
+  Widget _buildMenu(AppWindowSize size, VoidCallback close)
+  {
+    final Size window = MediaQuery.sizeOf(context);
+    final double margin = AppBreakpoints.pageMargin(size);
+
+    // From under the heading to near the window's bottom.
+    final double below = AppTopBar.contentTopInsetFor(size) + kPersonHeadingFace + _headingBottom + _menuGap;
+    final double height = (window.height - below - _menuWindowRoom).clamp(_menuLeast, _menuTallest);
+
+    return SizedBox(
+      width: _menuWidth.clamp(0, window.width - 2 * margin),
+      height: height,
+      child: _buildList(_filteredStudents, close: close),
+    );
+  }
+
+  Widget _buildHeading(AppWindowSize size, PersonItem student)
+  {
+    final Widget who = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        personHeadingFace(context, student),
+        const SizedBox(width: kPersonHeadingFaceGap),
+        Flexible(
+          child: Text(
+            '${student.firstName} ${student.lastName}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: kPersonHeadingNameSize,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+              color: AppTheme.trialOcean,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppTheme.closedLine)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4, right: 4, bottom: _headingBottom),
+        // The facts go under the name when they no longer fit beside it.
+        child: Wrap(
+          spacing: _headingFactsGap,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            AppTitleMenu(menu: (context, close) => _buildMenu(size, close), child: who),
+            StudentFacts(student: student),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSheet({bool identity = true})
   {
     final PersonItem? student = _selected;
 
@@ -346,6 +413,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
           onAddNote: () => _writeNote(student),
           onEditNote: (note) => _writeNote(student, note: note),
           onDeleteNote: (note) => _deleteNote(student, note),
+          identity: identity,
         ),
       ],
     );
@@ -369,27 +437,21 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
 
     if (size.isNarrow)
     {
-      if (_students.isEmpty)
+      final PersonItem? student = _selected;
+
+      if (student == null)
       {
         return none;
       }
 
-      if (_showingSheet && _selected != null)
-      {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppBackButton(
-              tooltip: 'Torna indietro',
-              onTap: () => setState(() => _showingSheet = false),
-            ),
-            const SizedBox(height: 18),
-            Expanded(child: _buildSheet()),
-          ],
-        );
-      }
-
-      return _buildList(students);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHeading(size, student),
+          const SizedBox(height: _headingLineGap),
+          Expanded(child: _buildSheet(identity: false)),
+        ],
+      );
     }
 
     return Row(
@@ -398,7 +460,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
         PageTransitionItem(
           slot: PageTransitionItem.frame,
           child: SizedBox(
-            width: MediaQuery.sizeOf(context).width >= AppBreakpoints.wideMinWidth ? _listWidth : _narrowListWidth,
+            width: size.isDense ? _denseListWidth : _listWidth,
             child: _buildList(students),
           ),
         ),
@@ -414,7 +476,8 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: the list and the sheet scroll, not the page.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final AppWindowSize size = AppBreakpoints.of(context);
@@ -446,7 +509,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
                       top: AppTopBar.contentTopInsetFor(size),
                       bottom: 24,
                     ),
-                    child: _buildBody(size),
+                    child: AppPageDensity(dense: size.isDense, child: _buildBody(size)),
                   ),
                 ),
                 AppTopBar(currentRoute: '${homeForRole(_psychologistRole)}/students'),

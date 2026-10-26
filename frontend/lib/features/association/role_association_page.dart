@@ -240,7 +240,8 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: its sections scroll, not the page.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final size = AppBreakpoints.of(context);

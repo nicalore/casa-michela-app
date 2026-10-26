@@ -5,7 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_choice_card.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
-import '../../people/widgets/person_detail_widgets.dart';
 import '../legal_documents.dart';
 
 const double _maxWidth = 960;
@@ -18,13 +17,10 @@ class OnboardingTermsStep extends StatelessWidget
 {
   final bool accepted;
   final ValueChanged<bool> onChanged;
-  final Widget footer;
-
   const OnboardingTermsStep({
     super.key,
     required this.accepted,
     required this.onChanged,
-    required this.footer,
   });
 
   Widget _buildDocuments()
@@ -89,8 +85,6 @@ class OnboardingTermsStep extends StatelessWidget
                 ),
               ),
             ),
-            const SizedBox(height: kPersonSectionGap),
-            footer,
           ]),
         ),
       ),

@@ -16,6 +16,7 @@ import '../../shared/export/pdf_tab.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_section_tabs.dart';
+import '../../shared/widgets/page_density.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/dialog_components.dart';
@@ -577,6 +578,13 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
     // Sections animate their own transitions; wrapping here would animate them as one block.
     // Only sections opened so far are mounted: each loads its own data on mount.
+    final PersonHeading heading = PersonHeading(
+      person: _person!,
+      imageVersion: '${ApiService().profileImageVersion}',
+      backTooltip: 'Torna alle anagrafiche',
+      onBack: () => context.go(_origin),
+    );
+
     final Widget content = PageSections(
       index: _selectedSection,
       children: [
@@ -606,7 +614,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
             children: [
               if (!size.hasRail) ...[
                 AppSectionTabs(
-                  title: 'Persone',
+                  title: heading.name,
+                  titleSize: kPersonHeadingNameSize,
+                  leading: heading.leading(context),
+                  leadingWidth: heading.leadingWidth,
+                  titleTrailing: heading.roles(),
+                  titleTrailingWidthOf: heading.rolesWidth,
                   groups: personRailGroups(sections),
                   selectedIndex: _selectedSection,
                   onSelected: _selectSection,
@@ -648,7 +661,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: its sections scroll, not the page.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final size = AppBreakpoints.of(context);
@@ -677,21 +691,25 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     padding: EdgeInsets.only(
                       left: margin,
                       right: margin,
-                      top: 24,
+                      top: size.isDense ? 16 : 24,
                       bottom: 24,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        PersonDetailHeader(
-                          person: _person,
-                          imageVersion: '${ApiService().profileImageVersion}',
-                          size: size,
-                          backTooltip: 'Torna alle anagrafiche',
-                          onBack: () => context.go(_origin),
+                        // Below the wide window back, face and name share the line of the tabs.
+                        if (!size.isDense || _person == null) ...[
+                          PersonDetailHeader(
+                            person: size.isDense ? null : _person,
+                            imageVersion: '${ApiService().profileImageVersion}',
+                            backTooltip: 'Torna alle anagrafiche',
+                            onBack: () => context.go(_origin),
+                          ),
+                          SizedBox(height: size.isDense ? 16 : 24),
+                        ],
+                        Expanded(
+                          child: AppPageDensity(dense: size.isDense, child: _buildBody(size, sections)),
                         ),
-                        const SizedBox(height: 24),
-                        Expanded(child: _buildBody(size, sections)),
                       ],
                     ),
                   ),

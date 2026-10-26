@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../update_item.dart';
 import '../update_strings.dart';
 
 const double _roleBadgeHeight = 24;
+const double _denseRoleBadgeHeight = 22;
 
 class UpdateVersionBadge extends StatelessWidget
 {
@@ -45,17 +47,19 @@ class UpdateRoleBadges extends StatelessWidget
 
   const UpdateRoleBadges({super.key, required this.roles, this.alignment = WrapAlignment.start});
 
-  Widget _badge(String label, {required Color background, required Color color})
+  Widget _badge(String label, {required Color background, required Color color, required bool dense})
   {
+    final double height = dense ? _denseRoleBadgeHeight : _roleBadgeHeight;
+
     return Container(
-      height: _roleBadgeHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(_roleBadgeHeight / 2)),
+      height: height,
+      padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 10),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(height / 2)),
       child: Center(
         widthFactor: 1,
         child: Text(
           label,
-          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: color),
+          style: GoogleFonts.plusJakartaSans(fontSize: dense ? 11 : 12.5, fontWeight: FontWeight.w700, color: color),
         ),
       ),
     );
@@ -64,17 +68,20 @@ class UpdateRoleBadges extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+
     if (roles.length == UpdateRole.values.length)
     {
-      return _badge(kUpdateAllRoles, background: const Color(0xFFF4EEF9), color: AppTheme.trialViolet);
+      return _badge(kUpdateAllRoles, background: const Color(0xFFF4EEF9), color: AppTheme.trialViolet, dense: dense);
     }
 
     return Wrap(
       alignment: alignment,
-      spacing: 6,
-      runSpacing: 6,
+      spacing: dense ? 5 : 6,
+      runSpacing: dense ? 5 : 6,
       children: [
-        for (final role in roles) _badge(role.plural, background: AppTheme.todaySurface, color: AppTheme.trialTealDeep),
+        for (final role in roles)
+          _badge(role.plural, background: AppTheme.todaySurface, color: AppTheme.trialTealDeep, dense: dense),
       ],
     );
   }

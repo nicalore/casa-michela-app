@@ -26,8 +26,13 @@ import '../utils/day_marks_loader.dart';
 export '../utils/calendar_strings.dart' show ofBand;
 
 const double _headerGap = 22;
+const double _denseHeaderGap = 12;
 
 const double _dayLabelWidth = 250;
+const double _denseDayLabelWidth = 200;
+
+// The day nav's buttons, below the wide window.
+const double _denseButton = 36;
 
 const double _toolGap = 16;
 
@@ -39,6 +44,30 @@ const double _introGap = 24;
 
 // Below this the page lists lessons, not a timeline, as the admin's kCalendarTimelineMin.
 const double kCalendarListBelow = 900;
+
+const double kDenseCalendarCardGap = 12;
+
+// A band's summary over its lessons: below the wide window the summary stays put and the lessons scroll.
+class CalendarSplitBody extends StatelessWidget
+{
+  final Widget top;
+  final Widget day;
+
+  const CalendarSplitBody({super.key, required this.top, required this.day});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        top,
+        SizedBox(height: AppBreakpoints.of(context).isDense ? kDenseCalendarCardGap : kCalendarCardGap),
+        day,
+      ],
+    );
+  }
+}
 
 class CalendarPageShell extends StatelessWidget
 {
@@ -90,7 +119,7 @@ class CalendarPageShell extends StatelessWidget
 
   static List<Widget> _noTools(bool isNarrow) => const [];
 
-  Widget _buildBandPicker()
+  Widget _buildBandPicker(bool dense)
   {
     return DesktopTourTarget(
       id: kTourCalendarBands,
@@ -100,11 +129,13 @@ class CalendarPageShell extends StatelessWidget
         onSelected: (index) => onBand(TimeBucket.values[index]),
         padding: EdgeInsets.zero,
         hugContent: true,
+        height: dense ? _denseButton : 44,
+        fontSize: dense ? 13.5 : 14,
       ),
     );
   }
 
-  Widget _buildDayLabel()
+  Widget _buildDayLabel(bool dense)
   {
     return Text(
       '${formatWeekdayColumnLabel(day)} ${day.year}',
@@ -113,32 +144,34 @@ class CalendarPageShell extends StatelessWidget
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 15,
+        fontSize: dense ? 14 : 15,
         fontWeight: FontWeight.w600,
         color: AppTheme.trialInk,
       ),
     );
   }
 
-  Widget _buildBackArrow()
+  Widget _buildBackArrow(bool dense)
   {
     return CarouselArrowButton(
       icon: Icons.chevron_left_rounded,
       isDisabled: isFirstDay || isBusy,
+      size: dense ? _denseButton : CarouselArrowButton.defaultSize,
       onTap: () => onDay(addDays(day, -1)),
     );
   }
 
-  Widget _buildForwardArrow()
+  Widget _buildForwardArrow(bool dense)
   {
     return CarouselArrowButton(
       icon: Icons.chevron_right_rounded,
       isDisabled: !day.isBefore(lastDay) || isBusy,
+      size: dense ? _denseButton : CarouselArrowButton.defaultSize,
       onTap: () => onDay(addDays(day, 1)),
     );
   }
 
-  Widget _buildCalendarButton()
+  Widget _buildCalendarButton(bool dense)
   {
     return AppCalendarButton(
       selected: day,
@@ -148,75 +181,81 @@ class CalendarPageShell extends StatelessWidget
       loadMarks: loadMarks ?? (from, to) => loadDayMarks(from, to, published: true),
       tourDays: kTourCalendarPickerDays,
       onOpen: onPickerOpen,
+      size: dense ? _denseButton : CarouselArrowButton.defaultSize,
     );
   }
 
-  Widget _buildDayNav()
+  Widget _buildDayNav(bool dense)
   {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildCalendarButton(),
-        const SizedBox(width: 12),
-        _buildBackArrow(),
-        const SizedBox(width: 8),
-        SizedBox(width: _dayLabelWidth, child: _buildDayLabel()),
-        const SizedBox(width: 8),
-        _buildForwardArrow(),
+        _buildCalendarButton(dense),
+        SizedBox(width: dense ? 8 : 12),
+        _buildBackArrow(dense),
+        SizedBox(width: dense ? 6 : 8),
+        SizedBox(width: dense ? _denseDayLabelWidth : _dayLabelWidth, child: _buildDayLabel(dense)),
+        SizedBox(width: dense ? 6 : 8),
+        _buildForwardArrow(dense),
       ],
     );
   }
 
-  Widget _buildNarrowDayNav()
+  Widget _buildNarrowDayNav(bool dense)
   {
     return Row(
       children: [
-        _buildCalendarButton(),
+        _buildCalendarButton(dense),
         const SizedBox(width: 8),
-        _buildBackArrow(),
-        Expanded(child: Center(child: _buildDayLabel())),
-        _buildForwardArrow(),
+        _buildBackArrow(dense),
+        Expanded(child: Center(child: _buildDayLabel(dense))),
+        _buildForwardArrow(dense),
       ],
     );
   }
 
-  Widget _buildHeader(bool navFits, bool isNarrow)
+  Widget _buildHeader(bool navFits, bool isNarrow, AppWindowSize size)
   {
+    final bool dense = size.isDense;
+
+    // Minimal: the bands on a line of their own and the day across the whole next one.
+    final bool stacked = !navFits || size.isMinimal;
+
     final Widget dayNav = DesktopTourTarget(
       id: kTourCalendarDay,
-      child: navFits ? _buildDayNav() : _buildNarrowDayNav(),
+      child: stacked ? _buildNarrowDayNav(dense) : _buildDayNav(dense),
     );
 
     if (isClosed)
     {
-      return Align(alignment: navFits ? Alignment.centerRight : Alignment.center, child: dayNav);
+      return Align(alignment: stacked ? Alignment.center : Alignment.centerRight, child: dayNav);
     }
 
     final Widget group = Wrap(
-      spacing: _toolGap,
-      runSpacing: 12,
+      spacing: dense ? 12 : _toolGap,
+      runSpacing: dense ? 10 : 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _buildBandPicker(),
+        _buildBandPicker(dense),
         ...tools(isNarrow),
       ],
     );
 
-    if (!navFits)
+    if (stacked)
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           group,
-          const SizedBox(height: 16),
+          SizedBox(height: dense ? 10 : 16),
           dayNav,
         ],
       );
     }
 
     return Wrap(
-      spacing: 24,
-      runSpacing: 16,
+      spacing: dense ? 12 : 24,
+      runSpacing: dense ? 10 : 16,
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
@@ -253,22 +292,45 @@ class CalendarPageShell extends StatelessWidget
     );
   }
 
-  Widget _buildPage(double contentWidth)
+  Widget _buildPage(double contentWidth, AppWindowSize size)
   {
     final navFits = contentWidth >= _dayNavMin;
     final isNarrow = contentWidth < kCalendarListBelow;
+    final double headerGap = size.isDense ? _denseHeaderGap : _headerGap;
+
+    final Widget header = PageTransitionItem(
+      slot: PageTransitionItem.header,
+      child: _buildHeader(navFits, isNarrow, size),
+    );
 
     if (isClosed)
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          PageTransitionItem(
-            slot: PageTransitionItem.header,
-            child: _buildHeader(navFits, isNarrow),
-          ),
-          const SizedBox(height: _headerGap),
+          header,
+          SizedBox(height: headerGap),
           Expanded(child: LessonsClosedDay(message: closureNote)),
+        ],
+      );
+    }
+
+    final Widget content = body(isNarrow);
+
+    if (size.isDense && intro == null && content is CalendarSplitBody)
+    {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          SizedBox(height: headerGap),
+          PageTransitionItem(slot: PageTransitionItem.list, child: content.top),
+          const SizedBox(height: kDenseCalendarCardGap),
+          Expanded(
+            child: PageTransitionScrollView(
+              child: PageTransitionItem(slot: PageTransitionItem.list, child: content.day),
+            ),
+          ),
         ],
       );
     }
@@ -276,16 +338,13 @@ class CalendarPageShell extends StatelessWidget
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PageTransitionItem(
-          slot: PageTransitionItem.header,
-          child: _buildHeader(navFits, isNarrow),
-        ),
-        const SizedBox(height: _headerGap),
+        header,
+        SizedBox(height: headerGap),
         Expanded(
           child: PageTransitionScrollView(
             child: PageTransitionItem(
               slot: PageTransitionItem.list,
-              child: _buildIntroduced(body(isNarrow)),
+              child: _buildIntroduced(content),
             ),
           ),
         ),
@@ -299,7 +358,8 @@ class CalendarPageShell extends StatelessWidget
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page fits the window: the day scrolls inside it.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final AppWindowSize size = AppBreakpoints.of(context);
@@ -325,11 +385,11 @@ class CalendarPageShell extends StatelessWidget
                 const PageWatermark(),
                 Positioned.fill(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(margin, AppTopBar.contentTopInsetFor(size), margin, 28),
+                    padding: EdgeInsets.fromLTRB(margin, AppTopBar.contentTopInsetFor(size), margin, size.isDense ? 16 : 28),
                     child: Center(
                       child: SizedBox(
                         width: width - 2 * margin,
-                        child: _buildPage(width - 2 * margin),
+                        child: _buildPage(width - 2 * margin, size),
                       ),
                     ),
                   ),

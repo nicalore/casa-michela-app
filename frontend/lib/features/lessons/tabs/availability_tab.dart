@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/dialog_components.dart';
@@ -8,6 +9,7 @@ import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../association/models/opening_day_item.dart';
+import '../../people/models/person_face.dart';
 import '../../people/models/person_item.dart';
 import '../models/availability_group.dart';
 import '../models/availability_item.dart';
@@ -88,7 +90,7 @@ class _AvailabilityTabState extends State<AvailabilityTab>
         return startComparison;
       }
 
-      return a.teacher.fullName.compareTo(b.teacher.fullName);
+      return compareByName(a.teacher, b.teacher);
     });
 
     return groups;
@@ -126,7 +128,7 @@ class _AvailabilityTabState extends State<AvailabilityTab>
       subjects.addAll(_subjectsOf(group.teacherTaxCode));
     }
 
-    final sorted = subjects.toList()..sort();
+    final sorted = subjects.toList()..sort(compareAlphabetically);
 
     return sorted;
   }

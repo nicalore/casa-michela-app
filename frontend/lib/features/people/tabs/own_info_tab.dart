@@ -61,7 +61,7 @@ class OwnInfoTab extends StatelessWidget
                   first: identityCard(person),
                   second: residenceCard(person),
                 ),
-                const SizedBox(height: kPersonCardGap),
+                SizedBox(height: personCardGap(context)),
                 PersonDetailCardPair(
                   first: birthCard(person),
                   second: contactsCard(person),

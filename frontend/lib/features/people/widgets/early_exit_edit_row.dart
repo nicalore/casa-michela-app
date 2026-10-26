@@ -79,7 +79,7 @@ class EarlyExitEditRow extends StatelessWidget
     );
 
     final Widget remove = Padding(
-      padding: const EdgeInsets.only(left: 10, top: kPersonFieldButtonInset),
+      padding: EdgeInsets.only(left: 10, top: personFieldButtonInset(context)),
       child: FadeHoverIconButton(
         icon: Icons.delete_outline_rounded,
         color: AppTheme.trialDanger,

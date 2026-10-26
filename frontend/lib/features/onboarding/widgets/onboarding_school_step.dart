@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -19,13 +20,10 @@ class OnboardingSchoolStep extends StatefulWidget
   final PersonItem person;
   final VoidCallback onUpdate;
 
-  final Widget footer;
-
   const OnboardingSchoolStep({
     super.key,
     required this.person,
     required this.onUpdate,
-    required this.footer,
   });
 
   @override
@@ -70,7 +68,10 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
       canGoForward: index < years.length - 1,
       onBack: () => _turn(index - 1),
       onForward: () => _turn(index + 1),
-      header: PageHeading(isCurrent ? 'Anno scolastico attuale' : 'Anno scolastico passato', large: true),
+      header: PageHeading(
+        isCurrent ? 'Anno scolastico attuale' : 'Anno scolastico passato',
+        large: !AppPageDensity.of(context),
+      ),
       headerSpacing: kPageHeadingGap,
       child: SizedBox(
         width: double.infinity,
@@ -92,7 +93,7 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: pageTransitionBlocks([
             _buildYears(years),
-            const SizedBox(height: kPersonSectionGap),
+            SizedBox(height: personSectionGap(context)),
             Center(
               child: AppGradientButton(
                 label: 'MODIFICA ANNI SCOLASTICI',
@@ -104,8 +105,6 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
                 ),
               ),
             ),
-            const SizedBox(height: kPersonSectionGap),
-            widget.footer,
           ]),
         ),
       ),

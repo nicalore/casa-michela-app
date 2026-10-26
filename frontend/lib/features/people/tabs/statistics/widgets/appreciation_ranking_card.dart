@@ -8,10 +8,7 @@ import 'stat_filters.dart';
 import 'stat_widgets.dart';
 
 const Color _accent = AppTheme.trialDeepWater;
-const Color _columnDivider = AppTheme.trialLine;
 
-// Two columns from here up: one long column leaves the right half empty.
-const double _twoColumnsFrom = 900;
 
 const Duration _fetchFade = Duration(milliseconds: 150);
 
@@ -70,6 +67,12 @@ class TeacherAppreciationCard extends StatelessWidget
     );
   }
 
+  // A single column folds in the minimal window.
+  Widget _single(BuildContext context, int count)
+  {
+    return RankingRows(rows: [for (var position = 1; position <= count; position++) _row(context, position)]);
+  }
+
   // Places fill the left column first, then continue down the right one.
   Widget _rows(BuildContext context)
   {
@@ -80,12 +83,15 @@ class TeacherAppreciationCard extends StatelessWidget
       return const EmptyChartMessage(fontSize: 14);
     }
 
+    // Two columns while they fit: one long column leaves the right half empty.
+    final double twoColumnsFrom = StatMetrics.of(context).listsFrom;
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < _twoColumnsFrom || count < 2)
+        if (constraints.maxWidth < twoColumnsFrom || count < 2)
         {
-          return _column(context, 1, count);
+          return _single(context, count);
         }
 
         final half = (count + 1) ~/ 2;
@@ -95,10 +101,7 @@ class TeacherAppreciationCard extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: _column(context, 1, half)),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: VerticalDivider(color: _columnDivider, thickness: 1),
-              ),
+              const StatColumnDivider(),
               Expanded(child: _column(context, half + 1, count)),
             ],
           ),

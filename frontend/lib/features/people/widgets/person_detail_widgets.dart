@@ -9,22 +9,31 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../models/person_item.dart';
 
 const double _rowGap = 16;
+const double _denseRowGap = 9;
 
 const double kPersonCardGap = 24;
+const double _denseCardGap = 14;
 
 // Keeps the last row's shadow from being clipped by the scroll view.
 const double kPersonGridShadowRoom = 12;
 const double kPersonSectionGap = 56;
+const double _denseSectionGap = 24;
+
+// Between cards and between a page's parts: tighter on a dense page (AppPageDensity).
+double personCardGap(BuildContext context) => AppPageDensity.of(context) ? _denseCardGap : kPersonCardGap;
+
+double personSectionGap(BuildContext context) => AppPageDensity.of(context) ? _denseSectionGap : kPersonSectionGap;
 
 // Centres a round icon button on the box of an AppTextField beside it.
 const double kPersonFieldButtonSize = 36;
-const double kPersonFieldButtonInset =
-    AppTextField.labelBlockHeight + (AppTextField.boxHeight - kPersonFieldButtonSize) / 2;
+double personFieldButtonInset(BuildContext context) =>
+    AppTextField.labelBlockHeightOf(context) + (AppTextField.boxHeightOf(context) - kPersonFieldButtonSize) / 2;
 
 const double kPersonDialogButtonHeight = 52;
 const double kPersonDialogButtonFontSize = 14;
@@ -86,6 +95,9 @@ class PersonDetailCardPair extends StatelessWidget
   static const double _breakpoint = 820.0;
   static const double _gap = 24;
 
+  // Smaller cards keep their pair side by side on narrower rows.
+  static const double _denseBreakpointShare = 0.75;
+
   final Widget first;
   final Widget second;
 
@@ -101,16 +113,19 @@ class PersonDetailCardPair extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+    final double gap = dense ? _denseCardGap : _gap;
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < breakpoint)
+        if (constraints.maxWidth < (dense ? breakpoint * _denseBreakpointShare : breakpoint))
         {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               first,
-              const SizedBox(height: _gap),
+              SizedBox(height: gap),
               second,
             ],
           );
@@ -121,7 +136,7 @@ class PersonDetailCardPair extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(child: first),
-              const SizedBox(width: _gap),
+              SizedBox(width: gap),
               Expanded(child: second),
             ],
           ),
@@ -156,7 +171,7 @@ class PersonDetailCard extends StatelessWidget
     this.selectable = true,
   });
 
-  List<Widget> _buildRows()
+  List<Widget> _buildRows(bool dense)
   {
     final widgets = <Widget>[];
 
@@ -198,7 +213,7 @@ class PersonDetailCard extends StatelessWidget
 
       if (i != rows.length - 1)
       {
-        row = Padding(padding: const EdgeInsets.only(bottom: _rowGap), child: row);
+        row = Padding(padding: EdgeInsets.only(bottom: dense ? _denseRowGap : _rowGap), child: row);
       }
 
       widgets.add(row);
@@ -217,7 +232,7 @@ class PersonDetailCard extends StatelessWidget
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: _buildRows(),
+        children: _buildRows(AppPageDensity.of(context)),
       ),
     );
   }
@@ -302,31 +317,36 @@ class PersonFact
 class PersonFactsRow extends StatelessWidget
 {
   static const double _stackedGap = 20;
+  static const double _denseStackedGap = 12;
 
   final List<PersonFact> facts;
 
   const PersonFactsRow({super.key, required this.facts});
 
-  Widget _buildFact(PersonFact fact)
+  // [start]: stacked in a dense page, label over value at the left like the rows of the other cards.
+  Widget _buildFact(PersonFact fact, bool dense, {bool start = false})
   {
+    final TextAlign align = start ? TextAlign.start : TextAlign.center;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: start ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         Text(
           fact.label,
-          textAlign: TextAlign.center,
+          textAlign: align,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
+            fontSize: dense ? 12.5 : 14,
             fontWeight: FontWeight.w600,
             color: AppTheme.trialMutedText,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: dense ? 4 : 8),
         Text(
           fact.value,
-          textAlign: TextAlign.center,
+          textAlign: align,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
+            fontSize: dense ? 15 : 18,
             fontWeight: FontWeight.w700,
             color: fact.highlight ? AppTheme.trialDanger : AppTheme.trialInk,
           ),
@@ -338,6 +358,7 @@ class PersonFactsRow extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
     final double needed = facts.fold(0, (sum, fact) => sum + fact.minWidth);
 
     return LayoutBuilder(
@@ -347,10 +368,11 @@ class PersonFactsRow extends StatelessWidget
         {
           return Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: dense ? CrossAxisAlignment.start : CrossAxisAlignment.center,
             children: [
               for (var i = 0; i < facts.length; i++) ...[
-                if (i > 0) const SizedBox(height: _stackedGap),
-                _buildFact(facts[i]),
+                if (i > 0) SizedBox(height: dense ? _denseStackedGap : _stackedGap),
+                _buildFact(facts[i], dense, start: dense),
               ],
             ],
           );
@@ -365,7 +387,7 @@ class PersonFactsRow extends StatelessWidget
               Flexible(
                 flex: fact.flex,
                 fit: FlexFit.loose,
-                child: _buildFact(fact),
+                child: _buildFact(fact, dense),
               ),
           ],
         );

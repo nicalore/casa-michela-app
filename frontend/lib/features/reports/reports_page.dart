@@ -16,8 +16,10 @@ import '../../shared/widgets/app_filter_pill.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/filter_menu.dart';
+import '../../shared/widgets/page_density.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
+import '../../shared/widgets/screen_heading.dart';
 import '../../shared/widgets/snackbar.dart';
 import 'report_item.dart';
 import 'report_strings.dart';
@@ -27,13 +29,15 @@ import 'widgets/report_dialog.dart';
 
 const double _columnWidth = 1080;
 const double _cardGap = 14;
+const double _denseCardGap = 10;
 const double _shadowRoom = 20;
 const double _titleHeight = 52;
 const double _menuWidth = 230;
 
 // The back button's width and a gap.
 const double _backRoom = 84 + 36;
-const double _belowBackGap = 24;
+
+const double _denseHeadingGap = 12;
 
 // The reports of the kinds the reader receives, until somebody resolves them.
 class ReportsPage extends StatefulWidget
@@ -130,8 +134,26 @@ class _ReportsPageState extends State<ReportsPage>
     );
   }
 
-  List<Widget> _header(int count)
+  List<Widget> _header(int count, AppWindowSize size)
   {
+    if (size.isDense)
+    {
+      return [
+        PageTransitionItem(
+          slot: PageTransitionItem.header,
+          child: ScreenHeading(
+            title: kReportsTitle,
+            backTooltip: 'Torna indietro',
+            onBack: () => context.go(_origin),
+            // Nothing to solve: the card in the middle says it instead.
+            count: !_board.loaded ? '' : (count > 0 ? reportCountLabel(count) : null),
+            trailing: _kinds.length > 1 ? _filter() : null,
+          ),
+        ),
+        const SizedBox(height: _denseHeadingGap),
+      ];
+    }
+
     return [
       PageTransitionItem(
         slot: PageTransitionItem.header,
@@ -186,7 +208,7 @@ class _ReportsPageState extends State<ReportsPage>
                 padding: const EdgeInsets.all(_shadowRoom),
                 sliver: SliverList.separated(
                   itemCount: reports.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: _cardGap),
+                  separatorBuilder: (context, index) => SizedBox(height: AppPageDensity.of(context) ? _denseCardGap : _cardGap),
                   itemBuilder: (context, index) => PageTransitionItem(
                     slot: PageTransitionItem.list,
                     child: ReportCard(
@@ -212,7 +234,8 @@ class _ReportsPageState extends State<ReportsPage>
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: its sections scroll, not the page.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final AppWindowSize size = AppBreakpoints.of(context);
@@ -238,38 +261,42 @@ class _ReportsPageState extends State<ReportsPage>
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    padding: EdgeInsets.only(left: margin, right: margin, top: 24),
+                    padding: EdgeInsets.only(left: margin, right: margin, top: size.isDense ? 16 : 24),
                     child: Stack(
                       children: [
-                        Align(
-                          alignment: Alignment.topLeft,
-                          child: AppBackButton(
-                            tooltip: 'Torna indietro',
-                            onTap: () => context.go(_origin),
+                        // Below the wide window the back button leads the line of the title.
+                        if (!size.isDense)
+                          Align(
+                            alignment: Alignment.topLeft,
+                            child: AppBackButton(
+                              tooltip: 'Torna indietro',
+                              onTap: () => context.go(_origin),
+                            ),
                           ),
-                        ),
                         LayoutBuilder(
                           builder: (context, constraints)
                           {
-                            // Centred, and clear of the back button on both sides; below it where that leaves too little.
-                            final bool below = size.isNarrow;
-                            final double side = below ? 0 : math.max(_backRoom, (constraints.maxWidth - _columnWidth) / 2);
+                            // Centred, and clear of the back button on both sides when it stands apart.
+                            final double side = math.max(size.isDense ? 0 : _backRoom, (constraints.maxWidth - _columnWidth) / 2);
 
                             return Padding(
-                              padding: EdgeInsets.only(left: side, right: side, top: below ? AppBackButton.height + _belowBackGap : 0),
+                              padding: EdgeInsets.only(left: side, right: side),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  ..._header(reports.length),
+                                  ..._header(reports.length, size),
                                   Expanded(
-                                    child: _board.loaded && reports.isEmpty
-                                        ? const Center(
-                                            child: PageTransitionItem(
-                                              slot: PageTransitionItem.list,
-                                              child: AppEmptyCard(icon: Icons.task_alt_rounded, message: kNoReports),
-                                            ),
-                                          )
-                                        : _list(reports),
+                                    child: AppPageDensity(
+                                      dense: size.isDense,
+                                      child: _board.loaded && reports.isEmpty
+                                          ? const Center(
+                                              child: PageTransitionItem(
+                                                slot: PageTransitionItem.list,
+                                                child: AppEmptyCard(icon: Icons.task_alt_rounded, message: kNoReports),
+                                              ),
+                                            )
+                                          : _list(reports),
+                                    ),
                                   ),
                                 ],
                               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_empty_card.dart';
@@ -13,6 +14,7 @@ import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
+import '../../people/models/person_face.dart';
 import '../../people/models/person_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/presence_group.dart';
@@ -108,7 +110,7 @@ class _BookingsTabState extends State<BookingsTab>
         return startComparison;
       }
 
-      return a.student.fullName.compareTo(b.student.fullName);
+      return compareByName(a.student, b.student);
     });
 
     return groups;
@@ -158,7 +160,7 @@ class _BookingsTabState extends State<BookingsTab>
       subjects.addAll(_disciplinesOf(group));
     }
 
-    final sorted = subjects.toList()..sort();
+    final sorted = subjects.toList()..sort(compareAlphabetically);
 
     return sorted;
   }

@@ -3,14 +3,18 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'carousel_arrow_button.dart';
+import 'dialog_density.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
 
 const double _pieceGap = 26;
+const double _densePieceGap = 16;
 const double _windowMargin = 16;
+const double _denseWindowMargin = 12;
 
 const double _staggerStep = 0.11;
 const double _staggerSpan = 0.54;
@@ -20,9 +24,23 @@ const double _pieceScale = 0.92;
 const double _shadowRoom = 12;
 
 const double _pillRadius = 28;
+const double _densePillRadius = 22;
 const double kDialogPillPadding = 28;
+const double kDenseDialogPillPadding = 20;
 
 const double _closeSize = 44;
+
+const double _arrowsGap = 12;
+
+// A wizard's arrows in the footer, as the carousel hands them over.
+const double _handedArrowSize = 44;
+
+// Beside the buttons while these keep this much room; else on a row of their own above them.
+const double _buttonsBesideArrowsLeast = 300;
+const double _denseCloseSize = 40;
+
+// A face beside the title is drawn at this height in a dense dialog.
+const double _denseLeadingHeight = 56;
 
 const double _titleRowRoom = 460;
 
@@ -72,10 +90,10 @@ class AppDialogStack extends StatelessWidget
     this.shrinkTitle = false,
   });
 
-  Widget _buildTitle()
+  Widget _buildTitle(bool dense)
   {
     final TextStyle style = GoogleFonts.plusJakartaSans(
-      fontSize: 26,
+      fontSize: dense ? 21 : 26,
       fontWeight: FontWeight.w700,
       height: 1.2,
       color: AppTheme.trialOcean,
@@ -93,7 +111,7 @@ class AppDialogStack extends StatelessWidget
     return OverflowTooltipText(text: title, maxLines: 1, style: style);
   }
 
-  Widget _buildTitleRow(BuildContext context)
+  Widget _buildTitleRow(BuildContext context, bool dense)
   {
     final Widget heading = Column(
       mainAxisSize: MainAxisSize.min,
@@ -105,17 +123,17 @@ class AppDialogStack extends StatelessWidget
           overflow: TextOverflow.ellipsis,
           textWidthBasis: TextWidthBasis.longestLine,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
+            fontSize: dense ? 10 : 11,
             fontWeight: FontWeight.w600,
-            letterSpacing: 1.4,
+            letterSpacing: dense ? 1.2 : 1.4,
             height: 1.2,
             color: AppTheme.trialMutedText,
           ),
         ),
         const SizedBox(height: 2),
-        _buildTitle(),
+        _buildTitle(dense),
         if (subtitle != null) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: dense ? 6 : 8),
           subtitle!,
         ],
       ],
@@ -124,18 +142,27 @@ class AppDialogStack extends StatelessWidget
     final bool tight = MediaQuery.sizeOf(context).width < _titleRowRoom;
     final bool besideAFace = leading != null && !tight;
 
+    final EdgeInsets padding = switch ((besideAFace, dense))
+    {
+      (true, false) => const EdgeInsets.fromLTRB(22, 20, 36, 20),
+      (true, true) => const EdgeInsets.fromLTRB(14, 12, 24, 12),
+      (false, false) => EdgeInsets.fromLTRB(tight ? 20 : 36, 22, tight ? 20 : 36, 24),
+      (false, true) => EdgeInsets.fromLTRB(tight ? 18 : 26, 14, tight ? 18 : 26, 16),
+    };
+
     final Widget pill = AppDialogPill(
-      padding: besideAFace
-          ? const EdgeInsets.fromLTRB(22, 20, 36, 20)
-          : EdgeInsets.fromLTRB(tight ? 20 : 36, 22, tight ? 20 : 36, 24),
+      padding: padding,
       child: switch (header)
       {
         final header? => header,
         null when besideAFace => Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              leading!,
-              const SizedBox(width: 18),
+              if (dense)
+                SizedBox(height: _denseLeadingHeight, child: FittedBox(child: leading))
+              else
+                leading!,
+              SizedBox(width: dense ? 14 : 18),
               Flexible(child: heading),
             ],
           ),
@@ -148,18 +175,22 @@ class AppDialogStack extends StatelessWidget
       return pill;
     }
 
+    final double close = dense ? _denseCloseSize : _closeSize;
+
     return Stack(
       alignment: Alignment.center,
       children: [
         Padding(
           padding: tight
-              ? const EdgeInsets.only(right: _closeSize + 8)
-              : const EdgeInsets.symmetric(horizontal: _closeSize + 16),
+              ? EdgeInsets.only(right: close + 8)
+              : EdgeInsets.symmetric(horizontal: close + (dense ? 10 : 16)),
           child: pill,
         ),
         Positioned(
           right: 0,
           child: CarouselArrowButton(
+            size: close,
+            iconSize: dense ? 18 : CarouselArrowButton.defaultIconSize,
             icon: Icons.close_rounded,
             hoverColor: AppTheme.trialGoldSurface,
             hoverIconColor: AppTheme.trialTealDeep,
@@ -171,7 +202,7 @@ class AppDialogStack extends StatelessWidget
     );
   }
 
-  List<Widget> _buildBody(double width)
+  List<Widget> _buildBody(double width, double gap)
   {
     if (!fillLast)
     {
@@ -187,7 +218,7 @@ class AppDialogStack extends StatelessWidget
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   for (var i = 0; i < children.length; i++) ...[
-                    if (i > 0) const SizedBox(height: _pieceGap),
+                    if (i > 0) SizedBox(height: gap),
                     AppDialogPiece(index: i + 1, child: children[i]),
                   ],
                 ],
@@ -200,10 +231,10 @@ class AppDialogStack extends StatelessWidget
 
     return [
       for (var i = 0; i < children.length - 1; i++) ...[
-        if (i > 0) const SizedBox(height: _pieceGap),
+        if (i > 0) SizedBox(height: gap),
         _atMost(width, AppDialogPiece(index: i + 1, child: children[i])),
       ],
-      if (children.length > 1) const SizedBox(height: _pieceGap),
+      if (children.length > 1) SizedBox(height: gap),
       Flexible(
         fit: FlexFit.loose,
         child: _atMost(
@@ -225,45 +256,130 @@ class AppDialogStack extends StatelessWidget
     final window = MediaQuery.sizeOf(context);
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
 
-    final double room = window.width - 2 * _windowMargin;
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final double margin = dense ? _denseWindowMargin : _windowMargin;
+    final double gap = dense ? _densePieceGap : _pieceGap;
+
+    final double room = window.width - 2 * margin;
     final double pieceWidth = math.min(maxWidth, room);
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: keyboard),
-      child: _WhileItIsThere(
-        // Full screen on purpose: the pieces are aligned within the whole window.
-        child: Align(
-          alignment: alignment,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: room,
-              maxHeight: window.height - keyboard - 2 * _windowMargin,
-            ),
-            // Gives text a Material (no yellow underline); transparent, so taps pass through.
-            child: Material(
-              type: MaterialType.transparency,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  AppDialogPiece(index: 0, child: _buildTitleRow(context)),
-                  const SizedBox(height: _pieceGap),
-                  ..._buildBody(pieceWidth),
-                  if (footer != null) ...[
-                    const SizedBox(height: _pieceGap),
-                    _atMost(
-                      pieceWidth,
-                      AppDialogPiece(index: children.length + 1, child: footer!),
+    Widget frame(AppDialogArrows arrows)
+    {
+      return Padding(
+        padding: EdgeInsets.only(bottom: keyboard),
+        child: _WhileItIsThere(
+          // Full screen on purpose: the pieces are aligned within the whole window.
+          child: Align(
+            alignment: alignment,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: room,
+                maxHeight: window.height - keyboard - 2 * margin,
+              ),
+              // Gives text a Material (no yellow underline); transparent, so taps pass through.
+              child: Material(
+                type: MaterialType.transparency,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    AppDialogPiece(index: 0, child: _buildTitleRow(context, dense)),
+                    SizedBox(height: gap),
+                    ..._buildBody(pieceWidth, gap),
+                    ListenableBuilder(
+                      listenable: arrows,
+                      builder: (context, _) => _buildFooter(arrows.arrows, pieceWidth, gap),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
           ),
         ),
+      );
+    }
+
+    return _ArrowsHost(
+      builder: (arrows) => AppDialogArrowsScope(
+        arrows: arrows,
+        child: AppDialogDensity(dense: dense, child: frame(arrows)),
       ),
     );
   }
+
+  // A wizard's arrows, when its carousel hands them over: beside the buttons, or above them if room is short.
+  Widget _buildFooter((Widget, Widget)? arrows, double width, double gap)
+  {
+    final Widget? footer = this.footer;
+
+    final bool beside = footer == null || width - 2 * (_handedArrowSize + _arrowsGap) >= _buttonsBesideArrowsLeast;
+
+    final Widget? bottom = switch (arrows)
+    {
+      null => footer,
+      (final Widget back, final Widget forward) when beside => Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            back,
+            const SizedBox(width: _arrowsGap),
+            if (footer != null) ...[
+              Flexible(child: footer),
+              const SizedBox(width: _arrowsGap),
+            ],
+            forward,
+          ],
+        ),
+      (final Widget back, final Widget forward) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [back, const SizedBox(width: _arrowsGap), forward],
+            ),
+            const SizedBox(height: _arrowsGap),
+            footer,
+          ],
+        ),
+    };
+
+    if (bottom == null)
+    {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(height: gap),
+        _atMost(width, AppDialogPiece(index: children.length + 1, child: bottom)),
+      ],
+    );
+  }
+}
+
+class _ArrowsHost extends StatefulWidget
+{
+  final Widget Function(AppDialogArrows arrows) builder;
+
+  const _ArrowsHost({required this.builder});
+
+  @override
+  State<_ArrowsHost> createState() => _ArrowsHostState();
+}
+
+class _ArrowsHostState extends State<_ArrowsHost>
+{
+  final AppDialogArrows _arrows = AppDialogArrows();
+
+  @override
+  void dispose()
+  {
+    _arrows.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_arrows);
 }
 
 class _WhileItIsThere extends StatelessWidget
@@ -412,8 +528,10 @@ class _AppDialogPieceState extends State<AppDialogPiece>
 class AppDialogPill extends StatelessWidget
 {
   final Widget child;
-  final EdgeInsets padding;
-  final double radius;
+
+  // Both default to the dialog's density.
+  final EdgeInsets? padding;
+  final double? radius;
 
   final bool expand;
 
@@ -422,8 +540,8 @@ class AppDialogPill extends StatelessWidget
   const AppDialogPill({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(kDialogPillPadding),
-    this.radius = _pillRadius,
+    this.padding,
+    this.radius,
     this.shadow = AppTheme.dialogShadow,
     this.expand = false,
   });
@@ -431,7 +549,8 @@ class AppDialogPill extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final borderRadius = BorderRadius.circular(radius);
+    final bool dense = AppDialogDensity.of(context);
+    final borderRadius = BorderRadius.circular(radius ?? (dense ? _densePillRadius : _pillRadius));
 
     final Widget piece = Container(
       decoration: BoxDecoration(borderRadius: borderRadius, boxShadow: shadow),
@@ -439,7 +558,10 @@ class AppDialogPill extends StatelessWidget
         color: Colors.white,
         borderRadius: borderRadius,
         elevation: 0,
-        child: Padding(padding: padding, child: child),
+        child: Padding(
+          padding: padding ?? EdgeInsets.all(dense ? kDenseDialogPillPadding : kDialogPillPadding),
+          child: child,
+        ),
       ),
     );
 
@@ -457,14 +579,16 @@ class AppScrollingDialogPill extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppDialogDensity.of(context);
+
     return AppDialogPill(
       expand: true,
       padding: EdgeInsets.zero,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(_pillRadius),
+        borderRadius: BorderRadius.circular(dense ? _densePillRadius : _pillRadius),
         child: ScrollEdgeFade(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(kDialogPillPadding),
+            padding: EdgeInsets.all(dense ? kDenseDialogPillPadding : kDialogPillPadding),
             child: child,
           ),
         ),

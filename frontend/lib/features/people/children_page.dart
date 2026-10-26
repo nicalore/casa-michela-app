@@ -9,12 +9,14 @@ import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_gradient_button.dart';
+import '../../shared/widgets/app_menu.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/desktop_tour.dart';
+import '../../shared/widgets/page_density.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/scroll_edge_fade.dart';
@@ -22,11 +24,13 @@ import '../onboarding/onboarding_steps.dart';
 import 'children_tour.dart';
 import 'edit/person_edit_report_dialog.dart';
 import 'models/child_item.dart';
+import 'models/person_face.dart';
 import 'models/person_item.dart';
 import 'tabs/person_memberships_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
 import 'widgets/person_detail_cards.dart';
+import 'widgets/person_detail_header.dart';
 import 'widgets/person_detail_widgets.dart';
 import 'widgets/profile_avatar.dart';
 
@@ -35,6 +39,12 @@ const String _parentRole = 'PARENT';
 const String _module = 'Figli';
 
 const double _cardsWidth = 1200;
+
+// Above the footer on the wide window; denser pages keep their own gap.
+const double _footerGap = 48;
+
+const double _childrenMenuWidth = 260;
+const double _menuFace = 28;
 
 // One group per child, each with these sections in this order.
 const List<String> _entries = [
@@ -192,12 +202,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
           _apiService.getPerson(child.fiscalCode),
       ]);
 
-      children.sort((a, b)
-      {
-        final int byName = a.firstName.compareTo(b.firstName);
-
-        return byName != 0 ? byName : a.lastName.compareTo(b.lastName);
-      });
+      children.sort(compareByName);
 
       if (!mounted)
       {
@@ -287,6 +292,53 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
     );
   }
 
+  // Below the wide window one child at a time: their face and name open the others, their sections beside.
+  Widget _buildHeading()
+  {
+    final int child = _selectedSection ~/ _entries.length;
+    final int entry = _selectedSection % _entries.length;
+    final PersonItem shown = _children[child];
+
+    return AppSectionTabs(
+      title: '${shown.firstName} ${shown.lastName}',
+      titleSize: kPersonHeadingNameSize,
+      leading: Padding(
+        padding: const EdgeInsets.only(right: kPersonHeadingFaceGap),
+        child: personHeadingFace(context, shown),
+      ),
+      leadingWidth: kPersonHeadingFace + kPersonHeadingFaceGap,
+      titleMenu: _children.length > 1 ? (context, close) => _buildChildrenMenu(child, entry, close) : null,
+      groups: const [RailGroup(entries: _entries)],
+      selectedIndex: entry,
+      onSelected: (index) => _selectSection(child * _entries.length + index),
+      tours: child == _toured ? const {_statsIndex: kTourChildrenToStats} : const {},
+    );
+  }
+
+  // Another child opens on the same section.
+  Widget _buildChildrenMenu(int shown, int entry, VoidCallback close)
+  {
+    return AppMenuCard(
+      width: _childrenMenuWidth,
+      children: [
+        const SizedBox(height: 6),
+        for (final (index, child) in _children.indexed)
+          AppMenuItem(
+            leading: personHeadingFace(context, child, size: _menuFace),
+            text: '${child.firstName} ${child.lastName}',
+            current: index == shown,
+            dense: true,
+            onTap: ()
+            {
+              close();
+              _selectSection(index * _entries.length + entry);
+            },
+          ),
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+
   // Visited sections stay mounted so each keeps its fetches and filters.
   Widget _buildSectionContent()
   {
@@ -364,16 +416,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (!size.hasRail) ...[
-                PageTransitionItem(
-                  slot: PageTransitionItem.frame,
-                  child: AppSectionTabs(
-                    title: _module,
-                    groups: _sections,
-                    selectedIndex: _selectedSection,
-                    onSelected: _selectSection,
-                    tours: {_toured * _entries.length + _statsIndex: kTourChildrenToStats},
-                  ),
-                ),
+                PageTransitionItem(slot: PageTransitionItem.frame, child: _buildHeading()),
                 const SizedBox(height: kSectionTabsGap),
               ],
               Expanded(key: const ValueKey('children-sections'), child: _buildSectionContent()),
@@ -390,7 +433,8 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: its sections scroll, not the page.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final AppWindowSize size = AppBreakpoints.of(context);
@@ -423,7 +467,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
                       top: AppTopBar.contentTopInsetFor(size),
                       bottom: 24,
                     ),
-                    child: _buildBody(size),
+                    child: AppPageDensity(dense: size.isDense, child: _buildBody(size)),
                   ),
                 ),
                 // Last in the stack so the bar and its menu stay above the page.
@@ -449,6 +493,8 @@ class _ChildInfoTab extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    // Below the wide window the face is in the heading.
+    final bool dense = AppPageDensity.of(context);
     final Widget face = ProfileAvatar(
       profileImageUrl: person.profileImageUrl,
       firstName: person.firstName,
@@ -467,15 +513,15 @@ class _ChildInfoTab extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.start,
               children: pageTransitionBlocks([
                 PersonDetailCardPair(
-                  first: identityCard(person, leading: face),
+                  first: identityCard(person, leading: dense ? null : face),
                   second: residenceCard(person),
                 ),
-                const SizedBox(height: kPersonCardGap),
+                SizedBox(height: personCardGap(context)),
                 PersonDetailCardPair(
                   first: birthCard(person),
                   second: contactsCard(person),
                 ),
-                const SizedBox(height: 48),
+                SizedBox(height: dense ? personSectionGap(context) : _footerGap),
                 footer,
               ]),
             ),
@@ -503,11 +549,13 @@ class _ChildOtherInfoTab extends StatelessWidget
       if (!person.isAdult) minorSafetyCard(person),
     ];
 
+    final bool dense = AppPageDensity.of(context);
+
     if (cards.isEmpty)
     {
       return AppEmptyRoom(
         card: const AppEmptyCard(icon: Icons.info_outline_rounded, message: 'Nessuna informazione aggiuntiva.'),
-        gap: 48,
+        gap: dense ? personSectionGap(context) : _footerGap,
         below: [footer],
       );
     }
@@ -522,10 +570,10 @@ class _ChildOtherInfoTab extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
                 for (var i = 0; i < cards.length; i++) ...[
-                  if (i > 0) const SizedBox(height: kPersonCardGap),
+                  if (i > 0) SizedBox(height: personCardGap(context)),
                   cards[i],
                 ],
-                const SizedBox(height: 48),
+                SizedBox(height: dense ? personSectionGap(context) : _footerGap),
                 footer,
               ]),
             ),

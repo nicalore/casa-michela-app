@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,6 +11,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/desktop_tour.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../people/models/person_item.dart';
@@ -79,6 +82,51 @@ const double _markIconSize = 21;
 const double _tooltipMaxWidth = 380;
 
 const List<String> _modes = [kPresenceMode, kOnlineMode];
+
+// Below the wide window: a smaller card, the date beside the pupils while they have room, a lesson on one line.
+const double _denseRadius = 20;
+const EdgeInsets _densePadding = EdgeInsets.fromLTRB(16, 14, 16, 14);
+const double _denseRimWidth = 2;
+const double _denseDateWidth = 128;
+const double _denseGap = 18;
+const double _denseOneLineFrom = 640;
+const double _denseLessonOneLineFrom = 540;
+
+// Name, «Nessuna prenotazione» and both add buttons need about this much of a pupil's line.
+const double _denseButtonsBesideFrom = 680;
+
+// The pupils' names make a column as wide as the longest of the day, up to this.
+const double _denseNameMaxWidth = 160;
+const double _denseNameGap = 10;
+
+TextStyle get _denseNameStyle => GoogleFonts.plusJakartaSans(
+  fontSize: 14.5,
+  fontWeight: FontWeight.w700,
+  height: 1.2,
+  color: AppTheme.trialOcean,
+);
+
+const double _denseButtonHeight = 36;
+const double _denseButtonGap = 8;
+
+const double _denseLaneHeaderHeight = 36;
+const double _denseLaneGap = 10;
+const double _denseLaneInnerGap = 6;
+const double _denseModeGap = 10;
+const double _denseModeRowGap = 5;
+const double _denseRowGap = 5;
+
+const EdgeInsets _denseRowPadding = EdgeInsets.fromLTRB(12, 7, 6, 7);
+const double _denseRowRadius = 12;
+const double _denseDurationWidth = 58;
+
+const double _denseChipHeight = 22;
+const double _denseActionSize = 28;
+const double _denseActionIconSize = 19;
+const double _denseMarkSize = 28;
+const double _denseMarkIconSize = 18;
+const double _denseTrailingWidth = 2 * (_denseMarkSize + 2) + 3 * _denseActionSize + 2 * 2 + _actionGap;
+const double _denseMarksWidth = 2 * _denseMarkSize + 2;
 
 class BookingLane
 {
@@ -427,33 +475,67 @@ class _BookingDayRowState extends State<BookingDayRow>
     );
   }
 
-  List<Widget> _buildAddButtons(BookingLane lane)
+  List<Widget> _buildAddButtons(BookingLane lane, {bool dense = false})
   {
+    final double height = dense ? _denseButtonHeight : _buttonHeight;
+
     return [
       for (final mode in _addableModes(lane))
         AppGradientButton(
           label: mode == kOnlineMode ? 'AGGIUNGI ONLINE' : 'AGGIUNGI IN PRESENZA',
           icon: Icons.add_rounded,
-          height: _buttonHeight,
+          height: height,
           fontSize: _buttonFontSize,
-          radius: _buttonHeight / 2,
+          radius: height / 2,
           horizontalPadding: 18,
           onPressed: () => widget.onAdd(lane, mode),
         ),
     ];
   }
 
-  Widget _buildLane(BookingLane lane, {required bool folded, required BookingsTourPlaces tour})
+  // Dense: the names' column, so «Nessuna prenotazione» lines up under the day; a bin after a name widens it.
+  double _denseNameColumn(BuildContext context)
+  {
+    double widest = 0;
+
+    for (final lane in _lanes)
+    {
+      final TextPainter painter = TextPainter(
+        text: TextSpan(text: lane.pupil.firstName, style: DefaultTextStyle.of(context).style.merge(_denseNameStyle)),
+        textDirection: TextDirection.ltr,
+        textScaler: MediaQuery.textScalerOf(context),
+        maxLines: 1,
+      )..layout();
+
+      widest = math.max(widest, painter.width);
+      painter.dispose();
+    }
+
+    final bool bins = _lanes.any(_canDeleteDay);
+
+    return math.min(widest, _denseNameMaxWidth) + (bins ? _actionGap + _denseActionSize : 0);
+  }
+
+  Widget _buildLane(
+    BookingLane lane, {
+    required bool folded,
+    required BookingsTourPlaces tour,
+    bool dense = false,
+    bool buttonsBelow = false,
+  })
   {
     return _LaneView(
       lane: lane,
       folded: folded,
+      dense: dense,
+      nameWidth: dense && _named ? _denseNameColumn(context) : 0,
+      buttonsBelow: buttonsBelow,
       named: _named,
       tour: tour,
       ministrySubjects: widget.ministrySubjects,
       teachers: widget.teachers,
       readOnly: widget.readOnly,
-      addButtons: _buildAddButtons(lane),
+      addButtons: _buildAddButtons(lane, dense: dense),
       slotClosed: _slotClosed,
       bandClosed: (band) => widget.readOnly || _hasClosed(band),
       canDeleteDay: _canDeleteDay(lane),
@@ -470,19 +552,162 @@ class _BookingDayRowState extends State<BookingDayRow>
     );
   }
 
-  Widget _buildLanes({required bool folded, required BookingsTourPlaces tour})
+  Widget _buildLanes({
+    required bool folded,
+    required BookingsTourPlaces tour,
+    bool dense = false,
+    bool buttonsBelow = false,
+  })
   {
+    final double gap = dense ? _denseLaneGap : _laneGap;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final lane in _lanes) ...[
           if (lane != _lanes.first) ...[
-            const SizedBox(height: _laneGap),
+            SizedBox(height: gap),
             Container(height: 1, color: AppTheme.trialLine),
-            const SizedBox(height: _laneGap),
+            SizedBox(height: gap),
           ],
-          _buildLane(lane, folded: folded, tour: tour),
+          _buildLane(lane, folded: folded, tour: tour, dense: dense, buttonsBelow: buttonsBelow),
         ],
+      ],
+    );
+  }
+
+  Widget _buildDenseDayName()
+  {
+    return DescenderRoom(
+      child: Text(
+        formatDayMonthFull(widget.day),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          height: 1.15,
+          color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+        ),
+      ),
+    );
+  }
+
+  // The bin of a lone pupil's day sits by the date, as in the wide card.
+  Widget? _buildDenseDayBin(BookingsTourPlaces tour)
+  {
+    final bool lone = !_named && !(_isShut && _isEmpty);
+
+    if (!lone || !_canDeleteDay(_lanes.single))
+    {
+      return null;
+    }
+
+    final String? bin = tour.dayBin == _lanes.single.pupil.fiscalCode ? kTourBookingsDayBin : null;
+
+    return DesktopTourTarget(
+      id: bin,
+      child: _HoverAction(
+        visible: _hover,
+        litBy: bin,
+        dense: true,
+        icon: Icons.delete_outline_rounded,
+        color: AppTheme.trialDanger,
+        tooltip: 'Elimina la giornata',
+        onTap: () => widget.onDeleteDay(_lanes.single),
+      ),
+    );
+  }
+
+  Widget _buildDenseDateColumn(BookingsTourPlaces tour)
+  {
+    final Widget? bin = _buildDenseDayBin(tour);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 6,
+          runSpacing: 3,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            AppEyebrow(weekdayFullName(widget.day.weekday)),
+            if (widget.isToday) const _TodayPill(),
+            ?bin,
+          ],
+        ),
+        const SizedBox(height: 2),
+        _buildDenseDayName(),
+      ],
+    );
+  }
+
+  Widget _buildDenseDateLine(BookingsTourPlaces tour)
+  {
+    final Widget? bin = _buildDenseDayBin(tour);
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 3,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        AppEyebrow(weekdayFullName(widget.day.weekday)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: _buildDenseDayName()),
+            if (bin != null) ...[const SizedBox(width: _actionGap), bin],
+          ],
+        ),
+        if (widget.isToday) const _TodayPill(),
+      ],
+    );
+  }
+
+  // The date beside the pupils while there is room, else over them; lessons fold onto two lines when narrow.
+  Widget _buildDense(double width, BookingsTourPlaces tour)
+  {
+    if (_isShut && _isEmpty)
+    {
+      return Row(
+        children: [
+          Flexible(child: _buildDenseDateLine(tour)),
+          const SizedBox(width: 16),
+          const Icon(Icons.event_busy_rounded, size: 17, color: AppTheme.trialMutedText),
+          const SizedBox(width: 8),
+          const Expanded(child: _Muted("L'Associazione è chiusa", dense: true)),
+        ],
+      );
+    }
+
+    if (width >= _denseOneLineFrom)
+    {
+      final double lanes = width - _denseDateWidth - _denseGap;
+
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: _denseDateWidth, child: _buildDenseDateColumn(tour)),
+          const SizedBox(width: _denseGap),
+          Expanded(
+            child: _buildLanes(
+              folded: lanes < _denseLessonOneLineFrom,
+              tour: tour,
+              dense: true,
+              buttonsBelow: lanes < _denseButtonsBesideFrom,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildDenseDateLine(tour),
+        const SizedBox(height: 10),
+        _buildLanes(folded: width < _denseLessonOneLineFrom, tour: tour, dense: true, buttonsBelow: true),
       ],
     );
   }
@@ -565,11 +790,19 @@ class _BookingDayRowState extends State<BookingDayRow>
   {
     final bool shut = _isShut && _isEmpty;
     final BookingsTourPlaces tour = _tour;
+    final bool dense = AppPageDensity.of(context);
+    final double radius = dense ? _denseRadius : _radius;
+    final double rim = dense ? _denseRimWidth : _rimWidth;
 
     Widget content = LayoutBuilder(
       builder: (context, constraints)
       {
         final double width = constraints.maxWidth;
+
+        if (dense)
+        {
+          return _buildDense(width, tour);
+        }
 
         if (width >= _oneLineFrom)
         {
@@ -586,10 +819,10 @@ class _BookingDayRowState extends State<BookingDayRow>
     }
 
     final Widget card = Container(
-      padding: _padding,
+      padding: dense ? (shut ? _densePadding.copyWith(top: 10, bottom: 10) : _densePadding) : _padding,
       decoration: BoxDecoration(
         color: shut ? AppTheme.closedSurface : Colors.white,
-        borderRadius: BorderRadius.circular(_radius - _rimWidth),
+        borderRadius: BorderRadius.circular(radius - rim),
       ),
       child: content,
     );
@@ -598,10 +831,10 @@ class _BookingDayRowState extends State<BookingDayRow>
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: Container(
-        padding: const EdgeInsets.all(_rimWidth),
+        padding: EdgeInsets.all(rim),
         decoration: BoxDecoration(
           gradient: widget.isToday ? AppTheme.greetingGradient : null,
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(radius),
           boxShadow: shut ? null : AppTheme.cardShadow,
         ),
         child: card,
@@ -632,6 +865,13 @@ class _LaneView extends StatefulWidget
   final BookingLane lane;
 
   final bool folded;
+
+  // Dense sizes; the add buttons under the name instead of at the end of its line.
+  final bool dense;
+  final bool buttonsBelow;
+
+  // Dense: the width of the names' column shared by the day's pupils.
+  final double nameWidth;
 
   final bool named;
 
@@ -665,6 +905,9 @@ class _LaneView extends StatefulWidget
   const _LaneView({
     required this.lane,
     required this.folded,
+    this.dense = false,
+    this.buttonsBelow = false,
+    this.nameWidth = 0,
     required this.named,
     required this.tour,
     required this.ministrySubjects,
@@ -764,10 +1007,109 @@ class _LaneViewState extends State<_LaneView>
     );
   }
 
+  Widget _buildAddRow({required bool wrap})
+  {
+    final List<Widget> buttons = widget.addButtons;
+
+    return DesktopTourTarget(
+      id: widget.tour.add == _pupil ? kTourBookingsAdd : null,
+      child: wrap
+          ? Wrap(spacing: _denseButtonGap, runSpacing: _denseButtonGap, children: buttons)
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final button in buttons) ...[
+                  if (button != buttons.first) const SizedBox(width: _denseButtonGap),
+                  button,
+                ],
+              ],
+            ),
+    );
+  }
+
+  // The name, «Nessuna prenotazione» beside it, the add buttons at the end of the line or under it.
+  Widget _buildDenseHeader()
+  {
+    final String? bin = widget.tour.dayBin == _pupil ? kTourBookingsDayBin : null;
+    final bool empty = widget.lane.group == null;
+    final bool buttonsBeside = widget.addButtons.isNotEmpty && !widget.buttonsBelow;
+
+    // The name in the day's names column, «Nessuna prenotazione» after it on one line, the buttons at the end.
+    final Widget line = SizedBox(
+      height: _denseLaneHeaderHeight,
+      child: Row(
+        children: [
+          if (widget.named) ...[
+            SizedBox(
+              width: widget.nameWidth,
+              child: Row(
+                children: [
+                  Flexible(
+                    child: DescenderRoom(
+                      child: Text(
+                        widget.lane.pupil.firstName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _denseNameStyle,
+                      ),
+                    ),
+                  ),
+                  if (widget.canDeleteDay) ...[
+                    const SizedBox(width: _actionGap),
+                    DesktopTourTarget(
+                      id: bin,
+                      child: _HoverAction(
+                        visible: _hover,
+                        litBy: bin,
+                        dense: true,
+                        icon: Icons.delete_outline_rounded,
+                        color: AppTheme.trialDanger,
+                        tooltip: 'Elimina la giornata',
+                        onTap: widget.onDeleteDay,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: _denseNameGap),
+          ],
+          Expanded(
+            child: empty
+                ? const Align(
+                    alignment: Alignment.centerLeft,
+                    child: _Muted('Nessuna prenotazione', dense: true, lines: 1),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          if (buttonsBeside) ...[
+            const SizedBox(width: _denseGap),
+            _buildAddRow(wrap: false),
+          ],
+        ],
+      ),
+    );
+
+    if (widget.addButtons.isEmpty || buttonsBeside)
+    {
+      return line;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        line,
+        const SizedBox(height: 4),
+        _buildAddRow(wrap: true),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
     final PresenceGroup? group = widget.lane.group;
+    final bool dense = widget.dense;
 
     // One block per mode and band: each band has its own hours, subjects and deadline.
     final List<(String, TimeBucket)> blocks = [
@@ -784,16 +1126,21 @@ class _LaneViewState extends State<_LaneView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (headed) ...[
+          if (dense && (headed || group == null)) ...[
+            _buildDenseHeader(),
+            if (group != null) const SizedBox(height: _denseLaneInnerGap),
+          ]
+          else if (headed) ...[
             _buildHeader(),
             if (group != null || widget.named) const SizedBox(height: _laneInnerGap),
           ],
           if (group == null)
-            (headed && !widget.named ? const SizedBox.shrink() : const _Muted('Nessuna prenotazione'))
+            (dense || (headed && !widget.named) ? const SizedBox.shrink() : const _Muted('Nessuna prenotazione'))
           else
             for (final (i, (mode, band)) in blocks.indexed) ...[
-              if (i > 0) const SizedBox(height: _modeGap),
+              if (i > 0) SizedBox(height: dense ? _denseModeGap : _modeGap),
               _ModeBlock(
+                dense: dense,
                 mode: mode,
                 band: band,
                 group: group,
@@ -824,6 +1171,8 @@ class _LaneViewState extends State<_LaneView>
 
 class _ModeBlock extends StatefulWidget
 {
+  final bool dense;
+
   final String mode;
   final TimeBucket band;
   final PresenceGroup group;
@@ -854,6 +1203,7 @@ class _ModeBlock extends StatefulWidget
   final VoidCallback onMoveBlock;
 
   const _ModeBlock({
+    this.dense = false,
     required this.mode,
     required this.band,
     required this.group,
@@ -927,21 +1277,23 @@ class _ModeBlockState extends State<_ModeBlock>
 
   Widget _buildHeading()
   {
+    final bool dense = widget.dense;
+
     final Widget heading = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
           lessonModeIcon(_mode),
-          size: _modeHeadingHeight,
+          size: dense ? 14 : _modeHeadingHeight,
           color: AppTheme.trialMutedText,
         ),
         const SizedBox(width: 5),
         Text(
           '${modeLabel(_mode)} · ${bandLabel(widget.band)}'.toUpperCase(),
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
+            fontSize: dense ? 10.5 : 12,
             fontWeight: FontWeight.w700,
-            letterSpacing: 1.4,
+            letterSpacing: dense ? 1.1 : 1.4,
             height: 1.2,
             color: AppTheme.trialMutedText,
           ),
@@ -950,9 +1302,9 @@ class _ModeBlockState extends State<_ModeBlock>
           const SizedBox(width: 6),
           DesktopTourTarget(
             id: widget.tour.lock == widget.block ? kTourBookingsLock : null,
-            child: const AppTooltip(
+            child: AppTooltip(
               message: 'Prenotazioni chiuse',
-              child: Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
+              child: Icon(Icons.lock_outline_rounded, size: dense ? 13 : 15, color: AppTheme.trialMutedText),
             ),
           ),
         ],
@@ -968,6 +1320,7 @@ class _ModeBlockState extends State<_ModeBlock>
       if (widget.canChange) ...[
         _HoverAction(
           visible: _hover,
+          dense: widget.dense,
           litBy: _actionsTour,
           icon: Icons.edit_outlined,
           color: AppTheme.trialTealDeep,
@@ -977,6 +1330,7 @@ class _ModeBlockState extends State<_ModeBlock>
         const SizedBox(width: 2),
         _HoverAction(
           visible: _hover,
+          dense: widget.dense,
           litBy: _actionsTour,
           icon: Icons.add_rounded,
           color: AppTheme.trialTealDeep,
@@ -987,6 +1341,7 @@ class _ModeBlockState extends State<_ModeBlock>
           const SizedBox(width: 2),
           _HoverAction(
             visible: _hover,
+            dense: widget.dense,
             litBy: _actionsTour,
             icon: Icons.swap_horiz_rounded,
             color: AppTheme.trialTealDeep,
@@ -1000,6 +1355,7 @@ class _ModeBlockState extends State<_ModeBlock>
         if (widget.canChange) const SizedBox(width: 2),
         _HoverAction(
           visible: _hover,
+          dense: widget.dense,
           litBy: _actionsTour,
           icon: Icons.delete_outline_rounded,
           color: AppTheme.trialDanger,
@@ -1017,7 +1373,7 @@ class _ModeBlockState extends State<_ModeBlock>
       runSpacing: 6,
       children: [
         for (final slot in _slots)
-          _HoursChip(slot: slot, locked: widget.slotClosed(slot)),
+          _HoursChip(slot: slot, locked: widget.slotClosed(slot), dense: widget.dense),
       ],
     );
   }
@@ -1025,18 +1381,19 @@ class _ModeBlockState extends State<_ModeBlock>
   Widget _buildModeRow()
   {
     final List<Widget> actions = _buildActions();
+    final double gap = widget.dense ? 8 : 12;
 
     return Wrap(
-      spacing: 12,
-      runSpacing: 8,
+      spacing: gap,
+      runSpacing: widget.dense ? 4 : 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         // The band's name and its hours, lit by the tour as one part.
         DesktopTourTarget(
           id: _modesTour,
           child: Wrap(
-            spacing: 12,
-            runSpacing: 8,
+            spacing: gap,
+            runSpacing: widget.dense ? 4 : 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _buildHeading(),
@@ -1059,8 +1416,9 @@ class _ModeBlockState extends State<_ModeBlock>
 
     return [
       for (final booking in lessons) ...[
-        if (booking != lessons.first) const SizedBox(height: _rowGap),
+        if (booking != lessons.first) SizedBox(height: widget.dense ? _denseRowGap : _rowGap),
         _LessonRow(
+          dense: widget.dense,
           booking: booking,
           tour: widget.tour,
           folded: widget.folded,
@@ -1087,7 +1445,7 @@ class _ModeBlockState extends State<_ModeBlock>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildModeRow(),
-          const SizedBox(height: _modeRowGap),
+          SizedBox(height: widget.dense ? _denseModeRowGap : _modeRowGap),
           ..._buildRows(),
         ],
       ),
@@ -1099,8 +1457,9 @@ class _HoursChip extends StatelessWidget
 {
   final PresenceItem slot;
   final bool locked;
+  final bool dense;
 
-  const _HoursChip({required this.slot, required this.locked});
+  const _HoursChip({required this.slot, required this.locked, this.dense = false});
 
   @override
   Widget build(BuildContext context)
@@ -1114,12 +1473,14 @@ class _HoursChip extends StatelessWidget
         ? AppTheme.trialMutedText
         : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);
 
+    final double height = dense ? _denseChipHeight : _chipHeight;
+
     return Container(
-      height: _chipHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 11),
+      height: height,
+      padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 11),
       decoration: BoxDecoration(
         color: surface,
-        borderRadius: BorderRadius.circular(_chipHeight / 2),
+        borderRadius: BorderRadius.circular(height / 2),
         border: locked ? Border.all(color: AppTheme.closedLine, width: 1.5) : null,
       ),
       child: Align(
@@ -1130,7 +1491,7 @@ class _HoursChip extends StatelessWidget
           maxLines: 1,
           softWrap: false,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 13.5,
+            fontSize: dense ? 11.5 : 13.5,
             fontWeight: FontWeight.w700,
             height: 1.2,
             color: ink,
@@ -1147,6 +1508,9 @@ class _LessonRow extends StatefulWidget
   final BookingsTourPlaces tour;
   final bool folded;
 
+  // Dense: one line, or two when folded (subject and duration, then tags and teachers).
+  final bool dense;
+
   final bool closed;
   final bool editable;
   final bool movable;
@@ -1159,6 +1523,7 @@ class _LessonRow extends StatefulWidget
   final VoidCallback onDelete;
 
   const _LessonRow({
+    this.dense = false,
     required this.booking,
     required this.tour,
     required this.folded,
@@ -1310,6 +1675,11 @@ class _LessonRowState extends State<_LessonRow>
     );
   }
 
+  // A dense row on two lines that cannot change drops its hidden actions altogether.
+  bool _folds = false;
+
+  bool get _keepsActions => !(widget.dense && _folds && !widget.editable);
+
   Widget _buildTrailing()
   {
     final bool shown = _hover && widget.editable;
@@ -1326,6 +1696,7 @@ class _LessonRowState extends State<_LessonRow>
             label: 'Argomento',
             text: _booking.topic,
             muted: widget.closed,
+            dense: widget.dense,
           ),
         ),
         const SizedBox(width: 2),
@@ -1336,45 +1707,51 @@ class _LessonRowState extends State<_LessonRow>
             label: 'Note per il docente',
             text: _booking.notes,
             muted: widget.closed,
+            dense: widget.dense,
           ),
         ),
-        const SizedBox(width: _actionGap),
-        DesktopTourTarget(
-          id: lit,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _HoverAction(
-                visible: shown,
-                litBy: lit,
-                icon: Icons.edit_outlined,
-                color: AppTheme.trialTealDeep,
-                tooltip: 'Modifica la lezione',
-                onTap: widget.onEdit,
-              ),
-              if (widget.movable) ...[
+        if (_keepsActions) ...[
+          const SizedBox(width: _actionGap),
+          DesktopTourTarget(
+            id: lit,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _HoverAction(
+                  visible: shown,
+                  litBy: lit,
+                  dense: widget.dense,
+                  icon: Icons.edit_outlined,
+                  color: AppTheme.trialTealDeep,
+                  tooltip: 'Modifica la lezione',
+                  onTap: widget.onEdit,
+                ),
+                if (widget.movable) ...[
+                  const SizedBox(width: 2),
+                  _HoverAction(
+                    visible: shown,
+                    litBy: lit,
+                    dense: widget.dense,
+                    icon: Icons.swap_horiz_rounded,
+                    color: AppTheme.trialTealDeep,
+                    tooltip: 'Sposta la lezione',
+                    onTap: widget.onMove,
+                  ),
+                ],
                 const SizedBox(width: 2),
                 _HoverAction(
                   visible: shown,
                   litBy: lit,
-                  icon: Icons.swap_horiz_rounded,
-                  color: AppTheme.trialTealDeep,
-                  tooltip: 'Sposta la lezione',
-                  onTap: widget.onMove,
+                  dense: widget.dense,
+                  icon: Icons.delete_outline_rounded,
+                  color: AppTheme.trialDanger,
+                  tooltip: 'Elimina la lezione',
+                  onTap: widget.onDelete,
                 ),
               ],
-              const SizedBox(width: 2),
-              _HoverAction(
-                visible: shown,
-                litBy: lit,
-                icon: Icons.delete_outline_rounded,
-                color: AppTheme.trialDanger,
-                tooltip: 'Elimina la lezione',
-                onTap: widget.onDelete,
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -1435,21 +1812,218 @@ class _LessonRowState extends State<_LessonRow>
     );
   }
 
+  TextStyle get _denseTitleStyle => GoogleFonts.plusJakartaSans(
+    fontSize: 13.5,
+    fontWeight: FontWeight.w700,
+    color: AppTheme.trialOcean,
+  );
+
+  TextStyle get _denseDisciplinesStyle => GoogleFonts.plusJakartaSans(
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: AppTheme.trialMutedText,
+  );
+
+  TextStyle get _densePreferenceStyle => GoogleFonts.plusJakartaSans(
+    fontSize: 12.5,
+    fontWeight: FontWeight.w600,
+    height: 1.35,
+    color: AppTheme.trialInk,
+  );
+
+  // The subject with its disciplines after it in grey.
+  TextSpan get _denseNameSpan
+  {
+    final List<String> disciplines = _disciplines;
+
+    return TextSpan(
+      children: [
+        TextSpan(text: _title, style: _denseTitleStyle),
+        if (disciplines.isNotEmpty) TextSpan(text: '  ${disciplines.join(' · ')}', style: _denseDisciplinesStyle),
+      ],
+    );
+  }
+
+  String? get _preferenceText
+  {
+    final List<PersonItem> chosen = _preferredTeachers;
+
+    return chosen.isEmpty ? null : chosen.map((teacher) => '${teacher.firstName} ${teacher.lastName}').join(', ');
+  }
+
+  double _spanWidth(BuildContext context, InlineSpan span)
+  {
+    final TextPainter painter = TextPainter(
+      text: TextSpan(style: DefaultTextStyle.of(context).style, children: [span]),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+
+    final double width = painter.width;
+    painter.dispose();
+
+    return width;
+  }
+
+  // On one line only while subject, tags and preferences all keep their whole words in their columns.
+  bool _denseFitsOneLine(BuildContext context, double width)
+  {
+    final double room = width - 12 - _denseDurationWidth - 12 - 8 - _denseTrailingWidth;
+    final List<String> tags = bookingTagLabels(_booking.tags);
+
+    double right = 15 + 6 + _spanWidth(
+      context,
+      TextSpan(text: _preferenceText ?? 'Nessuna preferenza', style: _densePreferenceStyle),
+    );
+
+    for (final label in tags)
+    {
+      right += _Tag.denseWidth(_spanWidth(context, TextSpan(text: label, style: _Tag.denseStyle))) + 4;
+    }
+
+    if (tags.isNotEmpty)
+    {
+      right += 4;
+    }
+
+    return _spanWidth(context, _denseNameSpan) <= room / 2 && right <= room / 2;
+  }
+
+  Widget _buildDenseName()
+  {
+    return Text.rich(
+      _denseNameSpan,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(height: 1.3),
+    );
+  }
+
+  Widget _buildDenseDuration()
+  {
+    return Text(
+      formatMinutes(_booking.duration),
+      maxLines: 1,
+      softWrap: false,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w700,
+        height: 1.3,
+        color: AppTheme.trialInk,
+      ),
+    );
+  }
+
+  // As wide as its words: in a wrap it shares a line with the tags while they fit.
+  Widget _buildDenseTeachers()
+  {
+    final String? text = _preferenceText;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.thumb_up_outlined, size: 15, color: AppTheme.trialMutedText),
+        const SizedBox(width: 6),
+        Flexible(
+          child: text == null
+              ? const _Muted('Nessuna preferenza', dense: true)
+              : Text(text, maxLines: 2, overflow: TextOverflow.ellipsis, style: _densePreferenceStyle),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildDenseTags()
+  {
+    return [for (final label in bookingTagLabels(_booking.tags)) _Tag(label, dense: true)];
+  }
+
+  Widget _buildDenseLine()
+  {
+    final List<Widget> tags = _buildDenseTags();
+
+    return Row(
+      children: [
+        Expanded(child: _buildDenseName()),
+        const SizedBox(width: 12),
+        SizedBox(width: _denseDurationWidth, child: _buildDenseDuration()),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Row(
+            children: [
+              for (final tag in tags) ...[tag, const SizedBox(width: 4)],
+              if (tags.isNotEmpty) const SizedBox(width: 4),
+              Flexible(child: _buildDenseTeachers()),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(width: _denseTrailingWidth, child: _buildTrailing()),
+      ],
+    );
+  }
+
+  // Subject and duration, then tags and preferences side by side while they fit.
+  Widget _buildDenseFolded()
+  {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Flexible(child: _buildDenseName()),
+                  const SizedBox(width: 10),
+                  _buildDenseDuration(),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [..._buildDenseTags(), _buildDenseTeachers()],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(width: _keepsActions ? _denseTrailingWidth : _denseMarksWidth, child: _buildTrailing()),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = widget.dense;
+    final Widget content = dense
+        ? LayoutBuilder(
+            builder: (context, constraints)
+            {
+              _folds = widget.folded || !_denseFitsOneLine(context, constraints.maxWidth);
+
+              return _folds ? _buildDenseFolded() : _buildDenseLine();
+            },
+          )
+        : (widget.folded ? _buildFolded() : _buildWide());
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: DesktopTourTarget(
         id: widget.tour.lesson == _booking.id ? kTourBookingsLesson : null,
         child: Container(
-          padding: _rowPadding,
+          padding: dense ? _denseRowPadding : _rowPadding,
           decoration: BoxDecoration(
             color: AppTheme.trialPaper,
-            borderRadius: BorderRadius.circular(_rowRadius),
+            borderRadius: BorderRadius.circular(dense ? _denseRowRadius : _rowRadius),
           ),
-          child: widget.folded ? _buildFolded() : _buildWide(),
+          child: content,
         ),
       ),
     );
@@ -1468,9 +2042,12 @@ class _HoverAction extends StatefulWidget
 
   final String? disabledReason;
 
+  final bool dense;
+
   const _HoverAction({
     required this.visible,
     this.litBy,
+    this.dense = false,
     required this.icon,
     required this.color,
     required this.tooltip,
@@ -1506,12 +2083,14 @@ class _HoverActionState extends State<_HoverAction>
   {
     final String? reason = widget.disabledReason;
 
+    final double size = widget.dense ? _denseActionSize : _actionSize;
+
     final Widget face = SizedBox(
-      width: _actionSize,
-      height: _actionSize,
+      width: size,
+      height: size,
       child: Icon(
         widget.icon,
-        size: _actionIconSize,
+        size: widget.dense ? _denseActionIconSize : _actionIconSize,
         color: reason == null ? widget.color : AppTheme.trialMutedText.withValues(alpha: 0.5),
       ),
     );
@@ -1550,14 +2129,25 @@ class _HoverActionState extends State<_HoverAction>
 class _Tag extends StatelessWidget
 {
   final String label;
+  final bool dense;
 
-  const _Tag(this.label);
+  const _Tag(this.label, {this.dense = false});
+
+  static TextStyle get denseStyle => GoogleFonts.plusJakartaSans(
+    fontSize: 11.5,
+    fontWeight: FontWeight.w600,
+    height: 1.3,
+    color: AppTheme.trialMutedText,
+  );
+
+  // Padding and border around a dense label of that width.
+  static double denseWidth(double label) => label + 2 * 7 + 2;
 
   @override
   Widget build(BuildContext context)
   {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: dense ? 7 : 9, vertical: dense ? 2 : 3),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(7),
         border: Border.all(color: AppTheme.trialMutedText.withValues(alpha: 0.35)),
@@ -1567,12 +2157,15 @@ class _Tag extends StatelessWidget
           label,
           maxLines: 1,
           softWrap: false,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
-            color: AppTheme.trialMutedText,
-          ),
+          overflow: TextOverflow.ellipsis,
+          style: dense
+              ? denseStyle
+              : GoogleFonts.plusJakartaSans(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                  color: AppTheme.trialMutedText,
+                ),
         ),
       ),
     );
@@ -1588,24 +2181,27 @@ class _Mark extends StatelessWidget
 
   final bool muted;
 
-  const _Mark({required this.icon, required this.label, required this.text, required this.muted});
+  final bool dense;
+
+  const _Mark({required this.icon, required this.label, required this.text, required this.muted, this.dense = false});
 
   @override
   Widget build(BuildContext context)
   {
     final String? said = text?.trim();
+    final double size = dense ? _denseMarkSize : _markSize;
 
     if (said == null || said.isEmpty)
     {
-      return const SizedBox(width: _markSize, height: _markSize);
+      return SizedBox(width: size, height: size);
     }
 
     final Widget face = SizedBox(
-      width: _markSize,
-      height: _markSize,
+      width: size,
+      height: size,
       child: Icon(
         icon,
-        size: _markIconSize,
+        size: dense ? _denseMarkIconSize : _markIconSize,
         color: muted ? AppTheme.trialMutedText.withValues(alpha: 0.5) : AppTheme.trialTealDeep,
       ),
     );
@@ -1633,8 +2229,12 @@ class _Mark extends StatelessWidget
 class _Muted extends StatelessWidget
 {
   final String text;
+  final bool dense;
 
-  const _Muted(this.text);
+  // Dense lines are narrow: the words take a second line rather than an ellipsis, unless kept to one.
+  final int? lines;
+
+  const _Muted(this.text, {this.dense = false, this.lines});
 
   @override
   Widget build(BuildContext context)
@@ -1642,10 +2242,10 @@ class _Muted extends StatelessWidget
     return DescenderRoom(
       child: Text(
         text,
-        maxLines: 1,
+        maxLines: lines ?? (dense ? 2 : 1),
         overflow: TextOverflow.ellipsis,
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 15,
+          fontSize: dense ? 12.5 : 15,
           fontWeight: FontWeight.w600,
           fontStyle: FontStyle.italic,
           height: 1.35,

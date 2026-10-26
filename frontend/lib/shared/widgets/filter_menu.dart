@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -6,6 +8,19 @@ import '../../core/theme/app_theme.dart';
 import 'close_on_resize.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
+
+const double _menuMargin = 8;
+
+// Under its button from the left edge; a menu that would run past the window ends under the right edge.
+double filterMenuLeft(Offset button, double buttonWidth, double menuWidth, double windowWidth)
+{
+  if (button.dx + menuWidth <= windowWidth - _menuMargin)
+  {
+    return button.dx;
+  }
+
+  return math.max(_menuMargin, button.dx + buttonWidth - menuWidth);
+}
 
 enum SortCriterion
 {
@@ -97,7 +112,7 @@ class _CustomFilterMenuState<T> extends State<CustomFilterMenu<T>> with CloseOnR
           ),
           Positioned(
             top: offset.dy + size.height + 8,
-            left: offset.dx,
+            left: filterMenuLeft(offset, size.width, widget.menuWidth, MediaQuery.sizeOf(context).width),
             child: _FilterOverlayContent<T>(
               key: _menuKey,
               currentValue: widget.value,
@@ -292,7 +307,8 @@ class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
           boxShadow: AppTheme.overlayShadow,
         ),
         child: AnimatedSize(
-          duration: _animates ? _expandDuration : Duration.zero,
+          // Not zero: a zero-length AnimatedSize finishes inside its own layout and asserts.
+          duration: _animates ? _expandDuration : const Duration(microseconds: 1),
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
           child: _expanded

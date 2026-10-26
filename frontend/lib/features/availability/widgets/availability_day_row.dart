@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/desktop_tour.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/utils/opening_window.dart';
@@ -60,6 +61,26 @@ const double _groupGap = 14;
 const double _titleGap = 10;
 
 const List<String> _modes = [kPresenceMode, kOnlineMode];
+
+// Below the wide window: a smaller card, the date beside the bands while they have room, the mode in each chip.
+const double _denseRadius = 20;
+const EdgeInsets _densePadding = EdgeInsets.fromLTRB(16, 14, 16, 14);
+const double _denseRimWidth = 2;
+const double _denseDateWidth = 124;
+const double _denseActionWidth = 140;
+const double _denseGap = 12;
+const double _denseButtonHeight = 36;
+
+// A band keeps a chip and its bin badge; three of them, date and button need the first width, three alone the second.
+const double _denseBandWidth = 142;
+const double _denseOneLineFrom = _denseDateWidth + _denseActionWidth + 4 * _denseGap + 3 * _denseBandWidth;
+const double _denseColumnsFrom = 2 * _denseGap + 3 * _denseBandWidth;
+
+const double _denseChipHeight = 26;
+const double _denseBadgeSize = 22;
+const double _denseBadgeOverhangRight = 10;
+const double _denseBadgeOverhangTop = 6;
+const double _denseChipLineHeight = _denseChipHeight + _denseBadgeOverhangTop;
 
 // What a day can show the tour; the page gives each mark to the first day having it.
 Set<AvailabilityTourMark> availabilityTourMarksOf({
@@ -257,11 +278,12 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
     );
   }
 
-  Widget _buildAction()
+  Widget _buildAction({bool dense = false})
   {
     if (_isEditable)
     {
       final bool empty = widget.slots.isEmpty;
+      final double height = dense ? _denseButtonHeight : _buttonHeight;
 
       return DesktopTourTarget(
         id: empty
@@ -270,9 +292,9 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
         child: AppGradientButton(
           label: empty ? 'AGGIUNGI' : 'MODIFICA',
           icon: empty ? Icons.add_rounded : Icons.edit_outlined,
-          height: _buttonHeight,
+          height: height,
           fontSize: _buttonFontSize,
-          radius: _buttonHeight / 2,
+          radius: height / 2,
           horizontalPadding: 18,
           onPressed: widget.onOpen,
         ),
@@ -284,14 +306,168 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
       return const SizedBox.shrink();
     }
 
+    return _buildLockedNote(dense: dense);
+  }
+
+  Widget _buildLockedNote({bool dense = false})
+  {
     return Text(
       'Non modificabile',
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 13,
+        fontSize: dense ? 11.5 : 13,
         fontWeight: FontWeight.w600,
         height: 1.3,
         color: AppTheme.trialMutedText,
       ),
+    );
+  }
+
+  Widget _buildDenseDayName()
+  {
+    return DescenderRoom(
+      child: Text(
+        formatDayMonthFull(widget.day),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          height: 1.15,
+          color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildDayBin()
+  {
+    if (!_canDeleteDay)
+    {
+      return null;
+    }
+
+    return _Bin(visible: _hover || _binsLit, tooltip: 'Elimina la giornata', onTap: widget.onDeleteDay);
+  }
+
+  // Beside the bands: weekday (and the day's bin) over the date, the note of a day no longer editable under it.
+  Widget _buildDenseDateColumn()
+  {
+    final Widget? bin = _buildDayBin();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 6,
+          runSpacing: 3,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            AppEyebrow(weekdayFullName(widget.day.weekday)),
+            if (widget.isToday) const _TodayPill(),
+            ?bin,
+          ],
+        ),
+        const SizedBox(height: 2),
+        _buildDenseDayName(),
+        if (!_isEditable && !(_isShut && widget.slots.isEmpty)) ...[
+          const SizedBox(height: 2),
+          _buildLockedNote(dense: true),
+        ],
+      ],
+    );
+  }
+
+  // Over the bands: weekday, date and the today pill on one line.
+  Widget _buildDenseDateLine()
+  {
+    final Widget? bin = _buildDayBin();
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 3,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        AppEyebrow(weekdayFullName(widget.day.weekday)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: _buildDenseDayName()),
+            if (bin != null) ...[const SizedBox(width: _binGap), bin],
+          ],
+        ),
+        if (widget.isToday) const _TodayPill(),
+      ],
+    );
+  }
+
+  Widget _buildDenseShut()
+  {
+    return Row(
+      children: [
+        Flexible(child: _buildDenseDateLine()),
+        const SizedBox(width: 16),
+        const Icon(Icons.event_busy_rounded, size: 17, color: AppTheme.trialMutedText),
+        const SizedBox(width: 8),
+        const Expanded(child: _Muted("L'Associazione è chiusa", dense: true)),
+      ],
+    );
+  }
+
+  List<Widget> _buildDenseBands({required bool columns})
+  {
+    return [
+      for (final bucket in TimeBucket.values) ...[
+        if (bucket != TimeBucket.values.first) SizedBox(width: _denseGap, height: columns ? 0 : 12),
+        if (columns) Expanded(child: _buildBand(bucket, dense: true)) else _buildBand(bucket, dense: true),
+      ],
+    ];
+  }
+
+  Widget _buildDense(double width)
+  {
+    if (_isShut && widget.slots.isEmpty)
+    {
+      return _buildDenseShut();
+    }
+
+    if (width >= _denseOneLineFrom)
+    {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(width: _denseDateWidth, child: _buildDenseDateColumn()),
+          const SizedBox(width: _denseGap),
+          Expanded(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: _buildDenseBands(columns: true)),
+          ),
+          const SizedBox(width: _denseGap),
+          SizedBox(
+            width: _denseActionWidth,
+            child: Align(alignment: Alignment.centerRight, child: _isEditable ? _buildAction(dense: true) : null),
+          ),
+        ],
+      );
+    }
+
+    final bool columns = width >= _denseColumnsFrom;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: _buildDenseDateLine()),
+            const SizedBox(width: _denseGap),
+            _buildAction(dense: true),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (columns)
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: _buildDenseBands(columns: true))
+        else
+          ..._buildDenseBands(columns: false),
+      ],
     );
   }
 
@@ -310,9 +486,10 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
     ];
   }
 
-  Widget _buildBand(TimeBucket bucket)
+  Widget _buildBand(TimeBucket bucket, {bool dense = false})
   {
     return _BandCell(
+      dense: dense,
       bucket: bucket,
       day: widget.day,
       slots: _slotsIn(bucket),
@@ -420,11 +597,19 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
   Widget build(BuildContext context)
   {
     final bool shut = _isShut && widget.slots.isEmpty;
+    final bool dense = AppPageDensity.of(context);
+    final double radius = dense ? _denseRadius : _radius;
+    final double rim = dense ? _denseRimWidth : _rimWidth;
 
     Widget content = LayoutBuilder(
       builder: (context, constraints)
       {
         final double width = constraints.maxWidth;
+
+        if (dense)
+        {
+          return _buildDense(width);
+        }
 
         if (width >= _oneLineFrom)
         {
@@ -441,10 +626,10 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
     }
 
     final Widget card = Container(
-      padding: _padding,
+      padding: dense ? (shut ? _densePadding.copyWith(top: 10, bottom: 10) : _densePadding) : _padding,
       decoration: BoxDecoration(
         color: shut ? AppTheme.closedSurface : Colors.white,
-        borderRadius: BorderRadius.circular(_radius - _rimWidth),
+        borderRadius: BorderRadius.circular(radius - rim),
       ),
       child: content,
     );
@@ -455,10 +640,10 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
         onEnter: (_) => setState(() => _hover = true),
         onExit: (_) => setState(() => _hover = false),
         child: Container(
-          padding: const EdgeInsets.all(_rimWidth),
+          padding: EdgeInsets.all(rim),
           decoration: BoxDecoration(
             gradient: widget.isToday ? AppTheme.greetingGradient : null,
-            borderRadius: BorderRadius.circular(_radius),
+            borderRadius: BorderRadius.circular(radius),
             boxShadow: shut ? null : AppTheme.cardShadow,
           ),
           child: card,
@@ -487,6 +672,9 @@ class _Divider extends StatelessWidget
 
 class _BandCell extends StatefulWidget
 {
+  // Dense: the mode rides in each chip instead of a heading per mode.
+  final bool dense;
+
   final TimeBucket bucket;
   final DateTime day;
   final List<AvailabilityItem> slots;
@@ -503,6 +691,7 @@ class _BandCell extends StatefulWidget
   final String? lockTour;
 
   const _BandCell({
+    this.dense = false,
     required this.bucket,
     required this.day,
     required this.slots,
@@ -544,22 +733,30 @@ class _BandCellState extends State<_BandCell>
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  bandLabel(widget.bucket),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                    color: AppTheme.trialOcean,
+                Flexible(
+                  child: Text(
+                    bandLabel(widget.bucket),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: widget.dense ? 13 : 15,
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                      color: AppTheme.trialOcean,
+                    ),
                   ),
                 ),
                 if (widget.isOpen && widget.hasClosed) ...[
-                  const SizedBox(width: 6),
+                  SizedBox(width: widget.dense ? 4 : 6),
                   DesktopTourTarget(
                     id: widget.lockTour,
                     child: AppTooltip(
                       message: 'Disponibilità chiuse',
-                      child: const Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
+                      child: Icon(
+                        Icons.lock_outline_rounded,
+                        size: widget.dense ? 13 : 15,
+                        color: AppTheme.trialMutedText,
+                      ),
                     ),
                   ),
                 ],
@@ -572,8 +769,10 @@ class _BandCellState extends State<_BandCell>
                 ],
               ],
             ),
-            const SizedBox(height: _titleGap),
-            if (!widget.isOpen && widget.slots.isEmpty)
+            SizedBox(height: widget.dense ? 2 : _titleGap),
+            if (widget.dense)
+              _buildDenseChips(locked)
+            else if (!widget.isOpen && widget.slots.isEmpty)
               const _Muted('Associazione chiusa')
             else
               for (final mode in _modes) ...[
@@ -583,6 +782,43 @@ class _BandCellState extends State<_BandCell>
           ],
         ),
       ),
+    );
+  }
+
+  // Every slot of the band in one wrap, each chip showing its mode; one line's room kept so rows line up.
+  Widget _buildDenseChips(bool locked)
+  {
+    final Widget content;
+
+    if (widget.slots.isEmpty)
+    {
+      content = Padding(
+        padding: const EdgeInsets.only(top: _denseBadgeOverhangTop),
+        child: _Muted(widget.isOpen ? 'Nessuna disponibilità' : 'Associazione chiusa', dense: true),
+      );
+    }
+    else
+    {
+      content = Wrap(
+        spacing: _chipSpacing,
+        runSpacing: _chipRunSpacing,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final slot in widget.slots)
+            _HoursChip(
+              slot: slot,
+              dense: true,
+              locked: locked || !widget.openModes.contains(slot.mode),
+              showBin: widget.showBins,
+              onDelete: locked ? null : () => widget.onDeleteSlot(slot),
+            ),
+        ],
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: _denseChipLineHeight),
+      child: Align(alignment: Alignment.topLeft, child: content),
     );
   }
 
@@ -660,7 +896,10 @@ class _HoursChip extends StatefulWidget
 
   final VoidCallback? onDelete;
 
-  const _HoursChip({required this.slot, required this.locked, this.showBin = false, this.onDelete});
+  // Dense: smaller, with the mode's icon before the hours.
+  final bool dense;
+
+  const _HoursChip({required this.slot, required this.locked, this.showBin = false, this.onDelete, this.dense = false});
 
   @override
   State<_HoursChip> createState() => _HoursChipState();
@@ -683,28 +922,43 @@ class _HoursChipState extends State<_HoursChip>
         ? AppTheme.trialMutedText
         : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);
 
+    final bool dense = widget.dense;
+    final double height = dense ? _denseChipHeight : _chipHeight;
+
+    final Widget hours = Text(
+      formatTimeRange(slot.startTime, slot.endTime),
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: dense ? 12.5 : 15,
+        fontWeight: FontWeight.w700,
+        height: 1.2,
+        color: ink,
+      ),
+    );
+
     // Sized on the text: an aligned Container would stretch to the Wrap's width.
     final Widget chip = Container(
-      height: _chipHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      height: height,
+      padding: EdgeInsets.symmetric(horizontal: dense ? 10 : 14),
       decoration: BoxDecoration(
         color: surface,
-        borderRadius: BorderRadius.circular(_chipHeight / 2),
+        borderRadius: BorderRadius.circular(height / 2),
       ),
       child: Align(
         alignment: Alignment.center,
         widthFactor: 1,
-        child: Text(
-          formatTimeRange(slot.startTime, slot.endTime),
-          maxLines: 1,
-          softWrap: false,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-            color: ink,
-          ),
-        ),
+        child: dense
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(lessonModeIcon(slot.mode), size: 14, color: ink),
+                  const SizedBox(width: 5),
+                  Flexible(child: hours),
+                ],
+              )
+            : hours,
       ),
     );
 
@@ -712,7 +966,10 @@ class _HoursChipState extends State<_HoursChip>
 
     // Same box with or without a badge, so lines stay aligned.
     final Widget boxed = Padding(
-      padding: const EdgeInsets.only(top: _badgeOverhangTop, right: _badgeOverhangRight),
+      padding: EdgeInsets.only(
+        top: dense ? _denseBadgeOverhangTop : _badgeOverhangTop,
+        right: dense ? _denseBadgeOverhangRight : _badgeOverhangRight,
+      ),
       child: chip,
     );
 
@@ -730,7 +987,11 @@ class _HoursChipState extends State<_HoursChip>
           Positioned(
             top: 0,
             right: 0,
-            child: _BinBadge(visible: _hover || widget.showBin, onTap: onDelete),
+            child: _BinBadge(
+              visible: _hover || widget.showBin,
+              size: dense ? _denseBadgeSize : _badgeSize,
+              onTap: onDelete,
+            ),
           ),
         ],
       ),
@@ -741,9 +1002,10 @@ class _HoursChipState extends State<_HoursChip>
 class _BinBadge extends StatefulWidget
 {
   final bool visible;
+  final double size;
   final VoidCallback onTap;
 
-  const _BinBadge({required this.visible, required this.onTap});
+  const _BinBadge({required this.visible, this.size = _badgeSize, required this.onTap});
 
   @override
   State<_BinBadge> createState() => _BinBadgeState();
@@ -769,15 +1031,15 @@ class _BinBadgeState extends State<_BinBadge>
             onTap: widget.onTap,
             child: AnimatedContainer(
               duration: _binFade,
-              width: _badgeSize,
-              height: _badgeSize,
+              width: widget.size,
+              height: widget.size,
               decoration: BoxDecoration(
                 color: _hover ? AppTheme.trialGoldSurface : Colors.white,
                 shape: BoxShape.circle,
                 border: Border.all(color: _hover ? AppTheme.trialGold : AppTheme.trialLine, width: 1.5),
                 boxShadow: AppTheme.cardShadow,
               ),
-              child: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.trialDanger),
+              child: Icon(Icons.delete_outline_rounded, size: widget.size * 2 / 3, color: AppTheme.trialDanger),
             ),
           ),
         ),
@@ -841,19 +1103,21 @@ class _BinState extends State<_Bin>
 class _Muted extends StatelessWidget
 {
   final String text;
+  final bool dense;
 
-  const _Muted(this.text);
+  const _Muted(this.text, {this.dense = false});
 
   @override
   Widget build(BuildContext context)
   {
+    // Dense columns are narrow: the words take a second line rather than an ellipsis.
     return DescenderRoom(
       child: Text(
         text,
-        maxLines: 1,
+        maxLines: dense ? 2 : 1,
         overflow: TextOverflow.ellipsis,
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 14,
+          fontSize: dense ? 12.5 : 14,
           fontWeight: FontWeight.w600,
           fontStyle: FontStyle.italic,
           height: 1.35,

@@ -1,3 +1,4 @@
+import '../../core/utils/week_range.dart';
 import '../../services/api_service.dart';
 import 'notification_board.dart';
 import 'notification_item.dart';
@@ -17,7 +18,7 @@ Future<void> markAvailabilitySeen(DateTime monday) async
   // The board is loaded by the home or by the opening tap; this does not fetch it.
   final NotificationBoard board = NotificationBoard.instance;
   final DateTime from = DateTime(monday.year, monday.month, monday.day);
-  final DateTime to = from.add(const Duration(days: 6));
+  final DateTime to = addDays(from, 6);
 
   final bool announced = board.items?.any(
         (item) =>

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/alphabetical_order.dart';
 import 'app_filter_pill.dart';
 import 'app_gradient_button.dart';
 import 'app_search_field.dart';
@@ -46,8 +47,8 @@ void sortByCriterion<T>(
 {
   items.sort((a, b) => switch (sort)
   {
-    SortCriterion.nameAsc => name(a).compareTo(name(b)),
-    SortCriterion.nameDesc => name(b).compareTo(name(a)),
+    SortCriterion.nameAsc => compareAlphabetically(name(a), name(b)),
+    SortCriterion.nameDesc => compareAlphabetically(name(b), name(a)),
     SortCriterion.dateAsc => createdAt(a).compareTo(createdAt(b)),
     SortCriterion.dateDesc => createdAt(b).compareTo(createdAt(a)),
   });
@@ -244,10 +245,14 @@ class TabHeaderRow extends StatefulWidget
   final Widget search;
   final Widget? action;
 
+  // A longer button stacks sooner, so the search keeps a usable width.
+  final double stackBelow;
+
   const TabHeaderRow({
     super.key,
     required this.search,
     this.action,
+    this.stackBelow = _stackBelow,
   });
 
   @override
@@ -273,7 +278,7 @@ class _TabHeaderRowState extends State<TabHeaderRow>
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth >= TabHeaderRow._stackBelow)
+        if (constraints.maxWidth >= widget.stackBelow)
         {
           return Row(
             children: [
@@ -434,7 +439,7 @@ class EntityCardGrid extends StatelessWidget
     this.denseWidth = kDenseCatalogueWidth,
   });
 
-  // As many as fit, filling the row, the last row from the left.
+  // As many as fit, filling the row; a short last row in the middle, as on the wide window.
   static ({int perRow, double width}) denseLayout(double available, double least)
   {
     final int perRow = math.max(1, ((available + kDenseCardGap) / (least + kDenseCardGap)).floor());
@@ -470,7 +475,6 @@ class EntityCardGrid extends StatelessWidget
             cardWidth: dense.width,
             perRow: dense.perRow,
             gap: kDenseCardGap,
-            fromStart: true,
           );
         }
 
@@ -508,7 +512,6 @@ class EntityCardGrid extends StatelessWidget
                   cardWidth: width,
                   last: row == rows - 1,
                   gap: dense ? kDenseCardGap : EntityCardGrid.gap,
-                  fromStart: dense,
                 ),
             ],
           ),
@@ -548,16 +551,12 @@ class CardRows extends StatelessWidget
 
   final double gap;
 
-  // A short last row starts at the left, as in a grid, instead of the middle.
-  final bool fromStart;
-
   const CardRows({
     super.key,
     required this.cards,
     required this.cardWidth,
     required this.perRow,
     this.gap = EntityCardGrid.gap,
-    this.fromStart = false,
   });
 
   static int rowsFor(int count, int perRow) => perRow < 1 ? 0 : (count + perRow - 1) ~/ perRow;
@@ -569,7 +568,6 @@ class CardRows extends StatelessWidget
     required double cardWidth,
     required bool last,
     double gap = EntityCardGrid.gap,
-    bool fromStart = false,
   })
   {
     final int start = row * perRow;
@@ -578,7 +576,7 @@ class CardRows extends StatelessWidget
     return Padding(
       padding: EdgeInsets.only(bottom: last ? 0 : gap),
       child: Row(
-        mainAxisAlignment: fromStart ? MainAxisAlignment.start : MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var i = start; i < end; i++) ...[
@@ -607,7 +605,6 @@ class CardRows extends StatelessWidget
           cardWidth: cardWidth,
           last: index == rows - 1,
           gap: gap,
-          fromStart: fromStart,
         ),
         childCount: rows,
       ),

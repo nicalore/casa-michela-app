@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/desktop_tour.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../lessons/widgets/person_avatar.dart';
 import '../../people/models/person_item.dart';
@@ -15,6 +16,14 @@ import 'student_sheet.dart' show CertificationChip;
 const double _panelRadius = 32;
 const double _rowHeight = 68;
 const double _faceSize = 52;
+
+// Below the wide window (AppPageDensity), and in the heading's menu.
+const double _densePanelRadius = 24;
+const double _densePanelPadding = 14;
+const double _denseRowHeight = 56;
+const double _denseFaceSize = 40;
+const double _menuRadius = 18;
+const double _menuPadding = 10;
 
 const String kTourStudentList = 'psychologist.list';
 const String kTourStudentSearch = 'psychologist.search';
@@ -41,6 +50,9 @@ class StudentListPanel extends StatelessWidget
 
   final ValueChanged<PersonItem> onSelected;
 
+  // Inside the heading's menu below 1000 px: a menu card, and no tour parts (the tour waits for a wider window).
+  final bool inMenu;
+
   const StudentListPanel({
     super.key,
     required this.students,
@@ -51,86 +63,96 @@ class StudentListPanel extends StatelessWidget
     required this.onOpenFilters,
     required this.onClearFilters,
     required this.onSelected,
+    this.inMenu = false,
   });
 
   @override
   Widget build(BuildContext context)
   {
-    return DesktopTourTarget(
-      id: kTourStudentList,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(_panelRadius),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DesktopTourTarget(
-              id: kTourStudentSearch,
-              child: AppSearchField(
-                controller: searchController,
-                onChanged: onSearchChanged,
-                hintText: kStudentSearchHint,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                DesktopTourTarget(
-                  id: kTourStudentFilters,
-                  child: AppCountFilterPill(
-                    label: 'Filtri',
-                    icon: Icons.tune_rounded,
-                    count: filtersCount,
-                    onOpen: onOpenFilters,
-                    onClear: onClearFilters,
-                  ),
-                ),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Text(
-                    studentsCount(students.length),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.trialMutedText,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: DesktopTourTarget(
-                id: kTourStudentRows,
-                child: ClipRect(
-                  child: ScrollEdgeFade(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 18),
-                      itemCount: students.length,
-                      itemBuilder: (context, index)
-                      {
-                        final PersonItem student = students[index];
+    final bool dense = inMenu || AppPageDensity.of(context);
+    final double padding = inMenu ? _menuPadding : (dense ? _densePanelPadding : 18);
 
-                        return _StudentRow(
-                          student: student,
-                          selected: student.fiscalCode == selectedCode,
-                          onTap: () => onSelected(student),
-                        );
-                      },
-                    ),
+    final Widget panel = Container(
+      padding: EdgeInsets.fromLTRB(padding, padding, padding, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(inMenu ? _menuRadius : (dense ? _densePanelRadius : _panelRadius)),
+        boxShadow: inMenu ? AppTheme.overlayShadow : AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DesktopTourTarget(
+            id: inMenu ? null : kTourStudentSearch,
+            child: AppSearchField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              hintText: kStudentSearchHint,
+            ),
+          ),
+          SizedBox(height: dense ? 10 : 14),
+          Row(
+            children: [
+              DesktopTourTarget(
+                id: inMenu ? null : kTourStudentFilters,
+                child: AppCountFilterPill(
+                  label: 'Filtri',
+                  icon: Icons.tune_rounded,
+                  count: filtersCount,
+                  onOpen: onOpenFilters,
+                  onClear: onClearFilters,
+                ),
+              ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Text(
+                  studentsCount(students.length),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: dense ? 13 : 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.trialMutedText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: dense ? 6 : 12),
+          Expanded(
+            child: DesktopTourTarget(
+              id: inMenu ? null : kTourStudentRows,
+              child: ClipRect(
+                child: ScrollEdgeFade(
+                  child: ListView.builder(
+                    padding: EdgeInsets.only(bottom: dense ? 12 : 18),
+                    itemCount: students.length,
+                    itemBuilder: (context, index)
+                    {
+                      final PersonItem student = students[index];
+
+                      return _StudentRow(
+                        student: student,
+                        selected: student.fiscalCode == selectedCode,
+                        dense: dense,
+                        onTap: () => onSelected(student),
+                      );
+                    },
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+
+    if (inMenu)
+    {
+      // The search field needs a Material above it, which the overlay does not give.
+      return Material(color: Colors.transparent, child: panel);
+    }
+
+    return DesktopTourTarget(id: kTourStudentList, child: panel);
   }
 }
 
@@ -138,9 +160,10 @@ class _StudentRow extends StatefulWidget
 {
   final PersonItem student;
   final bool selected;
+  final bool dense;
   final VoidCallback onTap;
 
-  const _StudentRow({required this.student, required this.selected, required this.onTap});
+  const _StudentRow({required this.student, required this.selected, required this.dense, required this.onTap});
 
   @override
   State<_StudentRow> createState() => _StudentRowState();
@@ -154,6 +177,7 @@ class _StudentRowState extends State<_StudentRow>
   Widget build(BuildContext context)
   {
     final PersonItem student = widget.student;
+    final bool dense = widget.dense;
 
     final List<String> labels = [
       for (final entry in kCertificationLabels.entries)
@@ -168,8 +192,8 @@ class _StudentRowState extends State<_StudentRow>
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
         child: Container(
-          constraints: const BoxConstraints(minHeight: _rowHeight),
-          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          constraints: BoxConstraints(minHeight: dense ? _denseRowHeight : _rowHeight),
+          padding: dense ? const EdgeInsets.fromLTRB(12, 6, 8, 6) : const EdgeInsets.fromLTRB(14, 8, 10, 8),
           child: Row(
             children: [
               TweenAnimationBuilder<double>(
@@ -190,9 +214,9 @@ class _StudentRowState extends State<_StudentRow>
                   ),
                 ),
               ),
-              const SizedBox(width: 9),
-              PersonAvatar(person: student, size: _faceSize),
-              const SizedBox(width: 12),
+              SizedBox(width: dense ? 8 : 9),
+              PersonAvatar(person: student, size: dense ? _denseFaceSize : _faceSize),
+              SizedBox(width: dense ? 10 : 12),
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -201,17 +225,17 @@ class _StudentRowState extends State<_StudentRow>
                     Text(
                       '${student.firstName} ${student.lastName}',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
+                        fontSize: dense ? 14.5 : 16,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.trialOcean,
                       ),
                     ),
                     if (labels.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      SizedBox(height: dense ? 3 : 4),
                       Wrap(
                         spacing: 4,
                         runSpacing: 4,
-                        children: [for (final label in labels) CertificationChip(label)],
+                        children: [for (final label in labels) CertificationChip(label, dense: dense)],
                       ),
                     ],
                   ],

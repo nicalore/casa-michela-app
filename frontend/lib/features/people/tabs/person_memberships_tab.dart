@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_field_label.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -38,6 +39,20 @@ const double _tableHeadHeight = 38;
 const double _tableRowHeight = 46;
 const double _tablePaddingH = 24;
 const double _tableBorder = 1.5;
+
+// Inside a dense page (AppPageDensity), as the other cards there.
+const EdgeInsets _denseCardPadding = EdgeInsets.fromLTRB(20, 16, 20, 18);
+const double _denseCardRadius = 24;
+const double _denseHeaderHeight = 40;
+const double _denseHeaderGap = 12;
+const double _denseRuleSpace = 13;
+const double _denseRowRadius = 16;
+const double _denseCurrentPaddingH = 12;
+const double _denseCurrentPaddingV = 10;
+const double _denseGridGap = 12;
+const double _denseTableHeadHeight = 34;
+const double _denseTableRowHeight = 40;
+const double _denseTablePaddingH = 12;
 
 const Color _revokedSurface = Color(0xFFFBEDEA);
 const Color _revokedRowSurface = Color(0xFFFDF4F2);
@@ -165,7 +180,7 @@ class PersonMembershipsTab extends StatelessWidget
     );
   }
 
-  Widget _buildStatus({required bool isEnrolled, required bool isFemale})
+  Widget _buildStatus({required bool isEnrolled, required bool isFemale, required bool dense})
   {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -173,14 +188,14 @@ class PersonMembershipsTab extends StatelessWidget
         Icon(
           isEnrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
           color: isEnrolled ? AppTheme.trialSeaGreen : AppTheme.trialDanger,
-          size: 30,
+          size: dense ? 24 : 30,
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: dense ? 10 : 12),
         Flexible(
           child: Text(
             membershipStatusLabel(isEnrolled: isEnrolled, isFemale: isFemale),
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 24,
+              fontSize: dense ? 19 : 24,
               fontWeight: FontWeight.w800,
               color: AppTheme.trialOcean,
             ),
@@ -219,9 +234,12 @@ class PersonMembershipsTab extends StatelessWidget
     final bool isRevoked = latest != null && latest.isRevoked;
     final bool isEnrolled = person.isEnrolled;
     final bool isFemale = person.gender == 'F';
+    final bool dense = AppPageDensity.of(context);
+    final double height = dense ? _denseHeaderHeight : _headerHeight;
+    final double gap = dense ? _denseHeaderGap : _headerGap;
 
     final List<Widget> status = [
-      _buildStatus(isEnrolled: isEnrolled, isFemale: isFemale),
+      _buildStatus(isEnrolled: isEnrolled, isFemale: isFemale, dense: dense),
       ?_buildBadge(isEnrolled: isEnrolled, isRevoked: isRevoked, isFemale: isFemale),
       if (latest != null && latest.isRevoked) _RevokedNotice(text: revokedMembershipLabel(latest)),
     ];
@@ -231,12 +249,12 @@ class PersonMembershipsTab extends StatelessWidget
     if (actions == null)
     {
       return ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: _headerHeight),
+        constraints: BoxConstraints(minHeight: height),
         child: Center(
           child: Wrap(
             alignment: WrapAlignment.center,
             crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: _headerGap,
+            spacing: gap,
             runSpacing: 12,
             children: status,
           ),
@@ -245,16 +263,16 @@ class PersonMembershipsTab extends StatelessWidget
     }
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: _headerHeight),
+      constraints: BoxConstraints(minHeight: height),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: _headerGap,
+        spacing: gap,
         runSpacing: 16,
         children: [
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: _headerGap,
+            spacing: gap,
             runSpacing: 12,
             children: status,
           ),
@@ -264,61 +282,120 @@ class PersonMembershipsTab extends StatelessWidget
     );
   }
 
-  Widget _buildEyebrow(String text)
+  Widget _buildEyebrow(String text, bool dense)
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: dense ? 8 : 10),
       child: Text(
         text.toUpperCase(),
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 12,
+          fontSize: dense ? 11 : 12,
           fontWeight: FontWeight.w700,
-          letterSpacing: 1.6,
+          letterSpacing: dense ? 1.5 : 1.6,
           color: AppTheme.trialMutedText,
         ),
       ),
     );
   }
 
-  Widget _buildCurrent(MembershipItem membership)
+  Widget _buildCurrent(MembershipItem membership, bool dense)
   {
-    final deadline = membership.endDate.add(Duration(days: membership.renewalPeriodDays));
+    final deadline = membership.renewalDeadline;
 
-    Widget fact(String label, String value, {bool strong = false})
+    final List<(String, String, bool)> facts = [
+      ('Anno', '${membership.year}', true),
+      ('Data inizio', _dateFormat.format(membership.startDate), false),
+      ('Data fine', _dateFormat.format(membership.endDate), false),
+      ('Rinnovo entro', _dateFormat.format(deadline), false),
+    ];
+
+    TextStyle label() => _labelStyle(dense ? 12.5 : 14);
+    TextStyle value(bool strong) => _valueStyle(dense ? (strong ? 17 : 15.5) : (strong ? 20 : 18), strong: strong);
+
+    Widget fact((String, String, bool) item)
     {
+      final (String name, String text, bool strong) = item;
+
       return Expanded(
         child: Column(
           children: [
-            Text(label, textAlign: TextAlign.center, style: _labelStyle(14)),
-            const SizedBox(height: 5),
-            Text(value, textAlign: TextAlign.center, style: _valueStyle(strong ? 20 : 18, strong: strong)),
+            Text(name, textAlign: TextAlign.center, style: label()),
+            SizedBox(height: dense ? 3 : 5),
+            Text(text, textAlign: TextAlign.center, style: value(strong)),
           ],
         ),
       );
     }
 
+    Widget row(List<(String, String, bool)> items)
+    {
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [for (final item in items) fact(item)]);
+    }
+
+    final double paddingH = dense ? _denseCurrentPaddingH : _currentPaddingH;
+    final double paddingV = dense ? _denseCurrentPaddingV : _currentPaddingV;
+
     return TodayFrame(
-      radius: _rowRadius,
+      radius: dense ? _denseRowRadius : _rowRadius,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: _currentPaddingH - TodayFrame.rim,
-          vertical: _currentPaddingV - TodayFrame.rim,
+        padding: EdgeInsets.symmetric(
+          horizontal: paddingH - TodayFrame.rim,
+          vertical: paddingV - TodayFrame.rim,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            fact('Anno', '${membership.year}', strong: true),
-            fact('Data inizio', _dateFormat.format(membership.startDate)),
-            fact('Data fine', _dateFormat.format(membership.endDate)),
-            fact('Rinnovo entro', _dateFormat.format(deadline)),
-          ],
-        ),
+        child: !dense
+            ? row(facts)
+            : LayoutBuilder(
+                builder: (context, constraints)
+                {
+                  // Two by two where a date would break in a quarter of the row.
+                  double widest = 0;
+
+                  for (final (name, text, strong) in facts)
+                  {
+                    widest = [widest, _textWidth(context, name, label()), _textWidth(context, text, value(strong))]
+                        .reduce((a, b) => a > b ? a : b);
+                  }
+
+                  if (constraints.maxWidth >= 4 * (widest + _denseCurrentPaddingH))
+                  {
+                    return row(facts);
+                  }
+
+                  return Column(
+                    children: [
+                      row(facts.sublist(0, 2)),
+                      const SizedBox(height: _denseGridGap),
+                      row(facts.sublist(2)),
+                    ],
+                  );
+                },
+              ),
       ),
     );
   }
 
-  Widget _buildPastTable(List<MembershipItem> past)
+  double _textWidth(BuildContext context, String text, TextStyle style)
   {
+    final TextPainter painter = TextPainter(
+      text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+
+    final double width = painter.width;
+    painter.dispose();
+
+    return width;
+  }
+
+  Widget _buildPastTable(List<MembershipItem> past, bool dense)
+  {
+    final double radius = dense ? _denseRowRadius : _rowRadius;
+    final double paddingH = dense ? _denseTablePaddingH : _tablePaddingH;
+    final double value = dense ? 14.5 : 17;
+    final TextStyle head = _labelStyle(dense ? 12 : 13);
+
     Widget cell(Widget child) => Expanded(child: Center(child: child));
 
     Widget row(MembershipItem membership, {required bool first})
@@ -327,9 +404,9 @@ class PersonMembershipsTab extends StatelessWidget
       final Color? tint = revoked ? AppTheme.trialDanger : null;
 
       return Container(
-        height: _tableRowHeight,
+        height: dense ? _denseTableRowHeight : _tableRowHeight,
         color: revoked ? _revokedRowSurface : null,
-        padding: const EdgeInsets.symmetric(horizontal: _tablePaddingH - _tableBorder),
+        padding: EdgeInsets.symmetric(horizontal: paddingH - _tableBorder),
         child: Stack(
           children: [
             if (!first)
@@ -348,18 +425,18 @@ class PersonMembershipsTab extends StatelessWidget
                       if (revoked) ...[
                         AppTooltip(
                           message: revokedMembershipLabel(membership),
-                          child: const Icon(Icons.gavel_rounded, size: 17, color: AppTheme.trialDanger),
+                          child: Icon(Icons.gavel_rounded, size: dense ? 15 : 17, color: AppTheme.trialDanger),
                         ),
                         const SizedBox(width: 6),
                       ],
                       Flexible(
-                        child: Text('${membership.year}', style: _valueStyle(17, strong: true, color: tint)),
+                        child: Text('${membership.year}', style: _valueStyle(value, strong: true, color: tint)),
                       ),
                     ],
                   ),
                 ),
-                cell(Text(_dateFormat.format(membership.startDate), style: _valueStyle(17, color: tint))),
-                cell(Text(_dateFormat.format(membership.endDate), style: _valueStyle(17, color: tint))),
+                cell(Text(_dateFormat.format(membership.startDate), style: _valueStyle(value, color: tint))),
+                cell(Text(_dateFormat.format(membership.endDate), style: _valueStyle(value, color: tint))),
               ],
             ),
           ],
@@ -369,26 +446,26 @@ class PersonMembershipsTab extends StatelessWidget
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(_rowRadius),
+        borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: AppTheme.trialLine, width: _tableBorder),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(_rowRadius - _tableBorder),
+        borderRadius: BorderRadius.circular(radius - _tableBorder),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              height: _tableHeadHeight,
-              padding: const EdgeInsets.symmetric(horizontal: _tablePaddingH - _tableBorder),
+              height: dense ? _denseTableHeadHeight : _tableHeadHeight,
+              padding: EdgeInsets.symmetric(horizontal: paddingH - _tableBorder),
               decoration: const BoxDecoration(
                 color: _tableHeadSurface,
                 border: Border(bottom: BorderSide(color: AppTheme.trialLine)),
               ),
               child: Row(
                 children: [
-                  cell(Text('Anno', style: _labelStyle(13))),
-                  cell(Text('Data inizio', style: _labelStyle(13))),
-                  cell(Text('Data fine', style: _labelStyle(13))),
+                  cell(Text('Anno', style: head)),
+                  cell(Text('Data inizio', style: head)),
+                  cell(Text('Data fine', style: head)),
                 ],
               ),
             ),
@@ -411,11 +488,13 @@ class PersonMembershipsTab extends StatelessWidget
     final currentMembership = person.isEnrolled ? latest : null;
     final pastMemberships = person.isEnrolled ? memberships.skip(1).toList() : memberships;
 
+    final bool dense = AppPageDensity.of(context);
+
     final Widget card = Container(
-      padding: const EdgeInsets.all(_cardPadding),
+      padding: dense ? _denseCardPadding : const EdgeInsets.all(_cardPadding),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(_cardRadius),
+        borderRadius: BorderRadius.circular(dense ? _denseCardRadius : _cardRadius),
         boxShadow: AppTheme.cardShadow,
       ),
       child: SelectionArea(
@@ -424,18 +503,18 @@ class PersonMembershipsTab extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildHeader(context, latest),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: dense ? _denseRuleSpace : 20),
+              child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             ),
             if (currentMembership != null) ...[
-              _buildEyebrow('Iscrizione attuale'),
-              _buildCurrent(currentMembership),
-              if (pastMemberships.isNotEmpty) const SizedBox(height: 24),
+              _buildEyebrow('Iscrizione attuale', dense),
+              _buildCurrent(currentMembership, dense),
+              if (pastMemberships.isNotEmpty) SizedBox(height: dense ? 18 : 24),
             ],
             if (pastMemberships.isNotEmpty) ...[
-              _buildEyebrow('Iscrizioni passate'),
-              _buildPastTable(pastMemberships),
+              _buildEyebrow('Iscrizioni passate', dense),
+              _buildPastTable(pastMemberships, dense),
             ],
             if (latest == null) const PersonEmptyState(message: kNoMembershipsMessage),
           ],
@@ -454,7 +533,7 @@ class PersonMembershipsTab extends StatelessWidget
               children: pageTransitionBlocks([
                 card,
                 if (footer != null) ...[
-                  const SizedBox(height: kPersonSectionGap),
+                  SizedBox(height: personSectionGap(context)),
                   footer!,
                 ],
               ]),

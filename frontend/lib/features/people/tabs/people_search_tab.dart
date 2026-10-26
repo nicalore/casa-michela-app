@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
@@ -15,6 +16,7 @@ import '../../../shared/widgets/tab_layout.dart';
 import '../edit/person_edit_dialog.dart';
 import '../edit/person_edit_form.dart' show kBornInItalyNation;
 import '../models/people_filter_state.dart';
+import '../models/person_face.dart';
 import '../models/person_item.dart';
 import '../utils/people_filter_matching.dart';
 import '../widgets/create_account_dialog.dart';
@@ -109,7 +111,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         .toSet()
         .toList();
 
-    result.sort();
+    result.sort(compareAlphabetically);
 
     return result;
   }
@@ -218,10 +220,10 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
   {
     return switch (_sort)
     {
-      _PeopleSort.nameAsc => a.firstName.compareTo(b.firstName),
-      _PeopleSort.nameDesc => b.firstName.compareTo(a.firstName),
-      _PeopleSort.surnameAsc => a.lastName.compareTo(b.lastName),
-      _PeopleSort.surnameDesc => b.lastName.compareTo(a.lastName),
+      _PeopleSort.nameAsc => compareByName(a, b),
+      _PeopleSort.nameDesc => compareByName(b, a),
+      _PeopleSort.surnameAsc => compareBySurname(a, b),
+      _PeopleSort.surnameDesc => compareBySurname(b, a),
       _PeopleSort.dateDesc => b.createdAt.compareTo(a.createdAt),
       _PeopleSort.dateAsc => a.createdAt.compareTo(b.createdAt),
     };
@@ -313,7 +315,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
                 cardWidth: width,
                 perRow: fitting < 1 ? 1 : fitting,
                 gap: dense ? kDenseCardGap : _cardGap,
-                fromStart: dense,
               ),
             ],
           );

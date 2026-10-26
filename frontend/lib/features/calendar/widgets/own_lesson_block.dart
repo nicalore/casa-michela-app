@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -17,10 +18,25 @@ import 'own_day_timeline.dart';
 // Taller than the admin blocks, to fit two lines of subject.
 const double kOwnBlockHeight = 104;
 
+// Below the wide window: three lines on the timeline, a row in the list.
+const double kDenseOwnBlockHeight = 66;
+const double kDenseOwnRowHeight = 56;
+
+const double _denseRowTimeWidth = 44;
+
+// Set by the lesson list below the wide window: its cards turn into rows.
+class OwnListRows extends InheritedWidget
+{
+  const OwnListRows({super.key, required super.child});
+
+  static bool of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<OwnListRows>() != null;
+
+  @override
+  bool updateShouldNotify(OwnListRows oldWidget) => false;
+}
+
 const double _hoverBorder = 2;
 const double _restBorder = 1.4;
-
-const String _currentLabel = 'In corso';
 
 const double _narrowFrom = 110;
 
@@ -46,15 +62,14 @@ const double _widestActivityName = 180;
 // Bar, insets and the hovered border beside the words; padding and that border above and below.
 const double _frameSide = _barInset + _barWidth + _barGap + _textInset + 2 * _hoverBorder;
 const double _frameTop = 2 * 6 + 2 * _hoverBorder;
-
-const double _badgeFrame = 2 * 3 + 2 * 1;
+const double _denseFrameTop = 2 * 5 + 2 * _hoverBorder;
 
 const IconData kSharedLessonIcon = Icons.people_alt_outlined;
 
 const String kSharedLessonLabel = 'In compresenza con un altro studente';
 
-TextStyle _hoursStyle(Color accent) => GoogleFonts.plusJakartaSans(
-      fontSize: 12.5,
+TextStyle _hoursStyle(Color accent, {bool dense = false}) => GoogleFonts.plusJakartaSans(
+      fontSize: dense ? 11.5 : 12.5,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.2,
       height: 1.15,
@@ -64,6 +79,13 @@ TextStyle _hoursStyle(Color accent) => GoogleFonts.plusJakartaSans(
 // The discipline, or an activity's name.
 TextStyle get _titleStyle => GoogleFonts.plusJakartaSans(
       fontSize: 15,
+      fontWeight: FontWeight.w800,
+      height: 1.15,
+      color: AppTheme.trialOcean,
+    );
+
+TextStyle get _denseTitleStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 14,
       fontWeight: FontWeight.w800,
       height: 1.15,
       color: AppTheme.trialOcean,
@@ -83,22 +105,37 @@ TextStyle get _personStyle => GoogleFonts.plusJakartaSans(
       color: kLessonPersonColor,
     );
 
-TextStyle get _badgeStyle => GoogleFonts.plusJakartaSans(
-      fontSize: 9.5,
-      fontWeight: FontWeight.w700,
+TextStyle get _densePersonStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
       height: 1.2,
-      letterSpacing: 1.1,
-      color: AppTheme.modifiedAccent,
+      color: kLessonPersonColor,
+    );
+
+TextStyle _rowTimeStyle(Color accent) => GoogleFonts.plusJakartaSans(
+      fontSize: 13.5,
+      fontWeight: FontWeight.w800,
+      height: 1.2,
+      color: accent,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+TextStyle get _rowEndStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 11.5,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      color: AppTheme.trialMutedText,
+      fontFeatures: const [FontFeature.tabularFigures()],
     );
 
 // The hours row: the words, the icons beside them and, under way in the list, the badge.
-double _hoursRowHeight(BuildContext context, {required bool past, required bool current})
+double _hoursRowHeight(BuildContext context, {required bool past, required bool current, bool dense = false})
 {
   return [
-    blockTextHeight(context, '0', _hoursStyle(AppTheme.trialInk), double.infinity),
+    blockTextHeight(context, '0', _hoursStyle(AppTheme.trialInk, dense: dense), double.infinity),
     _hoursIcon,
     if (past) 16.0,
-    if (current) blockTextHeight(context, '0', _badgeStyle, double.infinity) + _badgeFrame,
+    if (current) blockTextHeight(context, '0', currentBadgeStyle, double.infinity) + kCurrentBadgeFrame,
   ].reduce(math.max);
 }
 
@@ -122,6 +159,11 @@ class _BlockFrame extends StatefulWidget
 
   final Widget Function(bool narrow) body;
 
+  final bool dense;
+
+  // In the list below the wide window: the card is a row, start and end in a column, then these two lines.
+  final ({String start, String end, String title, String detail})? row;
+
   const _BlockFrame({
     required this.accent,
     required this.surface,
@@ -131,6 +173,8 @@ class _BlockFrame extends StatefulWidget
     this.isCurrent = false,
     required this.onTap,
     required this.body,
+    this.dense = false,
+    this.row,
   });
 
   @override
@@ -141,10 +185,68 @@ class _BlockFrameState extends State<_BlockFrame>
 {
   bool _isHovering = false;
 
+  Widget _buildRow(({String start, String end, String title, String detail}) row)
+  {
+    final accent = widget.accent;
+    final String detail = row.detail;
+
+    return BlockTexts(
+      child: Row(
+        children: [
+          const SizedBox(width: _barInset),
+          SizedBox(
+            width: _barWidth,
+            height: 32,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(width: _barGap + 1),
+          SizedBox(
+            width: _denseRowTimeWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(row.start, maxLines: 1, softWrap: false, style: _rowTimeStyle(accent)),
+                Text(row.end, maxLines: 1, softWrap: false, style: _rowEndStyle),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(row.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _denseTitleStyle),
+                if (detail.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: _densePersonStyle),
+                ],
+              ],
+            ),
+          ),
+          if (widget.isCurrent) ...[
+            const SizedBox(width: 8),
+            const CurrentLessonBadge(),
+          ],
+          if (widget.isPast) ...[
+            const SizedBox(width: 6),
+            const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
+          ],
+          const SizedBox(width: 12),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
     final accent = widget.accent;
+    final dense = widget.dense;
+    final row = widget.row;
 
     final bool hovering = _isHovering && widget.onTap != null;
 
@@ -158,10 +260,10 @@ class _BlockFrameState extends State<_BlockFrame>
             elapsed: ElapsedShare.of(context),
             surface: widget.surface,
             radius: 10,
+            // Only the border fades: the padding changes with the window and must not animate.
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOut,
-              padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
@@ -170,72 +272,75 @@ class _BlockFrameState extends State<_BlockFrame>
                 ),
               ),
               // A Stack, not a Row: a flex would overflow at a few pixels wide.
-              child: LayoutBuilder(
-                builder: (context, constraints)
-                {
-                  final narrow = constraints.maxWidth < _narrowFrom;
+              child: row != null ? _buildRow(row) : Padding(
+                padding: EdgeInsets.symmetric(vertical: dense ? 5 : 6),
+                child: LayoutBuilder(
+                  builder: (context, constraints)
+                  {
+                    final narrow = constraints.maxWidth < _narrowFrom;
 
-                  // A Positioned refuses a negative width.
-                  final left = math.min(_barInset + _barWidth + _barGap, constraints.maxWidth);
-                  final right = math.min(_textInset, constraints.maxWidth - left);
+                    // A Positioned refuses a negative width.
+                    final left = math.min(_barInset + _barWidth + _barGap, constraints.maxWidth);
+                    final right = math.min(_textInset, constraints.maxWidth - left);
 
-                  return Stack(
-                    children: [
-                      Positioned(
-                        left: _barInset,
-                        top: 0,
-                        bottom: 0,
-                        width: _barWidth,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
+                    return Stack(
+                      children: [
+                        Positioned(
+                          left: _barInset,
+                          top: 0,
+                          bottom: 0,
+                          width: _barWidth,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
+                          ),
                         ),
-                      ),
-                      // Cut from the bottom when the body does not fit: never a debug overflow.
-                      Positioned.fill(
-                        left: left,
-                        right: right,
-                        child: BlockTexts(
-                          child: Center(
-                            child: SingleChildScrollView(
-                              physics: const NeverScrollableScrollPhysics(),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      if (!narrow) ...[
-                                        Icon(widget.icon, size: _hoursIcon, color: accent),
-                                        const SizedBox(width: _hoursIconGap),
-                                      ],
-                                      Expanded(
-                                        child: Text.rich(
-                                          lessonHoursSpan(widget.hours, _hoursStyle(accent)),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                        // Cut from the bottom when the body does not fit: never a debug overflow.
+                        Positioned.fill(
+                          left: left,
+                          right: right,
+                          child: BlockTexts(
+                            child: Center(
+                              child: SingleChildScrollView(
+                                physics: const NeverScrollableScrollPhysics(),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        if (!narrow) ...[
+                                          Icon(widget.icon, size: dense ? _hoursIcon - 1 : _hoursIcon, color: accent),
+                                          const SizedBox(width: _hoursIconGap),
+                                        ],
+                                        Expanded(
+                                          child: Text.rich(
+                                            lessonHoursSpan(widget.hours, _hoursStyle(accent, dense: dense)),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                      if (!narrow && widget.isCurrent) ...[
-                                        const SizedBox(width: 6),
-                                        const _CurrentBadge(),
+                                        if (!narrow && widget.isCurrent) ...[
+                                          const SizedBox(width: 6),
+                                          const CurrentLessonBadge(),
+                                        ],
+                                        if (!narrow && widget.isPast) ...[
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
+                                        ],
                                       ],
-                                      if (!narrow && widget.isPast) ...[
-                                        const SizedBox(width: 4),
-                                        const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  widget.body(narrow),
-                                ],
+                                    ),
+                                    SizedBox(height: dense ? 3 : 4),
+                                    widget.body(narrow),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -288,12 +393,36 @@ class OwnLessonBlock extends StatelessWidget
         if (!_byStudent && lesson.mode == kOnlineMode) modeLabel(kOnlineMode),
       ];
 
+  // Below the wide window the third line: who, and where when it says it.
+  String get _denseLine => [_title, if (_saysWhere) _where.label].join(' · ');
+
+  // A row of the list below the wide window: the ministry subject first, then the third line.
+  String _rowDetail(({String discipline, String? subject}) topic)
+  {
+    return [
+      ?topic.subject,
+      _title,
+      if (_saysWhere) _where.label else if (!_byStudent && lesson.mode == kOnlineMode) modeLabel(kOnlineMode),
+    ].join(' · ');
+  }
+
   // On the timeline: the width that writes each line whole.
-  double neededWidth(BuildContext context)
+  double neededWidth(BuildContext context, {bool dense = false})
   {
     final topic = lessonTopic(lesson, ministrySubjects);
-    final hours = blockSpanWidth(context, lessonHoursSpan(_hours, _hoursStyle(lessonAccent(lesson.mode))));
+    final hours = blockSpanWidth(context, lessonHoursSpan(_hours, _hoursStyle(lessonAccent(lesson.mode), dense: dense)));
     double capped(double width) => math.min(kWidestBlockLine, width);
+
+    if (dense)
+    {
+      final lines = [
+        _hoursIcon - 1 + _hoursIconGap + hours + (isPast ? _pastMark : 0),
+        capped(blockLineWidth(context, topic.discipline, _denseTitleStyle)),
+        capped(blockLineWidth(context, _denseLine, _densePersonStyle)),
+      ];
+
+      return lines.reduce(math.max) + _chrome;
+    }
 
     final lines = [
       _hoursIcon + _hoursIconGap + hours + (isPast ? _pastMark : 0),
@@ -308,8 +437,19 @@ class OwnLessonBlock extends StatelessWidget
   }
 
   // At [width], the card's own: every line written, long ones wrapped; never under the usual.
-  double heightAt(BuildContext context, double width)
+  double heightAt(BuildContext context, double width, {bool dense = false})
   {
+    if (dense)
+    {
+      final double line = blockTextHeight(context, '0', _densePersonStyle, double.infinity);
+      final double title = blockTextHeight(context, '0', _denseTitleStyle, double.infinity);
+
+      return math.max(
+        kDenseOwnBlockHeight,
+        _hoursRowHeight(context, past: isPast, current: isCurrent, dense: true) + 3 + title + 2 + line + _denseFrameTop,
+      );
+    }
+
     final topic = lessonTopic(lesson, ministrySubjects);
     final room = width - _frameSide;
     final whereIcon = width < _narrowFrom ? 0.0 : _whereIcon + _whereIconGap;
@@ -335,12 +475,27 @@ class OwnLessonBlock extends StatelessWidget
 
   TimelineEntry asEntry(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+
     return (
       startMinutes: lesson.startMinutes,
       endMinutes: lesson.endMinutes,
-      width: neededWidth(context),
-      heightAt: (width) => heightAt(context, width),
+      width: neededWidth(context, dense: dense),
+      heightAt: (width) => heightAt(context, width, dense: dense),
       block: this,
+    );
+  }
+
+  Widget _buildDenseBody(({String discipline, String? subject}) topic)
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(topic.discipline, maxLines: 1, overflow: TextOverflow.ellipsis, style: _denseTitleStyle),
+        const SizedBox(height: 2),
+        Text(_denseLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: _densePersonStyle),
+      ],
     );
   }
 
@@ -386,6 +541,8 @@ class OwnLessonBlock extends StatelessWidget
   Widget build(BuildContext context)
   {
     final topic = lessonTopic(lesson, ministrySubjects);
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final bool row = dense && OwnListRows.of(context);
 
     return _BlockFrame(
       accent: lessonAccent(lesson.mode),
@@ -396,7 +553,16 @@ class OwnLessonBlock extends StatelessWidget
       isCurrent: isCurrent,
       // Co-presence (lesson.isShared) is not shown to students and parents.
       onTap: onTap,
-      body: (narrow) => _buildBody(topic, narrow: narrow),
+      dense: dense,
+      row: row
+          ? (
+              start: formatTimeOfDayShort(lesson.startTime),
+              end: formatTimeOfDayShort(lesson.endTime),
+              title: topic.discipline,
+              detail: _rowDetail(topic),
+            )
+          : null,
+      body: (narrow) => dense ? _buildDenseBody(topic) : _buildBody(topic, narrow: narrow),
     );
   }
 }
@@ -422,31 +588,38 @@ class OwnActivityBlock extends StatelessWidget
   List<String> get _hours => [activityHours(activity), formatMinutes(activity.minutes)];
 
   // On the timeline: the width that writes the hours and the name whole.
-  double neededWidth(BuildContext context)
+  double neededWidth(BuildContext context, {bool dense = false})
   {
-    final line = blockSpanWidth(context, lessonHoursSpan(_hours, _hoursStyle(kActivityAccent)));
+    final line = blockSpanWidth(context, lessonHoursSpan(_hours, _hoursStyle(kActivityAccent, dense: dense)));
     final hours = _hoursIcon + _hoursIconGap + line + (isPast ? _pastMark : 0);
-    final name = math.min(_widestActivityName, blockLineWidth(context, activity.name, _titleStyle));
+    final name = math.min(_widestActivityName, blockLineWidth(context, activity.name, dense ? _denseTitleStyle : _titleStyle));
 
     return math.max(hours, name) + _chrome;
   }
 
   // At [width], the card's own: the name written whole, wrapped; never under the usual.
-  double heightAt(BuildContext context, double width)
+  double heightAt(BuildContext context, double width, {bool dense = false})
   {
-    final hours = _hoursRowHeight(context, past: isPast, current: isCurrent);
-    final name = blockTextHeight(context, activity.name, _titleStyle, width - _frameSide);
+    final hours = _hoursRowHeight(context, past: isPast, current: isCurrent, dense: dense);
+    final name = blockTextHeight(context, activity.name, dense ? _denseTitleStyle : _titleStyle, width - _frameSide);
+
+    if (dense)
+    {
+      return math.max(kDenseOwnBlockHeight, hours + 3 + name + _denseFrameTop);
+    }
 
     return math.max(kOwnBlockHeight, hours + 4 + name + _frameTop);
   }
 
   TimelineEntry asEntry(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+
     return (
       startMinutes: activity.startMinutes,
       endMinutes: activity.endMinutes,
-      width: neededWidth(context),
-      heightAt: (width) => heightAt(context, width),
+      width: neededWidth(context, dense: dense),
+      heightAt: (width) => heightAt(context, width, dense: dense),
       block: this,
     );
   }
@@ -454,6 +627,9 @@ class OwnActivityBlock extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final bool row = dense && OwnListRows.of(context);
+
     return _BlockFrame(
       accent: kActivityAccent,
       surface: kActivitySurface,
@@ -462,31 +638,16 @@ class OwnActivityBlock extends StatelessWidget
       isPast: isPast,
       isCurrent: isCurrent,
       onTap: onTap,
-      body: (_) => Text(activity.name, style: _titleStyle),
-    );
-  }
-}
-
-class _CurrentBadge extends StatelessWidget
-{
-  const _CurrentBadge();
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppTheme.trialGoldSurface,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: AppTheme.trialGold.withValues(alpha: 0.55)),
-      ),
-      child: Text(
-        _currentLabel.toUpperCase(),
-        maxLines: 1,
-        softWrap: false,
-        style: _badgeStyle,
-      ),
+      dense: dense,
+      row: row
+          ? (
+              start: formatTimeOfDayShort(timeOfDayFromMinutes(activity.startMinutes)),
+              end: formatTimeOfDayShort(timeOfDayFromMinutes(activity.endMinutes)),
+              title: activity.name,
+              detail: '',
+            )
+          : null,
+      body: (_) => Text(activity.name, style: dense ? _denseTitleStyle : _titleStyle),
     );
   }
 }

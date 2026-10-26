@@ -81,6 +81,9 @@ class CalendarActivityBlock extends StatefulWidget
 
   final void Function(CalendarDragPayload? payload)? onDragChanged;
 
+  // On the board below the wide window: a full-width row.
+  final bool isRow;
+
   const CalendarActivityBlock({
     super.key,
     required this.scheduled,
@@ -92,6 +95,7 @@ class CalendarActivityBlock extends StatefulWidget
     this.carriedAt,
     this.onDroppedOutside,
     this.onDragChanged,
+    this.isRow = false,
   });
 
   @override
@@ -207,9 +211,11 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
+          // Turning into a row starts afresh: its padding must not animate.
+          key: ValueKey(widget.isRow),
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: EdgeInsets.symmetric(horizontal: _isNarrow ? 6 : 10, vertical: 6),
+          padding: widget.isRow ? EdgeInsets.zero : EdgeInsets.symmetric(horizontal: _isNarrow ? 6 : 10, vertical: 6),
           decoration: BoxDecoration(
             color: kActivitySurface,
             borderRadius: BorderRadius.circular(10),
@@ -219,7 +225,12 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
             ),
             boxShadow: AppTheme.cardShadow,
           ),
-          child: BlockTexts(
+          child: widget.isRow ? CalendarBlockRow(
+            accent: kActivityAccent,
+            startMinutes: _scheduled.startMinutes,
+            endMinutes: _scheduled.endMinutes,
+            title: _scheduled.name,
+          ) : BlockTexts(
             child: Row(
               children: [
                 Container(

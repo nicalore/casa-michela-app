@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_segmented_switch.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../utils/settings_strings.dart';
 import '../widgets/appearance_choices.dart';
 import '../widgets/settings_panel.dart';
 
 const double _tileGap = 14;
 const double _languageWidth = 260;
+const double _denseLanguageWidth = 210;
 const double _menuCode = 26;
 
 // The first option of each setting is the one in force.
@@ -49,7 +51,7 @@ class AppearanceTab extends StatelessWidget
     );
   }
 
-  Widget _buildLanguages()
+  Widget _buildLanguages(bool dense)
   {
     final List<AppearanceOption> options = kLanguageSetting.options;
 
@@ -60,7 +62,7 @@ class AppearanceTab extends StatelessWidget
         );
 
     return SizedBox(
-      width: _languageWidth,
+      width: dense ? _denseLanguageWidth : _languageWidth,
       child: AppDropdownField<String>(
         hint: kLanguageSetting.title,
         value: options.first.label,
@@ -89,7 +91,11 @@ class AppearanceTab extends StatelessWidget
           rows: [
             SettingsBand(icon: kThemeSetting.icon, title: kThemeSetting.title, child: _buildThemes()),
             SettingsBand(icon: kColorsSetting.icon, title: kColorsSetting.title, child: _buildPalettes()),
-            SettingsRow(icon: kLanguageSetting.icon, title: kLanguageSetting.title, trailing: _buildLanguages()),
+            SettingsRow(
+              icon: kLanguageSetting.icon,
+              title: kLanguageSetting.title,
+              trailing: _buildLanguages(AppPageDensity.of(context)),
+            ),
             SettingsRow(
               icon: Icons.auto_awesome_rounded,
               title: kEffectsTitle,

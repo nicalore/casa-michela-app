@@ -1,34 +1,42 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/app_theme.dart';
+import 'stat_widgets.dart';
 
 // No IntrinsicHeight: the two cards may have different heights.
 class ResponsiveCardPair extends StatelessWidget
 {
-  static const double _breakpoint = 900.0;
-
   final Widget first;
   final Widget second;
+
+  // Side by side only while each card keeps this width: narrower, its own content would stack, and
+  // unstack again once the pair goes into a column.
+  final double minCardWidth;
 
   const ResponsiveCardPair({
     required this.first,
     required this.second,
+    this.minCardWidth = 0,
     super.key,
   });
 
   @override
   Widget build(BuildContext context)
   {
+    final StatMetrics metrics = StatMetrics.of(context);
+    final double pairFrom = math.max(metrics.pairFrom, 2 * minCardWidth + metrics.cardGap);
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < _breakpoint)
+        if (constraints.maxWidth < pairFrom)
         {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               first,
-              const SizedBox(height: 24),
+              SizedBox(height: metrics.cardGap),
               second,
             ],
           );
@@ -38,7 +46,7 @@ class ResponsiveCardPair extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: first),
-            const SizedBox(width: 24),
+            SizedBox(width: metrics.cardGap),
             Expanded(child: second),
           ],
         );
@@ -50,44 +58,49 @@ class ResponsiveCardPair extends StatelessWidget
 // Intrinsic height matching: nothing in a card may measure itself, e.g. no LayoutBuilder.
 class MatchedCardPair extends StatelessWidget
 {
-  static const double _breakpoint = 900.0;
-  static const double _gap = 24.0;
-
   final Widget Function(double width, bool matched) first;
   final Widget Function(double width, bool matched) second;
+
+  // As in ResponsiveCardPair.
+  final double minCardWidth;
 
   const MatchedCardPair({
     required this.first,
     required this.second,
+    this.minCardWidth = 0,
     super.key,
   });
 
   @override
   Widget build(BuildContext context)
   {
+    final StatMetrics metrics = StatMetrics.of(context);
+    final double gap = metrics.cardGap;
+    final double pairFrom = math.max(metrics.pairFrom, 2 * minCardWidth + gap);
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < _breakpoint)
+        if (constraints.maxWidth < pairFrom)
         {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               first(constraints.maxWidth, false),
-              const SizedBox(height: _gap),
+              SizedBox(height: gap),
               second(constraints.maxWidth, false),
             ],
           );
         }
 
-        final double width = (constraints.maxWidth - _gap) / 2;
+        final double width = (constraints.maxWidth - gap) / 2;
 
         return IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(child: first(width, true)),
-              const SizedBox(width: _gap),
+              SizedBox(width: gap),
               Expanded(child: second(width, true)),
             ],
           ),
@@ -99,8 +112,6 @@ class MatchedCardPair extends StatelessWidget
 // Two rankings inside one card, ruled apart; stacked when the card is narrow.
 class RankingPair extends StatelessWidget
 {
-  static const double _stackBelow = 900;
-
   final Widget first;
   final Widget second;
 
@@ -113,18 +124,18 @@ class RankingPair extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final StatMetrics metrics = StatMetrics.of(context);
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < _stackBelow)
+        if (constraints.maxWidth < metrics.listsFrom)
         {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               first,
-              const SizedBox(height: 24),
-              const Divider(color: AppTheme.trialLine, thickness: 1),
-              const SizedBox(height: 24),
+              const StatPartDivider(lists: true),
               second,
             ],
           );
@@ -135,10 +146,7 @@ class RankingPair extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(child: first),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: VerticalDivider(color: AppTheme.trialLine, thickness: 1),
-              ),
+              const StatColumnDivider(),
               Expanded(child: second),
             ],
           ),

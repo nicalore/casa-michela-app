@@ -21,7 +21,17 @@ const double _underlineHeight = 3;
 const double _underlineGap = 10;
 const double _menuWidth = 240;
 
+// A heading that opens a menu: its chevron and the room its tint keeps after it.
+const double _titleChevronSize = 22;
+const double _titleChevronGap = 2;
+const double _titleMenuEnd = 8;
+
 const double kSectionTabsGap = 16;
+
+// A note at the line's end (a day's figures), or under the line when it does not fit there.
+const double _noteSize = 13.5;
+const double _noteGap = 24;
+const double _noteUnder = 10;
 
 const Duration _hoverFade = Duration(milliseconds: 150);
 
@@ -40,10 +50,17 @@ TextStyle _tabStyle({required bool lit, required bool enabled})
   );
 }
 
-TextStyle _titleStyle()
+TextStyle get _noteStyle => GoogleFonts.plusJakartaSans(
+  fontSize: _noteSize,
+  fontWeight: FontWeight.w600,
+  height: 1.3,
+  color: AppTheme.trialMutedText,
+);
+
+TextStyle _titleStyle([double size = _titleSize])
 {
   return GoogleFonts.plusJakartaSans(
-    fontSize: _titleSize,
+    fontSize: size,
     fontWeight: FontWeight.w700,
     height: 1.2,
     color: AppTheme.trialOcean,
@@ -66,7 +83,18 @@ class _Tab
 
   const _Tab.group(RailGroup this.group, this.index, {this.parted = false}) : entry = null;
 
-  String get label => group?.title ?? entry!;
+  // A group names the section open in it, as a filter pill names its value.
+  String labelFor(int selected)
+  {
+    final RailGroup? group = this.group;
+
+    if (group == null)
+    {
+      return entry!;
+    }
+
+    return holds(selected) ? '${group.title}: ${group.entries[selected - index]}' : group.title!;
+  }
 
   bool holds(int selected)
   {
@@ -135,6 +163,24 @@ class AppSectionTabs extends StatefulWidget
   // Entries a tour can light, by index.
   final Map<int, String> tours;
 
+  // Before the title (a back button, a face), as wide as said with the gap after it.
+  final Widget? leading;
+  final double leadingWidth;
+
+  // After the title (the roles beside a name), as wide as said with the gap before it.
+  // Measured here: the page's own context sits above the theme's text style.
+  final Widget? titleTrailing;
+  final double Function(BuildContext context)? titleTrailingWidthOf;
+
+  // A person's name reads smaller than a page's title.
+  final double titleSize;
+
+  // Makes leading, title and trailing one button opening this menu, a chevron after them (a parent's children).
+  final Widget Function(BuildContext context, VoidCallback close)? titleMenu;
+
+  // At the line's end while it fits beside the title and the tabs, else under the line.
+  final String? note;
+
   const AppSectionTabs({
     super.key,
     required this.title,
@@ -142,6 +188,13 @@ class AppSectionTabs extends StatefulWidget
     required this.selectedIndex,
     required this.onSelected,
     this.tours = const {},
+    this.leading,
+    this.leadingWidth = 0,
+    this.titleTrailing,
+    this.titleTrailingWidthOf,
+    this.titleSize = _titleSize,
+    this.titleMenu,
+    this.note,
   });
 
   @override
@@ -207,7 +260,7 @@ class _AppSectionTabsState extends State<AppSectionTabs>
         width += _tabGap + (tab.parted ? _separatorWidth + _tabGap : 0);
       }
 
-      width += _tabWidth(tab.label, drop: tab.group != null);
+      width += _tabWidth(tab.labelFor(widget.selectedIndex), drop: tab.group != null);
     }
 
     if (more)
@@ -245,20 +298,48 @@ class _AppSectionTabsState extends State<AppSectionTabs>
       builder: (context, constraints)
       {
         final double width = constraints.maxWidth - 2 * _sidePadding;
-        final double title = _textWidth(widget.title, _titleStyle());
+        final TextStyle titleStyle = _titleStyle(widget.titleSize);
+        final double trailingWidth = widget.titleTrailingWidthOf?.call(context) ?? 0;
+        final double button = widget.titleMenu == null ? 0 : _titleChevronGap + _titleChevronSize + _titleMenuEnd;
+        final double title = widget.leadingWidth + _textWidth(widget.title, titleStyle) + trailingWidth + button;
 
         // Beside the title while they all fit there; else on their own line, folding what still does not.
         final bool beside = title + _titleGap + _rowWidth(tabs) <= width;
+
+        final String? note = widget.note;
+        final bool noteBeside =
+            note != null && beside && title + _titleGap + _rowWidth(tabs) + _noteGap + _textWidth(note, _noteStyle) <= width;
         final int kept = beside ? tabs.length : _fitting(tabs, width);
 
         final Widget row = _buildTabs(tabs, kept);
 
+        final Widget words = Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: titleStyle);
+
+        // Beside the tabs it has the room it was measured for; alone on its line the name gives way.
+        final Widget named = widget.leading == null && widget.titleTrailing == null
+            ? words
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ?widget.leading,
+                  if (beside) words else Flexible(child: words),
+                  if (widget.titleTrailing case final Widget trailing)
+                    beside
+                        ? SizedBox(width: trailingWidth, child: trailing)
+                        : Flexible(child: trailing),
+                ],
+              );
+
         final Widget heading = Padding(
           padding: const EdgeInsets.only(bottom: _underlineGap),
-          child: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _titleStyle()),
+          child: switch (widget.titleMenu)
+          {
+            final menu? => AppTitleMenu(menu: menu, child: named),
+            null => named,
+          },
         );
 
-        return DecoratedBox(
+        final Widget line = DecoratedBox(
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: AppTheme.closedLine)),
           ),
@@ -270,7 +351,18 @@ class _AppSectionTabsState extends State<AppSectionTabs>
                     children: [
                       heading,
                       const SizedBox(width: _titleGap),
-                      Flexible(child: row),
+                      if (noteBeside) ...[
+                        row,
+                        const SizedBox(width: _noteGap),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: _underlineGap + 2),
+                            child: Text(note, maxLines: 1, textAlign: TextAlign.end, style: _noteStyle),
+                          ),
+                        ),
+                      ]
+                      else
+                        Flexible(child: row),
                     ],
                   )
                 : Column(
@@ -281,6 +373,22 @@ class _AppSectionTabsState extends State<AppSectionTabs>
                     ],
                   ),
           ),
+        );
+
+        if (note == null || noteBeside)
+        {
+          return line;
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            line,
+            Padding(
+              padding: const EdgeInsets.only(left: _sidePadding, right: _sidePadding, top: _noteUnder),
+              child: Text(note, style: _noteStyle),
+            ),
+          ],
         );
       },
     );
@@ -333,7 +441,7 @@ class _AppSectionTabsState extends State<AppSectionTabs>
     if (group != null)
     {
       return _MenuTab(
-        label: group.title!,
+        label: tab.labelFor(widget.selectedIndex),
         selected: tab.holds(widget.selectedIndex),
         menu: (context, close) => _menuOf([tab], close, headed: false),
       );
@@ -413,6 +521,73 @@ class _AppSectionTabsState extends State<AppSectionTabs>
     }
 
     return widget.groups.last;
+  }
+}
+
+// A heading that is one button opening [menu], a chevron after it (a parent's children, a psychologist's pupils).
+class AppTitleMenu extends StatefulWidget
+{
+  final Widget Function(BuildContext context, VoidCallback close) menu;
+  final Widget child;
+
+  const AppTitleMenu({super.key, required this.menu, required this.child});
+
+  @override
+  State<AppTitleMenu> createState() => _AppTitleMenuState();
+}
+
+class _AppTitleMenuState extends State<AppTitleMenu>
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return AppAnchoredMenu(
+      gap: 8,
+      menu: widget.menu,
+      builder: (context, open, toggle)
+      {
+        final bool lit = _hover || open;
+
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: toggle,
+            // A stadium: a face at the start rounds it off.
+            child: AnimatedContainer(
+              duration: _hoverFade,
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.only(right: _titleMenuEnd),
+              decoration: BoxDecoration(
+                color: AppTheme.trialTealDeep.withValues(alpha: lit ? 0.07 : 0),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(child: widget.child),
+                  const SizedBox(width: _titleChevronGap),
+                  AnimatedRotation(
+                    turns: open ? 0.5 : 0,
+                    duration: VisualEffects.of(context) ? const Duration(milliseconds: 200) : Duration.zero,
+                    curve: Curves.easeInOut,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: _titleChevronSize,
+                      color: lit ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

@@ -20,6 +20,9 @@ const Duration _hoverFade = Duration(milliseconds: 150);
 const Duration _openIn = Duration(milliseconds: 180);
 const double _openRise = 8;
 
+// The least room kept between a menu and the window's sides.
+const double _windowMargin = 8;
+
 class AppMenuCard extends StatelessWidget
 {
   final double width;
@@ -78,6 +81,10 @@ class AppMenuHeading extends StatelessWidget
 class AppMenuItem extends StatefulWidget
 {
   final IconData? icon;
+
+  // In the icon's place, as wide as it lays out (a face).
+  final Widget? leading;
+
   final String text;
   final Color color;
 
@@ -98,6 +105,7 @@ class AppMenuItem extends StatefulWidget
   const AppMenuItem({
     super.key,
     this.icon,
+    this.leading,
     required this.text,
     this.color = AppTheme.trialTealDeep,
     required this.onTap,
@@ -145,6 +153,10 @@ class _AppMenuItemState extends State<AppMenuItem>
               const SizedBox(width: _leadingSpace),
               if (icon != null) ...[
                 SizedBox(width: _iconSize, child: Icon(icon, size: _iconSize, color: color)),
+                const SizedBox(width: _iconTextGap),
+              ],
+              if (widget.leading case final Widget leading) ...[
+                leading,
                 const SizedBox(width: _iconTextGap),
               ],
               Expanded(
@@ -223,6 +235,10 @@ class _AppAnchoredMenuState extends State<AppAnchoredMenu> with SingleTickerProv
   late final AnimationController _reveal;
   late final Animation<double> _curve;
 
+  // Nudged sideways once laid out, so the whole menu stays inside the window.
+  final GlobalKey _menuKey = GlobalKey();
+  double _shift = 0;
+
   bool get _isOpen => _portal.isShowing && _reveal.status != AnimationStatus.reverse;
 
   @override
@@ -256,6 +272,7 @@ class _AppAnchoredMenuState extends State<AppAnchoredMenu> with SingleTickerProv
       return;
     }
 
+    _shift = 0;
     setState(_portal.show);
 
     if (VisualEffects.on)
@@ -265,6 +282,28 @@ class _AppAnchoredMenuState extends State<AppAnchoredMenu> with SingleTickerProv
     else
     {
       _reveal.value = 1;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _keepInside());
+  }
+
+  void _keepInside()
+  {
+    final RenderObject? menu = _menuKey.currentContext?.findRenderObject();
+
+    if (!mounted || menu is! RenderBox || !menu.hasSize)
+    {
+      return;
+    }
+
+    final double window = MediaQuery.sizeOf(context).width;
+    final Rect rect = menu.localToGlobal(Offset.zero) & menu.size;
+    final double over = rect.right - (window - _windowMargin);
+    final double under = _windowMargin - rect.left;
+
+    if (over > 0 || under > 0)
+    {
+      setState(() => _shift += under > 0 ? under : -over);
     }
   }
 
@@ -304,7 +343,7 @@ class _AppAnchoredMenuState extends State<AppAnchoredMenu> with SingleTickerProv
         link: _link,
         targetAnchor: end ? Alignment.bottomRight : Alignment.bottomLeft,
         followerAnchor: end ? Alignment.topRight : Alignment.topLeft,
-        offset: Offset(0, widget.gap),
+        offset: Offset(_shift, widget.gap),
         child: TapRegion(
           groupId: _link,
           // A tour over the menu takes the clicks around it.
@@ -327,7 +366,7 @@ class _AppAnchoredMenuState extends State<AppAnchoredMenu> with SingleTickerProv
                     offset: Offset(0, -_openRise * (1 - _curve.value)),
                     child: child,
                   ),
-                  child: RepaintBoundary(child: widget.menu(context, _close)),
+                  child: RepaintBoundary(key: _menuKey, child: widget.menu(context, _close)),
                 ),
               ),
             ),

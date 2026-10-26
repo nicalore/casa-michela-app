@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../core/layout/app_breakpoints.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
 import '../../../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../../../shared/widgets/page_density.dart';
+import '../../../../../shared/widgets/show_more_button.dart';
 import '../../../models/person_face.dart';
 import '../../../models/student_presence_statistics_item.dart';
 import '../../../models/retention_rate_item.dart';
@@ -14,6 +17,68 @@ const double _labelSize = 15;
 
 // Below this a card stops laying its figures out side by side.
 const double _figuresStackBelow = 430;
+const double _denseFiguresStackBelow = 330;
+
+// The narrowest wide window leaves a whole card 864 wide inside and a paired summary card 400: below those
+// nothing may stack there, or narrowing past 1280 (rail and margins gone, content wider) would unstack it again.
+const double _wideListsFrom = 860;
+const double _wideFiguresStackBelow = 380;
+
+// In the minimal window a ranking shows this many rows, then lengthens in place.
+const int kFoldedRankingRows = 5;
+
+// Below the wide window the page asks for denser statistics, as the pages under the user menu do.
+class StatMetrics
+{
+  final bool dense;
+
+  const StatMetrics.forDensity(this.dense);
+
+  factory StatMetrics.of(BuildContext context) => StatMetrics.forDensity(AppPageDensity.of(context));
+
+  double get labelSize => dense ? 13 : _labelSize;
+  double get figureSize => dense ? 26 : _figureSize;
+  double get percentageSize => dense ? 17 : _percentageSize;
+  double get labelGap => dense ? 4 : 8;
+  double get sectionTitleSize => dense ? 15 : 17;
+
+  // Under a section title, before its rows.
+  double get titleGap => dense ? 12 : 24;
+
+  // Around the rules between the parts of a card.
+  double get partSpace => dense ? 20 : 32;
+
+  // Around the rules between lists stacked in a card.
+  double get listSpace => dense ? 20 : 24;
+
+  double get rowSize => dense ? 13.5 : 14;
+  double get badgeSize => dense ? 11.5 : 12;
+  EdgeInsets get badgePadding => EdgeInsets.symmetric(horizontal: dense ? 9 : 11, vertical: dense ? 3 : 5);
+  double get rowGap => dense ? 10 : 14;
+
+  // Between the cards of a page.
+  double get cardGap => dense ? 14 : 24;
+
+  // Pairs of cards sit side by side from this width.
+  double get pairFrom => dense ? 640 : 900;
+
+  // Lists inside a card sit side by side from this width, three of them from the next.
+  double get listsFrom => dense ? 640 : _wideListsFrom;
+  double get threeListsFrom => dense ? 900 : _wideListsFrom;
+
+  double get figuresStackBelow => dense ? _denseFiguresStackBelow : _wideFiguresStackBelow;
+}
+
+// Below the wide window charts are lower, more so in the narrow sizes.
+double statChartHeight(BuildContext context, double wide)
+{
+  if (!AppPageDensity.of(context))
+  {
+    return wide;
+  }
+
+  return AppBreakpoints.of(context).isNarrow ? 200 : 220;
+}
 
 class EmptyChartMessage extends StatelessWidget
 {
@@ -49,7 +114,7 @@ class StatSectionTitle extends StatelessWidget
     return Text(
       text,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 17,
+        fontSize: StatMetrics.of(context).sectionTitleSize,
         fontWeight: FontWeight.w700,
         color: AppTheme.trialOcean,
       ),
@@ -64,11 +129,13 @@ class StatDivider extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = StatMetrics.of(context).dense;
+
     return Container(
       width: 1,
-      height: 45,
+      height: dense ? 36 : 45,
       color: AppTheme.trialLine,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.symmetric(horizontal: dense ? 14 : 16),
     );
   }
 }
@@ -80,9 +147,160 @@ class StatRowDivider extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 16),
-      child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: StatMetrics.of(context).dense ? 12 : 16),
+      child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+    );
+  }
+}
+
+// A rule between the parts of a card, with its space above and below.
+class StatPartDivider extends StatelessWidget
+{
+  final Color color;
+
+  // Between lists stacked in a card rather than between its parts.
+  final bool lists;
+
+  const StatPartDivider({super.key, this.color = AppTheme.trialLine, this.lists = false});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final StatMetrics metrics = StatMetrics.of(context);
+    final double space = lists ? metrics.listSpace : metrics.partSpace;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: space),
+      child: Divider(height: 16, color: color, thickness: 1),
+    );
+  }
+}
+
+// A rule between lists side by side in a card.
+class StatColumnDivider extends StatelessWidget
+{
+  const StatColumnDivider({super.key});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: StatMetrics.of(context).dense ? 20 : 24),
+      child: const VerticalDivider(color: AppTheme.trialLine, thickness: 1),
+    );
+  }
+}
+
+// A ranking in two columns, 1°–5° beside 6°–10°.
+class SplitRanking extends StatelessWidget
+{
+  final String title;
+  final List<Widget> rows;
+
+  const SplitRanking({super.key, required this.title, required this.rows});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final int half = (rows.length + 1) ~/ 2;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        StatSectionTitle(title),
+        SizedBox(height: StatMetrics.of(context).titleGap),
+        if (rows.isEmpty)
+          const EmptyChartMessage(fontSize: 14)
+        else
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: Column(children: rows.sublist(0, half))),
+                const StatColumnDivider(),
+                Expanded(child: Column(children: rows.sublist(half))),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// A label over a big figure, as wide as its slot.
+class StatFigure extends StatelessWidget
+{
+  final String label;
+  final String value;
+
+  const StatFigure({super.key, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final StatMetrics metrics = StatMetrics.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: metrics.labelSize,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.trialMutedText,
+          ),
+        ),
+        SizedBox(height: metrics.labelGap),
+        Text(
+          value,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: metrics.figureSize,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.trialTealDeep,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// The rows of a ranking; in the minimal window the first few, lengthening in place.
+class RankingRows extends StatefulWidget
+{
+  final List<Widget> rows;
+
+  const RankingRows({super.key, required this.rows});
+
+  @override
+  State<RankingRows> createState() => _RankingRowsState();
+}
+
+class _RankingRowsState extends State<RankingRows>
+{
+  bool _all = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final List<Widget> rows = widget.rows;
+    final bool folds = AppBreakpoints.of(context).isMinimal && rows.length > kFoldedRankingRows;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...(folds && !_all ? rows.take(kFoldedRankingRows) : rows),
+        if (folds)
+          ShowMoreButton(
+            label: _all ? kShowFewerLabel : kShowAllLabel,
+            open: _all,
+            onTap: () => setState(() => _all = !_all),
+          ),
+      ],
     );
   }
 }
@@ -107,6 +325,7 @@ class StatBlock extends StatelessWidget
   {
     final color = isDelta && value < 0 ? AppTheme.trialDanger : AppTheme.trialTealDeep;
     final sign = value > 0 ? '+' : '';
+    final StatMetrics metrics = StatMetrics.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,12 +334,12 @@ class StatBlock extends StatelessWidget
         Text(
           label,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: _labelSize,
+            fontSize: metrics.labelSize,
             fontWeight: FontWeight.w600,
             color: AppTheme.trialMutedText,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: metrics.labelGap),
         // mainAxisSize.min required: FittedBox gives unbounded constraints.
         FittedBox(
           fit: BoxFit.scaleDown,
@@ -133,18 +352,18 @@ class StatBlock extends StatelessWidget
               Text(
                 isDelta ? '$sign$value' : '$value',
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: _figureSize,
+                  fontSize: metrics.figureSize,
                   fontWeight: FontWeight.w800,
                   color: color,
                 ),
               ),
               if (percentage != null)
                 Padding(
-                  padding: const EdgeInsets.only(left: 10),
+                  padding: EdgeInsets.only(left: metrics.dense ? 6 : 10),
                   child: Text(
                     '${percentage!.toStringAsFixed(1)}%',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: _percentageSize,
+                      fontSize: metrics.percentageSize,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.trialMutedText,
                     ),
@@ -156,7 +375,7 @@ class StatBlock extends StatelessWidget
                   child: Icon(
                     value > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
                     color: color,
-                    size: 26,
+                    size: metrics.dense ? 21 : 26,
                   ),
                 ),
             ],
@@ -186,6 +405,14 @@ class SummaryStatCard extends StatelessWidget
     this.percentage,
   });
 
+  // The narrowest card keeping its figures side by side, padding included.
+  static double rowWidth(BuildContext context)
+  {
+    final StatMetrics metrics = StatMetrics.of(context);
+
+    return metrics.figuresStackBelow + (metrics.dense ? 40 : 2 * 26);
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -194,14 +421,16 @@ class SummaryStatCard extends StatelessWidget
       StatBlock(label: 'Da inizio mese', value: deltaMonth, isDelta: true),
       StatBlock(label: 'Da inizio anno', value: deltaYear, isDelta: true),
     ];
+    final StatMetrics metrics = StatMetrics.of(context);
 
+    // Dense, the page's own card sizes take over from the compact ones.
     return AppCard(
       title: title,
-      compact: true,
+      compact: !metrics.dense,
       selectable: false,
-      leading: AppCardBadge(icon: icon, compact: true),
+      leading: AppCardBadge(icon: icon, compact: !metrics.dense),
       child: LayoutBuilder(
-        builder: (context, constraints) => constraints.maxWidth < _figuresStackBelow
+        builder: (context, constraints) => constraints.maxWidth < metrics.figuresStackBelow
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -212,6 +441,8 @@ class SummaryStatCard extends StatelessWidget
                 ],
               )
             : Row(
+                // Numbers on one line even when only some labels wrap.
+                crossAxisAlignment: metrics.dense ? CrossAxisAlignment.end : CrossAxisAlignment.center,
                 children: [
                   for (var i = 0; i < blocks.length; i++) ...[
                     if (i > 0) const StatDivider(),
@@ -240,6 +471,9 @@ class ChartCard extends StatelessWidget
 
   final Widget chart;
 
+  // A chart that may take the height it needs, as bars laid across do.
+  final bool sizesItself;
+
   const ChartCard({
     super.key,
     required this.title,
@@ -248,11 +482,13 @@ class ChartCard extends StatelessWidget
     required this.chart,
     this.filters,
     this.isLoading = false,
+    this.sizesItself = false,
   });
 
   @override
   Widget build(BuildContext context)
   {
+    final double height = statChartHeight(context, _chartHeight);
     Widget chartArea;
 
     if (isLoading)
@@ -274,7 +510,9 @@ class ChartCard extends StatelessWidget
       leading: AppCardBadge(icon: icon),
       trailing: filters,
       trailingFit: AppCardTrailing.wrapping,
-      child: SizedBox(height: _chartHeight, child: chartArea),
+      child: sizesItself && !isLoading && !isEmpty
+          ? ConstrainedBox(constraints: BoxConstraints(minHeight: height), child: chartArea)
+          : SizedBox(height: height, child: chartArea),
     );
   }
 }
@@ -282,8 +520,13 @@ class ChartCard extends StatelessWidget
 class RetentionCard extends StatelessWidget
 {
   static const double _percentageFigureSize = 48;
+  static const double _densePercentageFigureSize = 34;
 
   static const double _bodyMinHeight = 62;
+  static const double _denseBodyMinHeight = 44;
+
+  // Dense, the figure and its sentence share a row down to narrower cards.
+  static const double _denseStackBelow = 340;
 
   static const Duration _fetchFade = Duration(milliseconds: 150);
 
@@ -311,7 +554,10 @@ class RetentionCard extends StatelessWidget
     this.isLoading = false,
   });
 
-  Widget _buildBody()
+  // The narrowest card keeping figure and sentence side by side.
+  static double rowWidth(BuildContext context) => StatMetrics.of(context).dense ? _denseStackBelow : _figuresStackBelow;
+
+  Widget _buildBody(bool dense)
   {
     final retention = data;
 
@@ -334,7 +580,7 @@ class RetentionCard extends StatelessWidget
     final Widget figure = Text(
       '${retention.retentionRatePercentage.toStringAsFixed(1)}%',
       style: GoogleFonts.plusJakartaSans(
-        fontSize: _percentageFigureSize,
+        fontSize: dense ? _densePercentageFigureSize : _percentageFigureSize,
         fontWeight: FontWeight.w800,
         color: AppTheme.trialTealDeep,
       ),
@@ -343,14 +589,14 @@ class RetentionCard extends StatelessWidget
     final Widget sentence = Text(
       describe(retention),
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 15,
+        fontSize: dense ? 13.5 : 15,
         fontWeight: FontWeight.w500,
         color: AppTheme.trialMutedText,
-        height: 1.5,
+        height: dense ? 1.45 : 1.5,
       ),
     );
 
-    if (width < _figuresStackBelow)
+    if (width < (dense ? _denseStackBelow : _figuresStackBelow))
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,7 +613,7 @@ class RetentionCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         figure,
-        const SizedBox(width: 16),
+        SizedBox(width: dense ? 14 : 16),
         Expanded(child: sentence),
       ],
     );
@@ -376,20 +622,22 @@ class RetentionCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = StatMetrics.of(context).dense;
+
     return AppCard(
       title: title,
-      compact: true,
+      compact: !dense,
       selectable: false,
       fillHeight: matched,
-      leading: AppCardBadge(icon: icon, compact: true),
+      leading: AppCardBadge(icon: icon, compact: !dense),
       trailing: filters,
       trailingFit: AppCardTrailing.wrapping,
       child: AnimatedOpacity(
         opacity: isLoading ? 0.4 : 1,
         duration: _fetchFade,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: _bodyMinHeight),
-          child: _buildBody(),
+          constraints: BoxConstraints(minHeight: dense ? _denseBodyMinHeight : _bodyMinHeight),
+          child: _buildBody(dense),
         ),
       ),
     );
@@ -443,20 +691,21 @@ class _ThumbCountState extends State<ThumbCount>
   Widget build(BuildContext context)
   {
     final color = widget.up ? kThumbUpColor : kThumbDownColor;
+    final bool dense = StatMetrics.of(context).dense;
 
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
           widget.up ? Icons.thumb_up_outlined : Icons.thumb_down_outlined,
-          size: widget.large ? 26 : 14,
+          size: widget.large ? (dense ? 21 : 26) : 14,
           color: color,
         ),
-        SizedBox(width: widget.large ? 10 : 4),
+        SizedBox(width: widget.large ? (dense ? 6 : 10) : 4),
         Text(
           '${widget.count}',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: widget.large ? 36 : 12,
+            fontSize: widget.large ? (dense ? 26 : 36) : (dense ? 11.5 : 12),
             fontWeight: widget.large ? FontWeight.w800 : FontWeight.w700,
             color: color,
           ),
@@ -475,19 +724,22 @@ class _ThumbCountState extends State<ThumbCount>
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: widget.onTap,
+        // Only the hover colour animates: the padding follows the window's size.
         child: AnimatedContainer(
           duration: _hoverFade,
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.large ? 10 : 6,
-            vertical: widget.large ? 6 : 3,
-          ),
           decoration: BoxDecoration(
             color: _hover
                 ? AppTheme.trialGoldSurface
                 : AppTheme.trialGoldSurface.withValues(alpha: 0),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: content,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.large ? (dense ? 6 : 10) : 6,
+              vertical: widget.large ? (dense ? 4 : 6) : 3,
+            ),
+            child: content,
+          ),
         ),
       ),
     );
@@ -520,7 +772,7 @@ class ThumbCounts extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       children: [
         ThumbCount(up: true, count: up, large: large, onTap: onUpTap),
-        SizedBox(width: large ? 28 : 12),
+        SizedBox(width: large ? (StatMetrics.of(context).dense ? 18 : 28) : 12),
         ThumbCount(up: false, count: down, large: large, onTap: onDownTap),
       ],
     );
@@ -545,7 +797,7 @@ class RankPosition extends StatelessWidget
         child: Text(
           '$position°',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
+            fontSize: StatMetrics.of(context).dense ? 13.5 : 15,
             fontWeight: FontWeight.w800,
             color: color,
           ),
@@ -577,8 +829,10 @@ class PersonRankRow extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final StatMetrics metrics = StatMetrics.of(context);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.only(bottom: metrics.rowGap),
       child: Row(
         children: [
           if (position case final position?) RankPosition(position: position, color: accent),
@@ -591,7 +845,7 @@ class PersonRankRow extends StatelessWidget
                   text: '${person.firstName} ${person.lastName}',
                   maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
+                    fontSize: metrics.rowSize,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.trialInk,
                   ),
@@ -605,7 +859,7 @@ class PersonRankRow extends StatelessWidget
           ),
           const SizedBox(width: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            padding: metrics.badgePadding,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
@@ -613,7 +867,7 @@ class PersonRankRow extends StatelessWidget
             child: Text(
               badgeText,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
+                fontSize: metrics.badgeSize,
                 fontWeight: FontWeight.w700,
                 color: accent,
               ),
@@ -640,8 +894,8 @@ class PersonRankingSection extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       children: [
         StatSectionTitle(title),
-        const SizedBox(height: 24),
-        if (rows.isEmpty) const EmptyChartMessage(fontSize: 14) else ...rows,
+        SizedBox(height: StatMetrics.of(context).titleGap),
+        if (rows.isEmpty) const EmptyChartMessage(fontSize: 14) else RankingRows(rows: rows),
       ],
     );
   }
@@ -658,6 +912,7 @@ class ShareRankRow extends StatelessWidget
 
   // Room for the usual badges; a longer one widens its own slot.
   static const double _badgeSlot = 78;
+  static const double _denseBadgeSlot = 70;
 
   final int position;
   final String name;
@@ -675,8 +930,10 @@ class ShareRankRow extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final StatMetrics metrics = StatMetrics.of(context);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.only(bottom: metrics.rowGap),
       child: Row(
         children: [
           RankPosition(position: position, color: AppTheme.trialTealDeep),
@@ -685,7 +942,7 @@ class ShareRankRow extends StatelessWidget
               text: name,
               maxLines: 1,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
+                fontSize: metrics.rowSize,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.trialInk,
               ),
@@ -698,7 +955,7 @@ class ShareRankRow extends StatelessWidget
               '${percentage.toStringAsFixed(1)}%',
               textAlign: TextAlign.right,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
+                fontSize: metrics.badgeSize,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.trialMutedText,
               ),
@@ -706,11 +963,11 @@ class ShareRankRow extends StatelessWidget
           ),
           const SizedBox(width: 10),
           ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: _badgeSlot),
+            constraints: BoxConstraints(minWidth: metrics.dense ? _denseBadgeSlot : _badgeSlot),
             child: Align(
               alignment: Alignment.centerRight,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                padding: metrics.badgePadding,
                 decoration: BoxDecoration(
                   color: _badgeBackground,
                   borderRadius: BorderRadius.circular(20),
@@ -718,7 +975,7 @@ class ShareRankRow extends StatelessWidget
                 child: Text(
                   badgeText,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
+                    fontSize: metrics.badgeSize,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.trialTealDeep,
                   ),
@@ -747,8 +1004,8 @@ class ShareRankingSection extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       children: [
         StatSectionTitle(title),
-        const SizedBox(height: 24),
-        if (rows.isEmpty) const EmptyChartMessage(fontSize: 14) else ...rows,
+        SizedBox(height: StatMetrics.of(context).titleGap),
+        if (rows.isEmpty) const EmptyChartMessage(fontSize: 14) else RankingRows(rows: rows),
       ],
     );
   }

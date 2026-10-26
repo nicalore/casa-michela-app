@@ -24,7 +24,12 @@ class ProfileAvatar extends StatefulWidget
 
   final bool canEdit;
 
+  static const double defaultSize = _defaultSize;
+
   final double size;
+
+  // The pencil and the bin, smaller on a small face.
+  final double badgeSize;
 
   const ProfileAvatar({
     super.key,
@@ -34,6 +39,7 @@ class ProfileAvatar extends StatefulWidget
     this.profileImageUrl,
     this.canEdit = true,
     this.size = _defaultSize,
+    this.badgeSize = kFaceBadgeSize,
   });
 
   @override
@@ -264,6 +270,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
       hasImage: photo != null,
       onPick:   isBusy ? null : _pickAndUploadImage,
       onRemove: isBusy ? null : _confirmAndDeleteImage,
+      badgeSize: widget.badgeSize,
     );
   }
 }

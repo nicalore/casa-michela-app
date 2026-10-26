@@ -45,7 +45,7 @@ class _NoticePinDialogState extends State<_NoticePinDialog>
 {
   late final DateTime _today = _dayOf(romeNow());
 
-  late DateTime _until = _today.add(const Duration(days: _defaultDays));
+  late DateTime _until = addDays(_today, _defaultDays);
 
   bool _forever = true;
 
@@ -114,7 +114,7 @@ class _NoticePinDialogState extends State<_NoticePinDialog>
                         selected: _until,
                         today: _today,
                         first: _today,
-                        last: _today.add(const Duration(days: _furthestDays)),
+                        last: addDays(_today, _furthestDays),
                         onPicked: (day) => setState(() => _until = _dayOf(day)),
                       ),
                     ],

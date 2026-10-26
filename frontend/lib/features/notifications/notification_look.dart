@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/week_range.dart';
 import '../association/notices/notice_format.dart';
 import 'notification_item.dart';
 import 'notification_strings.dart';
@@ -54,7 +55,8 @@ String notificationWhen(DateTime instant, {required DateTime now})
     return noticeHour(instant);
   }
 
-  if (day == today.subtract(const Duration(days: 1)))
+  // On the calendar: the day after a clock change, 24 hours back is not midnight.
+  if (day == addDays(today, -1))
   {
     return kNotificationsYesterday;
   }

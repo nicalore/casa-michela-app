@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/app_badged_face.dart' show kFaceBadgeSize;
 import '../../../shared/widgets/app_carousel_frame.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../people/models/person_item.dart';
 import '../../people/widgets/person_detail_cards.dart';
-import '../../people/widgets/person_detail_widgets.dart';
+import '../../people/widgets/person_detail_header.dart' show kPersonHeadingFace, kPersonHeadingFaceBadge;
 import '../../people/widgets/profile_avatar.dart';
 import '../onboarding_steps.dart';
 import 'contacts_card.dart';
@@ -29,15 +31,12 @@ class OnboardingRecordStep extends StatefulWidget
 
   final VoidCallback onUpdated;
 
-  final Widget footer;
-
   const OnboardingRecordStep({
     super.key,
     required this.person,
     required this.isOwnRecord,
     required this.accountRoles,
     required this.onUpdated,
-    required this.footer,
     required this.onContactsChanged,
     this.onEducationChanged,
   });
@@ -57,6 +56,9 @@ class _OnboardingRecordStepState extends State<OnboardingRecordStep>
   {
     final PersonItem person = widget.person;
 
+    // Below the wide window the face is as big as the page heading's.
+    final bool dense = AppPageDensity.of(context);
+
     final bool withAssociation = !widget.isOwnRecord ||
         includesAssociationCards(isAdult: person.isAdult, roles: widget.accountRoles);
 
@@ -66,6 +68,8 @@ class _OnboardingRecordStepState extends State<OnboardingRecordStep>
             firstName: person.firstName,
             lastName: person.lastName,
             onImageUpdated: widget.onUpdated,
+            size: dense ? kPersonHeadingFace : ProfileAvatar.defaultSize,
+            badgeSize: dense ? kPersonHeadingFaceBadge : kFaceBadgeSize,
           )
         : null;
 
@@ -121,8 +125,6 @@ class _OnboardingRecordStepState extends State<OnboardingRecordStep>
               onForward: () => _turn(index + 1),
               child: SizedBox(width: double.infinity, child: cards[index]),
             ),
-            const SizedBox(height: kPersonSectionGap),
-            widget.footer,
           ]),
         ),
       ),

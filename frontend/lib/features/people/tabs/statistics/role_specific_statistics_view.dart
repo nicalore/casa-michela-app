@@ -804,6 +804,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     return ChartCard(
       title: 'Distribuzione per città',
+      sizesItself: true,
       icon: Icons.location_city_rounded,
       isEmpty: _cityData.isEmpty,
       chart: BarChart(
@@ -833,6 +834,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     return ChartCard(
       title: 'Distribuzione scolastica',
+      sizesItself: true,
       icon: Icons.school_rounded,
       isEmpty: _educationData.isEmpty,
       filters: AppFilterPill<String>.setting(
@@ -851,6 +853,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           _loadEducationData();
         },
         menuWidth: 230,
+        bareWhenMinimal: true,
       ),
       chart: BarChart(
         data: _educationData
@@ -898,6 +901,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     return ChartCard(
       title: 'Distribuzione per corso',
+      sizesItself: true,
       icon: Icons.menu_book_rounded,
       isEmpty: _courseData.isEmpty,
       chart: BarChart(
@@ -912,9 +916,10 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     final unit = subject.count == 1 ? 'docente' : 'docenti';
     final programName = subject.programName;
+    final StatMetrics metrics = StatMetrics.of(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.only(bottom: metrics.rowGap),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -928,7 +933,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                   text: subject.name,
                   maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
+                    fontSize: metrics.rowSize,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.trialInk,
                   ),
@@ -939,7 +944,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                     text: programName,
                     maxLines: 1,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
+                      fontSize: metrics.badgeSize,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.trialMutedText,
                     ),
@@ -950,7 +955,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           ),
           const SizedBox(width: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            padding: metrics.badgePadding,
             decoration: BoxDecoration(
               color: _subjectBadgeBackground,
               borderRadius: BorderRadius.circular(20),
@@ -958,7 +963,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             child: Text(
               '${subject.count} $unit',
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
+                fontSize: metrics.badgeSize,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.trialTealDeep,
               ),
@@ -976,58 +981,37 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       mainAxisSize: MainAxisSize.min,
       children: [
         StatSectionTitle(title),
-        const SizedBox(height: 24),
+        SizedBox(height: StatMetrics.of(context).titleGap),
         if (subjects.isEmpty)
           const EmptyChartMessage(fontSize: 14)
         else
-          for (var index = 0; index < subjects.length; index++) _buildSubjectRow(index + 1, subjects[index]),
+          RankingRows(
+            rows: [
+              for (var index = 0; index < subjects.length; index++) _buildSubjectRow(index + 1, subjects[index]),
+            ],
+          ),
       ],
     );
   }
 
-  Widget _buildFigure(String label, String value)
-  {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 36,
-            fontWeight: FontWeight.w800,
-            color: AppTheme.trialTealDeep,
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildFigure(String label, String value) => StatFigure(label: label, value: value);
 
-  Widget _buildTeacherRanking(List<TeacherCompetenceRankItem> teachers)
+  // Split in two columns, 1°–5° beside 6°–10°, when it has the card's width to itself.
+  Widget _buildTeacherRanking(List<TeacherCompetenceRankItem> teachers, {bool split = false})
   {
     final byProgram = _teacherRankingMode == 'program';
+    final String title = byProgram ? '10 docenti con più discipline e percorsi' : '10 docenti con più discipline';
+    final List<PersonRankRow> rows = [
+      for (final (index, item) in teachers.indexed)
+        PersonRankRow(
+          position: index + 1,
+          person: item.teacher,
+          badgeText: _competenceCountLabel(item.count, byProgram),
+          accent: AppTheme.trialTealDeep,
+        ),
+    ];
 
-    return PersonRankingSection(
-      title: byProgram ? '10 docenti con più discipline e percorsi' : '10 docenti con più discipline',
-      rows: [
-        for (final (index, item) in teachers.indexed)
-          PersonRankRow(
-            position: index + 1,
-            person: item.teacher,
-            badgeText: _competenceCountLabel(item.count, byProgram),
-            accent: AppTheme.trialTealDeep,
-          ),
-      ],
-    );
+    return split ? SplitRanking(title: title, rows: rows) : PersonRankingSection(title: title, rows: rows);
   }
 
   String _competenceCountLabel(int count, bool byProgram)
@@ -1067,9 +1051,9 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
   }
 
+  // Three columns; then the teachers across in two halves over the two subject lists; then one list under the other.
   Widget _buildTeacherSubjectsSections(TeacherSubjectsStatisticsItem stats)
   {
-    final teacherRanking = _buildTeacherRanking(stats.top10Teachers);
     final topRanking = _buildSubjectRanking(
       '10 discipline più coperte',
       stats.top10Subjects,
@@ -1078,42 +1062,56 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       '10 discipline meno coperte',
       stats.bottom10Subjects,
     );
+    final StatMetrics metrics = StatMetrics.of(context);
 
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < 900)
+        if (constraints.maxWidth < metrics.listsFrom)
         {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              teacherRanking,
-              const SizedBox(height: 24),
-              const Divider(color: _sectionDivider, thickness: 1),
-              const SizedBox(height: 24),
+              _buildTeacherRanking(stats.top10Teachers),
+              const StatPartDivider(color: _sectionDivider, lists: true),
               topRanking,
-              const SizedBox(height: 24),
-              const Divider(color: _sectionDivider, thickness: 1),
-              const SizedBox(height: 24),
+              const StatPartDivider(color: _sectionDivider, lists: true),
               bottomRanking,
             ],
           );
         }
+
+        if (constraints.maxWidth < metrics.threeListsFrom)
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTeacherRanking(stats.top10Teachers, split: true),
+              const StatPartDivider(color: _sectionDivider, lists: true),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: topRanking),
+                    const StatColumnDivider(),
+                    Expanded(child: bottomRanking),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+
+        final teacherRanking = _buildTeacherRanking(stats.top10Teachers);
 
         return IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(child: teacherRanking),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: VerticalDivider(color: _sectionDivider, thickness: 1),
-              ),
+              const StatColumnDivider(),
               Expanded(child: topRanking),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: VerticalDivider(color: _sectionDivider, thickness: 1),
-              ),
+              const StatColumnDivider(),
               Expanded(child: bottomRanking),
             ],
           ),
@@ -1146,14 +1144,13 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         menuWidth: 260,
         // Room for "Classifica: Per disciplina e percorso" in one piece.
         maxLabelWidth: 280,
+        bareWhenMinimal: true,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFigures(stats),
-          const SizedBox(height: 32),
-          const Divider(color: _sectionDivider, thickness: 1),
-          const SizedBox(height: 32),
+          const StatPartDivider(color: _sectionDivider),
           _buildTeacherSubjectsSections(stats),
         ],
       ),
@@ -1278,6 +1275,9 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     final roleSpecific = _buildRoleSpecificCards();
 
+    final StatMetrics metrics = StatMetrics.of(context);
+    final double gap = metrics.cardGap;
+
     return ScrollEdgeFade(
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -1285,6 +1285,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: pageTransitionBlocks([
             ResponsiveCardPair(
+              minCardWidth: SummaryStatCard.rowWidth(context),
               first: SummaryStatCard(
                 title: 'Iscritti',
                 icon: Icons.groups_rounded,
@@ -1302,20 +1303,21 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                 percentage: _currentTotals?.percentageOfTotalCollaborators,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: gap),
             MatchedCardPair(
+              minCardWidth: RetentionCard.rowWidth(context),
               first: _buildMembersRetentionCard,
               second: _buildCollabRetentionCard,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: gap),
             for (final card in roleSpecific) ...[
               card,
-              const SizedBox(height: 24),
+              SizedBox(height: gap),
             ],
             _buildMembersTrendCard(),
-            const SizedBox(height: 24),
+            SizedBox(height: gap),
             _buildCollabTrendCard(),
-            const SizedBox(height: 40),
+            SizedBox(height: metrics.dense ? 24 : 40),
           ]),
         ),
       ),

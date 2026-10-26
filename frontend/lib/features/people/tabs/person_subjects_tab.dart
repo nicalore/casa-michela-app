@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
@@ -18,6 +20,7 @@ import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/tab_layout.dart';
 import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
 import '../models/person_item.dart';
@@ -38,6 +41,15 @@ const double _subjectCardHeight = 96;
 const int _subjectCardTitleLines = 2;
 const double _subjectCardTitleHeight = 1.15;
 const double _subjectCardDetailHeight = 1.25;
+
+// Below the wide window, as the other card lists (AppCatalogueCard).
+const double _denseCardHeight = 68;
+const double _denseCardRadius = 20;
+const double _denseToolIcon = 18;
+const double _denseToolPadding = 7;
+
+// The button's label is long: it goes under the search sooner, so the field keeps its width.
+const double _denseStackBelow = 560;
 
 const double _confirmWidth = 480;
 
@@ -354,8 +366,8 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
     ];
 
     entries.sort((a, b) => _sort == _SubjectSort.nameAsc
-        ? a.name.compareTo(b.name)
-        : b.name.compareTo(a.name));
+        ? compareAlphabetically(a.name, b.name)
+        : compareAlphabetically(b.name, a.name));
 
     // The tour lights the pencil and the bin of the first discipline; services have no pencil.
     final int toolsAt = entries.indexWhere((entry) => entry.subject != null);
@@ -405,47 +417,84 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
     );
   }
 
+  Widget _buildSearch()
+  {
+    return AppSearchField(
+      controller: _searchController,
+      hintText: 'Cerca disciplina o servizio...',
+      onChanged: (value) => setState(() => _searchText = value),
+    );
+  }
+
+  List<Widget> _buildPills()
+  {
+    return [
+      AppFilterPill<_SubjectSort>.setting(
+        prefix: 'Ordina',
+        hint: 'Ordina',
+        icon: Icons.sort_rounded,
+        value: _sort,
+        menuWidth: 190,
+        onChanged: (value) => setState(() => _sort = value),
+        options: _SubjectSort.values
+            .map((sort) => FilterOption(value: sort, label: sort.label))
+            .toList(),
+      ),
+      AppFilterPill<String>.filter(
+        prefix: 'Area',
+        hint: 'Tutte le aree',
+        icon: Icons.category_rounded,
+        value: _filterArea,
+        menuWidth: 220,
+        onChanged: (value) => setState(() => _filterArea = value),
+        onClear: () => setState(() => _filterArea = null),
+        options: _areaPillOptions(),
+      ),
+    ];
+  }
+
   Widget _buildFilters(int count)
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppSearchField(
-          controller: _searchController,
-          hintText: 'Cerca disciplina o servizio...',
-          onChanged: (value) => setState(() => _searchText = value),
-        ),
+        _buildSearch(),
         const SizedBox(height: 16),
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: [
-            AppFilterPill<_SubjectSort>.setting(
-              prefix: 'Ordina',
-              hint: 'Ordina',
-              icon: Icons.sort_rounded,
-              value: _sort,
-              menuWidth: 190,
-              onChanged: (value) => setState(() => _sort = value),
-              options: _SubjectSort.values
-                  .map((sort) => FilterOption(value: sort, label: sort.label))
-                  .toList(),
-            ),
-            AppFilterPill<String>.filter(
-              prefix: 'Area',
-              hint: 'Tutte le aree',
-              icon: Icons.category_rounded,
-              value: _filterArea,
-              menuWidth: 220,
-              onChanged: (value) => setState(() => _filterArea = value),
-              onClear: () => setState(() => _filterArea = null),
-              options: _areaPillOptions(),
-            ),
-          ],
+          children: _buildPills(),
         ),
         const SizedBox(height: 20),
         CompetencesFoundCount(count: count, onlyServices: _showingOnlyServices),
       ],
+    );
+  }
+
+  // Below the wide window: the add button beside the search, as in the other card lists.
+  Widget _buildDense(List<Widget> cards)
+  {
+    return TabContent(
+      header: [
+        TabHeaderRow(
+          stackBelow: _denseStackBelow,
+          search: _buildSearch(),
+          action: DesktopTourTarget(
+            id: kTourSubjectsAdd,
+            child: tabActionButton(label: 'AGGIUNGI DISCIPLINE', onPressed: _openAddDialog),
+          ),
+        ),
+        const TabHeaderGap(wide: 16, dense: 10),
+        TabFiltersRow(
+          filters: _buildPills(),
+          countLabel: competencesFoundLabel(cards.length, onlyServices: _showingOnlyServices),
+        ),
+        const TabHeaderGap(wide: 16, dense: 12),
+      ],
+      bodyTour: kTourSubjectsHeld,
+      empty: cards.isEmpty ? _buildEmptyCard() : null,
+      body: EntityCardGrid(denseWidth: kDenseWideCardWidth, children: cards),
+      footer: widget.footer,
     );
   }
 
@@ -471,6 +520,11 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   Widget build(BuildContext context)
   {
     final cards = _buildCards();
+
+    if (AppBreakpoints.of(context).isDense)
+    {
+      return _buildDense(cards);
+    }
 
     return ScrollEdgeFade(
       child: SingleChildScrollView(
@@ -567,82 +621,94 @@ class _CompetenceCardState extends State<_CompetenceCard>
 {
   bool _isHovering = false;
 
+  Widget _tool(IconData icon, Color color, VoidCallback onTap, bool dense)
+  {
+    return FadeHoverIconButton(
+      icon: icon,
+      color: color,
+      hoverColor: AppTheme.trialGoldSurface,
+      iconSize: dense ? _denseToolIcon : 24,
+      padding: dense ? _denseToolPadding : 6,
+      onTap: onTap,
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        width: _subjectCardWidth,
-        height: _subjectCardHeight,
-        padding: const EdgeInsets.fromLTRB(22, 16, 14, 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(_subjectCardRadius),
-          border: Border.all(
-            color: _isHovering
-                ? AppTheme.trialGold
-                : AppTheme.trialGold.withValues(alpha: 0),
-            width: 2,
+      // Only the hover border fades: sizes that follow the window stay out of the animation.
+      child: SizedBox(
+        width: dense ? null : _subjectCardWidth,
+        height: dense ? _denseCardHeight : _subjectCardHeight,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(dense ? _denseCardRadius : _subjectCardRadius),
+            border: Border.all(
+              color: _isHovering
+                  ? AppTheme.trialGold
+                  : AppTheme.trialGold.withValues(alpha: 0),
+              width: 2,
+            ),
+            boxShadow: AppTheme.cardShadow,
           ),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  OverflowTooltipText(
-                    text: widget.title,
-                    maxLines: _subjectCardTitleLines,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.trialOcean,
-                      height: _subjectCardTitleHeight,
-                    ),
+          child: Padding(
+            padding: dense ? const EdgeInsets.fromLTRB(16, 8, 8, 8) : const EdgeInsets.fromLTRB(22, 16, 14, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      OverflowTooltipText(
+                        text: widget.title,
+                        // Dense: one line, as the other cards; the whole name shows on hover.
+                        maxLines: dense ? 1 : _subjectCardTitleLines,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: dense ? 15.5 : 17,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.trialOcean,
+                          height: _subjectCardTitleHeight,
+                        ),
+                      ),
+                      SizedBox(height: dense ? 3 : 4),
+                      Text(
+                        widget.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: dense ? 12.5 : 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.trialMutedText,
+                          height: _subjectCardDetailHeight,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.subtitle,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.trialMutedText,
-                      height: _subjectCardDetailHeight,
-                    ),
+                ),
+                SizedBox(width: dense ? 6 : 10),
+                DesktopTourTarget(
+                  id: widget.toolsTour,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.onEdit case final VoidCallback edit)
+                        _tool(Icons.edit_outlined, AppTheme.trialTealDeep, edit, dense),
+                      _tool(Icons.delete_outline_rounded, AppTheme.trialDanger, widget.onRemove, dense),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            DesktopTourTarget(
-              id: widget.toolsTour,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.onEdit != null)
-                    FadeHoverIconButton(
-                      icon: Icons.edit_outlined,
-                      color: AppTheme.trialTealDeep,
-                      hoverColor: AppTheme.trialGoldSurface,
-                      onTap: widget.onEdit!,
-                    ),
-                  FadeHoverIconButton(
-                    icon: Icons.delete_outline_rounded,
-                    color: AppTheme.trialDanger,
-                    hoverColor: AppTheme.trialGoldSurface,
-                    onTap: widget.onRemove,
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -1798,7 +1798,8 @@ class _LessonsPageState extends State<LessonsPage>
       ],
     );
 
-    if (_isSelectedDayClosed)
+    // Below the wide window the tab names the day and its figures sit beside the tabs.
+    if (_isSelectedDayClosed || !size.hasRail)
     {
       return lists;
     }
@@ -1915,13 +1916,25 @@ class _LessonsPageState extends State<LessonsPage>
     _watch.shows(onTheCalendar);
   }
 
+  // The open day's figures, beside the tabs below the wide window; none on the calendar or a closed day.
+  String? get _dayNote
+  {
+    if (_isLoading || _isCalendarSelected || _availableDays.isEmpty || _isSelectedDayClosed)
+    {
+      return null;
+    }
+
+    return lessonsDaySummary(availableTeachers: _availableTeachersToday, presentStudents: _presentStudentsToday);
+  }
+
   @override
   Widget build(BuildContext context)
   {
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: the cards or the calendar scroll, not the page.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final size = AppBreakpoints.of(context);
@@ -1983,6 +1996,7 @@ class _LessonsPageState extends State<LessonsPage>
                                     groups: _sections,
                                     selectedIndex: _selectedSection,
                                     onSelected: _selectSection,
+                                    note: _dayNote,
                                   ),
                                 ),
                                 const SizedBox(height: kSectionTabsGap),

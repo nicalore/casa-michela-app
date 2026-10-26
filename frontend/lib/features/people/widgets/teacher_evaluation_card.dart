@@ -135,11 +135,11 @@ class _TeacherEvaluationCardState extends State<TeacherEvaluationCard>
 
     for (var step = 0; step <= _scoreSteps; step++)
     {
-      // Below the wide window measured as Text draws it, the theme's letter spacing included.
+      // Measured as Text draws it, the theme's letter spacing included.
       final TextPainter painter = TextPainter(
         text: TextSpan(
           text: _scoreText(step * _pointsPerCriterion),
-          style: dense ? DefaultTextStyle.of(context).style.merge(style) : style,
+          style: DefaultTextStyle.of(context).style.merge(style),
         ),
         textDirection: TextDirection.ltr,
         textScaler: scaler,

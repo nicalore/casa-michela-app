@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/auth/models/me_response.dart';
@@ -26,6 +27,10 @@ class SeenTours
 {
   static final SeenTours mobile = SeenTours._(TourPlatform.mobile);
   static final SeenTours desktop = SeenTours._(TourPlatform.desktop);
+
+  // Every tour counts as seen: a test looking at a page gets no tour over it.
+  @visibleForTesting
+  static bool debugAllSeen = false;
 
   final TourPlatform platform;
 
@@ -180,6 +185,11 @@ class SeenTours
 
   Future<bool> hasSeen({required String taxCode, required String slug, required int version}) async
   {
+    if (debugAllSeen)
+    {
+      return true;
+    }
+
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     moveAccountKeys(prefs, taxCode);
 

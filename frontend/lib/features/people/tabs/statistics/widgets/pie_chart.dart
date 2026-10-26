@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../../../shared/widgets/page_density.dart';
 import '../../../../../shared/widgets/scroll_edge_fade.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
@@ -112,30 +113,32 @@ class _PieChartState extends State<PieChart>
   {
     final datum = widget.data[index];
     final share = total == 0 ? 0.0 : datum.count / total * 100;
+    final bool dense = AppPageDensity.of(context);
+    final double size = dense ? 12.5 : 14;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+      padding: EdgeInsets.only(bottom: dense ? 8 : 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 3),
             child: Container(
-              width: 14,
-              height: 14,
+              width: dense ? 12 : 14,
+              height: dense ? 12 : 14,
               decoration: BoxDecoration(
                 color: widget.colors[index],
                 shape: BoxShape.circle,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: dense ? 8 : 12),
           Expanded(
             child: OverflowTooltipText(
               text: '${datum.label} (${share.toStringAsFixed(1)}%)',
               maxLines: 2,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
+                fontSize: size,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.trialInk,
               ),
@@ -144,7 +147,7 @@ class _PieChartState extends State<PieChart>
                   TextSpan(
                     text: '${datum.label} ',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
+                      fontSize: size,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.trialInk,
                     ),
@@ -152,7 +155,7 @@ class _PieChartState extends State<PieChart>
                   TextSpan(
                     text: '(${share.toStringAsFixed(1)}%)',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
+                      fontSize: size,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.trialMutedText,
                     ),
@@ -171,11 +174,14 @@ class _PieChartState extends State<PieChart>
   {
     final total = _total;
 
+    // Dense cards are narrower: the legend gets half, or its labels lose their shares.
+    final bool dense = AppPageDensity.of(context);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          flex: 3,
+          flex: dense ? 1 : 3,
           child: LayoutBuilder(
             builder: (context, constraints)
             {
@@ -219,7 +225,7 @@ class _PieChartState extends State<PieChart>
         ),
         const SizedBox(width: 16),
         Expanded(
-          flex: 2,
+          flex: dense ? 1 : 2,
           child: ScrollEdgeFade(
             child: SingleChildScrollView(
               child: Column(

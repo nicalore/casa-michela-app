@@ -107,7 +107,7 @@ class MobileMembershipYearsCard extends StatelessWidget
 
   static DetailRowData _renewal(MembershipItem membership)
   {
-    final DateTime deadline = membership.endDate.add(Duration(days: membership.renewalPeriodDays));
+    final DateTime deadline = membership.renewalDeadline;
 
     return DetailRowData('Rinnovo entro', _dateFormat.format(deadline));
   }

@@ -60,24 +60,26 @@ class _CarouselArrowButtonState extends State<CarouselArrowButton>
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.isDisabled ? null : widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            color: widget.isDisabled
-                ? AppTheme.arrowDisabledSurface
-                : (_isHovered ? widget.hoverColor : Colors.white),
-            shape: BoxShape.circle,
-            border: _border,
-            boxShadow: widget.isDisabled ? null : AppTheme.cardShadow,
-          ),
-          child: Icon(
-            widget.icon,
-            size: widget.iconSize,
-            color: widget.isDisabled
-                ? AppTheme.trialMutedText.withValues(alpha: 0.5)
-                : (_isHovered ? widget.hoverIconColor : AppTheme.trialTealDeep),
+        // Sized outside the animation: only the colours fade, a new size never animates.
+        child: SizedBox.square(
+          dimension: widget.size,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: widget.isDisabled
+                  ? AppTheme.arrowDisabledSurface
+                  : (_isHovered ? widget.hoverColor : Colors.white),
+              shape: BoxShape.circle,
+              border: _border,
+              boxShadow: widget.isDisabled ? null : AppTheme.cardShadow,
+            ),
+            child: Icon(
+              widget.icon,
+              size: widget.iconSize,
+              color: widget.isDisabled
+                  ? AppTheme.trialMutedText.withValues(alpha: 0.5)
+                  : (_isHovered ? widget.hoverIconColor : AppTheme.trialTealDeep),
+            ),
           ),
         ),
       ),

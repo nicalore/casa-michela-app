@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -127,7 +128,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
         MultiSelectFilterOption(value: subject.subjectId, label: subject.subjectName),
     ];
 
-    options.sort((a, b) => a.label.compareTo(b.label));
+    options.sort((a, b) => compareAlphabetically(a.label, b.label));
 
     return options;
   }
@@ -470,7 +471,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
 
     final areas = [
       for (final group in groupByArea(subjects, (subject) => subject.subjectArea))
-        (title: group.title, names: [for (final subject in group.items) subject.subjectName]..sort()),
+        (title: group.title, names: [for (final subject in group.items) subject.subjectName]..sort(compareAlphabetically)),
     ];
 
     return DesktopTourTarget(

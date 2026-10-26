@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/page_density.dart';
 import '../../models/opening_day_item.dart';
 import 'combined_hours.dart';
 import 'hours_strings.dart';
@@ -15,12 +16,13 @@ import 'mode_hours_parts.dart';
 class CombinedStandardCard extends StatelessWidget
 {
   static const double _bandsFontSize = 15;
+  static const double _denseBandsFontSize = 13.5;
 
-  static final TextStyle _closedStyle = GoogleFonts.plusJakartaSans(
-    fontSize: 15,
-    fontWeight: FontWeight.w500,
-    color: AppTheme.trialMutedText,
-  );
+  static TextStyle _closedStyle({required bool dense}) => GoogleFonts.plusJakartaSans(
+        fontSize: dense ? 13.5 : 15,
+        fontWeight: FontWeight.w500,
+        color: AppTheme.trialMutedText,
+      );
 
   final StandardSchedule scheduleByMode;
 
@@ -31,16 +33,19 @@ class CombinedStandardCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    // Below the wide window the card takes the page's sizes, as the other cards there.
+    final bool dense = AppPageDensity.of(context);
+
     return AppCard(
       title: kStandardHoursTitle,
-      compact: true,
+      compact: !dense,
       selectable: false,
-      leading: const AppCardBadge(icon: Icons.schedule_rounded, compact: true),
-      child: _buildBody(context),
+      leading: AppCardBadge(icon: Icons.schedule_rounded, compact: !dense),
+      child: _buildBody(context, dense: dense),
     );
   }
 
-  Widget _buildBody(BuildContext context)
+  Widget _buildBody(BuildContext context, {required bool dense})
   {
     if (isLoading)
     {
@@ -53,7 +58,7 @@ class CombinedStandardCard extends StatelessWidget
         child: Text(
           kNoStandardHours,
           textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(fontSize: 16, color: AppTheme.trialMutedText),
+          style: GoogleFonts.plusJakartaSans(fontSize: dense ? 14 : 16, color: AppTheme.trialMutedText),
         ),
       );
     }
@@ -63,40 +68,51 @@ class CombinedStandardCard extends StatelessWidget
         for (var weekday = 1; weekday <= 7; weekday++)
           HoursGridDay(
             title: weekdayFullName(weekday),
-            modes: {for (final mode in kHoursModes) mode: _modeHours(mode, weekday)},
+            shortTitle: weekdayShortName(weekday),
+            modes: {for (final mode in kHoursModes) mode: _modeHours(mode, weekday, dense: dense)},
           ),
       ],
-      entryWidth: _entryWidth(context),
+      entryWidth: _entryWidth(context, dense: dense),
+      dayWidths: [for (var weekday = 1; weekday <= 7; weekday++) _dayWidth(context, weekday, dense: dense)],
     );
   }
 
-  Widget _modeHours(String mode, int weekday)
+  Widget _modeHours(String mode, int weekday, {required bool dense})
   {
     final bands = _bandsFor(mode, weekday);
 
     if (bands.isEmpty)
     {
-      return Text(kClosedLabel, style: _closedStyle);
+      return Text(kClosedLabel, style: _closedStyle(dense: dense));
     }
 
-    return BandTimes(bands: bands, fontSize: _bandsFontSize, fontWeight: FontWeight.w700, stacked: true);
+    return BandTimes(
+      bands: bands,
+      fontSize: dense ? _denseBandsFontSize : _bandsFontSize,
+      fontWeight: FontWeight.w700,
+      stacked: true,
+    );
   }
 
-  double _entryWidth(BuildContext context)
+  double _entryWidth(BuildContext context, {required bool dense})
+  {
+    return [for (var weekday = 1; weekday <= 7; weekday++) _dayWidth(context, weekday, dense: dense)].reduce(math.max);
+  }
+
+  // The widest of the day's name and hours, "Chiuso" included.
+  double _dayWidth(BuildContext context, int weekday, {required bool dense})
   {
     return [
-      measureText(context, kClosedLabel, _closedStyle),
-      for (var weekday = 1; weekday <= 7; weekday++) ...[
-        measureText(context, weekdayFullName(weekday), HoursGrid.titleStyle),
-        for (final mode in kHoursModes)
-          BandTimes.widthOf(
-            context,
-            _bandsFor(mode, weekday),
-            fontSize: _bandsFontSize,
-            fontWeight: FontWeight.w700,
-            stacked: true,
-          ),
-      ],
+      measureText(context, kClosedLabel, _closedStyle(dense: dense)),
+      measureText(context, weekdayFullName(weekday), HoursGrid.titleStyleOf(dense: dense)),
+      for (final mode in kHoursModes)
+        BandTimes.widthOf(
+          context,
+          _bandsFor(mode, weekday),
+          fontSize: dense ? _denseBandsFontSize : _bandsFontSize,
+          fontWeight: FontWeight.w700,
+          stacked: true,
+        ),
     ].reduce(math.max);
   }
 

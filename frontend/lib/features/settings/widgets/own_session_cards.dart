@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../models/session_item.dart';
 import '../utils/settings_strings.dart';
 import 'session_card.dart';
@@ -13,8 +14,13 @@ const double _heroTile = 76;
 
 const double _cardRadius = 22;
 
-TextStyle _detailStyle() => GoogleFonts.plusJakartaSans(
-      fontSize: 14,
+// Below the wide window (AppPageDensity).
+const double _denseHeroRadius = 20;
+const double _denseHeroTile = 40;
+const double _denseCardRadius = 18;
+
+TextStyle _detailStyle({bool dense = false}) => GoogleFonts.plusJakartaSans(
+      fontSize: dense ? 12.5 : 14,
       fontWeight: FontWeight.w500,
       height: 1.5,
       color: AppTheme.trialMutedText,
@@ -44,21 +50,26 @@ class CurrentSessionCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+    final double tile = dense ? _denseHeroTile : _heroTile;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
-      decoration: _cardDecoration(_heroRadius),
+      padding: dense
+          ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
+          : const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+      decoration: _cardDecoration(dense ? _denseHeroRadius : _heroRadius),
       child: Row(
         children: [
           Container(
-            width: _heroTile,
-            height: _heroTile,
+            width: tile,
+            height: tile,
             decoration: BoxDecoration(
               color: AppTheme.trialTealDeep.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(dense ? 12 : 22),
             ),
-            child: Icon(sessionDeviceIcon(session.deviceType), size: 40, color: AppTheme.trialTealDeep),
+            child: Icon(sessionDeviceIcon(session.deviceType), size: dense ? 22 : 40, color: AppTheme.trialTealDeep),
           ),
-          const SizedBox(width: 22),
+          SizedBox(width: dense ? 12 : 22),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,13 +78,13 @@ class CurrentSessionCard extends StatelessWidget
                   text: sessionDeviceName(session),
                   maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 22,
+                    fontSize: dense ? 16 : 22,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.trialOcean,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(_details(session), style: _detailStyle()),
+                SizedBox(height: dense ? 2 : 4),
+                Text(_details(session), style: _detailStyle(dense: dense)),
               ],
             ),
           ),
@@ -106,18 +117,19 @@ class _OtherSessionCardState extends State<OtherSessionCard>
   Widget build(BuildContext context)
   {
     final SessionItem session = widget.session;
+    final bool dense = AppPageDensity.of(context);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
-        decoration: _cardDecoration(_cardRadius),
+        padding: dense ? const EdgeInsets.fromLTRB(16, 12, 12, 12) : const EdgeInsets.fromLTRB(20, 18, 14, 18),
+        decoration: _cardDecoration(dense ? _denseCardRadius : _cardRadius),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SettingsIconTile(icon: sessionDeviceIcon(session.deviceType)),
-            const SizedBox(width: 14),
+            SizedBox(width: dense ? 12 : 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,10 +137,10 @@ class _OtherSessionCardState extends State<OtherSessionCard>
                   OverflowTooltipText(
                     text: sessionDeviceName(session),
                     maxLines: 1,
-                    style: settingsTitleStyle(),
+                    style: settingsTitleStyle(dense: dense),
                   ),
                   const SizedBox(height: 2),
-                  Text(_details(session), style: _detailStyle()),
+                  Text(_details(session), style: _detailStyle(dense: dense)),
                 ],
               ),
             ),

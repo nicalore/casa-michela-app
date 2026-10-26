@@ -105,7 +105,7 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
           'Cerca una disciplina per vederne le richieste mese per mese.',
           textAlign: TextAlign.center,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
+            fontSize: StatMetrics.of(context).dense ? 13.5 : 15,
             fontWeight: FontWeight.w500,
             color: AppTheme.trialMutedText,
           ),
@@ -149,8 +149,8 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
               onCleared: _clear,
             ),
           ),
-          const SizedBox(height: 28),
-          SizedBox(height: _chartHeight, child: _body()),
+          SizedBox(height: StatMetrics.of(context).dense ? 18 : 28),
+          SizedBox(height: statChartHeight(context, _chartHeight), child: _body()),
         ],
       ),
     );

@@ -492,7 +492,7 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
               children: pageTransitionBlocks([
                 _buildCards(account),
                 if (account.answeredFor && !account.isSuspended) ...[
-                  const SizedBox(height: kPersonCardGap),
+                  SizedBox(height: personCardGap(context)),
                   _buildAutonomousBookings(account),
                 ],
                 if (actions.isNotEmpty) ...[
@@ -500,7 +500,7 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
                   _buildButtons(actions),
                 ],
                 if (suspension.isNotEmpty) ...[
-                  SizedBox(height: actions.isEmpty ? 40 : kPersonSectionGap),
+                  SizedBox(height: actions.isEmpty ? 40 : personSectionGap(context)),
                   _buildButtons(suspension),
                 ],
               ]),

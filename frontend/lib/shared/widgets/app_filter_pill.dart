@@ -108,6 +108,9 @@ class AppFilterPill<T> extends StatefulWidget
 
   final double maxLabelWidth;
 
+  // In the minimal window the value alone, the icon saying what it is.
+  final bool bareWhenMinimal;
+
   final _PillKind _kind;
 
   const AppFilterPill.setting({
@@ -120,6 +123,7 @@ class AppFilterPill<T> extends StatefulWidget
     required this.onChanged,
     required this.menuWidth,
     this.maxLabelWidth = kFilterPillLabelMaxWidth,
+    this.bareWhenMinimal = false,
   })  : _kind = _PillKind.setting,
         onClear = null;
 
@@ -134,6 +138,7 @@ class AppFilterPill<T> extends StatefulWidget
     required this.onClear,
     required this.menuWidth,
     this.maxLabelWidth = kFilterPillLabelMaxWidth,
+    this.bareWhenMinimal = false,
   }) : _kind = _PillKind.filter;
 
   @override
@@ -190,6 +195,11 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>> with CloseOnResize
       );
     }
 
+    if (widget.bareWhenMinimal && AppBreakpoints.of(context).isMinimal)
+    {
+      return Text(selected, maxLines: 1, overflow: TextOverflow.ellipsis, style: valueStyle);
+    }
+
     return Text.rich(
       TextSpan(
         children: [
@@ -239,7 +249,7 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>> with CloseOnResize
           ),
           Positioned(
             top: offset.dy + renderBox.size.height + _menuGap,
-            left: offset.dx,
+            left: filterMenuLeft(offset, renderBox.size.width, widget.menuWidth, MediaQuery.sizeOf(context).width),
             child: _FilterMenu<T>(
               key: _menuKey,
               currentValue: widget.value,
@@ -743,7 +753,7 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> with CloseOnResize
           ),
           Positioned(
             top: offset.dy + renderBox.size.height + _menuGap,
-            left: offset.dx,
+            left: filterMenuLeft(offset, renderBox.size.width, widget.menuWidth, MediaQuery.sizeOf(context).width),
             child: _FilterMenu<T>(
               key: _menuKey,
               currentValue: widget.value,

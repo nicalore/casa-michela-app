@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_tooltip.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../utils/settings_strings.dart';
 
 const double _themeWidth = 236;
@@ -14,6 +15,16 @@ const double _paletteWidth = 156;
 const double _paletteBar = 34;
 const double _paletteRadius = 16;
 const double _palettePadding = 9;
+
+// Below the wide window (AppPageDensity).
+const double _denseThemeWidth = 180;
+const double _denseThemePreview = 92;
+const double _denseThemeRadius = 16;
+const double _denseThemePadding = 7;
+const double _densePaletteWidth = 130;
+const double _densePaletteBar = 26;
+const double _densePaletteRadius = 14;
+const double _densePalettePadding = 6;
 
 const double _border = 2;
 const double _chosenBorder = 3;
@@ -67,18 +78,20 @@ class ThemePreviewTile extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+
     final Widget tile = Container(
-      width: _themeWidth,
-      padding: _tilePadding(_themePadding, chosen: chosen),
-      decoration: _tileDecoration(chosen: chosen, radius: _themeRadius),
+      width: dense ? _denseThemeWidth : _themeWidth,
+      padding: _tilePadding(dense ? _denseThemePadding : _themePadding, chosen: chosen),
+      decoration: _tileDecoration(chosen: chosen, radius: dense ? _denseThemeRadius : _themeRadius),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(height: _themePreview, child: _MiniScreen(dark: dark)),
+            borderRadius: BorderRadius.circular(dense ? 10 : 12),
+            child: SizedBox(height: dense ? _denseThemePreview : _themePreview, child: _MiniScreen(dark: dark)),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: dense ? 7 : 12),
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: Row(
@@ -86,13 +99,13 @@ class ThemePreviewTile extends StatelessWidget
                 Text(
                   label,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15.5,
+                    fontSize: dense ? 13 : 15.5,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.trialOcean,
                   ),
                 ),
                 const Spacer(),
-                if (chosen) _chosenTick(20),
+                if (chosen) _chosenTick(dense ? 16 : 20),
               ],
             ),
           ),
@@ -199,17 +212,19 @@ class PaletteTile extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+
     return Container(
-      width: _paletteWidth,
-      padding: _tilePadding(_palettePadding, chosen: chosen),
-      decoration: _tileDecoration(chosen: chosen, radius: _paletteRadius),
+      width: dense ? _densePaletteWidth : _paletteWidth,
+      padding: _tilePadding(dense ? _densePalettePadding : _palettePadding, chosen: chosen),
+      decoration: _tileDecoration(chosen: chosen, radius: dense ? _densePaletteRadius : _paletteRadius),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(dense ? 8 : 10),
             child: SizedBox(
-              height: _paletteBar,
+              height: dense ? _densePaletteBar : _paletteBar,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -218,7 +233,7 @@ class PaletteTile extends StatelessWidget
               ),
             ),
           ),
-          const SizedBox(height: 9),
+          SizedBox(height: dense ? 6 : 9),
           Padding(
             padding: const EdgeInsets.only(left: 2),
             child: Row(
@@ -229,13 +244,13 @@ class PaletteTile extends StatelessWidget
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
+                      fontSize: dense ? 12.5 : 14,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.trialOcean,
                     ),
                   ),
                 ),
-                if (chosen) _chosenTick(19),
+                if (chosen) _chosenTick(dense ? 15 : 19),
               ],
             ),
           ),

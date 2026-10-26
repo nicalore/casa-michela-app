@@ -8,7 +8,6 @@ import '../../people/widgets/teacher_competences_editor.dart';
 const double _maxWidth = 960;
 
 const double _filtersGap = 20;
-const double _footerGap = 24;
 
 // Only the catalogue scrolls; search, filters and buttons stay put.
 class OnboardingSubjectsStep extends StatelessWidget
@@ -17,13 +16,10 @@ class OnboardingSubjectsStep extends StatelessWidget
 
   final ValueChanged<TeacherCompetencesDraft> onChanged;
 
-  final Widget footer;
-
   const OnboardingSubjectsStep({
     super.key,
     required this.person,
     required this.onChanged,
-    required this.footer,
   });
 
   @override
@@ -46,8 +42,6 @@ class OnboardingSubjectsStep extends StatelessWidget
                   child: AppDialogPill(expand: true, child: list),
                 ),
               ),
-              const SizedBox(height: _footerGap),
-              PageTransitionItem(slot: PageTransitionItem.list + 1, child: footer),
             ],
           ),
         ),

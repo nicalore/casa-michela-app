@@ -19,6 +19,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/filter_menu.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -50,6 +51,15 @@ const double _filterSpacing = 12;
 const double _yearHeight = 28;
 const double _yearGapAbove = 30;
 const double _yearGapBelow = 12;
+
+// Below the wide window, as the other compact lists.
+const double _denseCardGap = 10;
+
+// NUOVA COMUNICAZIONE is longer than the other lists' buttons: under it the search keeps 300 px.
+const double _denseStackBelow = 560;
+const double _denseYearHeight = 20;
+const double _denseYearGapAbove = 14;
+const double _denseYearGapBelow = 6;
 
 const Duration _jumpDuration = Duration(milliseconds: 500);
 const Duration _settleDuration = Duration(milliseconds: 200);
@@ -250,6 +260,13 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     return entries;
   }
 
+  // Set by each build: below the wide window the list is denser.
+  bool _dense = false;
+
+  double get _cardSpacing => _dense ? _denseCardGap : _cardGap;
+
+  double get _yearRoom => _dense ? _denseYearHeight : _yearHeight;
+
   double _gapAbove(List<_Entry> entries, int index)
   {
     if (index == 0)
@@ -259,10 +276,10 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
 
     if (entries[index].notice == null)
     {
-      return _yearGapAbove;
+      return _dense ? _denseYearGapAbove : _yearGapAbove;
     }
 
-    return entries[index - 1].notice == null ? _yearGapBelow : _cardGap;
+    return entries[index - 1].notice == null ? (_dense ? _denseYearGapBelow : _yearGapBelow) : _cardSpacing;
   }
 
   RenderBox? _boxOf(_Entry entry)
@@ -279,7 +296,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
   {
     final RenderBox? box = _boxOf(entry);
 
-    return box == null ? null : RenderAbstractViewport.of(box).getOffsetToReveal(box, 0).offset - _cardGap;
+    return box == null ? null : RenderAbstractViewport.of(box).getOffsetToReveal(box, 0).offset - _cardSpacing;
   }
 
   // Estimated from an entry on screen: cards share a height unless their badges wrap.
@@ -316,7 +333,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
 
       for (var k = math.min(index, target) + 1; k <= math.max(index, target); k++)
       {
-        shift += _gapAbove(entries, k) + (entries[k - 1].notice == null ? _yearHeight : cardHeight);
+        shift += _gapAbove(entries, k) + (entries[k - 1].notice == null ? _yearRoom : cardHeight);
       }
 
       return offset + (target > index ? shift : -shift);
@@ -540,6 +557,11 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
 
   List<Widget> _header(int count)
   {
+    if (_dense)
+    {
+      return _denseHeader(count);
+    }
+
     return [
       PageTransitionItem(
         slot: PageTransitionItem.header,
@@ -609,12 +631,72 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     ];
   }
 
+  // As the other compact lists: the button beside the search, the count at the end of the pills.
+  List<Widget> _denseHeader(int count)
+  {
+    return [
+      PageTransitionItem(
+        slot: PageTransitionItem.header,
+        child: TabHeaderRow(
+          search: DesktopTourTarget(
+            id: _reading ? kTourAssociationSearch : null,
+            child: AppSearchField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchText = value),
+              hintText: kSearchNoticeHint,
+            ),
+          ),
+          action: _reading ? null : tabActionButton(label: kNewNoticeButton, onPressed: _compose),
+          stackBelow: _denseStackBelow,
+        ),
+      ),
+      const TabHeaderGap(wide: 28, dense: 10),
+      PageTransitionItem(
+        slot: PageTransitionItem.header,
+        child: TabFiltersRow(
+          tour: _reading ? kTourAssociationFilters : null,
+          countLabel: noticeCountLabel(count),
+          filters: [
+            AppSortPill(
+              value: _sort,
+              criteria: const [SortCriterion.dateDesc, SortCriterion.dateAsc],
+              onChanged: (sort) => setState(() => _sort = sort),
+            ),
+            AppCalendarButton(
+              selected: _pickedDay ?? _today,
+              today: _today,
+              first: _firstDay,
+              last: _today,
+              onPicked: _goToDay,
+              loadMarks: _marks,
+              tourDays: _reading ? kTourAssociationPickerDays : null,
+              onOpen: _reading ? _onPickerOpen : null,
+            ),
+            if (!_reading) ...[
+              const FilterGroupDivider(),
+              AppTogglePill(
+                label: kOnlyMine,
+                icon: Icons.person_rounded,
+                active: _onlyMine,
+                onChanged: (active) => setState(() => _onlyMine = active),
+              ),
+            ],
+          ],
+        ),
+      ),
+      const TabHeaderGap(wide: 16, dense: 12),
+    ];
+  }
+
+  // No room kept for the floating button: below the wide window it sits beside the search.
+  double get _bottomRoom => _reading || _dense ? 0 : _listBottomRoom;
+
   Widget _empty()
   {
     final bool none = _notices.isEmpty;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: _reading ? 0 : _listBottomRoom),
+      padding: EdgeInsets.only(bottom: _bottomRoom),
       child: Center(
         child: PageTransitionItem(
           slot: PageTransitionItem.list,
@@ -640,7 +722,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     final int? pinned = notices.where((notice) => notice.pinned).firstOrNull?.id;
 
     return SliverPadding(
-      padding: EdgeInsets.fromLTRB(_shadowRoom, _shadowRoom, _shadowRoom, _reading ? _shadowRoom : _listBottomRoom),
+      padding: EdgeInsets.fromLTRB(_shadowRoom, _shadowRoom, _shadowRoom, _bottomRoom == 0 ? _shadowRoom : _bottomRoom),
       sliver: SliverList.builder(
         itemCount: entries.length,
         itemBuilder: (context, index) => PageTransitionItem(
@@ -663,10 +745,10 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     {
       return SizedBox(
         key: _yearKeys.putIfAbsent(entry.year!, GlobalKey.new),
-        height: _yearHeight,
+        height: _yearRoom,
         child: Align(
           alignment: Alignment.centerLeft,
-          child: PageHeading('${entry.year}', large: true),
+          child: PageHeading('${entry.year}', large: !_dense),
         ),
       );
     }
@@ -723,6 +805,13 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
   {
     final List<NoticeSummaryItem> notices = _filtered;
 
+    _dense = AppBreakpoints.of(context).isDense;
+
+    return AppPageDensity(dense: _dense, child: _buildContent(notices));
+  }
+
+  Widget _buildContent(List<NoticeSummaryItem> notices)
+  {
     return LayoutBuilder(
       builder: (context, constraints)
       {
@@ -757,7 +846,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
                 ],
               );
 
-        if (_reading)
+        if (_reading || _dense)
         {
           return content;
         }

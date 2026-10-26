@@ -1,3 +1,4 @@
+import '../../shared/widgets/show_more_button.dart';
 import 'notification_item.dart';
 
 const String kNotificationsEyebrow = 'Cose da fare';
@@ -8,8 +9,8 @@ String notificationsNewLabel(int count) => count == 1 ? '1 nuova' : '$count nuov
 const String kNotificationsEmpty = 'Nessuna notifica.';
 
 // Where the page scrolls the card shows the newest few and lengthens in place.
-const String kNotificationsShowAll = 'Mostra tutte';
-const String kNotificationsShowFewer = 'Mostra meno';
+const String kNotificationsShowAll = kShowAllLabel;
+const String kNotificationsShowFewer = kShowFewerLabel;
 const String kNotificationsUnavailable = 'Le notifiche non sono disponibili.';
 const String kNotificationsYesterday = 'Ieri';
 

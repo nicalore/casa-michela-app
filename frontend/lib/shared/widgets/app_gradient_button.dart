@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
+import 'dialog_density.dart';
+import 'page_density.dart';
 
 const Duration _sweepDuration = Duration(milliseconds: 320);
 
@@ -15,6 +17,17 @@ const double _borderWidth = 2;
 
 const double _horizontalPadding = 30;
 const double _verticalPadding = 15;
+
+// Caps inside a dense dialog: its footer buttons and the ones in its cards.
+const double _denseHeight = 44;
+const double _denseFontSize = 13;
+const double _denseHorizontalPadding = 20;
+const double _denseVerticalPadding = 12;
+
+// On a dense page (AppPageDensity): as tall as the other controls there.
+const double _pageHeight = 36;
+const double _pageFontSize = 12.5;
+const double _pageHorizontalPadding = 14;
 
 const double _pressedScale = 0.99;
 const double _pressedShift = 1;
@@ -44,6 +57,9 @@ class AppGradientButton extends StatefulWidget
 
   final String? disabledReason;
 
+  // Set: a square with the icon alone, this said on hover.
+  final String? iconOnlyTooltip;
+
   const AppGradientButton({
     super.key,
     required this.label,
@@ -58,6 +74,7 @@ class AppGradientButton extends StatefulWidget
     this.horizontalPadding = _horizontalPadding,
     this.busy = false,
     this.disabledReason,
+    this.iconOnlyTooltip,
   });
 
   @override
@@ -93,10 +110,55 @@ class _AppGradientButtonState extends State<AppGradientButton>
     super.dispose();
   }
 
+  bool get _dense => AppDialogDensity.of(context);
+
+  bool get _page => AppPageDensity.of(context);
+
+  double? get _height
+  {
+    final double? height = widget.height;
+
+    if (_page)
+    {
+      return math.min(height ?? _pageHeight, _pageHeight);
+    }
+
+    return height != null && _dense ? math.min(height, _denseHeight) : height;
+  }
+
+  double get _fontSize
+  {
+    if (_page)
+    {
+      return math.min(widget.fontSize, _pageFontSize);
+    }
+
+    return _dense ? math.min(widget.fontSize, _denseFontSize) : widget.fontSize;
+  }
+
+  bool get _iconOnly => widget.iconOnlyTooltip != null && widget.icon != null;
+
+  double get _horizontal
+  {
+    if (_iconOnly)
+    {
+      return 0;
+    }
+
+    if (_page)
+    {
+      return math.min(widget.horizontalPadding, _pageHorizontalPadding);
+    }
+
+    return _dense ? math.min(widget.horizontalPadding, _denseHorizontalPadding) : widget.horizontalPadding;
+  }
+
+  double get _vertical => _dense ? _denseVerticalPadding : _verticalPadding;
+
   TextStyle _labelStyle(Color color)
   {
     return GoogleFonts.plusJakartaSans(
-      fontSize: widget.fontSize,
+      fontSize: _fontSize,
       fontWeight: FontWeight.w700,
       letterSpacing: 1.2,
       height: 1.1,
@@ -106,7 +168,18 @@ class _AppGradientButtonState extends State<AppGradientButton>
 
   Widget _buildFace(Color contentColor)
   {
-    final double glyphSize = widget.fontSize + 1;
+    final double glyphSize = _fontSize + 1;
+
+    if (_iconOnly)
+    {
+      return widget.busy
+          ? SizedBox(
+              width: glyphSize,
+              height: glyphSize,
+              child: CircularProgressIndicator(strokeWidth: 2, color: contentColor),
+            )
+          : Icon(widget.icon, size: glyphSize + 3, color: contentColor);
+    }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -148,8 +221,8 @@ class _AppGradientButtonState extends State<AppGradientButton>
       alignment: Alignment.center,
       decoration: BoxDecoration(gradient: widget.gradient),
       padding: EdgeInsets.symmetric(
-        horizontal: widget.horizontalPadding,
-        vertical: widget.height == null ? _verticalPadding : 0,
+        horizontal: _horizontal,
+        vertical: _height == null ? _vertical : 0,
       ),
       child: ExcludeSemantics(child: _buildFace(Colors.white)),
     );
@@ -185,7 +258,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
         // Same skeleton as the live face: an aligned Container fills the width it is offered.
         child: Container(
           width: widget.width,
-          height: widget.height,
+          height: _height,
           decoration: BoxDecoration(
             color: AppTheme.arrowDisabledSurface,
             borderRadius: BorderRadius.circular(widget.radius),
@@ -196,8 +269,8 @@ class _AppGradientButtonState extends State<AppGradientButton>
             children: [
               Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: widget.horizontalPadding,
-                  vertical: widget.height == null ? _verticalPadding : 0,
+                  horizontal: _horizontal,
+                  vertical: _height == null ? _vertical : 0,
                 ),
                 child: _buildFace(AppTheme.trialMutedText),
               ),
@@ -218,7 +291,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
       return _buildDisabled(reason);
     }
 
-    return MouseRegion(
+    final Widget button = MouseRegion(
       cursor: widget.busy ? SystemMouseCursors.progress : SystemMouseCursors.click,
       onEnter: (_) => _controller.forward(),
       onExit: (_) => _controller.reverse(),
@@ -244,7 +317,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
 
                 return Container(
                   width: widget.width,
-                  height: widget.height,
+                  height: _height,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(widget.radius),
@@ -263,8 +336,8 @@ class _AppGradientButtonState extends State<AppGradientButton>
                     children: [
                       Padding(
                         padding: EdgeInsets.symmetric(
-                          horizontal: widget.horizontalPadding,
-                          vertical: widget.height == null ? _verticalPadding : 0,
+                          horizontal: _horizontal,
+                          vertical: _height == null ? _vertical : 0,
                         ),
                         child: child,
                       ),
@@ -283,6 +356,20 @@ class _AppGradientButtonState extends State<AppGradientButton>
           ),
         ),
       ),
+    );
+
+    final tooltip = widget.iconOnlyTooltip;
+
+    if (tooltip == null || !_iconOnly)
+    {
+      return button;
+    }
+
+    return AppTooltip(
+      message: tooltip,
+      decoration: AppTheme.tooltipDecoration,
+      textStyle: AppTheme.tooltipTextStyle,
+      child: button,
     );
   }
 }

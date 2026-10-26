@@ -17,8 +17,10 @@ import '../../shared/widgets/app_gradient_button.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_heading.dart';
+import '../../shared/widgets/page_density.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
+import '../../shared/widgets/screen_heading.dart';
 import '../../shared/widgets/snackbar.dart';
 import '../association/notices/notice_embeds.dart';
 import 'update_composer_dialog.dart';
@@ -37,6 +39,14 @@ const double _bottomMargin = 24;
 const double _buttonWidth = 330;
 const double _buttonHeight = 52;
 const double _buttonFontSize = 14;
+
+// Below the wide window: the button as tall as the page's controls, the heading on one line.
+const double _denseListBottomRoom = 36 + 30;
+const double _denseHeadingGap = 12;
+const double _denseCardGap = 10;
+const double _denseYearHeight = 20;
+const double _denseYearGapAbove = 20;
+const double _denseYearGapBelow = 8;
 // The last card scrolls clear of the floating button.
 const double _listBottomRoom = _buttonHeight + 40;
 
@@ -46,7 +56,6 @@ const double _yearGapBelow = 12;
 
 // The back button's width and a gap.
 const double _backRoom = 84 + 36;
-const double _belowBackGap = 24;
 
 class UpdatesPage extends StatefulWidget
 {
@@ -213,7 +222,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
   }
 
   // A year's heading before its updates.
-  List<Widget> _entries()
+  List<Widget> _entries(bool dense)
   {
     final List<Widget> entries = [];
     int? year;
@@ -225,17 +234,20 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
         year = update.createdAt.year;
         entries.add(
           Padding(
-            padding: EdgeInsets.only(top: entries.isEmpty ? 0 : _yearGapAbove, bottom: _yearGapBelow),
+            padding: EdgeInsets.only(
+              top: entries.isEmpty ? 0 : (dense ? _denseYearGapAbove : _yearGapAbove),
+              bottom: dense ? _denseYearGapBelow : _yearGapBelow,
+            ),
             child: SizedBox(
-              height: _yearHeight,
-              child: Align(alignment: Alignment.centerLeft, child: PageHeading('$year', large: true)),
+              height: dense ? _denseYearHeight : _yearHeight,
+              child: Align(alignment: Alignment.centerLeft, child: PageHeading('$year', large: !dense)),
             ),
           ),
         );
       }
       else
       {
-        entries.add(const SizedBox(height: _cardGap));
+        entries.add(SizedBox(height: dense ? _denseCardGap : _cardGap));
       }
 
       entries.add(UpdateCard(key: ValueKey(update.id), update: update, onTap: () => _open(update.id)));
@@ -244,8 +256,25 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
     return entries;
   }
 
-  List<Widget> _header()
+  List<Widget> _header(AppWindowSize size)
   {
+    if (size.isDense)
+    {
+      return [
+        PageTransitionItem(
+          slot: PageTransitionItem.header,
+          child: ScreenHeading(
+            title: kUpdatesTitle,
+            backTooltip: 'Torna indietro',
+            onBack: () => context.go(_origin),
+            // Nothing published: the line in the middle says it instead.
+            count: !_loaded ? '' : (_updates.isNotEmpty ? updateCountLabel(_updates.length) : null),
+          ),
+        ),
+        const SizedBox(height: _denseHeadingGap),
+      ];
+    }
+
     return [
       PageTransitionItem(
         slot: PageTransitionItem.header,
@@ -275,7 +304,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
     ];
   }
 
-  Widget _list()
+  Widget _list(bool dense)
   {
     if (_loaded && _updates.isEmpty)
     {
@@ -284,7 +313,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
       );
     }
 
-    final List<Widget> entries = _entries();
+    final List<Widget> entries = _entries(dense);
 
     return Stack(
       clipBehavior: Clip.none,
@@ -298,7 +327,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
             controller: _scroll,
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(_shadowRoom, _shadowRoom, _shadowRoom, _listBottomRoom),
+                padding: EdgeInsets.fromLTRB(_shadowRoom, _shadowRoom, _shadowRoom, dense ? _denseListBottomRoom : _listBottomRoom),
                 sliver: SliverList.builder(
                   itemCount: entries.length,
                   itemBuilder: (context, index) => PageTransitionItem(
@@ -324,7 +353,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
       child: AppGradientButton(
         label: kNewUpdateButton,
         icon: Icons.add_rounded,
-        width: _buttonWidth,
+        width: AppPageDensity.of(context) ? null : _buttonWidth,
         height: _buttonHeight,
         fontSize: _buttonFontSize,
         onPressed: _compose,
@@ -338,7 +367,8 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: its sections scroll, not the page.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final AppWindowSize size = AppBreakpoints.of(context);
@@ -364,43 +394,47 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    padding: EdgeInsets.only(left: margin, right: margin, top: 24, bottom: _bottomMargin),
+                    padding: EdgeInsets.only(left: margin, right: margin, top: size.isDense ? 16 : 24, bottom: _bottomMargin),
                     child: Stack(
                       children: [
-                        Align(
-                          alignment: Alignment.topLeft,
-                          child: AppBackButton(
-                            tooltip: 'Torna indietro',
-                            onTap: () => context.go(_origin),
+                        // Below the wide window the back button leads the line of the title.
+                        if (!size.isDense)
+                          Align(
+                            alignment: Alignment.topLeft,
+                            child: AppBackButton(
+                              tooltip: 'Torna indietro',
+                              onTap: () => context.go(_origin),
+                            ),
                           ),
-                        ),
                         LayoutBuilder(
                           builder: (context, constraints)
                           {
-                            // Centred, and clear of the back button on both sides; below it where that leaves too little.
-                            final bool below = size.isNarrow;
-                            final double side = below ? 0 : math.max(_backRoom, (constraints.maxWidth - _columnWidth) / 2);
+                            // Centred, and clear of the back button on both sides when it stands apart.
+                            final double side = math.max(size.isDense ? 0 : _backRoom, (constraints.maxWidth - _columnWidth) / 2);
 
                             return Padding(
-                              padding: EdgeInsets.only(left: side, right: side, top: below ? AppBackButton.height + _belowBackGap : 0),
-                              child: Stack(
-                                children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      ..._header(),
-                                      Expanded(child: _list()),
-                                    ],
-                                  ),
-                                  Positioned(
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    child: Center(
-                                      child: PageTransitionItem(slot: PageTransitionItem.header, child: _button()),
+                              padding: EdgeInsets.only(left: side, right: side),
+                              child: AppPageDensity(
+                                dense: size.isDense,
+                                child: Stack(
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        ..._header(size),
+                                        Expanded(child: _list(size.isDense)),
+                                      ],
                                     ),
-                                  ),
-                                ],
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Center(
+                                        child: PageTransitionItem(slot: PageTransitionItem.header, child: _button()),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },

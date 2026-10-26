@@ -57,7 +57,7 @@ class MembershipEditRow extends StatelessWidget
     // Centred on the boxes, not the whole field: the label above would put the
     // button too high.
     final Widget remove = Padding(
-      padding: const EdgeInsets.only(left: 10, top: kPersonFieldButtonInset),
+      padding: EdgeInsets.only(left: 10, top: personFieldButtonInset(context)),
       child: onRemove == null
           ? const SizedBox(width: kPersonFieldButtonSize, height: kPersonFieldButtonSize)
           : FadeHoverIconButton(

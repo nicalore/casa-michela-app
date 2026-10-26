@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/rome_clock.dart';
 import '../../core/utils/time_bucket.dart';
@@ -565,41 +566,37 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        DesktopTourTarget(
-          id: kTourCalendarCard,
-          child: ConvocationCard(call: call, isFeminine: _isFeminine),
-        ),
-        const SizedBox(height: kCalendarCardGap),
-        if (isNarrow)
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _listMaxWidth),
-              child: OwnLessonList(entries: _entriesOf(call, onTimeline: false), nowMinutes: _nowMinutes),
-            ),
-          )
-        else
-          OwnDayTimeline(
-            window: window,
-            lanes: [
-              (
-                name: null,
-                stretches: [
-                  for (final slot in offered)
-                    (
-                      mode: slot.mode,
-                      startMinutes: minutesOfTimeOfDay(slot.startTime),
-                      endMinutes: minutesOfTimeOfDay(slot.endTime),
-                    ),
-                ],
-                entries: _entriesOf(call, onTimeline: true),
+    return CalendarSplitBody(
+      top: DesktopTourTarget(
+        id: kTourCalendarCard,
+        child: ConvocationCard(call: call, isFeminine: _isFeminine),
+      ),
+      day: isNarrow
+          ? Center(
+              child: ConstrainedBox(
+                // Below the wide window the rows take the whole width.
+                constraints: BoxConstraints(maxWidth: AppBreakpoints.of(context).isDense ? double.infinity : _listMaxWidth),
+                child: OwnLessonList(entries: _entriesOf(call, onTimeline: false), nowMinutes: _nowMinutes),
               ),
-            ],
-            nowMinutes: _nowMinutes,
-          ),
-      ],
+            )
+          : OwnDayTimeline(
+              window: window,
+              lanes: [
+                (
+                  name: null,
+                  stretches: [
+                    for (final slot in offered)
+                      (
+                        mode: slot.mode,
+                        startMinutes: minutesOfTimeOfDay(slot.startTime),
+                        endMinutes: minutesOfTimeOfDay(slot.endTime),
+                      ),
+                  ],
+                  entries: _entriesOf(call, onTimeline: true),
+                ),
+              ],
+              nowMinutes: _nowMinutes,
+            ),
     );
   }
 

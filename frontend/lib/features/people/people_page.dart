@@ -9,6 +9,7 @@ import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/page_density.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import 'tabs/people_search_tab.dart';
@@ -86,13 +87,19 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
     super.dispose();
   }
 
-  Widget _buildSectionContent()
+  // The statistics step down below the wide window; the search keeps its own sizes.
+  Widget _buildSectionContent(bool dense)
   {
     return PageSections(
       index: _selectedSection,
       children: [
         for (var index = 0; index < _sectionContents.length; index++)
-          if (visitedSections.contains(index)) _sectionContents[index] else const SizedBox.shrink(),
+          if (!visitedSections.contains(index))
+            const SizedBox.shrink()
+          else if (index == 0)
+            _sectionContents[index]
+          else
+            AppPageDensity(dense: dense, child: _sectionContents[index]),
       ],
     );
   }
@@ -108,7 +115,8 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the sections scroll inside the page, which fits the window.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final size = AppBreakpoints.of(context);
@@ -175,7 +183,10 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
                                 ),
                                 const SizedBox(height: kSectionTabsGap),
                               ],
-                              Expanded(key: const ValueKey('people-sections'), child: _buildSectionContent()),
+                              Expanded(
+                                key: const ValueKey('people-sections'),
+                                child: _buildSectionContent(size.isDense),
+                              ),
                             ],
                           ),
                         ),

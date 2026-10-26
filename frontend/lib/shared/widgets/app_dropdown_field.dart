@@ -4,13 +4,23 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
+import 'dialog_density.dart';
 import 'close_on_resize.dart';
 import 'overflow_tooltip_text.dart';
+import 'page_density.dart';
 import 'scroll_edge_fade.dart';
 
 const Color _fieldSurface = Color(0xFFFBFDFC);
 const double _fieldRadius = 14;
 const double _fieldBorder = 2;
+const double _fieldHeight = 50;
+
+// Inside a dense dialog, level with its text fields.
+const double _denseFieldRadius = 12;
+const double _denseFieldHeight = 44;
+
+// In a row of a dense page (AppPageDensity), as tall as its other controls.
+const double _pageFieldHeight = 38;
 
 const double _menuRadius = 16;
 const double _scrollbarLane = 10;
@@ -155,6 +165,8 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> with CloseOnR
 
     final String displayText = selectedOption.label;
     final bool   isExpanded  = _overlayEntry != null;
+    final bool   page        = AppPageDensity.of(context);
+    final bool   dense       = page || AppDialogDensity.of(context);
 
     return MouseRegion(
       cursor:  SystemMouseCursors.click,
@@ -162,41 +174,46 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> with CloseOnR
       onExit:  (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: _toggleMenu,
-        child: AnimatedContainer(
-          key:        _buttonKey,
-          duration:   const Duration(milliseconds: 200),
-          height:     50,
-          padding:    const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: _fieldSurface,
-            borderRadius: BorderRadius.circular(_fieldRadius),
-            border: Border.all(
-              color: _isHovered || isExpanded ? AppTheme.trialGold : AppTheme.trialLine,
-              width: _fieldBorder,
+        // Sized outside the animation: only the border fades, a resize never animates the height.
+        child: SizedBox(
+          key:    _buttonKey,
+          height: page ? _pageFieldHeight : (dense ? _denseFieldHeight : _fieldHeight),
+          child: AnimatedContainer(
+            duration:   const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: _fieldSurface,
+              borderRadius: BorderRadius.circular(dense ? _denseFieldRadius : _fieldRadius),
+              border: Border.all(
+                color: _isHovered || isExpanded ? AppTheme.trialGold : AppTheme.trialLine,
+                width: _fieldBorder,
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (selectedOption.leading case final Widget leading) ...[
-                leading,
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Text(
-                  displayText,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   15,
-                    fontWeight: FontWeight.w600,
-                    color:      AppTheme.trialInk,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: dense ? 14 : 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (selectedOption.leading case final Widget leading) ...[
+                    leading,
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: Text(
+                      displayText,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize:   page ? 13.5 : (dense ? 14 : 15),
+                        fontWeight: FontWeight.w600,
+                        color:      AppTheme.trialInk,
+                      ),
+                    ),
                   ),
-                ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: AppTheme.trialTealDeep,
+                  ),
+                ],
               ),
-              Icon(
-                isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                color: AppTheme.trialTealDeep,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -284,7 +301,8 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
           boxShadow: AppTheme.overlayShadow,
         ),
         child: AnimatedSize(
-          duration:  _animates ? const Duration(milliseconds: 180) : Duration.zero,
+          // Not zero: a zero-length AnimatedSize finishes inside its own layout and asserts.
+          duration:  _animates ? const Duration(milliseconds: 180) : const Duration(microseconds: 1),
           curve:     Curves.easeOut,
           alignment: widget.showAbove ? Alignment.bottomCenter : Alignment.topCenter,
           child:     _expanded

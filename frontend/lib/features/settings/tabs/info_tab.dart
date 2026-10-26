@@ -6,6 +6,7 @@ import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/export/pdf_tab.dart';
 import '../../../shared/widgets/page_heading.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/association_logo.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -30,6 +31,12 @@ const double _documentRadius = 22;
 // Two papers side by side once each gets this much.
 const double _minDocumentWidth = 300;
 const double _documentGap = 20;
+
+// Below the wide window (AppPageDensity).
+const double _denseLogoSize = 60;
+const double _denseCardRadius = 20;
+const double _denseDocumentRadius = 16;
+const double _denseDocumentGap = 12;
 
 class InfoTab extends StatefulWidget
 {
@@ -93,6 +100,8 @@ class _InfoTabState extends State<InfoTab>
   @override
   Widget build(BuildContext context)
   {
+    final double gap = AppPageDensity.of(context) ? _denseDocumentGap : _documentGap;
+
     return SettingsColumn(
       children: [
         const _AboutCard(),
@@ -104,12 +113,12 @@ class _InfoTabState extends State<InfoTab>
             LayoutBuilder(
               builder: (context, constraints)
               {
-                final int columns = constraints.maxWidth >= 2 * _minDocumentWidth + _documentGap ? 2 : 1;
-                final double width = (constraints.maxWidth - (columns - 1) * _documentGap) / columns;
+                final int columns = constraints.maxWidth >= 2 * _minDocumentWidth + gap ? 2 : 1;
+                final double width = (constraints.maxWidth - (columns - 1) * gap) / columns;
 
                 return Wrap(
-                  spacing: _documentGap,
-                  runSpacing: _documentGap,
+                  spacing: gap,
+                  runSpacing: gap,
                   children: [
                     for (final document in AssociationDocument.values)
                       SizedBox(
@@ -138,11 +147,15 @@ class _AboutCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+      padding: dense
+          ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16)
+          : const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(_cardRadius),
+        borderRadius: BorderRadius.circular(dense ? _denseCardRadius : _cardRadius),
         boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
@@ -158,7 +171,9 @@ class _AboutCard extends StatelessWidget
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    padding: dense
+                        ? const EdgeInsets.symmetric(horizontal: 9, vertical: 3)
+                        : const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                     decoration: BoxDecoration(
                       color: AppTheme.trialTealDeep.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(999),
@@ -166,14 +181,14 @@ class _AboutCard extends StatelessWidget
                     child: Text(
                       kAppVersionLabel,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
+                        fontSize: dense ? 11.5 : 13,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.trialTealDeep,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(appCopyright(DateTime.now().year), style: settingsLineStyle()),
+                  SizedBox(height: dense ? 4 : 6),
+                  Text(appCopyright(DateTime.now().year), style: settingsLineStyle(dense: dense)),
                 ],
               );
 
@@ -190,8 +205,8 @@ class _AboutCard extends StatelessWidget
 
               final Widget who = Row(
                 children: [
-                  const AssociationLogo(size: _logoSize),
-                  const SizedBox(width: 24),
+                  AssociationLogo(size: dense ? _denseLogoSize : _logoSize),
+                  SizedBox(width: dense ? 16 : 24),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,12 +214,12 @@ class _AboutCard extends StatelessWidget
                         Text(
                           kAssociationName,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 23,
+                            fontSize: dense ? 17 : 23,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.trialOcean,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: dense ? 5 : 8),
                         // The button level with the version and the copyright.
                         if (stacked)
                           version
@@ -223,27 +238,29 @@ class _AboutCard extends StatelessWidget
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [who, const SizedBox(height: 20), report],
+                children: [who, SizedBox(height: dense ? 14 : 20), report],
               );
             },
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: dense ? 14 : 20),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: dense
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 9)
+                : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: AppTheme.trialGoldSurface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(dense ? 12 : 16),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_rounded, size: 20, color: AppTheme.trialGold),
-                const SizedBox(width: 10),
+                Icon(Icons.info_rounded, size: dense ? 17 : 20, color: AppTheme.trialGold),
+                SizedBox(width: dense ? 8 : 10),
                 Expanded(
                   child: Text(
                     kDevelopmentWarning,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13.5,
+                      fontSize: dense ? 12.5 : 13.5,
                       fontWeight: FontWeight.w600,
                       height: 1.45,
                       color: AppTheme.modifiedAccent,
@@ -278,19 +295,21 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppPageDensity.of(context);
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
       child: GestureDetector(
         onTap: widget.onTap,
+        // Only the border fades: the padding follows the window and must not animate.
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(_documentRadius),
+            borderRadius: BorderRadius.circular(dense ? _denseDocumentRadius : _documentRadius),
             border: Border.all(
               color: _isHovering
                   ? AppTheme.trialGold
@@ -299,18 +318,23 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
             ),
             boxShadow: AppTheme.cardShadow,
           ),
-          child: Row(
-            children: [
-              SettingsIconTile(icon: widget.icon),
-              const SizedBox(width: 14),
-              Expanded(child: Text(widget.title, style: settingsTitleStyle())),
-              const SizedBox(width: 12),
-              Icon(
-                Icons.open_in_new_rounded,
-                color: _isHovering ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
-                size: 22,
-              ),
-            ],
+          child: Padding(
+            padding: dense
+                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 10)
+                : const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                SettingsIconTile(icon: widget.icon),
+                SizedBox(width: dense ? 12 : 14),
+                Expanded(child: Text(widget.title, style: settingsTitleStyle(dense: dense))),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.open_in_new_rounded,
+                  color: _isHovering ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                  size: dense ? 18 : 22,
+                ),
+              ],
+            ),
           ),
         ),
       ),

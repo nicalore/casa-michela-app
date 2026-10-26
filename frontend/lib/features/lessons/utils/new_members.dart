@@ -1,8 +1,9 @@
+import '../../../core/utils/week_range.dart';
 import '../../people/models/person_item.dart';
 import '../models/calendar_day.dart';
 
-// How long somebody counts as newly joined.
-const Duration kNewMemberWindow = Duration(days: 14);
+// How many days somebody counts as newly joined.
+const int kNewMemberDays = 14;
 
 String uncalledNewTeacherWarning(String teacher) =>
     'Attenzione: il docente $teacher è iscritto da meno di due settimane e non è stato convocato.';
@@ -26,7 +27,8 @@ bool joinedRecently(PersonItem person, {required DateTime by})
 {
   final joined = joinedTheAssociationOn(person);
 
-  return joined != null && by.difference(joined) < kNewMemberWindow;
+  // Counted on the calendar: 24-hour days would make the window an hour short in the spring.
+  return joined != null && by.isBefore(addDays(joined, kNewMemberDays));
 }
 
 // [day] is the calendar's day, not today: recency is measured against the day

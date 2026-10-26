@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -25,6 +26,12 @@ import 'person_avatar.dart';
 import 'teacher_exclusion_overlay.dart';
 
 const double kTimelineLeadingWidth = 216;
+const double _denseLeadingWidth = 196;
+
+double timelineLeadingWidth(BuildContext context)
+{
+  return AppBreakpoints.of(context).isDense ? _denseLeadingWidth : kTimelineLeadingWidth;
+}
 
 const double kTimelineAxisHeight = 34;
 
@@ -495,9 +502,13 @@ class _MarkedAvatar extends StatelessWidget
     this.isSupervisor = false,
     this.isExcluded = false,
     this.onToggleExcluded,
+    this.size = _size,
   });
 
+  final double size;
+
   static const double _size = 62;
+  static const double _denseSize = 40;
 
   ({Color accent, IconData icon, String message})? get _mark
   {
@@ -539,8 +550,8 @@ class _MarkedAvatar extends StatelessWidget
     final ring = mark?.accent ?? kAvoidedTeacherColor.withValues(alpha: 0);
 
     return SizedBox(
-      width: _size + 6,
-      height: _size + 6,
+      width: size + 6,
+      height: size + 6,
       child: Stack(
         children: [
           Center(
@@ -558,13 +569,14 @@ class _MarkedAvatar extends StatelessWidget
                     duration: kExcludedLaneFade,
                     curve: kExcludedLaneCurve,
                     opacity: isExcluded ? kExcludedLaneOpacity : 1,
-                    child: PersonAvatar(person: person, size: _size - 8),
+                    child: PersonAvatar(person: person, size: size - 8),
                   ),
                   if (onToggleExcluded != null)
                     Positioned.fill(
                       child: TeacherExclusionOverlay(
                         isExcluded: isExcluded,
                         onToggle: onToggleExcluded,
+                        signSize: size < _size ? 20 : 26,
                       ),
                     ),
                 ],
@@ -603,6 +615,11 @@ final TextStyle _laneNameStyle = GoogleFonts.plusJakartaSans(
   color: AppTheme.trialOcean,
 );
 
+final TextStyle _denseLaneNameStyle = _laneNameStyle.copyWith(fontSize: 14);
+
+const double _headerGap = 12;
+const double _denseHeaderGap = 10;
+
 final TextStyle _laneRoomStyle = GoogleFonts.plusJakartaSans(
   fontSize: 12,
   fontWeight: FontWeight.w600,
@@ -625,7 +642,12 @@ const double _laneShield = 12;
 const double _laneHoursGap = 2;
 
 // The header's text column: the avatar with its ring, the gaps and the right padding taken out.
-const double _laneTextWidth = kTimelineLeadingWidth - 12 - (_MarkedAvatar._size + 6) - 12;
+double _laneTextWidth(bool dense)
+{
+  return dense
+      ? _denseLeadingWidth - 2 * _denseHeaderGap - (_MarkedAvatar._denseSize + 6)
+      : kTimelineLeadingWidth - 2 * _headerGap - (_MarkedAvatar._size + 6);
+}
 
 // Name plus each room, wrapped whole, with its hours: a lane changing room grows to hold them.
 double laneHeaderMinHeight(BuildContext context, CalendarLane lane, LaneRoomLabel? room)
@@ -656,13 +678,20 @@ double laneHeaderMinHeight(BuildContext context, CalendarLane lane, LaneRoomLabe
     return height;
   }
 
-  var height = tall(TextSpan(text: lane.person.fullName, style: ambient.merge(_laneNameStyle)), _laneTextWidth, maxLines: 2) + 3;
+  final bool dense = AppBreakpoints.of(context).isDense;
+  final textWidth = _laneTextWidth(dense);
+
+  var height = tall(
+    TextSpan(text: lane.person.fullName, style: ambient.merge(dense ? _denseLaneNameStyle : _laneNameStyle)),
+    textWidth,
+    maxLines: 2,
+  ) + 3;
 
   for (final stay in room.stays)
   {
     final roomSpan = TextSpan(text: stay.room.name, style: ambient.merge(_laneRoomStyle));
     final hours = TextSpan(text: formatMinutesRange(stay.startMinutes, stay.endMinutes), style: ambient.merge(_laneHoursStyle));
-    final indented = _laneTextWidth - _laneRoomIcon - _laneRoomIconGap;
+    final indented = textWidth - _laneRoomIcon - _laneRoomIconGap;
 
     height += tall(roomSpan, indented) + math.max(_laneShield, tall(hours, indented)) + _laneHoursGap;
   }
@@ -737,14 +766,16 @@ class _LaneHeader extends StatelessWidget
   {
     final listenable = carried;
 
+    final bool dense = AppBreakpoints.of(context).isDense;
+
     if (listenable == null)
     {
-      return _buildHeader(const (preferred: false, avoided: false));
+      return _buildHeader(const (preferred: false, avoided: false), dense);
     }
 
     return ValueListenableBuilder<CarriedRequest?>(
       valueListenable: listenable,
-      builder: (context, carried, _) => _buildHeader(_standingFor(carried?.payload)),
+      builder: (context, carried, _) => _buildHeader(_standingFor(carried?.payload), dense),
     );
   }
 
@@ -825,10 +856,12 @@ class _LaneHeader extends StatelessWidget
     ];
   }
 
-  Widget _buildHeader(({bool preferred, bool avoided}) standing)
+  Widget _buildHeader(({bool preferred, bool avoided}) standing, bool dense)
   {
+    final double gap = dense ? _denseHeaderGap : _headerGap;
+
     return Padding(
-      padding: const EdgeInsets.only(right: 12),
+      padding: EdgeInsets.only(right: gap),
       child: Row(
         children: [
           _MarkedAvatar(
@@ -837,8 +870,9 @@ class _LaneHeader extends StatelessWidget
             isSupervisor: room?.isSupervisor ?? false,
             isExcluded: isExcluded,
             onToggleExcluded: onToggleExcluded,
+            size: dense ? _MarkedAvatar._denseSize : _MarkedAvatar._size,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: gap),
           Expanded(
             child: AnimatedOpacity(
               duration: kExcludedLaneFade,
@@ -853,7 +887,7 @@ class _LaneHeader extends StatelessWidget
                     lane.person.fullName,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: _laneNameStyle,
+                    style: dense ? _denseLaneNameStyle : _laneNameStyle,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -1647,7 +1681,8 @@ class _CalendarTimelineState extends State<CalendarTimeline>
 
   double _blockHeightOf(int row)
   {
-    return widget.blockHeights?[row] ?? lessonBlockHeight(widget.view, composing: widget.isComposing);
+    return widget.blockHeights?[row] ??
+        lessonBlockHeight(widget.view, composing: widget.isComposing, dense: AppBreakpoints.of(context).isDense);
   }
 
   double _topOfSubLane(int row, int subLane)
@@ -2148,7 +2183,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
   Widget _buildNames()
   {
     return SizedBox(
-      width: kTimelineLeadingWidth,
+      width: timelineLeadingWidth(context),
       child: Column(
         children: [
           const SizedBox(height: kTimelineAxisHeight),
@@ -2215,7 +2250,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final scrolls = metrics.trackWidth > constraints.maxWidth - kTimelineLeadingWidth + 0.5;
+        final scrolls = metrics.trackWidth > constraints.maxWidth - timelineLeadingWidth(context) + 0.5;
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,

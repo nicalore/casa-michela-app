@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../lessons/utils/opening_window.dart';
@@ -45,16 +46,21 @@ class ConvocationCard extends StatelessWidget
     ];
   }
 
-  Widget? _buildFooter()
+  Widget? _buildFooter(bool dense)
   {
     if (call.changesRoom)
     {
-      return _RoomSections(rooms: call.rooms);
+      return dense ? _DenseRooms(rooms: call.rooms) : _RoomSections(rooms: call.rooms);
     }
 
     final supervisors = call.rooms.firstOrNull?.supervisors ?? const <RoomSupervisor>[];
 
-    return supervisors.isEmpty ? null : _RoomSupervisors(supervisors: supervisors);
+    if (supervisors.isEmpty)
+    {
+      return null;
+    }
+
+    return dense ? _DenseRooms(supervisors: supervisors) : _RoomSupervisors(supervisors: supervisors);
   }
 
   @override
@@ -64,7 +70,7 @@ class ConvocationCard extends StatelessWidget
       title: convocationTitle(call, feminine: isFeminine),
       summary: convocationSummary(call),
       chips: _buildChips(),
-      footer: _buildFooter(),
+      footer: _buildFooter(AppBreakpoints.of(context).isDense),
     );
   }
 }
@@ -249,6 +255,109 @@ class _RoomSupervisors extends StatelessWidget
           runSpacing: 12,
           children: [for (final supervisor in supervisors) _buildSupervisor(supervisor)],
         ),
+      ],
+    );
+  }
+}
+
+const double _denseFace = 26;
+
+// The strip's footer below the wide window: each room with its hours and supervisors on one line, wrapping.
+class _DenseRooms extends StatelessWidget
+{
+  final List<RoomStay> rooms;
+
+  // A band in one room: its supervisors alone, the room is among the chips.
+  final List<RoomSupervisor> supervisors;
+
+  const _DenseRooms({this.rooms = const [], this.supervisors = const []});
+
+  Widget _buildSupervisor(RoomSupervisor supervisor, int count)
+  {
+    final String? hours = supervisorHours(supervisor, count: count);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PersonAvatar(person: supervisor.person, size: _denseFace),
+        const SizedBox(width: 6),
+        Text(
+          supervisor.person.fullName,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+            color: AppTheme.trialOcean,
+          ),
+        ),
+        if (hours != null) ...[
+          const SizedBox(width: 6),
+          Text(
+            hours,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+              color: AppTheme.trialMutedText,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+        if (supervisor.isSelf) ...[
+          const SizedBox(width: 6),
+          const _SelfBadge(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildRoom(RoomStay stay)
+  {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _RoomChip(name: stay.room.name),
+        Text(
+          formatMinutesRange(stay.startMinutes, stay.endMinutes),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            height: 1.2,
+            color: AppTheme.trialOcean,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        for (final supervisor in stay.supervisors) _buildSupervisor(supervisor, stay.supervisors.length),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final int count = rooms.isEmpty
+        ? supervisors.length
+        : rooms.fold(0, (sum, stay) => sum + stay.supervisors.length);
+
+    return Wrap(
+      spacing: 18,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (count > 0)
+          Text(
+            roomSupervisorsHeading(count).toUpperCase(),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+        for (final stay in rooms) _buildRoom(stay),
+        for (final supervisor in supervisors) _buildSupervisor(supervisor, supervisors.length),
       ],
     );
   }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -22,6 +24,18 @@ const Duration _selectFade = Duration(milliseconds: 180);
 const double rowHeight = 68;
 
 const double rowHeightWithAvatar = 76;
+
+// The name and the line under it, in font size, and the room a line takes for each.
+const double _textSizes = 15 + 12;
+const double _lineHeight = 1.35;
+
+// Fixed so ticking never reflows the list, but grown with larger text (a tenth below the wide window).
+double _heightFor(BuildContext context, double height)
+{
+  final double grown = MediaQuery.textScalerOf(context).scale(_textSizes) - _textSizes;
+
+  return height + math.max(0, grown) * _lineHeight;
+}
 
 class SubjectPickRow extends StatefulWidget
 {
@@ -68,68 +82,70 @@ class _SubjectPickRowState extends State<SubjectPickRow>
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: () => widget.onSelected(!widget.selected),
-        child: AnimatedContainer(
-          duration: _selectFade,
-          curve: Curves.easeOut,
+        // The height sits outside the animation: it follows the window's text size.
+        child: Container(
           margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          // Fixed height so ticking never reflows the list.
-          height: widget.leading == null ? rowHeight : rowHeightWithAvatar,
-          decoration: BoxDecoration(
-            // This colour at zero alpha, not Colors.transparent: the fade avoids grey.
-            color: widget.selected ? kPickedSurface : kPickedSurface.withValues(alpha: 0),
-            borderRadius: BorderRadius.circular(16),
-            // Border always present (transparent when idle) so hover does not shift layout.
-            border: Border.all(
-              color: _hover ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
-              width: 2,
+          height: _heightFor(context, widget.leading == null ? rowHeight : rowHeightWithAvatar),
+          child: AnimatedContainer(
+            duration: _selectFade,
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              // This colour at zero alpha, not Colors.transparent: the fade avoids grey.
+              color: widget.selected ? kPickedSurface : kPickedSurface.withValues(alpha: 0),
+              borderRadius: BorderRadius.circular(16),
+              // Border always present (transparent when idle) so hover does not shift layout.
+              border: Border.all(
+                color: _hover ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
+                width: 2,
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              AppCheckMark(selected: widget.selected),
-              const SizedBox(width: 14),
-              if (widget.leading != null) ...[
-                widget.leading!,
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    OverflowTooltipText(
-                      text: widget.name,
-                      maxLines: 1,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.trialOcean,
-                      ),
-                    ),
-                    if (widget.subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+            child: Row(
+              children: [
+                AppCheckMark(selected: widget.selected),
+                const SizedBox(width: 14),
+                if (widget.leading != null) ...[
+                  widget.leading!,
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       OverflowTooltipText(
-                        text: widget.subtitle,
+                        text: widget.name,
                         maxLines: 1,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.trialMutedText,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.trialOcean,
                         ),
                       ),
+                      if (widget.subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        OverflowTooltipText(
+                          text: widget.subtitle,
+                          maxLines: 1,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.trialMutedText,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              if (widget.hasChoice)
-                AppTooltip(
-                  message: 'Modifica',
-                  waitDuration: const Duration(milliseconds: 400),
-                  child: _TuneButton(onTap: widget.onEditDisciplines),
-                ),
-            ],
+                if (widget.hasChoice)
+                  AppTooltip(
+                    message: 'Modifica',
+                    waitDuration: const Duration(milliseconds: 400),
+                    child: _TuneButton(onTap: widget.onEditDisciplines),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -320,60 +336,63 @@ class _SubjectGroupRowState extends State<SubjectGroupRow>
           onExit: (_) => setState(() => _hover = false),
           child: GestureDetector(
             onTap: widget.onToggle,
-            child: AnimatedContainer(
-              duration: _selectFade,
+            // The height sits outside the animation: it follows the window's text size.
+            child: Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              height: rowHeight,
-              decoration: BoxDecoration(
-                color: kPickedSurface.withValues(alpha: 0),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _hover ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
-                  width: 2,
+              height: _heightFor(context, rowHeight),
+              child: AnimatedContainer(
+                duration: _selectFade,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: kPickedSurface.withValues(alpha: 0),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _hover ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
+                    width: 2,
+                  ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.trialOcean,
-                          ),
-                        ),
-                        if (widget.booked.isNotEmpty) ...[
-                          const SizedBox(height: 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            widget.booked.join(', '),
+                            widget.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
+                              fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.trialTealDeep,
+                              color: AppTheme.trialOcean,
                             ),
                           ),
+                          if (widget.booked.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.booked.join(', '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.trialTealDeep,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  AnimatedRotation(
-                    turns: widget.open ? 0.5 : 0,
-                    duration: effects ? move : Duration.zero,
-                    curve: Curves.easeOutCubic,
-                    child: Icon(Icons.expand_more_rounded, size: 26, color: AppTheme.trialOcean.withValues(alpha: 0.55)),
-                  ),
-                ],
+                    AnimatedRotation(
+                      turns: widget.open ? 0.5 : 0,
+                      duration: effects ? move : Duration.zero,
+                      curve: Curves.easeOutCubic,
+                      child: Icon(Icons.expand_more_rounded, size: 26, color: AppTheme.trialOcean.withValues(alpha: 0.55)),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

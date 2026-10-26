@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/desktop_tour.dart';
 import '../../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../../shared/widgets/page_density.dart';
 import '../../../../shared/widgets/shared_components.dart';
 import '../../models/opening_day_item.dart';
 import 'combined_hours.dart';
@@ -18,14 +19,22 @@ class CombinedVariationsCard extends StatelessWidget
   static const double _bandsFontSize = 15;
   static const double _gap = 28;
 
+  // Below the wide window (AppPageDensity), as the other cards there.
+  static const double _denseBandsFontSize = 13.5;
+  static const double _denseGap = 16;
+  static const double _denseLinePadding = 9;
+
   // Below this beside the date, the changes drop under it.
   static const double _minChangesWidth = 260;
 
-  static final TextStyle _dateStyle = GoogleFonts.plusJakartaSans(
-    fontSize: 16,
-    fontWeight: FontWeight.w700,
-    color: AppTheme.trialInk,
-  );
+  // The pencil and the bin (24 with 6 around each) and the gap before them.
+  static const double _actionsWidth = 2 * (24 + 2 * 6) + 12;
+
+  static TextStyle _dateStyle({required bool dense}) => GoogleFonts.plusJakartaSans(
+        fontSize: dense ? 13.5 : 16,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.trialInk,
+      );
 
   // Rows past [windowEnd] are included so a run keeps its real end date.
   final List<OpeningDayItem> upcomingVariations;
@@ -55,19 +64,22 @@ class CombinedVariationsCard extends StatelessWidget
   {
     final bool listed = !isLoading && CombinedVariation.from(upcomingVariations, startsOnOrBefore: windowEnd).isNotEmpty;
 
+    // Below the wide window the card takes the page's sizes, as the other cards there.
+    final bool dense = AppPageDensity.of(context);
+
     return DesktopTourTarget(
       id: listed ? tour : null,
       child: AppCard(
         title: kUpcomingVariationsTitle,
-        compact: true,
+        compact: !dense,
         selectable: false,
-        leading: const AppCardBadge(icon: kVariationIcon, compact: true),
-        child: _buildBody(context),
+        leading: AppCardBadge(icon: kVariationIcon, compact: !dense),
+        child: _buildBody(context, dense: dense),
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context)
+  Widget _buildBody(BuildContext context, {required bool dense})
   {
     if (isLoading)
     {
@@ -89,17 +101,21 @@ class CombinedVariationsCard extends StatelessWidget
         child: Text(
           kNoUpcomingVariations,
           textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(fontSize: 16, color: AppTheme.trialMutedText),
+          style: GoogleFonts.plusJakartaSans(fontSize: dense ? 14 : 16, color: AppTheme.trialMutedText),
         ),
       );
     }
 
-    final dateWidth = runs.map((run) => measureText(context, run.dateLabel, _dateStyle)).reduce(math.max);
+    final dateWidth = runs.map((run) => measureText(context, run.dateLabel, _dateStyle(dense: dense))).reduce(math.max);
+    final double gap = dense ? _denseGap : _gap;
+    final double linePadding = dense ? _denseLinePadding : 12;
 
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final stacked = dateWidth + _gap + _minChangesWidth > constraints.maxWidth;
+        // Below the wide window the buttons' room counts too: beside them a time was cut.
+        final double actions = dense && (onEdit != null || onDelete != null) ? _actionsWidth : 0;
+        final stacked = dateWidth + gap + _minChangesWidth + actions > constraints.maxWidth;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -107,8 +123,11 @@ class CombinedVariationsCard extends StatelessWidget
             for (final (i, run) in runs.indexed) ...[
               if (i > 0) const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
               Padding(
-                padding: EdgeInsets.only(top: i == 0 ? 0 : 12, bottom: i == runs.length - 1 ? 0 : 12),
-                child: _buildLine(run, dateWidth, stacked: stacked),
+                padding: EdgeInsets.only(
+                  top: i == 0 ? 0 : linePadding,
+                  bottom: i == runs.length - 1 ? 0 : linePadding,
+                ),
+                child: _buildLine(run, dateWidth, stacked: stacked, dense: dense),
               ),
             ],
           ],
@@ -117,13 +136,14 @@ class CombinedVariationsCard extends StatelessWidget
     );
   }
 
-  Widget _buildLine(CombinedVariation run, double dateWidth, {required bool stacked})
+  Widget _buildLine(CombinedVariation run, double dateWidth, {required bool stacked, required bool dense})
   {
-    final date = OverflowTooltipText(text: run.dateLabel, maxLines: 1, style: _dateStyle);
+    final double gap = dense ? _denseGap : _gap;
+    final date = OverflowTooltipText(text: run.dateLabel, maxLines: 1, style: _dateStyle(dense: dense));
 
     final changes = Wrap(
-      spacing: _gap,
-      runSpacing: 10,
+      spacing: gap,
+      runSpacing: dense ? 6 : 10,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final mode in kHoursModes)
@@ -131,12 +151,14 @@ class CombinedVariationsCard extends StatelessWidget
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ModeHeading(mode: mode, fontSize: 14, iconSize: 18),
-                const SizedBox(width: 10),
-                Flexible(child: _modeHours(run, mode)),
+                dense
+                    ? ModeHeading(mode: mode, fontSize: 12, iconSize: 15)
+                    : ModeHeading(mode: mode, fontSize: 14, iconSize: 18),
+                SizedBox(width: dense ? 7 : 10),
+                Flexible(child: _modeHours(run, mode, dense: dense)),
               ],
             ),
-        if (run.note case final note?) VariationNote(note, maxLines: 2),
+        if (run.note case final note?) VariationNote(note, maxLines: 2, dense: dense),
       ],
     );
 
@@ -153,7 +175,7 @@ class CombinedVariationsCard extends StatelessWidget
               ?actions,
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: dense ? 6 : 8),
           changes,
         ],
       );
@@ -162,7 +184,7 @@ class CombinedVariationsCard extends StatelessWidget
     return Row(
       children: [
         SizedBox(width: dateWidth, child: date),
-        const SizedBox(width: _gap),
+        SizedBox(width: gap),
         Expanded(child: changes),
         if (actions != null) ...[
           const SizedBox(width: 12),
@@ -200,13 +222,17 @@ class CombinedVariationsCard extends StatelessWidget
     );
   }
 
-  static Widget _modeHours(CombinedVariation run, String mode)
+  static Widget _modeHours(CombinedVariation run, String mode, {required bool dense})
   {
     if (run.isClosed(mode))
     {
-      return const ClosedPill(isOverride: true);
+      return ClosedPill(isOverride: true, dense: dense);
     }
 
-    return BandTimes(bands: run.bandsByMode[mode]!, fontSize: _bandsFontSize, markVariations: false);
+    return BandTimes(
+      bands: run.bandsByMode[mode]!,
+      fontSize: dense ? _denseBandsFontSize : _bandsFontSize,
+      markVariations: false,
+    );
   }
 }

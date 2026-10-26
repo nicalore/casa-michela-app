@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 
 String countOf(int value, String singular, String plural)
@@ -31,9 +32,93 @@ class BandSummaryCard extends StatelessWidget
     this.compact = false,
   });
 
+  // Below the wide window: a strip, the title and its numbers on one line, the chips at its end.
+  Widget _buildStrip()
+  {
+    final eyebrow = this.eyebrow;
+    final summary = this.summary;
+    final footer = this.footer;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (eyebrow != null) ...[
+            Text(
+              eyebrow.toUpperCase(),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.3,
+                color: AppTheme.trialMutedText,
+              ),
+            ),
+            const SizedBox(height: 2),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.end,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                        color: AppTheme.trialOcean,
+                      ),
+                    ),
+                    if (summary != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 1),
+                        child: Text(
+                          summary,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                            color: AppTheme.trialMutedText,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (chips.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                Wrap(spacing: 6, runSpacing: 6, children: chips),
+              ],
+            ],
+          ),
+          if (footer != null) ...[
+            const SizedBox(height: 8),
+            const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+            const SizedBox(height: 8),
+            footer,
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
+    if (AppBreakpoints.of(context).isDense)
+    {
+      return _buildStrip();
+    }
+
     final eyebrow = this.eyebrow;
     final summary = this.summary;
     final footer = this.footer;
@@ -123,10 +208,12 @@ class BandChip extends StatelessWidget
   Widget build(BuildContext context)
   {
     final foreground = filled ? Colors.white : accent;
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final double fontSize = dense ? 12 : 13;
 
     return Container(
-      height: 34,
-      padding: const EdgeInsets.fromLTRB(10, 0, 14, 0),
+      height: dense ? 26 : 34,
+      padding: dense ? const EdgeInsets.fromLTRB(8, 0, 10, 0) : const EdgeInsets.fromLTRB(10, 0, 14, 0),
       decoration: BoxDecoration(
         color: filled ? accent : surface,
         borderRadius: BorderRadius.circular(999),
@@ -135,12 +222,12 @@ class BandChip extends StatelessWidget
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 17, color: foreground),
-          const SizedBox(width: 7),
+          Icon(icon, size: dense ? 15 : 17, color: foreground),
+          SizedBox(width: dense ? 5 : 7),
           Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
+              fontSize: fontSize,
               fontWeight: FontWeight.w700,
               color: foreground,
             ),
@@ -149,7 +236,7 @@ class BandChip extends StatelessWidget
             Text(
               ' · $detail',
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
+                fontSize: fontSize,
                 fontWeight: FontWeight.w600,
                 color: filled ? Colors.white.withValues(alpha: 0.8) : AppTheme.trialMutedText,
               ),

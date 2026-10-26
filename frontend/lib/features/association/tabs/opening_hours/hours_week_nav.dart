@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_calendar_button.dart';
 import '../../../../shared/widgets/carousel_arrow_button.dart';
+import '../../../../shared/widgets/page_density.dart';
 import '../../../calendar/utils/day_marks_loader.dart';
 import 'calendar_bounds.dart';
 
@@ -20,6 +21,7 @@ class HoursWeekNav extends StatelessWidget
 {
   // Fixed so the arrows never shift as the week label's text changes length.
   static const double _weekLabelWidth = 210;
+  static const double _denseWeekLabelWidth = 172;
 
   final DateTime weekStart;
 
@@ -43,6 +45,7 @@ class HoursWeekNav extends StatelessWidget
   Widget build(BuildContext context)
   {
     final weekEnd = addDays(weekStart, 6);
+    final bool dense = AppPageDensity.of(context);
     final isFirstWeek = isOldestKeptWeek(weekStart);
     final isLastWeek = isLastCalendarWeek(weekStart);
 
@@ -53,11 +56,16 @@ class HoursWeekNav extends StatelessWidget
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 15,
+        fontSize: dense ? 13.5 : 15,
         fontWeight: FontWeight.w600,
         color: AppTheme.trialInk,
       ),
     );
+
+    // Grown with the text, a tenth larger below the wide window.
+    final double labelWidth = dense
+        ? MediaQuery.textScalerOf(context).scale(_denseWeekLabelWidth)
+        : _weekLabelWidth;
 
     final back = CarouselArrowButton(
       icon: Icons.chevron_left_rounded,
@@ -100,7 +108,7 @@ class HoursWeekNav extends StatelessWidget
         const SizedBox(width: 12),
         back,
         const SizedBox(width: 8),
-        SizedBox(width: _weekLabelWidth, child: Center(child: weekLabel)),
+        SizedBox(width: labelWidth, child: Center(child: weekLabel)),
         const SizedBox(width: 8),
         forward,
       ],

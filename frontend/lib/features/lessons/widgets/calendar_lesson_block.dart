@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/platform/visual_effects.dart';
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -23,8 +24,21 @@ const double kTeacherBlockHeight = 64;
 const double kPublishedStudentBlockHeight = 98;
 const double kPublishedTeacherBlockHeight = 82;
 
-double lessonBlockHeight(CalendarView view, {required bool composing})
+// Published below the wide window: three lines, the hours, the discipline, then who and where.
+const double kDensePublishedBlockHeight = 66;
+
+// Below the wide window the board lists each lesson and activity on a full-width row.
+const double kBoardRowHeight = 56;
+
+const double _rowTimeWidth = 44;
+
+double lessonBlockHeight(CalendarView view, {required bool composing, bool dense = false})
 {
+  if (dense && !composing)
+  {
+    return kDensePublishedBlockHeight;
+  }
+
   if (view == CalendarView.byStudent)
   {
     return composing ? kStudentBlockHeight : kPublishedStudentBlockHeight;
@@ -38,9 +52,9 @@ const double kStretchBleed = 2;
 const double kTimelineRowPadding = 8;
 const double kTimelineSubLaneGap = 6;
 
-double timelineRowHeight(int subLanes, CalendarView view, {required bool composing})
+double timelineRowHeight(int subLanes, CalendarView view, {required bool composing, bool dense = false})
 {
-  return timelineRowHeightOf(subLanes, lessonBlockHeight(view, composing: composing));
+  return timelineRowHeightOf(subLanes, lessonBlockHeight(view, composing: composing, dense: dense));
 }
 
 double timelineRowHeightOf(int subLanes, double blockHeight)
@@ -678,6 +692,9 @@ class CalendarLessonBlock extends StatefulWidget
   // By teacher, for one who changes room in the band: each lesson says its own.
   final bool showsRoom;
 
+  // On the board below the wide window: a full-width row.
+  final bool isRow;
+
   const CalendarLessonBlock({
     super.key,
     required this.lesson,
@@ -700,6 +717,7 @@ class CalendarLessonBlock extends StatefulWidget
     this.litLesson,
     this.onHover,
     this.showsRoom = false,
+    this.isRow = false,
   });
 
   @override
@@ -999,9 +1017,12 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
   }
 
   // Published blocks wrap long lines and the row grows; composing ones use a caption.
-  int? get _lineCap => widget.isComposing ? 1 : null;
+  int? get _lineCap => widget.isComposing || _dense ? 1 : null;
 
-  TextOverflow get _lineCut => widget.isComposing ? TextOverflow.ellipsis : TextOverflow.clip;
+  TextOverflow get _lineCut => widget.isComposing || _dense ? TextOverflow.ellipsis : TextOverflow.clip;
+
+  // Published below the wide window: no subject line, who and where on one line.
+  bool get _dense => !widget.isComposing && AppBreakpoints.of(context).isDense;
 
   Widget _buildWhere()
   {
@@ -1038,6 +1059,34 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
     );
   }
 
+  Widget _buildRow(Color accent)
+  {
+    final topic = _topic;
+    final lesson = widget.lesson;
+
+    return CalendarBlockRow(
+      accent: accent,
+      startMinutes: lesson.startMinutes,
+      endMinutes: lesson.endMinutes,
+      title: topic.discipline,
+      detail: [
+        ?topic.subject,
+        _title,
+        if (_saysWhere) _where.label else if (_saysOnline) modeLabel(kOnlineMode),
+      ].join(' · '),
+      isCurrent: widget.elapsed != null,
+      marks: [
+        if (widget.isPreferred) const Icon(Icons.star_rounded, size: 14, color: kPreferredTeacherColor),
+        if (widget.hasWarning) const Icon(Icons.circle, size: 9, color: kAvoidedTeacherColor),
+        if (widget.isPast)
+          const AppTooltip(
+            message: kLessonDoneLabel,
+            child: Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
+          ),
+      ],
+    );
+  }
+
   Widget _buildBody()
   {
     final lesson = widget.lesson;
@@ -1054,9 +1103,13 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
             surface: Colors.white,
             radius: 10,
             child: AnimatedContainer(
+              // Turning into a row starts afresh: its padding must not animate.
+              key: ValueKey(widget.isRow),
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOut,
-              padding: EdgeInsets.symmetric(horizontal: _isSliver ? 2 : (_isTight ? 5 : (_isNarrow ? 6 : 10)), vertical: _blockPadding),
+              padding: widget.isRow
+                  ? EdgeInsets.zero
+                  : EdgeInsets.symmetric(horizontal: _isSliver ? 2 : (_isTight ? 5 : (_isNarrow ? 6 : 10)), vertical: _blockPadding),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
@@ -1064,7 +1117,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
                   width: _isLit ? 2 : 1.4,
                 ),
               ),
-              child: _isSliver ? _buildSliver(accent) : BlockTexts(
+              child: widget.isRow ? _buildRow(accent) : _isSliver ? _buildSliver(accent) : BlockTexts(
                 child: Row(
                   children: [
                     Container(
@@ -1125,7 +1178,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
                                 ),
                               ),
                               // Composing blocks keep their height: no subject line.
-                              if (!widget.isComposing && _topic.subject != null) ...[
+                              if (!widget.isComposing && !_dense && _topic.subject != null) ...[
                                 const SizedBox(height: 1),
                                 DescenderRoom(
                                   child: Text(
@@ -1136,16 +1189,18 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
                                   ),
                                 ),
                               ],
-                              SizedBox(height: widget.isComposing ? 2 : 4),
+                              SizedBox(height: widget.isComposing ? 2 : (_dense ? 3 : 4)),
                               DescenderRoom(
                                 child: Text(
-                                  _title,
+                                  _dense
+                                      ? denseLessonLine(widget.lesson, view: widget.view, showsRoom: widget.showsRoom)
+                                      : _title,
                                   maxLines: _lineCap,
                                   overflow: _lineCut,
                                   style: _blockPersonStyle,
                                 ),
                               ),
-                              if (_saysWhere) ...[
+                              if (_saysWhere && !_dense) ...[
                                 const SizedBox(height: 2),
                                 _buildWhere(),
                               ],
@@ -1245,6 +1300,117 @@ class BlockTexts extends StatelessWidget
   Widget build(BuildContext context) => DefaultTextStyle(style: const TextStyle(), child: child);
 }
 
+TextStyle _rowStartStyle(Color accent) => GoogleFonts.plusJakartaSans(
+      fontSize: 13.5,
+      fontWeight: FontWeight.w800,
+      height: 1.2,
+      color: accent,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+TextStyle get _rowEndStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 11.5,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      color: AppTheme.trialMutedText,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+// A board row: start and end apart, the title and one line of detail beside them.
+class CalendarBlockRow extends StatelessWidget
+{
+  final Color accent;
+
+  final int startMinutes;
+  final int endMinutes;
+
+  final String title;
+  final String detail;
+
+  final bool isCurrent;
+
+  final List<Widget> marks;
+
+  const CalendarBlockRow({
+    super.key,
+    required this.accent,
+    required this.startMinutes,
+    required this.endMinutes,
+    required this.title,
+    this.detail = '',
+    this.isCurrent = false,
+    this.marks = const [],
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return BlockTexts(
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 3,
+            height: 32,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(width: 9),
+          SizedBox(
+            width: _rowTimeWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  formatTimeOfDayShort(timeOfDayFromMinutes(startMinutes)),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: _rowStartStyle(accent),
+                ),
+                Text(
+                  formatTimeOfDayShort(timeOfDayFromMinutes(endMinutes)),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: _rowEndStyle,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DescenderRoom(
+                  child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _blockDisciplineStyle),
+                ),
+                if (detail.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  DescenderRoom(
+                    child: Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: _blockPersonStyle),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (isCurrent) ...[
+            const SizedBox(width: 8),
+            const CurrentLessonBadge(),
+          ],
+          for (final mark in marks) ...[
+            const SizedBox(width: 6),
+            mark,
+          ],
+          const SizedBox(width: 12),
+        ],
+      ),
+    );
+  }
+}
+
 // As a Text inside [BlockTexts] draws it, at the text scale of [context].
 double blockLineWidth(BuildContext context, String text, TextStyle style)
 {
@@ -1319,6 +1485,15 @@ bool composingBlockCutsText(
 const double kWidestBlockLine = 240;
 
 // Published: the width for every line, the teacher's mode included, long ones wrapped.
+// The third line of a dense published block: who, and where when the block says it.
+String denseLessonLine(LessonItem lesson, {required CalendarView view, bool showsRoom = false})
+{
+  return [
+    lessonTitle(lesson, view: view),
+    if (view == CalendarView.byStudent || showsRoom) lessonWhere(lesson).label,
+  ].join(' · ');
+}
+
 double publishedLessonBlockWidth(
   BuildContext context,
   LessonItem lesson, {
@@ -1328,6 +1503,7 @@ double publishedLessonBlockWidth(
   bool warned = false,
   bool preferred = false,
   bool showsRoom = false,
+  bool dense = false,
 })
 {
   final topic = lessonTopic(lesson, ministrySubjects);
@@ -1339,6 +1515,17 @@ double publishedLessonBlockWidth(
   ];
 
   double capped(double width) => math.min(kWidestBlockLine, width);
+
+  if (dense)
+  {
+    final denseLines = [
+      blockSpanWidth(context, lessonHoursSpan(hours, _blockHoursStyle)) + marks,
+      capped(blockLineWidth(context, topic.discipline, _blockDisciplineStyle)),
+      capped(blockLineWidth(context, denseLessonLine(lesson, view: view, showsRoom: showsRoom), _blockPersonStyle)),
+    ];
+
+    return denseLines.reduce(math.max) + _blockChrome(padding: 10, barGap: 8) + 1;
+  }
 
   final lines = [
     blockSpanWidth(context, lessonHoursSpan(hours, _blockHoursStyle)) + marks,
@@ -1376,8 +1563,18 @@ double publishedLessonBlockHeight(
   required CalendarView view,
   required List<MinistrySubjectItem> ministrySubjects,
   bool showsRoom = false,
+  bool dense = false,
 })
 {
+  if (dense)
+  {
+    final double line = blockTextHeight(context, '0', _blockPersonStyle, double.infinity);
+    final double hours = blockTextHeight(context, '0', _blockHoursStyle, double.infinity);
+    final double title = blockTextHeight(context, '0', _blockDisciplineStyle, double.infinity);
+
+    return math.max(kDensePublishedBlockHeight, hours + 3 + title + 3 + line + 2 * _blockPadding + 2 * 2);
+  }
+
   final topic = lessonTopic(lesson, ministrySubjects);
   final room = width - _blockChrome(padding: 10, barGap: 8);
 
@@ -1451,6 +1648,42 @@ class _CalendarBlockHandleState extends State<CalendarBlockHandle>
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+const String _currentLabel = 'In corso';
+
+const double kCurrentBadgeFrame = 2 * 3 + 2 * 1;
+
+TextStyle get currentBadgeStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 9.5,
+      fontWeight: FontWeight.w700,
+      height: 1.2,
+      letterSpacing: 1.1,
+      color: AppTheme.modifiedAccent,
+    );
+
+class CurrentLessonBadge extends StatelessWidget
+{
+  const CurrentLessonBadge({super.key});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppTheme.trialGoldSurface,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: AppTheme.trialGold.withValues(alpha: 0.55)),
+      ),
+      child: Text(
+        _currentLabel.toUpperCase(),
+        maxLines: 1,
+        softWrap: false,
+        style: currentBadgeStyle,
       ),
     );
   }

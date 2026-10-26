@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/layout/app_breakpoints.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/rome_clock.dart';
@@ -14,6 +15,7 @@ import '../../../../shared/widgets/app_dialog_stack.dart';
 import '../../../../shared/widgets/app_gradient_button.dart';
 import '../../../../shared/widgets/desktop_tour.dart';
 import '../../../../shared/widgets/dialog_components.dart';
+import '../../../../shared/widgets/page_density.dart';
 import '../../../../shared/widgets/page_transition.dart';
 import '../../../../shared/widgets/snackbar.dart';
 import '../../models/opening_day_item.dart';
@@ -31,6 +33,8 @@ import 'mode_hours_parts.dart';
 import 'opening_hours_layout.dart';
 import 'standard_hours_wizard.dart';
 import 'variation_wizard.dart';
+
+const double _denseCardGap = 14;
 
 class CombinedHoursView extends StatefulWidget
 {
@@ -446,6 +450,15 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
   @override
   Widget build(BuildContext context)
   {
+    // Below the wide window the cards and buttons take a dense page's sizes.
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final double gap = dense ? _denseCardGap : kHoursCardGap;
+
+    return AppPageDensity(dense: dense, child: _buildCards(gap));
+  }
+
+  Widget _buildCards(double gap)
+  {
     return PageTransitionScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -461,7 +474,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
               onPickDay: _goToWeekOf,
             ),
           ),
-          const SizedBox(height: kHoursCardGap),
+          SizedBox(height: gap),
           PageTransitionItem(
             slot: PageTransitionItem.list + 1,
             child: DesktopTourTarget(
@@ -469,7 +482,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
               child: CombinedStandardCard(scheduleByMode: _scheduleByMode, isLoading: _isLoadingVariations),
             ),
           ),
-          const SizedBox(height: kHoursCardGap),
+          SizedBox(height: gap),
           PageTransitionItem(
             slot: PageTransitionItem.list + 2,
             child: CombinedVariationsCard(
@@ -482,7 +495,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
             ),
           ),
           if (_isAdmin) ...[
-            const SizedBox(height: kHoursCardGap),
+            SizedBox(height: gap),
             PageTransitionItem(slot: PageTransitionItem.list + 3, child: _buildActions()),
           ],
         ],

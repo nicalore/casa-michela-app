@@ -6,6 +6,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/desktop_tour.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../association/notices/notice_message_view.dart' show noticeTextStyle;
 import '../models/student_note_item.dart';
@@ -60,19 +61,23 @@ class StudentNotesCard extends StatelessWidget
   static bool _never(StudentNoteItem note) => false;
 
   static const double _dotGap = 8;
+  static const double _denseDotGap = 6;
 
-  static TextStyle get _authorStyle => GoogleFonts.plusJakartaSans(
-    fontSize: 14,
+  static TextStyle _authorStyle(bool dense) => GoogleFonts.plusJakartaSans(
+    fontSize: dense ? 12.5 : 14,
     fontWeight: FontWeight.w600,
     color: AppTheme.trialMutedText,
   );
 
   static final TextStyle _bodyStyle = noticeTextStyle(fontSize: 16.5, height: 1.6);
 
-  Widget _buildSubject(String subject)
+  // Below the wide window (AppPageDensity).
+  static final TextStyle _denseBodyStyle = noticeTextStyle(fontSize: 14.5, height: 1.5);
+
+  Widget _buildSubject(String subject, bool dense)
   {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 10, vertical: dense ? 2 : 3),
       decoration: BoxDecoration(
         color: AppTheme.todaySurface,
         borderRadius: BorderRadius.circular(10),
@@ -80,7 +85,7 @@ class StudentNotesCard extends StatelessWidget
       child: Text(
         subject,
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 12.5,
+          fontSize: dense ? 11.5 : 12.5,
           fontWeight: FontWeight.w700,
           color: AppTheme.trialTealDeep,
         ),
@@ -88,10 +93,11 @@ class StudentNotesCard extends StatelessWidget
     );
   }
 
-  Widget _buildNote(StudentNoteItem note, {required bool toured})
+  Widget _buildNote(StudentNoteItem note, {required bool toured, required bool dense})
   {
     final bool changeable = mayChange(note);
     final String? subject = note.subject;
+    final double dotGap = dense ? _denseDotGap : _dotGap;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,31 +110,31 @@ class StudentNotesCard extends StatelessWidget
                 // A teacher's note goes by the day of its lesson.
                 noteDate(note.lessonDate ?? note.createdAt),
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
+                  fontSize: dense ? 13.5 : 15,
                   fontWeight: FontWeight.w800,
                   color: AppTheme.trialOcean,
                 ),
               ),
             ),
-            const SizedBox(width: _dotGap),
-            Text('·', style: _authorStyle),
-            const SizedBox(width: _dotGap),
+            SizedBox(width: dotGap),
+            Text('·', style: _authorStyle(dense)),
+            SizedBox(width: dotGap),
             Expanded(
               child: Row(
                 children: [
                   Flexible(
-                    child: Text(note.authorName, overflow: TextOverflow.ellipsis, style: _authorStyle),
+                    child: Text(note.authorName, overflow: TextOverflow.ellipsis, style: _authorStyle(dense)),
                   ),
                   if (subject != null) ...[
-                    const SizedBox(width: 10),
-                    _buildSubject(subject),
+                    SizedBox(width: dense ? 8 : 10),
+                    _buildSubject(subject, dense),
                   ],
                 ],
               ),
             ),
             // Same height either way: a note without tools keeps the line where it was.
             SizedBox(
-              height: 40,
+              height: dense ? 32 : 40,
               child: changeable
                   ? DesktopTourTarget(
                       id: toured ? tourTools : null,
@@ -140,14 +146,18 @@ class StudentNotesCard extends StatelessWidget
                               icon: Icons.edit_outlined,
                               color: AppTheme.trialTealDeep,
                               hoverColor: AppTheme.trialGoldSurface,
+                              iconSize: dense ? 18 : 24,
+                              padding: dense ? 7 : 6,
                               onTap: () => edit(note),
                             ),
-                            const SizedBox(width: 4),
+                            SizedBox(width: dense ? 2 : 4),
                           ],
                           FadeHoverIconButton(
                             icon: Icons.delete_outline_rounded,
                             color: AppTheme.trialDanger,
                             hoverColor: AppTheme.trialGoldSurface,
+                            iconSize: dense ? 18 : 24,
+                            padding: dense ? 7 : 6,
                             onTap: () => onDelete?.call(note),
                           ),
                         ],
@@ -157,8 +167,8 @@ class StudentNotesCard extends StatelessWidget
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        StudentNoteText(taxCode: taxCode, kind: kind, note: note, style: _bodyStyle),
+        SizedBox(height: dense ? 2 : 6),
+        StudentNoteText(taxCode: taxCode, kind: kind, note: note, style: dense ? _denseBodyStyle : _bodyStyle),
       ],
     );
   }
@@ -167,14 +177,15 @@ class StudentNotesCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     final VoidCallback? add = onAdd;
+    final bool dense = AppPageDensity.of(context);
 
     // Newest first: the tour lights the latest the reader wrote.
     final int firstChangeable = notes.indexWhere(mayChange);
 
     return AppCard(
       title: title,
-      compact: true,
-      leading: AppCardBadge(icon: icon, compact: true),
+      compact: !dense,
+      leading: AppCardBadge(icon: icon, compact: !dense),
       trailing: add == null
           ? trailing
           : AppGradientButton(
@@ -189,7 +200,7 @@ class StudentNotesCard extends StatelessWidget
           ? Text(
               missingValue,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 18,
+                fontSize: dense ? 15 : 18,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.trialInk,
               ),
@@ -199,11 +210,11 @@ class StudentNotesCard extends StatelessWidget
               children: [
                 for (var i = 0; i < notes.length; i++) ...[
                   if (i > 0)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 18),
-                      child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: dense ? 12 : 18),
+                      child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
                     ),
-                  _buildNote(notes[i], toured: i == firstChangeable),
+                  _buildNote(notes[i], toured: i == firstChangeable, dense: dense),
                 ],
               ],
             ),

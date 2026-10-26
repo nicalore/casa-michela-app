@@ -16,6 +16,7 @@ import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/desktop_tour.dart';
+import '../../shared/widgets/page_density.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../notifications/administrator_notes_seen.dart';
@@ -418,6 +419,14 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
 
     final Widget content = _buildSectionContent(person, sections);
 
+    final PersonHeading heading = PersonHeading(
+      person: person,
+      imageVersion: '${_apiService.profileImageVersion}',
+      backTooltip: 'Torna indietro',
+      onBack: () => context.go(_origin),
+      onFaceChanged: () => _load(refreshIdentity: true),
+    );
+
     final Map<int, String> tours = {
       for (final (int index, OwnPageSection section) in sections.indexed)
         if (section == OwnPageSection.other)
@@ -450,7 +459,12 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
             children: [
               if (!size.hasRail) ...[
                 AppSectionTabs(
-                  title: person.firstName,
+                  title: heading.name,
+                  titleSize: kPersonHeadingNameSize,
+                  leading: heading.leading(context),
+                  leadingWidth: heading.leadingWidth,
+                  titleTrailing: heading.roles(),
+                  titleTrailingWidthOf: heading.rolesWidth,
                   groups: [RailGroup(entries: labels)],
                   selectedIndex: _selectedSection,
                   onSelected: _selectSection,
@@ -472,7 +486,8 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the page is the window: its sections scroll, not the page.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final AppWindowSize size = AppBreakpoints.of(context);
@@ -501,22 +516,26 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
                     padding: EdgeInsets.only(
                       left: margin,
                       right: margin,
-                      top: 24,
+                      top: size.isDense ? 16 : 24,
                       bottom: 24,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        PersonDetailHeader(
-                          person: _person,
-                          imageVersion: '${_apiService.profileImageVersion}',
-                          size: size,
-                          backTooltip: 'Torna indietro',
-                          onBack: () => context.go(_origin),
-                          onFaceChanged: () => _load(refreshIdentity: true),
+                        // Below the wide window back, face and name share the line of the tabs.
+                        if (!size.isDense || _person == null) ...[
+                          PersonDetailHeader(
+                            person: size.isDense ? null : _person,
+                            imageVersion: '${_apiService.profileImageVersion}',
+                            backTooltip: 'Torna indietro',
+                            onBack: () => context.go(_origin),
+                            onFaceChanged: () => _load(refreshIdentity: true),
+                          ),
+                          SizedBox(height: size.isDense ? 16 : 24),
+                        ],
+                        Expanded(
+                          child: AppPageDensity(dense: size.isDense, child: _buildBody(size)),
                         ),
-                        const SizedBox(height: 24),
-                        Expanded(child: _buildBody(size)),
                       ],
                     ),
                   ),

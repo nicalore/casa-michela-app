@@ -95,6 +95,7 @@ abstract final class CustomSnackBar
   static GlobalKey<_SnackBarAnimationWidgetState>? _currentKey;
 
   // [tone] wins where given; otherwise [isError] picks the tone.
+  // [above]: room from the window's bottom the bar keeps clear (a page's buttons pinned there).
   static void show({
     required BuildContext context,
     required String message,
@@ -102,6 +103,7 @@ abstract final class CustomSnackBar
     SnackBarTone? tone,
     Duration? duration,
     SnackBarButton? button,
+    double above = 0,
   })
   {
     dismiss();
@@ -119,6 +121,7 @@ abstract final class CustomSnackBar
         tone: tone ?? (isError ? SnackBarTone.error : SnackBarTone.info),
         duration: duration ?? _visibleDurationWith(button),
         button: button,
+        above: above,
         // A newer snackbar may have replaced this fading entry: it must not be removed twice.
         onDismissed: ()
         {
@@ -171,6 +174,7 @@ class _SnackBarAnimationWidget extends StatefulWidget
   final Duration duration;
   final SnackBarButton? button;
   final VoidCallback onDismissed;
+  final double above;
 
   const _SnackBarAnimationWidget({
     super.key,
@@ -179,6 +183,7 @@ class _SnackBarAnimationWidget extends StatefulWidget
     required this.duration,
     required this.onDismissed,
     this.button,
+    this.above = 0,
   });
 
   @override
@@ -280,7 +285,7 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(
-      bottom: bottomPadding + _bottomMargin,
+      bottom: bottomPadding + (widget.above > 0 ? widget.above : _bottomMargin),
       left: _horizontalMargin,
       right: _horizontalMargin,
       child: Material(

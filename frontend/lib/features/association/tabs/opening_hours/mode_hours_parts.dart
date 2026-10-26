@@ -87,6 +87,7 @@ class ModeHeading extends StatelessWidget
 class ClosedPill extends StatelessWidget
 {
   static const double _padding = 16;
+  static const double _densePadding = 10;
 
   final bool isOverride;
 
@@ -94,17 +95,20 @@ class ClosedPill extends StatelessWidget
 
   final String? note;
 
-  const ClosedPill({super.key, required this.isOverride, this.expand = false, this.note});
+  // Below the wide window, as the times beside it.
+  final bool dense;
 
-  static TextStyle _style(bool isOverride) => GoogleFonts.plusJakartaSans(
-        fontSize: 15,
+  const ClosedPill({super.key, required this.isOverride, this.expand = false, this.note, this.dense = false});
+
+  static TextStyle _style(bool isOverride, {bool dense = false}) => GoogleFonts.plusJakartaSans(
+        fontSize: dense ? 13 : 15,
         fontWeight: isOverride ? FontWeight.w700 : FontWeight.w500,
         color: isOverride ? AppTheme.trialDanger : AppTheme.trialMutedText,
       );
 
-  static double widthOf(BuildContext context, {required bool isOverride})
+  static double widthOf(BuildContext context, {required bool isOverride, bool dense = false})
   {
-    return 2 * _padding + measureText(context, kClosedLabel, _style(isOverride));
+    return 2 * (dense ? _densePadding : _padding) + measureText(context, kClosedLabel, _style(isOverride, dense: dense));
   }
 
   @override
@@ -116,16 +120,21 @@ class ClosedPill extends StatelessWidget
   Widget _buildPill()
   {
     return Container(
-      height: 26,
-      padding: expand ? null : const EdgeInsets.symmetric(horizontal: _padding),
+      // Grown with the text below the wide window, where it is a tenth larger.
+      height: dense ? null : 26,
+      padding: expand
+          ? null
+          : EdgeInsets.symmetric(horizontal: dense ? _densePadding : _padding, vertical: dense ? 2 : 0),
       decoration: BoxDecoration(
         color: isOverride ? AppTheme.closedOverrideSurface : AppTheme.closedSurface,
         borderRadius: BorderRadius.circular(8),
       ),
       // widthFactor keeps a hugging pill from taking the whole column.
+      // heightFactor: without a fixed height the dense pill hugs its text in a taller cell.
       child: Center(
         widthFactor: expand ? null : 1,
-        child: Text(kClosedLabel, style: _style(isOverride)),
+        heightFactor: dense ? 1 : null,
+        child: Text(kClosedLabel, style: _style(isOverride, dense: dense)),
       ),
     );
   }
@@ -247,7 +256,9 @@ class VariationNote extends StatelessWidget
   final String note;
   final int maxLines;
 
-  const VariationNote(this.note, {super.key, this.maxLines = 1});
+  final bool dense;
+
+  const VariationNote(this.note, {super.key, this.maxLines = 1, this.dense = false});
 
   @override
   Widget build(BuildContext context)
@@ -256,17 +267,17 @@ class VariationNote extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 2),
-          child: Icon(Icons.sticky_note_2_outlined, size: 15, color: AppTheme.trialMutedText),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(Icons.sticky_note_2_outlined, size: dense ? 14 : 15, color: AppTheme.trialMutedText),
         ),
-        const SizedBox(width: 6),
+        SizedBox(width: dense ? 5 : 6),
         Flexible(
           child: OverflowTooltipText(
             text: note,
             maxLines: maxLines,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
+              fontSize: dense ? 12.5 : 14,
               fontWeight: FontWeight.w500,
               color: AppTheme.trialMutedText,
             ),

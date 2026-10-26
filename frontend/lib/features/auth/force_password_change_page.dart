@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../services/api_service.dart';
@@ -25,6 +26,9 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 {
   static const double _buttonHeight = 52;
   static const double _buttonFontSize = 14;
+
+  // Below the wide window: around the rule under the notice.
+  static const double _noticeRuleGap = 12;
 
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
@@ -140,9 +144,35 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
     }
   }
 
+  Widget _buildNotice({required bool line})
+  {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.lock_reset_rounded, size: line ? 22 : 28, color: AppTheme.trialTealDeep),
+        SizedBox(width: line ? 12 : 16),
+        Expanded(
+          child: Text(
+            'Al primo accesso, o in particolari situazioni, è obbligatorio '
+            'impostare una nuova password.',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: line ? 13.5 : 15,
+              fontWeight: FontWeight.w500,
+              height: line ? 1.4 : 1.5,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
+    // Below the wide window the notice is the form's first line, so the form fits a short window.
+    final bool dense = AppBreakpoints.of(context).isDense;
+
     // The change is mandatory, so the back gesture is intercepted.
     return PopScope(
       canPop: false,
@@ -182,34 +212,20 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
           ),
         ),
         children: [
-          AppDialogPill(
-            expand: true,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.lock_reset_rounded, size: 28, color: AppTheme.trialTealDeep),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'Al primo accesso, o in particolari situazioni, è obbligatorio '
-                    'impostare una nuova password.',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      height: 1.5,
-                      color: AppTheme.trialMutedText,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          if (!dense) AppDialogPill(expand: true, child: _buildNotice(line: false)),
           AppDialogPill(
             expand: true,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (dense) ...[
+                  _buildNotice(line: true),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: _noticeRuleGap),
+                    child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+                  ),
+                ],
                 PasswordField(
                   controller: _newPasswordController,
                   label: 'Nuova password',

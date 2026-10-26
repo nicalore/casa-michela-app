@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
@@ -27,6 +28,7 @@ import '../../association/models/room_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../association/tabs/opening_hours/calendar_bounds.dart';
 import '../../../shared/utils/day_marks.dart';
+import '../../people/models/person_face.dart';
 import '../../people/models/person_item.dart';
 import '../models/activity_item.dart';
 import '../models/availability_item.dart';
@@ -76,9 +78,11 @@ enum _CalendarShape
   compact,
 }
 
-_CalendarShape _shapeFor(double width)
+// The wide window's rail takes the room a compact window gives back: the panel stays beside the track,
+// or narrowing the window would stack it, set it beside again past 1280 px, then stack it once more.
+_CalendarShape _shapeFor(double width, AppWindowSize window)
 {
-  if (width >= kCalendarSideBySideMin)
+  if (width >= kCalendarSideBySideMin || (window == AppWindowSize.wide && width >= kCalendarTimelineMin))
   {
     return _CalendarShape.sideBySide;
   }
@@ -109,6 +113,20 @@ const double _actionButtonHeight = 48;
 const double _actionButtonFontSize = 14;
 
 const double _actionButtonWidth = 288;
+
+// Below the wide window the actions sit in the header, as tall as its other controls.
+const double _denseActionHeight = 36;
+const double _denseActionFontSize = 12.5;
+const double _denseActionPadding = 14;
+const double _denseControl = 36;
+const double _denseDayLabelWidth = 200;
+const double _denseSearchWidth = 300;
+
+// Narrower than this, the search takes the whole line.
+const double _denseSearchAlone = 560;
+
+// The bands, the counts and the day on one line.
+const double _denseOneLineMin = 900;
 
 const double _dayLabelWidth = 250;
 
@@ -529,6 +547,17 @@ class _CalendarTabState extends State<CalendarTab>
   final Set<String> _fetchedDays = {};
 
   bool _isFetchingDay = false;
+
+  // Below the wide window, read at every build: the header holds the actions and the controls shrink.
+  bool _isDense = false;
+
+  double? get _actionWidth => _isDense ? null : _actionButtonWidth;
+
+  double get _actionHeight => _isDense ? _denseActionHeight : _actionButtonHeight;
+
+  double get _actionFontSize => _isDense ? _denseActionFontSize : _actionButtonFontSize;
+
+  double get _actionPadding => _isDense ? _denseActionPadding : 30;
 
   RoomDayPlan? _roomPlan;
   String? _roomPlanDay;
@@ -1464,6 +1493,7 @@ class _CalendarTabState extends State<CalendarTab>
       last: calendarHorizon(now),
       onPicked: _goToDay,
       loadMarks: widget.loadMarks,
+      size: _isDense ? _denseControl : CarouselArrowButton.defaultSize,
     );
   }
 
@@ -1471,22 +1501,26 @@ class _CalendarTabState extends State<CalendarTab>
   {
     final isFirstDay = !_day.isAfter(oldestKeptDay());
 
+    final double button = _isDense ? _denseControl : CarouselArrowButton.defaultSize;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildCalendarButton(),
-        const SizedBox(width: 12),
+        SizedBox(width: _isDense ? 8 : 12),
         CarouselArrowButton(
           icon: Icons.chevron_left_rounded,
           isDisabled: isFirstDay || _isFetchingDay,
+          size: button,
           onTap: () => _goToDay(addDays(_day, -1)),
         ),
-        const SizedBox(width: 8),
-        SizedBox(width: _dayLabelWidth, child: Center(child: _buildDayLabel())),
-        const SizedBox(width: 8),
+        SizedBox(width: _isDense ? 6 : 8),
+        SizedBox(width: _isDense ? _denseDayLabelWidth : _dayLabelWidth, child: Center(child: _buildDayLabel())),
+        SizedBox(width: _isDense ? 6 : 8),
         CarouselArrowButton(
           icon: Icons.chevron_right_rounded,
           isDisabled: _isFetchingDay,
+          size: button,
           onTap: () => _goToDay(addDays(_day, 1)),
         ),
       ],
@@ -1497,6 +1531,8 @@ class _CalendarTabState extends State<CalendarTab>
   {
     final isFirstDay = !_day.isAfter(oldestKeptDay());
 
+    final double button = _isDense ? _denseControl : CarouselArrowButton.defaultSize;
+
     return Row(
       children: [
         _buildCalendarButton(),
@@ -1504,12 +1540,14 @@ class _CalendarTabState extends State<CalendarTab>
         CarouselArrowButton(
           icon: Icons.chevron_left_rounded,
           isDisabled: isFirstDay || _isFetchingDay,
+          size: button,
           onTap: () => _goToDay(addDays(_day, -1)),
         ),
         Expanded(child: Center(child: _buildDayLabel())),
         CarouselArrowButton(
           icon: Icons.chevron_right_rounded,
           isDisabled: _isFetchingDay,
+          size: button,
           onTap: () => _goToDay(addDays(_day, 1)),
         ),
       ],
@@ -1525,7 +1563,7 @@ class _CalendarTabState extends State<CalendarTab>
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 15,
+        fontSize: _isDense ? 14 : 15,
         fontWeight: FontWeight.w600,
         color: AppTheme.trialInk,
       ),
@@ -1549,6 +1587,8 @@ class _CalendarTabState extends State<CalendarTab>
       },
       padding: EdgeInsets.zero,
       hugContent: true,
+      height: _isDense ? _denseControl : 44,
+      fontSize: _isDense ? 13.5 : 14,
     );
   }
 
@@ -1581,8 +1621,10 @@ class _CalendarTabState extends State<CalendarTab>
 
     final Widget counts = Text(
       parts.join(' · '),
+      maxLines: _isDense ? 1 : null,
+      overflow: _isDense ? TextOverflow.ellipsis : null,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 15,
+        fontSize: _isDense ? 13.5 : 15,
         fontWeight: FontWeight.w600,
         height: 1.3,
         color: AppTheme.trialMutedText,
@@ -1624,6 +1666,22 @@ class _CalendarTabState extends State<CalendarTab>
     return LayoutBuilder(
       builder: (context, constraints)
       {
+        // Below the wide window: the search no wider than it needs, the pills beside it while they fit.
+        if (_isDense)
+        {
+          final double width = constraints.maxWidth < _denseSearchAlone ? constraints.maxWidth : _denseSearchWidth;
+
+          return Wrap(
+            spacing: _filterGap,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(width: width, child: search),
+              ...pills,
+            ],
+          );
+        }
+
         if (constraints.maxWidth < _filtersOneRowMin)
         {
           return Column(
@@ -1849,7 +1907,14 @@ class _CalendarTabState extends State<CalendarTab>
       }
 
       laneCounts.add(stacking.laneCount);
-      rowHeights.add(timelineRowHeight(stacking.laneCount, _isSettled ? _view : CalendarView.byTeacher, composing: !_isSettled));
+      rowHeights.add(
+        timelineRowHeight(
+          stacking.laneCount,
+          _isSettled ? _view : CalendarView.byTeacher,
+          composing: !_isSettled,
+          dense: _isDense,
+        ),
+      );
     }
 
     _subLaneMemory
@@ -1869,7 +1934,7 @@ class _CalendarTabState extends State<CalendarTab>
     return [
       for (final lane in lanes)
         lane.lessons.fold(
-          lessonBlockHeight(_view, composing: false),
+          lessonBlockHeight(_view, composing: false, dense: _isDense),
           (tallest, lesson) => math.max(
             tallest,
             publishedLessonBlockHeight(
@@ -1879,6 +1944,7 @@ class _CalendarTabState extends State<CalendarTab>
               view: _view,
               ministrySubjects: widget.ministrySubjects,
               showsRoom: moving.contains(lane.personTaxCode),
+              dense: _isDense,
             ),
           ),
         ),
@@ -1912,6 +1978,7 @@ class _CalendarTabState extends State<CalendarTab>
                 warned: marked.warned.contains(lesson.id),
                 preferred: marked.preferred.contains(lesson.id),
                 showsRoom: moving.contains(lane.personTaxCode),
+                dense: _isDense,
               ),
             ),
           for (final activity in lane.activities)
@@ -1957,7 +2024,7 @@ class _CalendarTabState extends State<CalendarTab>
 
   Widget _buildTrack(List<CalendarLane> lanes, CalendarDayIndex index, (int, int) window, double width)
   {
-    final trackWidth = width - kTimelineLeadingWidth;
+    final trackWidth = width - timelineLeadingWidth(context);
     final stacking = _stackLanes(lanes);
     final marked = _markedLessons(lanes);
     final rowHeights = stacking.rowHeights;
@@ -2205,7 +2272,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     final inBuilding = teachersInBuilding(merged.values.toList());
 
-    inBuilding.sort((a, b) => a.teacher.fullName.toLowerCase().compareTo(b.teacher.fullName.toLowerCase()));
+    inBuilding.sort((a, b) => compareByName(a.teacher, b.teacher));
 
     return inBuilding;
   }
@@ -2669,8 +2736,8 @@ class _CalendarTabState extends State<CalendarTab>
 
       return Wrap(
         alignment: WrapAlignment.center,
-        spacing: 14,
-        runSpacing: 12,
+        spacing: _isDense ? 8 : 14,
+        runSpacing: _isDense ? 8 : 12,
         children: [
           AppGradientButton(
             label: 'ESCI DALLA BOZZA',
@@ -2678,9 +2745,10 @@ class _CalendarTabState extends State<CalendarTab>
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialViolet,
             busy: _isPublishing,
-            width: _actionButtonWidth,
-            height: _actionButtonHeight,
-            fontSize: _actionButtonFontSize,
+            width: _actionWidth,
+            height: _actionHeight,
+            fontSize: _actionFontSize,
+            horizontalPadding: _actionPadding,
             onPressed: _discardDraft,
           ),
           if (rooms) _buildRoomsButton(),
@@ -2689,9 +2757,10 @@ class _CalendarTabState extends State<CalendarTab>
               label: 'PUBBLICA MODIFICHE',
               icon: Icons.send_rounded,
               busy: _isPublishing,
-              width: _actionButtonWidth,
-              height: _actionButtonHeight,
-              fontSize: _actionButtonFontSize,
+              width: _actionWidth,
+              height: _actionHeight,
+              fontSize: _actionFontSize,
+              horizontalPadding: _actionPadding,
               onPressed: _closeDraft,
             ),
         ],
@@ -2702,25 +2771,28 @@ class _CalendarTabState extends State<CalendarTab>
     {
       return Wrap(
         alignment: WrapAlignment.center,
-        spacing: 14,
-        runSpacing: 12,
+        spacing: _isDense ? 8 : 14,
+        runSpacing: _isDense ? 8 : 12,
         children: [
           AppGradientButton(
             label: 'MODIFICA CALENDARIO',
             icon: Icons.edit_outlined,
             busy: _isPublishing,
-            width: _actionButtonWidth,
-            height: _actionButtonHeight,
-            fontSize: _actionButtonFontSize,
+            width: _actionWidth,
+            height: _actionHeight,
+            fontSize: _actionFontSize,
+            horizontalPadding: _actionPadding,
             onPressed: _returnToDraft,
           ),
           AppGradientButton(
             label: 'ESPORTA PDF',
             icon: Icons.picture_as_pdf_outlined,
             busy: _isExporting,
-            width: _actionButtonWidth,
-            height: _actionButtonHeight,
-            fontSize: _actionButtonFontSize,
+            iconOnlyTooltip: _isDense ? 'Esporta PDF' : null,
+            width: _isDense ? _actionHeight : _actionWidth,
+            height: _actionHeight,
+            fontSize: _actionFontSize,
+            horizontalPadding: _actionPadding,
             onPressed: _exportPdf,
           ),
         ],
@@ -2741,9 +2813,10 @@ class _CalendarTabState extends State<CalendarTab>
         icon: Icons.send_rounded,
         busy: _isPublishing,
         disabledReason: _tooEarlyReason,
-        width: _actionButtonWidth,
-        height: _actionButtonHeight,
-        fontSize: _actionButtonFontSize,
+        width: _actionWidth,
+        height: _actionHeight,
+        fontSize: _actionFontSize,
+        horizontalPadding: _actionPadding,
         onPressed: _publish,
       );
     }
@@ -2765,8 +2838,8 @@ class _CalendarTabState extends State<CalendarTab>
     }
 
     return Wrap(
-      spacing: 14,
-      runSpacing: 12,
+      spacing: _isDense ? 8 : 14,
+      runSpacing: _isDense ? 8 : 12,
       alignment: WrapAlignment.center,
       children: [
         rooms,
@@ -2775,9 +2848,10 @@ class _CalendarTabState extends State<CalendarTab>
           icon: Icons.send_rounded,
           busy: _isPublishing,
           disabledReason: _tooEarlyReason,
-          width: _actionButtonWidth,
-          height: _actionButtonHeight,
-          fontSize: _actionButtonFontSize,
+          width: _actionWidth,
+          height: _actionHeight,
+          fontSize: _actionFontSize,
+          horizontalPadding: _actionPadding,
           onPressed: _publish,
         ),
       ],
@@ -2792,16 +2866,40 @@ class _CalendarTabState extends State<CalendarTab>
       label: _hasRoomPlan && plan!.assignments.isNotEmpty ? 'MODIFICA STANZE' : 'ASSEGNA STANZE',
       icon: Icons.meeting_room_outlined,
       busy: _isLoadingRoomPlan,
-      width: _actionButtonWidth,
-      height: _actionButtonHeight,
-      fontSize: _actionButtonFontSize,
+      width: _actionWidth,
+      height: _actionHeight,
+      fontSize: _actionFontSize,
+      horizontalPadding: _actionPadding,
       onPressed: _openRoomAssignment,
     );
   }
 
+  // Below the wide window the buttons are in the header: only a lock notice stays under the day.
+  Widget? _buildBodyAction()
+  {
+    final lock = widget.lock;
+
+    if (!_isDense)
+    {
+      return _buildBandAction();
+    }
+
+    return widget.isReadOnly && lock != null ? _buildLockNotice(lock) : null;
+  }
+
+  Widget? get _headerActions
+  {
+    if (!_isDense || (widget.isReadOnly && widget.lock != null))
+    {
+      return null;
+    }
+
+    return _buildBandAction();
+  }
+
   Widget _buildTimelineColumn(List<CalendarLane> lanes, CalendarDayIndex index, {required int slot})
   {
-    final action = _buildBandAction();
+    final action = _buildBodyAction();
 
     final Widget area = PageTransitionItem(slot: slot, child: _buildTimelineArea(lanes, index));
 
@@ -2878,7 +2976,7 @@ class _CalendarTabState extends State<CalendarTab>
       return PageTransitionItem(slot: PageTransitionItem.list, child: notice);
     }
 
-    final action = _buildBandAction();
+    final action = _buildBodyAction();
 
     if (_isSettled)
     {
@@ -2976,8 +3074,103 @@ class _CalendarTabState extends State<CalendarTab>
     };
   }
 
-  Widget _buildHeader(Widget dayNav, {Widget? summary, Widget? filters})
+  // Below the wide window: the bands, the counts and the day on one line, the search and the actions on the next;
+  // narrower, the counts go with the actions; minimal, one thing a line.
+  List<Widget> _denseHeaderRows(AppWindowSize size, Widget dayNav, {Widget? summary, Widget? filters, Widget? actions})
   {
+    final Widget band = _buildBandPicker();
+
+    return switch (size)
+    {
+      AppWindowSize.minimal => [
+          Align(alignment: Alignment.centerLeft, child: band),
+          dayNav,
+          ?summary,
+          if (actions != null) Align(alignment: Alignment.centerLeft, child: actions),
+          ?filters,
+        ],
+      AppWindowSize.narrow => [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 10,
+            children: [band, dayNav],
+          ),
+          if (summary != null || actions != null)
+            Row(
+              children: [
+                Expanded(child: Align(alignment: Alignment.centerLeft, child: summary ?? const SizedBox.shrink())),
+                if (actions != null) ...[
+                  const SizedBox(width: 12),
+                  actions,
+                ],
+              ],
+            ),
+          ?filters,
+        ],
+      _ => [
+          Row(
+            children: [
+              band,
+              const SizedBox(width: 12),
+              Expanded(child: Align(alignment: Alignment.centerLeft, child: summary ?? const SizedBox.shrink())),
+              const SizedBox(width: 12),
+              dayNav,
+            ],
+          ),
+          if (filters != null || actions != null)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: filters ?? const SizedBox.shrink()),
+                if (actions != null) ...[
+                  const SizedBox(width: 12),
+                  actions,
+                ],
+              ],
+            ),
+        ],
+    };
+  }
+
+  Widget _buildDenseHeader(Widget dayNav, {Widget? summary, Widget? filters, Widget? actions})
+  {
+    final AppWindowSize window = AppBreakpoints.of(context);
+
+    return PageTransitionItem(
+      slot: PageTransitionItem.header,
+      child: LayoutBuilder(
+        builder: (context, constraints)
+        {
+          // Less room than the window promises: the line of the narrow window instead.
+          final AppWindowSize size = window == AppWindowSize.compact && constraints.maxWidth < _denseOneLineMin
+              ? AppWindowSize.narrow
+              : window;
+          final rows = _denseHeaderRows(size, dayNav, summary: summary, filters: filters, actions: actions);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, row) in rows.indexed) ...[
+                if (i > 0) const SizedBox(height: 10),
+                row,
+              ],
+              const SizedBox(height: 12),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeader(Widget dayNav, {Widget? summary, Widget? filters, Widget? actions})
+  {
+    if (_isDense)
+    {
+      return _buildDenseHeader(dayNav, summary: summary, filters: filters, actions: actions);
+    }
+
     return PageTransitionItem(
       slot: PageTransitionItem.header,
       child: Column(
@@ -3009,7 +3202,8 @@ class _CalendarTabState extends State<CalendarTab>
 
   Widget _buildPage(_CalendarShape shape, bool navFits)
   {
-    final Widget dayNav = navFits ? _buildDayNav() : _buildNarrowDayNav();
+    final bool stretched = !navFits || (_isDense && AppBreakpoints.of(context).isMinimal);
+    final Widget dayNav = stretched ? _buildNarrowDayNav() : _buildDayNav();
 
     if (_isFetchingDay)
     {
@@ -3055,6 +3249,7 @@ class _CalendarTabState extends State<CalendarTab>
           dayNav,
           summary: _buildSummary(lanes),
           filters: _isSettled ? _buildFilters(isNarrow: shape == _CalendarShape.compact) : null,
+          actions: _headerActions,
         ),
         Expanded(child: _buildBody(lanes, index, shape)),
       ],
@@ -3064,10 +3259,12 @@ class _CalendarTabState extends State<CalendarTab>
   @override
   Widget build(BuildContext context)
   {
+    _isDense = AppBreakpoints.of(context).isDense;
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final shape = _shapeFor(constraints.maxWidth);
+        final shape = _shapeFor(constraints.maxWidth, AppBreakpoints.of(context));
 
         final navFits = constraints.maxWidth >= kCalendarDayNavMin;
 

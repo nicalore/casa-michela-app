@@ -38,7 +38,10 @@ class AppDestination
   // Shown in the bar's menus, never on the bar itself.
   final IconData? icon;
 
-  const AppDestination(this.label, this.route, {this.icon});
+  // A section not built yet (no route): its page's address, so the bar marks it there and not the home.
+  final String? path;
+
+  const AppDestination(this.label, this.route, {this.icon, this.path});
 }
 
 const Map<String, IconData> _moduleIcons = {
@@ -58,10 +61,13 @@ typedef MenuDestinations = ({
 
 AppDestination _destinationOf(RoleSection section, String? home)
 {
+  final String? path = home == null ? null : '$home/${section.slug}';
+
   return AppDestination(
     section.label,
-    section.available && home != null ? '$home/${section.slug}' : null,
+    section.available ? path : null,
     icon: kSectionIcons[section.slug],
+    path: path,
   );
 }
 
@@ -121,7 +127,7 @@ int? _currentIndex(List<AppDestination> destinations, String path)
 
   for (var i = 0; i < destinations.length; i++)
   {
-    final String? route = destinations[i].route;
+    final String? route = destinations[i].route ?? destinations[i].path;
 
     if (route == null || !(path == route || path.startsWith('$route/')))
     {

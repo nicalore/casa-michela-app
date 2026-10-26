@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_field_label.dart';
+import 'dialog_density.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -26,6 +27,15 @@ const double _contentPadding = 16;
 const double _inputFontSize = 17;
 const double _inputLineHeight = _inputFontSize * 1.28;
 
+// Inside a dense dialog.
+const double _denseFieldRadius = 12;
+const double _denseLabelTopGap = 12;
+const double _denseLabelBottomGap = 5;
+const double _denseHorizontalPadding = 14;
+const double _denseVerticalPadding = 11;
+const double _denseInputFontSize = 15;
+const double _denseInputLineHeight = _denseInputFontSize * 1.28;
+
 const double _counterFontSize = 11;
 const double _labelCounterGap = 8;
 
@@ -37,6 +47,14 @@ class AppTextField extends StatefulWidget
 {
   static const double labelBlockHeight = _labelTopGap + _labelBottomGap + _labelLineHeight;
   static const double boxHeight = 2 * _borderWidth + 2 * _contentPadding + _inputLineHeight;
+
+  static const double denseLabelBlockHeight = _denseLabelTopGap + _denseLabelBottomGap + _labelLineHeight;
+  static const double denseBoxHeight = 2 * _borderWidth + 2 * _denseVerticalPadding + _denseInputLineHeight;
+
+  static double labelBlockHeightOf(BuildContext context) =>
+      AppDialogDensity.of(context) ? denseLabelBlockHeight : labelBlockHeight;
+
+  static double boxHeightOf(BuildContext context) => AppDialogDensity.of(context) ? denseBoxHeight : boxHeight;
 
   final TextEditingController controller;
   final String label;
@@ -191,6 +209,9 @@ class _AppTextFieldState extends State<AppTextField>
 
     final Color ring = error != null ? AppTheme.trialDanger : _focusAccent;
 
+    final bool dense = AppDialogDensity.of(context);
+    final double fontSize = dense ? _denseInputFontSize : _inputFontSize;
+
     return MouseRegion(
       cursor: widget.enabled ? MouseCursor.defer : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hover = true),
@@ -201,8 +222,8 @@ class _AppTextFieldState extends State<AppTextField>
           if (widget.showLabel)
             Padding(
               padding: EdgeInsets.only(
-                bottom: _labelBottomGap,
-                top: widget.nothingAbove ? 0 : _labelTopGap,
+                bottom: dense ? _denseLabelBottomGap : _labelBottomGap,
+                top: widget.nothingAbove ? 0 : (dense ? _denseLabelTopGap : _labelTopGap),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -221,7 +242,7 @@ class _AppTextFieldState extends State<AppTextField>
             curve: Curves.easeOut,
             decoration: BoxDecoration(
               color: widget.enabled ? _fieldSurface : AppTheme.trialPaper,
-              borderRadius: BorderRadius.circular(_fieldRadius),
+              borderRadius: BorderRadius.circular(dense ? _denseFieldRadius : _fieldRadius),
               border: Border.all(color: outline, width: _borderWidth),
               boxShadow: [
                 BoxShadow(
@@ -245,7 +266,7 @@ class _AppTextFieldState extends State<AppTextField>
               onSubmitted: widget.onSubmitted,
               cursorColor: AppTheme.trialTealDeep,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: _inputFontSize,
+                fontSize: fontSize,
                 height: 1.28,
                 color: widget.enabled ? AppTheme.trialInk : AppTheme.trialMutedText,
                 fontWeight: FontWeight.w600,
@@ -254,19 +275,18 @@ class _AppTextFieldState extends State<AppTextField>
                 border: InputBorder.none,
                 isDense: true,
                 counterText: '',
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: _contentPadding,
-                  vertical: _contentPadding,
-                ),
+                contentPadding: dense
+                    ? const EdgeInsets.symmetric(horizontal: _denseHorizontalPadding, vertical: _denseVerticalPadding)
+                    : const EdgeInsets.symmetric(horizontal: _contentPadding, vertical: _contentPadding),
                 hintText: widget.hintText,
                 hintStyle: GoogleFonts.plusJakartaSans(
-                  fontSize: _inputFontSize,
+                  fontSize: fontSize,
                   height: 1.28,
                   color: AppTheme.trialMutedText,
                   fontWeight: FontWeight.w500,
                 ),
                 suffixIcon: widget.suffix,
-                suffixIconConstraints: const BoxConstraints(minWidth: 52, minHeight: 40),
+                suffixIconConstraints: BoxConstraints(minWidth: dense ? 44 : 52, minHeight: dense ? 34 : 40),
               ),
             ),
           ),

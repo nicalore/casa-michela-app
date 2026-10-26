@@ -6,6 +6,7 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/card_scroll_area.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
@@ -37,22 +38,30 @@ Widget schoolEnrollmentCard(
 {
   final bool repeating = isRepeatingYear(item, all);
 
-  return AppCard(
-    title: 'Anno scolastico ${item.startYear}/${item.startYear + 1}',
-    compact: true,
-    leading: AppCardBadge(
-      icon: isCurrent ? Icons.school_rounded : Icons.history_rounded,
-      compact: true,
-    ),
-    child: PersonFactsRow(
-      facts: [
-        PersonFact('Scuola', item.schoolName, flex: 5),
-        PersonFact('Percorso', item.studyProgramNameOnly, flex: 5),
-        PersonFact('Classe', gradeLabel(item.grade)),
-        if (showRepeating)
-          PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
-      ],
-    ),
+  // Inside a dense page it takes the page's sizes, as the other cards there.
+  return Builder(
+    builder: (context)
+    {
+      final bool compact = !AppPageDensity.of(context);
+
+      return AppCard(
+        title: 'Anno scolastico ${item.startYear}/${item.startYear + 1}',
+        compact: compact,
+        leading: AppCardBadge(
+          icon: isCurrent ? Icons.school_rounded : Icons.history_rounded,
+          compact: compact,
+        ),
+        child: PersonFactsRow(
+          facts: [
+            PersonFact('Scuola', item.schoolName, flex: 5),
+            PersonFact('Percorso', item.studyProgramNameOnly, flex: 5),
+            PersonFact('Classe', gradeLabel(item.grade)),
+            if (showRepeating)
+              PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
+          ],
+        ),
+      );
+    },
   );
 }
 
@@ -105,7 +114,7 @@ class PersonSchoolsTab extends StatelessWidget
     {
       return AppEmptyRoom(
         card: const AppEmptyCard(icon: Icons.school_rounded, message: 'Nessun anno scolastico registrato.'),
-        gap: kPersonSectionGap,
+        gap: personSectionGap(context),
         below: [
           if (onUpdate case final VoidCallback update)
             AppGradientButton(
@@ -136,13 +145,13 @@ class PersonSchoolsTab extends StatelessWidget
                     isCurrent: true,
                     showRepeating: showRepeating,
                   ),
-                  const SizedBox(height: kPersonSectionGap),
+                  SizedBox(height: personSectionGap(context)),
                 ],
                 if (past.isNotEmpty) ...[
                   const PageHeading('Anni scolastici passati', large: true),
                   const SizedBox(height: kPageHeadingGap),
                   for (var i = 0; i < past.length; i++) ...[
-                    if (i > 0) const SizedBox(height: kPersonCardGap),
+                    if (i > 0) SizedBox(height: personCardGap(context)),
                     schoolEnrollmentCard(
                       past[i],
                       enrollments,
@@ -152,7 +161,7 @@ class PersonSchoolsTab extends StatelessWidget
                   ],
                 ],
                 if (onUpdate case final VoidCallback update) ...[
-                  const SizedBox(height: kPersonSectionGap),
+                  SizedBox(height: personSectionGap(context)),
                   Center(
                     child: AppGradientButton(
                       label: 'MODIFICA ANNI SCOLASTICI',
@@ -162,7 +171,7 @@ class PersonSchoolsTab extends StatelessWidget
                   ),
                 ],
                 if (footer != null) ...[
-                  const SizedBox(height: kPersonSectionGap),
+                  SizedBox(height: personSectionGap(context)),
                   footer!,
                 ],
               ]),

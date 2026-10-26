@@ -7,6 +7,7 @@ import 'app_dialog_stack.dart';
 import 'app_field_label.dart';
 import 'app_gradient_button.dart';
 import 'app_text_field.dart';
+import 'dialog_density.dart';
 import 'snackbar.dart';
 
 const double kWizardButtonHeight = 52;
@@ -47,8 +48,10 @@ class WizardFieldLabel extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppDialogDensity.of(context);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 20),
+      padding: EdgeInsets.only(bottom: dense ? 6 : 8, top: dense ? 14 : 20),
       child: AppFieldLabel(text),
     );
   }

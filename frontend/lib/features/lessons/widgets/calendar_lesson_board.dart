@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -17,6 +18,7 @@ const double kBoardCardMin = 232;
 const double kBoardCardMax = 320;
 
 const double _cardGap = 6;
+const double _rowGap = 8;
 
 double _boardCardWidth(double available)
 {
@@ -149,7 +151,7 @@ class CalendarLessonBoard extends StatelessWidget
   }
 
   // Lessons and activities in one list, in clock order.
-  List<_BoardCard> _cardsOf(CalendarLane lane, double cardWidth)
+  List<_BoardCard> _cardsOf(CalendarLane lane, double cardWidth, bool dense)
   {
     final cards = <_BoardCard>[
       for (final lesson in lane.lessons)
@@ -166,6 +168,7 @@ class CalendarLessonBoard extends StatelessWidget
             isPast: pastLessonIds.contains(lesson.id),
             elapsed: elapsedLessons[lesson.id],
             showsRoom: _showsRoom(lane),
+            isRow: dense,
             onTap: onLessonTap == null || lesson.isProvisional ? null : () => onLessonTap!(lesson),
           ),
         ),
@@ -176,6 +179,7 @@ class CalendarLessonBoard extends StatelessWidget
           card: CalendarActivityBlock(
             scheduled: scheduled,
             width: cardWidth,
+            isRow: dense,
             onTap: onActivityTap == null ? null : () => onActivityTap!(scheduled.activity),
           ),
         ),
@@ -184,9 +188,9 @@ class CalendarLessonBoard extends StatelessWidget
     return cards..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
   }
 
-  Widget _buildLane(BuildContext context, CalendarLane lane, double cardWidth, double available)
+  Widget _buildLane(BuildContext context, CalendarLane lane, double cardWidth, double available, bool dense)
   {
-    final cards = _cardsOf(lane, cardWidth);
+    final cards = _cardsOf(lane, cardWidth, dense);
 
     if (cards.isEmpty)
     {
@@ -194,6 +198,11 @@ class CalendarLessonBoard extends StatelessWidget
         padding: EdgeInsets.only(top: 10),
         child: CalendarLaneEmpty(),
       );
+    }
+
+    if (dense)
+    {
+      return _buildRows(cards);
     }
 
     // The row's cards as tall as the one whose long lines wrap the most.
@@ -295,6 +304,70 @@ class CalendarLessonBoard extends StatelessWidget
     );
   }
 
+  // Only between rows: a lesson under way is framed, not crossed.
+  double? _gapLineTop(List<_BoardCard> cards)
+  {
+    final now = nowMinutes;
+
+    if (now == null || now < cards.first.startMinutes)
+    {
+      return null;
+    }
+
+    for (var index = 0; index < cards.length; index++)
+    {
+      if (now < cards[index].startMinutes)
+      {
+        return index * (kBoardRowHeight + _rowGap) - _rowGap / 2;
+      }
+
+      if (now < cards[index].endMinutes)
+      {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  Widget _buildRows(List<_BoardCard> cards)
+  {
+    final gapTop = _gapLineTop(cards);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                if (index > 0) const SizedBox(height: _rowGap),
+                SizedBox(height: kBoardRowHeight, child: cards[index].card),
+              ],
+            ],
+          ),
+          if (gapTop != null)
+            Positioned(
+              left: kBlockSideGap - _nowLineBleed,
+              right: kBlockSideGap - _nowLineBleed,
+              top: gapTop - _nowLineWidth / 2,
+              height: _nowLineWidth,
+              child: const IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppTheme.trialDanger,
+                    borderRadius: BorderRadius.all(Radius.circular(_nowLineWidth / 2)),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWrap(List<_BoardCard> cards, double cardWidth, double cardHeight)
   {
     return Wrap(
@@ -318,7 +391,8 @@ class CalendarLessonBoard extends StatelessWidget
       builder: (context, constraints)
       {
         final available = constraints.maxWidth - 2 * kLanePanelPadding;
-        final cardWidth = math.min(available, math.max(_boardCardWidth(available), _widestCard(context)));
+        final bool dense = AppBreakpoints.of(context).isDense;
+        final cardWidth = dense ? available : math.min(available, math.max(_boardCardWidth(available), _widestCard(context)));
 
         return ScrollEdgeFade(
           child: ListView.separated(
@@ -335,7 +409,7 @@ class CalendarLessonBoard extends StatelessWidget
                 bandStart: bandStart,
                 bandEnd: bandEnd,
                 room: roomByTeacher[lane.personTaxCode],
-                child: _buildLane(context, lane, cardWidth, available),
+                child: _buildLane(context, lane, cardWidth, available, dense),
               );
             },
           ),

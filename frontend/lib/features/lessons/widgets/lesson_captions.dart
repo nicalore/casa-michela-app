@@ -202,18 +202,21 @@ class LessonCaption extends StatelessWidget
             final isLit = lit == lesson.id;
 
             // The page colour under the words keeps the half-hour lines from crossing them.
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
+            // Sized outside the animation: the width follows the track and must never animate.
+            return SizedBox(
               width: spot.width,
               height: spot.lines * kCaptionLineHeight - 1,
-              padding: _padding,
-              decoration: BoxDecoration(
-                color: isLit ? AppTheme.trialGoldSurface : AppTheme.trialPaper,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: isLit ? AppTheme.trialGold : AppTheme.trialPaper, width: _border),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                padding: _padding,
+                decoration: BoxDecoration(
+                  color: isLit ? AppTheme.trialGoldSurface : AppTheme.trialPaper,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: isLit ? AppTheme.trialGold : AppTheme.trialPaper, width: _border),
+                ),
+                child: child,
               ),
-              child: child,
             );
           },
           child: BlockTexts(

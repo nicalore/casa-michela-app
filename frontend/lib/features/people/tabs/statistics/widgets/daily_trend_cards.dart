@@ -17,6 +17,7 @@ const Duration _fetchFade = Duration(milliseconds: 150);
 
 const double _teachersChartHeight = 260;
 const double _hoursChartHeight = 200;
+const double _denseHoursChartHeight = 140;
 const double _presenceChartHeight = 280;
 
 // A pair that stays distinct on white: change them together.
@@ -179,6 +180,7 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = StatMetrics.of(context).dense;
     final loaded = days ?? const <TeacherActivityDayItem>[];
     final buckets = trendBuckets([for (final day in loaded) day.date], resolution);
 
@@ -244,9 +246,9 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TrendLegend(series: teachers),
-            const SizedBox(height: 20),
+            SizedBox(height: dense ? 12 : 20),
             chartArea(
-              _teachersChartHeight,
+              statChartHeight(context, _teachersChartHeight),
               () => DailyTrendChart(
                 axisLabels: axisLabels,
                 series: teachers,
@@ -255,18 +257,18 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
                 tooltip: tooltip,
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: dense ? 20 : 32),
             Text(
               _hoursLabel,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
+                fontSize: dense ? 13 : 14,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.trialMutedText,
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: dense ? 12 : 20),
             chartArea(
-              _hoursChartHeight,
+              dense ? _denseHoursChartHeight : _hoursChartHeight,
               () => DailyTrendChart(
                 axisLabels: axisLabels,
                 series: hours,
@@ -339,7 +341,7 @@ class _PresenceTrendCardState extends State<PresenceTrendCard>
       trailing: filters(),
       child: fading(
         chartArea(
-          _presenceChartHeight,
+          statChartHeight(context, _presenceChartHeight),
           () => DailyTrendChart(
             axisLabels: [for (final bucket in buckets) bucket.axisLabel],
             series: series,

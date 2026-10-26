@@ -23,6 +23,7 @@ import '../../shared/widgets/carousel_arrow_button.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/dialog_components.dart';
+import '../../shared/widgets/page_density.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/snackbar.dart';
@@ -56,6 +57,10 @@ const double _headerGap = 22;
 const double _rowGap = 12;
 
 const double _weekLabelWidth = 250;
+const double _denseWeekLabelWidth = 170;
+
+// Below the wide window: header nearer the days.
+const double _denseHeaderGap = 12;
 
 const double _confirmWidth = 480;
 const double _dialogButtonHeight = 52;
@@ -986,9 +991,11 @@ class _BookingsPageState extends State<BookingsPage>
     ].join(' · ');
   }
 
+  // Below the wide window the same lines, smaller.
   Widget _buildHeader(AppWindowSize size)
   {
     final List<DateTime> days = _shownDays;
+    final bool dense = size.isDense;
 
     final Widget facts = Column(
       mainAxisSize: MainAxisSize.min,
@@ -997,18 +1004,18 @@ class _BookingsPageState extends State<BookingsPage>
         Text(
           formatDateSpan(days.first, days.last),
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 21,
+            fontSize: dense ? 18 : 21,
             fontWeight: FontWeight.w700,
             height: 1.2,
             color: AppTheme.trialOcean,
           ),
         ),
         if (_summaryLine.isNotEmpty) ...[
-          const SizedBox(height: 6),
+          SizedBox(height: dense ? 3 : 6),
           Text(
             _summaryLine,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
+              fontSize: dense ? 13.5 : 15,
               fontWeight: FontWeight.w600,
               height: 1.3,
               color: AppTheme.trialMutedText,
@@ -1016,23 +1023,23 @@ class _BookingsPageState extends State<BookingsPage>
           ),
         ],
         if (!_isReadOnly) ...[
-          const SizedBox(height: 6),
+          SizedBox(height: dense ? 3 : 6),
           DesktopTourTarget(
             id: kTourBookingsDeadlines,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 2),
-                  child: Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(Icons.lock_outline_rounded, size: dense ? 14 : 15, color: AppTheme.trialMutedText),
                 ),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     kBookingDeadlines,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14.5,
+                      fontSize: dense ? 13 : 14.5,
                       fontWeight: FontWeight.w600,
                       height: 1.35,
                       color: AppTheme.trialMutedText,
@@ -1058,7 +1065,7 @@ class _BookingsPageState extends State<BookingsPage>
         children: [
           facts,
           const SizedBox(height: 16),
-          _buildWeekNav(compact: true),
+          _buildWeekNav(compact: true, dense: dense),
         ],
       );
     }
@@ -1068,13 +1075,13 @@ class _BookingsPageState extends State<BookingsPage>
       children: [
         Expanded(child: facts),
         const SizedBox(width: 24),
-        _buildWeekNav(compact: false),
+        _buildWeekNav(compact: false, dense: dense),
       ],
     );
   }
 
   // Fixed label width keeps the arrows still as the text changes.
-  Widget _buildWeekNav({required bool compact})
+  Widget _buildWeekNav({required bool compact, bool dense = false})
   {
     final Widget label = Text(
       _weekIndex == 0 ? 'Questa settimana' : 'Settimana prossima',
@@ -1083,7 +1090,7 @@ class _BookingsPageState extends State<BookingsPage>
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: 15,
+        fontSize: dense ? 13.5 : 15,
         fontWeight: FontWeight.w600,
         color: AppTheme.trialInk,
       ),
@@ -1098,7 +1105,10 @@ class _BookingsPageState extends State<BookingsPage>
           onTap: () => _showWeek(0),
         ),
         const SizedBox(width: 8),
-        if (compact) Expanded(child: label) else SizedBox(width: _weekLabelWidth, child: label),
+        if (compact)
+          Expanded(child: label)
+        else
+          SizedBox(width: dense ? _denseWeekLabelWidth : _weekLabelWidth, child: label),
         const SizedBox(width: 8),
         DesktopTourTarget(
           id: kTourBookingsNext,
@@ -1240,7 +1250,8 @@ class _BookingsPageState extends State<BookingsPage>
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        // Below the wide window the days scroll inside the page, which fits the window.
+        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
           final AppWindowSize size = AppBreakpoints.of(context);
@@ -1272,33 +1283,36 @@ class _BookingsPageState extends State<BookingsPage>
                     child: Center(
                       child: SizedBox(
                         width: contentWidth,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            PageTransitionItem(
-                              slot: PageTransitionItem.header,
-                              child: _buildHeader(size),
-                            ),
-                            const SizedBox(height: _headerGap),
-                            Expanded(
-                              child: DesktopTourTarget(
-                                id: kTourBookingsDays,
-                                child: _hasNoPupils
-                                    ? const Center(
-                                        child: PageTransitionItem(
-                                          slot: PageTransitionItem.list,
-                                          child: AppEmptyCard(icon: Icons.family_restroom_rounded, message: kNoPupils),
-                                        ),
-                                      )
-                                    : PageTransitionScrollView(
-                                        child: PageTransitionItem(
-                                          slot: PageTransitionItem.list,
-                                          child: _buildRows(),
-                                        ),
-                                      ),
+                        child: AppPageDensity(
+                          dense: size.isDense,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              PageTransitionItem(
+                                slot: PageTransitionItem.header,
+                                child: _buildHeader(size),
                               ),
-                            ),
-                          ],
+                              SizedBox(height: size.isDense ? _denseHeaderGap : _headerGap),
+                              Expanded(
+                                child: DesktopTourTarget(
+                                  id: kTourBookingsDays,
+                                  child: _hasNoPupils
+                                      ? const Center(
+                                          child: PageTransitionItem(
+                                            slot: PageTransitionItem.list,
+                                            child: AppEmptyCard(icon: Icons.family_restroom_rounded, message: kNoPupils),
+                                          ),
+                                        )
+                                      : PageTransitionScrollView(
+                                          child: PageTransitionItem(
+                                            slot: PageTransitionItem.list,
+                                            child: _buildRows(),
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

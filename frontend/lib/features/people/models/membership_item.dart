@@ -1,4 +1,5 @@
 import '../../../core/utils/rome_clock.dart';
+import '../../../core/utils/week_range.dart';
 
 class MembershipItem
 {
@@ -26,8 +27,13 @@ class MembershipItem
   // Memberships end 31 December and count 31 more days: renewal stays open until 31 January.
   static const int defaultRenewalPeriodDays = 31;
 
+  // The day renewal closes, counted on the calendar: 24-hour days would skew it across a clock change.
+  static DateTime renewalDeadlineOf(DateTime endDate, int renewalPeriodDays) => addDays(endDate, renewalPeriodDays);
+
+  DateTime get renewalDeadline => renewalDeadlineOf(endDate, renewalPeriodDays);
+
   static bool isWithinRenewalWindow(DateTime endDate, int renewalPeriodDays) =>
-      romeNow().isBefore(endDate.add(Duration(days: renewalPeriodDays)));
+      romeNow().isBefore(renewalDeadlineOf(endDate, renewalPeriodDays));
 
   factory MembershipItem.fromJson(Map<String, dynamic> json)
   {
