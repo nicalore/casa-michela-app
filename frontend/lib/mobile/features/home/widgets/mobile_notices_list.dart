@@ -198,7 +198,11 @@ class _NotificationsCard extends StatelessWidget
                 child: _Head(
                   eyebrow: kNotificationsEyebrow,
                   title: kNotificationsTitle,
-                  trailing: board.unread > 0 ? MobilePill(notificationsNewLabel(board.unread)) : null,
+                  // Taller than the eyebrow: its room stays when none is new, so the text below holds still.
+                  trailing: Visibility.maintain(
+                    visible: board.unread > 0,
+                    child: MobilePill(notificationsNewLabel(board.unread)),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),

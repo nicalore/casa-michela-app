@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' show TimeOfDay;
 
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../people/models/person_face.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
 import 'activity_item.dart';
@@ -215,7 +216,7 @@ int _byPresenceThenName(TeacherLane a, TeacherLane b)
     return aInBuilding ? -1 : 1;
   }
 
-  return a.teacher.fullName.toLowerCase().compareTo(b.teacher.fullName.toLowerCase());
+  return compareByName(a.teacher, b.teacher);
 }
 
 List<TeacherLane> buildTeacherLanes({
@@ -343,7 +344,7 @@ int _byBeingHereThenName(StudentLane a, StudentLane b)
     return aInBuilding ? -1 : 1;
   }
 
-  return a.student.fullName.toLowerCase().compareTo(b.student.fullName.toLowerCase());
+  return compareByName(a.student, b.student);
 }
 
 List<StudentLane> buildStudentLanes({
@@ -424,16 +425,12 @@ int? laneArrival(CalendarLane lane, int bandStart, int bandEnd)
 
 int _byFirstName(CalendarLane a, CalendarLane b)
 {
-  final name = a.person.firstName.toLowerCase().compareTo(b.person.firstName.toLowerCase());
-
-  return name != 0 ? name : a.person.lastName.toLowerCase().compareTo(b.person.lastName.toLowerCase());
+  return compareByName(a.person, b.person);
 }
 
 int _byLastName(CalendarLane a, CalendarLane b)
 {
-  final surname = a.person.lastName.toLowerCase().compareTo(b.person.lastName.toLowerCase());
-
-  return surname != 0 ? surname : _byFirstName(a, b);
+  return compareBySurname(a.person, b.person);
 }
 
 Comparator<CalendarLane> _reversed(Comparator<CalendarLane> by)

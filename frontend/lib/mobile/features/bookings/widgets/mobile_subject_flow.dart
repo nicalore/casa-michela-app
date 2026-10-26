@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -75,6 +77,9 @@ class MobileSubjectFlow
   late final TextEditingController notes = TextEditingController(text: draft.notes);
   final TextEditingController search = TextEditingController();
 
+  // The answers as they opened, so leaving asks only once something was changed.
+  late final String _opened;
+
   // The settled step; the controller tracks a swipe in progress.
   int step = 0;
 
@@ -104,7 +109,20 @@ class MobileSubjectFlow
     {
       draft.band = bands.single.band;
     }
+
+    _opened = _answers;
   }
+
+  String get _answers => jsonEncode([
+        draft.band?.name,
+        [...draft.tags]..sort(),
+        draft.duration,
+        [...draft.preferredTeacherTaxCodes]..sort(),
+        topic.text.trim(),
+        notes.text.trim(),
+      ]);
+
+  bool get changed => _answers != _opened;
 
   void dispose()
   {
@@ -413,14 +431,13 @@ class MobileSubjectFlow
   }
 }
 
-// Null [onBackFromStart] hides the back button on the first step.
+// The first step's ← leads back to the page underneath.
 MobileSheet mobileSubjectFlowSheet({
   required BuildContext context,
   required MobileSubjectFlow flow,
   required bool tablet,
   required bool busy,
   required VoidCallback onChanged,
-  required VoidCallback? onBackFromStart,
   VoidCallback? onRemove,
   required VoidCallback onDone,
 })
@@ -428,9 +445,7 @@ MobileSheet mobileSubjectFlowSheet({
   final List<SubjectRequestStep> steps = flow.steps;
   final int step = flow.step.clamp(0, steps.length - 1);
   final bool last = step == steps.length - 1;
-  final VoidCallback? back = step > 0
-      ? () => flow.pages.animateToPage(step - 1, duration: _turn, curve: _turnCurve)
-      : onBackFromStart;
+  final VoidCallback? back = step > 0 ? () => flow.pages.animateToPage(step - 1, duration: _turn, curve: _turnCurve) : null;
 
   void next()
   {
@@ -466,6 +481,8 @@ MobileSheet mobileSubjectFlowSheet({
     eyebrow: flow.eyebrow,
     title: flow.title,
     aboveKeyboard: true,
+    unsaved: () => flow.changed ? MobileUnsaved.choices : MobileUnsaved.none,
+    saving: busy,
     subhead: MobileWizardDots(count: steps.length, position: flow.pages, fallback: step),
     content: MobileStepPager(
       key: ObjectKey(flow),
@@ -525,7 +542,6 @@ Future<bool> showMobileSubjectSheet({
 {
   final bool? saved = await showMobileSheet<bool>(
     context: context,
-    draggable: false,
     builder: (context) => MobileSubjectPage(
       flow: flow,
       onDone: (draft) async
@@ -694,7 +710,6 @@ class _MobileSubjectPageState extends State<MobileSubjectPage>
       tablet: MobileBreakpoints.of(context).isTablet,
       busy: _busy,
       onChanged: () => setState(() {}),
-      onBackFromStart: null,
       onRemove: remove == null ? null : () => remove(context),
       onDone: _done,
     );

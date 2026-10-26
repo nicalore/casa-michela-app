@@ -10,10 +10,12 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/unfolding_rows.dart';
 import '../../association/models/program_tree.dart';
 import '../../association/models/study_program_item.dart';
 import '../subjects_tour.dart';
+import '../utils/program_scope_strings.dart';
 import 'person_detail_widgets.dart';
 
 // Past this many programmes the list gets a search field.
@@ -42,12 +44,16 @@ class ProgramScopeDialog extends StatefulWidget
   // An empty set means the discipline is being given up.
   final ValueChanged<Set<int>> onSave;
 
+  // A discipline not taken yet: confirming none is refused, there is nothing to give up.
+  final bool adding;
+
   const ProgramScopeDialog({
     super.key,
     required this.subjectName,
     required this.programs,
     required this.initialSelected,
     required this.onSave,
+    this.adding = false,
   });
 
   @override
@@ -370,6 +376,13 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
             fontSize: kPersonDialogButtonFontSize,
             onPressed: ()
             {
+              if (widget.adding && _selected.isEmpty)
+              {
+                CustomSnackBar.show(context: context, message: kPickProgramToAdd, isError: true);
+
+                return;
+              }
+
               widget.onSave(_selected);
               Navigator.of(context).pop();
             },

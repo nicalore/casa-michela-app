@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -972,140 +974,143 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
   @override
   Widget build(BuildContext context)
   {
-    return RawAutocomplete<String>(
-      textEditingController: widget.controller,
-      focusNode:             _focusNode,
-      optionsBuilder:        (TextEditingValue textEditingValue)
-      {
-        if (textEditingValue.text.isEmpty)
+    return LayoutBuilder(
+      // Never wider than the field: in a narrow window a fixed width would leave the window.
+      builder: (context, constraints) => RawAutocomplete<String>(
+        textEditingController: widget.controller,
+        focusNode:             _focusNode,
+        optionsBuilder:        (TextEditingValue textEditingValue)
         {
-          return const Iterable<String>.empty();
-        }
-
-        return widget.options.where(
-          (String option) => option.toLowerCase().contains(textEditingValue.text.toLowerCase()),
-        );
-      },
-      onSelected: (String selection)
-      {
-        if (widget.onSubmitted != null)
-        {
-          widget.onSubmitted!(selection);
-          // clear() leaves the selection at -1 (no visible cursor): reset it and refocus.
-          Future.microtask(()
+          if (textEditingValue.text.isEmpty)
           {
-            widget.controller.clear();
-            widget.controller.selection = const TextSelection.collapsed(offset: 0);
-            _focusNode.requestFocus();
-          });
-        }
-        else
+            return const Iterable<String>.empty();
+          }
+
+          return widget.options.where(
+            (String option) => option.toLowerCase().contains(textEditingValue.text.toLowerCase()),
+          );
+        },
+        onSelected: (String selection)
         {
-          widget.onChanged(selection);
-        }
-      },
-      fieldViewBuilder: (
-        BuildContext context,
-        TextEditingController textEditingController,
-        FocusNode focusNode,
-        VoidCallback onFieldSubmitted,
-      )
-      {
-        return MouseRegion(
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          child: AnimatedContainer(
-            duration: _fieldFade,
-            curve: Curves.easeOut,
-            height:     50,
-            padding:    const EdgeInsets.only(left: 16, right: 8),
-            decoration: BoxDecoration(
-              color: _fieldSurface,
-              borderRadius: BorderRadius.circular(_fieldRadius),
-              border: Border.all(
-                color: _isFocused || _isHovered ? AppTheme.trialGold : AppTheme.trialLine,
-                width: _fieldBorder,
+          if (widget.onSubmitted != null)
+          {
+            widget.onSubmitted!(selection);
+            // clear() leaves the selection at -1 (no visible cursor): reset it and refocus.
+            Future.microtask(()
+            {
+              widget.controller.clear();
+              widget.controller.selection = const TextSelection.collapsed(offset: 0);
+              _focusNode.requestFocus();
+            });
+          }
+          else
+          {
+            widget.onChanged(selection);
+          }
+        },
+        fieldViewBuilder: (
+          BuildContext context,
+          TextEditingController textEditingController,
+          FocusNode focusNode,
+          VoidCallback onFieldSubmitted,
+        )
+        {
+          return MouseRegion(
+            onEnter: (_) => setState(() => _isHovered = true),
+            onExit: (_) => setState(() => _isHovered = false),
+            child: AnimatedContainer(
+              duration: _fieldFade,
+              curve: Curves.easeOut,
+              height:     50,
+              padding:    const EdgeInsets.only(left: 16, right: 8),
+              decoration: BoxDecoration(
+                color: _fieldSurface,
+                borderRadius: BorderRadius.circular(_fieldRadius),
+                border: Border.all(
+                  color: _isFocused || _isHovered ? AppTheme.trialGold : AppTheme.trialLine,
+                  width: _fieldBorder,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.trialGold.withValues(alpha: _isFocused ? 0.15 : 0),
+                    spreadRadius: _isFocused ? 4 : 0,
+                  ),
+                ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.trialGold.withValues(alpha: _isFocused ? 0.15 : 0),
-                  spreadRadius: _isFocused ? 4 : 0,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: textEditingController,
-                    focusNode:  focusNode,
-                    onChanged:  (val)
-                    {
-                      setState(() {});
-                      widget.onChanged(val);
-                    },
-                    // Enter confirms RawAutocomplete's highlighted option, never the free text.
-                    onSubmitted: (_) => onFieldSubmitted(),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize:   15,
-                      fontWeight: FontWeight.w600,
-                      color:      AppTheme.trialInk,
-                    ),
-                    decoration: InputDecoration(
-                      hintText:    widget.hint,
-                      hintStyle:   GoogleFonts.plusJakartaSans(
-                        fontSize:   15,
-                        fontWeight: FontWeight.w500,
-                        color:      AppTheme.trialMutedText,
-                      ),
-                      border:      InputBorder.none,
-                      isCollapsed: true,
-                    ),
-                  ),
-                ),
-                if (textEditingController.text.isNotEmpty)
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: ()
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: textEditingController,
+                      focusNode:  focusNode,
+                      onChanged:  (val)
                       {
-                        textEditingController.clear();
-                        widget.onChanged('');
                         setState(() {});
+                        widget.onChanged(val);
                       },
-                      child: Container(
-                        padding:    const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color:        AppTheme.trialDanger.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                      // Enter confirms RawAutocomplete's highlighted option, never the free text.
+                      onSubmitted: (_) => onFieldSubmitted(),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize:   15,
+                        fontWeight: FontWeight.w600,
+                        color:      AppTheme.trialInk,
+                      ),
+                      decoration: InputDecoration(
+                        hintText:    widget.hint,
+                        hintStyle:   GoogleFonts.plusJakartaSans(
+                          fontSize:   15,
+                          fontWeight: FontWeight.w500,
+                          color:      AppTheme.trialMutedText,
                         ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size:  16,
-                          color: AppTheme.trialDanger,
-                        ),
+                        border:      InputBorder.none,
+                        isCollapsed: true,
                       ),
                     ),
                   ),
-              ],
+                  if (textEditingController.text.isNotEmpty)
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: ()
+                        {
+                          textEditingController.clear();
+                          widget.onChanged('');
+                          setState(() {});
+                        },
+                        child: Container(
+                          padding:    const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color:        AppTheme.trialDanger.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size:  16,
+                            color: AppTheme.trialDanger,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-      optionsViewBuilder: (
-        BuildContext context,
-        AutocompleteOnSelected<String> onSelected,
-        Iterable<String> options,
-      )
-      {
-        return AutocompleteOptionsList<String>(
-          options:    options,
-          label:      (option) => option,
-          // The overlay does not inherit the field's width; 436 matches the card's fields.
-          width:      436,
-          onSelected: onSelected,
-        );
-      },
+          );
+        },
+        optionsViewBuilder: (
+          BuildContext context,
+          AutocompleteOnSelected<String> onSelected,
+          Iterable<String> options,
+        )
+        {
+          return AutocompleteOptionsList<String>(
+            options:    options,
+            label:      (option) => option,
+            // The overlay does not inherit the field's width; 436 matches the card's fields.
+            width:      math.min(436, constraints.maxWidth),
+            onSelected: onSelected,
+          );
+        },
+      ),
     );
   }
 }

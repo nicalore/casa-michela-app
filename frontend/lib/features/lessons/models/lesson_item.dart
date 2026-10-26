@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -155,7 +156,7 @@ class LessonItem
   List<String> get disciplineNames
   {
     return disciplines.map((subject) => subject.name).toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      ..sort(compareAlphabetically);
   }
 
   Set<String> get studentTaxCodes => bookings.map((entry) => entry.studentTaxCode).toSet();

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -88,7 +89,7 @@ class _SchoolsTabState extends State<SchoolsTab>
       for (final level in schoolLevels)
         if (sectorsByLevel[level.value] case final sectors?) ...[
           FilterOption(value: (level: level.value, sector: null), label: level.compactLabel),
-          for (final sector in sectors.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())))
+          for (final sector in sectors.toList()..sort(compareAlphabetically))
             FilterOption(value: (level: level.value, sector: sector), label: sector),
         ],
     ];
@@ -107,7 +108,7 @@ class _SchoolsTabState extends State<SchoolsTab>
   List<FilterOption<String>> get _cityOptions
   {
     final cities = widget.schools.map((school) => school.city).toSet().toList();
-    cities.sort();
+    cities.sort(compareAlphabetically);
 
     return cities.map((city) => FilterOption(value: city, label: city)).toList();
   }
@@ -123,7 +124,7 @@ class _SchoolsTabState extends State<SchoolsTab>
     }
 
     final result = unique.values.toList();
-    result.sort((a, b) => a.city.compareTo(b.city));
+    result.sort((a, b) => compareAlphabetically(a.city, b.city));
 
     return result;
   }

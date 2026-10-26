@@ -1,4 +1,5 @@
 import '../../services/api_service.dart';
+import '../people/models/person_face.dart';
 import '../people/models/person_item.dart';
 import '../people/models/teacher_subject_item.dart';
 
@@ -98,10 +99,10 @@ enum TeacherSort
   {
     return switch (this)
     {
-      TeacherSort.nameAsc => a.firstName.compareTo(b.firstName),
-      TeacherSort.nameDesc => b.firstName.compareTo(a.firstName),
-      TeacherSort.surnameAsc => a.lastName.compareTo(b.lastName),
-      TeacherSort.surnameDesc => b.lastName.compareTo(a.lastName),
+      TeacherSort.nameAsc => compareByName(a, b),
+      TeacherSort.nameDesc => compareByName(b, a),
+      TeacherSort.surnameAsc => compareBySurname(a, b),
+      TeacherSort.surnameDesc => compareBySurname(b, a),
     };
   }
 }

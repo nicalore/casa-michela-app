@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,10 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/association/models/program_tree.dart';
 import '../../../../features/association/models/study_program_item.dart';
+import '../../../../features/people/utils/program_scope_strings.dart';
 import '../../../../shared/widgets/unfolding_rows.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_danger_button.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
+import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
@@ -436,6 +439,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
     return MobileSheet(
       eyebrow: 'Percorsi',
       title: widget.subjectName,
+      unsaved: () => setEquals(_selected, widget.initialSelected) ? MobileUnsaved.none : MobileUnsaved.choices,
       body: [
         if (widget.description != null) ...[
           const SizedBox(height: 12),
@@ -501,6 +505,14 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
                 if (_selected.isEmpty && remove != null)
                 {
                   remove(context);
+
+                  return;
+                }
+
+                // Only a held discipline has a removal: a new one needs a programme.
+                if (_selected.isEmpty)
+                {
+                  MobileNotice.show(context, kPickProgramToAdd, error: true);
 
                   return;
                 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/alphabetical_order.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../features/association/models/subject_taxonomy.dart';
 import '../../../../features/association/teacher_opinions.dart';
@@ -182,7 +183,7 @@ class _TeacherSheetState extends State<_TeacherSheet>
                 spacing: _tagGap,
                 runSpacing: _tagGap,
                 children: [
-                  for (final name in [for (final subject in group.items) subject.subjectName]..sort())
+                  for (final name in [for (final subject in group.items) subject.subjectName]..sort(compareAlphabetically))
                     _Tag(name),
                 ],
               ),

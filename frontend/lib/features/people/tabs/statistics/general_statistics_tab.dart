@@ -432,6 +432,9 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
 
   Widget _buildContent()
   {
+    final StatMetrics metrics = StatMetrics.of(context);
+    final double gap = metrics.cardGap;
+
     return ScrollEdgeFade(
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -439,6 +442,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: pageTransitionBlocks([
             ResponsiveCardPair(
+              minCardWidth: SummaryStatCard.rowWidth(context),
               first: SummaryStatCard(
                 title: 'Iscritti totali',
                 icon: Icons.groups_rounded,
@@ -454,16 +458,17 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
                 deltaYear: _currentTotals?.collabDeltaYear ?? 0,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: gap),
             MatchedCardPair(
+              minCardWidth: RetentionCard.rowWidth(context),
               first: _buildMembersRetentionCard,
               second: _buildCollabRetentionCard,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: gap),
             _buildMembersTrendCard(),
-            const SizedBox(height: 24),
+            SizedBox(height: gap),
             _buildCollabTrendCard(),
-            const SizedBox(height: 40),
+            SizedBox(height: metrics.dense ? 24 : 40),
           ]),
         ),
       ),

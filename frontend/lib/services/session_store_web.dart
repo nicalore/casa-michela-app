@@ -3,7 +3,7 @@ import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-import 'session_store_prefs.dart' as legacy;
+import 'session_store_prefs.dart' as local_storage;
 
 // IndexedDB, not localStorage: every tab sees a committed write; a tab's localStorage copy can lag.
 const String _databaseName = 'casa-michela';
@@ -71,46 +71,75 @@ Future<void> _committed(web.IDBTransaction transaction)
 
 Future<web.IDBTransaction?> _transaction(String mode) async
 {
+  // A failed open is not kept, and a connection the browser closed is opened again.
+  for (var attempt = 0; attempt < 2; attempt++)
+  {
+    try
+    {
+      return (await _database()).transaction(_storeName.toJS, mode);
+    }
+    catch (_)
+    {
+      _opening = null;
+    }
+  }
+
+  // Private modes of some browsers refuse IndexedDB: localStorage it is.
+  return null;
+}
+
+// Null when IndexedDB cannot be read: localStorage answers instead.
+Future<({String? accessToken, String? refreshToken})?> _readDatabase() async
+{
+  final web.IDBTransaction? transaction = await _transaction('readonly');
+
+  if (transaction == null)
+  {
+    return null;
+  }
+
   try
   {
-    return (await _database()).transaction(_storeName.toJS, mode);
+    final web.IDBObjectStore store = transaction.objectStore(_storeName);
+    final web.IDBRequest access = store.get(_accessTokenKey.toJS);
+    final web.IDBRequest refresh = store.get(_refreshTokenKey.toJS);
+
+    await _committed(transaction);
+
+    return (
+      accessToken: (access.result as JSString?)?.toDart,
+      refreshToken: (refresh.result as JSString?)?.toDart,
+    );
   }
   catch (_)
   {
-    // Private modes of some browsers refuse IndexedDB: localStorage it is.
+    _opening = null;
+
     return null;
   }
 }
 
 Future<({String? accessToken, String? refreshToken})> readSessionImpl() async
 {
-  final web.IDBTransaction? transaction = await _transaction('readonly');
+  final stored = await _readDatabase();
 
-  if (transaction == null)
+  if (stored == null)
   {
-    return legacy.readSessionImpl();
+    return local_storage.readSessionImpl();
   }
 
-  final web.IDBObjectStore store = transaction.objectStore(_storeName);
-  final web.IDBRequest access = store.get(_accessTokenKey.toJS);
-  final web.IDBRequest refresh = store.get(_refreshTokenKey.toJS);
-
-  await _committed(transaction);
-
-  final String? refreshToken = (refresh.result as JSString?)?.toDart;
-
-  if (refreshToken == null)
+  if (stored.refreshToken == null)
   {
-    return _moveOverFromLocalStorage();
+    return _restoreFromCopy();
   }
 
-  return (accessToken: (access.result as JSString?)?.toDart, refreshToken: refreshToken);
+  return stored;
 }
 
-// A session opened before this store existed sits in localStorage.
-Future<({String? accessToken, String? refreshToken})> _moveOverFromLocalStorage() async
+// Browsers have lost a site's IndexedDB alone, keeping its localStorage: the copy there brings the pair back.
+Future<({String? accessToken, String? refreshToken})> _restoreFromCopy() async
 {
-  final stored = await legacy.readSessionImpl();
+  final stored = await local_storage.readSessionImpl();
   final String? accessToken = stored.accessToken;
   final String? refreshToken = stored.refreshToken;
 
@@ -119,19 +148,32 @@ Future<({String? accessToken, String? refreshToken})> _moveOverFromLocalStorage(
     return (accessToken: null, refreshToken: null);
   }
 
-  await writeSessionImpl(accessToken, refreshToken);
-  await legacy.clearSessionImpl();
+  try
+  {
+    await _writeDatabase(accessToken, refreshToken);
+  }
+  catch (_)
+  {
+    // The copy still holds the pair: the next write tries IndexedDB again.
+  }
 
   return stored;
 }
 
+// The copy is read only when IndexedDB holds no pair, so its lag across tabs does no harm.
 Future<void> writeSessionImpl(String accessToken, String refreshToken) async
+{
+  await local_storage.writeSessionImpl(accessToken, refreshToken);
+  await _writeDatabase(accessToken, refreshToken);
+}
+
+Future<void> _writeDatabase(String accessToken, String refreshToken) async
 {
   final web.IDBTransaction? transaction = await _transaction('readwrite');
 
   if (transaction == null)
   {
-    return legacy.writeSessionImpl(accessToken, refreshToken);
+    return;
   }
 
   final web.IDBObjectStore store = transaction.objectStore(_storeName);
@@ -142,13 +184,16 @@ Future<void> writeSessionImpl(String accessToken, String refreshToken) async
   await _committed(transaction);
 }
 
+// The copy first: a pair left behind in it would come back at the next start.
 Future<void> clearSessionImpl() async
 {
+  await local_storage.clearSessionImpl();
+
   final web.IDBTransaction? transaction = await _transaction('readwrite');
 
   if (transaction == null)
   {
-    return legacy.clearSessionImpl();
+    return;
   }
 
   final web.IDBObjectStore store = transaction.objectStore(_storeName);

@@ -9,6 +9,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../mobile_line_breaks.dart';
 import '../mobile_palette.dart';
+import 'mobile_back_button.dart';
+import 'mobile_danger_button.dart';
 import 'mobile_glass_panel.dart';
 import 'mobile_nav_sheet.dart';
 import 'mobile_tour.dart';
@@ -36,14 +38,23 @@ const Curve _turnCurve = Curves.easeInOutCubic;
 
 const double _turnDrift = 0.3;
 
-const double _swipeDistance = 60;
-const double _swipeVelocity = 500;
+// As the sheet's own drag: a fling this fast, or a drag past half its height, closes it.
+const double _flingVelocity = 700;
+const double _closeAt = 0.5;
+
+// What leaving a page would throw away; it decides the words of the question asked first.
+enum MobileUnsaved { none, choices, text }
+
+const String _unsavedEyebrow = 'Modifiche non salvate';
+const String _unsavedTitle = 'Confermi?';
+const String _choicesLost = 'Le scelte fatte finora andranno perse.';
+const String _textLost = 'Il testo scritto andrà perso.';
+const String _leaveLabel = 'Esci senza salvare';
 
 // From inside a sheet, turns that sheet to the new page instead of raising another.
 Future<T?> showMobileSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  bool draggable = true,
 })
 {
   final _HostScope? scope = context.getInheritedWidgetOfExactType<_HostScope>();
@@ -59,19 +70,28 @@ Future<T?> showMobileSheet<T>({
   // The route strips the top inset; captured here to keep tall sheets below the status bar.
   final double statusBar = MediaQuery.paddingOf(context).top;
 
+  final NavigatorState navigator = Navigator.of(context);
+  final MaterialLocalizations localizations = MaterialLocalizations.of(context);
+  final _HostLink link = _HostLink();
+
   // Built once: the route rebuilds every keyboard frame.
   Widget? sheet;
 
-  return showModalBottomSheet<T>(
-    context: context,
-    isScrollControlled: true,
-    enableDrag: draggable,
+  final _SheetRoute<T> route = _SheetRoute<T>(
+    link: link,
+    capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
+    barrierLabel: localizations.scrimLabel,
+    barrierOnTapHint: localizations.scrimOnTapHint(localizations.bottomSheetLabel),
     backgroundColor: Colors.transparent,
     elevation: 0,
-    barrierColor: AppTheme.trialDeepWater.withValues(alpha: 0.42),
+    modalBarrierColor: AppTheme.trialDeepWater.withValues(alpha: 0.42),
     constraints: const BoxConstraints(maxWidth: MobileNavSheet.tabletWidth),
-    builder: (context) => _StatusBarInset(statusBar: statusBar, child: sheet ??= _SheetHost(builder: builder)),
-  ).whenComplete(()
+    builder: (context) => _StatusBarInset(statusBar: statusBar, child: sheet ??= _SheetHost(builder: builder, link: link)),
+  );
+
+  link.route = route;
+
+  return navigator.push<T>(route).whenComplete(()
   {
     _openSheets -= 1;
 
@@ -121,7 +141,8 @@ void closeMobileSheet(BuildContext context)
   }
 }
 
-void backMobileSheet(BuildContext context)
+// The user's ×: closes the whole sheet, asking first when some page would lose work.
+void leaveMobileSheet(BuildContext context)
 {
   if (!context.mounted)
   {
@@ -132,17 +153,47 @@ void backMobileSheet(BuildContext context)
 
   if (scope == null || !scope.host.mounted)
   {
+    Navigator.of(context).maybePop();
+
     return;
   }
 
-  if (scope.depth > 0)
+  scope.host.leave();
+}
+
+// The user's ←: back to the page underneath, dropping what this page held.
+void backMobileSheet(BuildContext context)
+{
+  if (!context.mounted)
   {
-    scope.host.returnTo(scope.depth - 1);
+    return;
   }
-  else
+
+  final _HostScope? scope = context.getInheritedWidgetOfExactType<_HostScope>();
+
+  if (scope != null && scope.host.mounted)
   {
-    scope.host.close();
+    scope.host.back(scope.page);
   }
+}
+
+// Before a full page drops what was typed: true once the user chose to leave.
+Future<bool> askMobileLeave(BuildContext context, MobileUnsaved lost) async
+{
+  final bool? leave = await showMobileSheet<bool>(
+    context: context,
+    builder: (context) => _LeavePage(lost: lost, closable: true, onLeave: () => finishMobileSheet(context, true)),
+  );
+
+  return leave ?? false;
+}
+
+// True on a page turned to from another, which the ← leads back to.
+bool canGoBackInMobileSheet(BuildContext context)
+{
+  final _HostScope? scope = context.getInheritedWidgetOfExactType<_HostScope>();
+
+  return scope != null && scope.depth > 0;
 }
 
 void returnToMobileSheetPage(BuildContext context)
@@ -181,8 +232,9 @@ class _HostScope extends InheritedWidget
 {
   final _SheetHostState host;
   final int depth;
+  final _HostPage page;
 
-  const _HostScope({required this.host, required this.depth, required super.child});
+  const _HostScope({required this.host, required this.depth, required this.page, required super.child});
 
   @override
   bool updateShouldNotify(_HostScope oldWidget) => false;
@@ -191,11 +243,20 @@ class _HostScope extends InheritedWidget
 class _HostPage
 {
   final Key key;
-  final Widget child;
+  late final Widget child;
 
   final Completer<Object?>? answer;
 
-  _HostPage({required this.key, required this.child, this.answer});
+  // The question asked before work is thrown away; it holds none of its own.
+  final bool asking;
+
+  // Set by the page's MobileSheet; null for a page that never holds unsaved work.
+  MobileUnsaved Function()? unsaved;
+  bool saving = false;
+
+  _HostPage({required this.key, this.answer, this.asking = false});
+
+  MobileUnsaved get lost => unsaved?.call() ?? MobileUnsaved.none;
 
   void settle()
   {
@@ -210,12 +271,81 @@ class _HostPage
 
 enum _Turning { still, hidden, entering, covered, returning, leaving }
 
+// The route and its host, each made knowing of the other.
+class _HostLink
+{
+  _SheetRoute<Object?>? route;
+  _SheetHostState? host;
+}
+
+// A tap on the dimmed page is the user's ×, never a plain pop: a page may hold unsaved work.
+class _SheetRoute<T> extends ModalBottomSheetRoute<T>
+{
+  final _HostLink link;
+
+  _SheetRoute({
+    required this.link,
+    required super.builder,
+    super.capturedThemes,
+    super.barrierLabel,
+    super.barrierOnTapHint,
+    super.backgroundColor,
+    super.elevation,
+    super.constraints,
+    super.modalBarrierColor,
+  }) : super(isScrollControlled: true);
+
+  // Follows a finger dragging the sheet down, as the sheet's own drag does.
+  void follow(double delta, double height)
+  {
+    final AnimationController? controller = this.controller;
+
+    if (controller != null && height > 0)
+    {
+      controller.value -= delta / height;
+    }
+  }
+
+  bool get draggedAway => (controller?.value ?? 1) < _closeAt;
+
+  void settle() => controller?.forward();
+
+  @override
+  Widget buildModalBarrier()
+  {
+    void dismiss() => link.host?.leave();
+
+    if (offstage)
+    {
+      return ModalBarrier(
+        semanticsLabel: barrierLabel,
+        barrierSemanticsDismissible: semanticsDismissible,
+        semanticsOnTapHint: barrierOnTapHint,
+        onDismiss: dismiss,
+      );
+    }
+
+    final Animation<Color?> color = animation!.drive(
+      ColorTween(begin: barrierColor.withValues(alpha: 0), end: barrierColor).chain(CurveTween(curve: barrierCurve)),
+    );
+
+    return AnimatedModalBarrier(
+      color: color,
+      semanticsLabel: barrierLabel,
+      barrierSemanticsDismissible: semanticsDismissible,
+      semanticsOnTapHint: barrierOnTapHint,
+      onDismiss: dismiss,
+    );
+  }
+}
+
 // Covered pages stay built offstage, so each keeps its state for the way back.
 class _SheetHost extends StatefulWidget
 {
   final WidgetBuilder builder;
+  final _HostLink link;
 
-  const _SheetHost({required this.builder});
+  const _SheetHost({required this.builder, required this.link});
 
   @override
   State<_SheetHost> createState() => _SheetHostState();
@@ -239,24 +369,121 @@ class _SheetHostState extends State<_SheetHost> with SingleTickerProviderStateMi
 
   late final Animation<double> _eased = CurvedAnimation(parent: _turn, curve: _turnCurve);
 
-  _HostPage _page(WidgetBuilder builder, {required int depth, Completer<Object?>? answer})
+  @override
+  void initState()
   {
-    return _HostPage(
-      key: ValueKey<int>(_keys++),
-      child: _HostScope(host: this, depth: depth, child: Builder(builder: builder)),
-      answer: answer,
-    );
+    super.initState();
+    widget.link.host = this;
+  }
+
+  _HostPage _page(WidgetBuilder builder, {required int depth, Completer<Object?>? answer, bool asking = false})
+  {
+    final _HostPage page = _HostPage(key: ValueKey<int>(_keys++), answer: answer, asking: asking);
+
+    page.child = _HostScope(host: this, depth: depth, page: page, child: Builder(builder: builder));
+
+    return page;
   }
 
   bool get moving => _preparing != null || _turn.isAnimating;
 
-  Future<T?> push<T>(WidgetBuilder builder) async
+  bool get _saving => _pages.any((page) => page.saving);
+
+  // Then the sheet takes every drag itself: a drag down asks before it closes.
+  bool get _guarded => _pages.any((page) => page.unsaved != null || page.saving || page.asking);
+
+  // Kept without a rebuild: the host only redraws when whether it guards changes.
+  void report(_HostPage page, {required MobileUnsaved Function()? unsaved, required bool saving})
+  {
+    final bool guarded = _guarded;
+
+    page.unsaved = unsaved;
+    page.saving = saving;
+
+    if (_guarded != guarded)
+    {
+      _afterFrame(()
+      {
+        if (mounted)
+        {
+          setState(() {});
+        }
+      });
+    }
+  }
+
+  // What closing the whole sheet would throw away.
+  MobileUnsaved get _lost
+  {
+    final List<MobileUnsaved> lost = [
+      for (final page in _pages)
+        if (page.lost != MobileUnsaved.none) page.lost,
+    ];
+
+    if (lost.isEmpty)
+    {
+      return MobileUnsaved.none;
+    }
+
+    return lost.every((kind) => kind == MobileUnsaved.text) ? MobileUnsaved.text : MobileUnsaved.choices;
+  }
+
+  // The user's ×, a tap outside or a drag down.
+  void leave({bool dragged = false})
+  {
+    final bool blocked = _saving || _pages.last.asking;
+    final MobileUnsaved lost = _lost;
+
+    if (!blocked && lost == MobileUnsaved.none)
+    {
+      close();
+
+      return;
+    }
+
+    if (dragged)
+    {
+      widget.link.route?.settle();
+    }
+
+    if (!blocked)
+    {
+      _ask(lost, close);
+    }
+  }
+
+  // The user's ← on [page], or the system back on the page on top: never asks, the user chose to step back.
+  void back(_HostPage page)
+  {
+    final int depth = _pages.indexOf(page);
+
+    if (depth < 0 || _saving)
+    {
+      return;
+    }
+
+    if (depth == 0)
+    {
+      leave();
+
+      return;
+    }
+
+    returnTo(depth - 1);
+  }
+
+  void _ask(MobileUnsaved lost, VoidCallback leave)
+  {
+    push<void>((context) => _LeavePage(lost: lost, closable: false, onLeave: leave), asking: true);
+  }
+
+  Future<T?> push<T>(WidgetBuilder builder, {bool asking = false}) async
   {
     final Completer<Object?> answer = Completer<Object?>();
 
     FocusManager.instance.primaryFocus?.unfocus();
 
-    final _HostPage page = _page(builder, depth: _pages.length, answer: answer);
+    final _HostPage page = _page(builder, depth: _pages.length, answer: answer, asking: asking);
 
     setState(()
     {
@@ -350,6 +577,11 @@ class _SheetHostState extends State<_SheetHost> with SingleTickerProviderStateMi
       page.settle();
     }
 
+    if (identical(widget.link.host, this))
+    {
+      widget.link.host = null;
+    }
+
     _turn.dispose();
     super.dispose();
   }
@@ -396,40 +628,46 @@ class _SheetHostState extends State<_SheetHost> with SingleTickerProviderStateMi
     );
   }
 
-  // Downward, from where no list scrolls; the sheet's own drag would close it whole.
-  double _swipe = 0;
-
-  void _swiped(DragEndDetails details)
+  // Downward, from where no list scrolls: the sheet follows as with its own drag.
+  void _dragged(DragUpdateDetails details)
   {
-    if (_pages.length > 1 && (_swipe > _swipeDistance || (details.primaryVelocity ?? 0) > _swipeVelocity))
-    {
-      returnTo(_pages.length - 2);
-    }
+    widget.link.route?.follow(details.primaryDelta ?? 0, context.size?.height ?? 0);
+  }
 
-    _swipe = 0;
+  void _released(DragEndDetails details)
+  {
+    final _SheetRoute<Object?>? route = widget.link.route;
+
+    if ((details.primaryVelocity ?? 0) > _flingVelocity || (route?.draggedAway ?? false))
+    {
+      leave(dragged: true);
+    }
+    else
+    {
+      route?.settle();
+    }
   }
 
   @override
   Widget build(BuildContext context)
   {
     final _HostPage? leaving = _leaving;
-    final bool turned = _pages.length > 1;
+    final bool guarded = _guarded;
 
-    // Barrier taps and system back pop; on a turned page they go back a page instead.
+    // The system back is the user's ←; taps outside come through the route's barrier.
     return PopScope(
-      canPop: !turned,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _)
       {
-        if (!didPop && _pages.length > 1)
+        if (!didPop)
         {
-          returnTo(_pages.length - 2);
+          back(_pages.last);
         }
       },
-      // Same detector at every depth, so pages are never built anew; it takes the drag once turned.
+      // Same detector at every depth, so pages are never built anew; it takes the drag while guarding.
       child: GestureDetector(
-        onVerticalDragStart: turned ? (_) => _swipe = 0 : null,
-        onVerticalDragUpdate: turned ? (details) => _swipe += details.primaryDelta ?? 0 : null,
-        onVerticalDragEnd: turned ? _swiped : null,
+        onVerticalDragUpdate: guarded ? _dragged : null,
+        onVerticalDragEnd: guarded ? _released : null,
         child: _buildFrame(leaving),
       ),
     );
@@ -529,6 +767,15 @@ class MobileSheet extends StatelessWidget
   // Replaces [body]; runs edge to edge and scrolls itself.
   final Widget? content;
 
+  // What leaving now would throw away, asked when the user leaves; null for a page that keeps nothing.
+  final MobileUnsaved Function()? unsaved;
+
+  // While true, nothing closes the sheet or turns it back.
+  final bool saving;
+
+  // False drops the ×, for the question asked before work is thrown away.
+  final bool closable;
+
   const MobileSheet({
     super.key,
     required this.eyebrow,
@@ -540,6 +787,9 @@ class MobileSheet extends StatelessWidget
     this.subhead,
     this.aboveKeyboard = false,
     this.content,
+    this.unsaved,
+    this.saving = false,
+    this.closable = true,
   });
 
   // For [content], which the sheet does not inset.
@@ -556,7 +806,7 @@ class MobileSheet extends StatelessWidget
   {
     if (context.getInheritedWidgetOfExactType<_HostScope>() != null)
     {
-      return inner(context);
+      return _PageReport(unsaved: unsaved, saving: saving, child: inner(context));
     }
 
     return _SheetFrame(child: inner(context));
@@ -564,7 +814,9 @@ class MobileSheet extends StatelessWidget
 
   Widget inner(BuildContext context)
   {
-    final Widget? footer = this.footer;
+    // A page turned to without buttons of its own still shows the way back.
+    final Widget? footer = this.footer ??
+        (canGoBackInMobileSheet(context) ? const Padding(padding: EdgeInsets.only(top: 18), child: MobileBackRow()) : null);
     final Widget? subhead = this.subhead;
 
     return Column(
@@ -642,14 +894,133 @@ class MobileSheet extends StatelessWidget
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        MobileTourTarget(
-          id: kMobileTourSheetClose,
-          inflate: const EdgeInsets.all(5),
-          radius: 30,
-          child: MobileSheetCloseButton(onTap: () => backMobileSheet(context)),
-        ),
+        if (closable) ...[
+          const SizedBox(width: 12),
+          MobileTourTarget(
+            id: kMobileTourSheetClose,
+            inflate: const EdgeInsets.all(5),
+            radius: 30,
+            child: MobileSheetCloseButton(onTap: () => leaveMobileSheet(context)),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+// Hands the page's MobileSheet settings to its host.
+class _PageReport extends StatefulWidget
+{
+  final MobileUnsaved Function()? unsaved;
+  final bool saving;
+  final Widget child;
+
+  const _PageReport({required this.unsaved, required this.saving, required this.child});
+
+  @override
+  State<_PageReport> createState() => _PageReportState();
+}
+
+class _PageReportState extends State<_PageReport>
+{
+  _HostScope? _scope;
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+    _scope = context.getInheritedWidgetOfExactType<_HostScope>();
+    _report();
+  }
+
+  @override
+  void didUpdateWidget(_PageReport oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+    _report();
+  }
+
+  void _report()
+  {
+    final _HostScope? scope = _scope;
+
+    scope?.host.report(scope.page, unsaved: widget.unsaved, saving: widget.saving);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+// A footer's buttons after the ←, which a page turned to from another shows to lead back to it.
+class MobileBackRow extends StatelessWidget
+{
+  static const double _gap = 12;
+
+  // Null leaves the ← alone.
+  final Widget? child;
+
+  const MobileBackRow({super.key, this.child});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final Widget? child = this.child;
+    final bool back = canGoBackInMobileSheet(context);
+
+    if (!back)
+    {
+      return child ?? const SizedBox.shrink();
+    }
+
+    final Widget button = MobileWizardBackButton(onTap: () => backMobileSheet(context));
+
+    if (child == null)
+    {
+      return Row(children: [button]);
+    }
+
+    return Row(
+      children: [
+        button,
+        const SizedBox(width: _gap),
+        Expanded(child: child),
+      ],
+    );
+  }
+}
+
+// The question asked before a way out throws work away: ← back to it, or leave.
+class _LeavePage extends StatelessWidget
+{
+  final MobileUnsaved lost;
+  final VoidCallback onLeave;
+
+  // Turned to inside a sheet it has no ×: a second tap on the × that asked would throw the work away.
+  final bool closable;
+
+  const _LeavePage({required this.lost, required this.onLeave, required this.closable});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return MobileSheet(
+      eyebrow: _unsavedEyebrow,
+      title: _unsavedTitle,
+      closable: closable,
+      body: [
+        const SizedBox(height: 16),
+        MobileSheetMessage(TextSpan(text: lost == MobileUnsaved.text ? _textLost : _choicesLost)),
+      ],
+      footer: Padding(
+        padding: const EdgeInsets.only(top: 22),
+        child: MobileBackRow(
+          child: MobileDangerButton(
+            label: _leaveLabel,
+            icon: Icons.logout_rounded,
+            onPressed: onLeave,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1193,6 +1564,38 @@ class MobileSheetCard extends StatelessWidget
         boxShadow: [BoxShadow(color: Color(0x12122438), offset: Offset(0, 4), blurRadius: 14)],
       ),
       child: child,
+    );
+  }
+}
+
+// What a confirmation is about, in a pale box.
+class MobileSheetMessage extends StatelessWidget
+{
+  static const double _radius = 20;
+
+  final TextSpan message;
+
+  const MobileSheetMessage(this.message, {super.key});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(_radius),
+        border: Border.all(color: AppTheme.trialInk.withValues(alpha: 0.08)),
+      ),
+      child: Text.rich(
+        message,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w500,
+          height: 1.45,
+          color: AppTheme.trialInk,
+        ),
+      ),
     );
   }
 }

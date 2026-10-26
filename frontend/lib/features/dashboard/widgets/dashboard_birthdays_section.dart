@@ -6,6 +6,7 @@ import '../../../core/utils/birthday.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart' show formatDayMonthFull, formatDayMonthShort;
 import '../../../shared/widgets/descender_room.dart';
+import '../../people/models/person_face.dart';
 import '../../people/models/person_item.dart';
 import 'dashboard_section_card.dart';
 
@@ -101,9 +102,7 @@ List<DashboardBirthday> upcomingBirthdays(
       return day;
     }
 
-    return '${a.person.lastName} ${a.person.firstName}'
-        .toLowerCase()
-        .compareTo('${b.person.lastName} ${b.person.firstName}'.toLowerCase());
+    return compareBySurname(a.person, b.person);
   });
 
   return found.take(limit).toList();

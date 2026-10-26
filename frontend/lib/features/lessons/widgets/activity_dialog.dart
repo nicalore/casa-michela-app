@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/band_time_range_slider.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../people/models/person_face.dart';
 import '../models/activity_item.dart';
 import '../models/availability_item.dart';
 import '../models/calendar_day.dart';
@@ -166,9 +167,7 @@ class _ActivityDialogState extends State<ActivityDialog>
 
     slots.sort((a, b)
     {
-      final byName = a.lane.teacher.fullName.toLowerCase().compareTo(
-            b.lane.teacher.fullName.toLowerCase(),
-          );
+      final byName = compareByName(a.lane.teacher, b.lane.teacher);
 
       return byName != 0 ? byName : a.windowStart.compareTo(b.windowStart);
     });

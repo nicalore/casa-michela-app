@@ -243,6 +243,7 @@ class _TutorialSheetState extends State<_TutorialSheet>
     return MobileSheet(
       eyebrow: kSystemSection,
       title: kTutorialTitle,
+      saving: _busy,
       body: [
         const SizedBox(height: 12),
         const MobileSheetText(kTutorialHint),

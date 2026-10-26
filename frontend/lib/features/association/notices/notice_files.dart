@@ -233,9 +233,13 @@ class _NoticeDropZoneState extends State<NoticeDropZone>
                 const SizedBox(width: 10),
                 Text(kAddFile, style: strong),
                 const SizedBox(width: 8),
-                Text(
-                  kOrDropHere,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.trialMutedText),
+                Flexible(
+                  child: Text(
+                    kOrDropHere,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.trialMutedText),
+                  ),
                 ),
               ],
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_check_mark.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -327,8 +328,8 @@ enum CompetenceSort
   {
     return switch (this)
     {
-      CompetenceSort.nameAsc => a.name.compareTo(b.name),
-      CompetenceSort.nameDesc => b.name.compareTo(a.name),
+      CompetenceSort.nameAsc => compareAlphabetically(a.name, b.name),
+      CompetenceSort.nameDesc => compareAlphabetically(b.name, a.name),
       CompetenceSort.dateDesc => b.createdAt.compareTo(a.createdAt),
       CompetenceSort.dateAsc => a.createdAt.compareTo(b.createdAt),
     };
@@ -504,6 +505,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
       builder: (context) => ProgramScopeDialog(
         subjectName: subject.name,
         programs: _programsOf(subject),
+        adding: widget.isSelected[subject.id] != true,
         // An unchosen discipline starts with all programmes ticked.
         initialSelected: widget.programsBySubject[subject.id] ??
             _programsOf(subject).map((program) => program.id).toSet(),

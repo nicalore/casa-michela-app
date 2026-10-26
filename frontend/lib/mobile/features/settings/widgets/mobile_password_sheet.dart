@@ -96,6 +96,8 @@ class _PasswordSheetState extends State<_PasswordSheet>
           eyebrow: kPasswordEyebrow,
           title: kPasswordTitle,
           aboveKeyboard: true,
+          unsaved: () => [_current, _next, _confirmation].every((field) => field.text.isEmpty) ? MobileUnsaved.none : MobileUnsaved.text,
+          saving: _busy,
           body: [
             const SizedBox(height: 18),
             MobilePasswordFields(

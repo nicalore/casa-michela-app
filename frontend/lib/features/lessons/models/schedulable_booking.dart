@@ -1,5 +1,6 @@
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../people/models/person_face.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
 import 'booking_summary_item.dart';
@@ -307,7 +308,7 @@ List<PresenceBookingGroup> groupSchedulable({
 
   groups.sort((a, b)
   {
-    final byName = a.presence.student.fullName.toLowerCase().compareTo(b.presence.student.fullName.toLowerCase());
+    final byName = compareByName(a.presence.student, b.presence.student);
 
     return byName != 0 ? byName : a.startMinutes.compareTo(b.startMinutes);
   });

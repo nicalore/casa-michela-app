@@ -23,6 +23,9 @@ const double _headRowHeight = 32;
 const double _headBottom = 11;
 const double _collapsedHeight = _headTop + _grabberHeight + _grabberGap + _headRowHeight + _headBottom;
 
+// The system inset takes the place of the head's bottom margin rather than adding to it.
+double _spareInset(double inset) => math.max(0, inset - _headBottom);
+
 const double _radius = 28;
 const double _sidePadding = 20;
 const double _bottomPadding = 20;
@@ -103,7 +106,7 @@ class MobileNavSheet extends StatefulWidget
   // View padding, not the keyboard's: pages behind a typing sheet stay laid out.
   static double collapsedHeightFor(BuildContext context)
   {
-    return _collapsedHeight + MediaQuery.viewPaddingOf(context).bottom;
+    return _collapsedHeight + _spareInset(MediaQuery.viewPaddingOf(context).bottom);
   }
 
   static Rect collapsedRectFor(BuildContext context, Size size)
@@ -134,6 +137,15 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
 
   // Pixels between closed and open; set in build, read by the drag.
   double _travel = 0;
+
+  double _closed = 0;
+
+  // Under the closed head row: a swipe up from there is the system's way home.
+  double _systemEdge = 0;
+  bool _fromSystemEdge = false;
+
+  // Flutter ends a drag the system took over with its velocity, which would fling the sheet open.
+  bool _cancelled = false;
 
   @override
   void initState()
@@ -192,9 +204,17 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
     }
   }
 
+  void _onPointerDown(PointerDownEvent event)
+  {
+    final double height = _closed + _travel * _open.value.clamp(0.0, 1.0);
+
+    _fromSystemEdge = event.localPosition.dy > height - _systemEdge;
+    _cancelled = false;
+  }
+
   void _onDragUpdate(DragUpdateDetails details)
   {
-    if (_travel <= 0 || _locked)
+    if (_travel <= 0 || _locked || _fromSystemEdge)
     {
       return;
     }
@@ -204,12 +224,12 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
 
   void _onDragEnd(DragEndDetails details)
   {
-    if (_travel <= 0 || _locked)
+    if (_travel <= 0 || _locked || _fromSystemEdge)
     {
       return;
     }
 
-    final double velocity = -details.primaryVelocity! / _travel;
+    final double velocity = _cancelled ? 0 : -details.primaryVelocity! / _travel;
 
     final double target = velocity.abs() > _flickVelocity
         ? (velocity > 0 ? 1 : 0)
@@ -236,7 +256,7 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
         1;
 
     return _collapsedHeight +
-        inset +
+        _spareInset(inset) +
         _separatorHeight +
         _others.length * _rowHeight +
         _separatorHeight +
@@ -381,7 +401,7 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
 
     return [
       // Keeps the system inset under the closed head blank.
-      SizedBox(height: inset),
+      SizedBox(height: _spareInset(inset)),
       _buildSeparator(),
       // Every destination, own page and settings included; role change and logout stay out.
       MobileTourTarget(
@@ -471,10 +491,12 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final double closed = _collapsedHeight + inset;
+        final double closed = _collapsedHeight + _spareInset(inset);
         final double tallest = constraints.maxHeight - padding.top - _topClearance;
         final double open = math.min(_contentHeight(inset), tallest);
 
+        _closed = closed;
+        _systemEdge = _headBottom + _spareInset(inset);
         _travel = open - closed;
 
         return Stack(
@@ -514,25 +536,30 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
                         ),
                       ),
                     ),
-                    child: GestureDetector(
-                      // The list wins the arena when it can scroll.
-                      onVerticalDragUpdate: _onDragUpdate,
-                      onVerticalDragEnd: _onDragEnd,
-                      child: _Glass(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildHead(),
-                            Expanded(
-                              child: ListView(
-                                padding: EdgeInsets.zero,
-                                physics: open < _contentHeight(inset)
-                                    ? const ClampingScrollPhysics()
-                                    : const NeverScrollableScrollPhysics(),
-                                children: _buildRows(inset),
+                    // Sees the pointer before the drags do, the head's included.
+                    child: Listener(
+                      onPointerDown: _onPointerDown,
+                      onPointerCancel: (_) => _cancelled = true,
+                      child: GestureDetector(
+                        // The list wins the arena when it can scroll.
+                        onVerticalDragUpdate: _onDragUpdate,
+                        onVerticalDragEnd: _onDragEnd,
+                        child: _Glass(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildHead(),
+                              Expanded(
+                                child: ListView(
+                                  padding: EdgeInsets.zero,
+                                  physics: open < _contentHeight(inset)
+                                      ? const ClampingScrollPhysics()
+                                      : const NeverScrollableScrollPhysics(),
+                                  children: _buildRows(inset),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),

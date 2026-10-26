@@ -92,6 +92,8 @@ class _MissingSubjectSheetState extends State<_MissingSubjectSheet>
         eyebrow: kMissingSubjectEyebrow,
         title: kMissingSubjectTitle,
         aboveKeyboard: true,
+        unsaved: () => [_name, _description].every((field) => field.text.trim().isEmpty) ? MobileUnsaved.none : MobileUnsaved.text,
+        saving: _busy,
         body: [
           const SizedBox(height: 18),
           MobileTextField(

@@ -11,6 +11,7 @@ import '../../shared/widgets/mobile_glass_panel.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_password_fields.dart';
+import '../../shared/widgets/mobile_sheet.dart';
 
 const String _invalidLink = 'Il link non è più valido. Richiedine uno nuovo.';
 const String _done = 'Password reimpostata con successo! Ora puoi accedere.';
@@ -34,6 +35,7 @@ class _MobileResetPasswordPageState extends State<MobileResetPasswordPage>
 
   bool _checking = true;
   bool _busy = false;
+  bool _leaving = false;
 
   @override
   void initState()
@@ -79,6 +81,30 @@ class _MobileResetPasswordPageState extends State<MobileResetPasswordPage>
     }
 
     MobileResetLink.token.value = null;
+  }
+
+  // «Torna al login»: ends any session on this phone too, asking first once something was typed.
+  Future<void> _backToLogin() async
+  {
+    if (_busy || _leaving)
+    {
+      return;
+    }
+
+    final bool typed = _next.text.isNotEmpty || _confirmation.text.isNotEmpty;
+
+    if (typed && (!await askMobileLeave(context, MobileUnsaved.text) || !mounted))
+    {
+      return;
+    }
+
+    setState(() => _leaving = true);
+    await _apiService.logout();
+
+    if (mounted)
+    {
+      _leave();
+    }
   }
 
   // Refuses on tap with a reason, never through a disabled button.
@@ -136,7 +162,7 @@ class _MobileResetPasswordPageState extends State<MobileResetPasswordPage>
       {
         if (!didPop)
         {
-          _leave();
+          _backToLogin();
         }
       },
       child: MobileFlowScaffold(
@@ -156,7 +182,7 @@ class _MobileResetPasswordPageState extends State<MobileResetPasswordPage>
               eyebrow: 'Recupero',
               title: 'Nuova password',
               tablet: tablet,
-              capsule: MobileFlowCapsule(onTap: _leave),
+              capsule: MobileFlowCapsule(onTap: _backToLogin, busy: _leaving),
             ),
             const SizedBox(height: 22),
             MobileLoadSwitcher(

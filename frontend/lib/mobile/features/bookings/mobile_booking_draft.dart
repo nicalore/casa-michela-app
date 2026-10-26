@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart' show TimeOfDay;
 
 
@@ -583,6 +585,15 @@ class MobileBookingDraft
 
     return null;
   }
+
+  // What a save would write, to tell whether the wizard holds anything new since it opened.
+  String get fingerprint => jsonEncode([
+        for (final day in days) day.toIso8601String(),
+        for (final group in groups) ...[
+          for (final stretch in hoursOf(group).all) '${formatTimeOfDay(stretch.startTime)}-${formatTimeOfDay(stretch.endTime)}',
+          for (final request in requestsOf(group)) request.toRequestJson(),
+        ],
+      ]);
 
   String get savedMessage => presenceSaved(own: true, editing: isEditing, cleared: false, days: _days.length);
 

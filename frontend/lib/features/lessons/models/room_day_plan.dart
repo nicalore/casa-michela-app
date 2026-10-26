@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import '../../../core/utils/alphabetical_order.dart';
+import '../../people/models/person_face.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
 import 'calendar_day.dart';
@@ -185,7 +187,7 @@ List<TeacherLane> orderByRoom({
 
   return [...lanes]..sort((a, b)
   {
-    final byRoom = roomOf(a).toLowerCase().compareTo(roomOf(b).toLowerCase());
+    final byRoom = compareAlphabetically(roomOf(a), roomOf(b));
 
     if (byRoom != 0)
     {
@@ -199,6 +201,6 @@ List<TeacherLane> orderByRoom({
       return byStanding;
     }
 
-    return a.teacher.fullName.toLowerCase().compareTo(b.teacher.fullName.toLowerCase());
+    return compareByName(a.teacher, b.teacher);
   });
 }

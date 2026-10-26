@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import DbSession
 from app.api.queries import select_parents_left_without_children
 from app.api.rbac import CurrentIdentity, get_current_identity, require_role
-from app.models.association_subject import AssociationSubject
+from app.models.association_subject import AssociationSubject, SubjectAreaEnum
 from app.models.ministry_association_subject import MinistryAssociationSubject
+from app.models.ministry_subject import MinistrySubject
 from app.models.person import Person
 from app.models.report import ReportKindEnum
 from app.models.teaching_competence import TeachingCompetence
@@ -23,6 +24,7 @@ from app.schemas.association_subject import (
 )
 from app.services import email_service, push
 from app.services.reports import ReportNotSentError, record_report, send_to_readers
+from app.services.teaching_competence import select_teachers_left_without
 
 router = APIRouter(
     prefix="/association-subjects",
@@ -109,6 +111,53 @@ def _report_description(description: str | None) -> str:
     return _REPORT_DESCRIPTION.format(
         description=escape(description).replace("\n", "<br>"),
     )
+
+
+# The ministry subjects owning the discipline take its new area, and drop the old one
+# once none of their other disciplines is left in it.
+async def _move_owners_area(
+    db: AsyncSession,
+    subject_id: int,
+    old: SubjectAreaEnum,
+    new: SubjectAreaEnum,
+) -> None:
+    owners = (
+        await db.scalars(
+            select(MinistrySubject)
+            .join(
+                MinistryAssociationSubject,
+                MinistryAssociationSubject.ministry_subject_id == MinistrySubject.id,
+            )
+            .where(MinistryAssociationSubject.association_subject_id == subject_id)
+        )
+    ).all()
+    still_in_old = set(
+        await db.scalars(
+            select(MinistryAssociationSubject.ministry_subject_id)
+            .join(
+                AssociationSubject,
+                AssociationSubject.id
+                == MinistryAssociationSubject.association_subject_id,
+            )
+            .where(
+                MinistryAssociationSubject.ministry_subject_id.in_(
+                    [owner.id for owner in owners]
+                ),
+                MinistryAssociationSubject.association_subject_id != subject_id,
+                AssociationSubject.area == old,
+            )
+        )
+    )
+
+    for owner in owners:
+        areas = [
+            area for area in owner.area if area != old or owner.id in still_in_old
+        ]
+
+        if new not in areas:
+            areas.append(new)
+
+        owner.area = areas
 
 
 # Any pupil may report, a parent answering for them or not.
@@ -208,6 +257,9 @@ async def update_subject(
     if subject.name.lower() != payload.name.lower():
         await _assert_name_available(db, payload.name)
 
+    if subject.area != payload.area:
+        await _move_owners_area(db, subject.id, subject.area, payload.area)
+
     subject.name = payload.name
     subject.area = payload.area
     subject.description = payload.description
@@ -246,11 +298,8 @@ async def delete_subject(subject_id: int, db: DbSession) -> dict[str, str]:
         )
 
     orphan_teachers = await db.execute(
-        select_parents_left_without_children(
-            TeachingCompetence.teacher_tax_code,
-            TeachingCompetence.association_subject_id,
-            subject_id,
-            only=TeachingCompetence.valid_to.is_(None),
+        select_teachers_left_without(
+            TeachingCompetence.association_subject_id == subject_id
         )
     )
 

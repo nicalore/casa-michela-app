@@ -18,6 +18,7 @@ import '../../shared/widgets/mobile_info_sheet.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
+import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_slot_button.dart';
 import '../profile/widgets/mobile_report_sheet.dart';
 import '../subjects/mobile_subjects_page.dart';
@@ -277,13 +278,32 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
     await _reload(subject.fiscalCode);
   }
 
+  bool _educationDiffers(PersonItem subject)
+  {
+    final TeacherEducationDraft? education = _education;
+
+    return education != null &&
+        (education.schoolEducation != subject.schoolEducation || education.universityEducation != subject.universityEducation);
+  }
+
+  // Typed on a record step and not saved yet, which «Torna al login» drops.
+  bool get _unsaved
+  {
+    if (_index < 0 || _index >= _steps.length)
+    {
+      return false;
+    }
+
+    final PersonItem subject = _subjectOf(_step);
+
+    return (_contacts?.differsFrom(subject) ?? false) || _educationDiffers(subject);
+  }
+
   Future<void> _saveEducation(PersonItem subject) async
   {
     final TeacherEducationDraft? education = _education;
 
-    if (education == null ||
-        (education.schoolEducation == subject.schoolEducation &&
-            education.universityEducation == subject.universityEducation))
+    if (education == null || !_educationDiffers(subject))
     {
       return;
     }
@@ -371,7 +391,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
 
   void _back()
   {
-    if (!_busy && _index > _start)
+    if (!_busy && !_leaving && _index > _start)
     {
       _go(_index - 1);
     }
@@ -380,6 +400,16 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
   // The flag stays unset, so the flow starts over at the next sign-in.
   Future<void> _leave() async
   {
+    if (_busy || _leaving)
+    {
+      return;
+    }
+
+    if (_unsaved && (!await askMobileLeave(context, MobileUnsaved.text) || !mounted))
+    {
+      return;
+    }
+
     setState(() => _leaving = true);
     await _apiService.logout();
   }
@@ -596,13 +626,23 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
             ),
     );
 
+    // The system back is the ←, and «Torna al login» where there is no step before.
     return PopScope(
-      canPop: _index == _start,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _)
       {
-        if (!didPop)
+        if (didPop)
+        {
+          return;
+        }
+
+        if (_index > _start)
         {
           _back();
+        }
+        else
+        {
+          _leave();
         }
       },
       child: MobileFlowScaffold(

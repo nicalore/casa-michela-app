@@ -105,6 +105,14 @@ class MobileAvailabilityDraft
 
   bool get isEditing => editedDay != null;
 
+  // The hours as they stand, to tell whether the wizard holds anything new since it opened.
+  String get fingerprint => [
+        for (final day in days) day.toIso8601String(),
+        for (final group in groups)
+          for (final MapEntry(key: mode, value: hours) in bandsOf(group).entries)
+            for (final stretch in hours.all) '$mode ${minutesOfTimeOfDay(stretch.startTime)}-${minutesOfTimeOfDay(stretch.endTime)}',
+      ].join('|');
+
   List<DateTime> get days => _days.toList()..sort();
 
   bool isPicked(DateTime day) => _days.any((picked) => isSameDate(picked, day));

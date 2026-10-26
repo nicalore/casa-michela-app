@@ -41,7 +41,7 @@ const double _tourDaysRadius = 18;
 const EdgeInsets _tourButtonInflate = EdgeInsets.all(5);
 const double _tourButtonRadius = 23;
 
-// True once something was saved; not drag-dismissible, which would lose the input.
+// True once something was saved; leaving with hours given asks first.
 Future<bool> showMobileAvailabilityWizard({
   required BuildContext context,
   required MobileAvailabilityDraft draft,
@@ -49,7 +49,6 @@ Future<bool> showMobileAvailabilityWizard({
 {
   final bool? saved = await showMobileSheet<bool>(
     context: context,
-    draggable: false,
     builder: (context) => _Wizard(draft: draft),
   );
 
@@ -87,6 +86,9 @@ class _WizardState extends State<_Wizard>
 
   bool _busy = false;
 
+  // The draft as it opened, so leaving asks only once something was changed.
+  late final String _opened;
+
   final WizardTourPulse _tourPulse = WizardTourPulse();
   Timer? _hoursQuiet;
 
@@ -96,6 +98,7 @@ class _WizardState extends State<_Wizard>
   void initState()
   {
     super.initState();
+    _opened = _draft.fingerprint;
     _pages.addListener(_onPages);
     mobileTourChanges.addListener(_tourLater);
     _tourLater();
@@ -510,6 +513,8 @@ class _WizardState extends State<_Wizard>
       eyebrow: edited == null ? 'Disponibilità' : formatAvailableDayLabel(edited),
       title: _draft.isEditing ? kEditAvailabilityTitle : kNewAvailabilityTitle,
       aboveKeyboard: true,
+      unsaved: () => _draft.fingerprint == _opened ? MobileUnsaved.none : MobileUnsaved.choices,
+      saving: _busy,
       subhead: MobileWizardDots(count: pages.length, position: _pages, fallback: _step),
       content: _buildPager(pages),
       footer: _buildFooter(pages),

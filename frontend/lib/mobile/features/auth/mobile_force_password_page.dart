@@ -11,14 +11,12 @@ import '../../shared/widgets/mobile_flow_page.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
 import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_password_fields.dart';
+import '../../shared/widgets/mobile_sheet.dart';
 
 const String _title = 'Aggiorna password';
 
 const String _why =
     'Al primo accesso, o in particolari situazioni, è obbligatorio impostare una nuova password.';
-
-const String _mustChange =
-    'Devi cambiare la password per procedere, oppure torna alla schermata di login.';
 
 const String _changed = 'Password aggiornata con successo!';
 
@@ -48,8 +46,21 @@ class _MobileForcePasswordPageState extends State<MobileForcePasswordPage>
     super.dispose();
   }
 
+  // Asks first once something was typed, which leaving drops.
   Future<void> _leave() async
   {
+    if (_busy || _leaving)
+    {
+      return;
+    }
+
+    final bool typed = _next.text.isNotEmpty || _confirmation.text.isNotEmpty;
+
+    if (typed && (!await askMobileLeave(context, MobileUnsaved.text) || !mounted))
+    {
+      return;
+    }
+
     setState(() => _leaving = true);
 
     // The page is swapped for the sign-in as the session ends.
@@ -109,7 +120,7 @@ class _MobileForcePasswordPageState extends State<MobileForcePasswordPage>
       {
         if (!didPop)
         {
-          MobileNotice.show(context, _mustChange, error: true);
+          _leave();
         }
       },
       child: MobileFlowScaffold(

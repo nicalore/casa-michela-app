@@ -8,7 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../features/lessons/utils/booking_window.dart';
 import '../mobile_line_breaks.dart';
 import '../mobile_palette.dart';
-import 'mobile_glass_panel.dart';
+import 'mobile_back_button.dart';
 import 'mobile_height_reporter.dart';
 import 'mobile_notice.dart';
 import 'mobile_sheet.dart';
@@ -18,15 +18,9 @@ const double _dotCurrentWidth = 30;
 const double _dotHeight = 5;
 const double _dotGap = 6;
 
-const double _backRadius = 18;
-
 // How far a swipe pulls past a refused step, as a share of the page, and how stiffly.
 const double _pullRoom = 0.1;
 const double _pullGive = 0.5;
-
-const List<BoxShadow> _shadow = [
-  BoxShadow(color: Color(0x29000000), offset: Offset(0, 8), blurRadius: 18),
-];
 
 class MobileWizardDots extends StatelessWidget
 {
@@ -88,49 +82,12 @@ class MobileWizardDots extends StatelessWidget
   }
 }
 
-class MobileWizardBackButton extends StatelessWidget
-{
-  static const double size = 58;
-
-  final VoidCallback? onTap;
-
-  const MobileWizardBackButton({super.key, required this.onTap});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Semantics(
-      button: true,
-      label: 'Indietro',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(_backRadius),
-            color: Colors.white.withValues(alpha: MobileGlassPanel.cardAlpha),
-            border: Border.all(color: AppTheme.trialOcean.withValues(alpha: 0.14)),
-            boxShadow: _shadow,
-          ),
-          child: Icon(
-            Icons.arrow_back_rounded,
-            size: 22,
-            color: AppTheme.trialInk.withValues(alpha: 0.7),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class MobileWizardBackSlot extends StatelessWidget
 {
   static const Duration _duration = Duration(milliseconds: 340);
   static const double _gap = 12;
 
-  // Null on a step with no way back.
+  // The step before; null on the first, which leads back to the page underneath if any.
   final VoidCallback? onBack;
   final bool busy;
 
@@ -139,7 +96,7 @@ class MobileWizardBackSlot extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final VoidCallback? onBack = this.onBack;
+    final VoidCallback? onBack = this.onBack ?? (canGoBackInMobileSheet(context) ? () => backMobileSheet(context) : null);
 
     return AnimatedSize(
       duration: _duration,

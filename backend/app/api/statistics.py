@@ -11,6 +11,7 @@ from sqlalchemy.orm import aliased
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
+from app.core.alphabetical_order import alphabetical_key
 from app.core.availability_thresholds import (
     LOW_AVAILABILITY_MONTHLY_THRESHOLD,
     LOW_AVAILABILITY_WEEKLY_THRESHOLD,
@@ -923,8 +924,7 @@ async def _appreciation_ranking(
         key=lambda item: (
             -item.score,
             -item.preferring_student_count,
-            item.teacher.last_name,
-            item.teacher.first_name,
+            *alphabetical_key(item.teacher.last_name, item.teacher.first_name),
         ),
     )
 
@@ -1047,14 +1047,16 @@ async def get_role_city_distribution(
     ).group_by(Person.residence_city)
 
     query = _with_person_role(query, role)
-    query = query.order_by(func.count(Person.tax_code).desc())
 
     result = await db.execute(query)
 
-    return [
-        CityDistributionItem(city=row.city, count=row.member_count)
-        for row in result.all()
-    ]
+    return sorted(
+        (
+            CityDistributionItem(city=row.city, count=row.member_count)
+            for row in result.all()
+        ),
+        key=lambda item: (-item.count, *alphabetical_key(item.city)),
+    )
 
 
 @router.get("/role/age-distribution", response_model=list[AgeDistributionItem])
@@ -1117,20 +1119,22 @@ async def get_student_education_distribution(
     if label_column is not None:
         query = query.add_columns(label_column.label("label")).group_by(label_column)
 
-    query = query.order_by(func.count(func.distinct(Student.tax_code)).desc())
     result = await db.execute(query)
 
-    return [
-        EducationDistributionItem(
-            label=(
-                education_level_label(row.label)
-                if distribution_type == "level"
-                else row.label
-            ),
-            count=row.student_count,
-        )
-        for row in result.all()
-    ]
+    return sorted(
+        (
+            EducationDistributionItem(
+                label=(
+                    education_level_label(row.label)
+                    if distribution_type == "level"
+                    else row.label
+                ),
+                count=row.student_count,
+            )
+            for row in result.all()
+        ),
+        key=lambda item: (-item.count, *alphabetical_key(item.label)),
+    )
 
 
 @router.get(
@@ -1149,9 +1153,9 @@ async def get_student_certification_distribution(
     certified = select(kind).where(Student.tax_code.in_(consented)).subquery()
 
     result = await db.execute(
-        select(certified.c.kind, func.count().label("student_count"))
-        .group_by(certified.c.kind)
-        .order_by(func.count().desc()),
+        select(certified.c.kind, func.count().label("student_count")).group_by(
+            certified.c.kind
+        ),
     )
 
     distribution = [
@@ -1178,7 +1182,10 @@ async def get_student_certification_distribution(
             )
         )
 
-    return sorted(distribution, key=lambda item: item.count, reverse=True)
+    return sorted(
+        distribution,
+        key=lambda item: (-item.count, *alphabetical_key(item.label)),
+    )
 
 
 @router.get(
@@ -1324,11 +1331,17 @@ async def get_teacher_subjects_statistics(
 
     top_subjects = sorted(
         subject_counts,
-        key=lambda item: (-item.count, item.name, item.program_name or ""),
+        key=lambda item: (
+            -item.count,
+            *alphabetical_key(item.name, item.program_name or ""),
+        ),
     )[:_TOP_SUBJECTS_LIMIT]
     bottom_subjects = sorted(
         subject_counts,
-        key=lambda item: (item.count, item.name, item.program_name or ""),
+        key=lambda item: (
+            item.count,
+            *alphabetical_key(item.name, item.program_name or ""),
+        ),
     )[:_TOP_SUBJECTS_LIMIT]
 
     top_teachers = sorted(
@@ -1338,8 +1351,7 @@ async def get_teacher_subjects_statistics(
         ),
         key=lambda item: (
             -item.count,
-            item.teacher.last_name,
-            item.teacher.first_name,
+            *alphabetical_key(item.teacher.last_name, item.teacher.first_name),
         ),
     )[:_TOP_SUBJECTS_LIMIT]
 
@@ -1943,7 +1955,7 @@ def _ranked(rows: Any, limit: int) -> list[RequestedSubjectItem]:
         )
         for name, count in counts.items()
     ]
-    items.sort(key=lambda item: (-item.request_count, item.name))
+    items.sort(key=lambda item: (-item.request_count, *alphabetical_key(item.name)))
 
     return items[:limit]
 
@@ -2043,7 +2055,7 @@ def _ranked_minutes(minutes: Mapping[str, int]) -> list[SubjectHoursItem]:
         SubjectHoursItem(name=name, minutes=count, percentage=_share(count, total))
         for name, count in minutes.items()
     ]
-    items.sort(key=lambda item: (-item.minutes, item.name))
+    items.sort(key=lambda item: (-item.minutes, *alphabetical_key(item.name)))
 
     return items[:_TOP_SUBJECTS_LIMIT]
 
@@ -2516,12 +2528,14 @@ async def get_course_participant_distribution(
             func.count(CourseParticipant.tax_code).label("participant_count"),
         )
         .group_by(CourseParticipant.course_type)
-        .order_by(func.count(CourseParticipant.tax_code).desc())
     )
 
     result = await db.execute(query)
 
-    return [
-        CourseDistributionItem(label=row.label, count=row.participant_count)
-        for row in result.all()
-    ]
+    return sorted(
+        (
+            CourseDistributionItem(label=row.label, count=row.participant_count)
+            for row in result.all()
+        ),
+        key=lambda item: (-item.count, *alphabetical_key(item.label)),
+    )

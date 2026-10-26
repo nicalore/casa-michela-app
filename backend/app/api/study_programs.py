@@ -21,6 +21,10 @@ from app.schemas.study_program import (
     StudyProgramResponse,
     StudyProgramUpdate,
 )
+from app.services.teaching_competence import (
+    close_stray_competences,
+    select_teachers_left_without,
+)
 
 router = APIRouter(
     prefix="/study-programs",
@@ -60,6 +64,9 @@ _ORPHAN_SCHOOL_ERROR: Final[str] = (
 _ORPHAN_TEACHER_ERROR: Final[str] = (
     "Impossibile eliminare il percorso di studi: uno o più docenti rimarrebbero "
     "senza competenze associate."
+)
+_ORPHAN_TEACHER_UPDATE_ERROR: Final[str] = (
+    "Impossibile salvare: un docente rimarrebbe senza competenze."
 )
 _DELETE_CONSTRAINT_ERROR: Final[str] = (
     "Impossibile eliminare il percorso di studi in quanto protetto da vincoli "
@@ -301,6 +308,7 @@ async def update_study_program(
     program.ministry_subjects = list(subjects)
 
     try:
+        await close_stray_competences(db, refusal=_ORPHAN_TEACHER_UPDATE_ERROR)
         await db.commit()
     except IntegrityError as err:
         await db.rollback()
@@ -346,12 +354,7 @@ async def delete_study_program(program_id: int, db: DbSession) -> dict[str, str]
         )
 
     orphan_teachers = await db.execute(
-        select_parents_left_without_children(
-            TeachingCompetence.teacher_tax_code,
-            TeachingCompetence.study_program_id,
-            program_id,
-            only=TeachingCompetence.valid_to.is_(None),
-        )
+        select_teachers_left_without(TeachingCompetence.study_program_id == program_id)
     )
 
     if orphan_teachers.scalars().first() is not None:

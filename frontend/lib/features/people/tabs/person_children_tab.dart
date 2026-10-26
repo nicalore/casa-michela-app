@@ -21,6 +21,7 @@ import '../../../shared/widgets/snackbar.dart';
 import '../models/child_item.dart';
 import '../models/parent_item.dart';
 import '../models/parental_relationship_draft.dart';
+import '../models/person_face.dart';
 import '../models/person_item.dart';
 import '../models/school_enrollment_item.dart';
 import '../widgets/person_detail_widgets.dart';
@@ -55,10 +56,10 @@ enum _MinorSort
   {
     return switch (this)
     {
-      _MinorSort.nameAsc => a.firstName.compareTo(b.firstName),
-      _MinorSort.nameDesc => b.firstName.compareTo(a.firstName),
-      _MinorSort.surnameAsc => a.lastName.compareTo(b.lastName),
-      _MinorSort.surnameDesc => b.lastName.compareTo(a.lastName),
+      _MinorSort.nameAsc => compareByName(a, b),
+      _MinorSort.nameDesc => compareByName(b, a),
+      _MinorSort.surnameAsc => compareBySurname(a, b),
+      _MinorSort.surnameDesc => compareBySurname(b, a),
       _MinorSort.dateDesc => b.createdAt.compareTo(a.createdAt),
       _MinorSort.dateAsc => a.createdAt.compareTo(b.createdAt),
     };

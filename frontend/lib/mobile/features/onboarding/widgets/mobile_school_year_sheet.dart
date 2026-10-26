@@ -53,7 +53,7 @@ class MobileSchoolYearOutcome
   bool get removed => choice == null;
 }
 
-// Not drag-dismissible, which would lose the answers.
+// Leaving with answers changed asks first.
 Future<MobileSchoolYearOutcome?> showMobileSchoolYearSheet({
   required BuildContext context,
   required List<SchoolItem> schools,
@@ -66,7 +66,6 @@ Future<MobileSchoolYearOutcome?> showMobileSchoolYearSheet({
 {
   return showMobileSheet<MobileSchoolYearOutcome>(
     context: context,
-    draggable: false,
     builder: (context) => _YearSheet(
       schools: schools,
       programs: programs,
@@ -126,12 +125,25 @@ class _YearSheetState extends State<_YearSheet>
 
   int _step = 0;
 
+  // The answers as they opened, so leaving asks only once something was changed.
+  late final String _opened;
+
   @override
   void initState()
   {
     super.initState();
+    _opened = _answers;
     _year.addListener(_onYearTyped);
   }
+
+  String get _answers => [
+        _year.text.trim(),
+        _choice.level,
+        _choice.school?.id,
+        _choice.homeschooling,
+        _choice.grade,
+        _choice.program?.id,
+      ].join('|');
 
   @override
   void dispose()
@@ -549,6 +561,7 @@ class _YearSheetState extends State<_YearSheet>
         eyebrow: 'Scuola',
         title: widget.editing ? 'Modifica anno scolastico' : 'Aggiungi anno scolastico',
         aboveKeyboard: true,
+        unsaved: () => _answers == _opened ? MobileUnsaved.none : MobileUnsaved.choices,
         subhead: MobileWizardDots(count: _steps.length, position: _pages, fallback: _step),
         content: _buildPager(),
         footer: _buildFooter(),

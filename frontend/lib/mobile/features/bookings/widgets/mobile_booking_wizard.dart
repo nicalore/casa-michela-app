@@ -77,7 +77,7 @@ class MobileBookingCatalogue
   });
 }
 
-// True once something was saved; not drag-dismissible, which would lose the answers.
+// True once something was saved; leaving with answers given asks first.
 // [tourFor]: whose tour explains the wizard, null for none.
 Future<bool> showMobileBookingWizard({
   required BuildContext context,
@@ -88,7 +88,6 @@ Future<bool> showMobileBookingWizard({
 {
   final bool? saved = await showMobileSheet<bool>(
     context: context,
-    draggable: false,
     builder: (context) => _Wizard(draft: draft, catalogue: catalogue, tourFor: tourFor),
   );
 
@@ -118,6 +117,9 @@ class _WizardState extends State<_Wizard>
 
   bool _busy = false;
 
+  // The draft as it opened, so leaving asks only once something was changed.
+  late final String _opened;
+
   int _category = _ministryCategory;
 
   // Per band, the subject whose disciplines are listed under it.
@@ -140,6 +142,7 @@ class _WizardState extends State<_Wizard>
   void initState()
   {
     super.initState();
+    _opened = _draft.fingerprint;
 
     if (widget.tourFor != null)
     {
@@ -1015,6 +1018,8 @@ class _WizardState extends State<_Wizard>
       eyebrow: _eyebrow(),
       title: _draft.isEditing ? kEditBookingTitle : kNewBookingTitle,
       aboveKeyboard: true,
+      unsaved: () => _draft.fingerprint == _opened ? MobileUnsaved.none : MobileUnsaved.choices,
+      saving: _busy,
       subhead: steps.length > 1 ? MobileWizardDots(count: steps.length, position: _pages, fallback: _step) : null,
       content: MobileStepPager(
         controller: _pages,

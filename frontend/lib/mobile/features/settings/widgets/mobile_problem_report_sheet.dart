@@ -86,6 +86,8 @@ class _ReportSheetState extends State<_ReportSheet>
         eyebrow: kReportEyebrow,
         title: kReportTitle,
         aboveKeyboard: true,
+        unsaved: () => _description.text.trim().isEmpty ? MobileUnsaved.none : MobileUnsaved.text,
+        saving: _busy,
         body: [
           const SizedBox(height: 18),
           MobileTextField(

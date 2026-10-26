@@ -2,6 +2,7 @@ import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
+import '../../people/models/person_face.dart';
 import '../models/activity_item.dart';
 import '../models/availability_item.dart';
 import '../models/calendar_day.dart';
@@ -199,9 +200,9 @@ String exportLessonWho(LessonItem lesson, CalendarView view)
     return lesson.teacher.fullName;
   }
 
-  final students = [for (final entry in lesson.bookings) entry.presence.student.fullName]..sort();
+  final students = [for (final entry in lesson.bookings) entry.presence.student]..sort(compareByName);
 
-  return students.isEmpty ? 'Lezione' : students.join(', ');
+  return students.isEmpty ? 'Lezione' : students.map((student) => student.fullName).join(', ');
 }
 
 typedef ExportLessonFields = ({String hours, String who, String subject, String? place});

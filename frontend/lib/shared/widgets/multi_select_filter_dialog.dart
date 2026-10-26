@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/alphabetical_order.dart';
 import 'app_dialog_footer.dart';
 import 'app_dialog_stack.dart';
 import 'app_field_label.dart';
@@ -127,9 +130,7 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
         return byRank;
       }
 
-      final int bySubtitle = (a.subtitle ?? '').compareTo(b.subtitle ?? '');
-
-      return bySubtitle != 0 ? bySubtitle : a.label.compareTo(b.label);
+      return compareAlphabeticallyInParts([a.subtitle ?? '', a.label], [b.subtitle ?? '', b.label]);
     });
 
     final groups = <({String? heading, List<MultiSelectFilterOption<T>> options})>[];
@@ -336,74 +337,77 @@ class _FilterAutocompleteFieldState<T extends Object> extends State<_FilterAutoc
   @override
   Widget build(BuildContext context)
   {
-    return RawAutocomplete<MultiSelectFilterOption<T>>(
-      textEditingController: widget.controller,
-      focusNode: _focusNode,
-      displayStringForOption: (option) => option.label,
-      optionsBuilder: (textEditingValue)
-      {
-        if (textEditingValue.text.isEmpty)
+    return LayoutBuilder(
+      // Never wider than the field: in a narrow window a fixed width would leave the window.
+      builder: (context, constraints) => RawAutocomplete<MultiSelectFilterOption<T>>(
+        textEditingController: widget.controller,
+        focusNode: _focusNode,
+        displayStringForOption: (option) => option.label,
+        optionsBuilder: (textEditingValue)
         {
-          return const Iterable.empty();
-        }
+          if (textEditingValue.text.isEmpty)
+          {
+            return const Iterable.empty();
+          }
 
-        final query = textEditingValue.text.toLowerCase();
+          final query = textEditingValue.text.toLowerCase();
 
-        return widget.options.where((option) => option.label.toLowerCase().contains(query));
-      },
-      onSelected: (option)
-      {
-        widget.onSelected(option);
-
-        // clear() alone leaves the selection collapsed at -1, which renders no caret.
-        Future.microtask(()
+          return widget.options.where((option) => option.label.toLowerCase().contains(query));
+        },
+        onSelected: (option)
         {
-          widget.controller.clear();
-          widget.controller.selection = const TextSelection.collapsed(offset: 0);
-          _focusNode.requestFocus();
-        });
-      },
-      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted)
-      {
-        return AppTextField(
-          controller: textEditingController,
-          focusNode: focusNode,
-          label: widget.hint,
-          showLabel: false,
-          hintText: widget.hint,
-          onChanged: (_) => setState(() {}),
-          onSubmitted: (_) => onFieldSubmitted(),
-          suffix: textEditingController.text.isEmpty
-              ? null
-              : MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: ()
-                    {
-                      textEditingController.clear();
-                      setState(() {});
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.fromLTRB(4, 4, 16, 4),
-                      child: Icon(
-                        Icons.close_rounded,
-                        size: 24,
-                        color: AppTheme.trialTealDeep,
+          widget.onSelected(option);
+
+          // clear() alone leaves the selection collapsed at -1, which renders no caret.
+          Future.microtask(()
+          {
+            widget.controller.clear();
+            widget.controller.selection = const TextSelection.collapsed(offset: 0);
+            _focusNode.requestFocus();
+          });
+        },
+        fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted)
+        {
+          return AppTextField(
+            controller: textEditingController,
+            focusNode: focusNode,
+            label: widget.hint,
+            showLabel: false,
+            hintText: widget.hint,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => onFieldSubmitted(),
+            suffix: textEditingController.text.isEmpty
+                ? null
+                : MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: ()
+                      {
+                        textEditingController.clear();
+                        setState(() {});
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.fromLTRB(4, 4, 16, 4),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 24,
+                          color: AppTheme.trialTealDeep,
+                        ),
                       ),
                     ),
                   ),
-                ),
-        );
-      },
-      optionsViewBuilder: (context, onSelected, options) =>
-          AutocompleteOptionsList<MultiSelectFilterOption<T>>(
-        options: options,
-        label: (option) => option.label,
-        subtitle: (option) => option.subtitle,
-        subtitlePlacement: widget.subtitlePlacement,
-        width: width,
-        onSelected: onSelected,
+          );
+        },
+        optionsViewBuilder: (context, onSelected, options) =>
+            AutocompleteOptionsList<MultiSelectFilterOption<T>>(
+          options: options,
+          label: (option) => option.label,
+          subtitle: (option) => option.subtitle,
+          subtitlePlacement: widget.subtitlePlacement,
+          width: math.min(width, constraints.maxWidth),
+          onSelected: onSelected,
+        ),
       ),
     );
   }

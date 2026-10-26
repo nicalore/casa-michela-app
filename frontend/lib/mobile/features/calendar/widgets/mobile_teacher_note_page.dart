@@ -109,6 +109,8 @@ class _MobileTeacherNotePageState extends State<MobileTeacherNotePage>
           size: _faceSize,
         ),
         aboveKeyboard: true,
+        unsaved: () => _text.text.trim().isEmpty ? MobileUnsaved.none : MobileUnsaved.text,
+        saving: _busy,
         body: [
           const SizedBox(height: 18),
           const MobileSheetText(kTeacherNoteHint),
@@ -124,11 +126,13 @@ class _MobileTeacherNotePageState extends State<MobileTeacherNotePage>
         ],
         footer: Padding(
           padding: const EdgeInsets.only(top: 24),
-          child: MobileGoldButton(
-            label: kSendLabel,
-            icon: Icons.send_rounded,
-            busy: _busy,
-            onPressed: _send,
+          child: MobileBackRow(
+            child: MobileGoldButton(
+              label: kSendLabel,
+              icon: Icons.send_rounded,
+              busy: _busy,
+              onPressed: _send,
+            ),
           ),
         ),
       ),

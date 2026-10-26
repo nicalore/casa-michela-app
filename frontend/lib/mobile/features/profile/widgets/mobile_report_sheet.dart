@@ -125,6 +125,8 @@ class _ReportSheetState extends State<_ReportSheet>
         eyebrow: widget.eyebrow,
         title: 'Segnala errore',
         aboveKeyboard: true,
+        unsaved: () => _chosen.isEmpty ? MobileUnsaved.none : MobileUnsaved.choices,
+        saving: _busy,
         body: [
           const SizedBox(height: 18),
           Text(

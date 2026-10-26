@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/association/teacher_opinions.dart';
 import '../../../features/people/models/person_item.dart';
@@ -95,7 +96,7 @@ class MobileTeachersDirectory extends ChangeNotifier
   List<TeacherSubjectItem> get subjectOptions
   {
     return taughtSubjectsOf(_teachers).values.toList()
-      ..sort((a, b) => a.subjectName.compareTo(b.subjectName));
+      ..sort((a, b) => compareAlphabetically(a.subjectName, b.subjectName));
   }
 
   List<PersonItem> get shown

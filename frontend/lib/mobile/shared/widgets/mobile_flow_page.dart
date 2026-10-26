@@ -215,18 +215,13 @@ class MobileFlowFooter extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final VoidCallback? onBack = this.onBack;
-
     // Leaving, it spins while the next page loads out of sight, never on the way out.
     final MobileEntranceMotion? entrance = MobileEntranceMotion.maybeOf(context);
     final bool busy = entrance != null && entrance.leaving ? entrance.waiting : this.busy;
 
     return Row(
       children: [
-        if (onBack != null) ...[
-          MobileWizardBackButton(onTap: busy ? null : onBack),
-          const SizedBox(width: 12),
-        ],
+        MobileWizardBackSlot(onBack: onBack, busy: busy),
         Expanded(
           child: MobileGoldButton(label: label, icon: icon, busy: busy, onPressed: onPressed),
         ),

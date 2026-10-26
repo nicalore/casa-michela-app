@@ -86,6 +86,9 @@ class _MoveSheetState extends State<_MoveSheet>
   MoveDay? _day;
   MoveOption? _chosen;
 
+  // The day offered on opening: picking another, or a target, is work to ask about.
+  MoveDay? _openedOn;
+
   BandSchedule<PresenceItem> _hours = BandSchedule<PresenceItem>();
 
   final MoveTourPulse _tourPulse = MoveTourPulse();
@@ -98,6 +101,7 @@ class _MoveSheetState extends State<_MoveSheet>
 
     _day = widget.days.where((day) => isSameDate(day.day, widget.from) && day.refusal == null).firstOrNull ??
         widget.days.where((day) => day.viable).firstOrNull;
+    _openedOn = _day;
 
     mobileTourChanges.addListener(_tourLater);
     _tourLater();
@@ -405,6 +409,7 @@ class _MoveSheetState extends State<_MoveSheet>
       title: widget.title,
       subtitle: widget.subtitle,
       aboveKeyboard: true,
+      unsaved: () => identical(_day, _openedOn) && _chosen == null ? MobileUnsaved.none : MobileUnsaved.choices,
       body: [
         const SizedBox(height: 18),
         const MobileFieldHead(kMoveDayLabel),
@@ -467,11 +472,13 @@ class _MoveSheetState extends State<_MoveSheet>
       ],
       footer: Padding(
         padding: const EdgeInsets.only(top: 18),
-        child: MobileTourTarget(
-          id: moveTourTarget(MoveMark.confirm),
-          inflate: _tourButtonInflate,
-          radius: _tourButtonRadius,
-          child: MobileGoldButton(label: 'Sposta', icon: Icons.swap_horiz_rounded, onPressed: _confirm),
+        child: MobileBackRow(
+          child: MobileTourTarget(
+            id: moveTourTarget(MoveMark.confirm),
+            inflate: _tourButtonInflate,
+            radius: _tourButtonRadius,
+            child: MobileGoldButton(label: 'Sposta', icon: Icons.swap_horiz_rounded, onPressed: _confirm),
+          ),
         ),
       ),
     );

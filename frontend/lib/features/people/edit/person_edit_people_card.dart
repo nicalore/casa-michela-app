@@ -7,6 +7,7 @@ import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/snackbar.dart';
 import '../models/parental_relationship_draft.dart';
+import '../models/person_face.dart';
 import '../models/person_item.dart';
 import '../widgets/authorized_pickup_dialog.dart';
 import '../widgets/person_detail_widgets.dart';
@@ -28,10 +29,10 @@ enum PersonPickerSort
   {
     return switch (this)
     {
-      PersonPickerSort.surnameAsc => a.lastName.compareTo(b.lastName),
-      PersonPickerSort.surnameDesc => b.lastName.compareTo(a.lastName),
-      PersonPickerSort.nameAsc => a.firstName.compareTo(b.firstName),
-      PersonPickerSort.nameDesc => b.firstName.compareTo(a.firstName),
+      PersonPickerSort.surnameAsc => compareBySurname(a, b),
+      PersonPickerSort.surnameDesc => compareBySurname(b, a),
+      PersonPickerSort.nameAsc => compareByName(a, b),
+      PersonPickerSort.nameDesc => compareByName(b, a),
       PersonPickerSort.dateDesc => b.createdAt.compareTo(a.createdAt),
       PersonPickerSort.dateAsc => a.createdAt.compareTo(b.createdAt),
     };

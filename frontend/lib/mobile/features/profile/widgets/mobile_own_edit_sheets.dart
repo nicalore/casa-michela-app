@@ -48,6 +48,7 @@ class _EditSheet extends StatelessWidget
   final List<Widget> fields;
   final bool busy;
   final VoidCallback onSave;
+  final bool Function() changed;
 
   const _EditSheet({
     required this.eyebrow,
@@ -56,6 +57,7 @@ class _EditSheet extends StatelessWidget
     required this.fields,
     required this.busy,
     required this.onSave,
+    required this.changed,
   });
 
   @override
@@ -69,6 +71,8 @@ class _EditSheet extends StatelessWidget
         title: title,
         subtitle: subtitle,
         aboveKeyboard: true,
+        unsaved: () => changed() ? MobileUnsaved.text : MobileUnsaved.none,
+        saving: busy,
         body: [
           const SizedBox(height: 20),
           for (var i = 0; i < fields.length; i++) ...[
@@ -117,13 +121,12 @@ class _ContactsSheetState extends State<_ContactsSheet>
     super.dispose();
   }
 
+  ContactsDraft get _draft => ContactsDraft(email: _email.text.trim(), phoneNumber: barePhoneNumber(_phone.text));
+
   // Written only when something changed; the server says what is wrong.
   Future<void> _save() async
   {
-    final ContactsDraft draft = ContactsDraft(
-      email: _email.text.trim(),
-      phoneNumber: barePhoneNumber(_phone.text),
-    );
+    final ContactsDraft draft = _draft;
 
     if (!draft.differsFrom(widget.person))
     {
@@ -166,6 +169,7 @@ class _ContactsSheetState extends State<_ContactsSheet>
       title: 'Modifica contatti',
       busy: _busy,
       onSave: _save,
+      changed: () => _draft.differsFrom(widget.person),
       fields: [
         MobileTextField(
           controller: _email,
@@ -224,11 +228,13 @@ class _StudiesSheetState extends State<_StudiesSheet>
     super.dispose();
   }
 
-  String? _cleaned(TextEditingController controller)
-  {
-    final String text = controller.text.trim();
+  String? _cleaned(TextEditingController controller) => _blankAsNull(controller.text);
 
-    return text.isEmpty ? null : text;
+  String? _blankAsNull(String? text)
+  {
+    final String trimmed = text?.trim() ?? '';
+
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   Future<void> _save() async
@@ -268,6 +274,9 @@ class _StudiesSheetState extends State<_StudiesSheet>
       subtitle: 'Queste informazioni saranno visibili a studenti e genitori.',
       busy: _busy,
       onSave: _save,
+      changed: () =>
+          _cleaned(_school) != _blankAsNull(widget.person.schoolEducation) ||
+          _cleaned(_university) != _blankAsNull(widget.person.universityEducation),
       fields: [
         MobileTextField(
           controller: _school,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/association/models/association_subject_item.dart';
 import '../../../features/association/models/subject_taxonomy.dart';
@@ -71,7 +72,7 @@ class MobileCatalogue extends ChangeNotifier
     final List<AssociationSubjectItem> shown = _subjects
         .where((subject) => subject.name.toLowerCase().contains(query))
         .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+      ..sort((a, b) => compareAlphabetically(a.name, b.name));
 
     return groupByArea(shown, (subject) => subject.area);
   }

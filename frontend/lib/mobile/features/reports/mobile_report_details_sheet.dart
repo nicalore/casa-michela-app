@@ -197,6 +197,7 @@ class _ReportSheetState extends State<_ReportSheet>
     return MobileSheet(
       eyebrow: report.kind.label,
       title: reportTitle(report),
+      saving: _busy,
       body: [
         const SizedBox(height: _titleRoom),
         _facts(),

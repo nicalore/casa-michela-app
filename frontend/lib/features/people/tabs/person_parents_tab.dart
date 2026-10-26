@@ -18,6 +18,7 @@ import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/parent_item.dart';
 import '../models/parental_relationship_draft.dart';
+import '../models/person_face.dart';
 import '../models/person_item.dart';
 import '../widgets/authorized_pickup_dialog.dart';
 import '../widgets/person_detail_widgets.dart';
@@ -46,10 +47,10 @@ enum _ParentSort
   {
     return switch (this)
     {
-      _ParentSort.nameAsc => a.firstName.compareTo(b.firstName),
-      _ParentSort.nameDesc => b.firstName.compareTo(a.firstName),
-      _ParentSort.surnameAsc => a.lastName.compareTo(b.lastName),
-      _ParentSort.surnameDesc => b.lastName.compareTo(a.lastName),
+      _ParentSort.nameAsc => compareByName(a, b),
+      _ParentSort.nameDesc => compareByName(b, a),
+      _ParentSort.surnameAsc => compareBySurname(a, b),
+      _ParentSort.surnameDesc => compareBySurname(b, a),
       _ParentSort.dateDesc => b.createdAt.compareTo(a.createdAt),
       _ParentSort.dateAsc => a.createdAt.compareTo(b.createdAt),
     };

@@ -1,3 +1,4 @@
+import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
@@ -443,7 +444,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
       for (final service in _heldServices) _Entry(name: service, detail: 'Servizio'),
     ];
 
-    return entries..sort((a, b) => a.name.compareTo(b.name));
+    return entries..sort((a, b) => compareAlphabetically(a.name, b.name));
   }
 
   // A discipline no programme teaches cannot be assigned, so it is not offered.
@@ -464,7 +465,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
         if (!_heldServices.contains(service.name)) _Entry(name: service.name, detail: 'Servizio'),
     ];
 
-    return entries..sort((a, b) => a.name.compareTo(b.name));
+    return entries..sort((a, b) => compareAlphabetically(a.name, b.name));
   }
 
   // True once saved.

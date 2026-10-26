@@ -19,6 +19,7 @@ from app.schemas.ministry_subject import (
     MinistrySubjectResponse,
     MinistrySubjectUpdate,
 )
+from app.services.teaching_competence import close_stray_competences
 
 router = APIRouter(
     prefix="/ministry-subjects",
@@ -40,6 +41,12 @@ _UPDATE_ERROR: Final[str] = "Errore durante la modifica."
 _ORPHAN_STUDY_PROGRAM_ERROR: Final[str] = (
     "Impossibile eliminare: un percorso di studi rimarrebbe senza materie "
     "ministeriali associate."
+)
+_ORPHAN_TEACHER_UPDATE_ERROR: Final[str] = (
+    "Impossibile salvare: un docente rimarrebbe senza competenze."
+)
+_ORPHAN_TEACHER_DELETE_ERROR: Final[str] = (
+    "Impossibile eliminare: un docente rimarrebbe senza competenze."
 )
 _DELETE_CONSTRAINT_ERROR: Final[str] = (
     "Impossibile eliminare la materia perché associata ad altri dati."
@@ -199,6 +206,7 @@ async def update_ministry_subject(
     subject.association_subjects = list(associations)
 
     try:
+        await close_stray_competences(db, refusal=_ORPHAN_TEACHER_UPDATE_ERROR)
         await db.commit()
     except IntegrityError as err:
         await db.rollback()
@@ -233,6 +241,7 @@ async def delete_ministry_subject(subject_id: int, db: DbSession) -> dict[str, s
 
     try:
         await db.delete(subject)
+        await close_stray_competences(db, refusal=_ORPHAN_TEACHER_DELETE_ERROR)
         await db.commit()
     except IntegrityError as err:
         await db.rollback()

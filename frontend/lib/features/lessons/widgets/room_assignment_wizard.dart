@@ -18,6 +18,7 @@ import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/room_item.dart';
 import '../../association/widgets/room_card.dart' show roomCapacityLabel;
 import '../../people/edit/widgets/person_edit_guide.dart';
+import '../../people/models/person_face.dart';
 import '../models/calendar_day.dart';
 import '../models/room_day_plan.dart';
 import '../models/room_supervision_item.dart';
@@ -1693,7 +1694,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
   int _byNameThenHour(_Piece a, _Piece b)
   {
-    final byName = a.lane.teacher.fullName.toLowerCase().compareTo(b.lane.teacher.fullName.toLowerCase());
+    final byName = compareByName(a.lane.teacher, b.lane.teacher);
 
     return byName != 0 ? byName : a.first.compareTo(b.first);
   }
