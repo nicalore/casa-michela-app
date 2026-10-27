@@ -8,7 +8,7 @@ const String _title = 'Discipline';
 
 // Bump a version on every change to that tour.
 const String _slug = 'subjects';
-const int _version = 5;
+const int _version = 8;
 
 const String _movedSlug = 'subjects.moved';
 const int _movedVersion = 2;
@@ -51,6 +51,7 @@ MobileTour subjectsTour({required PageController pages, required bool Function()
     slug: _slug,
     title: _title,
     version: _version,
+    prepare: () => turnMobileTourPages(pages, 0),
     steps: [
       const MobileTourStep(text: _held, shown: [kSubjectsTourHeld]),
       const MobileTourStep(text: _filters, shown: [kSubjectsTourFilters]),
@@ -69,11 +70,11 @@ MobileTour subjectsTour({required PageController pages, required bool Function()
       ),
       // Longer than any screen: read where it stands.
       const MobileTourStep(text: _open, shown: [kSubjectsTourOpen], scrolls: false),
+      // Read only: what to take is the person's own choice.
       MobileTourStep(
         text: _add,
-        touched: const [kSubjectsTourAdd],
+        shown: const [kSubjectsTourAdd],
         glyph: (size) => mobileSubjectAddCircle(size, iconShare: 0.78),
-        tapMovesOn: true,
         present: canAdd,
       ),
     ],
@@ -119,10 +120,10 @@ const Map<ProgramsMark, int> _programsVersions = {
   ProgramsMark.list: 4,
   ProgramsMark.all: 2,
   ProgramsMark.groups: 2,
-  ProgramsMark.open: 2,
-  ProgramsMark.single: 3,
-  ProgramsMark.confirm: 3,
-  ProgramsMark.remove: 6,
+  ProgramsMark.open: 4,
+  ProgramsMark.single: 5,
+  ProgramsMark.confirm: 5,
+  ProgramsMark.remove: 8,
 };
 
 const Map<ProgramsMark, String> _programsTexts = {
@@ -168,9 +169,11 @@ MobileTourStep _programsStep(ProgramsMark mark)
         present: () => isMobileTourTargetShown(programsGroupTarget(ProgramsGroupPart.level)),
         seen: seen,
       ),
+    // The forward button opens the sector the groups step lit, not whatever row is in the middle.
     ProgramsMark.open => MobileTourStep(
         text: text,
         touched: [target],
+        tapping: programsGroupTarget(ProgramsGroupPart.sector),
         reveal: target,
         watch: mobileProgramsSectorOpened,
         reached: () => mobileProgramsSectorOpened.value,
@@ -180,15 +183,15 @@ MobileTourStep _programsStep(ProgramsMark mark)
     ProgramsMark.single => MobileTourStep(
         text: text,
         touched: [target],
+        reveal: target,
         tapMovesOn: true,
         // The touch that opens a sector moves the tour on before its rows are built.
         present: () => mobileProgramsSectorOpened.value || isMobileTourTargetShown(target),
         coming: () => isMobileTourTargetShown(programsTourTarget(ProgramsMark.open)),
         seen: seen,
       ),
-    // "Conferma" closes the sheet, "Rimuovi" turns it to the confirmation: nothing left to light.
-    ProgramsMark.confirm || ProgramsMark.remove =>
-      MobileTourStep(text: text, touched: [target], tapEnds: true, seen: seen),
+    // Read only: confirming or removing is the person's own choice.
+    ProgramsMark.confirm || ProgramsMark.remove => MobileTourStep(text: text, shown: [target], seen: seen),
   };
 }
 

@@ -8,11 +8,11 @@ const String kHomeTourTitle = 'Home';
 
 // One tour per role, so whoever has two sees both. Bump a version on every change to that tour.
 const String _teacherSlug = 'home.teacher';
-const int _teacherVersion = 9;
+const int _teacherVersion = 11;
 const String _studentSlug = 'home.student';
-const int _studentVersion = 6;
+const int _studentVersion = 8;
 const String _parentSlug = 'home.parent';
-const int _parentVersion = 5;
+const int _parentVersion = 7;
 
 // Phones: the three names of the page strip, and the three pages they show.
 const List<String> kHomeTourTabs = ['home.tab.today', 'home.tab.month', 'home.tab.notices'];
@@ -104,6 +104,7 @@ MobileTour _homeTour({
     MobileTourStep(
       text: _toMenu,
       touched: const [kMobileTourNavSheet],
+      tapping: kMobileTourNavHead,
       watch: MobileNavSheet.openness,
       reached: _menuOpen,
       undo: MobileNavSheet.close,
@@ -135,6 +136,7 @@ MobileTour _homeTour({
     slug: slug,
     title: kHomeTourTitle,
     version: version,
+    prepare: () => turnMobileTourPages(pages, 0),
     steps: [
       MobileTourStep(text: today, shown: [kHomeTourPages[0]]),
       MobileTourStep(

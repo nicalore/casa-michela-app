@@ -13,13 +13,13 @@ const String _title = 'Prenotazioni';
 
 // Bump a version on every change to that tour.
 const String _slug = 'bookings.parent';
-const int _version = 10;
+const int _version = 12;
 
 // Student main tours; their parts keep the parents' slugs, seen once by whoever has both roles.
 const String _studentSlug = 'bookings.student';
-const int _studentVersion = 1;
+const int _studentVersion = 3;
 const String _readerSlug = 'bookings.student.reading';
-const int _readerVersion = 1;
+const int _readerVersion = 3;
 
 // Whom the sentences name: a parent's son or daughter, or the student booking for themselves.
 enum BookingTourPupil
@@ -43,7 +43,7 @@ const Map<BookingMark, int> _markVersions = {
   BookingMark.add: 2,
   BookingMark.lock: 2,
   BookingMark.hours: 1,
-  BookingMark.lesson: 2,
+  BookingMark.lesson: 3,
   BookingMark.addLesson: 1,
   BookingMark.edit: 2,
 };
@@ -359,6 +359,7 @@ MobileTour bookingsTour({
     slug: self ? (readOnly ? _readerSlug : _studentSlug) : _slug,
     title: _title,
     version: self ? (readOnly ? _readerVersion : _studentVersion) : _version,
+    prepare: () => turnMobileTourPages(pages, 0),
     steps: [
       if (!self && genders.length > 1)
         MobileTourStep(
@@ -557,12 +558,12 @@ Future<void> startModeSheetTour({required String taxCode})
 enum MoveMark { days, options, hours, add, bin, confirm }
 
 const Map<MoveMark, int> _moveVersions = {
-  MoveMark.days: 3,
-  MoveMark.options: 3,
-  MoveMark.hours: 3,
-  MoveMark.add: 1,
-  MoveMark.bin: 1,
-  MoveMark.confirm: 1,
+  MoveMark.days: 4,
+  MoveMark.options: 4,
+  MoveMark.hours: 4,
+  MoveMark.add: 3,
+  MoveMark.bin: 3,
+  MoveMark.confirm: 3,
 };
 
 const Map<MoveMark, String> _moveTexts = {
@@ -649,24 +650,23 @@ Future<void> startMoveTour({
           coming: coming,
           seen: seen,
         ),
+      // Read only, as the bins and «Sposta»: adding, removing, moving are the person's own choice.
       MoveMark.add => MobileTourStep(
           text: text,
-          touched: [target],
+          shown: [target],
           reveal: target,
-          tapMovesOn: true,
           present: hours,
           coming: coming,
           seen: seen,
         ),
       MoveMark.bin => MobileTourStep(
           text: text,
-          touched: [target],
+          shown: [target],
           reveal: target,
-          tapMovesOn: true,
           present: bins,
           seen: seen,
         ),
-      MoveMark.confirm => MobileTourStep(text: text, touched: [target], tapMovesOn: true, seen: seen),
+      MoveMark.confirm => MobileTourStep(text: text, shown: [target], seen: seen),
     };
   }
 
@@ -705,18 +705,18 @@ enum BookingWizardMark
 enum BookingWizardPage { days, hours, subjects }
 
 const Map<BookingWizardMark, int> _wizardVersions = {
-  BookingWizardMark.days: 2,
-  BookingWizardMark.yesNo: 3,
-  BookingWizardMark.ministry: 2,
-  BookingWizardMark.disciplines: 2,
-  BookingWizardMark.services: 3,
+  BookingWizardMark.days: 3,
+  BookingWizardMark.yesNo: 4,
+  BookingWizardMark.ministry: 3,
+  BookingWizardMark.disciplines: 3,
+  BookingWizardMark.services: 4,
   BookingWizardMark.band: 4,
   BookingWizardMark.left: 2,
-  BookingWizardMark.list: 4,
+  BookingWizardMark.list: 5,
   BookingWizardMark.open: 3,
-  BookingWizardMark.create: 2,
-  BookingWizardMark.save: 3,
-  BookingWizardMark.saveHours: 1,
+  BookingWizardMark.create: 4,
+  BookingWizardMark.save: 5,
+  BookingWizardMark.saveHours: 3,
 };
 
 const Map<BookingWizardMark, MoveMark> _sharedWithMove = {
@@ -892,20 +892,19 @@ Future<void> startBookingWizardTour({
           coming: hoursMayCome,
           seen: seen,
         ),
+      // Read only, as the bins and the button: adding, removing, saving are the person's own choice.
       BookingWizardMark.add => MobileTourStep(
           text: text,
-          touched: [target],
+          shown: [target],
           reveal: target,
-          tapMovesOn: true,
           present: given,
           coming: hoursMayCome,
           seen: seen,
         ),
       BookingWizardMark.bin => MobileTourStep(
           text: text,
-          touched: [target],
+          shown: [target],
           reveal: target,
-          tapMovesOn: true,
           present: () => anyBins?.call() ?? false,
           seen: seen,
         ),
@@ -938,11 +937,9 @@ Future<void> startBookingWizardTour({
           present: () => isMobileTourTargetShown(target),
           seen: seen,
         ),
-      // Touched, it saves and closes the wizard.
       BookingWizardMark.create || BookingWizardMark.save || BookingWizardMark.saveHours => MobileTourStep(
           text: text,
-          touched: [target],
-          tapEnds: true,
+          shown: [target],
           present: () => switch (mark)
           {
             BookingWizardMark.create => creates,
@@ -970,16 +967,16 @@ enum SubjectFlowMark { intro, kinds, topic, next, durations, count, teachers, se
 
 const Map<SubjectFlowMark, int> _subjectVersions = {
   SubjectFlowMark.intro: 1,
-  SubjectFlowMark.kinds: 2,
+  SubjectFlowMark.kinds: 3,
   SubjectFlowMark.topic: 2,
-  SubjectFlowMark.next: 2,
-  SubjectFlowMark.durations: 2,
+  SubjectFlowMark.next: 4,
+  SubjectFlowMark.durations: 3,
   SubjectFlowMark.count: 1,
-  SubjectFlowMark.teachers: 2,
+  SubjectFlowMark.teachers: 3,
   SubjectFlowMark.search: 2,
-  SubjectFlowMark.notes: 2,
-  SubjectFlowMark.add: 1,
-  SubjectFlowMark.save: 1,
+  SubjectFlowMark.notes: 3,
+  SubjectFlowMark.add: 3,
+  SubjectFlowMark.save: 3,
 };
 
 // The footer's button: forward on every page, adding the subject on the last.
@@ -1072,11 +1069,10 @@ Future<void> startSubjectFlowTour({
         MobileTourStep(text: text, touched: [target], reveal: target, present: built, seen: seen),
       SubjectFlowMark.topic || SubjectFlowMark.count || SubjectFlowMark.search =>
         MobileTourStep(text: text, shown: [target], reveal: target, present: built, seen: seen),
-      // Touched, it turns the page or ends the flow: the tour leaves, later parts come next time.
-      // The last page's button adds a new subject, or saves one edited.
+      // Read only: going on, adding a new subject or saving one edited is the person's own choice.
       SubjectFlowMark.next || SubjectFlowMark.add || SubjectFlowMark.save => MobileTourStep(
           text: text,
-          touched: const [kSubjectFlowTourFooter],
+          shown: const [kSubjectFlowTourFooter],
           present: switch (mark)
           {
             SubjectFlowMark.add => () => !editing,

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../core/utils/time_bucket.dart';
+import '../../shared/widgets/mobile_choice_sheet.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_tour.dart';
 
@@ -12,7 +13,7 @@ const int _version = 6;
 
 // The convocation and the tap on a lesson, the first time a call is shown.
 const String _callSlug = 'calendar.call';
-const int _callVersion = 1;
+const int _callVersion = 2;
 
 const String kCalendarTourBands = 'calendar.bands';
 const String kCalendarTourDay = 'calendar.day';
@@ -47,12 +48,12 @@ const String _sheetSlug = 'calendar.lesson';
 
 const Map<LessonSheetMark, int> _sheetVersions = {
   LessonSheetMark.details: 3,
-  LessonSheetMark.studentTab: 1,
+  LessonSheetMark.studentTab: 2,
   LessonSheetMark.facts: 3,
   LessonSheetMark.technical: 2,
   LessonSheetMark.methodological: 2,
   LessonSheetMark.sensitive: 6,
-  LessonSheetMark.note: 1,
+  LessonSheetMark.note: 2,
 };
 
 const Map<LessonSheetMark, String> _sheetTexts = {
@@ -319,14 +320,14 @@ const String _parentSlug = 'calendar.parent';
 const int _parentVersion = 1;
 
 const String _parentBandSlug = 'calendar.parent.published';
-const int _parentBandVersion = 2;
+const int _parentBandVersion = 3;
 
 // A student's own page; the lesson sheet's parts keep the parents' slugs.
 const String _studentSlug = 'calendar.student';
 const int _studentVersion = 1;
 
 const String _studentBandSlug = 'calendar.student.published';
-const int _studentBandVersion = 1;
+const int _studentBandVersion = 2;
 
 (String, int) _mainSeen({required bool self}) => self ? (_studentSlug, _studentVersion) : (_parentSlug, _parentVersion);
 
@@ -351,7 +352,7 @@ enum PupilLessonSheetMark { details, teacherTab, teacher }
 
 const Map<PupilLessonSheetMark, int> _pupilSheetVersions = {
   PupilLessonSheetMark.details: 1,
-  PupilLessonSheetMark.teacherTab: 1,
+  PupilLessonSheetMark.teacherTab: 2,
   PupilLessonSheetMark.teacher: 1,
 };
 
@@ -502,10 +503,11 @@ MobileTour pupilCalendarTour({
         undo: closeLayouts,
         seen: bandSeen,
       ),
-      // Either choice closes the sheet and moves on.
+      // Either choice closes the sheet and moves on; the forward button keeps the one chosen.
       MobileTourStep(
         text: _layouts,
         touched: const [kPupilCalendarTourLayouts],
+        tapping: mobileChoiceTourChosen(kPupilCalendarTourLayouts),
         watch: layouts,
         reached: () => !layouts.value,
         undo: openLayouts,

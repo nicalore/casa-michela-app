@@ -18,8 +18,8 @@ const (String, int) _parentSeen = ('calendar.parent', 1);
 const (String, int) _studentSeen = ('calendar.student', 1);
 
 // Summary, layouts and the lesson click, the first time a published band shows a lesson.
-const (String, int) _parentBandSeen = ('calendar.parent.published', 1);
-const (String, int) _studentBandSeen = ('calendar.student.published', 1);
+const (String, int) _parentBandSeen = ('calendar.parent.published', 2);
+const (String, int) _studentBandSeen = ('calendar.student.published', 2);
 
 // Lesson window parts, each told when first shown; one mark for parents and students alike.
 enum PupilLessonMark { details, teacher }

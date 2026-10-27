@@ -10,9 +10,9 @@ const String kTourHomeNotices = 'home.notices';
 const String _title = 'Home';
 
 // One tour per role, so whoever has two sees both. Bump a version on every change to that tour.
-const int _teacherVersion = 1;
-const int _studentVersion = 1;
-const int _parentVersion = 1;
+const int _teacherVersion = 2;
+const int _studentVersion = 2;
+const int _parentVersion = 2;
 
 const List<DesktopTourSide> _below = [DesktopTourSide.below];
 const List<DesktopTourSide> _rightOf = [DesktopTourSide.right, DesktopTourSide.below];

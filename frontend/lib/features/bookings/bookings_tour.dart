@@ -87,12 +87,12 @@ enum BookingsTourPupil
 
 // Bump a version on every change to that tour.
 const Map<BookingsTourReader, (String, int)> _pageSeen = {
-  BookingsTourReader.parent: ('bookings.parent', 3),
-  BookingsTourReader.student: ('bookings.student', 3),
+  BookingsTourReader.parent: ('bookings.parent', 4),
+  BookingsTourReader.student: ('bookings.student', 4),
   BookingsTourReader.reading: ('bookings.student.reading', 3),
 };
 
-const (String, int) _nextSeen = ('bookings.next', 1);
+const (String, int) _nextSeen = ('bookings.next', 2);
 
 const Map<BookingsTourMark, int> _markVersions = {
   BookingsTourMark.add: 1,
@@ -108,22 +108,22 @@ const Map<BookingsTourMark, int> _markVersions = {
 
 (String, int) _markSeen(BookingsTourMark mark) => ('bookings.mark.${mark.name}', _markVersions[mark]!);
 
-const (String, int) _daysSeen = ('bookings.wizard.days', 1);
-const (String, int) _switchSeen = ('bookings.wizard.switch', 1);
-const (String, int) _cursorsSeen = ('bookings.hours.cursors', 1);
-const (String, int) _addHoursSeen = ('bookings.hours.add', 1);
-const (String, int) _binSeen = ('bookings.hours.bin', 1);
-const (String, int) _forwardSeen = ('bookings.wizard.forward', 1);
-const (String, int) _saveHoursSeen = ('bookings.wizard.save.hours', 1);
+const (String, int) _daysSeen = ('bookings.wizard.days', 2);
+const (String, int) _switchSeen = ('bookings.wizard.switch', 2);
+const (String, int) _cursorsSeen = ('bookings.hours.cursors', 2);
+const (String, int) _addHoursSeen = ('bookings.hours.add', 3);
+const (String, int) _binSeen = ('bookings.hours.bin', 3);
+const (String, int) _forwardSeen = ('bookings.wizard.forward', 3);
+const (String, int) _saveHoursSeen = ('bookings.wizard.save.hours', 3);
 const (String, int) _bandSeen = ('bookings.wizard.band', 1);
 const (String, int) _leftSeen = ('bookings.wizard.left', 1);
 const (String, int) _ministrySeen = ('bookings.wizard.ministry', 1);
 const (String, int) _disciplinesSeen = ('bookings.wizard.disciplines', 1);
 const (String, int) _servicesSeen = ('bookings.wizard.services', 1);
-const (String, int) _listSeen = ('bookings.wizard.list', 1);
-const (String, int) _openSeen = ('bookings.wizard.open', 2);
-const (String, int) _createSeen = ('bookings.wizard.create', 1);
-const (String, int) _saveSeen = ('bookings.wizard.save', 1);
+const (String, int) _listSeen = ('bookings.wizard.list', 2);
+const (String, int) _openSeen = ('bookings.wizard.open', 3);
+const (String, int) _createSeen = ('bookings.wizard.create', 3);
+const (String, int) _saveSeen = ('bookings.wizard.save', 3);
 
 const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.below];
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.right, DesktopTourSide.above];
@@ -466,6 +466,7 @@ final DesktopTourStep _cursorsStep = DesktopTourStep(
   sides: _beside,
   pad: 6,
   radius: 14,
+  interactive: true,
   present: () => _shown(kTourBookingsHours),
   seen: _cursorsSeen,
 );
@@ -518,6 +519,7 @@ Future<DesktopTour?> bookingsWizardHoursTour({
       sides: _cursorsStep.sides,
       pad: _cursorsStep.pad,
       radius: _cursorsStep.radius,
+      interactive: true,
       present: _cursorsStep.present,
       coming: () => !_shown(kTourBookingsHours),
       seen: _cursorsSeen,
@@ -680,16 +682,16 @@ enum _SubjectMark { intro, kinds, topic, forward, durations, count, teachers, se
 
 const Map<_SubjectMark, int> _subjectVersions = {
   _SubjectMark.intro: 1,
-  _SubjectMark.kinds: 1,
-  _SubjectMark.topic: 1,
-  _SubjectMark.forward: 1,
-  _SubjectMark.durations: 1,
+  _SubjectMark.kinds: 2,
+  _SubjectMark.topic: 2,
+  _SubjectMark.forward: 3,
+  _SubjectMark.durations: 2,
   _SubjectMark.count: 1,
-  _SubjectMark.teachers: 1,
-  _SubjectMark.search: 1,
-  _SubjectMark.notes: 1,
-  _SubjectMark.add: 1,
-  _SubjectMark.save: 1,
+  _SubjectMark.teachers: 2,
+  _SubjectMark.search: 2,
+  _SubjectMark.notes: 2,
+  _SubjectMark.add: 3,
+  _SubjectMark.save: 3,
 };
 
 (String, int) _subjectSeen(_SubjectMark mark) => ('bookings.subject.${mark.name}', _subjectVersions[mark]!);
@@ -829,9 +831,9 @@ Future<DesktopTour?> bookingsSubjectTour({
 enum _MoveMark { days, options, confirm }
 
 const Map<_MoveMark, int> _moveVersions = {
-  _MoveMark.days: 1,
-  _MoveMark.options: 1,
-  _MoveMark.confirm: 1,
+  _MoveMark.days: 2,
+  _MoveMark.options: 2,
+  _MoveMark.confirm: 3,
 };
 
 (String, int) _moveSeen(_MoveMark mark) => ('bookings.move.${mark.name}', _moveVersions[mark]!);
@@ -873,6 +875,7 @@ Future<DesktopTour?> bookingsMoveTour({required bool Function() hoursMayCome})
       sides: _cursorsStep.sides,
       pad: _cursorsStep.pad,
       radius: _cursorsStep.radius,
+      interactive: true,
       present: _cursorsStep.present,
       coming: hoursMayCome,
       seen: _cursorsSeen,

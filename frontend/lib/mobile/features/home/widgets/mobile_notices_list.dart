@@ -19,6 +19,7 @@ import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_card_delete_buttons.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
+import '../../../shared/widgets/mobile_sheet.dart' show MobileSmoothHeight;
 import '../../association/widgets/mobile_notice_sheet.dart';
 import '../../notifications/mobile_notifications_offer.dart';
 
@@ -29,6 +30,9 @@ const double _iconSize = 34;
 const double _actionsGap = 10;
 const double _actionTouchRoom = 5;
 const Duration _leaveDuration = Duration(milliseconds: 320);
+
+// The last one: the line keeps its pace, the empty text comes in from the other side after it.
+const Duration _lastLeaveDuration = Duration(milliseconds: 560);
 const double _pinSize = 17;
 
 // Mirrors HOME_LIMIT in backend/app/services/notices.py.
@@ -133,6 +137,11 @@ class _NotificationsCard extends StatelessWidget
   }
 
   // While they are off, an empty list says nothing: the row above says enough.
+  Widget _empty({required bool off})
+  {
+    return off ? const SizedBox(height: 8) : _status(kNotificationsEmpty);
+  }
+
   Widget _body(NotificationBoard board, {required bool off})
   {
     if (board.loading)
@@ -157,7 +166,7 @@ class _NotificationsCard extends StatelessWidget
 
     if (items.isEmpty)
     {
-      return off ? const SizedBox(height: 8) : _status(kNotificationsEmpty);
+      return _empty(off: off);
     }
 
     final DateTime now = romeNow();
@@ -171,6 +180,7 @@ class _NotificationsCard extends StatelessWidget
             item: item,
             when: notificationWhen(item.createdAt, now: now),
             first: index == 0,
+            empty: items.length == 1 ? _empty(off: off) : null,
           ),
       ],
     );
@@ -297,7 +307,10 @@ class _NotificationLine extends StatefulWidget
   final String when;
   final bool first;
 
-  const _NotificationLine({super.key, required this.item, required this.when, required this.first});
+  // What the card shows once it is gone, when it is the last one.
+  final Widget? empty;
+
+  const _NotificationLine({super.key, required this.item, required this.when, required this.first, this.empty});
 
   @override
   State<_NotificationLine> createState() => _NotificationLineState();
@@ -308,16 +321,24 @@ class _NotificationLineState extends State<_NotificationLine> with SingleTickerP
   // Deleted, the line slides away to the side as its room closes.
   late final AnimationController _leaving = AnimationController(vsync: this, duration: _leaveDuration);
 
-  late final Animation<double> _room = Tween<double>(begin: 1, end: 0).animate(
-    CurvedAnimation(parent: _leaving, curve: Curves.easeInOutCubic),
-  );
+  late Animation<Offset> _away = _awayUntil(1);
 
-  late final Animation<Offset> _away = Tween<Offset>(begin: Offset.zero, end: const Offset(1, 0)).animate(
-    CurvedAnimation(parent: _leaving, curve: Curves.easeInCubic),
+  late final Animation<Offset> _arrival = Tween<Offset>(begin: const Offset(-1, 0), end: Offset.zero).animate(
+    CurvedAnimation(parent: _leaving, curve: const Interval(0.3, 1, curve: Curves.easeOutCubic)),
   );
 
   bool _deleting = false;
   bool _left = false;
+
+  // Kept from the tap, so a line left alone midway goes on as it began.
+  Widget? _heir;
+
+  Animation<Offset> _awayUntil(double end)
+  {
+    return Tween<Offset>(begin: Offset.zero, end: const Offset(1, 0)).animate(
+      CurvedAnimation(parent: _leaving, curve: Interval(0, end, curve: Curves.easeInCubic)),
+    );
+  }
 
   void _delete()
   {
@@ -326,7 +347,19 @@ class _NotificationLineState extends State<_NotificationLine> with SingleTickerP
       return;
     }
 
-    setState(() => _deleting = true);
+    final Widget? heir = widget.empty;
+
+    if (heir != null)
+    {
+      _leaving.duration = _lastLeaveDuration;
+      _away = _awayUntil(_leaveDuration.inMicroseconds / _lastLeaveDuration.inMicroseconds);
+    }
+
+    setState(()
+    {
+      _deleting = true;
+      _heir = heir;
+    });
     _leaving.forward().then((_) => _done());
   }
 
@@ -448,12 +481,31 @@ class _NotificationLineState extends State<_NotificationLine> with SingleTickerP
       ),
     );
 
-    return SizeTransition(
-      sizeFactor: _room,
-      alignment: Alignment.topCenter,
-      child: SlideTransition(
-        position: _away,
-        child: IgnorePointer(ignoring: _deleting, child: line),
+    final Widget? heir = _heir;
+
+    // The room closes to the height of what takes it, so the card ends as it then stays.
+    return ClipRect(
+      child: MobileSmoothHeight(
+        duration: _leaveDuration,
+        curve: Curves.easeInOutCubic,
+        turn: _deleting,
+        child: Stack(
+          fit: StackFit.passthrough,
+          clipBehavior: Clip.none,
+          children: [
+            // Once deleted it takes no room, painting on as it slides off.
+            Align(
+              alignment: Alignment.topCenter,
+              heightFactor: _deleting ? 0 : 1,
+              child: SlideTransition(
+                position: _away,
+                // Clipped as it goes, or the icon's glow lingers at the edge it slid past.
+                child: ClipRect(child: IgnorePointer(ignoring: _deleting, child: line)),
+              ),
+            ),
+            if (heir != null) SlideTransition(position: _arrival, child: heir),
+          ],
+        ),
       ),
     );
   }

@@ -32,10 +32,10 @@ final ValueNotifier<bool> availabilityWizardHasHours = ValueNotifier(false);
 const String _title = 'Disponibilità';
 
 // Bump a version on every change to that tour.
-const int _pageVersion = 4;
-const int _nextWeekVersion = 2;
-const int _daysVersion = 2;
-const int _hoursVersion = 3;
+const int _pageVersion = 5;
+const int _nextWeekVersion = 3;
+const int _daysVersion = 3;
+const int _hoursVersion = 5;
 
 const String _nextWeekSlug = 'availability.next';
 
@@ -45,9 +45,9 @@ const (String, int) _addSeen = ('availability.mark.add', 1);
 const (String, int) _editSeen = ('availability.mark.edit', 1);
 const (String, int) _binsSeen = ('availability.mark.bins', 1);
 const (String, int) _lockSeen = ('availability.mark.lock', 1);
-const (String, int) _cursorsSeen = ('availability.wizard.cursors', 1);
-const (String, int) _addHoursSeen = ('availability.wizard.add', 1);
-const (String, int) _binSeen = ('availability.wizard.bin', 1);
+const (String, int) _cursorsSeen = ('availability.wizard.cursors', 2);
+const (String, int) _addHoursSeen = ('availability.wizard.add', 3);
+const (String, int) _binSeen = ('availability.wizard.bin', 3);
 
 const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.below];
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.right, DesktopTourSide.above];
@@ -269,6 +269,7 @@ final DesktopTourStep _cursorsStep = DesktopTourStep(
   sides: _beside,
   pad: 6,
   radius: 14,
+  interactive: true,
   present: () => _shown(kTourWizardHours),
   seen: _cursorsSeen,
 );
@@ -322,6 +323,7 @@ DesktopTour availabilityHoursTour({required bool editing})
         sides: _cursorsStep.sides,
         pad: _cursorsStep.pad,
         radius: _cursorsStep.radius,
+        interactive: true,
         present: _cursorsStep.present,
         coming: () => !_shown(kTourWizardHours),
         seen: _cursorsSeen,

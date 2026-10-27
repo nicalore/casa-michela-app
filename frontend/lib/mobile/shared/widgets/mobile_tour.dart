@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../features/settings/utils/settings_strings.dart';
 import '../../../services/seen_tours.dart';
+import '../../../shared/widgets/tour_cues.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../mobile_line_breaks.dart';
 import 'mobile_baseline_hang.dart';
@@ -27,6 +28,7 @@ const String _nextLabel = 'Avanti';
 const String _endLabel = 'Fine';
 
 const String kMobileTourNavSheet = 'nav.sheet';
+const String kMobileTourNavHead = 'nav.head';
 const String kMobileTourNavSections = 'nav.sections';
 
 const String kMobileTourSheetClose = 'sheet.close';
@@ -56,6 +58,11 @@ const double _cutTolerance = 8;
 const double _dimAlpha = 0.62;
 
 const Duration _fadeDuration = Duration(milliseconds: 260);
+
+const Duration _pageTurn = Duration(milliseconds: 320);
+
+// A page settles within a tolerance, never exactly on its index.
+const double _pageSettled = 0.001;
 const Duration _moveDuration = Duration(milliseconds: 380);
 const Duration _revealDuration = Duration(milliseconds: 420);
 
@@ -97,6 +104,9 @@ class MobileTourStep
   // Puts the screen back as it was before this step's touch, when stepping back to it.
   final VoidCallback? undo;
 
+  // Where a touch is awaited and steps follow, the forward button touches this part, else the first touched.
+  final String? tapping;
+
   final VoidCallback? enter;
 
   // Drawn where the text holds kMobileTourGlyph, as tall as given.
@@ -136,6 +146,7 @@ class MobileTourStep
     this.reached,
     this.reveal,
     this.undo,
+    this.tapping,
     this.enter,
     this.glyph,
     this.glyphs = const [],
@@ -156,6 +167,8 @@ class MobileTourStep
   List<Widget Function(double size)> get drawn => glyphs.isNotEmpty ? glyphs : [?glyph];
 
   bool get isCounted => isPresent || (coming?.call() ?? false);
+
+  bool get awaitsTouch => reached != null && !tapMovesOn;
 }
 
 class MobileTour
@@ -176,6 +189,9 @@ class MobileTour
   final Listenable? leave;
   final bool Function()? left;
 
+  // Puts the screen where the first step expects it: it may have moved while the tour waited to show.
+  final VoidCallback? prepare;
+
   const MobileTour({
     required this.slug,
     required this.title,
@@ -185,7 +201,17 @@ class MobileTour
     this.coversIfClosed = const [],
     this.leave,
     this.left,
+    this.prepare,
   });
+}
+
+// For [MobileTour.prepare]: back to [index], as a touch on the strip would turn the pages.
+void turnMobileTourPages(PageController pages, int index)
+{
+  if (pages.hasClients && ((pages.page ?? 0) - index).abs() >= _pageSettled)
+  {
+    pages.animateToPage(index, duration: _pageTurn, curve: Curves.easeInOutCubic);
+  }
 }
 
 class _Run
@@ -568,6 +594,19 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
   List<RRect> _aim = const [];
 
+  // Per hole drawn, how touchable it is, 0 to 1: the touched parts come last in [_to] and [_aim].
+  List<double> _fromTouch = const [];
+  List<double> _lastTouch = const [];
+  List<double> _litTouch = const [];
+  int _touchCount = 0;
+
+  late final TourBreath _breath;
+  late final AnimationController _nudge;
+
+  // The visits whose touchable parts breathed, and whose forward button touched for the user.
+  int _breathed = -1;
+  int _performed = -1;
+
   // Where this step's first part stood as it began, and how far its page has moved it since.
   Rect? _setOut;
   Offset _carried = Offset.zero;
@@ -586,6 +625,14 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
   List<Size>? _lastSizes;
   bool _resized = false;
   int _sizesStill = 0;
+
+  // How far the camera's page scrolls; a reveal planned while that changes waits for it to stand.
+  ScrollableState? _endView;
+  double _endExtent = 0;
+  int _endStill = 0;
+  bool _awaitingEnd = false;
+  bool _endAwaited = false;
+  int _endFrames = 0;
 
   _Run? _waiting;
   List<double>? _waitSeen;
@@ -640,6 +687,9 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     _shown = AnimationController(vsync: this, duration: _fadeDuration);
     _move = AnimationController(vsync: this, duration: _moveDuration, value: 1);
     _anchor = AnimationController(vsync: this, duration: _moveDuration);
+    _breath = TourBreath(this);
+    _nudge = AnimationController(vsync: this, duration: kTourNudgeDuration, value: 1);
+    _move.addStatusListener(_onMoved);
     _follow = createTicker(_onFollow);
     WidgetsBinding.instance.addObserver(this);
     _requested.addListener(_onRequested);
@@ -704,6 +754,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     _shown.dispose();
     _move.dispose();
     _anchor.dispose();
+    _breath.dispose();
+    _nudge.dispose();
     super.dispose();
   }
 
@@ -725,6 +777,10 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     _waitSeen = null;
     _waitStill = 0;
     _waitFrames = 0;
+
+    // A menu opened while the tour waited goes; its first part is then awaited where the tour expects it.
+    MobileNavSheet.close();
+    run.tour.prepare?.call();
     _awaitStill(run);
   }
 
@@ -873,6 +929,54 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       _resized = false;
       _replan();
     }
+
+    _watchEnd(step);
+  }
+
+  void _watchEnd(MobileTourStep step)
+  {
+    final String? camera = _camera(step);
+    final _MobileTourTargetState? focus = camera == null ? null : _MobileTourTargetState.findAll(camera).firstOrNull;
+    final _PageScroll? scroll = focus == null || !focus.mounted ? null : _PageScroll.of(focus.context);
+
+    if (scroll == null || !scroll._alive)
+    {
+      return;
+    }
+
+    final double extent = scroll.extent;
+
+    if (scroll._innerView != _endView)
+    {
+      _endView = scroll._innerView;
+      _endExtent = extent;
+      _endStill = _stillFrames;
+    }
+    else if ((extent - _endExtent).abs() >= _sizeTolerance)
+    {
+      _endExtent = extent;
+      _endStill = 0;
+
+      // Frames keep coming until the end has stood still.
+      if (_awaitingEnd)
+      {
+        _kick();
+      }
+    }
+    else
+    {
+      _endStill++;
+    }
+
+    if (_awaitingEnd &&
+        (_endStill >= _stillFrames || ++_endFrames >= _startLongest) &&
+        !_move.isAnimating &&
+        _settling == null)
+    {
+      _awaitingEnd = false;
+      _endAwaited = true;
+      _replan();
+    }
   }
 
   // Against the sizes last taken as changed, so a slow growth still adds up to one.
@@ -977,10 +1081,69 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
   void _nextFrom(int visit)
   {
-    if (_run != null && !_closing && visit == _visit)
+    if (_run == null || _closing || visit != _visit)
+    {
+      return;
+    }
+
+    final MobileTourStep step = _current;
+
+    if (!_performs)
     {
       _advance();
+
+      return;
     }
+
+    final String? part = step.tapping ?? step.touched.firstOrNull;
+    final BuildContext? target = part == null ? null : _MobileTourTargetState.find(part)?.context;
+
+    if (_performed != visit && !step.reached!() && target != null && tapTourPart(target))
+    {
+      _performed = visit;
+    }
+  }
+
+  // A touch awaited with steps after it: the forward button does it, the step moves on as after the user's.
+  bool get _performs => _current.awaitsTouch && _countedLater > 0;
+
+  void _onMoved(AnimationStatus status)
+  {
+    if (status == AnimationStatus.completed)
+    {
+      _breatheIn();
+    }
+  }
+
+  // Once per step as its holes land; [again] after a touch that missed.
+  void _breatheIn({bool again = false})
+  {
+    if (_run == null || _closing || _current.touched.isEmpty || (!again && _breathed == _visit))
+    {
+      return;
+    }
+
+    _breathed = _visit;
+
+    if (!MediaQuery.disableAnimationsOf(context))
+    {
+      _breath.start();
+    }
+  }
+
+  void _onMiss()
+  {
+    if (_run == null || _closing)
+    {
+      return;
+    }
+
+    if (!MediaQuery.disableAnimationsOf(context))
+    {
+      _nudge.forward(from: 0);
+    }
+
+    _breatheIn(again: true);
   }
 
   void _backFrom(int visit)
@@ -1025,6 +1188,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     final List<RRect> now = _holesNow();
 
     _from = first ? const [] : (now.isEmpty ? _lastLit : now);
+    _fromTouch = first ? const [] : (now.isEmpty ? _lastTouch : _litTouch);
     _step = index;
     _endUp = false;
     _setOut = null;
@@ -1034,6 +1198,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     _planned = false;
     _lastSizes = null;
     _resized = false;
+    _awaitingEnd = false;
+    _endAwaited = false;
     _settling = null;
     _settleCap?.cancel();
     _leftLead = null;
@@ -1051,12 +1217,18 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     _to = holes;
     _touch = touch;
+    _touchCount = touch.length;
 
     void setOff()
     {
       // Lasts as long as the page's scroll back, so the holes land with it.
       _move.duration = goingBack ? _scrollBack : _moveDuration;
       _move.forward(from: first ? 1 : 0);
+
+      if (!_move.isAnimating)
+      {
+        _breatheIn();
+      }
 
       // A part taller than the window is read from its top before the rest comes up.
       if (step.shown.isNotEmpty && step.scrolls)
@@ -1230,6 +1402,15 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       return;
     }
 
+    // A page still growing, as a sector's rows unfold, moves what it reveals: one scroll, once it stands.
+    if (!reads && !_endAwaited && scroll._innerView == _endView && _endStill < _stillFrames)
+    {
+      _awaitingEnd = true;
+      _endFrames = 0;
+
+      return;
+    }
+
     final double from = scroll.offset;
     final bool moves = (target - from).abs() >= 1;
 
@@ -1249,6 +1430,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       if (_from.isNotEmpty && _move.isAnimating && _move.value < _justSetOff && view != null && scroll.holds(view))
       {
         _from = _lastLit;
+        _fromTouch = _lastTouch;
         _landingView = view;
         _landing = _carried + Offset(0, scroll.shiftTo(view, to));
         _move.duration = _revealDuration;
@@ -1349,6 +1531,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     {
       _to = holes;
       _touch = touch;
+      _touchCount = touch.length;
     });
     setOff();
     _kick();
@@ -1489,6 +1672,10 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       _touch = const [];
       _lastLit = const [];
       _aim = const [];
+      _fromTouch = const [];
+      _lastTouch = const [];
+      _litTouch = const [];
+      _touchCount = 0;
     });
   }
 
@@ -1671,6 +1858,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     }
 
     _to = holes;
+    _touchCount = touch.length;
     _repaint.tick();
 
     if (elapsed > _followUntil)
@@ -1712,9 +1900,10 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       _leftMoved = _leftMovedNow();
     }
 
-    final (List<RRect> holes, _) = _measure(_current, placing: false);
+    final (List<RRect> holes, List<RRect> touch) = _measure(_current, placing: false);
 
     _to = holes;
+    _touchCount = touch.length;
 
     return _holesNow();
   }
@@ -1932,43 +2121,66 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
   List<RRect> _holesNow()
   {
     final double t = Curves.easeInOutCubic.transform(_move.value);
-    final List<RRect> holes = _from.isEmpty || _aim.isEmpty || t >= 1 ? _to : _between(t, _aim);
+    final (List<RRect> holes, List<double> touch) =
+        _from.isEmpty || _aim.isEmpty || t >= 1 ? (_to, _touchOf(_to.length)) : _between(t, _aim);
 
     if (holes.isNotEmpty)
     {
       _lastLit = holes;
+      _lastTouch = touch;
     }
+
+    _litTouch = touch;
 
     return holes;
   }
 
+  List<double> _touchOf(int count) => [for (var i = 0; i < count; i++) i >= count - _touchCount ? 1.0 : 0.0];
+
   // Fewer holes: each goes to the nearest and they join; more: they part from where all were.
   // While this step's page moves, they head where it stops if known, else ride with the page.
-  List<RRect> _between(double t, List<RRect> to)
+  (List<RRect>, List<double>) _between(double t, List<RRect> to)
   {
     final List<RRect> carried = [
       for (final RRect hole in _from) _landing == null ? hole.shift(_carried + _leftMoved) : hole,
     ];
+    final List<double> from = _fromTouch.length == carried.length ? _fromTouch : List.filled(carried.length, 0.0);
+    final List<double> touch = _touchOf(to.length);
 
     if (carried.length > to.length)
     {
-      return [for (final RRect from in carried) RRect.lerp(from, _nearest(from, to), t)!];
+      final List<int> nearest = [for (final RRect hole in carried) _nearest(hole, to)];
+
+      return (
+        [for (final (int i, RRect hole) in carried.indexed) RRect.lerp(hole, to[nearest[i]], t)!],
+        [for (final (int i, double was) in from.indexed) ui.lerpDouble(was, touch[nearest[i]], t)!],
+      );
     }
 
+    final bool same = carried.length == to.length;
     final RRect whole = _union(carried);
+    final double wholeTouch = from.fold(0.0, math.max);
 
-    return [
-      for (var i = 0; i < to.length; i++)
-        RRect.lerp(carried.length == to.length ? carried[i] : whole, to[i], t)!,
-    ];
+    return (
+      [for (var i = 0; i < to.length; i++) RRect.lerp(same ? carried[i] : whole, to[i], t)!],
+      [for (var i = 0; i < to.length; i++) ui.lerpDouble(same ? from[i] : wholeTouch, touch[i], t)!],
+    );
   }
 
-  RRect _nearest(RRect from, List<RRect> holes)
+  int _nearest(RRect from, List<RRect> holes)
   {
     final Offset centre = from.outerRect.center;
+    int best = 0;
 
-    return holes.reduce((a, b) =>
-        (a.outerRect.center - centre).distanceSquared <= (b.outerRect.center - centre).distanceSquared ? a : b);
+    for (var i = 1; i < holes.length; i++)
+    {
+      if ((holes[i].outerRect.center - centre).distanceSquared < (holes[best].outerRect.center - centre).distanceSquared)
+      {
+        best = i;
+      }
+    }
+
+    return best;
   }
 
   RRect _union(List<RRect> holes)
@@ -1999,10 +2211,9 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     final bool tablet = MobileBreakpoints.of(context).isTablet;
     final double safeTop = MediaQuery.paddingOf(context).top;
 
-    final bool forward = step.reached == null || step.tapMovesOn;
-
     // With none present yet the forward button ends the tour: it reads "Fine" and promises none.
-    final int later = forward && _presentAfter(run.tour, _step) == null ? 0 : _countedLater;
+    final bool performs = _performs;
+    final int later = !performs && _presentAfter(run.tour, _step) == null ? 0 : _countedLater;
     final int total = _path.length + later;
 
     final int visit = _visit;
@@ -2015,7 +2226,8 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
       step: _step,
       onClose: () => _end(early: true),
       onBack: _path.length > 1 ? () => _backFrom(visit) : null,
-      onNext: forward ? () => _nextFrom(visit) : null,
+      onNext: () => _nextFrom(visit),
+      nudge: _nudge,
       last: later == 0,
     );
 
@@ -2032,12 +2244,15 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
                 holes: _touch,
                 onTouch: _kick,
                 onTap: step.tapMovesOn || step.tapEnds ? _onTouchTap : null,
+                onMiss: _onMiss,
                 child: AnimatedBuilder(
                   animation: _move,
                   builder: (context, _) => CustomPaint(
                     painter: _DimPainter(
                       measure: _paintedHoles,
-                      repaint: _repaint,
+                      touch: () => _litTouch,
+                      glow: () => _breath.glow,
+                      repaint: Listenable.merge([_repaint, _breath.listenable]),
                       color: AppTheme.trialDeepWater.withValues(alpha: _dimAlpha),
                     ),
                   ),
@@ -2097,6 +2312,16 @@ class _PageScroll
   }
 
   bool holds(ScrollableState? view) => view != null && (view == _innerView || view == _outerView);
+
+  // How far header and body can scroll in all, wherever they stand.
+  double get extent
+  {
+    final ScrollPosition? head = outer;
+    double length(ScrollPosition? view) =>
+        view != null && view.hasContentDimensions ? view.maxScrollExtent - view.minScrollExtent : 0;
+
+    return _alive ? length(inner) + length(head) : 0;
+  }
 
   // Offsets keeping [part] below [top] and [viewTop], above [bottom]: from the first to the second.
   // A nested header moves only until gone; the body's top rises with it.
@@ -2293,14 +2518,18 @@ class _Holes extends SingleChildRenderObjectWidget
   final VoidCallback? onTap;
   final VoidCallback? onTouch;
 
-  const _Holes({required this.holes, this.onTap, this.onTouch, required super.child});
+  // A tap anywhere else, which nothing answers.
+  final VoidCallback? onMiss;
+
+  const _Holes({required this.holes, this.onTap, this.onTouch, this.onMiss, required super.child});
 
   @override
   RenderObject createRenderObject(BuildContext context)
   {
     return _RenderHoles(holes, MediaQuery.maybeGestureSettingsOf(context))
       ..onTap = onTap
-      ..onTouch = onTouch;
+      ..onTouch = onTouch
+      ..onMiss = onMiss;
   }
 
   @override
@@ -2310,6 +2539,7 @@ class _Holes extends SingleChildRenderObjectWidget
       ..holes = holes
       ..onTap = onTap
       ..onTouch = onTouch
+      ..onMiss = onMiss
       ..gestureSettings = MediaQuery.maybeGestureSettingsOf(context);
   }
 }
@@ -2319,8 +2549,10 @@ class _RenderHoles extends RenderProxyBox
   List<RRect> holes;
   VoidCallback? onTap;
   VoidCallback? onTouch;
+  VoidCallback? onMiss;
 
   final Map<int, Offset> _downs = {};
+  final Map<int, Offset> _missed = {};
 
   // Dispatched before the scroll views and sheets below, with the same slop: they lose every drag.
   late final VerticalDragGestureRecognizer _vertical = VerticalDragGestureRecognizer(debugOwner: this)
@@ -2364,9 +2596,14 @@ class _RenderHoles extends RenderProxyBox
       _horizontal.addPointer(event);
       _downs[event.pointer] = event.position;
     }
+    else if (event is PointerDownEvent)
+    {
+      _missed[event.pointer] = event.position;
+    }
     else if (event is PointerUpEvent)
     {
       final Offset? down = _downs.remove(event.pointer);
+      final Offset? missed = _missed.remove(event.pointer);
 
       if (down != null)
       {
@@ -2377,10 +2614,16 @@ class _RenderHoles extends RenderProxyBox
       {
         onTap?.call();
       }
+
+      if (missed != null && (event.position - missed).distance < kTouchSlop)
+      {
+        onMiss?.call();
+      }
     }
     else if (event is PointerCancelEvent)
     {
       _downs.remove(event.pointer);
+      _missed.remove(event.pointer);
     }
   }
 
@@ -2401,9 +2644,14 @@ class _Repaint extends ChangeNotifier
 class _DimPainter extends CustomPainter
 {
   final List<RRect> Function() measure;
+
+  // Read after [measure], one per hole.
+  final List<double> Function() touch;
+  final double Function() glow;
+
   final Color color;
 
-  _DimPainter({required this.measure, required this.color, super.repaint});
+  _DimPainter({required this.measure, required this.touch, required this.glow, required this.color, super.repaint});
 
   List<RRect> get holes => measure();
 
@@ -2427,9 +2675,16 @@ class _DimPainter extends CustomPainter
       ..style = PaintingStyle.stroke
       ..strokeWidth = _rimWidth
       ..color = AppTheme.trialGold;
+    final List<double> touch = this.touch();
+    final double glow = this.glow();
 
-    for (final RRect hole in holes)
+    for (final (int i, RRect hole) in holes.indexed)
     {
+      if (i < touch.length)
+      {
+        paintTourHalo(canvas, hole.inflate(_rimWidth), touch[i] * glow);
+      }
+
       canvas.drawRRect(hole.inflate(_rimWidth / 2), rim);
     }
   }
@@ -2451,6 +2706,8 @@ class _TourBanner extends StatelessWidget
   final VoidCallback? onBack;
   final VoidCallback? onNext;
 
+  final Animation<double> nudge;
+
   final bool last;
 
   const _TourBanner({
@@ -2463,6 +2720,7 @@ class _TourBanner extends StatelessWidget
     required this.onClose,
     required this.onBack,
     required this.onNext,
+    required this.nudge,
     required this.last,
   });
 
@@ -2590,7 +2848,8 @@ class _TourBanner extends StatelessWidget
                           children: [
                             if (back != null) _BackButton(onTap: back),
                             if (back != null && next != null) const SizedBox(width: 8),
-                            if (next != null) _NextButton(onTap: next, last: last),
+                            if (next != null)
+                              ScaleTransition(scale: kTourNudge.animate(nudge), child: _NextButton(onTap: next, last: last)),
                           ],
                         ),
                       ],

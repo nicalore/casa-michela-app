@@ -7,11 +7,11 @@ import 'widgets/mobile_detail_card.dart';
 
 // Bump a version on every change to that tour.
 const String _slug = 'profile.teacher';
-const int _version = 9;
+const int _version = 11;
 const String _parentSlug = 'profile.parent';
 const int _parentVersion = 1;
 const String _studentSlug = 'profile.student';
-const int _studentVersion = 2;
+const int _studentVersion = 4;
 
 String ownTourTab(String section) => 'profile.tab.$section';
 
@@ -114,6 +114,7 @@ MobileTour ownTour({
     slug: _slug,
     title: title,
     version: _version,
+    prepare: () => turnMobileTourPages(pages, 0),
     steps: [
       // About the whole page: nothing singled out.
       const MobileTourStep(text: _about, lightsAll: true),
@@ -191,6 +192,7 @@ MobileTour studentOwnTour({required PageController pages, required String title,
     slug: _studentSlug,
     title: title,
     version: _studentVersion,
+    prepare: () => turnMobileTourPages(pages, 0),
     steps: [
       const MobileTourStep(text: _about, lightsAll: true),
       const MobileTourStep(text: _report, shown: [kOwnTourReport]),
@@ -228,7 +230,7 @@ MobileTour parentOwnTour({required String title})
 
 // Parents' "Figli" page: the page, the report, then the statistics of the child shown.
 const String _childrenSlug = 'children';
-const int _childrenVersion = 3;
+const int _childrenVersion = 5;
 
 const String _childrenTitle = 'Figli';
 
@@ -261,6 +263,7 @@ MobileTour childrenTour({
     slug: _childrenSlug,
     title: _childrenTitle,
     version: _childrenVersion,
+    prepare: () => turnMobileTourPages(pages, 0),
     steps: [
       // About the whole page: nothing singled out.
       MobileTourStep(text: 'In questo menù puoi consultare le informazioni personali $whom.', lightsAll: true),

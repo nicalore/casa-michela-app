@@ -16,6 +16,9 @@ const double _tileHeight = 56;
 const EdgeInsets _tourInflate = EdgeInsets.fromLTRB(5, 5, 5, 5 - _tileGap);
 const double _tourRadius = 21;
 
+// The chosen tile of the choices marked [tourChoices].
+String mobileChoiceTourChosen(String tourChoices) => '$tourChoices.chosen';
+
 class MobileChoice<T>
 {
   final T value;
@@ -119,13 +122,18 @@ class _ChoiceListState<T> extends State<_ChoiceList<T>>
                   for (final (i, choice) in widget.choices.indexed)
                     Padding(
                       padding: const EdgeInsets.only(bottom: _tileGap),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => widget.onPick(choice),
-                        child: MobileChoiceTile(
-                          leading: choice.leading,
-                          label: choice.label,
-                          chosen: i == widget.chosen,
+                      child: MobileTourTarget(
+                        id: i == widget.chosen && widget.tourChoices != null
+                            ? mobileChoiceTourChosen(widget.tourChoices!)
+                            : null,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => widget.onPick(choice),
+                          child: MobileChoiceTile(
+                            leading: choice.leading,
+                            label: choice.label,
+                            chosen: i == widget.chosen,
+                          ),
                         ),
                       ),
                     ),

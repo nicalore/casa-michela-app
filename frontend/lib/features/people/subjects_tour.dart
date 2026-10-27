@@ -34,10 +34,10 @@ final ValueNotifier<bool> programsSectorOpened = ValueNotifier(false);
 const String _title = 'Discipline';
 
 // Bump a version on every change to that tour.
-const int _pageVersion = 2;
-const int _catalogueVersion = 2;
-const int _programsVersion = 4;
-const int _chosenVersion = 1;
+const int _pageVersion = 3;
+const int _catalogueVersion = 4;
+const int _programsVersion = 6;
+const int _chosenVersion = 3;
 
 const List<DesktopTourSide> _belowFirst = [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.right];
 const List<DesktopTourSide> _rightFirst = [DesktopTourSide.right, DesktopTourSide.left, DesktopTourSide.below];
@@ -134,6 +134,7 @@ final DesktopTour subjectsCatalogueTour = DesktopTour(
 );
 
 // The first time a discipline is chosen in the catalogue.
+// The bin is read only, removing is the person's own choice; the name opens the programmes, as on the page.
 const DesktopTour subjectsChosenTour = DesktopTour(
   slug: 'subjects.catalogue.chosen',
   title: _title,
@@ -153,6 +154,7 @@ const DesktopTour subjectsChosenTour = DesktopTour(
       sides: [DesktopTourSide.right, DesktopTourSide.left, DesktopTourSide.below, DesktopTourSide.above],
       pad: 4,
       radius: 18,
+      clickEnds: true,
     ),
   ],
 );
@@ -195,6 +197,8 @@ final DesktopTour subjectsProgramsTour = DesktopTour(
       sides: _rightFirst,
       pad: 6,
       radius: 19,
+      // The forward button opens the sector the groups step lit, not whatever row is in the middle.
+      tapping: kTourProgramsSector,
       reveal: true,
       listen: programsSectorOpened,
       reached: () => programsSectorOpened.value,
@@ -206,6 +210,7 @@ final DesktopTour subjectsProgramsTour = DesktopTour(
       sides: _rightFirst,
       pad: 4,
       radius: 16,
+      clickMovesOn: true,
       reveal: true,
       // The click that opens a sector moves the tour on before its rows are built.
       present: () => programsSectorOpened.value || isDesktopTourTargetShown(kTourProgramsSingle),

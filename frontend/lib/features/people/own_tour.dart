@@ -25,8 +25,8 @@ final ValueNotifier<String?> ownPageSection = ValueNotifier(null);
 final ValueNotifier<bool> ownCriteriaShown = ValueNotifier(false);
 
 // Bump a version on every change to that tour.
-const int _teacherVersion = 6;
-const int _studentVersion = 1;
+const int _teacherVersion = 7;
+const int _studentVersion = 2;
 const int _parentVersion = 1;
 const int _psychologistVersion = 1;
 

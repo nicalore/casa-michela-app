@@ -19,7 +19,7 @@ DesktopTour psychologistHomeTour({required bool manyRoles})
   return DesktopTour(
     slug: 'home.psychologist',
     title: 'Home',
-    version: 3,
+    version: 4,
     steps: homeBarTourSteps(manyRoles: manyRoles),
   );
 }

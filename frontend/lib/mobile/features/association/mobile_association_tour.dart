@@ -7,11 +7,11 @@ const String _title = 'Associazione';
 
 // Bump a version on every change to that tour.
 const String _slug = 'association.teacher';
-const int _version = 4;
+const int _version = 6;
 const String _parentSlug = 'association.parent';
-const int _parentVersion = 2;
+const int _parentVersion = 4;
 const String _studentSlug = 'association.student';
-const int _studentVersion = 1;
+const int _studentVersion = 3;
 
 // A teacher's sheet opened from "Docenti", the first time; a student's keeps the parents' slug.
 const String _teacherSheetSlug = 'association.parent.teacher';
@@ -199,6 +199,7 @@ MobileTour associationTour({
     slug: reader == null ? _slug : (reader.self ? _studentSlug : _parentSlug),
     title: _title,
     version: reader == null ? _version : (reader.self ? _studentVersion : _parentVersion),
+    prepare: () => turnMobileTourPages(pages, 0),
     steps: [
       const MobileTourStep(text: _day, shown: [kAssociationTourDay], reveal: kAssociationTourDay),
       MobileTourStep(

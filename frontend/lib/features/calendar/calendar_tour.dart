@@ -28,10 +28,10 @@ const String _title = 'Calendario';
 
 // Bump a version on every change to that tour.
 const (String, int) _pageSeen = ('calendar', 1);
-const int _pickerVersion = 2;
+const int _pickerVersion = 3;
 
 // The convocation and the click on a lesson, the first time a call is shown.
-const (String, int) _callSeen = ('calendar.call', 1);
+const (String, int) _callSeen = ('calendar.call', 2);
 
 // Lesson window parts, each told when first shown. Bump a version on every change to that step.
 enum CalendarLessonMark { details, facts, technical, methodological, sensitive, note }

@@ -12,7 +12,7 @@ const String _title = 'Disponibilità';
 
 // Bump a version on every change to that tour.
 const String _slug = 'availability';
-const int _version = 10;
+const int _version = 12;
 
 // What a day card may show; each has a one-step tour for when the main one does not show it.
 enum AvailabilityMark { slots, add, edit, lock }
@@ -115,6 +115,7 @@ MobileTour availabilityTour({
     slug: _slug,
     title: _title,
     version: _version,
+    prepare: () => turnMobileTourPages(pages, 0),
     steps: [
       MobileTourStep(text: _thisWeek, shown: [availabilityTourWeek(0)]),
       ...marks(thisWeek, 0),
@@ -156,13 +157,13 @@ enum DaySheetMark { bin, band, day, edit }
 
 // Bump a version on every change to that tour.
 const String _sheetSlug = 'availability.day';
-const int _sheetVersion = 3;
+const int _sheetVersion = 4;
 
 const Map<DaySheetMark, int> _sheetMarkVersions = {
   DaySheetMark.bin: 2,
   DaySheetMark.band: 2,
   DaySheetMark.day: 2,
-  DaySheetMark.edit: 3,
+  DaySheetMark.edit: 4,
 };
 
 const Map<DaySheetMark, String> _sheetTexts = {
@@ -253,13 +254,13 @@ enum WizardMark { days, yesNo, hours, add, bin, create, save }
 const String _wizardSlug = 'availability.wizard';
 
 const Map<WizardMark, int> _wizardVersions = {
-  WizardMark.days: 4,
-  WizardMark.yesNo: 6,
-  WizardMark.hours: 4,
-  WizardMark.add: 4,
-  WizardMark.bin: 4,
-  WizardMark.create: 3,
-  WizardMark.save: 3,
+  WizardMark.days: 5,
+  WizardMark.yesNo: 7,
+  WizardMark.hours: 5,
+  WizardMark.add: 6,
+  WizardMark.bin: 6,
+  WizardMark.create: 5,
+  WizardMark.save: 5,
 };
 
 const Map<WizardMark, String> _wizardTexts = {
@@ -406,27 +407,25 @@ Future<void> startWizardTour({
           coming: hoursMayCome,
           seen: seen,
         ),
+      // Read only, as the bins and the button: adding, removing, saving are the person's own choice.
       WizardMark.add => MobileTourStep(
           text: text,
-          touched: [target],
+          shown: [target],
           reveal: target,
-          tapMovesOn: true,
           present: anyGiven,
           coming: hoursMayCome,
           seen: seen,
         ),
       WizardMark.bin => MobileTourStep(
           text: text,
-          touched: [target],
+          shown: [target],
           reveal: target,
-          tapMovesOn: true,
           present: anyBins,
           seen: seen,
         ),
       WizardMark.create || WizardMark.save => MobileTourStep(
           text: text,
-          touched: [target],
-          tapMovesOn: true,
+          shown: [target],
           present: isLast,
           seen: seen,
         ),

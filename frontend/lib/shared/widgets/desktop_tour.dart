@@ -18,6 +18,7 @@ import 'app_gradient_button.dart';
 import 'page_transition.dart';
 import 'shared_components.dart';
 import 'snackbar.dart';
+import 'tour_cues.dart';
 
 const String _backLabel = 'INDIETRO';
 const String _nextLabel = 'AVANTI';
@@ -39,6 +40,9 @@ final Color _closeHover = Color.alphaBlend(Colors.white.withValues(alpha: 0.14),
 // Above or below a part, the bubble needs at least this much height.
 const double _shortestRoom = 170;
 
+// Only clickable parts get a rim: read ones are just left undimmed.
+const double _rimWidth = 3;
+
 // Past a scroll view's bottom fade.
 const double _revealEdge = 48;
 
@@ -57,6 +61,9 @@ const Duration _watch = Duration(milliseconds: 900);
 const Duration _startPause = Duration(milliseconds: 150);
 
 const Duration _windowGone = Duration(milliseconds: 300);
+
+// A double click on AVANTI passes one step: the new card's buttons wait this long.
+const Duration _doubleClick = Duration(milliseconds: 300);
 
 // Clicks are never held back longer, whatever goes wrong meanwhile.
 const Duration _longestHold = Duration(seconds: 10);
@@ -236,6 +243,13 @@ class DesktopTourStep
   // The lit part takes clicks, forward button kept: [reached] then only hurries the step on.
   final bool interactive;
 
+  // The lit part takes clicks, forward button kept; a click inside it moves the tour on, or ends it.
+  final bool clickMovesOn;
+  final bool clickEnds;
+
+  // Where a click is awaited and steps follow, the forward button clicks this part, else the first target.
+  final String? tapping;
+
   // Checked on [listen] too: true ends the tour, its part gone (a window closed under it).
   final bool Function()? gone;
 
@@ -267,6 +281,9 @@ class DesktopTourStep
     this.listen,
     this.reached,
     this.interactive = false,
+    this.clickMovesOn = false,
+    this.clickEnds = false,
+    this.tapping,
     this.gone,
     this.doneByLeaving = false,
     this.reveal = false,
@@ -280,7 +297,7 @@ class DesktopTourStep
 
   bool get waitsForClick => (reached != null && !interactive) || doneByLeaving;
 
-  bool get takesClicks => waitsForClick || interactive;
+  bool get takesClicks => waitsForClick || interactive || clickMovesOn || clickEnds;
 
   bool get isPresent => present?.call() ?? true;
 
@@ -301,6 +318,9 @@ DesktopTourStep desktopTourStepOnce(DesktopTourStep step, Map<(String, int), Obj
     pad: step.pad,
     radius: step.radius,
     radii: step.radii,
+    interactive: step.interactive,
+    clickMovesOn: step.clickMovesOn,
+    clickEnds: step.clickEnds,
     reveal: step.reveal,
     revealing: step.revealing,
     enter: () => told.putIfAbsent(step.seen!, () => copy),
@@ -679,6 +699,19 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
   // Parts measured a frame ago: still ones measure the same twice.
   List<Rect> _lastMeasured = const [];
 
+  // How clickable the holes drawn are, 0 to 1, and from where their move set off.
+  double _clickFrom = 0;
+  double _clickNow = 0;
+
+  late final TourBreath _breath = TourBreath(this);
+  late final AnimationController _nudge = AnimationController(vsync: this, duration: kTourNudgeDuration, value: 1);
+
+  // The visits whose clickable parts breathed, and whose forward button clicked for the user.
+  int _breathed = -1;
+  int _performed = -1;
+
+  Timer? _cardFresh;
+
   bool _closing = false;
 
   DesktopTourStep get _current => widget.run.steps[_step];
@@ -693,6 +726,7 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 
     widget.run.address?.addListener(_onAddress);
     widget.run.route?.addStatusListener(_onRoute);
+    _breath.listenable.addListener(_redraw);
 
     _enter(widget.run.first);
     _shown.duration = _animates ? _fade : Duration.zero;
@@ -706,8 +740,12 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     widget.run.address?.removeListener(_onAddress);
     widget.run.route?.removeStatusListener(_onRoute);
     _listening?.removeListener(_onListened);
+    _breath.listenable.removeListener(_redraw);
+    _cardFresh?.cancel();
     _ticker.dispose();
     _shown.dispose();
+    _breath.dispose();
+    _nudge.dispose();
     super.dispose();
   }
 
@@ -890,6 +928,9 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
     _drawn = _step;
     _drawnVisit = visit;
     _from = _holes;
+    _clickFrom = _clickNow;
+    _cardFresh?.cancel();
+    _cardFresh = Timer(_doubleClick, () {});
     _bubbleFrom = _track.position;
     _widthFrom = _track.width;
     _glide = _bubbleFrom == null || !_animates ? 1 : 0;
@@ -973,6 +1014,15 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 
     _holes = _from.isEmpty ? _aim : [for (var i = 0; i < _aim.length; i++) Rect.lerp(start(i), _aim[i], t)!];
 
+    final bool clickable = widget.run.steps[_drawn].takesClicks;
+
+    _clickNow = _from.isEmpty ? (clickable ? 1 : 0) : _clickFrom + ((clickable ? 1 : 0) - _clickFrom) * t;
+
+    if (t >= 1 && clickable && _breathed != _drawnVisit)
+    {
+      _breathe();
+    }
+
     if (t >= 1 && _glide >= 1 && elapsed >= _watchUntil)
     {
       _ticker.stop();
@@ -1051,9 +1101,93 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
 
   void _nextFrom(int visit)
   {
-    if (!_closing && visit == _visit)
+    if (_closing || visit != _visit || (_cardFresh?.isActive ?? false))
+    {
+      return;
+    }
+
+    if (!_performs)
     {
       _next();
+
+      return;
+    }
+
+    final DesktopTourStep step = _current;
+    final String? id = step.tapping ?? step.targets.firstOrNull;
+    final BuildContext? part = id == null ? null : _contextOf(id);
+
+    if (_performed != visit && !(step.reached?.call() ?? false) && part != null && part.mounted && tapTourPart(part))
+    {
+      _performed = visit;
+    }
+  }
+
+  // A click awaited with steps after it: the forward button clicks, the step moves on as after the user's.
+  bool get _performs => _current.waitsForClick && widget.run.steps.skip(_step + 1).any((step) => step.isAhead);
+
+  // [again] after a click that missed.
+  void _breathe({bool again = false})
+  {
+    if (!again && _breathed == _drawnVisit)
+    {
+      return;
+    }
+
+    _breathed = _drawnVisit;
+
+    if (_animates)
+    {
+      _breath.start();
+    }
+  }
+
+  void _onMiss()
+  {
+    if (_closing || _waiting)
+    {
+      return;
+    }
+
+    if (_animates)
+    {
+      _nudge.forward(from: 0);
+    }
+
+    if (widget.run.steps[_drawn].takesClicks)
+    {
+      _breathe(again: true);
+    }
+  }
+
+  void _onHit()
+  {
+    final DesktopTourStep step = _current;
+    final int visit = _visit;
+
+    if (_closing || _waiting)
+    {
+      return;
+    }
+
+    // At once: what the click closes would otherwise end the tour unmarked first.
+    if (step.clickEnds)
+    {
+      _end(mark: true, fade: false);
+
+      return;
+    }
+
+    if (step.clickMovesOn)
+    {
+      // After what the click set off has started.
+      SchedulerBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted && !_closing && visit == _visit)
+        {
+          _next();
+        }
+      });
     }
   }
 
@@ -1170,8 +1304,9 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
         text: _current.text,
         onClose: _close,
         onBack: _path.isEmpty ? null : () => _backFrom(visit),
-        onNext: _current.waitsForClick ? null : () => _nextFrom(visit),
-        last: _nextIndex == null,
+        onNext: () => _nextFrom(visit),
+        nudge: _nudge,
+        last: _nextIndex == null && !_performs,
       );
     }
 
@@ -1184,8 +1319,16 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
           Positioned.fill(
             child: _Blocker(
               hole: step.takesClicks ? _bounds(_aim) : null,
+              onHit: _onHit,
+              onMiss: _onMiss,
               child: CustomPaint(
-                painter: _DimPainter(holes: holes, radius: step.radius + step.pad / 2, radii: radii),
+                painter: _DimPainter(
+                  holes: holes,
+                  radius: step.radius + step.pad / 2,
+                  radii: radii,
+                  clickable: _clickNow,
+                  glow: _breath.glow,
+                ),
               ),
             ),
           ),
@@ -1240,19 +1383,32 @@ class _DimPainter extends CustomPainter
 
   final List<double> radii;
 
-  const _DimPainter({required this.holes, required this.radius, this.radii = const []});
+  // Clickable parts, and only they, get a rim and its glow.
+  final double clickable;
+  final double glow;
+
+  const _DimPainter({
+    required this.holes,
+    required this.radius,
+    this.radii = const [],
+    required this.clickable,
+    required this.glow,
+  });
 
   @override
   void paint(Canvas canvas, Size size)
   {
     // Holes meeting while they move are cut as one, never dimmed where they overlap.
     final Path cut = Path();
+    final List<RRect> shapes = [];
 
     for (final (int index, Rect hole) in holes.indexed)
     {
       final double corner = radii.isEmpty ? radius : radii[index];
+      final RRect shape = RRect.fromRectAndRadius(hole, Radius.circular(math.min(corner, hole.shortestSide / 2)));
 
-      cut.addRRect(RRect.fromRectAndRadius(hole, Radius.circular(math.min(corner, hole.shortestSide / 2))));
+      shapes.add(shape);
+      cut.addRRect(shape);
     }
 
     // The web keeps the result's contours but not its fill: even-odd gives the same area anywhere.
@@ -1260,12 +1416,32 @@ class _DimPainter extends CustomPainter
       ..fillType = PathFillType.evenOdd;
 
     canvas.drawPath(dim, Paint()..color = Colors.black.withValues(alpha: _dimOpacity));
+
+    if (clickable <= 0)
+    {
+      return;
+    }
+
+    final Paint rim = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _rimWidth
+      ..color = AppTheme.trialGold.withValues(alpha: clickable);
+
+    for (final RRect shape in shapes)
+    {
+      paintTourHalo(canvas, shape.inflate(_rimWidth), clickable * glow);
+      canvas.drawRRect(shape.inflate(_rimWidth / 2), rim);
+    }
   }
 
   @override
   bool shouldRepaint(_DimPainter oldDelegate)
   {
-    return !listEquals(oldDelegate.holes, holes) || oldDelegate.radius != radius || !listEquals(oldDelegate.radii, radii);
+    return !listEquals(oldDelegate.holes, holes) ||
+        oldDelegate.radius != radius ||
+        !listEquals(oldDelegate.radii, radii) ||
+        oldDelegate.clickable != clickable ||
+        oldDelegate.glow != glow;
   }
 }
 
@@ -1273,32 +1449,71 @@ class _Blocker extends SingleChildRenderObjectWidget
 {
   final Rect? hole;
 
-  const _Blocker({required this.hole, super.child});
+  // A click inside the hole, after what is underneath had it, and one anywhere else.
+  final VoidCallback onHit;
+  final VoidCallback onMiss;
+
+  const _Blocker({required this.hole, required this.onHit, required this.onMiss, super.child});
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _RenderBlocker(hole);
+  RenderObject createRenderObject(BuildContext context) => _RenderBlocker(hole)
+    ..onHit = onHit
+    ..onMiss = onMiss;
 
   @override
-  void updateRenderObject(BuildContext context, _RenderBlocker renderObject) => renderObject.hole = hole;
+  void updateRenderObject(BuildContext context, _RenderBlocker renderObject)
+  {
+    renderObject
+      ..hole = hole
+      ..onHit = onHit
+      ..onMiss = onMiss;
+  }
 }
 
 class _RenderBlocker extends RenderProxyBox
 {
   Rect? hole;
+  VoidCallback? onHit;
+  VoidCallback? onMiss;
+
+  // Where each pointer went down, and whether inside the hole.
+  final Map<int, (Offset, bool)> _downs = {};
 
   _RenderBlocker(this.hole);
 
   @override
   bool hitTest(BoxHitTestResult result, {required Offset position})
   {
-    if (!size.contains(position) || (hole?.contains(localToGlobal(position)) ?? false))
+    if (!size.contains(position))
     {
       return false;
     }
 
     result.add(BoxHitTestEntry(this, position));
 
-    return true;
+    // Inside the hole what is underneath is hit too.
+    return !(hole?.contains(localToGlobal(position)) ?? false);
+  }
+
+  @override
+  void handleEvent(PointerEvent event, BoxHitTestEntry entry)
+  {
+    if (event is PointerDownEvent)
+    {
+      _downs[event.pointer] = (event.position, hole?.contains(event.position) ?? false);
+    }
+    else if (event is PointerUpEvent)
+    {
+      if (_downs.remove(event.pointer) case (final Offset down, final bool inside)
+          when (event.position - down).distance < kTouchSlop)
+      {
+        (inside ? onHit : onMiss)?.call();
+      }
+    }
+    else if (event is PointerCancelEvent)
+    {
+      _downs.remove(event.pointer);
+    }
   }
 }
 
@@ -1434,6 +1649,7 @@ class _Bubble extends StatelessWidget
   final VoidCallback onClose;
   final VoidCallback? onBack;
   final VoidCallback? onNext;
+  final Animation<double> nudge;
   final bool last;
 
   const _Bubble({
@@ -1445,6 +1661,7 @@ class _Bubble extends StatelessWidget
     required this.onClose,
     required this.onBack,
     required this.onNext,
+    required this.nudge,
     required this.last,
   });
 
@@ -1469,11 +1686,14 @@ class _Bubble extends StatelessWidget
     final Widget? backButton = back == null ? null : _button(_backLabel, Icons.arrow_back_rounded, back, forward: false);
     final Widget? nextButton = next == null
         ? null
-        : _button(
-            last ? _endLabel : _nextLabel,
-            last ? Icons.check_rounded : Icons.arrow_forward_rounded,
-            next,
-            forward: true,
+        : ScaleTransition(
+            scale: kTourNudge.animate(nudge),
+            child: _button(
+              last ? _endLabel : _nextLabel,
+              last ? Icons.check_rounded : Icons.arrow_forward_rounded,
+              next,
+              forward: true,
+            ),
           );
 
     if (backButton == null || nextButton == null)

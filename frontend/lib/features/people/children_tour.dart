@@ -17,7 +17,7 @@ const String _title = 'Figli';
 const String _parentRole = 'PARENT';
 
 // Bump the version on every change to the tour.
-const (String, int) _seen = ('children', 2);
+const (String, int) _seen = ('children', 3);
 
 const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.below];
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.right];

@@ -39,9 +39,9 @@ const String _title = 'Associazione';
 
 // Bump a version on every change to that tour.
 const Map<String, (String, int)> _mainSeen = {
-  'TEACHER': ('association.teacher', 2),
-  'PARENT': ('association.parent', 3),
-  'STUDENT': ('association.student', 3),
+  'TEACHER': ('association.teacher', 3),
+  'PARENT': ('association.parent', 4),
+  'STUDENT': ('association.student', 4),
 };
 
 const (String, int) _teacherWindowSeen = ('association.reader.teacher', 1);
@@ -50,7 +50,7 @@ const (String, int) _teacherWindowSeen = ('association.reader.teacher', 1);
 const (String, int) _variationSeen = ('association.variation', 2);
 const (String, int) _pinnedSeen = ('association.pinned', 1);
 
-const int _pickerVersion = 1;
+const int _pickerVersion = 2;
 
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.right];
 const List<DesktopTourSide> _belowLeft = [DesktopTourSide.below, DesktopTourSide.left, DesktopTourSide.above];

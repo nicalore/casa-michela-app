@@ -326,12 +326,15 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
     final MobileDestination current = [...widget.destinations, ...widget.userDestinations]
         .firstWhere((d) => d.slug == widget.current);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _toggle,
-      onVerticalDragUpdate: _onDragUpdate,
-      onVerticalDragEnd: _onDragEnd,
-      child: MobileNavHead(destination: current, turn: _open),
+    return MobileTourTarget(
+      id: kMobileTourNavHead,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _toggle,
+        onVerticalDragUpdate: _onDragUpdate,
+        onVerticalDragEnd: _onDragEnd,
+        child: MobileNavHead(destination: current, turn: _open),
+      ),
     );
   }
 
