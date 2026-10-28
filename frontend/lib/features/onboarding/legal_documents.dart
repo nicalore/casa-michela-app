@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/utils/rome_clock.dart';
+import '../../core/utils/week_range.dart';
+
 class LegalDocument
 {
   final IconData icon;
@@ -42,6 +45,19 @@ const String kTermsDeclaration = 'Dichiaro di aver letto e di accettare i Termin
     'la Privacy Policy e la Cookie Policy.';
 
 const String kTermsRefusal = 'Per proseguire, conferma di aver letto e accettato i documenti.';
+
+const String kTermsUpdateTitle = 'Documenti aggiornati';
+
+const String kTermsUpdateText = "Abbiamo modificato i documenti che regolano l'uso dell'applicazione e spiegano come "
+    'trattiamo i tuoi dati. Per proseguire, leggili e conferma di accettarli nuovamente.';
+
+// The day the IT manager asked, on Rome's calendar: "28 ottobre 2026".
+String termsUpdateEyebrow(DateTime updatedAt)
+{
+  final DateTime day = romeWallTime(updatedAt);
+
+  return '${formatDayMonthFull(day)} ${day.year}';
+}
 
 // A new browser tab on the web, the in-app browser on phones.
 Future<void> openLegalDocument(LegalDocument document)

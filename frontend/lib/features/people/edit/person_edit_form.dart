@@ -206,7 +206,7 @@ class PersonEditForm
 
     return allergiesCtrl.text.trim().isNotEmpty ||
         medicationsCtrl.text.trim().isNotEmpty ||
-        (roles.contains('STUDENTE') && certificationValues.isNotEmpty) ||
+        (isCreation && roles.contains('STUDENTE') && certificationValues.isNotEmpty) ||
         (!roles.contains('PSICOLOGO') && hasPsychologicalSupport);
   }
 
@@ -373,12 +373,11 @@ class PersonEditForm
   String? homeworkTariffValue;
   final TextEditingController otherPaymentMethodCtrl = TextEditingController();
 
-  // Certification labels; empty means none held.
+  // Certification labels, asked on creation only; empty means none held.
   final Set<String> certificationValues = {};
   final TextEditingController otherCertificationCtrl = TextEditingController();
   // Required for a DSA certification; the server rejects it without this.
   final TextEditingController dsaCertificationCtrl = TextEditingController();
-  bool? mandatoryPsychMeetingsAcknowledgedExisting;
 
   final TextEditingController emergencyContactNameCtrl = TextEditingController();
   final TextEditingController emergencyContactPhoneCtrl = TextEditingController();
@@ -574,27 +573,9 @@ class PersonEditForm
       otherPaymentMethodCtrl.text = person.paymentMethodOther ?? '';
     }
 
-    certificationValues
-      ..clear()
-      ..addAll(person.certificationTypes
-          .map((code) => labelForServerValue(kCertificationTypes, code))
-          .whereType<String>());
-
-    if (certificationValues.contains('Altro'))
-    {
-      otherCertificationCtrl.text = person.certificationOtherDetail ?? '';
-    }
-
-    if (certificationValues.contains('DSA'))
-    {
-      dsaCertificationCtrl.text = person.certificationDsaDetail ?? '';
-    }
-
-    mandatoryPsychMeetingsAcknowledgedExisting = person.mandatoryPsychMeetingsAcknowledged;
     homeworkTariffValue = homeworkTariffChoiceOf(person.homeworkTariff);
     specialCategoryDataConsentValue = person.specialCategoryDataConsent ?? false;
     newsletterConsentValue = person.newsletterConsent ?? false;
-    psychMeetingsAcknowledgedValue = person.mandatoryPsychMeetingsAcknowledged ?? false;
 
     emergencyContactNameCtrl.text = person.emergencyContactName ?? '';
     emergencyContactPhoneCtrl.text = formatPhoneNumber(person.emergencyContactPhone);
@@ -1129,13 +1110,9 @@ class PersonEditForm
       };
     }
 
+    // No certifications: an edit leaves them to the pupil's «Osservazioni».
     if (finalRoles.contains('STUDENTE'))
     {
-      final List<String> certificationTypes = certificationValues
-          .map((label) => kCertificationTypes[label])
-          .whereType<String>()
-          .toList();
-
       // Enrollments go in the same body: one transaction, one concurrency check.
       // Only a minor is authorised to leave early: an adult just leaves.
       final bool earlyExitAuthorized = isMinor && uscitaAnticipata;
@@ -1143,14 +1120,6 @@ class PersonEditForm
       studentData = {
         'authorized_early_exit': earlyExitAuthorized,
         ...earlyExitPayload(authorized: earlyExitAuthorized),
-        'certification_types': certificationTypes,
-        'certification_other_detail': certificationTypes.contains('OTHER')
-            ? otherCertificationCtrl.text.trim()
-            : null,
-        'certification_dsa_detail': certificationTypes.contains('DSA')
-            ? dsaCertificationCtrl.text.trim()
-            : null,
-        'mandatory_psych_meetings_acknowledged': psychMeetingsAcknowledgedValue,
         'homework_tariff': homeworkTariffCode,
         'school_enrollments': schoolRows
             .map((row) => {

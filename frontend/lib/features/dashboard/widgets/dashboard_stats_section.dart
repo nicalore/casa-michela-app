@@ -41,13 +41,13 @@ List<DashboardStat> dashboardStats({
     ),
     DashboardStat(
       label: 'Docenti',
-      value: teachers?.currentTotalMembers ?? 0,
-      deltaMonth: teachers?.membersDeltaMonth ?? 0,
+      value: teachers?.currentActiveCollaborators ?? 0,
+      deltaMonth: teachers?.collabDeltaMonth ?? 0,
     ),
     DashboardStat(
       label: 'Studenti',
-      value: students?.currentTotalMembers ?? 0,
-      deltaMonth: students?.membersDeltaMonth ?? 0,
+      value: students?.currentActiveCollaborators ?? 0,
+      deltaMonth: students?.collabDeltaMonth ?? 0,
     ),
   ];
 }

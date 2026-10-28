@@ -23,7 +23,7 @@ from sqlalchemy.sql.base import ExecutableOption
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.dependencies import DbSession
-from app.api.rbac import CurrentIdentity, require_role
+from app.api.rbac import CurrentIdentity, IdentityContext, require_role
 from app.core import field_lengths
 from app.core.birthdays import age_on, is_birthday
 from app.core.booking_window import today_in_rome
@@ -1351,12 +1351,11 @@ async def _update_member_data(
         await _rewrite_memberships(db, person.tax_code, member_data.memberships)
 
 
+# Certifications are edited on their own route: an edit never touches them.
 async def _sync_student_profile(
     db: AsyncSession,
     person: Person,
     student_data: StudentUpdateData,
-    *,
-    keeps_health: bool,
 ) -> None:
     if not student_data.school_enrollments:
         raise HTTPException(
@@ -1376,38 +1375,12 @@ async def _sync_student_profile(
         select(Student).where(Student.tax_code == person.tax_code)
     )
 
-    certification_types = [
-        CertificationTypeEnum(kind) for kind in student_data.certification_types
-    ]
-    certification_other_detail = (
-        student_data.certification_other_detail
-        if CertificationTypeEnum.OTHER in certification_types
-        else None
-    )
-    certification_dsa_detail = (
-        student_data.certification_dsa_detail
-        if CertificationTypeEnum.DSA in certification_types
-        else None
-    )
-    certification_values = {
-        "certification_types": certification_types,
-        "certification_other_detail": certification_other_detail,
-        "certification_dsa_detail": certification_dsa_detail,
-        "mandatory_psych_meetings_acknowledged": (
-            student_data.mandatory_psych_meetings_acknowledged
-        ),
-    }
-
     if current_student is not None:
         assert_not_stale(
             current_student,
             student_data.expected_updated_at,
             entity_label=_SCHOOL_ENROLLMENTS_LABEL,
         )
-
-        # Hidden for lack of consent: only certifications given now replace them.
-        if keeps_health and not certification_types:
-            certification_values = {}
 
         await db.execute(
             update(Student)
@@ -1418,7 +1391,6 @@ async def _sync_student_profile(
                 early_exit_end_date=student_data.early_exit_end_date,
                 homework_tariff=student_data.homework_tariff,
                 updated_at=datetime.now(UTC),
-                **certification_values,
             )
         )
     else:
@@ -1428,12 +1400,6 @@ async def _sync_student_profile(
                 authorized_early_exit=student_data.authorized_early_exit,
                 early_exit_start_date=student_data.early_exit_start_date,
                 early_exit_end_date=student_data.early_exit_end_date,
-                certification_types=certification_types,
-                certification_other_detail=certification_other_detail,
-                certification_dsa_detail=certification_dsa_detail,
-                mandatory_psych_meetings_acknowledged=(
-                    student_data.mandatory_psych_meetings_acknowledged
-                ),
                 homework_tariff=student_data.homework_tariff,
             )
         )
@@ -2275,12 +2241,7 @@ async def update_person(
             )
 
         if _ROLE_CODE_STUDENT in roles and payload.student_data:
-            await _sync_student_profile(
-                db,
-                person,
-                payload.student_data,
-                keeps_health=not consented,
-            )
+            await _sync_student_profile(db, person, payload.student_data)
         else:
             await _delete_student_profile(db, person)
 
@@ -2350,11 +2311,9 @@ async def update_person(
 
 def _brings_health_data(payload: PersonUpdatePayload) -> bool:
     member = payload.member_data
-    student = payload.student_data
 
     return bool(
         (member is not None and (member.allergies_notes or member.medications_notes))
-        or (student is not None and student.certification_types)
         or payload.psychological_support_data is not None
     )
 
@@ -3184,18 +3143,49 @@ async def update_teacher_competences(
     return {"message": _COMPETENCES_UPDATED_MESSAGE}
 
 
+# Admins reach any pupil with the consent, psychologists only those they follow.
+async def _certified_student(
+    db: AsyncSession,
+    identity: IdentityContext,
+    tax_code: str,
+) -> Student:
+    if not identity.is_admin:
+        return await followed_student(db, tax_code)
+
+    student = await db.scalar(
+        select(Student)
+        .options(joinedload(Student.member))
+        .where(Student.tax_code == tax_code.upper())
+    )
+
+    if student is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_NO_STUDENT_PROFILE_ERROR,
+        )
+
+    if not student.member.special_category_data_consent:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=HEALTH_DATA_WITHOUT_CONSENT_ERROR,
+        )
+
+    return student
+
+
 # Certifications only: the family's meeting acknowledgement stays theirs.
 @router.put(
     "/{tax_code}/certifications",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_role("PSYCHOLOGIST"))],
+    dependencies=[Depends(require_role("PSYCHOLOGIST", "ADMIN"))],
 )
 async def update_certifications(
     tax_code: str,
     payload: StudentCertificationsUpdate,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> Response:
-    student = await followed_student(db, tax_code)
+    student = await _certified_student(db, identity, tax_code)
     kinds = list(payload.certification_types)
 
     student.certification_types = kinds

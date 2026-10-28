@@ -463,11 +463,24 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     }
   }
 
-  String get _welcome => onboardingWelcome(_person!.gender);
+  // Set when the documents changed after an acceptance: the only step, with its own words.
+  DateTime? get _termsUpdate => _me?.termsUpdate;
 
-  String get _title => onboardingStepTitle(_step);
+  String get _welcome
+  {
+    return _termsUpdate == null ? onboardingWelcome(_person!.gender) : onboardingWelcomeBack(_person!.gender);
+  }
 
-  String get _question => onboardingStepQuestion(_step);
+  String get _eyebrow
+  {
+    final DateTime? update = _termsUpdate;
+
+    return update == null ? 'PASSO ${_shown + 1} DI ${_steps.length}' : termsUpdateEyebrow(update).toUpperCase();
+  }
+
+  String get _title => _termsUpdate == null ? onboardingStepTitle(_step) : kTermsUpdateTitle;
+
+  String get _question => _termsUpdate == null ? onboardingStepQuestion(_step) : kTermsUpdateText;
 
   bool get _canReport
   {
@@ -494,7 +507,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'PASSO ${_shown + 1} DI ${_steps.length}',
+          _eyebrow,
           style: GoogleFonts.plusJakartaSans(
             fontSize: 11,
             fontWeight: FontWeight.w600,

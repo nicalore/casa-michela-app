@@ -116,7 +116,8 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
         _loading = false;
       });
 
-      if (_index >= 0)
+      // The changed-documents page says it all on the page, with no (i).
+      if (_index >= 0 && _termsUpdate == null)
       {
         _introduceLater(_index);
       }
@@ -166,6 +167,9 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
   }
 
   OnboardingStep get _step => _steps[_index];
+
+  // Set when the documents changed after an acceptance: the only step, as its own page.
+  DateTime? get _termsUpdate => _me?.termsUpdate;
 
   // The welcome page belongs to the first access; terms alone go straight to their step.
   int get _start => (_me?.onboardingRequired ?? true) ? _welcome : 0;
@@ -480,8 +484,37 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
     );
   }
 
+  // The welcome page's shape, the date and the reason on it.
+  Widget _buildTermsUpdate(DateTime update, {required bool tablet})
+  {
+    return MobileFlowForm(
+      tablet: tablet,
+      children: [
+        MobileFirstAccessIntro(
+          eyebrow: termsUpdateEyebrow(update),
+          title: kTermsUpdateTitle,
+          text: kTermsUpdateText,
+          capsule: _buildCapsule(),
+          tablet: tablet,
+        ),
+        const SizedBox(height: kMobileFirstAccessIntroGap),
+        MobileTermsStep(
+          accepted: _termsAccepted,
+          onChanged: (accepted) => setState(() => _termsAccepted = accepted),
+        ),
+      ],
+    );
+  }
+
   Widget _buildStep(OnboardingStep step, {required bool tablet, required bool rail})
   {
+    final DateTime? update = _termsUpdate;
+
+    if (step.kind == OnboardingStepKind.terms && update != null)
+    {
+      return _buildTermsUpdate(update, tablet: tablet);
+    }
+
     final double margin = MobileFlowScaffold.marginOf(tablet: tablet);
     final double endRoom = MobileFlowScaffold.endRoomOf(context);
     final Widget head = _buildHead(step, tablet: tablet, rail: rail);
@@ -612,6 +645,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
     final bool rail = ready &&
         tablet &&
         _index > _welcome &&
+        _termsUpdate == null &&
         MediaQuery.orientationOf(context) == Orientation.landscape;
 
     // One scaffold across loading so the buttons rise into place instead of jumping.

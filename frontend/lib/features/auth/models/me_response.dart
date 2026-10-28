@@ -17,6 +17,9 @@ class MeResponse
   // The legal documents to accept: the flow's first step, or the only one if it is done.
   final bool termsRequired;
 
+  // When an IT manager asked again someone who had accepted; null otherwise.
+  final DateTime? termsUpdatedAt;
+
   // True for a pupil a parent answers for, not for the parent; their area is narrower.
   final bool hasParentalResponsibility;
 
@@ -51,6 +54,9 @@ class MeResponse
 
   bool get firstAccessPending => onboardingRequired || termsRequired;
 
+  // Past the first access the changed documents get their own page; within it, the usual step.
+  DateTime? get termsUpdate => onboardingRequired ? null : termsUpdatedAt;
+
   const MeResponse({
     required this.taxCode,
     required this.username,
@@ -64,6 +70,7 @@ class MeResponse
     required this.passwordResetRequired,
     this.onboardingRequired = false,
     this.termsRequired = false,
+    this.termsUpdatedAt,
     this.hasParentalResponsibility = false,
     this.autonomousBookings = false,
     this.boardRole,
@@ -98,6 +105,7 @@ class MeResponse
       passwordResetRequired: json['password_reset_required'],
       onboardingRequired: json['onboarding_required'] ?? false,
       termsRequired: json['terms_required'] ?? false,
+      termsUpdatedAt: json['terms_updated_at'] != null ? DateTime.tryParse(json['terms_updated_at']) : null,
       hasParentalResponsibility: json['has_parental_responsibility'] ?? false,
       autonomousBookings: json['autonomous_bookings'] ?? false,
       boardRole: json['board_role'] as String?,

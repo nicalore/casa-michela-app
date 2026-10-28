@@ -60,6 +60,7 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     **_crud("/rooms", "Room", "room_id", body_fields=("name",)),
     **_crud("/notices", "Notice", "notice_id"),
     **_crud("/app-updates", "App update", "update_id"),
+    ("POST", "/app-updates/terms-requests"): AuditRule("Terms acceptance request"),
     ("PUT", "/notices/{notice_id}/pin"): AuditRule(
         "Notice pin",
         path_params=("notice_id",),

@@ -2,6 +2,10 @@ const String kMethodologicalNotesTitle = 'Osservazioni metodologiche';
 const String kTechnicalNotesTitle = 'Osservazioni tecniche';
 const String kTeacherNotesTitle = 'Osservazioni dei docenti';
 
+// The server's own refusal, for health data asked of a family that did not consent.
+const String kHealthDataWithoutConsent = 'Senza il consenso ai dati particolari non si possono registrare allergie, '
+    'farmaci, certificazioni e sostegno psicologico.';
+
 // An administrator's notes on a teacher, for the administrators and the teacher alike.
 const String kObservationsTitle = 'Osservazioni';
 const String kNoObservations = 'Nessuna osservazione';

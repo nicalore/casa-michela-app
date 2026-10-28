@@ -11,6 +11,7 @@ import '../../../shared/widgets/shared_components.dart';
 import '../../association/notices/notice_message_view.dart' show noticeTextStyle;
 import '../models/student_note_item.dart';
 import '../utils/student_notes_strings.dart';
+import 'card_eye.dart';
 import 'person_detail_widgets.dart' show missingValue;
 import 'student_note_text.dart';
 
@@ -34,6 +35,9 @@ class StudentNotesCard extends StatelessWidget
   // In the head when there is no AGGIUNGI.
   final Widget? trailing;
 
+  // Ten dots in place of every note, behind the eye a masking parent puts in [trailing].
+  final bool hidden;
+
   final bool Function(StudentNoteItem note) mayChange;
   final ValueChanged<StudentNoteItem>? onEdit;
   final ValueChanged<StudentNoteItem>? onDelete;
@@ -51,6 +55,7 @@ class StudentNotesCard extends StatelessWidget
     required this.notes,
     this.onAdd,
     this.trailing,
+    this.hidden = false,
     this.mayChange = _never,
     this.onEdit,
     this.onDelete,
@@ -173,6 +178,32 @@ class StudentNotesCard extends StatelessWidget
     );
   }
 
+  Widget _buildNotes(bool dense, int firstChangeable)
+  {
+    return notes.isEmpty
+        ? Text(
+            missingValue,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: dense ? 15 : 18,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.trialInk,
+            ),
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < notes.length; i++) ...[
+                if (i > 0)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: dense ? 12 : 18),
+                    child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+                  ),
+                _buildNote(notes[i], toured: i == firstChangeable, dense: dense),
+              ],
+            ],
+          );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -196,28 +227,7 @@ class StudentNotesCard extends StatelessWidget
               fontSize: 13,
               onPressed: add,
             ),
-      child: notes.isEmpty
-          ? Text(
-              missingValue,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: dense ? 15 : 18,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.trialInk,
-              ),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < notes.length; i++) ...[
-                  if (i > 0)
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: dense ? 12 : 18),
-                      child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
-                    ),
-                  _buildNote(notes[i], toured: i == firstChangeable, dense: dense),
-                ],
-              ],
-            ),
+      child: hidden ? const ObscuredCardText() : _buildNotes(dense, firstChangeable),
     );
   }
 }

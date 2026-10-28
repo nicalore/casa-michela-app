@@ -3,6 +3,7 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Annotated, Any, Final
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
@@ -31,6 +32,7 @@ from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_publication import CalendarPublication
+from app.models.collaboration_change import CollaborationChange
 from app.models.course_participant import CourseParticipant
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
@@ -113,6 +115,8 @@ router = APIRouter(
 
 # One's own figures, readable by a pupil's parents too; appreciation stays admin-only.
 personal_router = APIRouter(prefix="/statistics", tags=["statistics"])
+
+_ROME: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 
 _MONTH_RESOLUTION: Final[str] = "month"
 _UNKNOWN_AREA_LABEL: Final[str] = "Altra Area"
@@ -225,7 +229,36 @@ def _enrolled_on(day: date) -> ColumnElement[bool]:
     )
 
 
-# Collaboration has no history: past days are read with today's flag.
+def _member_collaboration_changes() -> Select[tuple[bool]]:
+    return (
+        select(CollaborationChange.active)
+        .where(CollaborationChange.member_tax_code == Member.tax_code)
+        .limit(1)
+    )
+
+
+# The last change by the end of that day; before the first on record, that first.
+def _collaborating_on(day: date) -> ColumnElement[bool]:
+    day_end = datetime.combine(day + timedelta(days=1), time(0), tzinfo=_ROME)
+
+    latest = (
+        _member_collaboration_changes()
+        .where(CollaborationChange.created_at < day_end)
+        .order_by(CollaborationChange.created_at.desc(), CollaborationChange.id.desc())
+    )
+    first = _member_collaboration_changes().order_by(
+        CollaborationChange.created_at,
+        CollaborationChange.id,
+    )
+
+    return func.coalesce(
+        latest.scalar_subquery(),
+        first.scalar_subquery(),
+        False,
+    ).is_(True)
+
+
+# Today reads the flag itself, as the people list does.
 async def _count_enrolled(
     db: AsyncSession,
     role: str | None,
@@ -240,7 +273,11 @@ async def _count_enrolled(
     )
 
     if only_collaborating:
-        stmt = stmt.where(Member.collaborating_active.is_(True))
+        stmt = stmt.where(
+            Member.collaborating_active.is_(True)
+            if on >= today_in_rome()
+            else _collaborating_on(on),
+        )
 
     return await db.scalar(_apply_role_joins(stmt, role)) or 0
 

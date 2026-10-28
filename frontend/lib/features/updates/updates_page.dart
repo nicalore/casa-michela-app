@@ -27,6 +27,7 @@ import 'update_composer_dialog.dart';
 import 'update_details_dialog.dart';
 import 'update_item.dart';
 import 'update_reading.dart';
+import 'terms_request_dialog.dart';
 import 'update_strings.dart';
 import 'widgets/update_card.dart';
 
@@ -36,9 +37,10 @@ const double _shadowRoom = 20;
 const double _titleHeight = 52;
 const double _bottomMargin = 24;
 
-const double _buttonWidth = 330;
+const double _buttonWidth = 400;
 const double _buttonHeight = 52;
 const double _buttonFontSize = 14;
+const double _buttonGap = 16;
 
 // Below the wide window: the button as tall as the page's controls, the heading on one line.
 const double _denseListBottomRoom = 36 + 30;
@@ -75,6 +77,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
   // Kept in the server's order, newest first.
   List<UpdateSummaryItem> _updates = [];
   bool _loaded = false;
+  bool _requestingTerms = false;
 
   @override
   void initState()
@@ -176,6 +179,37 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
   void _compose()
   {
     showUpdateComposer(context, images: NoticeImages(), onSave: _create);
+  }
+
+  Future<void> _requestTerms() async
+  {
+    if (_requestingTerms || !await showTermsRequestConfirmation(context) || !mounted)
+    {
+      return;
+    }
+
+    setState(() => _requestingTerms = true);
+
+    try
+    {
+      await _apiService.requestTermsAcceptance();
+
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: kTermsRequestSent, isError: false);
+      }
+    }
+    catch (error)
+    {
+      _refuse(readableApiError(error));
+    }
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _requestingTerms = false);
+      }
+    }
   }
 
   Future<void> _open(int id) async
@@ -343,7 +377,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
     );
   }
 
-  Widget _button()
+  Widget _button({required String label, required IconData icon, required VoidCallback onPressed, bool busy = false})
   {
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -351,13 +385,26 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
         boxShadow: const [BoxShadow(color: Color(0x2E0B3350), offset: Offset(0, 10), blurRadius: 28)],
       ),
       child: AppGradientButton(
-        label: kNewUpdateButton,
-        icon: Icons.add_rounded,
+        label: label,
+        icon: icon,
+        busy: busy,
         width: AppPageDensity.of(context) ? null : _buttonWidth,
         height: _buttonHeight,
         fontSize: _buttonFontSize,
-        onPressed: _compose,
+        onPressed: onPressed,
       ),
+    );
+  }
+
+  Widget _buttons()
+  {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _button(label: kTermsRequestButton, icon: Icons.policy_rounded, onPressed: _requestTerms, busy: _requestingTerms),
+        const SizedBox(width: _buttonGap),
+        _button(label: kNewUpdateButton, icon: Icons.add_rounded, onPressed: _compose),
+      ],
     );
   }
 
@@ -430,7 +477,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
                                       right: 0,
                                       bottom: 0,
                                       child: Center(
-                                        child: PageTransitionItem(slot: PageTransitionItem.header, child: _button()),
+                                        child: PageTransitionItem(slot: PageTransitionItem.header, child: _buttons()),
                                       ),
                                     ),
                                   ],

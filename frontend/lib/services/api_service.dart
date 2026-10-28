@@ -2067,6 +2067,19 @@ class ApiService
     }
   }
 
+  // Everyone accepts the legal documents again at their next access.
+  Future<void> requestTermsAcceptance() async
+  {
+    try
+    {
+      await _dio.post('/app-updates/terms-requests');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Non è stato possibile richiedere la nuova accettazione. Riprova più tardi.');
+    }
+  }
+
   // Newest first, what the caller has still to read.
   Future<List<UpdateReadingItem>> getUnreadUpdates() async
   {

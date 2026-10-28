@@ -29,7 +29,7 @@ const double rowHeightWithAvatar = 76;
 const double _textSizes = 15 + 12;
 const double _lineHeight = 1.35;
 
-// Fixed so ticking never reflows the list, but grown with larger text (a tenth below the wide window).
+// A floor grown with larger text (a tenth below the wide window); long descriptions wrap past it.
 double _heightFor(BuildContext context, double height)
 {
   final double grown = MediaQuery.textScalerOf(context).scale(_textSizes) - _textSizes;
@@ -85,7 +85,9 @@ class _SubjectPickRowState extends State<SubjectPickRow>
         // The height sits outside the animation: it follows the window's text size.
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
-          height: _heightFor(context, widget.leading == null ? rowHeight : rowHeightWithAvatar),
+          constraints: BoxConstraints(
+            minHeight: _heightFor(context, widget.leading == null ? rowHeight : rowHeightWithAvatar),
+          ),
           child: AnimatedContainer(
             duration: _selectFade,
             curve: Curves.easeOut,
@@ -125,12 +127,12 @@ class _SubjectPickRowState extends State<SubjectPickRow>
                       ),
                       if (widget.subtitle.isNotEmpty) ...[
                         const SizedBox(height: 2),
-                        OverflowTooltipText(
-                          text: widget.subtitle,
-                          maxLines: 1,
+                        Text(
+                          widget.subtitle,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
+                            height: _lineHeight,
                             color: AppTheme.trialMutedText,
                           ),
                         ),

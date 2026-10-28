@@ -44,6 +44,7 @@ from app.services.app_updates import (
     update_image,
     update_response,
 )
+from app.services.terms import request_terms
 
 _UPDATE_LABEL: Final[str] = "l'aggiornamento"
 _NOT_A_MANAGER_ERROR: Final[str] = (
@@ -127,6 +128,15 @@ async def updates_seen(
 ) -> Response:
     ids = await readable_ids(db, current_account.person, payload.ids)
     await mark_read(db, current_account.tax_code, ids)
+    await db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# Everyone accepts the legal documents again at their next access.
+@router.post("/terms-requests", status_code=status.HTTP_204_NO_CONTENT)
+async def ask_terms_again(manager: Manager, db: DbSession) -> Response:
+    request_terms(db, manager.tax_code)
     await db.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

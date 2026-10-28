@@ -329,10 +329,12 @@ PersonDetailCard teacherDetailsCard(PersonItem person, {bool forOwner = false})
   );
 }
 
+// [withCertifications]: false for the administrators, who have them in «Osservazioni».
 List<PersonDetailCard> roleDetailCards(
   PersonItem person, {
   bool includeTeacherDetails = true,
   bool forOwner = false,
+  bool withCertifications = true,
 })
 {
   final roles = _upperCaseRoles(person);
@@ -364,7 +366,7 @@ List<PersonDetailCard> roleDetailCards(
 
   if (roles.contains('STUDENTE'))
   {
-    cards.addAll(pupilDetailCards(person, forOwner: forOwner));
+    cards.addAll(pupilDetailCards(person, forOwner: forOwner, withCertifications: withCertifications));
   }
 
   if (roles.contains('CORSISTA'))
@@ -392,9 +394,9 @@ List<PersonDetailCard> roleDetailCards(
 }
 
 // [forOwner]: pupils are never shown their own certifications.
-List<PersonDetailCard> pupilDetailCards(PersonItem person, {bool forOwner = false})
+List<PersonDetailCard> pupilDetailCards(PersonItem person, {bool forOwner = false, bool withCertifications = true})
 {
-  final certification = forOwner ? null : _certificationText(person);
+  final certification = forOwner || !withCertifications ? null : _certificationText(person);
 
   final List<DetailRowData> certificationRows = [
     if (certification != null)

@@ -222,12 +222,12 @@ class _CompetenceRowState extends State<CompetenceRow>
                           ),
                         ),
                         const SizedBox(height: 2),
-                        OverflowTooltipText(
-                          maxLines: 1,
-                          text: widget.subtitle ?? subjectAreaLabel(widget.area),
+                        Text(
+                          widget.subtitle ?? subjectAreaLabel(widget.area),
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
+                            height: 1.35,
                             color: AppTheme.trialMutedText,
                           ),
                         ),

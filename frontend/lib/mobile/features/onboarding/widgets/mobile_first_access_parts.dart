@@ -12,6 +12,59 @@ const String kFirstAccessStart = 'Inizia';
 
 const double _numberSize = 30;
 
+// Between the intro's text and what follows it.
+const double kMobileFirstAccessIntroGap = 22;
+
+// The welcome page's head, shared by the changed-documents page.
+class MobileFirstAccessIntro extends StatelessWidget
+{
+  final String eyebrow;
+  final String title;
+  final String text;
+  final Widget capsule;
+  final bool tablet;
+
+  const MobileFirstAccessIntro({
+    super.key,
+    required this.eyebrow,
+    required this.title,
+    required this.text,
+    required this.capsule,
+    required this.tablet,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 36),
+          child: Row(
+            children: [
+              Expanded(child: MobileFlowEyebrow(eyebrow, tablet: tablet)),
+              capsule,
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        MobileFlowTitle(title, tablet: tablet, size: tablet ? 40 : 34),
+        const SizedBox(height: 14),
+        Text(
+          text,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w500,
+            height: 1.5,
+            color: Colors.white.withValues(alpha: 0.84),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class MobileFirstAccessWelcome extends StatelessWidget
 {
   final String greeting;
@@ -33,28 +86,14 @@ class MobileFirstAccessWelcome extends StatelessWidget
     return MobileFlowForm(
       tablet: tablet,
       children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 36),
-          child: Row(
-            children: [
-              Expanded(child: MobileFlowEyebrow(kFirstAccessEyebrow, tablet: tablet)),
-              capsule,
-            ],
-          ),
+        MobileFirstAccessIntro(
+          eyebrow: kFirstAccessEyebrow,
+          title: greeting,
+          text: kFirstAccessIntro,
+          capsule: capsule,
+          tablet: tablet,
         ),
-        const SizedBox(height: 18),
-        MobileFlowTitle(greeting, tablet: tablet, size: tablet ? 40 : 34),
-        const SizedBox(height: 14),
-        Text(
-          kFirstAccessIntro,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14.5,
-            fontWeight: FontWeight.w500,
-            height: 1.5,
-            color: Colors.white.withValues(alpha: 0.84),
-          ),
-        ),
-        const SizedBox(height: 22),
+        const SizedBox(height: kMobileFirstAccessIntroGap),
         MobileGlassPanel(
           padding: const EdgeInsets.fromLTRB(18, 6, 18, 6),
           child: Column(

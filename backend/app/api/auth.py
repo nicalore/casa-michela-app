@@ -25,7 +25,6 @@ from app.core.client_device import (
     ClientDevice,
     describe_client,
 )
-from app.core.config import settings
 from app.core.password_policy import PasswordPolicyError
 from app.core.storage import discard_profile_image, store_profile_image
 from app.models.account import Account
@@ -59,6 +58,12 @@ from app.services.auth_service import (
 from app.services.new_devices import device_seen, sessions_ended
 from app.services.report_readers import kinds_read_by
 from app.services.role_service import BOARD_ROLES, RoleService
+from app.services.terms import (
+    latest_terms_request,
+    record_terms_acceptance,
+    terms_due,
+    terms_update_shown,
+)
 
 router = APIRouter(
     prefix="/auth",
@@ -320,7 +325,11 @@ def _board_role(person: Person) -> str | None:
     return administrator.role.value
 
 
-def _identity_payload(account: Account, worn: str | None = None) -> dict[str, Any]:
+def _identity_payload(
+    account: Account,
+    terms_requested_at: datetime | None,
+    worn: str | None = None,
+) -> dict[str, Any]:
     person = account.person
     roles = RoleService.sorted_by_label(RoleService.get_available_roles(person))
 
@@ -332,6 +341,7 @@ def _identity_payload(account: Account, worn: str | None = None) -> dict[str, An
 
     has_address = bool(person.residence_type and person.residence_address)
     address = f"{person.residence_type} {person.residence_address}".strip()
+    updated_at = terms_update_shown(account, terms_requested_at)
 
     return {
         "tax_code": account.tax_code,
@@ -347,9 +357,9 @@ def _identity_payload(account: Account, worn: str | None = None) -> dict[str, An
         # Stays required until the whole flow ends; the password change is step one.
         "onboarding_required": account.onboarding_completed_at is None,
         # Asked in the first-access flow, or alone to those already past it.
-        "terms_required": (
-            settings.terms_acceptance_enabled and account.terms_accepted_at is None
-        ),
+        "terms_required": terms_due(account, terms_requested_at),
+        # The request that asks again someone who had accepted, shown with its date.
+        "terms_updated_at": updated_at.isoformat() if updated_at else None,
         # A pupil somebody answers for: parents book and pay, so their area is smaller.
         "has_parental_responsibility": RoleService.is_answered_for(person),
         # Such a pupil may still be allowed to book; payments stay with the parents.
@@ -376,8 +386,16 @@ def _identity_payload(account: Account, worn: str | None = None) -> dict[str, An
 
 
 @router.get("/me")
-async def me(request: Request, current_account: CurrentAccount) -> dict[str, Any]:
-    return _identity_payload(current_account, worn_role(request))
+async def me(
+    request: Request,
+    current_account: CurrentAccount,
+    db: DbSession,
+) -> dict[str, Any]:
+    return _identity_payload(
+        current_account,
+        await latest_terms_request(db),
+        worn_role(request),
+    )
 
 
 # Presentation only: RBAC still reads every role, so switching changes no permission.
@@ -406,7 +424,7 @@ async def set_active_role(
 
     await db.commit()
 
-    return _identity_payload(account)
+    return _identity_payload(account, await latest_terms_request(db))
 
 
 # Only reaching the end writes anything; abandoning halfway restarts the flow.
@@ -423,10 +441,14 @@ async def complete_onboarding(
 
         await db.commit()
 
-    return _identity_payload(account, worn_role(request))
+    return _identity_payload(
+        account,
+        await latest_terms_request(db),
+        worn_role(request),
+    )
 
 
-# The first acceptance stays: a later call never moves its date.
+# An acceptance still current keeps its date; past a newer request it moves.
 @router.post("/accept-terms")
 async def accept_terms(
     request: Request,
@@ -434,13 +456,13 @@ async def accept_terms(
     db: DbSession,
 ) -> dict[str, Any]:
     account = current_account
+    requested_at = await latest_terms_request(db)
 
-    if account.terms_accepted_at is None:
-        account.terms_accepted_at = datetime.now(UTC)
+    record_terms_acceptance(db, account, requested_at)
 
-        await db.commit()
+    await db.commit()
 
-    return _identity_payload(account, worn_role(request))
+    return _identity_payload(account, requested_at, worn_role(request))
 
 
 @router.post("/profile-image")

@@ -1413,15 +1413,6 @@ class CertificationsCard extends StatelessWidget
             ctx.onChanged();
           },
         ),
-        if (ctx.form.certificationValues.contains('Altro'))
-          AppTextField(
-            controller: ctx.form.otherCertificationCtrl,
-            label: 'Altra certificazione',
-            hintText: 'Es. Autismo livello 1',
-            maxLength: FieldLimits.otherDetail,
-            errorText: ctx.errors['altraCertificazione'],
-            onChanged: (_) => ctx.clearError('altraCertificazione'),
-          ),
         if (ctx.form.certificationValues.contains('DSA'))
           AppTextField(
             controller: ctx.form.dsaCertificationCtrl,
@@ -1430,6 +1421,15 @@ class CertificationsCard extends StatelessWidget
             maxLength: FieldLimits.dsaDetail,
             errorText: ctx.errors['tipoDsa'],
             onChanged: (_) => ctx.clearError('tipoDsa'),
+          ),
+        if (ctx.form.certificationValues.contains('Altro'))
+          AppTextField(
+            controller: ctx.form.otherCertificationCtrl,
+            label: 'Altra certificazione',
+            hintText: 'Es. Autismo livello 1',
+            maxLength: FieldLimits.otherDetail,
+            errorText: ctx.errors['altraCertificazione'],
+            onChanged: (_) => ctx.clearError('altraCertificazione'),
           ),
         if (ctx.form.certificationValues.isNotEmpty) ...[
           const SizedBox(height: 24),

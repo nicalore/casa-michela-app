@@ -10,6 +10,7 @@ from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_band_lock import CalendarBandLock
 from app.models.calendar_publication import CalendarPublication
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
+from app.models.collaboration_change import CollaborationChange
 from app.models.competence_waiver import CompetenceWaiver
 from app.models.course import Course
 from app.models.course_participant import CourseParticipant
@@ -56,6 +57,7 @@ from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.models.technical_note import TechnicalNote
+from app.models.terms import TermsAcceptance, TermsRequest
 from app.models.weekly_template import WeeklyTemplate
 
 __all__ = [
@@ -73,6 +75,7 @@ __all__ = [
     "CalendarBandLock",
     "CalendarPublication",
     "CalendarTeacherExclusion",
+    "CollaborationChange",
     "CompetenceWaiver",
     "Course",
     "CourseParticipant",
@@ -122,5 +125,7 @@ __all__ = [
     "TeacherService",
     "TeachingCompetence",
     "TechnicalNote",
+    "TermsAcceptance",
+    "TermsRequest",
     "WeeklyTemplate",
 ]

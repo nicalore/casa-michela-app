@@ -6,17 +6,22 @@ import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../notifications/notification_board.dart';
+import '../../psychologist/psychologist_strings.dart' show kCertificationsSaved;
+import '../../psychologist/widgets/certifications_dialog.dart';
 import '../models/person_item.dart';
 import '../models/student_note_item.dart';
 import '../utils/student_notes_strings.dart';
+import '../widgets/card_eye.dart';
 import '../widgets/person_detail_widgets.dart';
+import '../widgets/student_certifications_card.dart';
 import '../widgets/student_note_dialog.dart';
 import '../widgets/student_notes_card.dart';
 import '../widgets/teacher_evaluation_card.dart';
 
 const double _cardsWidth = 1600;
 
-// Any admin edits any technical note; methodological ones are read-only, teachers' only deletable.
+// A pupil's: certifications, then the notes. Any admin edits any technical note; methodological ones
+// are read-only behind an eye, as the certifications, teachers' only deletable.
 // A teacher's: their evaluation, then the administrators' notes on them, which any admin edits too.
 class PersonObservationsTab extends StatelessWidget
 {
@@ -42,6 +47,25 @@ class PersonObservationsTab extends StatelessWidget
     }
 
     CustomSnackBar.show(context: context, message: note == null ? kNoteCreated : kNoteEdited);
+    onUpdate();
+  }
+
+  Future<void> _editCertifications(BuildContext context) async
+  {
+    // The server refuses health data without the consent: said before the window opens.
+    if (!(person.specialCategoryDataConsent ?? false))
+    {
+      CustomSnackBar.show(context: context, message: kHealthDataWithoutConsent, isError: true);
+
+      return;
+    }
+
+    if (!await showCertificationsDialog(context, person) || !context.mounted)
+    {
+      return;
+    }
+
+    CustomSnackBar.show(context: context, message: kCertificationsSaved);
     onUpdate();
   }
 
@@ -77,6 +101,32 @@ class PersonObservationsTab extends StatelessWidget
     }
   }
 
+  // Behind the eye only when there is something to hide, as the certifications.
+  Widget _buildMethodologicalNotes()
+  {
+    final List<StudentNoteItem> notes = person.methodologicalNotes ?? const [];
+
+    Widget card({Widget? eye, bool hidden = false})
+    {
+      return StudentNotesCard(
+        title: kMethodologicalNotesTitle,
+        icon: Icons.psychology_rounded,
+        taxCode: person.fiscalCode,
+        kind: StudentNoteKind.methodological,
+        notes: notes,
+        trailing: eye,
+        hidden: hidden,
+      );
+    }
+
+    if (notes.isEmpty)
+    {
+      return card();
+    }
+
+    return EyeMasked(builder: (context, hidden, eye) => card(eye: eye, hidden: hidden));
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -90,6 +140,8 @@ class PersonObservationsTab extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
                 if (pupil) ...[
+                  StudentCertificationsCard(student: person, onEdit: () => _editCertifications(context)),
+                  SizedBox(height: personCardGap(context)),
                   StudentNotesCard(
                     title: kTechnicalNotesTitle,
                     icon: Icons.edit_note_rounded,
@@ -102,13 +154,7 @@ class PersonObservationsTab extends StatelessWidget
                     onDelete: (note) => _delete(context, StudentNoteKind.technical, note),
                   ),
                   SizedBox(height: personCardGap(context)),
-                  StudentNotesCard(
-                    title: kMethodologicalNotesTitle,
-                    icon: Icons.psychology_rounded,
-                    taxCode: person.fiscalCode,
-                    kind: StudentNoteKind.methodological,
-                    notes: person.methodologicalNotes ?? const [],
-                  ),
+                  _buildMethodologicalNotes(),
                   SizedBox(height: personCardGap(context)),
                   StudentNotesCard(
                     title: kTeacherNotesTitle,

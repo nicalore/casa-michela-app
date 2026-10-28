@@ -3,6 +3,7 @@ import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/text_case.dart';
 import '../models/person_item.dart';
+import '../utils/student_notes_strings.dart' show kHealthDataWithoutConsent;
 import '../widgets/person_row_models.dart';
 import 'homework_tariffs.dart';
 import 'person_edit_form.dart';
@@ -429,24 +430,9 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
   if (isStudent)
   {
-    if (form.certificationValues.contains('Altro') &&
-        form.otherCertificationCtrl.text.isEmpty)
+    if (form.isCreation)
     {
-      collector.add('altraCertificazione', 'Specificare il tipo', PersonEditCardId.certifications);
-    }
-
-    if (form.certificationValues.contains('DSA') && form.dsaCertificationCtrl.text.isEmpty)
-    {
-      collector.add('tipoDsa', 'Specificare il disturbo', PersonEditCardId.certifications);
-    }
-
-    if (form.certificationValues.isNotEmpty && !form.psychMeetingsAcknowledgedValue)
-    {
-      collector.add(
-        'presaVisioneIncontri',
-        'Presa visione obbligatoria',
-        PersonEditCardId.certifications,
-      );
+      _checkCertifications(form, collector);
     }
 
     if (form.isMinor && form.uscitaAnticipata)
@@ -612,8 +598,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     collector.add(
       _healthWithoutConsent,
-      'Senza il consenso ai dati particolari non si possono registrare allergie, farmaci, '
-          'certificazioni e sostegno psicologico.',
+      kHealthDataWithoutConsent,
       PersonEditCardId.consents,
     );
   }
@@ -738,6 +723,29 @@ int? _minutesOfDay(String value)
   }
 
   return hour * 60 + minute;
+}
+
+void _checkCertifications(PersonEditForm form, _Collector collector)
+{
+  if (form.certificationValues.contains('Altro') &&
+      form.otherCertificationCtrl.text.isEmpty)
+  {
+    collector.add('altraCertificazione', 'Specificare il tipo', PersonEditCardId.certifications);
+  }
+
+  if (form.certificationValues.contains('DSA') && form.dsaCertificationCtrl.text.isEmpty)
+  {
+    collector.add('tipoDsa', 'Specificare il disturbo', PersonEditCardId.certifications);
+  }
+
+  if (form.certificationValues.isNotEmpty && !form.psychMeetingsAcknowledgedValue)
+  {
+    collector.add(
+      'presaVisioneIncontri',
+      'Presa visione obbligatoria',
+      PersonEditCardId.certifications,
+    );
+  }
 }
 
 void _checkEarlyExitPeriod(PersonEditForm form, _Collector collector)

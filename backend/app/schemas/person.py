@@ -406,13 +406,8 @@ class StudentEarlyExitData(BaseModel):
         return self
 
 
-class StudentUpdateData(
-    StudentCertificationData,
-    StudentEarlyExitData,
-    StudentHomeworkTariffData,
-):
-    mandatory_psych_meetings_acknowledged: bool
-
+# No certifications: they have their own route.
+class StudentUpdateData(StudentEarlyExitData, StudentHomeworkTariffData):
     school_enrollments: list[SchoolEnrollmentUpdateItem]
     expected_updated_at: datetime | None = None
 

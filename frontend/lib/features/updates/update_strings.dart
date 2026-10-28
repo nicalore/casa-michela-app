@@ -67,3 +67,10 @@ const String kDeleteUpdateClosing = " verrà eliminato definitivamente e non sar
 const String kUpdatePublished = 'Aggiornamento pubblicato con successo!';
 const String kUpdateEdited = 'Aggiornamento modificato con successo!';
 const String kUpdateDeleted = 'Aggiornamento eliminato con successo!';
+
+const String kTermsRequestButton = 'RICHIEDI NUOVA ACCETTAZIONE';
+const String kTermsRequestEyebrow = 'Nuova accettazione';
+const String kTermsRequestQuestion = 'Al prossimo accesso tutti gli utenti dovranno accettare nuovamente '
+    'Termini e Condizioni, Privacy Policy e Cookie Policy.';
+const String kTermsRequestConfirm = 'CONFERMA';
+const String kTermsRequestSent = 'Nuova accettazione richiesta con successo!';

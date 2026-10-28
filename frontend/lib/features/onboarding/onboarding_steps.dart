@@ -91,6 +91,17 @@ String onboardingWelcome(String? gender)
   };
 }
 
+// For whoever comes back to accept the changed documents.
+String onboardingWelcomeBack(String? gender)
+{
+  return switch (gender?.toUpperCase())
+  {
+    'M' => 'Bentornato',
+    'F' => 'Bentornata',
+    _ => 'Bentornato/a',
+  };
+}
+
 String onboardingStepTitle(OnboardingStep step)
 {
   final String? name = step.childName;

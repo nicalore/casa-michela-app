@@ -113,7 +113,12 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
       cards.add(const PersonEditCard(PersonEditCardId.earlyExit, label: 'Uscita anticipata'));
     }
 
-    cards.add(const PersonEditCard(PersonEditCardId.certifications, label: 'Certificazioni'));
+    // Later they change only in the pupil's «Osservazioni».
+    if (form.isCreation)
+    {
+      cards.add(const PersonEditCard(PersonEditCardId.certifications, label: 'Certificazioni'));
+    }
+
     cards.add(const PersonEditCard(PersonEditCardId.schoolEnrollments, label: 'Anni scolastici'));
   }
 

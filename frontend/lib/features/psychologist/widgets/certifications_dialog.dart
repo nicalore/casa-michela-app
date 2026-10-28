@@ -182,15 +182,6 @@ class _CertificationsDialogState extends State<_CertificationsDialog>
                 values: _chosenLabels,
                 onToggled: _toggle,
               ),
-              if (_codes.contains(_otherCode))
-                AppTextField(
-                  controller: _otherController,
-                  label: kOtherDetailLabel,
-                  hintText: 'Es. Autismo livello 1',
-                  maxLength: FieldLimits.otherDetail,
-                  errorText: _otherError,
-                  onChanged: (_) => setState(() => _otherError = null),
-                ),
               if (_codes.contains(_dsaCode))
                 AppTextField(
                   controller: _dsaController,
@@ -199,6 +190,15 @@ class _CertificationsDialogState extends State<_CertificationsDialog>
                   maxLength: FieldLimits.dsaDetail,
                   errorText: _dsaError,
                   onChanged: (_) => setState(() => _dsaError = null),
+                ),
+              if (_codes.contains(_otherCode))
+                AppTextField(
+                  controller: _otherController,
+                  label: kOtherDetailLabel,
+                  hintText: 'Es. Autismo livello 1',
+                  maxLength: FieldLimits.otherDetail,
+                  errorText: _otherError,
+                  onChanged: (_) => setState(() => _otherError = null),
                 ),
             ],
           ),
