@@ -407,6 +407,8 @@ IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
         ("PUT", "/tours/{platform}"),
         ("DELETE", "/tours/{platform}"),
         ("PUT", "/notifications/{notification_id}/read"),
+        ("PUT", "/notifications/{notification_id}/unread"),
+        ("DELETE", "/notifications/{notification_id}"),
         ("PUT", "/app-updates/seen"),
         ("PUT", "/notifications/kinds"),
         ("PUT", "/notifications/calendar/{calendar_date}/{band}/seen"),

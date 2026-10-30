@@ -31,9 +31,6 @@ const String _creationsNotice =
     'in anagrafica con le istruzioni per accedere.';
 
 const String _parentsQuestion = "A quali genitori vuoi creare l'account?";
-const String _noParentChosen = 'Scegli almeno un genitore';
-
-const int _stepCount = 3;
 
 const String _accountCreated = 'Account creato!';
 const String _accountsCreated = 'Account creati!';
@@ -132,14 +129,6 @@ TextStyle get _textStyle => GoogleFonts.plusJakartaSans(
       color: AppTheme.trialInk,
     );
 
-TextSpan _bold(String text)
-{
-  return TextSpan(
-    text: text,
-    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-  );
-}
-
 String _fullName(ParentItem parent) => '${parent.firstName} ${parent.lastName}';
 
 class _CreateAccountConfirmation extends StatelessWidget
@@ -208,15 +197,14 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
       if (parent.hasAccount) parent,
   ];
 
-  // A pupil needs a parent who can book and pay; failing that, a lone parent comes along.
-  bool get _loneParentIncluded => _parentsWithAccount.isEmpty && _parents.length == 1;
+  // Parents' accounts are optional; the step shows only while one may still be opened.
+  int get _stepCount => _parents.isEmpty ? 2 : 3;
 
   final Set<String> _chosenParents = {};
 
   List<String> get _parentTaxCodes => [
         for (final parent in _parents)
-          if (_loneParentIncluded || _chosenParents.contains(parent.fiscalCode))
-            parent.fiscalCode,
+          if (_chosenParents.contains(parent.fiscalCode)) parent.fiscalCode,
       ];
 
   void _choose(ParentItem parent, bool chosen)
@@ -231,16 +219,6 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
     }
   }
 
-  String? _blockedReason(int step)
-  {
-    if (step == 1 && _parentsWithAccount.isEmpty && _parents.length > 1 && _chosenParents.isEmpty)
-    {
-      return _noParentChosen;
-    }
-
-    return null;
-  }
-
   void _goToStep(int step)
   {
     setState(()
@@ -252,19 +230,6 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
 
   void _submit()
   {
-    for (var step = 0; step < _stepCount; step++)
-    {
-      final String? reason = _blockedReason(step);
-
-      if (reason != null)
-      {
-        _goToStep(step);
-        CustomSnackBar.show(context: context, message: reason, isError: true);
-
-        return;
-      }
-    }
-
     Navigator.of(context).pop(
       CreateAccountRequest(
         autonomousBookings: _autonomousBookings,
@@ -285,11 +250,6 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
     );
   }
 
-  Widget _buildStatement(List<InlineSpan> spans)
-  {
-    return Text.rich(TextSpan(children: spans), style: _textStyle);
-  }
-
   Widget _buildAutonomousBookings()
   {
     return _buildQuestion(
@@ -302,12 +262,10 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
     );
   }
 
+  // At most two parents, each one defaulting to no.
   Widget _buildParents()
   {
-    final List<ParentItem> withAccount = _parentsWithAccount;
-
-    // At most two parents: the other one may come along, defaulting to no.
-    if (withAccount.length == 1 && _parents.length == 1)
+    if (_parents.length == 1)
     {
       final ParentItem parent = _parents.single;
 
@@ -318,37 +276,10 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
           hugContent: true,
           onChanged: (value) => setState(() => _choose(parent, value)),
         ),
-        hint: 'Il genitore ${_fullName(withAccount.single)} ha già un account.',
+        hint: _parentsWithAccount.isEmpty
+            ? null
+            : 'Il genitore ${_fullName(_parentsWithAccount.first)} ha già un account.',
       );
-    }
-
-    if (withAccount.length == 1)
-    {
-      return _buildStatement([
-        const TextSpan(text: 'Il genitore '),
-        _bold(_fullName(withAccount.single)),
-        const TextSpan(text: ' ha già un account.'),
-      ]);
-    }
-
-    if (withAccount.length > 1)
-    {
-      return _buildStatement([
-        const TextSpan(text: 'I genitori '),
-        _bold(_fullName(withAccount.first)),
-        const TextSpan(text: ' e '),
-        _bold(_fullName(withAccount.last)),
-        const TextSpan(text: ' hanno già un account.'),
-      ]);
-    }
-
-    if (_parents.length == 1)
-    {
-      return _buildStatement([
-        const TextSpan(text: "Verrà creato anche l'account del genitore "),
-        _bold(_fullName(_parents.single)),
-        const TextSpan(text: '.'),
-      ]);
     }
 
     return _buildQuestion(
@@ -379,12 +310,12 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
 
   Widget _buildStep()
   {
-    return switch (_step)
+    if (_step == 0)
     {
-      0 => _buildAutonomousBookings(),
-      1 => _buildParents(),
-      _ => _buildNotice(),
-    };
+      return _buildAutonomousBookings();
+    }
+
+    return _step < _stepCount - 1 ? _buildParents() : _buildNotice();
   }
 
   @override
@@ -410,7 +341,6 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
           maxContentWidth: _wizardContentWidth,
           canGoBack: _step > 0,
           canGoForward: _step < _stepCount - 1,
-          forwardBlockedReason: _blockedReason(_step),
           onBack: () => _goToStep(_step - 1),
           onForward: () => _goToStep(_step + 1),
           child: AppDialogPill(expand: true, child: _buildStep()),

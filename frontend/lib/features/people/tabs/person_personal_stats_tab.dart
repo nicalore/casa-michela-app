@@ -59,12 +59,16 @@ class PersonPersonalStatsTab extends StatefulWidget
   // A parent's tour lights the presence card and its mode and period.
   final bool childTour;
 
+  // A parent reads only the pupil figures, even of a child who also teaches.
+  final bool pupilOnly;
+
   const PersonPersonalStatsTab({
     super.key,
     required this.person,
     this.forOwner = false,
     this.footer,
     this.childTour = false,
+    this.pupilOnly = false,
   });
 
   @override
@@ -94,7 +98,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
   String _teacherMode = kPresenceMode;
   String _studentMode = kPresenceMode;
 
-  bool get _isTeacher => widget.person.roles
+  bool get _isTeacher => !widget.pupilOnly && widget.person.roles
       .map((role) => role.toUpperCase())
       .contains('DOCENTE');
 

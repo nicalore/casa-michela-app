@@ -298,7 +298,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
   {
     final PersonItem? person = _person;
 
-    if (person == null)
+    if (person == null || !ownPageSectionsOf(person).contains(OwnPageSection.stats))
     {
       return Future<void>.value();
     }

@@ -64,15 +64,6 @@ async def _member(session: AsyncSession, tax_code: str) -> Member | None:
     )
 
 
-# Newcomers start paused: their first hours kept until the close bring them in.
-def new_member(tax_code: str) -> Member:
-    return Member(
-        tax_code=tax_code,
-        collaborating_active=False,
-        collaboration_paused_at=func.now(),
-    )
-
-
 # Hours entered since the pause count once their bookings close; maps owner to pause.
 async def _due_back(
     session: AsyncSession,

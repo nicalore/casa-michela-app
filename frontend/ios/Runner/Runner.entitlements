@@ -6,7 +6,7 @@
 	<string>development</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:test.app.casamichela.it</string>
+		<string>applinks:app.casamichela.it</string>
 	</array>
 </dict>
 </plist>

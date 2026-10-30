@@ -45,6 +45,11 @@ class IdentityContext:
     def overrides_closures(self) -> bool:
         return self.is_admin and self.active_role in (None, _ADMIN_ROLE)
 
+    # Under another hat an admin reads lessons and hours as that role does.
+    @property
+    def reads_everything(self) -> bool:
+        return self.is_admin and self.active_role in (None, _ADMIN_ROLE)
+
     # Pupils whose bookings are theirs: self as pupil, children as parent; never admins.
     @property
     def own_student_tax_codes(self) -> frozenset[str]:

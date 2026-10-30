@@ -53,13 +53,24 @@ Set<String> _rolesOf(PersonItem person)
   return person.roles.map((role) => role.toUpperCase()).toSet();
 }
 
-// Mirrors the admin detail page: no school nor statistics once the membership is revoked.
+// The account's live role, not the record's: a lapsed membership keeps the profile only.
+bool _holdsNow(PersonItem person, String profile, String role)
+{
+  return _rolesOf(person).contains(profile) &&
+      !person.isMembershipRevoked &&
+      (ApiService().lastKnownIdentity?.availableRoles.contains(role) ?? false);
+}
+
+bool _isOwnPupil(PersonItem person) => _holdsNow(person, 'STUDENTE', 'STUDENT');
+
+bool _isOwnTeacher(PersonItem person) => _holdsNow(person, 'DOCENTE', 'TEACHER');
+
+// Pupil and teacher sections only while the role is held: the server refuses their figures after.
 List<OwnPageSection> ownPageSectionsOf(PersonItem person)
 {
   final Set<String> roles = _rolesOf(person);
-  final bool standing = !person.isMembershipRevoked;
-  final bool isPupil = roles.contains('STUDENTE') && standing;
-  final bool isTeacher = roles.contains('DOCENTE') && standing;
+  final bool isPupil = _isOwnPupil(person);
+  final bool isTeacher = _isOwnTeacher(person);
 
   return [
     OwnPageSection.info,
@@ -280,9 +291,8 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
   DesktopTour? _tourOf(PersonItem person)
   {
     final Set<String> roles = _rolesOf(person);
-    final bool standing = !person.isMembershipRevoked;
 
-    if (roles.contains('DOCENTE') && standing)
+    if (_isOwnTeacher(person))
     {
       return teacherOwnTour(
         title: person.firstName,
@@ -291,7 +301,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
       );
     }
 
-    if (roles.contains('STUDENTE'))
+    if (_isOwnPupil(person))
     {
       return studentOwnTour(title: person.firstName, show: _show);
     }

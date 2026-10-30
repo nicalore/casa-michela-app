@@ -28,9 +28,13 @@ import 'teacher_exclusion_overlay.dart';
 const double kTimelineLeadingWidth = 216;
 const double _denseLeadingWidth = 196;
 
+// Widened so the widest offer fits whole under the ambient style and text scale.
 double timelineLeadingWidth(BuildContext context)
 {
-  return AppBreakpoints.of(context).isDense ? _denseLeadingWidth : kTimelineLeadingWidth;
+  final bool dense = AppBreakpoints.of(context).isDense;
+  final double base = dense ? _denseLeadingWidth : kTimelineLeadingWidth;
+
+  return math.max(base, _laneChromeWidth(dense) + _laneOfferIndent + _widestOfferWidth(context));
 }
 
 const double kTimelineAxisHeight = 34;
@@ -641,13 +645,47 @@ const double _laneShieldGap = 4;
 const double _laneShield = 12;
 const double _laneHoursGap = 2;
 
-// The header's text column: the avatar with its ring, the gaps and the right padding taken out.
-double _laneTextWidth(bool dense)
+final TextStyle _laneOfferStyle = GoogleFonts.plusJakartaSans(
+  fontSize: 12,
+  fontWeight: FontWeight.w600,
+  height: 1.25,
+);
+
+const double _laneOfferIcon = 13;
+const double _laneOfferIconGap = 4;
+const double _laneOfferIndent = _laneOfferIcon + _laneOfferIconGap;
+
+// 4h 30m is the widest figure in this font.
+final String _widestOffer = '${modeLabel(kPresenceMode)} · ${formatMinutes(4 * 60 + 30)}';
+
+double _widestOfferWidth(BuildContext context)
+{
+  final painter = TextPainter(
+    text: TextSpan(text: _widestOffer, style: DefaultTextStyle.of(context).style.merge(_laneOfferStyle)),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  );
+
+  painter.layout();
+
+  final width = painter.width;
+
+  painter.dispose();
+
+  // A few pixels spare: rounding must never cut the last letter.
+  return width.ceilToDouble() + 2;
+}
+
+// The avatar with its ring, the gaps and the right padding around the header's text column.
+double _laneChromeWidth(bool dense)
 {
   return dense
-      ? _denseLeadingWidth - 2 * _denseHeaderGap - (_MarkedAvatar._denseSize + 6)
-      : kTimelineLeadingWidth - 2 * _headerGap - (_MarkedAvatar._size + 6);
+      ? 2 * _denseHeaderGap + _MarkedAvatar._denseSize + 6
+      : 2 * _headerGap + _MarkedAvatar._size + 6;
 }
+
+double _laneTextWidth(BuildContext context, bool dense) => timelineLeadingWidth(context) - _laneChromeWidth(dense);
 
 // Name plus each room, wrapped whole, with its hours: a lane changing room grows to hold them.
 double laneHeaderMinHeight(BuildContext context, CalendarLane lane, LaneRoomLabel? room)
@@ -679,7 +717,7 @@ double laneHeaderMinHeight(BuildContext context, CalendarLane lane, LaneRoomLabe
   }
 
   final bool dense = AppBreakpoints.of(context).isDense;
-  final textWidth = _laneTextWidth(dense);
+  final textWidth = _laneTextWidth(context, dense);
 
   var height = tall(
     TextSpan(text: lane.person.fullName, style: ambient.merge(dense ? _denseLaneNameStyle : _laneNameStyle)),
@@ -909,20 +947,15 @@ class _LaneHeader extends StatelessWidget
                       padding: const EdgeInsets.only(top: 2),
                       child: Row(
                         children: [
-                          Icon(lessonModeIcon(offer.mode), size: 13, color: lessonAccent(offer.mode)),
-                          const SizedBox(width: 4),
+                          Icon(lessonModeIcon(offer.mode), size: _laneOfferIcon, color: lessonAccent(offer.mode)),
+                          const SizedBox(width: _laneOfferIconGap),
                           Expanded(
                             child: DescenderRoom(
                               child: Text(
                                 '${modeLabel(offer.mode)} · ${formatMinutes(offer.minutes)}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.25,
-                                  color: lessonAccent(offer.mode),
-                                ),
+                                style: _laneOfferStyle.copyWith(color: lessonAccent(offer.mode)),
                               ),
                             ),
                           ),

@@ -79,7 +79,7 @@ class CalendarActivityService:
         date_from: date | None,
         date_to: date | None,
     ) -> Sequence[CalendarActivity]:
-        if identity.is_admin:
+        if identity.reads_everything:
             return await self.repository.list(date_from=date_from, date_to=date_to)
 
         if "TEACHER" not in identity.roles:

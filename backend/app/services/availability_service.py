@@ -182,7 +182,7 @@ class AvailabilityService:
         date_to: date | None,
     ) -> Sequence[Availability]:
         effective_teacher_tax_code = (
-            teacher_tax_code if identity.is_admin else identity.tax_code
+            teacher_tax_code if identity.reads_everything else identity.tax_code
         )
 
         return await self.repository.list(

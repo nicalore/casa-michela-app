@@ -267,7 +267,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
       _membershipsIndex => PersonMembershipsTab(person: child, footer: report),
       _schoolIndex => PersonSchoolsTab(person: child, footer: report),
       _otherIndex => _ChildOtherInfoTab(person: child, footer: report),
-      _ => PersonPersonalStatsTab(person: child, footer: report, childTour: toured),
+      _ => PersonPersonalStatsTab(person: child, footer: report, childTour: toured, pupilOnly: true),
     };
   }
 

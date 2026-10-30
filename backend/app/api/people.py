@@ -106,7 +106,7 @@ from app.schemas.person import (
 from app.schemas.person_wizard import PersonWizardPayload
 from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
 from app.services import email_service, push
-from app.services.collaboration import new_member, stop_collaboration
+from app.services.collaboration import stop_collaboration
 from app.services.early_exit_form import (
     build_early_exit_form,
     early_exit_form_file_name,
@@ -127,7 +127,7 @@ from app.services.pupil_lock import lock_pupil
 from app.services.rating_reminders import rating_updated
 from app.services.reports import ReportNotSentError, record_report, send_to_readers
 from app.services.role_service import RoleService
-from app.services.student_notes import is_enrolled_pupil, is_followed, note_response
+from app.services.student_notes import is_followed, note_response
 from app.services.teacher_evaluation import ordered_criteria
 from app.services.teacher_evaluation import teacher_rating as teacher_rating_of
 from app.services.teacher_notes import teacher_note_response
@@ -2056,8 +2056,7 @@ async def get_person(
     if identity.is_admin:
         return full
 
-    on_register = is_enrolled_pupil(person.member_profile)
-    follows = "PSYCHOLOGIST" in identity.roles and is_followed(person.member_profile)
+    follows ="PSYCHOLOGIST" in identity.roles and is_followed(person.member_profile)
 
     # No notes for families; a following psychologist keeps the methodological ones.
     # Parents' records and pickup restrictions stay with the administrators.
@@ -2098,10 +2097,10 @@ async def get_person(
 
     lessons = LessonRepository(db)
 
-    # Only while a published lesson with the pupil is still to come, today included.
+    # Only while a published lesson with the pupil is still to come, today included,
+    # even past the pupil's enrollment: the lesson still has to be taught.
     if (
         "TEACHER" in identity.roles
-        and on_register
         and await lessons.has_paired(identity.tax_code, code, since=today_in_rome())
     ):
         return _view(full, _TEACHER_VIEW_FIELDS)
@@ -2227,7 +2226,7 @@ async def update_person(
         )
 
         if member is None:
-            member = new_member(person.tax_code)
+            member = Member(tax_code=person.tax_code)
             db.add(member)
             await db.flush()
 
@@ -3096,7 +3095,7 @@ async def update_teacher_competences(
 ) -> dict[str, str]:
     own = "TEACHER" in identity.roles and tax_code.upper() == identity.tax_code
 
-    if not (identity.is_admin or (own and not identity.onboarding_completed)):
+    if not (identity.is_admin or own):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_PERSON_FORBIDDEN_ERROR,
@@ -3337,7 +3336,7 @@ async def update_not_preferred_teachers(
     return {"message": _NOT_PREFERRED_TEACHERS_UPDATED_MESSAGE}
 
 
-# The narrow slice a teacher may change during first access; the rest needs a request.
+# The narrow slice a teacher may change on their own; the rest needs a request.
 @router.put("/{tax_code}/teacher-education", status_code=status.HTTP_200_OK)
 async def update_teacher_education(
     tax_code: str,

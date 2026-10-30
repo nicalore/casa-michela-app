@@ -732,6 +732,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   Future<void> _confirmDiscard() async
   {
+    // Closing mid-save would leave printed forms for people never created.
+    if (_isSaving)
+    {
+      return;
+    }
+
     final bool? leave = await showBlurredDialog<bool>(
       context: context,
       barrierLabel: 'DiscardEdit',

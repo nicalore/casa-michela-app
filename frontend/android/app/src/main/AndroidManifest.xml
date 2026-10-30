@@ -37,7 +37,7 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data
                     android:scheme="https"
-                    android:host="test.app.casamichela.it"
+                    android:host="app.casamichela.it"
                     android:path="/reset-password"/>
             </intent-filter>
         </activity>

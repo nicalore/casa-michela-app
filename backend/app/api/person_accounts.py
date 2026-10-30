@@ -47,7 +47,6 @@ _PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
 _ACCOUNT_EXISTS_ERROR: Final[str] = "Questa persona ha già un account"
 _NO_ROLE_ERROR: Final[str] = "Questa persona non può avere un account"
 _INVALID_PARENTS_ERROR: Final[str] = "I genitori scelti non sono validi"
-_NO_PARENT_ERROR: Final[str] = "Scegli almeno un genitore"
 _REVOKED_MEMBERSHIP_ERROR: Final[str] = (
     "L'iscrizione è stata revocata: non è possibile creare l'account"
 )
@@ -92,7 +91,7 @@ def _bad_request(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
-# An answered-for pupil needs a parent with an account; one is opened if none has.
+# Optional: only parents of an answered-for pupil who have no account yet.
 def _parents_to_open(person: Person, chosen: list[str]) -> list[Person]:
     if not RoleService.is_answered_for(person):
         if chosen:
@@ -106,9 +105,6 @@ def _parents_to_open(person: Person, chosen: list[str]) -> list[Person]:
 
     if not wanted <= openable:
         raise _bad_request(_INVALID_PARENTS_ERROR)
-
-    if not wanted and len(openable) == len(parents):
-        raise _bad_request(_NO_PARENT_ERROR)
 
     return [parent for parent in parents if parent.tax_code in wanted]
 

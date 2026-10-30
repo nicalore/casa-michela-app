@@ -149,7 +149,7 @@ class LessonService:
         return self.repository.session
 
     def _visibility_for(self, identity: IdentityContext) -> LessonVisibility:
-        if identity.is_admin:
+        if identity.reads_everything:
             return LessonVisibility()
 
         student_tax_codes = set()

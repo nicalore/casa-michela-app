@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -336,6 +337,11 @@ class _CalendarTabState extends State<CalendarTab>
 
   late TimeBucket _band = _initialBand();
 
+  // Exclusions the admin is waiting on: they move the rows, while exclusions read back redraw them.
+  int _excluding = 0;
+
+  int _redraws = 0;
+
   CalendarView _view = CalendarView.byTeacher;
 
   final TextEditingController _searchController = TextEditingController();
@@ -462,6 +468,11 @@ class _CalendarTabState extends State<CalendarTab>
     if (!identical(widget.lessons, oldWidget.lessons) && !_hasRoomPlan)
     {
       _ensureRoomPlan();
+    }
+
+    if (_excluding == 0 && !setEquals(widget.excludedTeachers, oldWidget.excludedTeachers))
+    {
+      _redraws++;
     }
 
     _syncClock();
@@ -2087,9 +2098,13 @@ class _CalendarTabState extends State<CalendarTab>
     final now = _nowMinutes;
     final showsNow = now != null && now >= metrics.windowStartMinutes && now <= metrics.windowEndMinutes;
 
+    // Another day or band is drawn afresh: its rows never travel from where the old one had them.
+    final drawing = ValueKey((_day, _band, _redraws));
+
     if (_isSettled)
     {
       return CalendarTimeline(
+        key: drawing,
         lanes: lanes,
         metrics: metrics,
         bandStart: _bandStart,
@@ -2112,6 +2127,7 @@ class _CalendarTabState extends State<CalendarTab>
     }
 
     return CalendarTimeline(
+      key: drawing,
       lanes: lanes,
       metrics: metrics,
       bandStart: _bandStart,
@@ -2321,6 +2337,21 @@ class _CalendarTabState extends State<CalendarTab>
   }
 
   // Excluding: the teacher's hours become unplanned requests, activities unassigned; unconfirmed.
+  // Released after the next frame: the answer's rebuild comes after the await returns.
+  Future<T> _awaitExclusion<T>(Future<T> answer) async
+  {
+    _excluding++;
+
+    try
+    {
+      return await answer;
+    }
+    finally
+    {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _excluding--);
+    }
+  }
+
   Future<void> _setExcluded(CalendarLane lane, {required bool excluded}) async
   {
     final day = _day;
@@ -2333,7 +2364,7 @@ class _CalendarTabState extends State<CalendarTab>
 
       if (readmit != null)
       {
-        await readmit(day: day, band: band, teacherTaxCode: taxCode, onError: _reportRefusal);
+        await _awaitExclusion(readmit(day: day, band: band, teacherTaxCode: taxCode, onError: _reportRefusal));
       }
 
       return;
@@ -2346,12 +2377,12 @@ class _CalendarTabState extends State<CalendarTab>
       return;
     }
 
-    final back = await exclude(
+    final back = await _awaitExclusion(exclude(
       day: day,
       band: band,
       teacherTaxCode: taxCode,
       onError: _reportRefusal,
-    );
+    ));
 
     if (!mounted || back == null || back.lessons + back.activities == 0)
     {

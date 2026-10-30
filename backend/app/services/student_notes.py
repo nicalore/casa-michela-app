@@ -212,7 +212,6 @@ async def check_note_reader(
 
     if (
         "TEACHER" in identity.roles
-        and is_enrolled_pupil(member)
         and await LessonRepository(db).has_paired(
             identity.tax_code,
             student_tax_code,
