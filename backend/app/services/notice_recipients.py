@@ -28,6 +28,8 @@ def notice_roles_of(person: Person) -> frozenset[NoticeRoleEnum]:
 async def recipients_of(
     db: AsyncSession,
     roles: Iterable[NoticeRoleEnum],
+    *,
+    excluding: str | None = None,
 ) -> list[Person]:
     wanted = frozenset(roles)
 
@@ -62,7 +64,8 @@ async def recipients_of(
     return [
         person
         for person in people.unique()
-        if not wanted.isdisjoint(notice_roles_of(person))
+        if person.tax_code != excluding
+        and not wanted.isdisjoint(notice_roles_of(person))
     ]
 
 

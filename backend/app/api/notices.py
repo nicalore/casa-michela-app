@@ -102,11 +102,11 @@ async def list_notices(_: Administrator, db: DbSession) -> list[NoticeSummaryRes
 
 @router.get("/recipients", response_model=NoticeRecipientsResponse)
 async def count_recipients(
-    _: Administrator,
+    identity: Administrator,
     db: DbSession,
     recipients: Annotated[list[NoticeRoleEnum] | None, Query()] = None,
 ) -> NoticeRecipientsResponse:
-    people = await recipients_of(db, recipients or ())
+    people = await recipients_of(db, recipients or (), excluding=identity.tax_code)
 
     return NoticeRecipientsResponse(
         people=len(people),
@@ -201,13 +201,18 @@ async def get_image(
     return Response(content=file.content, media_type=file.content_type)
 
 
-# Mailed to everyone it reaches, and announced to those who can read it in the app.
+# Mailed to everyone it reaches, and announced to those who can read it in the app;
+# its author finds it in the app alone.
 async def _send(
     db: DbSession,
     background: BackgroundTasks,
     notice: Notice,
 ) -> None:
-    people = await recipients_of(db, notice.recipients)
+    people = await recipients_of(
+        db,
+        notice.recipients,
+        excluding=notice.author_tax_code,
+    )
     notice.recipient_count = len(people)
     told = await announce_notice(db, notice)
     await db.commit()
