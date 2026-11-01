@@ -1,21 +1,15 @@
 import 'dart:async';
 import 'dart:js_interop';
-import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
 import 'pdf_tab.dart';
 
-// The address the service worker answers on. Its own file lives at the root,
-// which is what lets it claim a scope below it.
-const String _scope = '/documenti/';
+// Scope of a documents worker browsers may still hold: they are told to let it go.
+const String _formerScope = '/documenti/';
 
-const String _workerScript = 'documents_sw.js';
-
-// Registering and activating a worker is quick; if it is not, the blob is
-// there and waiting.
-const Duration _workerTimeout = Duration(seconds: 4);
+bool _formerWorkerGone = false;
 
 String _waitingPage(String title) => '''
 <!doctype html><html lang="it"><head><meta charset="utf-8">
@@ -93,86 +87,13 @@ class _WebPdfTab implements PdfTab
 
   final web.Window window;
 
+  // The document stays in this page, from a blob nobody has to ask the site for again, with a
+  // link beside it that saves it under its own name.
   @override
   void present(Uint8List bytes, {required String fileName})
   {
-    // Handing the document to the worker gives it a readable address, and the
-    // viewer's own download button names the file after it. A blob would only
-    // ever be called after its UUID.
-    unawaited(_serveFromWorker(bytes, fileName: fileName).then((served)
-    {
-      if (!served)
-      {
-        _presentBlob(bytes, fileName: fileName);
-      }
-    }));
-  }
+    _forgetFormerWorker();
 
-  Future<bool> _serveFromWorker(Uint8List bytes, {required String fileName}) async
-  {
-    try
-    {
-      final worker = await _activeWorker().timeout(_workerTimeout);
-
-      if (worker == null)
-      {
-        return false;
-      }
-
-      // A folder of its own per document: two forms open at once must not
-      // answer at the same address, and the browser reads the name from the
-      // last segment either way.
-      final String path = '$_scope${DateTime.now().microsecondsSinceEpoch}/'
-          '${Uri.encodeComponent(fileName)}';
-
-      await _handOver(worker, path: path, bytes: bytes, fileName: fileName)
-          .timeout(_workerTimeout);
-
-      // Absolute: the tab is still on about:blank, which is no base to resolve
-      // a path against.
-      window.location.replace('${web.window.location.origin}$path');
-
-      return true;
-    }
-    on Object
-    {
-      return false;
-    }
-  }
-
-  Future<void> _handOver(
-    web.ServiceWorker worker, {
-    required String path,
-    required Uint8List bytes,
-    required String fileName,
-  }) async
-  {
-    final channel = web.MessageChannel();
-    final answered = Completer<void>();
-
-    channel.port1.onmessage = ((web.MessageEvent event)
-    {
-      if (!answered.isCompleted)
-      {
-        answered.complete();
-      }
-    }).toJS;
-    channel.port1.start();
-
-    final message = JSObject()
-      ..setProperty('path'.toJS, path.toJS)
-      ..setProperty('fileName'.toJS, fileName.toJS)
-      ..setProperty('bytes'.toJS, bytes.toJS);
-
-    // The port has to be transferred; the bytes are copied, because the blob
-    // fallback still needs them on this side.
-    worker.postMessage(message, <JSAny>[channel.port2].toJS);
-
-    return answered.future;
-  }
-
-  void _presentBlob(Uint8List bytes, {required String fileName})
-  {
     final url = web.URL.createObjectURL(_fileOf(bytes, fileName));
     final document = window.document;
 
@@ -185,8 +106,6 @@ class _WebPdfTab implements PdfTab
     final bar = document.getElementById('bar');
     final save = document.getElementById('save') as web.HTMLAnchorElement?;
 
-    // Only here does the bar earn its place: without the worker this link is
-    // the one way to save the file under its own name.
     if (bar != null && save != null)
     {
       save
@@ -223,39 +142,27 @@ class _WebPdfTab implements PdfTab
   }
 }
 
-Future<web.ServiceWorker?> _activeWorker() async
+// Browsers that registered the old worker let it go.
+void _forgetFormerWorker()
 {
-  final container = web.window.navigator.serviceWorker;
-  final registration = await container
-      .register(_workerScript.toJS, web.RegistrationOptions(scope: _scope))
-      .toDart;
-
-  final web.ServiceWorker? active = registration.active;
-
-  if (active != null)
+  if (_formerWorkerGone)
   {
-    return active;
+    return;
   }
 
-  final web.ServiceWorker? pending = registration.installing ?? registration.waiting;
+  _formerWorkerGone = true;
 
-  if (pending == null)
+  unawaited(() async
   {
-    return null;
-  }
-
-  final ready = Completer<web.ServiceWorker?>();
-
-  void settle()
-  {
-    if (pending.state == 'activated' && !ready.isCompleted)
+    try
     {
-      ready.complete(registration.active ?? pending);
+      final registration = await web.window.navigator.serviceWorker.getRegistration(_formerScope).toDart;
+
+      await registration?.unregister().toDart;
     }
-  }
-
-  pending.onstatechange = ((web.Event event) => settle()).toJS;
-  settle();
-
-  return ready.future;
+    on Object
+    {
+      // Nothing registered, or no workers here at all: nothing to let go.
+    }
+  }());
 }

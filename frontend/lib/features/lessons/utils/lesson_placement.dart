@@ -62,13 +62,16 @@ const String kActivityAcrossBandsRefusal =
 const String kActivitySettledRefusal = 'Questo calendario è pubblicato: riportalo in bozza '
     'per modificare le attività.';
 
-const String kActivityOverLessonRefusal = "Il docente ha una lezione a quest'ora.";
-
 const String kActivityOverActivityRefusal = "Il docente ha un'altra attività a quest'ora.";
 
-const String kLessonOverActivityRefusal = "Il docente ha un'attività in calendario a quest'ora.";
+const String kActivityFromHomeRefusal = "A quest'ora il docente non è disponibile in presenza.";
 
 const String kExcludedTeacherRefusal = 'Il docente è escluso dal calendario.';
+
+const String kCalledOnlineRefusal =
+    'Il docente è convocato online: ha lezioni che non rientrano nella sua disponibilità in presenza.';
+
+String calledInRefusal(String hours) => 'Il docente è convocato in presenza ($hours): non può collegarsi da casa.';
 
 String outsidePresenceRefusal(String student, String range) => 'La lezione non rientra nelle ore di presenza di $student ($range).';
 
@@ -548,13 +551,17 @@ class LessonPlacement
   }
 }
 
+// [inPerson]: the teacher is called in for the band (see [bandModeOf]), so an online lesson
+// is given from the association; otherwise it goes on hours offered online, where there are any.
 AvailabilityItem? resolveAvailability({
   required List<AvailabilityItem> teacherAvailabilities,
   required String lessonMode,
   required int startMinutes,
   required int endMinutes,
+  bool inPerson = true,
 })
 {
+  AvailabilityItem? presence;
   AvailabilityItem? online;
 
   for (final slot in teacherAvailabilities)
@@ -569,16 +576,87 @@ AvailabilityItem? resolveAvailability({
 
     if (slot.mode == kPresenceMode)
     {
-      return slot;
+      presence ??= slot;
     }
-
-    if (lessonMode == kOnlineMode)
+    else
     {
       online ??= slot;
     }
   }
 
-  return online;
+  if (lessonMode == kPresenceMode)
+  {
+    return presence;
+  }
+
+  return inPerson ? presence ?? online : online ?? presence;
+}
+
+// One lesson or activity of a teacher's band, as the band's mode sees it. [inPerson]: a pupil
+// in the building, or an activity; only hours offered in presence hold it.
+typedef BandHour = ({int start, int end, bool inPerson});
+
+// A teacher is called in or online for a whole band, never both: in as soon as a pupil is in
+// the building or an activity is given; else online, on the hours offered online; else in.
+// Null: no single mode holds every hour. The server settles the band by the same rule.
+String? bandModeOf(List<BandHour> hours, List<AvailabilityItem> offered)
+{
+  bool holds(String mode)
+  {
+    return hours.every((hour) =>
+        (mode == kPresenceMode || !hour.inPerson) &&
+        offered.any((slot) =>
+            slot.mode == mode &&
+            minutesOfTimeOfDay(slot.startTime) <= hour.start &&
+            minutesOfTimeOfDay(slot.endTime) >= hour.end));
+  }
+
+  final broughtIn = hours.any((hour) => hour.inPerson);
+
+  for (final mode in broughtIn ? const [kPresenceMode, kOnlineMode] : const [kOnlineMode, kPresenceMode])
+  {
+    if (holds(mode))
+    {
+      return mode;
+    }
+  }
+
+  return null;
+}
+
+List<BandHour> _laneHours(TeacherLane lane, {int? lessonId, int? deleteLessonId, int? activityId})
+{
+  return [
+    for (final lesson in lane.lessons)
+      if (lesson.id != lessonId && lesson.id != deleteLessonId)
+        (start: lesson.startMinutes, end: lesson.endMinutes, inPerson: lesson.mode == kPresenceMode),
+    for (final activity in lane.activities)
+      if (activity.id != activityId) (start: activity.startMinutes, end: activity.endMinutes, inPerson: true),
+  ];
+}
+
+// Refuses [hour] when the band keeps one mode without it but not with it; a band already
+// mixed, from before the rule, is left as it was.
+String? _refuseBandMode(TeacherLane lane, List<BandHour> others, BandHour hour)
+{
+  final before = bandModeOf(others, lane.availabilities);
+
+  if (before == null || bandModeOf([...others, hour], lane.availabilities) != null)
+  {
+    return null;
+  }
+
+  if (before == kOnlineMode)
+  {
+    return kCalledOnlineRefusal;
+  }
+
+  final inBuilding = lane.availabilitiesIn(kPresenceMode)
+    ..sort((a, b) => minutesOfTimeOfDay(a.startTime).compareTo(minutesOfTimeOfDay(b.startTime)));
+
+  return calledInRefusal([
+    for (final slot in inBuilding) '${formatTimeOfDayShort(slot.startTime)} - ${formatTimeOfDayShort(slot.endTime)}',
+  ].join(', '));
 }
 
 // Shortest lesson of these bookings: a quarter hour only for a quarter-hour booking.
@@ -639,14 +717,15 @@ String? _refuseOccupancy({
   int? deleteLessonId,
 })
 {
-  // Mirrored by the activity-side check: lessons and activities never overlap.
-  final busy = lane.activities.any(
-    (activity) => spansOverlap(startMinutes, endMinutes, activity.startMinutes, activity.endMinutes),
-  );
+  // Lessons in the building may run alongside an activity; online ones may not.
+  final busy = mode == kOnlineMode &&
+      lane.activities.any(
+        (activity) => spansOverlap(startMinutes, endMinutes, activity.startMinutes, activity.endMinutes),
+      );
 
   if (busy)
   {
-    return kLessonOverActivityRefusal;
+    return kOnlineCannotOverlapRefusal;
   }
 
   final others = [
@@ -904,11 +983,16 @@ LessonPlacement validatePlacement({
 
   final mode = modes.single;
 
+  final BandHour hour = (start: startMinutes, end: endMinutes, inPerson: mode == kPresenceMode);
+  final others = _laneHours(lane, lessonId: lessonId, deleteLessonId: deleteLessonId);
+  final bandMode = bandModeOf([...others, hour], lane.availabilities);
+
   final availability = resolveAvailability(
     teacherAvailabilities: lane.availabilities,
     lessonMode: mode,
     startMinutes: startMinutes,
     endMinutes: endMinutes,
+    inPerson: bandMode == kPresenceMode || (bandMode == null && others.any((other) => other.inPerson)),
   );
 
   if (availability == null)
@@ -945,6 +1029,7 @@ LessonPlacement validatePlacement({
         lessonId: lessonId,
         deleteLessonId: deleteLessonId,
       ) ??
+      _refuseBandMode(lane, others, hour) ??
       _refuseDisciplines(bookings: bookings, disciplineIds: disciplineIds) ??
       _refuseBudget(
         index: index,
@@ -1188,7 +1273,14 @@ Set<String> teachersWhoCouldTeach(CalendarDayIndex index, CalendarDragPayload pa
   };
 }
 
-LessonPlacement planDrop(CalendarDayIndex index, BookingDragPayload drag, String teacherTaxCode, int startMinutes)
+// [within]: as for [planMove]; a request dropped too near the end keeps its shortest, ending there.
+LessonPlacement planDrop(
+  CalendarDayIndex index,
+  BookingDragPayload drag,
+  String teacherTaxCode,
+  int startMinutes, {
+  (int, int)? within,
+})
 {
   final entry = drag.entry;
   final lane = index.lanesByTeacher[teacherTaxCode];
@@ -1233,14 +1325,18 @@ LessonPlacement planDrop(CalendarDayIndex index, BookingDragPayload drag, String
     return join(host.endMinutes);
   }
 
-  final ceiling = _roomAt(index, lane, entry, startMinutes);
+  final last = math.min(within?.$2 ?? index.bandEnd, index.bandEnd);
+  final shortest = minimumLessonMinutes(entry.booking.duration);
+  final start = math.min(startMinutes, last - shortest);
+  final ceiling = math.min(_roomAt(index, lane, entry, start), last - start);
   final minutes = snapQuarterDown(drag.minutes.clamp(0, ceiling));
 
+  // Too little room: its whole length, never past the end, so the refusal names what is in the way.
   return validatePlacement(
     index: index,
     teacherTaxCode: teacherTaxCode,
-    startMinutes: startMinutes,
-    endMinutes: startMinutes + (minutes < minimumLessonMinutes(entry.booking.duration) ? drag.minutes : minutes),
+    startMinutes: start,
+    endMinutes: minutes < shortest ? math.min(start + drag.minutes, last) : start + minutes,
     bookings: [entry],
     disciplineIds: drag.disciplineIds,
   );
@@ -1338,16 +1434,41 @@ int _roomBefore(CalendarDayIndex index, TeacherLane lane, SchedulableBooking ent
   return ceiling < 0 ? 0 : ceiling;
 }
 
-LessonPlacement planMove(CalendarDayIndex index, LessonItem lesson, String teacherTaxCode, int startMinutes)
+// [within]: the ends a lesson pushed over is squeezed against, as against another lesson, never
+// under its shortest; the band's own by default.
+LessonPlacement planMove(
+  CalendarDayIndex index,
+  LessonItem lesson,
+  String teacherTaxCode,
+  int startMinutes, {
+  (int, int)? within,
+})
 {
   final bookings = _bookingsOf(index, lesson);
+  final (first, last) = within ?? (index.bandStart, index.bandEnd);
+  final shortest = _shortestOf(lesson);
+
+  var start = startMinutes;
+  var end = startMinutes + lesson.minutes;
+
+  if (end > last)
+  {
+    end = last;
+    start = math.min(start, end - shortest);
+  }
+
+  if (start < first)
+  {
+    start = first;
+    end = math.max(end, start + shortest);
+  }
 
   if (lesson.isLocked)
   {
     return LessonPlacement(
       teacherTaxCode: teacherTaxCode,
-      startMinutes: startMinutes,
-      endMinutes: startMinutes + lesson.minutes,
+      startMinutes: start,
+      endMinutes: end,
       kind: LessonPlacementKind.move,
       lessonId: lesson.id,
       refusal: kSettledRefusal,
@@ -1357,8 +1478,8 @@ LessonPlacement planMove(CalendarDayIndex index, LessonItem lesson, String teach
   return validatePlacement(
     index: index,
     teacherTaxCode: teacherTaxCode,
-    startMinutes: startMinutes,
-    endMinutes: startMinutes + lesson.minutes,
+    startMinutes: start,
+    endMinutes: end,
     bookings: bookings,
     disciplineIds: lesson.disciplineIds,
     lessonId: lesson.id,
@@ -1694,24 +1815,27 @@ LessonPlacement validateActivityPlacement({
     return placement(kOutsideAvailabilityRefusal);
   }
 
+  // Activities happen at the association: hours offered online never hold one.
   final availability = resolveAvailability(
     teacherAvailabilities: lane.availabilities,
-    // kOnlineMode accepts either availability kind: an activity needs time, not a room.
-    lessonMode: kOnlineMode,
+    lessonMode: kPresenceMode,
     startMinutes: startMinutes,
     endMinutes: endMinutes,
   );
 
   if (availability == null)
   {
-    return placement(kOutsideAvailabilityRefusal);
+    final fromHome = lane.availabilitiesIn(kOnlineMode).any((slot) =>
+        minutesOfTimeOfDay(slot.startTime) <= startMinutes && minutesOfTimeOfDay(slot.endTime) >= endMinutes);
+
+    return placement(fromHome ? kActivityFromHomeRefusal : kOutsideAvailabilityRefusal);
   }
 
   for (final lesson in lane.lessons)
   {
-    if (spansOverlap(startMinutes, endMinutes, lesson.startMinutes, lesson.endMinutes))
+    if (lesson.mode == kOnlineMode && spansOverlap(startMinutes, endMinutes, lesson.startMinutes, lesson.endMinutes))
     {
-      return placement(kActivityOverLessonRefusal);
+      return placement(kOnlineCannotOverlapRefusal);
     }
   }
 
@@ -1722,6 +1846,17 @@ LessonPlacement validateActivityPlacement({
     {
       return placement(kActivityOverActivityRefusal);
     }
+  }
+
+  final modeRefusal = _refuseBandMode(
+    lane,
+    _laneHours(lane, activityId: activity.id),
+    (start: startMinutes, end: endMinutes, inPerson: true),
+  );
+
+  if (modeRefusal != null)
+  {
+    return placement(modeRefusal);
   }
 
   return placement(null, availabilityId: availability.id);
@@ -1764,12 +1899,15 @@ int _activityRoomAt(CalendarDayIndex index, TeacherLane lane, int startMinutes, 
   return ceiling - startMinutes;
 }
 
+// [within]: as for [planMove], down to a quarter of an hour; a new activity too near the end keeps
+// a quarter of an hour, ending there.
 LessonPlacement planActivityDrop(
   CalendarDayIndex index,
   ActivityDragPayload drag,
   String teacherTaxCode,
-  int startMinutes,
-)
+  int startMinutes, {
+  (int, int)? within,
+})
 {
   final activity = drag.activity;
   final kind = drag.isAssigned ? LessonPlacementKind.move : LessonPlacementKind.create;
@@ -1787,20 +1925,42 @@ LessonPlacement planActivityDrop(
     );
   }
 
-  final room = snapQuarterDown(
-    _activityRoomAt(index, lane, startMinutes, ignoring: activity.id),
-  );
+  final (first, last) = within ?? (index.bandStart, index.bandEnd);
 
-  final minutes = drag.isAssigned
-      ? drag.minutes
-      : math.max(kMinimumActivityMinutes, math.min(drag.minutes, room));
+  var start = startMinutes;
+  var end = startMinutes + drag.minutes;
+
+  if (drag.isAssigned)
+  {
+    if (end > last)
+    {
+      end = last;
+      start = math.min(start, end - kMinimumActivityMinutes);
+    }
+
+    if (start < first)
+    {
+      start = first;
+      end = math.max(end, start + kMinimumActivityMinutes);
+    }
+  }
+  else
+  {
+    start = math.min(startMinutes, last - kMinimumActivityMinutes);
+
+    final room = snapQuarterDown(
+      math.min(_activityRoomAt(index, lane, start, ignoring: activity.id), last - start),
+    );
+
+    end = start + math.max(kMinimumActivityMinutes, math.min(drag.minutes, room));
+  }
 
   return validateActivityPlacement(
     index: index,
     activity: activity,
     teacherTaxCode: teacherTaxCode,
-    startMinutes: startMinutes,
-    endMinutes: startMinutes + minutes,
+    startMinutes: start,
+    endMinutes: end,
     kind: kind,
   );
 }

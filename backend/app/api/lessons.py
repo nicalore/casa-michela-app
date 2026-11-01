@@ -138,14 +138,15 @@ def _to_response(
 ) -> LessonResponse:
     teacher_tax_code = lesson.availability.teacher_tax_code
 
-    # The teacher's room at that hour: none from home, nor across a room change.
+    # The teacher's room at that hour, for a lesson in person only: none online,
+    # even from the association, nor across a room change.
     assignment = (
         stretch_at(
             rooms.get((lesson.date, teacher_tax_code), []),
             lesson.start_time,
             lesson.end_time,
         )
-        if lesson.teacher_mode == "presence"
+        if lesson.mode == "presence"
         else None
     )
 

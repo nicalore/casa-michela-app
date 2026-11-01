@@ -41,6 +41,11 @@ from app.services.lesson_guard import (
     assert_bands_editable,
     assert_teacher_not_excluded,
 )
+from app.services.teacher_band_mode import (
+    BandHour,
+    assert_one_mode,
+    settle_teacher_band,
+)
 from app.services.teacher_occupancy import (
     MAX_CONCURRENT_STUDENTS,
     online_cannot_overlap_error,
@@ -91,10 +96,6 @@ _STUDENT_OVERLAP_ERROR: Final[str] = (
 )
 
 # An activity occupies the teacher outright: unlike lessons, it never overlaps.
-_ACTIVITY_OVERLAP_ERROR: Final[str] = (
-    "Il docente ha un'attività in calendario a quest'ora."
-)
-
 _MISSING_COMPETENCE_ERROR: Final[str] = (
     "Il docente non ha la competenza per: {subjects}."
 )
@@ -382,20 +383,22 @@ class LessonService:
                 detail=too_many_students_error(),
             )
 
-        occupied = await CalendarActivityRepository(
-            self.session,
-        ).find_teacher_overlap(
-            teacher_tax_code=availability.teacher_tax_code,
-            day=availability.date,
-            start_time=start_time,
-            end_time=end_time,
-        )
-
-        if occupied is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_ACTIVITY_OVERLAP_ERROR,
+        # Lessons in the building may run alongside an activity; online ones may not.
+        if mode == "online":
+            occupied = await CalendarActivityRepository(
+                self.session,
+            ).find_teacher_overlap(
+                teacher_tax_code=availability.teacher_tax_code,
+                day=availability.date,
+                start_time=start_time,
+                end_time=end_time,
             )
+
+            if occupied is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=online_cannot_overlap_error(),
+                )
 
         busy = await self.repository.find_student_overlap(
             student_tax_codes=student_tax_codes,
@@ -680,6 +683,18 @@ class LessonService:
             end_time=payload.end_time,
             exclude_id=exclude_id,
         )
+        await assert_one_mode(
+            self.session,
+            availability.teacher_tax_code,
+            availability.date,
+            str(band),
+            BandHour(
+                payload.start_time,
+                payload.end_time,
+                in_person=mode == "presence",
+            ),
+            lesson_id=exclude_id,
+        )
 
         disciplines = await self._disciplines_or_400(
             payload.association_subject_ids,
@@ -761,6 +776,12 @@ class LessonService:
         async with integrity_guard(self.session, _CREATE_ERROR):
             self.session.add_all(validated.waivers)
             await self.repository.create(lesson)
+            await settle_teacher_band(
+                self.session,
+                validated.availability.teacher_tax_code,
+                validated.availability.date,
+                str(band_of(payload.start_time)),
+            )
             await self.repository.commit()
 
         return await self._reload(lesson.id), validated.warnings
@@ -792,6 +813,8 @@ class LessonService:
 
         validated = await self._validate(identity, payload, exclude_id=lesson.id)
 
+        left = (lesson.availability.teacher_tax_code, lesson.date, lesson.band)
+
         lesson.availability = validated.availability
         lesson.mode = validated.mode
         lesson.start_time = payload.start_time
@@ -801,6 +824,17 @@ class LessonService:
 
         async with integrity_guard(self.session, _UPDATE_ERROR):
             self.session.add_all(validated.waivers)
+            await self.session.flush()
+
+            entered = (
+                validated.availability.teacher_tax_code,
+                validated.availability.date,
+                str(band_of(payload.start_time)),
+            )
+
+            for teacher_tax_code, day, band in dict.fromkeys([left, entered]):
+                await settle_teacher_band(self.session, teacher_tax_code, day, band)
+
             await self.repository.commit()
 
         return await self._reload(lesson.id), validated.warnings
@@ -811,7 +845,12 @@ class LessonService:
         await assert_band_editable(self.session, lesson.date, lesson.band)
         await assert_band_claimed(self.session, identity, lesson.date, lesson.band)
 
+        teacher_tax_code = lesson.availability.teacher_tax_code
+        day = lesson.date
+        band = lesson.band
+
         await self.repository.delete(lesson)
+        await settle_teacher_band(self.session, teacher_tax_code, day, band)
         await self.repository.commit()
 
     async def _reload(self, lesson_id: int) -> Lesson:

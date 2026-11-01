@@ -18,6 +18,7 @@ class CalendarBandWatch
   final Future<void> Function() poll;
 
   // Another tab released a band; locks are per account, so it may be the one this tab edits.
+  // A beat never retakes it: it only tells this tab, and its next change takes it back.
   final Listenable releasedElsewhere;
 
   CalendarBandWatch({required this.beat, required this.poll, required this.releasedElsewhere});
@@ -41,7 +42,7 @@ class CalendarBandWatch
       onHide: () => _say(inFront: false),
     );
 
-    releasedElsewhere.addListener(_takeItBack);
+    releasedElsewhere.addListener(_askWhoHoldsIt);
   }
 
   void dispose()
@@ -49,10 +50,10 @@ class CalendarBandWatch
     _beating?.cancel();
     _polling?.cancel();
     _lifecycle?.dispose();
-    releasedElsewhere.removeListener(_takeItBack);
+    releasedElsewhere.removeListener(_askWhoHoldsIt);
   }
 
-  void _takeItBack()
+  void _askWhoHoldsIt()
   {
     if (_awake && _holding)
     {

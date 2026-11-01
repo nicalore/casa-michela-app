@@ -69,6 +69,9 @@ class PresenceCard extends StatefulWidget
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditSubject;
   final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteSubject;
 
+  // A day that can no longer change: the details open without their actions.
+  final bool readOnly;
+
   const PresenceCard({
     super.key,
     required this.group,
@@ -80,6 +83,7 @@ class PresenceCard extends StatefulWidget
     required this.onDelete,
     required this.onEditSubject,
     required this.onDeleteSubject,
+    this.readOnly = false,
   });
 
   @override
@@ -132,6 +136,7 @@ class _PresenceCardState extends State<PresenceCard>
         studentGender: _student?.gender,
         onSaveSubject: _writeSubject,
         onDeleteSubject: (mode, booking) => _showSubjectDeletion(dialogContext, booking: booking),
+        readOnly: widget.readOnly,
       ),
     );
   }
@@ -560,6 +565,8 @@ class _RequestDetailsDialogContent extends StatefulWidget
   final Future<bool> Function(BookingSummaryItem existing, SubjectRequestDraft draft) onSaveSubject;
   final void Function(String mode, BookingSummaryItem booking) onDeleteSubject;
 
+  final bool readOnly;
+
   const _RequestDetailsDialogContent({
     required this.group,
     required this.ministrySubjects,
@@ -571,6 +578,7 @@ class _RequestDetailsDialogContent extends StatefulWidget
     required this.onDelete,
     required this.onSaveSubject,
     required this.onDeleteSubject,
+    this.readOnly = false,
   });
 
   @override
@@ -801,13 +809,13 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
             _TimeSlotLabel(label: _timeRangeLabel(slot), online: mode == kOnlineMode),
         ],
       ),
-      _buildFieldLabel('Materie richieste'),
+      _buildFieldLabel('Discipline richieste'),
       SubjectRequestList(
         requests: [for (final booking in stored) _draftOf(booking)],
         ministrySubjects: widget.ministrySubjects,
         teachers: widget.teachers,
-        onEdit: (index) => _showSubjectWizard(context, mode, existing: stored[index]),
-        onRemove: (index) => widget.onDeleteSubject(mode, stored[index]),
+        onEdit: widget.readOnly ? null : (index) => _showSubjectWizard(context, mode, existing: stored[index]),
+        onRemove: widget.readOnly ? null : (index) => widget.onDeleteSubject(mode, stored[index]),
       ),
     ];
   }
@@ -848,7 +856,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       title: group.student.fullName,
       leading: PersonAvatar(person: group.student, size: PersonAvatar.titleSize),
       maxWidth: 1040,
-      footer: AppDialogFooter(
+      footer: widget.readOnly ? null : AppDialogFooter(
         secondary: AppGradientButton(
           label: 'ELIMINA',
           icon: Icons.delete_outline_rounded,

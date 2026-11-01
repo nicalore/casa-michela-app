@@ -523,6 +523,21 @@ class TimelineMetrics
     return snapToQuarter(minutesAt(x)).clamp(windowStartMinutes, windowEndMinutes);
   }
 
+  // Past either end the window's average pace carries on: how far a block was pushed over the edge.
+  int reachedMinutesAt(double x)
+  {
+    final double pace = pixelsPerMinute;
+
+    if (pace <= 0 || (x >= 0 && x <= trackWidth))
+    {
+      return snappedMinutesAt(x);
+    }
+
+    return x < 0
+        ? windowStartMinutes - snapToQuarter((-x / pace).round())
+        : windowEndMinutes + snapToQuarter(((x - trackWidth) / pace).round());
+  }
+
   // Null outside the rows; inter-row air is padding inside a row, so no drop hits a dead band.
   int? rowAt(double y)
   {

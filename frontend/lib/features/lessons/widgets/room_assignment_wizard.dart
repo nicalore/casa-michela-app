@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/app_check_mark.dart' show kPickedSurface;
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -23,9 +24,10 @@ import '../models/calendar_day.dart';
 import '../models/room_day_plan.dart';
 import '../models/room_supervision_item.dart';
 import '../models/teacher_room_assignment_item.dart';
+import '../utils/online_only.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
-import 'calendar_lesson_block.dart' show CalendarLeftBehind;
+import 'calendar_lesson_block.dart' show CalendarLeftBehind, kCalendarTooltipWait, lessonTitle;
 import 'person_avatar.dart';
 
 const double _dialogButtonHeight = 52;
@@ -108,6 +110,12 @@ bool isRoomPlanSettled({
 
       if (room == null)
       {
+        // An online lesson needs no room, even taught from the association.
+        if (lesson.mode == kOnlineMode)
+        {
+          continue;
+        }
+
         return false;
       }
 
@@ -185,6 +193,33 @@ List<_Unit> _unitsOf(TeacherLane lane)
 
 String _lessonsLabel(int count) => count == 1 ? '1 lezione' : '$count lezioni';
 
+// The in-person lessons inside [spans], one line each in clock order: their hours and their pupil.
+String _pupilsIn(TeacherLane lane, List<(int, int)> spans)
+{
+  final lessons = [
+    for (final lesson in lane.lessons)
+      if (lesson.teacherMode == kPresenceMode &&
+          spans.any((span) => lesson.startMinutes >= span.$1 && lesson.endMinutes <= span.$2))
+        lesson,
+  ]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+
+  return [
+    for (final lesson in lessons) '${formatMinutesRange(lesson.startMinutes, lesson.endMinutes)} · ${lessonTitle(lesson)}',
+  ].join('\n');
+}
+
+// Who the teacher has there, on a hover.
+Widget _withPupils(String pupils, Widget child)
+{
+  return AppTooltip(
+    message: pupils,
+    decoration: AppTheme.tooltipDecoration,
+    textStyle: AppTheme.tooltipTextStyle,
+    waitDuration: kCalendarTooltipWait,
+    child: child,
+  );
+}
+
 // Consecutive lessons of one teacher in one room, or waiting for one.
 class _Piece
 {
@@ -213,6 +248,9 @@ class _TeacherCard extends StatefulWidget
 
   final int lessons;
 
+  // One line per lesson of the piece: hours and pupil.
+  final String pupils;
+
   final String? elsewhere;
 
   // Long-press drag on the stacked layout so a drag does not fight the scroll.
@@ -230,6 +268,7 @@ class _TeacherCard extends StatefulWidget
     required this.piece,
     required this.hours,
     required this.lessons,
+    required this.pupils,
     required this.elsewhere,
     required this.longPress,
     this.isOpen = false,
@@ -401,7 +440,7 @@ class _TeacherCardState extends State<_TeacherCard>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            MouseRegion(cursor: SystemMouseCursors.grab, child: handle),
+            _withPupils(widget.pupils, MouseRegion(cursor: SystemMouseCursors.grab, child: handle)),
             AnimatedSize(
               duration: _openDuration,
               curve: Curves.easeOutCubic,
@@ -688,6 +727,10 @@ class _SupervisorCard extends StatefulWidget
 {
   final TeacherLane lane;
   final String hours;
+
+  // One line per lesson in this room: hours and pupil.
+  final String pupils;
+
   final String? elsewhere;
   final double width;
   final bool isSelected;
@@ -697,6 +740,7 @@ class _SupervisorCard extends StatefulWidget
     super.key,
     required this.lane,
     required this.hours,
+    required this.pupils,
     required this.elsewhere,
     required this.width,
     required this.isSelected,
@@ -716,7 +760,7 @@ class _SupervisorCardState extends State<_SupervisorCard>
   {
     final elsewhere = widget.elsewhere;
 
-    return MouseRegion(
+    final Widget card = MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
@@ -777,6 +821,8 @@ class _SupervisorCardState extends State<_SupervisorCard>
         ),
       ),
     );
+
+    return _withPupils(widget.pupils, card);
   }
 }
 
@@ -1407,9 +1453,23 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
   List<PlannedShift> get _desiredShifts => [for (final plan in _plans) ...plan.shifts];
 
+  // Online lessons need no room: a piece of only those may wait, or be given one all the same.
+  bool _needsRoom(_Piece piece)
+  {
+    final units = _units[piece.teacherTaxCode]!;
+    final start = units[piece.first].start;
+    final end = units[piece.last].end;
+
+    return piece.lane.lessons.any((lesson) =>
+        lesson.mode == kPresenceMode && lesson.startMinutes >= start && lesson.endMinutes <= end);
+  }
+
   ({String message, int step})? get _refusal
   {
-    final waiting = {for (final piece in _piecesIn(null)) piece.teacherTaxCode: piece.lane};
+    final waiting = {
+      for (final piece in _piecesIn(null))
+        if (_needsRoom(piece)) piece.teacherTaxCode: piece.lane,
+    };
 
     if (waiting.isNotEmpty)
     {
@@ -1670,6 +1730,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
       piece: piece,
       hours: formatMinutesRange(units[piece.first].start, units[piece.last].end),
       lessons: lessons,
+      pupils: _pupilsIn(piece.lane, [(units[piece.first].start, units[piece.last].end)]),
       elsewhere: roomId == null ? null : _elsewhere(piece.lane, last: piece.last, roomId: roomId),
       longPress: longPress,
       isOpen: isOpen,
@@ -1699,35 +1760,52 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     return byName != 0 ? byName : a.first.compareTo(b.first);
   }
 
+  // Teachers who come in only to connect from the association wait apart, as the calendar
+  // marks them; once in a room they are like any other.
   Widget _buildPool({required bool twoColumns})
   {
     final waiting = _piecesIn(null)..sort(_byNameThenHour);
+    final apart = [for (final piece in waiting) if (comesInForOnlineOnly(piece.lane.lessons, piece.lane.activities)) piece];
+    final inBuilding = [for (final piece in waiting) if (!apart.contains(piece)) piece];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildSideTitle('Docenti in sede', trailing: waiting.isEmpty ? null : '${waiting.length}'),
-        _DropBox(
-          accepts: (carried) => carried.fromRoomId != null,
-          onAccept: (carried) => _put(carried, null),
-          child: waiting.isEmpty
-              ? _buildQuiet('Tutti i docenti in sede hanno una stanza.')
-              : _buildScrollingSide(
-                  capped: twoColumns,
-                  child: Column(
+    Widget group(String title, List<_Piece> pieces)
+    {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildSideTitle(title, trailing: pieces.isEmpty ? null : '${pieces.length}'),
+          _DropBox(
+            accepts: (carried) => carried.fromRoomId != null,
+            onAccept: (carried) => _put(carried, null),
+            child: pieces.isEmpty
+                ? _buildQuiet('Tutti i docenti in sede hanno una stanza.')
+                : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      for (var i = 0; i < waiting.length; i++) ...[
+                      for (var i = 0; i < pieces.length; i++) ...[
                         if (i > 0) const SizedBox(height: 8),
-                        _buildTeacherCard(waiting[i], longPress: !twoColumns),
+                        _buildTeacherCard(pieces[i], longPress: !twoColumns),
                       ],
                     ],
                   ),
-                ),
-        ),
-      ],
+          ),
+        ],
+      );
+    }
+
+    return _buildScrollingSide(
+      capped: twoColumns,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (inBuilding.isNotEmpty || apart.isEmpty) group('Docenti in sede', inBuilding),
+          if (inBuilding.isNotEmpty && apart.isNotEmpty) const SizedBox(height: 16),
+          if (apart.isNotEmpty) group('In sede solo per lezioni online', apart),
+        ],
+      ),
     );
   }
 
@@ -1970,6 +2048,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
                 key: ValueKey('${plan.room.id}:${entry.lane.teacherTaxCode}'),
                 lane: entry.lane,
                 hours: entry.hours.map((span) => formatMinutesRange(span.$1, span.$2)).join(', '),
+                pupils: _pupilsIn(entry.lane, entry.hours),
                 elsewhere: _elsewhereOfRoom(entry.lane, plan.room.id),
                 width: width,
                 isSelected: plan.supervisors.contains(entry.lane.teacherTaxCode),
@@ -2008,7 +2087,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     {
       0 => (
         question: 'A quali stanze sono assegnati i docenti?',
-        hint: 'Trascina ogni docente dentro una stanza.\nUn docente può essere assegnato a più stanze in orari diversi, selezionabili tramite l\'icona dell\'orologio',
+        hint: 'Trascina ogni docente dentro una stanza.\nUn docente può essere assegnato a più stanze in orari diversi, selezionabili tramite l\'icona dell\'orologio.',
       ),
       _ => (
         question: 'Chi sono i responsabili?',

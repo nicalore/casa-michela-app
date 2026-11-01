@@ -11,12 +11,11 @@ import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_floating_panel.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
-import '../../../shared/widgets/app_calendar_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
-import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
@@ -27,12 +26,11 @@ import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../association/models/room_item.dart';
 import '../../association/models/study_program_item.dart';
-import '../../association/tabs/opening_hours/calendar_bounds.dart';
-import '../../../shared/utils/day_marks.dart';
 import '../../people/models/person_face.dart';
 import '../../people/models/person_item.dart';
 import '../models/activity_item.dart';
 import '../models/availability_item.dart';
+import '../models/booking_summary_item.dart';
 import '../models/calendar_day.dart';
 import '../models/calendar_lock_item.dart';
 import '../models/calendar_publication_item.dart';
@@ -42,9 +40,9 @@ import '../models/presence_item.dart';
 import '../models/room_day_plan.dart';
 import '../models/schedulable_booking.dart';
 import '../export/calendar_pdf_export.dart';
-import '../utils/calendar_jump.dart';
 import '../utils/excluded_teachers.dart';
 import '../utils/lesson_placement.dart';
+import '../utils/online_only.dart';
 import '../utils/new_members.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
@@ -56,6 +54,7 @@ import '../widgets/calendar_day_agenda.dart';
 import '../widgets/calendar_lesson_block.dart';
 import '../widgets/calendar_lesson_board.dart';
 import '../widgets/calendar_publish_dialogs.dart';
+import '../widgets/calendar_request_details.dart';
 import '../widgets/calendar_timeline.dart';
 import '../widgets/lesson_captions.dart';
 import '../widgets/lesson_details_dialog.dart';
@@ -63,33 +62,30 @@ import '../widgets/lesson_plan_wizard.dart';
 import '../widgets/lessons_closed_day.dart';
 import '../widgets/room_assignment_wizard.dart';
 
-const double kCalendarSideBySideMin = 1040;
-
 // Under this width the half-hour blocks are slivers: the agenda takes over.
 const double kCalendarTimelineMin = 900;
 
-const double kCalendarDayNavMin = 470;
-
 enum _CalendarShape
 {
-  sideBySide,
-
-  stacked,
+  // The track across the page, the requests floating over it.
+  timeline,
 
   compact,
 }
 
-// The wide window's rail takes the room a compact window gives back: the panel stays beside the track,
-// or narrowing the window would stack it, set it beside again past 1280 px, then stack it once more.
-_CalendarShape _shapeFor(double width, AppWindowSize window)
-{
-  if (width >= kCalendarSideBySideMin || (window == AppWindowSize.wide && width >= kCalendarTimelineMin))
-  {
-    return _CalendarShape.sideBySide;
-  }
+_CalendarShape _shapeFor(double width) => width >= kCalendarTimelineMin ? _CalendarShape.timeline : _CalendarShape.compact;
 
-  return width >= kCalendarTimelineMin ? _CalendarShape.stacked : _CalendarShape.compact;
-}
+// The requests start along the right edge, full height; the cards need the narrower width.
+const double _panelWidth = 360;
+const double _densePanelWidth = 340;
+
+// Docked at the top or the bottom: one whole request and the top of the next row; never less than the request alone.
+const double _panelDockHeight = 300;
+const double _panelLeastHeight = 260;
+
+// Tests that move or dock the requests put them back for the next test.
+@visibleForTesting
+void debugForgetCalendarPanelPlace() => _CalendarTabState._panelPlace = null;
 
 enum CalendarCompactView
 {
@@ -97,39 +93,33 @@ enum CalendarCompactView
   planned,
 }
 
-const double _panelGap = 28;
-
 const String _kDraftPillTooltip = 'Le modifiche saranno inviate una volta confermate.';
 
 const String _kDraftDiscarded = 'Modifiche annullate.';
 
 const String kLockedBandNotice =
     'Puoi seguire il lavoro mentre procede, ma non modificarlo. Quando avrà '
-    'finito, il calendario torna disponibile.';
+    'finito, il calendario tornerà disponibile.';
 
 // Shown when discard cannot restore hours: availability withdrawn or request cancelled meanwhile.
 const String _kDraftRestoreFailed = 'Errore durante il ripristino del calendario.';
 
-const double _actionButtonHeight = 48;
-const double _actionButtonFontSize = 14;
+// The actions sit in the header, as tall as its other controls.
+const double _actionButtonHeight = 44;
+const double _actionButtonFontSize = 13.5;
 
-const double _actionButtonWidth = 288;
-
-// Below the wide window the actions sit in the header, as tall as its other controls.
 const double _denseActionHeight = 36;
 const double _denseActionFontSize = 12.5;
 const double _denseActionPadding = 14;
-const double _denseControl = 36;
-const double _denseDayLabelWidth = 200;
 const double _denseSearchWidth = 300;
 
 // Narrower than this, the search takes the whole line.
 const double _denseSearchAlone = 560;
 
-// The bands, the counts and the day on one line.
-const double _denseOneLineMin = 900;
+const double _lockNoticeMaxWidth = 576;
 
-const double _dayLabelWidth = 250;
+// The band's actions, the way back to composing and the way out on paper weigh the same.
+const double _publishedActionWidth = 280;
 
 const double _settingMenuWidth = 210;
 
@@ -143,7 +133,15 @@ const double _pillLabelMaxWidth = double.infinity;
 
 class CalendarTab extends StatefulWidget
 {
-  final List<DateTime> availableDays;
+  // Chosen outside the calendar: it shows one band of one day.
+  final DateTime day;
+  final TimeBucket band;
+
+  // The page's back button and title, first on the header's line.
+  final Widget? leading;
+
+  // Where the title in [leading] starts: the summary under it lines up with it.
+  final double leadingIndent;
 
   final List<LessonItem> lessons;
 
@@ -254,11 +252,6 @@ class CalendarTab extends StatefulWidget
 
   final DateTime? today;
 
-  final Future<bool> Function(DateTime day, Function(String) onError)? onLoadDay;
-
-  // Closures for the month picker; days go unmarked without it.
-  final DayMarksLoader? loadMarks;
-
   final List<RoomItem> rooms;
 
   final Future<RoomDayPlan?> Function(
@@ -291,7 +284,10 @@ class CalendarTab extends StatefulWidget
 
   const CalendarTab({
     super.key,
-    required this.availableDays,
+    required this.day,
+    required this.band,
+    this.leading,
+    this.leadingIndent = 0,
     required this.lessons,
     this.activities = const [],
     required this.availabilities,
@@ -317,8 +313,6 @@ class CalendarTab extends StatefulWidget
     this.onCreateActivity,
     this.onUpdateActivity,
     this.onDeleteActivity,
-    this.onLoadDay,
-    this.loadMarks,
     this.onLoadRoomPlan,
     this.onSaveRoomPlan,
     this.excludedTeachers = const {},
@@ -333,9 +327,9 @@ class CalendarTab extends StatefulWidget
 
 class _CalendarTabState extends State<CalendarTab>
 {
-  late DateTime _day = _initialDay();
+  DateTime get _day => widget.day;
 
-  late TimeBucket _band = _initialBand();
+  late TimeBucket _band = widget.band;
 
   // Exclusions the admin is waiting on: they move the rows, while exclusions read back redraw them.
   int _excluding = 0;
@@ -352,9 +346,21 @@ class _CalendarTabState extends State<CalendarTab>
   CalendarLayout _layout = CalendarLayout.byHour;
 
   CalendarCompactView _compactView = CalendarCompactView.toPlan;
-  bool _panelExpanded = true;
+
+  // Open on a band with requests to plan; it stays open across drags, fading away while one is under way.
+  // A notifier: opening and closing must not rebuild the day, or the fade is spent on that frame.
+  late final ValueNotifier<bool> _panelOpen = ValueNotifier(_hasWorkToPlan);
+
+  // Where the requests were left, for every band until the page reloads.
+  static AppFloatingPlace? _panelPlace;
+
+  bool get _hasWorkToPlan => !_isSettled && openPanelCount(_bookingGroups, _unassignedActivities) > 0;
 
   final ScrollController _trackController = ScrollController();
+  final ScrollController _sidewaysController = ScrollController();
+
+  // The rows keep their state and offset when the sideways bar comes or goes around them.
+  final GlobalKey _trackViewKey = GlobalKey();
   final GlobalKey _viewportKey = GlobalKey();
 
   final Map<int, int> _subLaneMemory = {};
@@ -372,15 +378,6 @@ class _CalendarTabState extends State<CalendarTab>
   {
     super.initState();
     _carriedAt.addListener(_sayWhatIsWrong);
-    CalendarJumps.admin.asked.addListener(_jump);
-
-    final CalendarJump? jump = CalendarJumps.admin.take();
-
-    if (jump != null)
-    {
-      _day = jump.day;
-      _band = jump.band;
-    }
 
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
@@ -390,31 +387,9 @@ class _CalendarTabState extends State<CalendarTab>
       }
 
       setState(_syncClock);
-
-      // A notification's day is read again, inside the window too.
-      if (jump != null)
-      {
-        unawaited(_goToDay(jump.day, fresh: true));
-
-        return;
-      }
-
       _sayWhichBand();
       _ensureRoomPlan();
     });
-  }
-
-  void _jump()
-  {
-    final CalendarJump? jump = CalendarJumps.admin.take();
-
-    if (jump == null || !mounted)
-    {
-      return;
-    }
-
-    setState(() => _band = jump.band);
-    unawaited(_goToDay(jump.day, fresh: true));
   }
 
   static const Duration _closingWatch = Duration(hours: 12);
@@ -465,6 +440,14 @@ class _CalendarTabState extends State<CalendarTab>
   {
     super.didUpdateWidget(oldWidget);
 
+    // A notification's band, asked while the page is open.
+    if (widget.band != oldWidget.band)
+    {
+      _band = widget.band;
+      _panelOpen.value = _hasWorkToPlan;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _sayWhichBand());
+    }
+
     if (!identical(widget.lessons, oldWidget.lessons) && !_hasRoomPlan)
     {
       _ensureRoomPlan();
@@ -481,7 +464,6 @@ class _CalendarTabState extends State<CalendarTab>
   @override
   void dispose()
   {
-    CalendarJumps.admin.asked.removeListener(_jump);
     _carriedAt.removeListener(_sayWhatIsWrong);
 
     if (_carriedRefusal != null)
@@ -492,7 +474,9 @@ class _CalendarTabState extends State<CalendarTab>
     _clock?.cancel();
     _searchController.dispose();
     _trackController.dispose();
+    _sidewaysController.dispose();
     _carried.dispose();
+    _panelOpen.dispose();
     _carriedAt.dispose();
     super.dispose();
   }
@@ -523,52 +507,17 @@ class _CalendarTabState extends State<CalendarTab>
     );
   }
 
-  DateTime _initialDay()
-  {
-    final now = widget.today ?? romeNow();
-    final today = DateTime(now.year, now.month, now.day);
-
-    return widget.availableDays.any((day) => isSameDate(day, today)) ? today : widget.availableDays.first;
-  }
-
-  // Clock's band if published, else the last published one, else the clock's (afternoon at night).
-  TimeBucket _initialBand()
-  {
-    final now = widget.today ?? romeNow();
-    final current = bucketFor(TimeOfDay.fromDateTime(now));
-
-    final published = [
-      for (final row in widget.publications)
-        if (isSameDate(row.date, _day)) row.band,
-    ];
-
-    if (current != null && published.contains(current))
-    {
-      return current;
-    }
-
-    if (published.isNotEmpty)
-    {
-      return published.reduce((a, b) => a.index >= b.index ? a : b);
-    }
-
-    return current ?? TimeBucket.afternoon;
-  }
-
-  final Set<String> _fetchedDays = {};
-
-  bool _isFetchingDay = false;
-
-  // Below the wide window, read at every build: the header holds the actions and the controls shrink.
+  // Below the wide window, read at every build: the controls shrink.
   bool _isDense = false;
 
-  double? get _actionWidth => _isDense ? null : _actionButtonWidth;
+  // On the wide window the band's actions weigh the same; below it each is as wide as its words.
+  double? get _actionWidth => _isDense ? null : _publishedActionWidth;
 
   double get _actionHeight => _isDense ? _denseActionHeight : _actionButtonHeight;
 
   double get _actionFontSize => _isDense ? _denseActionFontSize : _actionButtonFontSize;
 
-  double get _actionPadding => _isDense ? _denseActionPadding : 30;
+  double get _actionPadding => _isDense ? _denseActionPadding : 22;
 
   RoomDayPlan? _roomPlan;
   String? _roomPlanDay;
@@ -673,69 +622,11 @@ class _CalendarTabState extends State<CalendarTab>
     };
   }
 
-  bool _isInsideWindow(DateTime day) => widget.availableDays.any((other) => isSameDate(other, day));
-
   static String _keyOf(DateTime day) => '${day.year}-${day.month}-${day.day}';
-
-  // Fresh: read again even if held, as a notification's tap asks.
-  Future<void> _goToDay(DateTime day, {bool fresh = false}) async
-  {
-    final normalised = DateTime(day.year, day.month, day.day);
-
-    setState(()
-    {
-      _day = normalised;
-      _syncClock();
-    });
-
-    _sayWhichBand();
-
-    await _fetchDay(normalised, fresh: fresh);
-
-    if (mounted)
-    {
-      await _ensureRoomPlan(force: fresh);
-    }
-  }
 
   void _sayWhichBand()
   {
     widget.onViewChanged?.call(day: _day, band: _band);
-  }
-
-  Future<void> _fetchDay(DateTime day, {bool fresh = false}) async
-  {
-    final load = widget.onLoadDay;
-
-    if (load == null || (!fresh && (_isInsideWindow(day) || _fetchedDays.contains(_keyOf(day)))))
-    {
-      return;
-    }
-
-    setState(() => _isFetchingDay = true);
-
-    final loaded = await load(day, (message)
-    {
-      if (mounted)
-      {
-        CustomSnackBar.show(context: context, message: message, isError: true);
-      }
-    });
-
-    if (!mounted)
-    {
-      return;
-    }
-
-    setState(()
-    {
-      _isFetchingDay = false;
-
-      if (loaded)
-      {
-        _fetchedDays.add(_keyOf(day));
-      }
-    });
   }
 
   bool get _isDayClosed
@@ -924,13 +815,19 @@ class _CalendarTabState extends State<CalendarTab>
     await _planBooking(booking, index);
   }
 
-  LessonPlacement _plan(CalendarDayIndex index, CalendarDragPayload payload, String teacherTaxCode, int startMinutes)
+  LessonPlacement _plan(
+    CalendarDayIndex index,
+    CalendarDragPayload payload,
+    String teacherTaxCode,
+    int startMinutes,
+    (int, int) window,
+  )
   {
     return switch (payload)
     {
-      BookingDragPayload() => planDrop(index, payload, teacherTaxCode, startMinutes),
-      LessonDragPayload(:final lesson) => _planLessonDrop(index, lesson, teacherTaxCode, startMinutes),
-      ActivityDragPayload() => planActivityDrop(index, payload, teacherTaxCode, startMinutes),
+      BookingDragPayload() => planDrop(index, payload, teacherTaxCode, startMinutes, within: window),
+      LessonDragPayload(:final lesson) => _planLessonDrop(index, lesson, teacherTaxCode, startMinutes, window),
+      ActivityDragPayload() => planActivityDrop(index, payload, teacherTaxCode, startMinutes, within: window),
     };
   }
 
@@ -939,6 +836,7 @@ class _CalendarTabState extends State<CalendarTab>
     LessonItem lesson,
     String teacherTaxCode,
     int startMinutes,
+    (int, int) window,
   )
   {
     for (final host in _hoursUnder(index, teacherTaxCode, startMinutes, startMinutes + lesson.minutes))
@@ -963,7 +861,7 @@ class _CalendarTabState extends State<CalendarTab>
       }
     }
 
-    return planMove(index, lesson, teacherTaxCode, startMinutes);
+    return planMove(index, lesson, teacherTaxCode, startMinutes, within: window);
   }
 
   List<LessonItem> _hoursUnder(
@@ -1001,6 +899,15 @@ class _CalendarTabState extends State<CalendarTab>
     if (payload == null)
     {
       _carriedAt.value = CarriedPlacement.idle;
+
+      // Back after the drop while requests are left; with none, it stays shut.
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted && openPanelCount(_bookingGroups, _unassignedActivities) == 0)
+        {
+          _panelOpen.value = false;
+        }
+      });
     }
   }
 
@@ -1097,8 +1004,9 @@ class _CalendarTabState extends State<CalendarTab>
             )
           : null;
 
+      // A move squeezed against an end of the timeline shortens it as a resize does.
       if (remainder == null &&
-          placement.kind == LessonPlacementKind.resize &&
+          (placement.kind == LessonPlacementKind.resize || placement.kind == LessonPlacementKind.move) &&
           placement.minutes < existing.minutes &&
           _hasBothParts(index, existing))
       {
@@ -1490,116 +1398,6 @@ class _CalendarTabState extends State<CalendarTab>
       content: [
         for (final lane in lanes) ...lane.contentSpans(_bandStart, _bandEnd),
       ],
-    );
-  }
-
-  Widget _buildCalendarButton()
-  {
-    final now = widget.today ?? romeNow();
-
-    return AppCalendarButton(
-      selected: _day,
-      today: now,
-      first: oldestKeptDay(now),
-      last: calendarHorizon(now),
-      onPicked: _goToDay,
-      loadMarks: widget.loadMarks,
-      size: _isDense ? _denseControl : CarouselArrowButton.defaultSize,
-    );
-  }
-
-  Widget _buildDayNav()
-  {
-    final isFirstDay = !_day.isAfter(oldestKeptDay());
-
-    final double button = _isDense ? _denseControl : CarouselArrowButton.defaultSize;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildCalendarButton(),
-        SizedBox(width: _isDense ? 8 : 12),
-        CarouselArrowButton(
-          icon: Icons.chevron_left_rounded,
-          isDisabled: isFirstDay || _isFetchingDay,
-          size: button,
-          onTap: () => _goToDay(addDays(_day, -1)),
-        ),
-        SizedBox(width: _isDense ? 6 : 8),
-        SizedBox(width: _isDense ? _denseDayLabelWidth : _dayLabelWidth, child: Center(child: _buildDayLabel())),
-        SizedBox(width: _isDense ? 6 : 8),
-        CarouselArrowButton(
-          icon: Icons.chevron_right_rounded,
-          isDisabled: _isFetchingDay,
-          size: button,
-          onTap: () => _goToDay(addDays(_day, 1)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNarrowDayNav()
-  {
-    final isFirstDay = !_day.isAfter(oldestKeptDay());
-
-    final double button = _isDense ? _denseControl : CarouselArrowButton.defaultSize;
-
-    return Row(
-      children: [
-        _buildCalendarButton(),
-        const SizedBox(width: 8),
-        CarouselArrowButton(
-          icon: Icons.chevron_left_rounded,
-          isDisabled: isFirstDay || _isFetchingDay,
-          size: button,
-          onTap: () => _goToDay(addDays(_day, -1)),
-        ),
-        Expanded(child: Center(child: _buildDayLabel())),
-        CarouselArrowButton(
-          icon: Icons.chevron_right_rounded,
-          isDisabled: _isFetchingDay,
-          size: button,
-          onTap: () => _goToDay(addDays(_day, 1)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDayLabel()
-  {
-    return Text(
-      '${formatWeekdayColumnLabel(_day)} ${_day.year}',
-      maxLines: 1,
-      softWrap: false,
-      overflow: TextOverflow.ellipsis,
-      textAlign: TextAlign.center,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: _isDense ? 14 : 15,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.trialInk,
-      ),
-    );
-  }
-
-  Widget _buildBandPicker()
-  {
-    return AppSegmentedTabs(
-      labels: [for (final bucket in TimeBucket.values) bandLabel(bucket)],
-      selectedIndex: _band.index,
-      onSelected: (index)
-      {
-        setState(()
-        {
-          _band = TimeBucket.values[index];
-          _syncClock();
-        });
-
-        _sayWhichBand();
-      },
-      padding: EdgeInsets.zero,
-      hugContent: true,
-      height: _isDense ? _denseControl : 44,
-      fontSize: _isDense ? 13.5 : 14,
     );
   }
 
@@ -2033,7 +1831,33 @@ class _CalendarTabState extends State<CalendarTab>
     };
   }
 
-  Widget _buildTrack(List<CalendarLane> lanes, CalendarDayIndex index, (int, int) window, double width)
+  // Composing: each row's blocks as tall as the one whose words wrap the most; captioned ones keep the usual.
+  List<double> _composingBlockHeights(
+    List<CalendarLane> lanes,
+    TimelineMetrics metrics,
+    Map<String, Map<int, CaptionSpot>> captions,
+  )
+  {
+    return [
+      for (final lane in lanes)
+        lane.lessons.fold(
+          kTeacherBlockHeight,
+          (tallest, lesson) => captions[lane.personTaxCode]?.containsKey(lesson.id) ?? false
+              ? tallest
+              : math.max(
+                  tallest,
+                  composingLessonBlockHeight(
+                    context,
+                    lesson,
+                    metrics.widthOf(lesson.startMinutes, lesson.endMinutes),
+                    ministrySubjects: widget.ministrySubjects,
+                  ),
+                ),
+        ),
+    ];
+  }
+
+  CalendarTimeline _buildTrack(List<CalendarLane> lanes, CalendarDayIndex index, (int, int) window, double width)
   {
     final trackWidth = width - timelineLeadingWidth(context);
     final stacking = _stackLanes(lanes);
@@ -2062,7 +1886,14 @@ class _CalendarTabState extends State<CalendarTab>
         for (var i = 0; i < lanes.length; i++)
           math.max(
             timelineRowHeightOf(stacking.laneCounts[i], heights[i]),
-            laneHeaderMinHeight(context, lanes[i], rooms[lanes[i].personTaxCode]),
+            laneHeaderMinHeight(
+              context,
+              lanes[i],
+              rooms[lanes[i].personTaxCode],
+              bandStart: _bandStart,
+              bandEnd: _bandEnd,
+              view: _view,
+            ),
           ),
       ]);
     }
@@ -2087,11 +1918,18 @@ class _CalendarTabState extends State<CalendarTab>
 
     final captions = _isSettled ? const <String, Map<int, CaptionSpot>>{} : _captionsFor(lanes, metrics);
 
-    if (captions.values.any((spots) => spots.isNotEmpty))
+    if (!_isSettled)
     {
+      final heights = blockHeights = _composingBlockHeights(lanes, metrics, captions);
+
+      // A long name wraps whole: its row grows rather than cut it.
       metrics = metrics.withRowHeights([
         for (var i = 0; i < lanes.length; i++)
-          rowHeights[i] + captionsExtent(captionLinesOf(captions[lanes[i].personTaxCode])),
+          math.max(
+            timelineRowHeightOf(stacking.laneCounts[i], heights[i]) +
+                captionsExtent(captionLinesOf(captions[lanes[i].personTaxCode])),
+            laneHeaderMinHeight(context, lanes[i], null, bandStart: _bandStart, bandEnd: _bandEnd, view: _view),
+          ),
       ]);
     }
 
@@ -2122,6 +1960,7 @@ class _CalendarTabState extends State<CalendarTab>
         onLessonTap: _openPublishedLesson,
         onActivityTap: _openPublishedActivity,
         scrollController: _trackController,
+        sidewaysController: _sidewaysController,
         viewportKey: _viewportKey,
       );
     }
@@ -2141,8 +1980,8 @@ class _CalendarTabState extends State<CalendarTab>
       onActivityTap: _activityTap(index),
       onPlan: widget.isReadOnly
           ? null
-          : (payload, teacherTaxCode, startMinutes) =>
-              _plan(index, payload, teacherTaxCode, startMinutes),
+          : (payload, teacherTaxCode, startMinutes, window) =>
+              _plan(index, payload, teacherTaxCode, startMinutes, window),
       onPlanResize: (lesson, startMinutes, endMinutes) => planResizeWithin(index, lesson, startMinutes, endMinutes),
       onPlanActivityResize: (scheduled, startMinutes, endMinutes) =>
           planActivityResize(index, scheduled, startMinutes, endMinutes),
@@ -2156,7 +1995,10 @@ class _CalendarTabState extends State<CalendarTab>
       excludedTeachers: widget.excludedTeachers,
       onExcludedChanged: widget.isReadOnly || widget.onExcludeTeacher == null ? null : _setExcluded,
       scrollController: _trackController,
+      sidewaysController: _sidewaysController,
+      lessonDetails: _lessonDetails,
       viewportKey: _viewportKey,
+      blockHeights: blockHeights,
       captions: captions,
     );
   }
@@ -2234,13 +2076,37 @@ class _CalendarTabState extends State<CalendarTab>
         key: _viewportKey,
         builder: (context, constraints)
         {
-          return Scrollbar(
-            controller: _trackController,
-            child: ScrollEdgeFade(
-              child: SingleChildScrollView(
-                controller: _trackController,
-                child: _buildTrack(lanes, index, window, constraints.maxWidth),
+          final timeline = _buildTrack(lanes, index, window, constraints.maxWidth);
+          final media = MediaQuery.of(context);
+
+          final Widget view = KeyedSubtree(
+            key: _trackViewKey,
+            child: Scrollbar(
+              controller: _trackController,
+              child: ScrollEdgeFade(
+                child: SingleChildScrollView(
+                  controller: _trackController,
+                  child: timeline,
+                ),
               ),
+            ),
+          );
+
+          // Only while there is something to scroll: a bar left without a position wakes under the pointer.
+          if (!timelineScrollsSideways(context, timeline.metrics, constraints.maxWidth))
+          {
+            return view;
+          }
+
+          // The sideways bar runs along the bottom of the view, past the names, rather than
+          // under the last row; Scrollbar takes its insets from MediaQuery, given back inside.
+          return MediaQuery(
+            data: media.copyWith(padding: EdgeInsets.only(left: timelineLeadingWidth(context))),
+            child: Scrollbar(
+              controller: _sidewaysController,
+              thumbVisibility: true,
+              notificationPredicate: (notification) => notification.metrics.axis == Axis.horizontal,
+              child: MediaQuery(data: media, child: view),
             ),
           );
         },
@@ -2293,20 +2159,30 @@ class _CalendarTabState extends State<CalendarTab>
     return inBuilding;
   }
 
-  Future<void> _ensureRoomPlan({bool force = false}) async
+  // The load in flight, for whoever needs the rooms to wait for them.
+  Future<void>? _roomPlanLoad;
+
+  Future<void> _ensureRoomPlan({bool force = false})
   {
+    final pending = _roomPlanLoad;
+
+    if (pending != null)
+    {
+      return pending;
+    }
+
     final load = widget.onLoadRoomPlan;
 
-    if (load == null || _isLoadingRoomPlan || (!force && _hasRoomPlan))
+    if (load == null || (!force && _hasRoomPlan) || _dayLanesInBuilding().isEmpty)
     {
-      return;
+      return Future.value();
     }
 
-    if (_dayLanesInBuilding().isEmpty)
-    {
-      return;
-    }
+    return _roomPlanLoad = _loadRoomPlan(load).whenComplete(() => _roomPlanLoad = null);
+  }
 
+  Future<void> _loadRoomPlan(Future<RoomDayPlan?> Function(DateTime day, Function(String) onError) load) async
+  {
     final day = _day;
 
     setState(() => _isLoadingRoomPlan = true);
@@ -2448,6 +2324,7 @@ class _CalendarTabState extends State<CalendarTab>
     final confirmed = await showPublishConfirmation(
       context: context,
       warnings: _uncalledNewTeachers(),
+      onlineOnly: onlineOnlyTeachers(_lanes),
     );
 
     if (confirmed != true || !mounted)
@@ -2527,14 +2404,9 @@ class _CalendarTabState extends State<CalendarTab>
     }
   }
 
-  Future<void> _exportPdf() async
+  CalendarExportData _teachersExport()
   {
-    if (_isExporting)
-    {
-      return;
-    }
-
-    final teachers = teachersExport(
+    return teachersExport(
       availabilities: widget.availabilities,
       lessons: widget.lessons,
       activities: widget.activities,
@@ -2545,8 +2417,11 @@ class _CalendarTabState extends State<CalendarTab>
       day: _day,
       band: _band,
     );
+  }
 
-    final students = studentsExport(
+  CalendarExportData _studentsExport()
+  {
+    return studentsExport(
       presences: widget.presences,
       lessons: widget.lessons,
       openingDays: widget.openingDays,
@@ -2555,8 +2430,17 @@ class _CalendarTabState extends State<CalendarTab>
       day: _day,
       band: _band,
     );
+  }
 
-    final tabs = openCalendarPdfTabs(teachers: teachers, students: students);
+  Future<void> _exportPdf() async
+  {
+    if (_isExporting)
+    {
+      return;
+    }
+
+    // Opened before any await: a tab opened later is a popup the browser blocks.
+    final tabs = openCalendarPdfTabs(teachers: _teachersExport(), students: _studentsExport());
 
     if (tabs.isEmpty)
     {
@@ -2570,9 +2454,12 @@ class _CalendarTabState extends State<CalendarTab>
 
     try
     {
+      // The rooms arrive a moment after the day: the document waits for them rather than race them.
+      await _ensureRoomPlan();
+
       final outcome = await writeCalendarPdfs(
-        teachers: teachers,
-        students: students,
+        teachers: _teachersExport(),
+        students: _studentsExport(),
         tabs: tabs,
       );
 
@@ -2667,6 +2554,7 @@ class _CalendarTabState extends State<CalendarTab>
     final confirmed = await showPublishChangesConfirmation(
       context: context,
       warnings: _uncalledNewTeachers(),
+      onlineOnly: onlineOnlyTeachers(_lanes),
     );
 
     if (confirmed != true || !mounted)
@@ -2707,7 +2595,7 @@ class _CalendarTabState extends State<CalendarTab>
   Widget _buildLockNotice(CalendarLockItem lock)
   {
     return Container(
-      constraints: const BoxConstraints(maxWidth: _actionButtonWidth * 2),
+      constraints: const BoxConstraints(maxWidth: _lockNoticeMaxWidth),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         color: AppTheme.modifiedAccentSurface,
@@ -2809,7 +2697,7 @@ class _CalendarTabState extends State<CalendarTab>
             label: 'MODIFICA CALENDARIO',
             icon: Icons.edit_outlined,
             busy: _isPublishing,
-            width: _actionWidth,
+            width: _isDense ? null : _publishedActionWidth,
             height: _actionHeight,
             fontSize: _actionFontSize,
             horizontalPadding: _actionPadding,
@@ -2820,7 +2708,7 @@ class _CalendarTabState extends State<CalendarTab>
             icon: Icons.picture_as_pdf_outlined,
             busy: _isExporting,
             iconOnlyTooltip: _isDense ? 'Esporta PDF' : null,
-            width: _isDense ? _actionHeight : _actionWidth,
+            width: _isDense ? _actionHeight : _publishedActionWidth,
             height: _actionHeight,
             fontSize: _actionFontSize,
             horizontalPadding: _actionPadding,
@@ -2905,27 +2793,67 @@ class _CalendarTabState extends State<CalendarTab>
     );
   }
 
-  // Below the wide window the buttons are in the header: only a lock notice stays under the day.
+  // The buttons are in the header: only a lock notice stays under the day.
   Widget? _buildBodyAction()
   {
     final lock = widget.lock;
-
-    if (!_isDense)
-    {
-      return _buildBandAction();
-    }
 
     return widget.isReadOnly && lock != null ? _buildLockNotice(lock) : null;
   }
 
   Widget? get _headerActions
   {
-    if (!_isDense || (widget.isReadOnly && widget.lock != null))
+    if (widget.isReadOnly && widget.lock != null)
     {
       return null;
     }
 
     return _buildBandAction();
+  }
+
+  Widget _buildPlanButton()
+  {
+    final open = openPanelCount(_bookingGroups, _unassignedActivities);
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: _panelOpen,
+      builder: (context, shown, child) => AppGradientButton(
+        label: 'DA PIANIFICARE',
+        icon: Icons.pending_actions_rounded,
+        badge: '$open',
+        selected: shown,
+        height: _actionHeight,
+        fontSize: _actionFontSize,
+        horizontalPadding: _actionPadding,
+        radius: _actionHeight / 2,
+        onPressed: () => _panelOpen.value = !shown,
+      ),
+    );
+  }
+
+  // Kept in the tree while away: a request carried out of it must keep its drag.
+  Widget _buildFloatingPanel(CalendarDayIndex index, Widget timeline)
+  {
+    final double width = _isDense ? _densePanelWidth : _panelWidth;
+
+    final Widget panel = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      child: _buildPanel(shape: BookingPanelShape.floating, index: index),
+    );
+
+    return ListenableBuilder(
+      listenable: Listenable.merge([_carried, _panelOpen]),
+      builder: (context, child) => AppFloatingPanel(
+        place: _panelPlace ?? AppFloatingPlace(width: width, stripHeight: _panelDockHeight),
+        least: const Size(_densePanelWidth, _panelLeastHeight),
+        open: _panelOpen.value,
+        carrying: _carried.value != null,
+        onPlaceChanged: (place) => _panelPlace = place,
+        behind: timeline,
+        child: child!,
+      ),
+      child: panel,
+    );
   }
 
   Widget _buildTimelineColumn(List<CalendarLane> lanes, CalendarDayIndex index, {required int slot})
@@ -2955,8 +2883,7 @@ class _CalendarTabState extends State<CalendarTab>
       ministrySubjects: widget.ministrySubjects,
       teacherNames: _teacherNames,
       shape: shape,
-      isExpanded: _panelExpanded,
-      onExpandedChanged: (expanded) => setState(() => _panelExpanded = expanded),
+      onClose: () => _panelOpen.value = false,
       onPlanRequested: index.lanes.isEmpty || widget.isReadOnly
           ? null
           : (entry) => _planBooking(entry, index),
@@ -2966,7 +2893,27 @@ class _CalendarTabState extends State<CalendarTab>
           ? null
           : () => _addActivity(index),
       onOpenActivity: _activityTap(index),
+      requestDetails: (entry) => _requestDetails(entry.booking, entry.presence.student.taxCode),
     );
+  }
+
+  // What a card or a lesson opens on a long hover, the teachers named as the day page names them.
+  // Built only once it opens.
+  WidgetBuilder _requestDetails(BookingSummaryItem booking, String studentTaxCode)
+  {
+    return (context) => CalendarRequestDetails(
+      booking: booking,
+      student: widget.people.where((person) => person.fiscalCode == studentTaxCode).firstOrNull,
+      ministrySubjects: widget.ministrySubjects,
+      teacherNames: _teacherNames,
+    );
+  }
+
+  WidgetBuilder? _lessonDetails(LessonItem lesson)
+  {
+    final link = lesson.bookings.firstOrNull;
+
+    return link == null ? null : _requestDetails(link.booking, link.studentTaxCode);
   }
 
   Widget _buildAgendaArea(List<CalendarLane> lanes, CalendarDayIndex index)
@@ -3069,199 +3016,74 @@ class _CalendarTabState extends State<CalendarTab>
 
   Widget _buildBody(List<CalendarLane> lanes, CalendarDayIndex index, _CalendarShape shape)
   {
-    if (_isSettled && shape != _CalendarShape.compact)
+    if (shape == _CalendarShape.compact)
     {
-      return _buildTimelineColumn(lanes, index, slot: PageTransitionItem.list);
+      return _buildCompactBody(lanes, index);
     }
 
-    return switch (shape)
+    final Widget timeline = _buildTimelineColumn(lanes, index, slot: PageTransitionItem.list);
+
+    if (_isSettled)
     {
-      _CalendarShape.sideBySide => Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(child: _buildTimelineColumn(lanes, index, slot: PageTransitionItem.list)),
-            const SizedBox(width: _panelGap),
-            SizedBox(
-              width: kBookingPanelWidth,
-              child: PageTransitionItem(
-                slot: PageTransitionItem.list + 2,
-                child: _buildPanel(shape: BookingPanelShape.column, index: index),
-              ),
-            ),
-          ],
-        ),
-      _CalendarShape.stacked => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PageTransitionItem(
-              slot: PageTransitionItem.list,
-              child: _buildPanel(shape: BookingPanelShape.strip, index: index),
-            ),
-            const SizedBox(height: 24),
-            Expanded(child: _buildTimelineColumn(lanes, index, slot: PageTransitionItem.list + 1)),
-          ],
-        ),
-      _CalendarShape.compact => _buildCompactBody(lanes, index),
-    };
+      return timeline;
+    }
+
+    return _buildFloatingPanel(index, timeline);
   }
 
-  // Below the wide window: the bands, the counts and the day on one line, the search and the actions on the next;
-  // narrower, the counts go with the actions; minimal, one thing a line.
-  List<Widget> _denseHeaderRows(AppWindowSize size, Widget dayNav, {Widget? summary, Widget? filters, Widget? actions})
+  // The page at the start, the requests button and the actions at the end; the end wraps under when short.
+  Widget _buildHeader(_CalendarShape shape, {Widget? summary, Widget? filters, Widget? actions, Widget? plan})
   {
-    final Widget band = _buildBandPicker();
+    final Widget? leading = widget.leading;
 
-    return switch (size)
-    {
-      AppWindowSize.minimal => [
-          Align(alignment: Alignment.centerLeft, child: band),
-          dayNav,
-          ?summary,
-          if (actions != null) Align(alignment: Alignment.centerLeft, child: actions),
-          ?filters,
-        ],
-      AppWindowSize.narrow => [
+    final Widget line = Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 24,
+      runSpacing: 10,
+      children: [
+        ?leading,
+        if (plan != null || actions != null)
           Wrap(
-            alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 12,
             runSpacing: 10,
-            children: [band, dayNav],
+            children: [?plan, ?actions],
           ),
-          if (summary != null || actions != null)
-            Row(
-              children: [
-                Expanded(child: Align(alignment: Alignment.centerLeft, child: summary ?? const SizedBox.shrink())),
-                if (actions != null) ...[
-                  const SizedBox(width: 12),
-                  actions,
-                ],
-              ],
-            ),
-          ?filters,
-        ],
-      _ => [
-          Row(
-            children: [
-              band,
-              const SizedBox(width: 12),
-              Expanded(child: Align(alignment: Alignment.centerLeft, child: summary ?? const SizedBox.shrink())),
-              const SizedBox(width: 12),
-              dayNav,
-            ],
-          ),
-          if (filters != null || actions != null)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: filters ?? const SizedBox.shrink()),
-                if (actions != null) ...[
-                  const SizedBox(width: 12),
-                  actions,
-                ],
-              ],
-            ),
-        ],
-    };
-  }
-
-  Widget _buildDenseHeader(Widget dayNav, {Widget? summary, Widget? filters, Widget? actions})
-  {
-    final AppWindowSize window = AppBreakpoints.of(context);
-
-    return PageTransitionItem(
-      slot: PageTransitionItem.header,
-      child: LayoutBuilder(
-        builder: (context, constraints)
-        {
-          // Less room than the window promises: the line of the narrow window instead.
-          final AppWindowSize size = window == AppWindowSize.compact && constraints.maxWidth < _denseOneLineMin
-              ? AppWindowSize.narrow
-              : window;
-          final rows = _denseHeaderRows(size, dayNav, summary: summary, filters: filters, actions: actions);
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final (i, row) in rows.indexed) ...[
-                if (i > 0) const SizedBox(height: 10),
-                row,
-              ],
-              const SizedBox(height: 12),
-            ],
-          );
-        },
-      ),
+      ],
     );
-  }
-
-  Widget _buildHeader(Widget dayNav, {Widget? summary, Widget? filters, Widget? actions})
-  {
-    if (_isDense)
-    {
-      return _buildDenseHeader(dayNav, summary: summary, filters: filters, actions: actions);
-    }
 
     return PageTransitionItem(
       slot: PageTransitionItem.header,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 24,
-            runSpacing: 16,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _buildBandPicker(),
-              dayNav,
-            ],
-          ),
+          line,
           if (summary != null) ...[
-            const SizedBox(height: 14),
-            summary,
+            SizedBox(height: _isDense ? 10 : 14),
+            Padding(
+              padding: EdgeInsets.only(left: widget.leadingIndent),
+              child: Align(alignment: Alignment.centerLeft, child: summary),
+            ),
           ],
           if (filters != null) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: _isDense ? 10 : 16),
             filters,
           ],
-          const SizedBox(height: 20),
+          SizedBox(height: _isDense ? 12 : 18),
         ],
       ),
     );
   }
 
-  Widget _buildPage(_CalendarShape shape, bool navFits)
+  Widget _buildPage(_CalendarShape shape)
   {
-    final bool stretched = !navFits || (_isDense && AppBreakpoints.of(context).isMinimal);
-    final Widget dayNav = stretched ? _buildNarrowDayNav() : _buildDayNav();
-
-    if (_isFetchingDay)
-    {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildHeader(dayNav),
-          const Expanded(
-            child: PageTransitionItem(
-              slot: PageTransitionItem.list,
-              child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
-            ),
-          ),
-        ],
-      );
-    }
-
     if (_isDayClosed)
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          PageTransitionItem(
-            slot: PageTransitionItem.header,
-            child: Align(alignment: Alignment.centerRight, child: dayNav),
-          ),
-          const SizedBox(height: 20),
+          _buildHeader(shape),
           Expanded(
             child: LessonsClosedDay(message: _closureNote),
           ),
@@ -3277,10 +3099,11 @@ class _CalendarTabState extends State<CalendarTab>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildHeader(
-          dayNav,
+          shape,
           summary: _buildSummary(lanes),
           filters: _isSettled ? _buildFilters(isNarrow: shape == _CalendarShape.compact) : null,
           actions: _headerActions,
+          plan: _isSettled || shape == _CalendarShape.compact || lanes.isEmpty ? null : _buildPlanButton(),
         ),
         Expanded(child: _buildBody(lanes, index, shape)),
       ],
@@ -3293,14 +3116,7 @@ class _CalendarTabState extends State<CalendarTab>
     _isDense = AppBreakpoints.of(context).isDense;
 
     return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        final shape = _shapeFor(constraints.maxWidth, AppBreakpoints.of(context));
-
-        final navFits = constraints.maxWidth >= kCalendarDayNavMin;
-
-        return _buildPage(shape, navFits);
-      },
+      builder: (context, constraints) => _buildPage(_shapeFor(constraints.maxWidth)),
     );
   }
 }

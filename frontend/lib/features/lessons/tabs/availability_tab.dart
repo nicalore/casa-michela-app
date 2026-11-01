@@ -30,6 +30,9 @@ class AvailabilityTab extends StatefulWidget
 
   final List<OpeningDayItem> openingDays;
 
+  // A day outside the booking window: shown, never changed.
+  final bool readOnly;
+
   final LessonsDayView view;
   final ValueChanged<LessonsDayView> onViewSelected;
 
@@ -46,6 +49,7 @@ class AvailabilityTab extends StatefulWidget
     required this.availableDays,
     required this.selectedDay,
     required this.openingDays,
+    this.readOnly = false,
     required this.view,
     required this.onViewSelected,
     required this.onCreate,
@@ -274,8 +278,8 @@ class _AvailabilityTabState extends State<AvailabilityTab>
           for (final group in _dayGroups)
             AvailabilityCard(
               group: group,
-              onEditRequested: (onSaved) => _showWizard(group: group, onEditSaved: onSaved),
-              onDelete: () => widget.onDeleteGroup(group.slots),
+              onEditRequested: widget.readOnly ? null : (onSaved) => _showWizard(group: group, onEditSaved: onSaved),
+              onDelete: widget.readOnly ? null : () => widget.onDeleteGroup(group.slots),
             ),
         ],
       );
@@ -292,7 +296,7 @@ class _AvailabilityTabState extends State<AvailabilityTab>
           onSearchChanged: (value) => setState(() => _searchText = value),
           searchHint: 'Cerca docente...',
           actionLabel: 'NUOVA DISPONIBILITÀ',
-          onAction: _showWizard,
+          onAction: widget.readOnly ? null : _showWizard,
         ),
         const TabHeaderGap(wide: 20, dense: 10),
         _buildFilters(),
@@ -305,8 +309,8 @@ class _AvailabilityTabState extends State<AvailabilityTab>
           for (final group in groups)
             AvailabilityCard(
               group: group,
-              onEditRequested: (onSaved) => _showWizard(group: group, onEditSaved: onSaved),
-              onDelete: () => widget.onDeleteGroup(group.slots),
+              onEditRequested: widget.readOnly ? null : (onSaved) => _showWizard(group: group, onEditSaved: onSaved),
+              onDelete: widget.readOnly ? null : () => widget.onDeleteGroup(group.slots),
             ),
         ],
       ),

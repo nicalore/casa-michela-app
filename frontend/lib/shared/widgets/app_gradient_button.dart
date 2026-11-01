@@ -60,6 +60,12 @@ class AppGradientButton extends StatefulWidget
   // Set: a square with the icon alone, this said on hover.
   final String? iconOnlyTooltip;
 
+  // A count in a gold pill after the label.
+  final String? badge;
+
+  // Filled as on hover, for a button that holds something open.
+  final bool selected;
+
   const AppGradientButton({
     super.key,
     required this.label,
@@ -75,6 +81,8 @@ class AppGradientButton extends StatefulWidget
     this.busy = false,
     this.disabledReason,
     this.iconOnlyTooltip,
+    this.badge,
+    this.selected = false,
   });
 
   @override
@@ -82,10 +90,14 @@ class AppGradientButton extends StatefulWidget
 }
 
 class _AppGradientButtonState extends State<AppGradientButton>
-    with SingleTickerProviderStateMixin
+    with TickerProviderStateMixin
 {
   late final AnimationController _controller;
   late final Animation<double> _sweep;
+
+  // Selected fills as hover does, and empties as slowly: closing what it holds open does not snap it.
+  late final AnimationController _choice;
+  late final Animation<double> _chosen;
 
   bool _pressed = false;
 
@@ -101,12 +113,32 @@ class _AppGradientButtonState extends State<AppGradientButton>
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
+
+    _choice = AnimationController(vsync: this, duration: _sweepDuration, value: widget.selected ? 1 : 0);
+
+    _chosen = CurvedAnimation(
+      parent: _choice,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+  }
+
+  @override
+  void didUpdateWidget(AppGradientButton oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.selected != oldWidget.selected)
+    {
+      widget.selected ? _choice.forward() : _choice.reverse();
+    }
   }
 
   @override
   void dispose()
   {
     _controller.dispose();
+    _choice.dispose();
     super.dispose();
   }
 
@@ -206,6 +238,22 @@ class _AppGradientButtonState extends State<AppGradientButton>
             style: _labelStyle(contentColor),
           ),
         ),
+        if (widget.badge case final badge?) ...[
+          const SizedBox(width: 8),
+          Container(
+            constraints: BoxConstraints(minWidth: _fontSize + 9),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.trialGold,
+              borderRadius: BorderRadius.circular(_fontSize),
+            ),
+            child: Text(
+              badge,
+              textAlign: TextAlign.center,
+              style: _labelStyle(Colors.white).copyWith(letterSpacing: 0),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -310,10 +358,10 @@ class _AppGradientButtonState extends State<AppGradientButton>
             transform: Matrix4.translationValues(0, _pressed ? _pressedShift : 0, 0),
             transformAlignment: Alignment.center,
             child: AnimatedBuilder(
-              animation: _sweep,
+              animation: Listenable.merge([_sweep, _chosen]),
               builder: (context, child)
               {
-                final double t = _sweep.value;
+                final double t = math.max(_sweep.value, _chosen.value);
 
                 return Container(
                   width: widget.width,

@@ -96,7 +96,8 @@ class SubjectRequestList extends StatelessWidget
 
   final VoidCallback? onAdd;
 
-  final void Function(int index) onRemove;
+  // Both absent for a reader.
+  final void Function(int index)? onRemove;
 
   final void Function(int index)? onEdit;
 
@@ -105,7 +106,7 @@ class SubjectRequestList extends StatelessWidget
     required this.requests,
     required this.ministrySubjects,
     required this.teachers,
-    required this.onRemove,
+    this.onRemove,
     this.offeredSubjects,
     this.emptyLabel = 'Nessuna materia richiesta.',
     this.onAdd,
@@ -140,7 +141,7 @@ class SubjectRequestList extends StatelessWidget
             ministrySubjects: ministrySubjects,
             offeredSubjects: offeredSubjects,
             teachers: teachers,
-            onDelete: () => onRemove(index),
+            onDelete: onRemove == null ? null : () => onRemove!(index),
             onEdit: onEdit == null ? null : () => onEdit!(index),
           ),
         if (onAdd != null) ...[
@@ -159,7 +160,7 @@ class SubjectRequestTile extends StatefulWidget
   final List<MinistrySubjectItem>? offeredSubjects;
   final List<PersonItem> teachers;
 
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
   final VoidCallback? onEdit;
 
   const SubjectRequestTile({
@@ -167,7 +168,7 @@ class SubjectRequestTile extends StatefulWidget
     required this.draft,
     required this.ministrySubjects,
     required this.teachers,
-    required this.onDelete,
+    this.onDelete,
     this.offeredSubjects,
     this.onEdit,
   });
@@ -223,11 +224,13 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
                 Navigator.of(dialogContext).pop();
                 widget.onEdit!();
               },
-        onDelete: ()
-        {
-          Navigator.of(dialogContext).pop();
-          widget.onDelete();
-        },
+        onDelete: widget.onDelete == null
+            ? null
+            : ()
+              {
+                Navigator.of(dialogContext).pop();
+                widget.onDelete!();
+              },
       ),
     );
   }
@@ -280,12 +283,13 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
                 hoverColor: AppTheme.trialGoldSurface,
                 onTap: widget.onEdit!,
               ),
-            FadeHoverIconButton(
-              icon: Icons.delete_outline_rounded,
-              color: AppTheme.trialDanger,
-              hoverColor: AppTheme.trialGoldSurface,
-              onTap: widget.onDelete,
-            ),
+            if (widget.onDelete case final delete?)
+              FadeHoverIconButton(
+                icon: Icons.delete_outline_rounded,
+                color: AppTheme.trialDanger,
+                hoverColor: AppTheme.trialGoldSurface,
+                onTap: delete,
+              ),
           ],
         ),
       ),
@@ -331,7 +335,7 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
   final List<PersonItem> teachers;
 
   final VoidCallback? onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
   const _SubjectRequestDetailsDialog({
     required this.title,
@@ -388,23 +392,29 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final Widget deleteButton = AppGradientButton(
-      label: 'ELIMINA',
-      icon: Icons.delete_outline_rounded,
-      gradient: AppTheme.dangerGradient,
-      accent: AppTheme.trialDanger,
-      height: _dialogButtonHeight,
-      fontSize: _dialogButtonFontSize,
-      onPressed: onDelete,
-    );
+    final VoidCallback? delete = onDelete;
+
+    final Widget? deleteButton = delete == null
+        ? null
+        : AppGradientButton(
+            label: 'ELIMINA',
+            icon: Icons.delete_outline_rounded,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
+            height: _dialogButtonHeight,
+            fontSize: _dialogButtonFontSize,
+            onPressed: delete,
+          );
 
     final voices = _voices;
 
     return AppDialogStack(
-      eyebrow: 'Materia richiesta',
+      eyebrow: 'Disciplina richiesta',
       title: title,
       maxWidth: _maxWidth,
-      footer: onEdit == null
+      footer: deleteButton == null
+          ? null
+          : onEdit == null
           ? Center(child: SizedBox(width: _loneButtonWidth, child: deleteButton))
           : AppDialogFooter(
               secondary: deleteButton,

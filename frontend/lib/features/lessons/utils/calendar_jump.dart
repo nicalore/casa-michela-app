@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/utils/time_bucket.dart';
 
 // A band a calendar is asked to show from outside the page, by a notification.
+// The administrator's calendar is a screen with its own address instead.
 class CalendarJump
 {
   final DateTime day;
@@ -47,9 +48,6 @@ class CalendarJumpChannel
 
 abstract final class CalendarJumps
 {
-  // The administrator's Lezioni calendar.
-  static final CalendarJumpChannel admin = CalendarJumpChannel();
-
   // The teachers', parents' and students' calendars.
   static final CalendarJumpChannel role = CalendarJumpChannel();
 }

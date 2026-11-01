@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
@@ -9,10 +11,10 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/rome_clock.dart';
 import '../../core/utils/time_bucket.dart';
+import '../../core/utils/week_range.dart';
 import '../../services/api_service.dart';
+import '../../shared/widgets/app_back_button.dart';
 import '../../shared/widgets/app_page_container.dart';
-import '../../shared/widgets/app_section_rail.dart';
-import '../../shared/widgets/app_section_tabs.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
@@ -36,33 +38,26 @@ import 'models/lesson_item.dart';
 import 'models/presence_item.dart';
 import 'models/room_day_plan.dart';
 import 'models/room_supervision_item.dart';
+import 'models/schedulable_booking.dart';
 import 'utils/excluded_teachers.dart';
+import 'utils/online_only.dart';
 import 'models/teacher_room_assignment_item.dart';
 import 'tabs/availability_tab.dart';
 import 'tabs/bookings_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'utils/band_watch.dart';
 import 'utils/booking_window.dart';
-import 'utils/calendar_jump.dart';
+import 'utils/calendar_route.dart';
 import 'utils/opening_window.dart';
+import 'widgets/calendar_booking_panel.dart' show openPanelCount;
+import 'widgets/lessons_day_bar.dart';
 import 'widgets/lessons_day_header.dart';
 import 'widgets/lessons_toolbar.dart';
 import 'widgets/room_assignment_wizard.dart' show PlannedRooms, PlannedShift;
 
-const int _availabilityContentIndex = 0;
-const int _bookingsContentIndex = 1;
-const int _calendarContentIndex = 2;
-
-const int _daySectionIndex = 0;
-const int _calendarSectionIndex = 1;
-
-List<RailGroup> _buildSections(List<DateTime> days)
-{
-  return [
-    RailGroup(title: 'Giornate', entries: days.map(formatAvailableDayLabel).toList()),
-    const RailGroup(entries: ['Calendario']),
-  ];
-}
+// The Lezioni page alive under the calendar screen: the screen draws from its data and writes through it.
+// Set and cleared after a frame, so that nothing listening rebuilds in the middle of another build.
+final ValueNotifier<_LessonsPageState?> _host = ValueNotifier(null);
 
 const String _teacherRoleLabel = 'Docente';
 const String _studentRoleLabel = 'Studente';
@@ -80,17 +75,26 @@ class _LessonsPageState extends State<LessonsPage>
 {
   final ApiService _apiService = ApiService();
 
+  // The days that can still change; the others are shown as they were.
   late final List<DateTime> _availableDays = computeAvailableDays(romeNow());
 
-  late final List<RailGroup> _sections = _buildSections(_availableDays);
+  late DateTime _day = _availableDays.first;
 
-  int _selectedSection = 0;
+  // Set while the band's calendar screen is open over the page.
+  TimeBucket? _calendarBand;
 
-  int _selectedDayIndex = 0;
+  // The latest calendar screen to open: one closing late must not shut a newer one.
+  int _calendarTicket = 0;
+
+  // Tells the calendar screen above that the page changed.
+  final ValueNotifier<int> _changes = ValueNotifier(0);
+
+  // A day outside the window, being read.
+  bool _isLoadingDay = false;
+
+  final Set<String> _readDays = {};
 
   LessonsDayView _dayView = LessonsDayView.availability;
-
-  final Set<int> _visitedSections = {};
 
   bool _isLoading = true;
   List<PersonItem> _people = [];
@@ -133,20 +137,11 @@ class _LessonsPageState extends State<LessonsPage>
 
   List<PersonItem> get _students => _people.where((person) => person.roles.contains(_studentRoleLabel)).toList();
 
-  bool get _isCalendarSelected => _selectedSection >= _availableDays.length;
+  bool get _isCalendarOpen => _calendarBand != null;
 
-  int get _dayViewIndex
-  {
-    return _dayView == LessonsDayView.availability
-        ? _availabilityContentIndex
-        : _bookingsContentIndex;
-  }
+  bool get _isDayEditable => _availableDays.any((day) => isSameDate(day, _day));
 
-  int get _contentIndex => _isCalendarSelected ? _calendarContentIndex : _dayViewIndex;
-
-  int get _sectionIndex => _isCalendarSelected ? _calendarSectionIndex : _daySectionIndex;
-
-  DateTime get _selectedDay => _availableDays[_selectedDayIndex];
+  DateTime get _selectedDay => _day;
 
   bool get _isSelectedDayClosed
   {
@@ -177,40 +172,118 @@ class _LessonsPageState extends State<LessonsPage>
   {
     super.initState();
 
-    // Opened from a notification: straight to the calendar, with no slide from the days.
-    final bool jumping = CalendarJumps.admin.isPending;
-
-    if (jumping)
-    {
-      _selectedSection = _availableDays.length;
-    }
-
-    _visitedSections.add(_contentIndex);
     _watch.start();
-
-    if (jumping)
-    {
-      _watchTheShownSection();
-    }
-
-    CalendarJumps.admin.asked.addListener(_turnToTheCalendar);
     _loadAllData();
+
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
+        _host.value = this;
+      }
+    });
   }
 
   @override
   void dispose()
   {
-    CalendarJumps.admin.asked.removeListener(_turnToTheCalendar);
     _watch.dispose();
+    _changes.dispose();
+
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (identical(_host.value, this))
+      {
+        _host.value = null;
+      }
+    });
+
     super.dispose();
   }
 
-  void _turnToTheCalendar()
+  @override
+  void setState(VoidCallback fn)
   {
-    if (!_isCalendarSelected)
+    super.setState(fn);
+    _changes.value++;
+  }
+
+  static String _keyOf(DateTime day) => '${day.year}-${day.month}-${day.day}';
+
+  Future<void> _goToDay(DateTime day) async
+  {
+    setState(() => _day = DateTime(day.year, day.month, day.day));
+
+    await _readDay(_day);
+  }
+
+  // Days in the window come with the page; another is read once, or again when [fresh].
+  Future<void> _readDay(DateTime day, {bool fresh = false}) async
+  {
+    final bool inside = _availableDays.any((other) => isSameDate(other, day));
+
+    if (!fresh && (inside || _readDays.contains(_keyOf(day))))
     {
-      _selectSection(_availableDays.length);
+      return;
     }
+
+    setState(() => _isLoadingDay = true);
+
+    final loaded = await _executeLoadDay(day, (message)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: message, isError: true);
+      }
+    });
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    setState(()
+    {
+      _isLoadingDay = false;
+
+      if (loaded)
+      {
+        _readDays.add(_keyOf(day));
+      }
+    });
+  }
+
+  void _openCalendar(TimeBucket band)
+  {
+    context.go(lessonsCalendarLocation(_day, band));
+  }
+
+  // The screen's day becomes the page's, so that going back lands on it.
+  int _attachCalendar(LessonsCalendarTarget target)
+  {
+    final int ticket = ++_calendarTicket;
+
+    setState(()
+    {
+      _day = target.day;
+      _calendarBand = target.band;
+    });
+
+    _watchTheShownSection();
+    unawaited(_readDay(target.day, fresh: target.fresh));
+
+    return ticket;
+  }
+
+  void _detachCalendar(int ticket)
+  {
+    if (!mounted || ticket != _calendarTicket)
+    {
+      return;
+    }
+
+    setState(() => _calendarBand = null);
+    _watchTheShownSection();
   }
 
   @override
@@ -586,6 +659,10 @@ class _LessonsPageState extends State<LessonsPage>
 
   Future<bool> _executeLoadDay(DateTime day, Function(String) onError) async
   {
+    // The band on show re-reads who is left out too: another administrator may have changed it.
+    final shown = _shownBand;
+    final band = shown != null && _isShowing(day, shown) ? shown : null;
+
     try
     {
       final results = await Future.wait([
@@ -596,6 +673,7 @@ class _LessonsPageState extends State<LessonsPage>
         _apiService.getLessons(dateFrom: day, dateTo: day),
         _apiService.getCalendarPublications(dateFrom: day, dateTo: day),
         _apiService.getCalendarActivities(dateFrom: day, dateTo: day),
+        if (band != null) _apiService.getExcludedTeachers(day: day, band: band),
       ]);
 
       if (!mounted)
@@ -630,6 +708,11 @@ class _LessonsPageState extends State<LessonsPage>
           ..._activities.where((item) => !isSameDate(item.date, day)),
           ...results[6] as List<ActivityItem>,
         ];
+
+        if (band != null && _isShowing(day, band))
+        {
+          _excludedTeachers = results[7] as Set<String>;
+        }
       });
 
       return true;
@@ -869,6 +952,18 @@ class _LessonsPageState extends State<LessonsPage>
     catch (_)
     {
       // Keep the empty default: everybody in.
+    }
+  }
+
+  // The checks here mirror the server's: a refusal they let through means this window shows a
+  // stale day, so it reads the day again rather than wait for the next poll.
+  void _catchUpAfterRefusal()
+  {
+    final day = _shownDay;
+
+    if (day != null)
+    {
+      unawaited(_executeLoadDay(day, (_) {}));
     }
   }
 
@@ -1251,6 +1346,8 @@ class _LessonsPageState extends State<LessonsPage>
     required Function(String) onError,
   }) async
   {
+    final before = _onlineOnlyOn(_shownDay);
+
     if (mounted)
     {
       _drawActivity(_optimisticActivity(
@@ -1281,6 +1378,8 @@ class _LessonsPageState extends State<LessonsPage>
       }
 
       await _refreshPublications(existing.date);
+      await _rereadMovedLessons(existing.date, {?existing.placement?.teacherTaxCode, ?written.placement?.teacherTaxCode});
+      _sayWhoComesForOnlineOnly(before);
 
       return true;
     }
@@ -1292,6 +1391,7 @@ class _LessonsPageState extends State<LessonsPage>
       }
 
       onError(readableApiError(e));
+      _catchUpAfterRefusal();
 
       return false;
     }
@@ -1299,14 +1399,95 @@ class _LessonsPageState extends State<LessonsPage>
 
   Future<bool> _executeDeleteActivity(int id, Function(String) onError) async
   {
+    final before = _onlineOnlyOn(_shownDay);
     final removed = _activities.where((activity) => activity.id == id).firstOrNull;
 
     return erase(
       call: () => _apiService.deleteCalendarActivity(id),
       apply: () => _activities = _activities.where((activity) => activity.id != id).toList(),
       onError: onError,
-      cascade: removed == null ? null : () => _refreshPublications(removed.date),
+      cascade: removed == null
+          ? null
+          : () async
+          {
+            await _refreshPublications(removed.date);
+            await _rereadMovedLessons(removed.date, {?removed.placement?.teacherTaxCode});
+            _sayWhoComesForOnlineOnly(before);
+          },
     );
+  }
+
+  // Every band and teacher of [day] that comes in for online lessons only.
+  Set<(TimeBucket, String)> _onlineOnlyOn(DateTime? day)
+  {
+    if (day == null)
+    {
+      return const {};
+    }
+
+    return onlineOnlyBands(
+      _lessons.where((lesson) => isSameDate(lesson.date, day)),
+      _activities.where((activity) => isSameDate(activity.date, day)),
+    );
+  }
+
+  // Said once, as the write makes it so: who now comes in only to connect from here.
+  void _sayWhoComesForOnlineOnly(Set<(TimeBucket, String)> before)
+  {
+    if (!mounted)
+    {
+      return;
+    }
+
+    final arrived = _onlineOnlyOn(_shownDay).difference(before).map((pair) => pair.$2).toSet();
+
+    if (arrived.isEmpty)
+    {
+      return;
+    }
+
+    final names = [
+      for (final teacher in arrived)
+        ?_lessons.where((lesson) => lesson.teacherTaxCode == teacher).firstOrNull?.teacher.fullName,
+    ];
+
+    CustomSnackBar.show(
+      context: context,
+      message: names.map(onlineOnlyWarning).join(' '),
+      tone: SnackBarTone.warning,
+      isError: false,
+    );
+  }
+
+  // The server settles where each teacher gives online lessons from, a whole band at a
+  // time: after a lesson or activity write their online lessons may sit on other hours.
+  Future<void> _rereadMovedLessons(DateTime day, Set<String> teachers, {int? written}) async
+  {
+    final moved = _lessons.any((lesson) =>
+        lesson.id != written &&
+        isSameDate(lesson.date, day) &&
+        teachers.contains(lesson.teacherTaxCode) &&
+        lesson.mode == kOnlineMode);
+
+    if (!moved)
+    {
+      return;
+    }
+
+    try
+    {
+      final lessons = await _apiService.getLessons(dateFrom: day, dateTo: day);
+
+      if (mounted)
+      {
+        setState(() => _lessons = [..._lessons.where((item) => !isSameDate(item.date, day)), ...lessons]);
+      }
+    }
+    catch (e, stackTrace)
+    {
+      // Log only: the next poll reads them anyway.
+      reportCaughtError(e, stackTrace, during: 'la rilettura delle lezioni');
+    }
   }
 
   Future<void> _refreshPublications(DateTime day) async
@@ -1427,6 +1608,8 @@ class _LessonsPageState extends State<LessonsPage>
     bool waiveCompetence = false,
   }) async
   {
+    final before = _onlineOnlyOn(_shownDay);
+
     final provisional = _provisionalLesson(
       availabilityId: availabilityId,
       bookingIds: bookingIds,
@@ -1469,6 +1652,8 @@ class _LessonsPageState extends State<LessonsPage>
       }
 
       await _refreshPublications(created.date);
+      await _rereadMovedLessons(created.date, {created.teacherTaxCode}, written: created.id);
+      _sayWhoComesForOnlineOnly(before);
 
       return created;
     }
@@ -1480,6 +1665,7 @@ class _LessonsPageState extends State<LessonsPage>
       }
 
       onError(readableApiError(e));
+      _catchUpAfterRefusal();
 
       return null;
     }
@@ -1535,6 +1721,8 @@ class _LessonsPageState extends State<LessonsPage>
     bool waiveCompetence = false,
   }) async
   {
+    final before = _onlineOnlyOn(_shownDay);
+
     final optimistic = _optimisticUpdate(
       existing: existing,
       availabilityId: availabilityId,
@@ -1576,6 +1764,12 @@ class _LessonsPageState extends State<LessonsPage>
       }
 
       await _refreshPublications(updated.date);
+      await _rereadMovedLessons(
+        updated.date,
+        {existing.teacherTaxCode, updated.teacherTaxCode},
+        written: updated.id,
+      );
+      _sayWhoComesForOnlineOnly(before);
 
       return updated;
     }
@@ -1587,6 +1781,7 @@ class _LessonsPageState extends State<LessonsPage>
       }
 
       onError(readableApiError(e));
+      _catchUpAfterRefusal();
 
       return null;
     }
@@ -1615,6 +1810,8 @@ class _LessonsPageState extends State<LessonsPage>
     bool waiveCompetence = false,
   }) async
   {
+    final before = _onlineOnlyOn(_shownDay);
+
     final shrunk = _optimisticUpdate(
       existing: existing,
       availabilityId: availabilityId,
@@ -1675,6 +1872,7 @@ class _LessonsPageState extends State<LessonsPage>
       ]);
 
       onError(readableApiError(e));
+      _catchUpAfterRefusal();
 
       return null;
     }
@@ -1710,13 +1908,18 @@ class _LessonsPageState extends State<LessonsPage>
       ]);
 
       onError(readableApiError(e));
+      _catchUpAfterRefusal();
     }
+
+    await _rereadMovedLessons(updated.date, {existing.teacherTaxCode, updated.teacherTaxCode});
+    _sayWhoComesForOnlineOnly(before);
 
     return updated;
   }
 
   Future<bool> _executeDeleteLesson(int id, Function(String) onError) async
   {
+    final before = _onlineOnlyOn(_shownDay);
     final removed = _lessons.where((lesson) => lesson.id == id).firstOrNull;
 
     if (removed != null && mounted)
@@ -1731,6 +1934,8 @@ class _LessonsPageState extends State<LessonsPage>
       if (removed != null)
       {
         await _refreshPublications(removed.date);
+        await _rereadMovedLessons(removed.date, {removed.teacherTaxCode});
+        _sayWhoComesForOnlineOnly(before);
       }
 
       return true;
@@ -1748,20 +1953,12 @@ class _LessonsPageState extends State<LessonsPage>
     }
   }
 
-  Widget _buildSectionContent(AppWindowSize size)
+  Widget _buildLists()
   {
-    if (_isLoading)
-    {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
-    }
+    final bool readOnly = !_isDayEditable;
 
-    return _buildTabs(size);
-  }
-
-  Widget _buildDaySection(AppWindowSize size)
-  {
-    final Widget lists = IndexedStack(
-      index: _dayViewIndex,
+    return IndexedStack(
+      index: _dayView.index,
       children: [
         AvailabilityTab(
           view: _dayView,
@@ -1770,6 +1967,7 @@ class _LessonsPageState extends State<LessonsPage>
           availableDays: _availableDays,
           selectedDay: _selectedDay,
           openingDays: _openingDays,
+          readOnly: readOnly,
           onViewSelected: _selectView,
           onCreate: _executeCreateAvailability,
           onEdit: _executeEditAvailability,
@@ -1788,6 +1986,7 @@ class _LessonsPageState extends State<LessonsPage>
           availableDays: _availableDays,
           selectedDay: _selectedDay,
           openingDays: _openingDays,
+          readOnly: readOnly,
           onViewSelected: _selectView,
           onCreateLessonRequest: _executeCreateLessonRequest,
           onReplaceLessonRequest: _executeReplaceLessonRequest,
@@ -1797,110 +1996,216 @@ class _LessonsPageState extends State<LessonsPage>
         ),
       ],
     );
+  }
 
-    // Below the wide window the tab names the day and its figures sit beside the tabs.
-    if (_isSelectedDayClosed || !size.hasRail)
+  // The band's requests, planned or not, each pupil's stretches cut to the band.
+  List<PresenceBookingGroup> _bandGroups(TimeBucket band)
+  {
+    final int start = bandStartMinutes(band);
+    final int end = bandEndMinutes(band);
+
+    return [
+      for (final group in groupSchedulable(presences: _presences, lessons: _lessons, day: _day))
+        if (group.touches(start, end)) group.within(start, end),
+    ];
+  }
+
+  // Requests of the band still to plan, as its calendar's drawer counts them.
+  int _toPlan(TimeBucket band, List<PresenceBookingGroup> groups)
+  {
+    final activities = _activities
+        .where((activity) => isSameDate(activity.date, _day) && activity.band == band && !activity.isAssigned)
+        .toList();
+
+    return openPanelCount(groups, activities);
+  }
+
+  LessonsBandEntry _bandEntry(TimeBucket band)
+  {
+    final window = unionOpeningWindow(_openingDays, _day, band);
+    final publication = _publications.where((row) => isSameDate(row.date, _day) && row.band == band).firstOrNull;
+    final groups = _bandGroups(band);
+
+    // A band nobody asked anything of has no calendar to compose.
+    final LessonsBandState state = switch ((window, publication))
     {
-      return lists;
-    }
+      (null, null) => LessonsBandState.closed,
+      (_, null) when groups.isEmpty => LessonsBandState.empty,
+      (_, null) => LessonsBandState.open,
+      (_, final published?) => published.isDraft ? LessonsBandState.draft : LessonsBandState.published,
+    };
+
+    return (
+      band: band,
+      hours: window == null ? null : formatMinutesRange(window.startMinutes, window.endMinutes),
+      state: state,
+      toPlan: state == LessonsBandState.open ? _toPlan(band, groups) : 0,
+    );
+  }
+
+  Widget _buildLockedNote()
+  {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.trialMutedText),
+        const SizedBox(width: 5),
+        Text(
+          'Non modificabile',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+            color: AppTheme.trialMutedText,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDayPage(AppWindowSize size)
+  {
+    final bool dense = size.isDense;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         PageTransitionItem(
-          slot: PageTransitionItem.header,
-          child: LessonsDayHeader(
-            day: _selectedDay,
-            showDay: true,
-            availableTeachers: _availableTeachersToday,
-            presentStudents: _presentStudentsToday,
+          slot: PageTransitionItem.frame,
+          child: LessonsDayBar(
+            day: _day,
+            today: romeNow(),
+            note: _dayNote,
+            onDay: _goToDay,
+            loadMarks: (from, to) => loadDayMarks(from, to),
+            busy: _isLoadingDay,
           ),
         ),
-        Expanded(child: lists),
+        SizedBox(height: dense ? 14 : 20),
+        if (_isLoading || _isLoadingDay)
+          const Expanded(child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)))
+        else ...[
+          // A closed day says so below: its bands have nothing to open.
+          if (!_isSelectedDayClosed) ...[
+            PageTransitionItem(
+              slot: PageTransitionItem.header,
+              child: LessonsBandButtons(
+                bands: [for (final band in TimeBucket.values) _bandEntry(band)],
+                onOpen: _openCalendar,
+                trailing: _isDayEditable ? null : _buildLockedNote(),
+              ),
+            ),
+            SizedBox(height: dense ? 14 : 22),
+          ],
+          Expanded(
+            key: const ValueKey('lessons-lists'),
+            child: _buildLists(),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildTabs(AppWindowSize size)
+  // The page's name and what it shows on one baseline, beside the way back.
+  double _calendarTitleGap(AppWindowSize size) => size.isDense ? 14 : 20;
+
+  // Where «Calendario» starts, after the back button.
+  double _calendarTitleIndent(AppWindowSize size)
   {
-    return PageSections(
-      index: _sectionIndex,
-      step: _selectedSection,
+    return (size.isDense ? AppBackButton.denseWidth : AppBackButton.width) + _calendarTitleGap(size);
+  }
+
+  // One paragraph: two would each be rounded to the pixel on their own and miss each other's baseline.
+  Widget _buildCalendarLeading(BuildContext context, AppWindowSize size, LessonsCalendarTarget target)
+  {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _buildDaySection(size),
-        _visitedSections.contains(_calendarContentIndex)
-            ? CalendarTab(
-                availableDays: _availableDays,
-                lessons: _lessons,
-                activities: _activities,
-                availabilities: _availabilities,
-                presences: _presences,
-                openingDays: _openingDays,
-                ministrySubjects: _ministrySubjects,
-                people: _people,
-                associationSubjects: _associationSubjects,
-                studyPrograms: _studyPrograms,
-                rooms: _rooms,
-                publications: _publications,
-                lock: _shownLock,
-                isReadOnly: _isCalendarReadOnly,
-                onViewChanged: _onCalendarViewChanged,
-                onLoadDay: _executeLoadDay,
-                loadMarks: (from, to) => loadDayMarks(from, to),
-                onLoadRoomPlan: _executeLoadRoomPlan,
-                onPublishBand: _isCalendarReadOnly ? null : _executePublishBand,
-                onReopenBand: _isCalendarReadOnly ? null : _executeReopenBand,
-                onCloseDraft: _isCalendarReadOnly ? null : _executeCloseDraft,
-                onDiscardDraft: _isCalendarReadOnly ? null : _executeDiscardDraft,
-                onSaveRoomPlan: _isCalendarReadOnly ? null : _executeSaveRoomPlan,
-                excludedTeachers: _excludedTeachers,
-                onExcludeTeacher: _isCalendarReadOnly ? null : _executeExcludeTeacher,
-                onReadmitTeacher: _isCalendarReadOnly ? null : _executeReadmitTeacher,
-                onCreateLesson: _isCalendarReadOnly ? null : _executeCreateLesson,
-                onUpdateLesson: _isCalendarReadOnly ? null : _executeUpdateLesson,
-                onDeleteLesson: _isCalendarReadOnly ? null : _executeDeleteLesson,
-                onSplitLesson: _isCalendarReadOnly ? null : _executeSplitLesson,
-                onCreateActivity: _isCalendarReadOnly ? null : _executeCreateActivity,
-                onUpdateActivity: _isCalendarReadOnly ? null : _executeUpdateActivity,
-                onDeleteActivity: _isCalendarReadOnly ? null : _executeDeleteActivity,
-              )
-            : const SizedBox.shrink(),
+        AppBackButton(tooltip: 'Torna indietro', onTap: () => context.go(kLessonsRoute), dense: size.isDense),
+        SizedBox(width: _calendarTitleGap(size)),
+        Flexible(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: 'Calendario', style: lessonsHeadingStyle),
+                const WidgetSpan(alignment: PlaceholderAlignment.middle, child: SizedBox(width: 16)),
+                TextSpan(
+                  text: '${formatWeekdayColumnLabel(target.day)} ${target.day.year} · ${bandLabel(target.band)}',
+                  style: lessonsHeadingNoteStyle,
+                ),
+              ],
+            ),
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.fade,
+          ),
+        ),
       ],
     );
   }
 
-  void _selectSection(int index)
+  Widget _buildCalendarPage(BuildContext context, AppWindowSize size, LessonsCalendarTarget target)
   {
-    setState(()
+    final Widget leading = _buildCalendarLeading(context, size, target);
+
+    if (_isLoading || _isLoadingDay || !isSameDate(_day, target.day))
     {
-      _selectedSection = index;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(alignment: Alignment.centerLeft, child: leading),
+          const Expanded(child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))),
+        ],
+      );
+    }
 
-      if (index < _availableDays.length)
-      {
-        _selectedDayIndex = index;
-      }
-
-      _visitedSections.add(_contentIndex);
-    });
-
-    _watchTheShownSection();
+    return CalendarTab(
+      day: target.day,
+      band: target.band,
+      leading: leading,
+      leadingIndent: _calendarTitleIndent(size),
+      lessons: _lessons,
+      activities: _activities,
+      availabilities: _availabilities,
+      presences: _presences,
+      openingDays: _openingDays,
+      ministrySubjects: _ministrySubjects,
+      people: _people,
+      associationSubjects: _associationSubjects,
+      studyPrograms: _studyPrograms,
+      rooms: _rooms,
+      publications: _publications,
+      lock: _shownLock,
+      isReadOnly: _isCalendarReadOnly,
+      onViewChanged: _onCalendarViewChanged,
+      onLoadRoomPlan: _executeLoadRoomPlan,
+      onPublishBand: _isCalendarReadOnly ? null : _executePublishBand,
+      onReopenBand: _isCalendarReadOnly ? null : _executeReopenBand,
+      onCloseDraft: _isCalendarReadOnly ? null : _executeCloseDraft,
+      onDiscardDraft: _isCalendarReadOnly ? null : _executeDiscardDraft,
+      onSaveRoomPlan: _isCalendarReadOnly ? null : _executeSaveRoomPlan,
+      excludedTeachers: _excludedTeachers,
+      onExcludeTeacher: _isCalendarReadOnly ? null : _executeExcludeTeacher,
+      onReadmitTeacher: _isCalendarReadOnly ? null : _executeReadmitTeacher,
+      onCreateLesson: _isCalendarReadOnly ? null : _executeCreateLesson,
+      onUpdateLesson: _isCalendarReadOnly ? null : _executeUpdateLesson,
+      onDeleteLesson: _isCalendarReadOnly ? null : _executeDeleteLesson,
+      onSplitLesson: _isCalendarReadOnly ? null : _executeSplitLesson,
+      onCreateActivity: _isCalendarReadOnly ? null : _executeCreateActivity,
+      onUpdateActivity: _isCalendarReadOnly ? null : _executeUpdateActivity,
+      onDeleteActivity: _isCalendarReadOnly ? null : _executeDeleteActivity,
+    );
   }
 
   void _selectView(LessonsDayView view)
   {
-    setState(()
-    {
-      _dayView = view;
-      _visitedSections.add(_contentIndex);
-    });
-
-    _watchTheShownSection();
+    setState(() => _dayView = view);
   }
 
   // Leaving stops the beat; coming back does not retake the lock (the first write does).
   void _watchTheShownSection()
   {
-    final onTheCalendar = _contentIndex == _calendarContentIndex;
+    final onTheCalendar = _isCalendarOpen;
 
     if (!onTheCalendar && _watch.holdsTheBand)
     {
@@ -1916,10 +2221,10 @@ class _LessonsPageState extends State<LessonsPage>
     _watch.shows(onTheCalendar);
   }
 
-  // The open day's figures, beside the tabs below the wide window; none on the calendar or a closed day.
+  // The open day's figures beside the page's name; none while loading or on a closed day.
   String? get _dayNote
   {
-    if (_isLoading || _isCalendarSelected || _availableDays.isEmpty || _isSelectedDayClosed)
+    if (_isLoading || _isLoadingDay || _isSelectedDayClosed)
     {
       return null;
     }
@@ -1930,15 +2235,44 @@ class _LessonsPageState extends State<LessonsPage>
   @override
   Widget build(BuildContext context)
   {
+    return LessonsBackdrop(
+      // Below the wide window the page is the window: the cards scroll, not the page.
+      minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
+      builder: (context, size, margin) => Stack(
+        fit: StackFit.expand,
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(left: margin, right: margin, top: AppTopBar.contentTopInsetFor(size), bottom: 24),
+              child: _buildDayPage(size),
+            ),
+          ),
+          AppTopBar(currentRoute: kLessonsRoute),
+        ],
+      ),
+    );
+  }
+}
+
+// The sea behind Lezioni and its calendar screen.
+class LessonsBackdrop extends StatelessWidget
+{
+  final double minHeight;
+
+  final Widget Function(BuildContext context, AppWindowSize size, double margin) builder;
+
+  const LessonsBackdrop({super.key, required this.minHeight, required this.builder});
+
+  @override
+  Widget build(BuildContext context)
+  {
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
-        // Below the wide window the page is the window: the cards or the calendar scroll, not the page.
-        minHeight: AppBreakpoints.of(context).isDense ? 0 : AppDimensions.minDashboardHeight,
+        minHeight: minHeight,
         builder: (context, width, height)
         {
           final size = AppBreakpoints.of(context);
-          final margin = AppBreakpoints.pageMargin(size);
 
           return Container(
             width: width,
@@ -1958,65 +2292,99 @@ class _LessonsPageState extends State<LessonsPage>
                   edgeTint: AppTheme.trialTealDeep,
                 ),
                 const PageWatermark(),
-                SafeArea(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: margin,
-                      right: margin,
-                      top: AppTopBar.contentTopInsetFor(size),
-                      bottom: 24,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (size.hasRail) ...[
-                          Align(
-                            alignment: Alignment.topLeft,
-                            child: PageTransitionItem(
-                              slot: PageTransitionItem.frame,
-                              child: AppSectionRail(
-                                title: 'Lezioni',
-                                groups: _sections,
-                                selectedIndex: _selectedSection,
-                                onSelected: _selectSection,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSectionRail.gap),
-                        ],
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (!size.hasRail) ...[
-                                PageTransitionItem(
-                                  slot: PageTransitionItem.frame,
-                                  child: AppSectionTabs(
-                                    title: 'Lezioni',
-                                    groups: _sections,
-                                    selectedIndex: _selectedSection,
-                                    onSelected: _selectSection,
-                                    note: _dayNote,
-                                  ),
-                                ),
-                                const SizedBox(height: kSectionTabsGap),
-                              ],
-                              Expanded(
-                                key: const ValueKey('lessons-sections'),
-                                child: _buildSectionContent(size),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                AppTopBar(currentRoute: '/lessons'),
+                Positioned.fill(child: builder(context, size, AppBreakpoints.pageMargin(size))),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// One band's calendar over the whole window, as a screen of its own; the Lezioni page under it holds the data.
+class LessonsCalendarScreen extends StatefulWidget
+{
+  final LessonsCalendarTarget target;
+
+  const LessonsCalendarScreen({super.key, required this.target});
+
+  @override
+  State<LessonsCalendarScreen> createState() => _LessonsCalendarScreenState();
+}
+
+class _LessonsCalendarScreenState extends State<LessonsCalendarScreen>
+{
+  _LessonsPageState? _attachedTo;
+
+  int? _ticket;
+
+  @override
+  void initState()
+  {
+    super.initState();
+
+    _host.addListener(_attachSoon);
+    _attachSoon();
+  }
+
+  // After the frame: the page's setState must not land in the middle of a build.
+  void _attachSoon()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      final host = _host.value;
+
+      if (!mounted || host == null || identical(host, _attachedTo))
+      {
+        return;
+      }
+
+      _attachedTo = host;
+      _ticket = host._attachCalendar(widget.target);
+    });
+  }
+
+  @override
+  void dispose()
+  {
+    _host.removeListener(_attachSoon);
+
+    final host = _attachedTo;
+    final ticket = _ticket;
+
+    if (host != null && ticket != null)
+    {
+      WidgetsBinding.instance.addPostFrameCallback((_) => host._detachCalendar(ticket));
+    }
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LessonsBackdrop(
+      minHeight: 0,
+      builder: (context, size, margin) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(left: margin, right: margin, top: size.isDense ? 16 : 24, bottom: 24),
+          child: ValueListenableBuilder<_LessonsPageState?>(
+            valueListenable: _host,
+            builder: (context, host, _)
+            {
+              if (host == null)
+              {
+                return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+              }
+
+              return ValueListenableBuilder<int>(
+                valueListenable: host._changes,
+                builder: (context, _, _) => host._buildCalendarPage(context, size, widget.target),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

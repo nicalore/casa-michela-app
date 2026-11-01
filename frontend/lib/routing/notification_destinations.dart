@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../core/utils/time_bucket.dart';
 import '../features/auth/models/me_response.dart';
 import '../features/lessons/utils/calendar_jump.dart';
+import '../features/lessons/utils/calendar_route.dart';
 import '../features/notifications/notice_jump.dart';
 import '../features/people/person_jump.dart';
 import '../features/settings/settings_jump.dart';
@@ -18,7 +19,6 @@ const String _adminRole = 'ADMIN';
 const String _parentRole = 'PARENT';
 const String _studentRole = 'STUDENT';
 const String _teacherRole = 'TEACHER';
-const String _calendarRoute = '/lessons';
 const String _adminAssociationRoute = '/association';
 const String _peopleRoute = '/people';
 
@@ -98,8 +98,8 @@ Future<void> _openCalendar(DateTime? day, TimeBucket? band) async
 
   await _openAs(
     const [_adminRole],
-    jump: (_) => CalendarJumps.admin.request(day, band),
-    route: (_) => _calendarRoute,
+    jump: (_) {},
+    route: (_) => lessonsCalendarLocation(day, band, fresh: true),
   );
 }
 

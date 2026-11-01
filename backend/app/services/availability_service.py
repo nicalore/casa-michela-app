@@ -24,6 +24,7 @@ from app.services.lesson_guard import (
 )
 from app.services.opening_window import assert_within_opening
 from app.services.schedule_cascade import unassign, unschedule
+from app.services.teacher_band_mode import rehome_online_lessons, settle_teacher_days
 
 _ENTITY_LABEL: Final[str] = "le disponibilità"
 _NOT_FOUND_ERROR: Final[str] = "Disponibilità non trovata"
@@ -113,7 +114,10 @@ class AvailabilityService:
             or lesson.end_time > payload.end_time
         ]
 
-        return await unschedule(self.repository.session, dropped)
+        return await unschedule(
+            self.repository.session,
+            await rehome_online_lessons(self.repository.session, dropped, availability),
+        )
 
     # Activities are handed back to the panel rather than lost, so not counted.
     async def _unassign_what_no_longer_fits(
@@ -273,6 +277,11 @@ class AvailabilityService:
         async with integrity_guard(self.repository.session, _CREATE_ERROR):
             await self.repository.create(availability)
             await settle_collaboration(self.repository.session, teacher_tax_code)
+            await settle_teacher_days(
+                self.repository.session,
+                teacher_tax_code,
+                [availability.date],
+            )
             await self.repository.commit()
 
         return availability
@@ -289,6 +298,7 @@ class AvailabilityService:
             identity,
             payload.teacher_tax_code or availability.teacher_tax_code,
         )
+        before = (availability.teacher_tax_code, availability.date)
 
         assert_not_stale(
             availability,
@@ -349,6 +359,17 @@ class AvailabilityService:
         availability.end_time = payload.end_time
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):
+            await self.repository.session.flush()
+
+            for teacher_tax_code, day in dict.fromkeys(
+                [before, (availability.teacher_tax_code, availability.date)],
+            ):
+                await settle_teacher_days(
+                    self.repository.session,
+                    teacher_tax_code,
+                    [day],
+                )
+
             await self.repository.commit()
             await self.repository.refresh(availability)
 
@@ -366,9 +387,13 @@ class AvailabilityService:
 
         await unschedule(
             self.repository.session,
-            await find_availability_lessons(
+            await rehome_online_lessons(
                 self.repository.session,
-                availability.id,
+                await find_availability_lessons(
+                    self.repository.session,
+                    availability.id,
+                ),
+                availability,
             ),
         )
         await unassign(
@@ -378,5 +403,9 @@ class AvailabilityService:
             ).find_for_availability(availability.id),
         )
 
+        teacher_tax_code = availability.teacher_tax_code
+        day = availability.date
+
         await self.repository.delete(availability)
+        await settle_teacher_days(self.repository.session, teacher_tax_code, [day])
         await self.repository.commit()

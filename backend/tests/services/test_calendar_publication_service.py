@@ -271,6 +271,18 @@ async def test_a_teacher_without_a_room_stops_publication(
     assert "Anna Bianchi" in error.value.detail
 
 
+async def test_an_online_lesson_from_the_association_needs_no_room(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db, student_mode="online")
+    lesson, _ = await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
+    assert (lesson.teacher_mode, lesson.mode) == ("presence", "online")
+
+    _, warnings = await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+
+    assert warnings == []
+
+
 async def test_a_gap_in_the_cover_stops_publication(db: AsyncSession) -> None:
     built = await scene(db)
     await lesson_service(db).create(ADMIN_IDENTITY, payload(built))

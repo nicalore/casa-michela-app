@@ -18,6 +18,9 @@ PdfColor _pdf(Color colour)
 final PdfColor kPdfInk = _pdf(AppTheme.trialOcean);
 
 final PdfColor kPdfViolet = _pdf(AppTheme.trialViolet);
+final PdfColor kPdfVioletSurface = _pdf(
+  Color.alphaBlend(AppTheme.trialViolet.withValues(alpha: 0.12), const Color(0xFFFFFFFF)),
+);
 
 final PdfColor kPdfBody = _pdf(AppTheme.trialInk);
 

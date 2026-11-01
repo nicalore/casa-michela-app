@@ -44,6 +44,9 @@ class BookingsTab extends StatefulWidget
 
   final List<OpeningDayItem> openingDays;
 
+  // A day outside the booking window: shown, never changed.
+  final bool readOnly;
+
   final LessonsDayView view;
   final ValueChanged<LessonsDayView> onViewSelected;
 
@@ -65,6 +68,7 @@ class BookingsTab extends StatefulWidget
     required this.availableDays,
     required this.selectedDay,
     required this.openingDays,
+    this.readOnly = false,
     required this.view,
     required this.onViewSelected,
     required this.onCreateLessonRequest,
@@ -321,7 +325,7 @@ class _BookingsTabState extends State<BookingsTab>
           onSearchChanged: (value) => setState(() => _searchText = value),
           searchHint: 'Cerca studente o prenotante...',
           actionLabel: 'NUOVA RICHIESTA',
-          onAction: _showPresenceWizard,
+          onAction: widget.readOnly ? null : _showPresenceWizard,
         ),
         const TabHeaderGap(wide: 20, dense: 10),
         _buildFilters(),
@@ -347,6 +351,7 @@ class _BookingsTabState extends State<BookingsTab>
       onDelete: () => widget.onDeleteGroup(group.slots),
       onEditSubject: widget.onEditBooking,
       onDeleteSubject: widget.onDeleteBookingQuietly,
+      readOnly: widget.readOnly,
     );
   }
 }

@@ -38,14 +38,15 @@ class AvailabilityCard extends StatefulWidget
   final AvailabilityGroup group;
 
   // Opens the wizard over the details; [onSaved] closes them once the edit is saved.
-  final void Function(VoidCallback onSaved) onEditRequested;
-  final VoidCallback onDelete;
+  // Both absent on a day that can no longer change.
+  final void Function(VoidCallback onSaved)? onEditRequested;
+  final VoidCallback? onDelete;
 
   const AvailabilityCard({
     super.key,
     required this.group,
-    required this.onEditRequested,
-    required this.onDelete,
+    this.onEditRequested,
+    this.onDelete,
   });
 
   @override
@@ -64,7 +65,9 @@ class _AvailabilityCardState extends State<AvailabilityCard>
       builder: (dialogContext) => _AvailabilityDetailsDialogContent(
         group: widget.group,
         // Over the details, which stay put: a close and reopen would replay their entrance.
-        onEditRequested: () => widget.onEditRequested(() => Navigator.of(dialogContext).pop()),
+        onEditRequested: widget.onEditRequested == null
+            ? null
+            : () => widget.onEditRequested!(() => Navigator.of(dialogContext).pop()),
         onDelete: widget.onDelete,
       ),
     );
@@ -278,13 +281,13 @@ class _TimeSlotLabel extends StatelessWidget
 class _AvailabilityDetailsDialogContent extends StatelessWidget
 {
   final AvailabilityGroup group;
-  final VoidCallback onEditRequested;
-  final VoidCallback onDelete;
+  final VoidCallback? onEditRequested;
+  final VoidCallback? onDelete;
 
   const _AvailabilityDetailsDialogContent({
     required this.group,
-    required this.onEditRequested,
-    required this.onDelete,
+    this.onEditRequested,
+    this.onDelete,
   });
 
   void _showDeleteConfirmation(BuildContext context)
@@ -319,7 +322,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
             {
               Navigator.pop(confirmContext);
               Navigator.pop(context);
-              onDelete();
+              onDelete?.call();
             },
           ),
         ),
@@ -379,24 +382,26 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
       title: group.teacher.fullName,
       leading: PersonAvatar(person: group.teacher, size: PersonAvatar.titleSize),
       maxWidth: 560,
-      footer: AppDialogFooter(
-        secondary: AppGradientButton(
-          label: 'ELIMINA',
-          icon: Icons.delete_outline_rounded,
-          gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: () => _showDeleteConfirmation(context),
-        ),
-        primary: AppGradientButton(
-          label: 'MODIFICA',
-          icon: Icons.edit_outlined,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: onEditRequested,
-        ),
-      ),
+      footer: onEditRequested == null || onDelete == null
+          ? null
+          : AppDialogFooter(
+              secondary: AppGradientButton(
+                label: 'ELIMINA',
+                icon: Icons.delete_outline_rounded,
+                gradient: AppTheme.dangerGradient,
+                accent: AppTheme.trialDanger,
+                height: _dialogButtonHeight,
+                fontSize: _dialogButtonFontSize,
+                onPressed: () => _showDeleteConfirmation(context),
+              ),
+              primary: AppGradientButton(
+                label: 'MODIFICA',
+                icon: Icons.edit_outlined,
+                height: _dialogButtonHeight,
+                fontSize: _dialogButtonFontSize,
+                onPressed: onEditRequested!,
+              ),
+            ),
       children: [
         AppDialogPill(
           expand: true,

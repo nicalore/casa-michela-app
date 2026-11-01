@@ -1,11 +1,14 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_floating_panel.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
-import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
@@ -18,16 +21,18 @@ import '../utils/opening_window.dart';
 import 'calendar_activity_card.dart';
 import 'calendar_booking_card.dart';
 import 'calendar_lesson_block.dart';
+import 'calendar_request_details.dart';
 import 'person_avatar.dart';
 
-const double kBookingPanelWidth = 300;
-const double kBookingStripHeight = 210;
-const double kBookingBlockWidth = 288;
 
 const String kAddActivityLabel = 'AGGIUNGI ATTIVITÀ';
 
 const double _addHeight = 46;
 const double _denseAddHeight = 32;
+
+// Blocks stand side by side once each can be this wide.
+const double _leastColumnWidth = 300;
+const double _blockGap = 14;
 
 int openBookingCount(List<PresenceBookingGroup> groups)
 {
@@ -44,61 +49,50 @@ int openPanelCount(List<PresenceBookingGroup> groups, List<ActivityItem> activit
 
 enum BookingPanelShape
 {
-  // Beside the track, full height.
-  column,
-
-  // Above the track on short windows; collapsible.
-  strip,
+  // Over the track, moved and sized by hand.
+  floating,
 
   // Whole narrow screen, no track, cards open with a tap.
   page,
 }
 
-class _ExpandToggle extends StatefulWidget
+class _CloseButton extends StatefulWidget
 {
-  final bool isExpanded;
   final VoidCallback onTap;
 
-  const _ExpandToggle({required this.isExpanded, required this.onTap});
+  const _CloseButton({required this.onTap});
 
   @override
-  State<_ExpandToggle> createState() => _ExpandToggleState();
+  State<_CloseButton> createState() => _CloseButtonState();
 }
 
-class _ExpandToggleState extends State<_ExpandToggle>
+class _CloseButtonState extends State<_CloseButton>
 {
   bool _hover = false;
 
   @override
   Widget build(BuildContext context)
   {
-    return AppTooltip(
-      message: widget.isExpanded ? 'Nascondi le prenotazioni' : 'Mostra le prenotazioni',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hover = true),
-        onExit: (_) => setState(() => _hover = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: _hover ? AppTheme.trialGoldSurface : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: _hover ? AppTheme.trialGold : AppTheme.trialLine,
-                width: 1.5,
-              ),
-            ),
-            child: Icon(
-              widget.isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-              size: 18,
-              color: AppTheme.trialTealDeep,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: _hover ? AppTheme.trialGoldSurface : Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _hover ? AppTheme.trialGold : AppTheme.trialLine,
+              width: 1.5,
             ),
           ),
+          child: const Icon(Icons.close_rounded, size: 18, color: AppTheme.trialTealDeep),
         ),
       ),
     );
@@ -235,10 +229,8 @@ class CalendarBookingPanel extends StatelessWidget
 
   final BookingPanelShape shape;
 
-  // Strip shape only; ignored by the other shapes.
-  final bool isExpanded;
-
-  final ValueChanged<bool>? onExpandedChanged;
+  // Floating shape only: shuts it.
+  final VoidCallback? onClose;
 
   final void Function(SchedulableBooking entry)? onPlanRequested;
 
@@ -251,6 +243,9 @@ class CalendarBookingPanel extends StatelessWidget
 
   final void Function(ActivityItem activity)? onOpenActivity;
 
+  // A card held still under the pointer opens these.
+  final WidgetBuilder Function(SchedulableBooking entry)? requestDetails;
+
   const CalendarBookingPanel({
     super.key,
     required this.groups,
@@ -258,21 +253,20 @@ class CalendarBookingPanel extends StatelessWidget
     this.activities = const [],
     this.teacherNames = const {},
     required this.shape,
-    this.isExpanded = true,
-    this.onExpandedChanged,
+    this.onClose,
     this.onPlanRequested,
     this.onDragChanged,
     this.carriedAt,
     this.onAddActivity,
     this.onOpenActivity,
+    this.requestDetails,
   });
 
   BookingDragMode get _dragMode
   {
     return switch (shape)
     {
-      BookingPanelShape.column => BookingDragMode.immediate,
-      BookingPanelShape.strip => BookingDragMode.longPress,
+      BookingPanelShape.floating => BookingDragMode.immediate,
       BookingPanelShape.page => BookingDragMode.none,
     };
   }
@@ -305,23 +299,41 @@ class CalendarBookingPanel extends StatelessWidget
       return 'Nessuna prenotazione.';
     }
 
-    return 'Tutte le prenotazioni sono pianificate.';
+    return 'Tutte le lezioni sono pianificate.';
   }
 
-  Widget _buildHeader({required bool showToggle})
+  // [add] sits by the close when the panel is wide: short and docked at the bottom, it leaves the cards their height.
+  Widget _buildHeader({Widget? add})
   {
-    return PageHeading(
+    final close = onClose;
+
+    final Widget heading = PageHeading(
       'Da pianificare',
       count: _openCount,
-      trailing: showToggle ? _buildExpandToggle() : null,
+      trailing: add == null && close == null
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ?add,
+                if (add != null && close != null) const SizedBox(width: 12),
+                if (close != null) _CloseButton(onTap: close),
+              ],
+            ),
     );
-  }
 
-  Widget _buildExpandToggle()
-  {
-    return _ExpandToggle(
-      isExpanded: isExpanded,
-      onTap: () => onExpandedChanged?.call(!isExpanded),
+    if (shape != BookingPanelShape.floating)
+    {
+      return heading;
+    }
+
+    return AppFloatingGrip(
+      child: Row(
+        children: [
+          const Icon(Icons.drag_indicator_rounded, size: 18, color: AppTheme.trialMutedText),
+          Expanded(child: heading),
+        ],
+      ),
     );
   }
 
@@ -345,7 +357,7 @@ class CalendarBookingPanel extends StatelessWidget
 
   Widget _buildCard(SchedulableBooking entry)
   {
-    return CalendarBookingCard(
+    final Widget card = CalendarBookingCard(
       entry: entry,
       ministrySubjects: ministrySubjects,
       teacherNames: teacherNames,
@@ -354,6 +366,10 @@ class CalendarBookingPanel extends StatelessWidget
       onDragChanged: onDragChanged,
       carriedAt: carriedAt,
     );
+
+    final details = requestDetails;
+
+    return details == null ? card : CalendarDetailsHover(details: details(entry), child: card);
   }
 
   Widget _buildActivityCard(ActivityItem activity)
@@ -367,7 +383,7 @@ class CalendarBookingPanel extends StatelessWidget
     );
   }
 
-  List<Widget> _buildActivityCards({required bool named})
+  List<Widget> _buildActivityCards(int columns)
   {
     if (activities.isEmpty)
     {
@@ -375,8 +391,11 @@ class CalendarBookingPanel extends StatelessWidget
     }
 
     return [
-      if (named) const PageHeading('Attività'),
-      for (final activity in activities) _buildActivityCard(activity),
+      const PageHeading('Attività'),
+      _Columns(
+        count: columns,
+        children: [for (final activity in activities) _buildActivityCard(activity)],
+      ),
     ];
   }
 
@@ -391,16 +410,14 @@ class CalendarBookingPanel extends StatelessWidget
 
     final double height = dense ? _denseAddHeight : _addHeight;
 
-    return Center(
-      child: AppGradientButton(
-        label: kAddActivityLabel,
-        icon: Icons.add_rounded,
-        height: height,
-        fontSize: dense ? 11 : 13,
-        radius: height / 2,
-        horizontalPadding: dense ? 16 : 30,
-        onPressed: add,
-      ),
+    return AppGradientButton(
+      label: kAddActivityLabel,
+      icon: Icons.add_rounded,
+      height: height,
+      fontSize: dense ? 11 : 13,
+      radius: height / 2,
+      horizontalPadding: dense ? 16 : 30,
+      onPressed: add,
     );
   }
 
@@ -433,89 +450,67 @@ class CalendarBookingPanel extends StatelessWidget
     );
   }
 
-  Widget _buildColumn({bool showTitle = true})
+  Widget _buildList(int columns)
   {
     final visible = _visibleStudents;
-    final cards = _buildActivityCards(named: true);
 
     final rows = <Widget>[
-      for (final student in visible) _buildStudentBlock(student),
-      ...cards,
+      if (visible.isNotEmpty)
+        _Columns(
+          count: columns,
+          children: [for (final student in visible) _buildStudentBlock(student)],
+        ),
+      ..._buildActivityCards(columns),
     ];
 
-    final add = _buildAddActivity();
+    if (rows.isEmpty)
+    {
+      return ScrollEdgeFade(child: SingleChildScrollView(child: _buildEmpty()));
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (showTitle) ...[
-          _buildHeader(showToggle: false),
-          const SizedBox(height: kPageHeadingGap),
-        ],
-        Expanded(
-          child: rows.isEmpty
-              ? ScrollEdgeFade(child: SingleChildScrollView(child: _buildEmpty()))
-              : ScrollEdgeFade(
-                child: ListView.separated(
-                    padding: EdgeInsets.zero,
-                    itemCount: rows.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) => rows[index],
-                  ),
-              ),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, row) in rows.indexed) ...[
+              if (i > 0) const SizedBox(height: _blockGap),
+              row,
+            ],
+          ],
         ),
-        if (add != null) ...[
-          const SizedBox(height: 16),
-          add,
-        ],
-      ],
+      ),
     );
   }
 
-  Widget _buildStrip()
+  Widget _buildColumn({bool showTitle = true})
   {
-    final header = _buildHeader(showToggle: true);
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final int columns = math.max(
+          1,
+          ((constraints.maxWidth + _blockGap) / (_leastColumnWidth + _blockGap)).floor(),
+        );
 
-    if (!isExpanded)
-    {
-      return header;
-    }
+        final bool addAbove = showTitle && columns > 1;
+        final Widget? add = _buildAddActivity(dense: addAbove);
 
-    final visible = _visibleStudents;
-
-    final rows = <Widget>[
-      for (final student in visible) _buildStudentBlock(student),
-      ..._buildActivityCards(named: false),
-    ];
-
-    final add = _buildAddActivity(dense: true);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        header,
-        const SizedBox(height: kPageHeadingGap),
-        if (rows.isEmpty)
-          _buildEmpty()
-        else
-          SizedBox(
-            height: kBookingStripHeight,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.zero,
-              itemCount: rows.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 14),
-              itemBuilder: (context, index) => SizedBox(
-                width: kBookingBlockWidth,
-                child: ScrollEdgeFade(child: SingleChildScrollView(child: rows[index])),
-              ),
-            ),
-          ),
-        if (add != null) ...[
-          const SizedBox(height: 12),
-          add,
-        ],
-      ],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showTitle) ...[
+              _buildHeader(add: addAbove ? add : null),
+              const SizedBox(height: kPageHeadingGap),
+            ],
+            Expanded(child: _buildList(columns)),
+            if (!addAbove && add != null) ...[
+              const SizedBox(height: 16),
+              Center(child: add),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -524,9 +519,111 @@ class CalendarBookingPanel extends StatelessWidget
   {
     return switch (shape)
     {
-      BookingPanelShape.column => _buildColumn(),
-      BookingPanelShape.strip => _buildStrip(),
+      BookingPanelShape.floating => _buildColumn(),
       BookingPanelShape.page => _buildColumn(showTitle: false),
     };
   }
+}
+
+// Each block goes under the shortest column, so blocks of any height pack without holes.
+// Changing the count moves no child to another parent: a card being dragged keeps its drag.
+class _Columns extends MultiChildRenderObjectWidget
+{
+  final int count;
+
+  const _Columns({required this.count, required super.children});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderColumns(count);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderColumns renderObject) => renderObject.count = count;
+}
+
+class _ColumnsParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderColumns extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _ColumnsParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _ColumnsParentData>
+{
+  int _count;
+
+  _RenderColumns(this._count);
+
+  set count(int value)
+  {
+    if (value != _count)
+    {
+      _count = value;
+      markNeedsLayout();
+    }
+  }
+
+  @override
+  void setupParentData(RenderBox child)
+  {
+    if (child.parentData is! _ColumnsParentData)
+    {
+      child.parentData = _ColumnsParentData();
+    }
+  }
+
+  Size _place(BoxConstraints constraints, {required bool dry})
+  {
+    final double width = constraints.maxWidth;
+    final double column = (width - _blockGap * (_count - 1)) / _count;
+    final List<double> heights = List.filled(_count, 0);
+    final BoxConstraints tight = BoxConstraints.tightFor(width: column);
+
+    for (RenderBox? child = firstChild; child != null; child = childAfter(child))
+    {
+      int shortest = 0;
+
+      for (int i = 1; i < _count; i++)
+      {
+        if (heights[i] < heights[shortest] - precisionErrorTolerance)
+        {
+          shortest = i;
+        }
+      }
+
+      final double height;
+
+      if (dry)
+      {
+        height = child.getDryLayout(tight).height;
+      }
+      else
+      {
+        child.layout(tight, parentUsesSize: true);
+        height = child.size.height;
+        (child.parentData! as _ColumnsParentData).offset = Offset(shortest * (column + _blockGap), heights[shortest]);
+      }
+
+      heights[shortest] += height + _blockGap;
+    }
+
+    final double tallest = heights.reduce(math.max);
+
+    return constraints.constrain(Size(width, math.max(0, tallest - _blockGap)));
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) => _place(constraints, dry: true);
+
+  @override
+  void performLayout()
+  {
+    size = _place(constraints, dry: false);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position})
+  {
+    return defaultHitTestChildren(result, position: position);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) => defaultPaint(context, offset);
 }

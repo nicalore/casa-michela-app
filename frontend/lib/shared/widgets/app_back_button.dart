@@ -12,6 +12,7 @@ const double _denseHeight = 38;
 
 class AppBackButton extends StatefulWidget
 {
+  static const double width = _width;
   static const double height = _height;
   static const double denseWidth = _denseWidth;
 

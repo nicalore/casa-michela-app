@@ -1647,7 +1647,7 @@ class MinorSafetyCard extends StatelessWidget
         ),
         AppTextField(
           controller: ctx.form.allergiesCtrl,
-          label: 'Allergie / Intolleranze',
+          label: 'Allergie / Intolleranze / Condizioni di salute',
           hintText: 'Es. Polline',
           maxLength: FieldLimits.notes,
           minLines: 1,
@@ -1657,7 +1657,7 @@ class MinorSafetyCard extends StatelessWidget
         ),
         AppTextField(
           controller: ctx.form.medicationsCtrl,
-          label: 'Farmaci / Note',
+          label: 'Farmaci / Altre indicazioni',
           hintText: 'Es. Ventolin',
           maxLength: FieldLimits.notes,
           minLines: 1,

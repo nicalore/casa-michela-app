@@ -695,6 +695,9 @@ class CalendarLessonBlock extends StatefulWidget
   // On the board below the wide window: a full-width row.
   final bool isRow;
 
+  // Its request opens on a long hover: the short tooltip would only say less of it.
+  final bool showsDetails;
+
   const CalendarLessonBlock({
     super.key,
     required this.lesson,
@@ -718,6 +721,7 @@ class CalendarLessonBlock extends StatefulWidget
     this.onHover,
     this.showsRoom = false,
     this.isRow = false,
+    this.showsDetails = false,
   });
 
   @override
@@ -796,12 +800,8 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
     widget.onHover?.call(isHovering);
   }
 
-  double get _textWidth
-  {
-    final horizontal = _isNarrow ? 6.0 : 10.0;
-
-    return widget.width - 2 * kBlockSideGap - 2 * horizontal - 3 - 8;
-  }
+  // As the face lays it out, its border included.
+  double get _textWidth => _composingTextRoom(widget.width);
 
   bool get _isNarrow => widget.width < 110;
 
@@ -817,7 +817,9 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
     final room = _textWidth - _marksWidth;
     final forms = _hourForms;
 
-    var form = forms.indexWhere((parts) => !_exceeds(lessonHoursSpan(parts, _blockHoursStyle), room));
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+
+    var form = forms.indexWhere((parts) => !_exceeds(lessonHoursSpan(parts, _blockHoursStyle), room, scaler));
 
     if (form < 0)
     {
@@ -831,7 +833,8 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
   }
 
   // Published blocks write every line whole; composing ones with a caption say it there.
-  bool get _hasTooltip => widget.isComposing && !widget.hasCaption && widget.lesson.minutes < kTooltipBelowMinutes;
+  bool get _hasTooltip =>
+      widget.isComposing && !widget.hasCaption && !widget.showsDetails && widget.lesson.minutes < kTooltipBelowMinutes;
 
   bool get _isSliver => widget.isComposing && widget.hasCaption;
 
@@ -857,7 +860,8 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
     );
   }
 
-  static bool _exceeds(InlineSpan span, double maxWidth)
+  // Scaled as the page scales text, or every form looks a tenth narrower than it draws.
+  static bool _exceeds(InlineSpan span, double maxWidth, TextScaler scaler)
   {
     if (maxWidth <= 0)
     {
@@ -868,9 +872,14 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
       text: span,
       maxLines: 1,
       textDirection: TextDirection.ltr,
+      textScaler: scaler,
     )..layout(maxWidth: double.infinity);
 
-    return painter.width > maxWidth;
+    final bool exceeds = painter.width > maxWidth;
+
+    painter.dispose();
+
+    return exceeds;
   }
 
   bool get _byStudent => widget.view == CalendarView.byStudent;
@@ -1016,10 +1025,10 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
     );
   }
 
-  // Published blocks wrap long lines and the row grows; composing ones use a caption.
-  int? get _lineCap => widget.isComposing || _dense ? 1 : null;
+  // Long lines wrap and the row grows; a word wider than a composing block goes to its caption.
+  int? get _lineCap => _dense ? 1 : null;
 
-  TextOverflow get _lineCut => widget.isComposing || _dense ? TextOverflow.ellipsis : TextOverflow.clip;
+  TextOverflow get _lineCut => _dense ? TextOverflow.ellipsis : TextOverflow.clip;
 
   // Published below the wide window: no subject line, who and where on one line.
   bool get _dense => !widget.isComposing && AppBreakpoints.of(context).isDense;
@@ -1461,7 +1470,21 @@ double _blockChrome({required double padding, required double barGap})
   return 2 * kBlockSideGap + 2 * padding + 2 * 2 + 3 + barGap;
 }
 
-// Composing: would the block cut its hours, its discipline or its person? The length may go.
+// The text column of a block [width] wide, as the block lays it out.
+double _composingTextRoom(double width)
+{
+  final tight = width < 80;
+  final narrow = width < 110;
+
+  return width - _blockChrome(padding: tight ? 5 : (narrow ? 6 : 10), barGap: tight ? 4 : 8);
+}
+
+double _widestWord(BuildContext context, String text, TextStyle style)
+{
+  return text.split(' ').fold(0.0, (widest, word) => math.max(widest, blockLineWidth(context, word, style)));
+}
+
+// Composing: the discipline and the person wrap; the block fails only on its start or a word wider than it.
 bool composingBlockCutsText(
   BuildContext context,
   LessonItem lesson,
@@ -1471,14 +1494,33 @@ bool composingBlockCutsText(
   bool preferred = false,
 })
 {
-  final tight = width < 80;
-  final narrow = width < 110;
-  final room = width - _blockChrome(padding: tight ? 5 : (narrow ? 6 : 10), barGap: tight ? 4 : 8);
-  final marks = narrow ? 0.0 : _blockMarksWidth(preferred: preferred, warned: warned, past: false);
+  final room = _composingTextRoom(width);
+  final marks = width < 110 ? 0.0 : _blockMarksWidth(preferred: preferred, warned: warned, past: false);
 
-  return blockLineWidth(context, formatTimeRange(lesson.startTime, lesson.endTime), _blockHoursStyle) > room - marks ||
-      blockLineWidth(context, lessonTopic(lesson, ministrySubjects).discipline, _blockDisciplineStyle) > room ||
-      blockLineWidth(context, lessonTitle(lesson), _blockPersonStyle) > room;
+  // The hours fall back to the start alone, as the block writes them when the range does not fit.
+  return blockLineWidth(context, formatTimeOfDayShort(lesson.startTime), _blockHoursStyle) > room - marks ||
+      _widestWord(context, lessonTopic(lesson, ministrySubjects).discipline, _blockDisciplineStyle) > room ||
+      _widestWord(context, lessonTitle(lesson), _blockPersonStyle) > room;
+}
+
+// Composing: the hours on one line, the discipline and the person wrapped; never under the usual.
+double composingLessonBlockHeight(
+  BuildContext context,
+  LessonItem lesson,
+  double width, {
+  required List<MinistrySubjectItem> ministrySubjects,
+})
+{
+  final room = _composingTextRoom(width);
+
+  final height = blockTextHeight(context, '0', _blockHoursStyle, double.infinity) +
+      2 +
+      blockTextHeight(context, lessonTopic(lesson, ministrySubjects).discipline, _blockDisciplineStyle, room) +
+      2 +
+      blockTextHeight(context, lessonTitle(lesson), _blockPersonStyle, room);
+
+  // Padding and the hovered border, top and bottom.
+  return math.max(kTeacherBlockHeight, height + 2 * _blockPadding + 2 * 2);
 }
 
 // No line widens a published block past this: a longer one wraps instead.

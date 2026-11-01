@@ -200,7 +200,7 @@ LessonVoice _notesVoice(String label, PersonItem person, StudentNoteKind kind, L
   );
 }
 
-String _certifications(PersonItem person)
+String studentCertificationsOf(PersonItem person)
 {
   final types = [
     for (final type in person.certificationTypes)
@@ -288,7 +288,7 @@ List<LessonVoice> studentVoicesOf(PersonItem person, {bool notes = true})
     _studentAge(person),
     LessonVoice(
       label: 'Certificazioni',
-      value: _certifications(person),
+      value: studentCertificationsOf(person),
       sensitive: true,
     ),
     LessonVoice(label: 'Scuola', value: person.schoolName?.trim() ?? _empty),

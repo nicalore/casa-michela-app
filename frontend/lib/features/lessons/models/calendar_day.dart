@@ -94,12 +94,21 @@ abstract class CalendarLane
     ];
   }
 
+  // The lessons' sub-lanes. Activities keep the top one, so lessons running alongside go under them.
   ({List<int> laneOf, int laneCount}) subLanesWith([Map<int, int> memory = const {}])
   {
-    return assignSubLanes(
-      [for (final lesson in lessons) (lesson.startMinutes, lesson.endMinutes)],
-      preferred: [for (final lesson in lessons) memory[lesson.id]],
+    final stacking = assignSubLanes(
+      [
+        for (final activity in activities) (activity.startMinutes, activity.endMinutes),
+        for (final lesson in lessons) (lesson.startMinutes, lesson.endMinutes),
+      ],
+      preferred: [
+        for (final _ in activities) -1,
+        for (final lesson in lessons) memory[lesson.id],
+      ],
     );
+
+    return (laneOf: stacking.laneOf.sublist(activities.length), laneCount: stacking.laneCount);
   }
 }
 
@@ -113,8 +122,7 @@ class TeacherLane extends CalendarLane
   @override
   final List<LessonItem> lessons;
 
-  // Never overlaps [lessons] (both sides refuse it), so activities always
-  // draw on the top sub-lane.
+  // Never overlap one another, so they all draw on the top sub-lane.
   @override
   final List<ScheduledActivity> activities;
 

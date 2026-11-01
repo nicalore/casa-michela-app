@@ -6,7 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../utils/timeline_geometry.dart';
 import 'calendar_pdf_palette.dart';
 
-const double kNameColumnWidth = 128;
+const double kNameColumnWidth = 132;
 
 const double kRowPadding = 4;
 const double kSubLaneGap = 3;

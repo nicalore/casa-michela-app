@@ -95,7 +95,8 @@ def lessons_by_room(
     return dict(grouped)
 
 
-# In-building teachers with a lesson in no single room.
+# Teachers with a lesson in person in no single room. An online lesson needs no
+# room, even taught from the association.
 def teachers_adrift(
     lessons: Sequence[Lesson],
     assignments: Sequence[TeacherRoomAssignment],
@@ -105,7 +106,7 @@ def teachers_adrift(
     return {
         teacher_of(lesson)
         for lesson in lessons
-        if lesson.teacher_mode == "presence" and room_of(lesson, stretches) is None
+        if lesson.mode == "presence" and room_of(lesson, stretches) is None
     }
 
 

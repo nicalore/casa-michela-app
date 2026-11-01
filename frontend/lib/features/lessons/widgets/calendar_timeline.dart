@@ -17,16 +17,21 @@ import '../models/lesson_item.dart';
 import '../models/person_option_item.dart';
 import '../models/room_day_plan.dart';
 import '../utils/lesson_placement.dart';
+import '../utils/online_only.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
 import 'calendar_activity_block.dart';
 import 'calendar_lesson_block.dart';
+import 'calendar_request_details.dart';
 import 'lesson_captions.dart';
 import 'person_avatar.dart';
 import 'teacher_exclusion_overlay.dart';
 
-const double kTimelineLeadingWidth = 216;
-const double _denseLeadingWidth = 196;
+// The faces keep their size; the names wrap on two lines beside them.
+const double _laneTextMinWidth = 108;
+
+const double kTimelineLeadingWidth = 2 * _headerGap + _MarkedAvatar._size + 6 + _laneTextMinWidth;
+const double _denseLeadingWidth = 2 * _denseHeaderGap + _MarkedAvatar._denseSize + 6 + _laneTextMinWidth;
 
 // Widened so the widest offer fits whole under the ambient style and text scale.
 double timelineLeadingWidth(BuildContext context)
@@ -132,7 +137,7 @@ class _AxisLabel extends StatelessWidget
   final int minute;
   final bool isHour;
 
-  // Scrolling, the first and last labels would be cut at the edges.
+  // At the track's edges the first and last labels would be cut.
   final bool keepsInside;
 
   const _AxisLabel({required this.metrics, required this.minute, required this.isHour, this.keepsInside = false});
@@ -374,7 +379,7 @@ class CalendarAvailabilityStretch extends StatelessWidget
         color: switch (reach)
         {
           StretchReach.idle => lessonSurface(mode),
-          StretchReach.open => Color.alphaBlend(accent.withValues(alpha: 0.14), lessonSurface(mode)),
+          StretchReach.open => Color.alphaBlend(accent.withValues(alpha: 0.22), lessonSurface(mode)),
           StretchReach.closed => lessonSurface(mode).withValues(alpha: 0.35),
         },
         borderRadius: BorderRadius.circular(8),
@@ -382,12 +387,35 @@ class CalendarAvailabilityStretch extends StatelessWidget
           color: switch (reach)
           {
             StretchReach.idle => accent.withValues(alpha: 0.28),
-            StretchReach.open => accent.withValues(alpha: 0.85),
+            StretchReach.open => accent,
             StretchReach.closed => accent.withValues(alpha: 0.1),
           },
-          width: reach == StretchReach.open ? 1.6 : 1,
+          width: reach == StretchReach.open ? 2 : 1,
         ),
+        boxShadow: reach == StretchReach.open
+            ? [BoxShadow(color: accent.withValues(alpha: 0.3), blurRadius: 12)]
+            : null,
       ),
+    );
+  }
+}
+
+// A landing comes on as the stretch under it dims.
+class _Lit extends StatelessWidget
+{
+  final Widget child;
+
+  const _Lit({required this.child});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+      child: child,
     );
   }
 }
@@ -444,57 +472,10 @@ class _OnlineAlsoHatchPainter extends CustomPainter
   bool shouldRepaint(_OnlineAlsoHatchPainter oldDelegate) => oldDelegate.alpha != alpha;
 }
 
-class _PresenceBoundsPainter extends CustomPainter
-{
-  final TimelineMetrics metrics;
-  final List<(int, int)> windows;
-
-  const _PresenceBoundsPainter({required this.metrics, this.windows = const []});
-
-  @override
-  void paint(Canvas canvas, Size size)
-  {
-    if (windows.isEmpty)
-    {
-      return;
-    }
-
-    final paint = Paint()
-      ..color = AppTheme.trialTealDeep.withValues(alpha: 0.7)
-      ..strokeWidth = 1.5;
-
-    for (final window in windows)
-    {
-      for (final minute in [window.$1, window.$2])
-      {
-        if (minute <= metrics.windowStartMinutes || minute >= metrics.windowEndMinutes)
-        {
-          continue;
-        }
-
-        final x = metrics.xOf(minute);
-
-        for (var y = 0.0; y < size.height; y += 9)
-        {
-          canvas.drawLine(Offset(x, y), Offset(x, math.min(y + 5, size.height)), paint);
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_PresenceBoundsPainter oldDelegate)
-  {
-    return !listEquals(oldDelegate.windows, windows) || !oldDelegate.metrics.sameAxis(metrics);
-  }
-}
-
 class _MarkedAvatar extends StatelessWidget
 {
   final PersonOptionItem person;
   final ({bool preferred, bool avoided}) standing;
-
-  final bool isSupervisor;
 
   final bool isExcluded;
 
@@ -503,7 +484,6 @@ class _MarkedAvatar extends StatelessWidget
   const _MarkedAvatar({
     required this.person,
     required this.standing,
-    this.isSupervisor = false,
     this.isExcluded = false,
     this.onToggleExcluded,
     this.size = _size,
@@ -512,7 +492,7 @@ class _MarkedAvatar extends StatelessWidget
   final double size;
 
   static const double _size = 62;
-  static const double _denseSize = 40;
+  static const double _denseSize = 48;
 
   ({Color accent, IconData icon, String message})? get _mark
   {
@@ -531,15 +511,6 @@ class _MarkedAvatar extends StatelessWidget
         accent: kAvoidedTeacherColor,
         icon: Icons.do_not_disturb_on_rounded,
         message: 'Docente che l\'alunno preferirebbe evitare',
-      );
-    }
-
-    if (isSupervisor)
-    {
-      return (
-        accent: kSupervisorColor,
-        icon: Icons.shield_rounded,
-        message: kSupervisorLabel,
       );
     }
 
@@ -631,19 +602,16 @@ final TextStyle _laneRoomStyle = GoogleFonts.plusJakartaSans(
   color: AppTheme.trialTealDeep,
 );
 
-final TextStyle _laneHoursStyle = GoogleFonts.plusJakartaSans(
-  fontSize: 11.5,
-  fontWeight: FontWeight.w600,
-  height: 1.3,
-  color: AppTheme.trialMutedText,
-  fontFeatures: const [FontFeature.tabularFigures()],
-);
-
 const double _laneRoomIcon = 13;
 const double _laneRoomIconGap = 4;
-const double _laneShieldGap = 4;
-const double _laneShield = 12;
 const double _laneHoursGap = 2;
+
+// A single room or the online mode under the name, and «Nessuna disponibilità».
+final TextStyle _laneWhereStyle = GoogleFonts.plusJakartaSans(
+  fontSize: 12,
+  fontWeight: FontWeight.w600,
+  height: 1.25,
+);
 
 final TextStyle _laneOfferStyle = GoogleFonts.plusJakartaSans(
   fontSize: 12,
@@ -653,10 +621,23 @@ final TextStyle _laneOfferStyle = GoogleFonts.plusJakartaSans(
 
 const double _laneOfferIcon = 13;
 const double _laneOfferIconGap = 4;
+
+// The badge under a teacher who comes in for online lessons only, and the band beside it.
+const double _onlineOnlyGap = 6;
+const double _onlineOnlyBadgePadX = 7;
+const double _onlineOnlyBadgePadY = 3;
+const double _onlineOnlyBadgeBorder = 1.5;
+const double _onlineOnlyBand = 4;
+
+TextStyle get _onlineOnlyBadgeStyle => GoogleFonts.plusJakartaSans(
+      fontSize: 10.5,
+      fontWeight: FontWeight.w800,
+      height: 1.25,
+    );
 const double _laneOfferIndent = _laneOfferIcon + _laneOfferIconGap;
 
-// 4h 30m is the widest figure in this font.
-final String _widestOffer = '${modeLabel(kPresenceMode)} · ${formatMinutes(4 * 60 + 30)}';
+// 4h 30m is the widest figure in this font; the icon says the mode.
+final String _widestOffer = formatMinutes(4 * 60 + 30);
 
 double _widestOfferWidth(BuildContext context)
 {
@@ -687,24 +668,68 @@ double _laneChromeWidth(bool dense)
 
 double _laneTextWidth(BuildContext context, bool dense) => timelineLeadingWidth(context) - _laneChromeWidth(dense);
 
-// Name plus each room, wrapped whole, with its hours: a lane changing room grows to hold them.
-double laneHeaderMinHeight(BuildContext context, CalendarLane lane, LaneRoomLabel? room)
+// Whether the track is wider than the room beside the names, and so scrolls sideways.
+bool timelineScrollsSideways(BuildContext context, TimelineMetrics metrics, double width)
 {
-  if (room == null || !room.changesRoom)
+  return metrics.trackWidth > width - timelineLeadingWidth(context) + 0.5;
+}
+
+// Name plus each room, wrapped whole, with its hours: a lane changing room grows to hold them.
+// The name written whole, however many lines it takes, and what goes under it; a teacher
+// who comes in for online lessons only has the badge under all that too.
+double laneHeaderMinHeight(
+  BuildContext context,
+  CalendarLane lane,
+  LaneRoomLabel? room, {
+  required int bandStart,
+  required int bandEnd,
+  CalendarView view = CalendarView.byTeacher,
+})
+{
+  final double plain = _plainLaneHeaderHeight(context, lane, room, bandStart: bandStart, bandEnd: bandEnd);
+
+  if (view != CalendarView.byTeacher || !comesInForOnlineOnly(lane.lessons, lane.activities))
   {
-    return 0;
+    return plain;
   }
 
+  final bool dense = AppBreakpoints.of(context).isDense;
+
+  // One line, as drawn: when it does not fit it shrinks, which only lowers it.
+  final painter = TextPainter(
+    text: TextSpan(text: kOnlineOnlyBadge, style: DefaultTextStyle.of(context).style.merge(_onlineOnlyBadgeStyle)),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+
+  final double badge = math.max(painter.height, _laneOfferIcon) + 2 * (_onlineOnlyBadgePadY + _onlineOnlyBadgeBorder);
+
+  painter.dispose();
+
+  final double avatar = dense ? _MarkedAvatar._denseSize : _MarkedAvatar._size;
+  final double row = math.max(avatar, plain - 2 * kTimelineRowPadding - 4);
+
+  return 2 * kTimelineRowPadding + row + _onlineOnlyGap + badge + 4;
+}
+
+double _plainLaneHeaderHeight(
+  BuildContext context,
+  CalendarLane lane,
+  LaneRoomLabel? room, {
+  required int bandStart,
+  required int bandEnd,
+})
+{
   final ambient = DefaultTextStyle.of(context).style;
   final scaler = MediaQuery.textScalerOf(context);
 
-  double tall(InlineSpan span, double width, {int? maxLines})
+  double tall(InlineSpan span, double width)
   {
     final painter = TextPainter(
       text: span,
       textDirection: TextDirection.ltr,
       textScaler: scaler,
-      maxLines: maxLines,
     );
 
     painter.layout(maxWidth: width);
@@ -722,16 +747,37 @@ double laneHeaderMinHeight(BuildContext context, CalendarLane lane, LaneRoomLabe
   var height = tall(
     TextSpan(text: lane.person.fullName, style: ambient.merge(dense ? _denseLaneNameStyle : _laneNameStyle)),
     textWidth,
-    maxLines: 2,
   ) + 3;
 
-  for (final stay in room.stays)
+  if (room == null)
   {
-    final roomSpan = TextSpan(text: stay.room.name, style: ambient.merge(_laneRoomStyle));
-    final hours = TextSpan(text: formatMinutesRange(stay.startMinutes, stay.endMinutes), style: ambient.merge(_laneHoursStyle));
-    final indented = textWidth - _laneRoomIcon - _laneRoomIconGap;
+    final offered = [
+      for (final mode in const [kPresenceMode, kOnlineMode])
+        if (lane.spansIn(mode, bandStart, bandEnd).isNotEmpty) mode,
+    ];
 
-    height += tall(roomSpan, indented) + math.max(_laneShield, tall(hours, indented)) + _laneHoursGap;
+    if (offered.isEmpty)
+    {
+      return 2 * kTimelineRowPadding + height + tall(TextSpan(text: '0', style: ambient.merge(_laneWhereStyle)), textWidth) + 4;
+    }
+
+    final double offerLine = 2 + tall(TextSpan(text: formatMinutes(0), style: ambient.merge(_laneOfferStyle)), textWidth);
+
+    return 2 * kTimelineRowPadding + height + offered.length * offerLine + 4;
+  }
+
+  if (!room.changesRoom)
+  {
+    final where = TextSpan(text: room.roomName ?? modeLabel(kOnlineMode), style: ambient.merge(_laneWhereStyle));
+
+    return 2 * kTimelineRowPadding + height + tall(where, textWidth - _laneOfferIndent) + 4;
+  }
+
+  final indented = textWidth - _laneRoomIcon - _laneRoomIconGap;
+
+  for (final stay in room.roomsInOrder)
+  {
+    height += tall(TextSpan(text: stay.name, style: ambient.merge(_laneRoomStyle)), indented) + _laneHoursGap;
   }
 
   // A few pixels spare: rounding must never clip the last line.
@@ -754,6 +800,9 @@ class _LaneHeader extends StatelessWidget
 
   final VoidCallback? onToggleExcluded;
 
+  // Beside the online-only badge while composing; a published band keeps the badge alone.
+  final bool showsOnlineOnlyBand;
+
   const _LaneHeader({
     required this.lane,
     required this.bandStart,
@@ -763,6 +812,7 @@ class _LaneHeader extends StatelessWidget
     this.carried,
     this.isExcluded = false,
     this.onToggleExcluded,
+    this.showsOnlineOnlyBand = true,
   });
 
   ({bool preferred, bool avoided}) _standingFor(CalendarDragPayload? payload)
@@ -799,6 +849,37 @@ class _LaneHeader extends StatelessWidget
     return offered;
   }
 
+  bool get _comesForOnlineOnly => view == CalendarView.byTeacher && comesInForOnlineOnly(lane.lessons, lane.activities);
+
+  Widget _buildOnlineOnlyBadge()
+  {
+    final Color accent = lessonAccent(kOnlineMode);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: _onlineOnlyBadgePadX, vertical: _onlineOnlyBadgePadY),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accent.withValues(alpha: 0.45), width: _onlineOnlyBadgeBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(lessonModeIcon(kOnlineMode), size: _laneOfferIcon, color: accent),
+          const SizedBox(width: _laneOfferIconGap),
+          // One line always: a narrow names column shrinks the words a little instead.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(kOnlineOnlyBadge, maxLines: 1, style: _onlineOnlyBadgeStyle.copyWith(color: accent)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -818,34 +899,27 @@ class _LaneHeader extends StatelessWidget
   }
 
   // Each room written whole, its hours and shield under it; laneHeaderMinHeight measures the same.
+  // Every room, written whole, without hours: each lesson already says its own.
   List<Widget> _buildRooms(LaneRoomLabel room)
   {
     return [
-      for (final stay in room.stays) ...[
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 1),
-              child: Icon(Icons.meeting_room_outlined, size: _laneRoomIcon, color: AppTheme.trialTealDeep),
-            ),
-            const SizedBox(width: _laneRoomIconGap),
-            Expanded(child: Text(stay.room.name, style: _laneRoomStyle)),
-          ],
-        ),
+      for (final stay in room.roomsInOrder)
         Padding(
-          padding: const EdgeInsets.only(left: _laneRoomIcon + _laneRoomIconGap, bottom: _laneHoursGap),
+          padding: const EdgeInsets.only(bottom: _laneHoursGap),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(formatMinutesRange(stay.startMinutes, stay.endMinutes), maxLines: 1, style: _laneHoursStyle),
-              if (stay.isSupervisor) ...[
-                const SizedBox(width: _laneShieldGap),
-                const Icon(Icons.shield_rounded, size: _laneShield, color: AppTheme.trialTealDeep),
-              ],
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: stay.supervised
+                    ? const _SupervisorShield()
+                    : const Icon(Icons.meeting_room_outlined, size: _laneRoomIcon, color: AppTheme.trialTealDeep),
+              ),
+              const SizedBox(width: _laneRoomIconGap),
+              Expanded(child: Text(stay.name, style: _laneRoomStyle)),
             ],
           ),
         ),
-      ],
     ];
   }
 
@@ -867,26 +941,20 @@ class _LaneHeader extends StatelessWidget
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 1),
-            child: Icon(
-              atHome ? lessonModeIcon(kOnlineMode) : Icons.meeting_room_outlined,
-              size: 13,
-              color: accent,
-            ),
+            child: !atHome && room.isSupervisor
+                ? const _SupervisorShield()
+                : Icon(
+                    atHome ? lessonModeIcon(kOnlineMode) : Icons.meeting_room_outlined,
+                    size: 13,
+                    color: accent,
+                  ),
           ),
           const SizedBox(width: 4),
-          Expanded(
-            child: DescenderRoom(
-              child: Text(
-                name ?? modeLabel(kOnlineMode),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 1.25,
-                  color: accent,
-                ),
-              ),
+          // Written whole, as the name: the row grows to hold it.
+          Flexible(
+            child: Text(
+              name ?? modeLabel(kOnlineMode),
+              style: _laneWhereStyle.copyWith(color: accent),
             ),
           ),
         ],
@@ -898,76 +966,129 @@ class _LaneHeader extends StatelessWidget
   {
     final double gap = dense ? _denseHeaderGap : _headerGap;
 
-    return Padding(
-      padding: EdgeInsets.only(right: gap),
-      child: Row(
-        children: [
-          _MarkedAvatar(
-            person: lane.person,
-            standing: standing,
-            isSupervisor: room?.isSupervisor ?? false,
-            isExcluded: isExcluded,
-            onToggleExcluded: onToggleExcluded,
-            size: dense ? _MarkedAvatar._denseSize : _MarkedAvatar._size,
-          ),
-          SizedBox(width: gap),
-          Expanded(
-            child: AnimatedOpacity(
-              duration: kExcludedLaneFade,
-              curve: kExcludedLaneCurve,
-              opacity: isExcluded ? kExcludedLaneOpacity : 1,
-              child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DescenderRoom(
-                  child: Text(
-                    lane.person.fullName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: dense ? _denseLaneNameStyle : _laneNameStyle,
-                  ),
+    final Widget row = Row(
+      children: [
+        _MarkedAvatar(
+          person: lane.person,
+          standing: standing,
+          isExcluded: isExcluded,
+          onToggleExcluded: onToggleExcluded,
+          size: dense ? _MarkedAvatar._denseSize : _MarkedAvatar._size,
+        ),
+        SizedBox(width: gap),
+        Expanded(
+          child: AnimatedOpacity(
+            duration: kExcludedLaneFade,
+            curve: kExcludedLaneCurve,
+            opacity: isExcluded ? kExcludedLaneOpacity : 1,
+            // Clipped: while its row grows to new content the header briefly keeps the old height.
+            child: UnconstrainedBox(
+            constrainedAxis: Axis.horizontal,
+            alignment: Alignment.centerLeft,
+            clipBehavior: Clip.hardEdge,
+            child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DescenderRoom(
+                child: Text(
+                  lane.person.fullName,
+                  style: dense ? _denseLaneNameStyle : _laneNameStyle,
                 ),
-                const SizedBox(height: 3),
-                if (room != null)
-                  ..._buildWhere(room!)
-                else if (_offered.isEmpty)
-                  Text(
-                    view == CalendarView.byStudent ? 'Nessuna presenza' : 'Nessuna disponibilità',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                      color: AppTheme.trialMutedText,
-                    ),
-                  )
-                else
-                  for (final offer in _offered)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Row(
-                        children: [
-                          Icon(lessonModeIcon(offer.mode), size: _laneOfferIcon, color: lessonAccent(offer.mode)),
-                          const SizedBox(width: _laneOfferIconGap),
-                          Expanded(
-                            child: DescenderRoom(
-                              child: Text(
-                                '${modeLabel(offer.mode)} · ${formatMinutes(offer.minutes)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: _laneOfferStyle.copyWith(color: lessonAccent(offer.mode)),
-                              ),
+              ),
+              const SizedBox(height: 3),
+              if (room != null)
+                ..._buildWhere(room!)
+              else if (_offered.isEmpty)
+                Text(
+                  view == CalendarView.byStudent ? 'Nessuna presenza' : 'Nessuna disponibilità',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                    color: AppTheme.trialMutedText,
+                  ),
+                )
+              else
+                for (final offer in _offered)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        Icon(lessonModeIcon(offer.mode), size: _laneOfferIcon, color: lessonAccent(offer.mode)),
+                        const SizedBox(width: _laneOfferIconGap),
+                        Flexible(
+                          child: DescenderRoom(
+                            child: Text(
+                              formatMinutes(offer.minutes),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _laneOfferStyle.copyWith(color: lessonAccent(offer.mode)),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                ],
+                  ),
+              ],
+            ),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (!_comesForOnlineOnly)
+    {
+      return Padding(padding: EdgeInsets.only(right: gap), child: row);
+    }
+
+    // laneHeaderMinHeight measures the badge under the row the same way.
+    return Stack(
+      children: [
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(padding: EdgeInsets.only(right: gap), child: row),
+            const SizedBox(height: _onlineOnlyGap),
+            Padding(
+              padding: const EdgeInsets.only(left: 2 * _onlineOnlyBand, right: _onlineOnlyBand),
+              child: _buildOnlineOnlyBadge(),
+            ),
+          ],
+        ),
+        if (showsOnlineOnlyBand)
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: _onlineOnlyBand,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: lessonAccent(kOnlineMode),
+                borderRadius: const BorderRadius.horizontal(right: Radius.circular(3)),
               ),
             ),
           ),
-        ],
-      ),
+      ],
+    );
+  }
+}
+
+// A room the teacher answers for wears the shield in place of the door.
+class _SupervisorShield extends StatelessWidget
+{
+  const _SupervisorShield();
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return AppTooltip(
+      message: kSupervisorLabel,
+      decoration: AppTheme.tooltipDecoration,
+      textStyle: AppTheme.tooltipTextStyle,
+      child: const Icon(Icons.shield_rounded, size: _laneRoomIcon, color: kSupervisorColor),
     );
   }
 }
@@ -1162,7 +1283,8 @@ class CalendarTimeline extends StatefulWidget
 
   final void Function(ActivityItem activity)? onActivityTap;
 
-  final LessonPlacement Function(CalendarDragPayload payload, String teacherTaxCode, int startMinutes)? onPlan;
+  // [window]: the timeline's ends, which a carried block is squeezed against.
+  final LessonPlacement Function(CalendarDragPayload payload, String teacherTaxCode, int startMinutes, (int, int) window)? onPlan;
 
   final Future<void> Function(CalendarDragPayload payload, LessonPlacement placement)? onDrop;
 
@@ -1185,6 +1307,12 @@ class CalendarTimeline extends StatefulWidget
   final ValueNotifier<CarriedPlacement>? carriedAt;
 
   final ScrollController? scrollController;
+
+  // Given by a host that draws the sideways bar along its own view; the track then draws none.
+  final ScrollController? sidewaysController;
+
+  // A lesson held still under the pointer opens these.
+  final WidgetBuilder? Function(LessonItem lesson)? lessonDetails;
   final GlobalKey? viewportKey;
 
   // Composing: where each lesson too narrow for its words writes them, under its row.
@@ -1222,6 +1350,8 @@ class CalendarTimeline extends StatefulWidget
     this.onDragChanged,
     this.carriedAt,
     this.scrollController,
+    this.sidewaysController,
+    this.lessonDetails,
     this.viewportKey,
     this.captions = const {},
   });
@@ -1381,7 +1511,20 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       return null;
     }
 
-    return plan(payload, lanes[row].personTaxCode, metrics.snappedMinutesAt(local.dx));
+    return plan(
+      payload,
+      lanes[row].personTaxCode,
+      _startAt(payload, local.dx),
+      (metrics.windowStartMinutes, metrics.windowEndMinutes),
+    );
+  }
+
+  // A block already on the timeline may be pushed over one of its ends, to be squeezed against it.
+  int _startAt(CalendarDragPayload payload, double x)
+  {
+    final bool placed = payload is LessonDragPayload || (payload is ActivityDragPayload && payload.isAssigned);
+
+    return placed ? metrics.reachedMinutesAt(x) : metrics.snappedMinutesAt(x);
   }
 
   void _onEdgeDrag(LessonItem lesson, bool isLeftEdge, Offset globalPosition)
@@ -1488,7 +1631,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     _carried = details.data;
     _lastPointer = details.offset;
 
-    if (_hasMovedToNewSlot(details.offset))
+    if (_hasMovedToNewSlot(details.data, details.offset))
     {
       _showPlacement(_planAt(details.data, details.offset));
     }
@@ -1508,7 +1651,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
 
   RenderBox? get _viewportBox => widget.viewportKey?.currentContext?.findRenderObject() as RenderBox?;
 
-  bool _hasMovedToNewSlot(Offset globalPosition)
+  bool _hasMovedToNewSlot(CalendarDragPayload payload, Offset globalPosition)
   {
     final box = _trackBox;
 
@@ -1527,7 +1670,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       return true;
     }
 
-    final slot = (row, metrics.snappedMinutesAt(local.dx));
+    final slot = (row, _startAt(payload, local.dx));
 
     if (slot == _lastPlanned)
     {
@@ -1594,61 +1737,75 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     final presence = lane.spansIn(kPresenceMode, bandStart, bandEnd);
     final online = lane.spansIn(kOnlineMode, bandStart, bandEnd);
 
-    StretchReach reachOf(String mode, (int, int) span)
+    final bool carrying = outline != null && outline.windows.isNotEmpty;
+
+    // While something is carried every stretch dims, and only where it can land lights up.
+    final StretchReach under = carrying ? StretchReach.closed : StretchReach.idle;
+
+    // What the stretch shares with the pupil's hours, long enough for the lesson, under a teacher who can teach it.
+    List<(int, int)> landings(String mode, (int, int) span)
     {
-      if (outline == null || outline.windows.isEmpty)
+      final carried = outline;
+
+      if (carried == null || carried.windows.isEmpty || !competent.contains(lane.personTaxCode))
       {
-        return StretchReach.idle;
+        return const [];
       }
 
-      if (!competent.contains(lane.personTaxCode))
+      if (mode == kOnlineMode && carried.mode != kOnlineMode)
       {
-        return StretchReach.closed;
+        return const [];
       }
 
-      if (mode == kOnlineMode && outline.mode != kOnlineMode)
-      {
-        return StretchReach.closed;
-      }
-
-      final reachable = intersectWindows([span], outline.windows)
-          .any((shared) => shared.$2 - shared.$1 >= outline.shortest);
-
-      return reachable ? StretchReach.open : StretchReach.closed;
+      return [
+        for (final shared in intersectWindows([span], carried.windows))
+          if (shared.$2 - shared.$1 >= carried.shortest) shared,
+      ];
     }
 
     final inset = kTimelineRowPadding - kStretchBleed;
 
-    for (final span in presence)
+    Widget placed((int, int) span, Widget child)
     {
-      layers.add(Positioned(
+      return Positioned(
         left: metrics.xOf(span.$1),
         width: metrics.widthOf(span.$1, span.$2),
         top: inset,
         height: rowHeight - 2 * inset,
-        child: CalendarAvailabilityStretch(
-          mode: kPresenceMode,
-          reach: reachOf(kPresenceMode, span),
-        ),
-      ));
+        child: child,
+      );
+    }
+
+    for (final span in presence)
+    {
+      layers.add(placed(span, CalendarAvailabilityStretch(mode: kPresenceMode, reach: under)));
+
+      for (final landing in landings(kPresenceMode, span))
+      {
+        layers.add(placed(landing, const _Lit(child: CalendarAvailabilityStretch(mode: kPresenceMode, reach: StretchReach.open))));
+      }
     }
 
     for (final span in online)
     {
       final alsoPresent = presence.any((other) => spansOverlap(span.$1, span.$2, other.$1, other.$2));
 
-      layers.add(Positioned(
-        left: metrics.xOf(span.$1),
-        width: metrics.widthOf(span.$1, span.$2),
-        top: inset,
-        height: rowHeight - 2 * inset,
-        child: alsoPresent
-            ? _OnlineAlsoHatch(reach: reachOf(kOnlineMode, span))
-            : CalendarAvailabilityStretch(
-                mode: kOnlineMode,
-                reach: reachOf(kOnlineMode, span),
-              ),
+      layers.add(placed(
+        span,
+        alsoPresent ? _OnlineAlsoHatch(reach: under) : CalendarAvailabilityStretch(mode: kOnlineMode, reach: under),
       ));
+
+      for (final landing in landings(kOnlineMode, span))
+      {
+        layers.add(placed(
+          landing,
+          _Lit(
+            child: alsoPresent
+                ? const _OnlineAlsoHatch(reach: StretchReach.open)
+                : const CalendarAvailabilityStretch(mode: kOnlineMode, reach: StretchReach.open),
+          ),
+        ));
+      }
     }
 
     return layers;
@@ -1700,11 +1857,6 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                     children: _laneBackground(lanes[index], _bandHeight(index), outline, competent),
                   ),
                 ),
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _PresenceBoundsPainter(metrics: metrics, windows: outline?.windows ?? const []),
-                ),
-              ),
             ],
           ),
         ),
@@ -1712,10 +1864,16 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     );
   }
 
+  // A row taller than its blocks (a long name, the rooms, the online-only badge) stretches
+  // them to fill its band.
   double _blockHeightOf(int row)
   {
-    return widget.blockHeights?[row] ??
+    final double usual = widget.blockHeights?[row] ??
         lessonBlockHeight(widget.view, composing: widget.isComposing, dense: AppBreakpoints.of(context).isDense);
+    final int used = lanes[row].lessons.fold(1, (most, lesson) => math.max(most, (widget.subLaneOf[lesson.id] ?? 0) + 1));
+    final double filling = (_bandHeight(row) - 2 * kTimelineRowPadding - (used - 1) * kTimelineSubLaneGap) / used;
+
+    return math.max(usual, filling);
   }
 
   double _topOfSubLane(int row, int subLane)
@@ -1871,8 +2029,9 @@ class _CalendarTimelineState extends State<CalendarTimeline>
   Widget _buildLessonBlock(PlacedLesson placed)
   {
     final lesson = placed.item;
+    final WidgetBuilder? details = lesson.isProvisional ? null : widget.lessonDetails?.call(lesson);
 
-    return CalendarLessonBlock(
+    final Widget block = CalendarLessonBlock(
       lesson: lesson,
       width: placed.width,
       hasWarning: widget.warnedLessonIds.contains(lesson.id),
@@ -1885,6 +2044,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       isMovable: !lesson.isLocked && !lesson.isProvisional && widget.onPlan != null,
       isComposing: widget.isComposing,
       hasCaption: _hasCaption(lesson),
+      showsDetails: details != null,
       showsRoom: !widget.isComposing &&
           widget.view == CalendarView.byTeacher &&
           (widget.roomByTeacher[lesson.teacherTaxCode]?.changesRoom ?? false),
@@ -1913,6 +2073,10 @@ class _CalendarTimelineState extends State<CalendarTimeline>
           : (isLeftEdge, position) => _onEdgeDrag(lesson, isLeftEdge, position),
       onEdgeDragEnd: _onEdgeDragEnd,
     );
+
+    return details == null
+        ? block
+        : CalendarDetailsHover(details: details, child: block);
   }
 
   int _ghostSubLane(CalendarLane lane, LessonPlacement placement)
@@ -2219,10 +2383,18 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       width: timelineLeadingWidth(context),
       child: Column(
         children: [
-          const SizedBox(height: kTimelineAxisHeight),
-          const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+          _StickyHead(
+            scroller: widget.scrollController,
+            travel: metrics.trackHeight,
+            child: const Column(
+              children: [
+                SizedBox(height: kTimelineAxisHeight),
+                Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+              ],
+            ),
+          ),
           // A Stack, not a Column: names must animate with their rows when reordered.
-          SizedBox(
+          _belowHead(SizedBox(
             height: metrics.trackHeight,
             child: Stack(
               children: [
@@ -2240,11 +2412,12 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                       carried: widget.carried,
                       isExcluded: _isExcluded(lanes[index]),
                       onToggleExcluded: _toggleExcluded(lanes[index]),
+                      showsOnlineOnlyBand: widget.isComposing,
                     ),
                   ),
               ],
             ),
-          ),
+          )),
         ],
       ),
     );
@@ -2255,9 +2428,19 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _TimelineAxis(metrics: metrics, keepsInside: scrolls),
-        const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
-        SizedBox(
+        // The track reaches the page's edge: the first and last labels stay whole there too.
+        _StickyHead(
+          scroller: widget.scrollController,
+          travel: metrics.trackHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _TimelineAxis(metrics: metrics, keepsInside: true),
+              const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+            ],
+          ),
+        ),
+        _belowHead(SizedBox(
           height: metrics.trackHeight,
           child: _isReadOnly
               ? _buildTrackStack()
@@ -2272,9 +2455,17 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                   onAcceptWithDetails: _onAccept,
                   builder: (context, candidates, rejected) => _buildTrackStack(),
                 ),
-        ),
+        )),
       ],
     );
+  }
+
+  // Rows scrolled up go out of sight under the hours, which stay.
+  Widget _belowHead(Widget rows)
+  {
+    final ScrollController? scroller = widget.scrollController;
+
+    return scroller == null ? rows : ClipRect(clipper: _BelowHead(scroller), child: rows);
   }
 
   @override
@@ -2283,31 +2474,94 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final scrolls = metrics.trackWidth > constraints.maxWidth - timelineLeadingWidth(context) + 0.5;
+        final scrolls = timelineScrollsSideways(context, metrics, constraints.maxWidth);
+        final hosted = widget.sidewaysController;
+
+        final Widget sideways = SingleChildScrollView(
+          controller: hosted ?? _sideways,
+          scrollDirection: Axis.horizontal,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: _scrollbarRoom),
+            child: SizedBox(width: metrics.trackWidth, child: _buildTrack(scrolls: true)),
+          ),
+        );
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildNames(),
             Expanded(
-              child: scrolls
-                  ? Scrollbar(
-                      controller: _sideways,
-                      thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        controller: _sideways,
-                        scrollDirection: Axis.horizontal,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: _scrollbarRoom),
-                          child: SizedBox(width: metrics.trackWidth, child: _buildTrack(scrolls: true)),
-                        ),
-                      ),
-                    )
-                  : _buildTrack(scrolls: false),
+              child: !scrolls
+                  ? _buildTrack(scrolls: false)
+                  : hosted != null
+                      ? sideways
+                      : Scrollbar(controller: _sideways, thumbVisibility: true, child: sideways),
             ),
           ],
         );
       },
     );
   }
+}
+
+// The hours and the line under them, held at the top of the scrolled view until the last row has gone by.
+class _StickyHead extends StatelessWidget
+{
+  final ScrollController? scroller;
+
+  // Its farthest way down: the rows' height.
+  final double travel;
+
+  final Widget child;
+
+  const _StickyHead({required this.scroller, required this.travel, required this.child});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final ScrollController? scroller = this.scroller;
+
+    if (scroller == null)
+    {
+      return child;
+    }
+
+    return AnimatedBuilder(
+      animation: scroller,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, _scrolled(scroller, travel)),
+        child: child,
+      ),
+      child: child,
+    );
+  }
+}
+
+double _scrolled(ScrollController scroller, double most)
+{
+  if (!scroller.hasClients || scroller.positions.length != 1)
+  {
+    return 0;
+  }
+
+  return scroller.offset.clamp(0, math.max(0, most)).toDouble();
+}
+
+// Room around the rows for what they draw past their edges: borders, shadows, captions.
+const double _rowsBleed = 48;
+
+class _BelowHead extends CustomClipper<Rect>
+{
+  final ScrollController scroller;
+
+  _BelowHead(this.scroller) : super(reclip: scroller);
+
+  @override
+  Rect getClip(Size size)
+  {
+    return Rect.fromLTRB(-_rowsBleed, _scrolled(scroller, size.height), size.width + _rowsBleed, size.height + _rowsBleed);
+  }
+
+  @override
+  bool shouldReclip(_BelowHead oldClipper) => oldClipper.scroller != scroller;
 }

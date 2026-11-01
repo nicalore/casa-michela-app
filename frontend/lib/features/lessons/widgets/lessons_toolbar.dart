@@ -21,7 +21,9 @@ class LessonsToolbar extends StatelessWidget
   final String searchHint;
 
   final String actionLabel;
-  final VoidCallback onAction;
+
+  // Absent on a day that can no longer change.
+  final VoidCallback? onAction;
 
   const LessonsToolbar({
     super.key,
@@ -31,7 +33,7 @@ class LessonsToolbar extends StatelessWidget
     required this.onSearchChanged,
     required this.searchHint,
     required this.actionLabel,
-    required this.onAction,
+    this.onAction,
   });
 
   Widget _buildTabs(bool dense)
@@ -55,9 +57,11 @@ class LessonsToolbar extends StatelessWidget
     );
   }
 
-  Widget _buildAction()
+  Widget? _buildAction()
   {
-    return tabActionButton(label: actionLabel, onPressed: onAction);
+    final action = onAction;
+
+    return action == null ? null : tabActionButton(label: actionLabel, onPressed: action);
   }
 
   @override
@@ -83,13 +87,17 @@ class LessonsToolbar extends StatelessWidget
           );
         }
 
+        final Widget? action = _buildAction();
+
         return Row(
           children: [
             _buildTabs(dense),
             SizedBox(width: dense ? 12 : 20),
             Expanded(child: _buildSearch()),
-            SizedBox(width: dense ? 12 : 24),
-            _buildAction(),
+            if (action != null) ...[
+              SizedBox(width: dense ? 12 : 24),
+              action,
+            ],
           ],
         );
       },

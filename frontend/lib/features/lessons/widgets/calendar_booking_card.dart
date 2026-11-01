@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
-import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/booking_summary_item.dart';
@@ -286,8 +285,6 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
 
   bool get _canDrag => widget.dragMode != BookingDragMode.none;
 
-  String get _verb => widget.dragMode == BookingDragMode.longPress ? 'Tieni premuto e trascina ' : 'Trascina ';
-
   Widget _draggableOf({
     required CalendarDragPayload payload,
     required Widget feedback,
@@ -361,12 +358,9 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (canDrag) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: AppTooltip(
-              message: '${_verb}tutta la materia',
-              child: const Icon(Icons.drag_indicator, size: 16, color: AppTheme.trialTurquoise),
-            ),
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.drag_indicator, size: 16, color: AppTheme.trialTurquoise),
           ),
           const SizedBox(width: 4),
         ],

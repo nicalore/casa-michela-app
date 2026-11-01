@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
+import '../utils/online_only.dart';
+import '../utils/opening_window.dart';
+import 'calendar_lesson_block.dart' show lessonModeIcon;
+import 'person_avatar.dart';
 
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
@@ -69,6 +74,96 @@ Widget _caution(List<String> warnings)
   );
 }
 
+// Who comes in only to connect from the association, with their hours: the last look
+// before the convocations go.
+Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
+{
+  final bool one = teachers.length == 1;
+
+  return AppDialogPill(
+    expand: true,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(lessonModeIcon(kOnlineMode), size: 20, color: AppTheme.trialTealDeep),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                one ? 'Verrà in sede solo per lezioni online' : 'Verranno in sede solo per lezioni online',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                  color: AppTheme.trialOcean,
+                ),
+              ),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 30, top: 6, bottom: 4),
+          child: Text(
+            one
+                ? 'Ha dato disponibilità solo in presenza: si collegherà dai computer dell\'Associazione.'
+                : 'Hanno dato disponibilità solo in presenza: si collegheranno dai computer dell\'Associazione.',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+        ),
+        for (final teacher in teachers)
+          Padding(
+            padding: const EdgeInsets.only(left: 30),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AppTheme.trialLine)),
+              ),
+              child: Row(
+                children: [
+                  PersonAvatar(person: teacher.teacher, size: PersonAvatar.listSize),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          teacher.teacher.fullName,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.trialOcean,
+                          ),
+                        ),
+                        Text(
+                          '${formatMinutesRange(teacher.startMinutes, teacher.endMinutes)} · '
+                          '${teacher.lessons == 1 ? '1 lezione' : '${teacher.lessons} lezioni'}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.trialMutedText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 AppGradientButton _dismiss(BuildContext context)
 {
   return AppGradientButton(
@@ -85,6 +180,7 @@ AppGradientButton _dismiss(BuildContext context)
 Future<bool?> showPublishConfirmation({
   required BuildContext context,
   List<String> warnings = const [],
+  List<OnlineOnlyTeacher> onlineOnly = const [],
 })
 {
   return showBlurredDialog<bool>(
@@ -107,6 +203,7 @@ Future<bool?> showPublishConfirmation({
       ),
       children: [
         _question('Il calendario verrà inviato a docenti, genitori e studenti.'),
+        if (onlineOnly.isNotEmpty) _onlineOnly(onlineOnly),
         if (warnings.isNotEmpty) _caution(warnings),
       ],
     ),
@@ -175,6 +272,7 @@ Future<bool?> showDiscardDraftConfirmation({required BuildContext context})
 Future<bool?> showPublishChangesConfirmation({
   required BuildContext context,
   List<String> warnings = const [],
+  List<OnlineOnlyTeacher> onlineOnly = const [],
 })
 {
   return showBlurredDialog<bool>(
@@ -199,6 +297,7 @@ Future<bool?> showPublishChangesConfirmation({
         _question(
           'Il calendario aggiornato verrà inviato a docenti, genitori e studenti.',
         ),
+        if (onlineOnly.isNotEmpty) _onlineOnly(onlineOnly),
         if (warnings.isNotEmpty) _caution(warnings),
       ],
     ),

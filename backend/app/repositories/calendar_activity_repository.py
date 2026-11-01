@@ -164,7 +164,8 @@ class CalendarActivityRepository(WritableRepository[CalendarActivity]):
 
         return await self.session.scalar(stmt)
 
-    async def find_lesson_overlap(
+    # Lessons in the building may run alongside an activity; online ones may not.
+    async def find_online_lesson_overlap(
         self,
         *,
         teacher_tax_code: str,
@@ -178,6 +179,7 @@ class CalendarActivityRepository(WritableRepository[CalendarActivity]):
             .where(
                 Availability.teacher_tax_code == teacher_tax_code,
                 Lesson.date == day,
+                Lesson.mode == "online",
                 Lesson.start_time < end_time,
                 Lesson.end_time > start_time,
             ),

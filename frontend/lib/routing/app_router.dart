@@ -17,6 +17,7 @@ import '../features/home/role_unavailable_page.dart';
 import '../features/home/section_placeholder_page.dart';
 import '../features/onboarding/onboarding_page.dart';
 import '../features/lessons/lessons_page.dart';
+import '../features/lessons/utils/calendar_route.dart';
 import '../features/people/children_page.dart';
 import '../features/people/own_page.dart';
 import '../features/people/people_page.dart';
@@ -322,7 +323,22 @@ final appRouter = GoRouter(
       branches: [
         _destination(adminHome, const DashboardPage(), routes: _screenRoutes()),
         _destination('/association', const AssociationPage()),
-        _destination('/lessons', const LessonsPage()),
+        _destination(
+          kLessonsRoute,
+          const LessonsPage(),
+          routes: [
+            GoRoute(
+              path: kLessonsCalendarSlug,
+              parentNavigatorKey: _rootNavigatorKey,
+              redirect: (context, state) => lessonsCalendarTarget(state.uri.queryParameters) == null ? kLessonsRoute : null,
+              pageBuilder: (context, state) => buildAppTransitionPage(
+                // Another day or band is another screen.
+                key: ValueKey<String>(state.uri.toString()),
+                child: LessonsCalendarScreen(target: lessonsCalendarTarget(state.uri.queryParameters)!),
+              ),
+            ),
+          ],
+        ),
         _destination(
           '/people',
           const PeoplePage(),

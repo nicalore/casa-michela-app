@@ -19,9 +19,18 @@ from app.services.teacher_room_assignment_service import (
     TeacherRoomAssignmentService,
 )
 from tests.conftest import ADMIN_IDENTITY, identity_of
-from tests.factories import make_availability, make_room
+from tests.factories import (
+    make_availability,
+    make_booking,
+    make_competence,
+    make_discipline,
+    make_presence,
+    make_room,
+    make_student,
+)
 from tests.services.test_lesson_service import (
     DAY,
+    Pupil,
     _second_pupil_on,
     payload,
     pupil_payload,
@@ -261,18 +270,34 @@ async def test_a_lesson_from_home_has_no_room(
     built = await scene(db)
     in_building, _ = await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
+    # In the evening, where nothing brings the teacher in.
     from_home = await make_availability(
         db,
         built.teacher,
         day=DAY,
-        start_time=time(16),
-        end_time=time(19),
+        start_time=time(19),
+        end_time=time(21),
         mode="online",
     )
-    other = await _second_pupil_on(db, built.teacher, mode="online")
+    subject = await make_discipline(db)
+    await make_competence(db, built.teacher, subject)
+    pupil = await make_presence(
+        db,
+        await make_student(db),
+        day=DAY,
+        start_time=time(19),
+        end_time=time(21),
+        mode="online",
+    )
+    booking = await make_booking(db, pupil, association_subject_id=subject.id)
     at_home, _ = await lesson_service(db).create(
         ADMIN_IDENTITY,
-        pupil_payload(from_home, other, start=time(16), end=time(17)),
+        pupil_payload(
+            from_home,
+            Pupil(booking_id=booking.id, subject_id=subject.id),
+            start=time(19),
+            end=time(20),
+        ),
     )
 
     room = await make_room(db)

@@ -457,6 +457,8 @@ async def test_two_online_hours_may_not_run_together_either(
     assert "online" in error.value.detail
 
 
+# The teacher comes in for the band anyway: the online hour is given from the building,
+# even sent on the hours offered from home.
 async def test_an_online_hour_may_follow_one_in_the_building(
     db: AsyncSession,
 ) -> None:
@@ -485,7 +487,7 @@ async def test_an_online_hour_may_follow_one_in_the_building(
     )
 
     assert lesson.mode == "online"
-    assert lesson.teacher_mode == "online"
+    assert lesson.teacher_mode == "presence"
 
 
 async def test_a_teacher_may_not_take_three_pupils_at_once(db: AsyncSession) -> None:

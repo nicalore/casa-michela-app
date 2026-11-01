@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:pdf/pdf.dart';
@@ -12,6 +11,7 @@ import '../models/calendar_publication_item.dart';
 import '../models/lesson_item.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
+import '../widgets/calendar_activity_block.dart' show kActivityWord;
 import '../widgets/calendar_lesson_block.dart';
 import 'calendar_export_data.dart';
 import 'calendar_pdf_fonts.dart';
@@ -25,18 +25,6 @@ const double _typeScale = 1.25;
 const double _logoSize = 66 * _typeScale;
 
 const double _closingLabelRoom = 46 * _typeScale;
-
-// Narrowest a quarter hour gets on the page: the hour labels still fit.
-const double _minQuarter = 13;
-
-// A long activity name may wrap rather than widen the hour.
-const double _widestActivityName = 120 * _typeScale;
-
-// No line widens a block past this: a longer one wraps instead.
-const double _widestBlockLine = 150;
-
-const pw.EdgeInsets _blockPadding = pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2.5);
-const double _blockBorder = 0.6;
 
 final PdfPageFormat _gridFormat = PdfPageFormat.a4.landscape.copyWith(
   marginLeft: 24,
@@ -168,45 +156,45 @@ class _Styles
   late final pw.TextStyle rulerHour = _style(7, fonts.bold, kPdfInk);
   late final pw.TextStyle rulerHalf = _style(6.5, fonts.regular, kPdfMuted);
 
-  late final pw.TextStyle laneName = _style(8, fonts.bold, kPdfInk);
-  late final pw.TextStyle laneRoom = _style(6.5, fonts.bold, kPdfPresence);
-  late final pw.TextStyle laneOnline = _style(6.5, fonts.bold, kPdfOnline);
-  late final pw.TextStyle laneSupervisor = _style(6, fonts.semiBold, kPdfPresence);
-  late final pw.TextStyle laneWhen = _style(6, fonts.regular, kPdfMuted);
+  // The grid's sizes are its own, unscaled: two lines a block, a whole band to a page.
+  pw.TextStyle _grid(double size, pw.Font font, PdfColor colour) => pw.TextStyle(
+        font: font,
+        fontSize: size,
+        color: colour,
+      );
 
-  // The discipline, or an activity's name.
-  late final pw.TextStyle blockTitle = _style(7.5, fonts.bold, kPdfInk);
-  late final pw.TextStyle blockSubject = _style(6, fonts.semiBold, kPdfInk);
-  late final pw.TextStyle blockWho = _style(6.5, fonts.semiBold, kPdfPerson);
-  late final pw.TextStyle blockNote = _style(6, fonts.regular, kPdfBody);
-  late final pw.TextStyle blockLength = _style(6.5, fonts.semiBold, kPdfMuted);
-  late final pw.TextStyle marker = _style(7, fonts.bold, kPdfWhite);
+  pw.TextStyle gridName(double size) => _grid(size, fonts.bold, kPdfInk);
+  late final pw.TextStyle gridAside = _grid(6, fonts.semiBold, kPdfMuted);
+  late final pw.TextStyle gridRoom = _grid(6, fonts.bold, kPdfPresence);
+  late final pw.TextStyle gridOnline = _grid(6, fonts.bold, kPdfOnline);
+  late final pw.TextStyle gridTitle = _grid(6.8, fonts.bold, kPdfInk);
+  late final pw.TextStyle gridBelow = _grid(6.3, fonts.semiBold, kPdfPerson);
 
-  pw.TextStyle blockHours(String mode) => _style(6.5, fonts.bold, pdfLessonAccent(mode));
-
-  late final pw.TextStyle activityHours = _style(6.5, fonts.bold, kPdfActivity);
+  pw.TextStyle gridHours(PdfColor colour) => _grid(6.8, fonts.bold, colour);
 
   late final pw.TextStyle activityCellHours = _style(7.5, fonts.bold, kPdfActivity);
 
-  pw.TextStyle blockWhere(String mode) => _style(6, fonts.bold, pdfLessonAccent(mode));
-
   late final pw.TextStyle tableHead = _style(7.5, fonts.bold, kPdfInk);
   late final pw.TextStyle cellName = _style(8.5, fonts.bold, kPdfInk);
-  late final pw.TextStyle cellRoom = _style(7.5, fonts.bold, kPdfPresence);
+  late final pw.TextStyle cellRoom = _style(6.8, fonts.bold, kPdfPresence);
   late final pw.TextStyle cellQuiet = _style(7, fonts.regular, kPdfMuted);
-  late final pw.TextStyle cellSupervisor = _style(6.5, fonts.semiBold, kPdfPresence);
+  late final pw.TextStyle supervisorTag = _style(5.6, fonts.bold, kPdfWhite, spacing: 0.5);
   late final pw.TextStyle cellLesson = _style(7.5, fonts.regular, kPdfBody);
-  late final pw.TextStyle cellHours = _style(7.5, fonts.bold, kPdfInk);
+  late final pw.TextStyle cellTopic = _style(7.5, fonts.bold, kPdfInk);
+  late final pw.TextStyle cellAside = _style(6.3, fonts.semiBold, kPdfMuted);
+  late final pw.TextStyle together = _style(5.8, fonts.bold, kPdfViolet, spacing: 0.6);
+
+  pw.TextStyle cellHours(String mode) => _style(7.5, fonts.bold, pdfLessonAccent(mode));
 
   pw.TextStyle cellPlace(String mode) => _style(7.5, fonts.semiBold, pdfLessonAccent(mode));
 }
 
-pw.Widget _titleBlock(CalendarExportData data, _Styles styles)
+pw.Widget _titleBlock(CalendarExportData data, _Styles styles, {bool withLegend = true})
 {
   return pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
-      pw.Expanded(child: _titleWords(data, styles)),
+      pw.Expanded(child: _titleWords(data, styles, withLegend: withLegend)),
       pw.SizedBox(width: 16),
       pw.Padding(
         padding: const pw.EdgeInsets.only(top: 2),
@@ -216,7 +204,7 @@ pw.Widget _titleBlock(CalendarExportData data, _Styles styles)
   );
 }
 
-pw.Widget _titleWords(CalendarExportData data, _Styles styles)
+pw.Widget _titleWords(CalendarExportData data, _Styles styles, {required bool withLegend})
 {
   final counts = data.counts;
 
@@ -248,8 +236,10 @@ pw.Widget _titleWords(CalendarExportData data, _Styles styles)
         style: styles.meta,
       ),
       pw.SizedBox(height: 6),
-      _legend(styles),
-      pw.SizedBox(height: 6),
+      if (withLegend) ...[
+        _legend(styles),
+        pw.SizedBox(height: 6),
+      ],
     ],
   );
 }
@@ -336,13 +326,18 @@ pw.Widget _publicationLine(CalendarExportData data, _Styles styles)
   );
 }
 
-pw.Widget _legend(_Styles styles)
+pw.Widget _legend(_Styles styles, {bool withTogether = false})
 {
   return pw.Row(
+    mainAxisSize: pw.MainAxisSize.min,
     children: [
       _swatch(modeLabel(kPresenceMode), kPdfPresence, kPdfPresenceSurface, styles),
       pw.SizedBox(width: 12),
       _swatch(modeLabel(kOnlineMode), kPdfOnline, kPdfOnlineSurface, styles),
+      if (withTogether) ...[
+        pw.SizedBox(width: 12),
+        _swatch(_togetherLegend, kPdfViolet, kPdfVioletSurface, styles),
+      ],
     ],
   );
 }
@@ -386,147 +381,39 @@ pw.Widget _footer(pw.Context context, CalendarExportData data, _Styles styles)
   );
 }
 
-// By student every lesson says where; by teacher only those of a teacher changing room.
-bool _saysWhere(CalendarExportData data, LessonItem lesson)
-{
-  return data.isByStudent || (data.roomByTeacher[lesson.teacherTaxCode]?.changesRoom ?? false);
-}
+// The grid keeps the whole band on one page width: a block writes what fits on its two lines
+// and leaves out the rest, never cutting a word, nor widening the hours, nor repeating a lesson.
+const double _blockHeight = 26;
+const double _blockBar = 2.2;
+const double _blockLine = 0.6;
+const double _blockLead = _blockBar + 2.6;
+const double _blockTrail = 1.5;
 
-// The width a block needs to write each of its lines whole.
-double _lessonNeed(CalendarExportData data, _Styles styles, LessonItem lesson)
-{
-  final topic = lessonTopic(lesson, data.ministrySubjects);
-  final widths = styles.widths;
-
-  double capped(String text, pw.TextStyle style) => math.min(_widestBlockLine, widths.of(text, style));
-
-  final lines = [
-    _hoursWidth(styles, lesson.mode, [formatTimeRange(lesson.startTime, lesson.endTime), formatMinutes(lesson.minutes)]),
-    capped(topic.discipline, styles.blockTitle),
-    if (topic.subject case final subject?) capped(subject, styles.blockSubject),
-    capped(lessonTitle(lesson, view: data.view), styles.blockWho),
-    if (_saysWhere(data, lesson)) capped(lessonWhere(lesson).label, styles.blockWhere(lesson.mode)),
-  ];
-
-  return _withChrome(lines.reduce(math.max));
-}
-
-double _activityNeed(_Styles styles, ScheduledActivity scheduled)
-{
-  final widths = styles.widths;
-  final hours = widths.of(formatMinutesRange(scheduled.startMinutes, scheduled.endMinutes), styles.activityHours);
-  final name = math.min(_widestActivityName, widths.of(scheduled.name, styles.blockTitle));
-
-  return _withChrome(math.max(hours, name));
-}
-
-// Padding, border and gaps, and a hair for rounding.
-double _withChrome(double text) => text * 1.02 + kBlockChrome + 1.2 + 1;
-
-List<TimeNeed> _needsOf(CalendarExportData data, _Styles styles)
-{
-  return [
-    for (final lane in data.lanes) ...[
-      for (final lesson in lane.lessons)
-        (startMinutes: lesson.startMinutes, endMinutes: lesson.endMinutes, size: _lessonNeed(data, styles, lesson)),
-      for (final activity in lane.activities)
-        (startMinutes: activity.startMinutes, endMinutes: activity.endMinutes, size: _activityNeed(styles, activity)),
-    ],
-  ];
-}
-
-// The band in parts that each fit the page width, cut where no lesson runs across.
-List<TimeScale> _gridScales(CalendarExportData data, _Styles styles)
-{
-  final window = data.window!;
-  final track = _gridFormat.availableWidth - kNameColumnWidth;
-  final needs = _needsOf(data, styles);
-
-  TimeScale scaleOf(int start, int end) => TimeScale.elastic(
-        start: start,
-        end: end,
-        extent: track,
-        needs: needs,
-        minQuarter: _minQuarter,
-      );
-
-  final whole = scaleOf(window.$1, window.$2);
-
-  if (whole.extent <= track + 0.5)
-  {
-    return [whole];
-  }
-
-  bool isClean(int minute)
-  {
-    return data.lanes.every((lane) =>
-        lane.lessons.every((lesson) => lesson.startMinutes >= minute || lesson.endMinutes <= minute) &&
-        lane.activities.every((activity) => activity.startMinutes >= minute || activity.endMinutes <= minute));
-  }
-
-  // At its narrowest, as the whole band came out.
-  final slices = whole.slices;
-  int minuteAt(int slice) => math.min(window.$2, window.$1 + slice * kQuarterHour);
-
-  final scales = <TimeScale>[];
-  var first = 0;
-
-  while (first < slices.length)
-  {
-    var reached = 0.0;
-    var fits = first;
-    var cut = first;
-
-    for (var i = first; i < slices.length; i++)
-    {
-      reached += slices[i];
-
-      if (reached > track)
-      {
-        break;
-      }
-
-      fits = i + 1;
-
-      if (isClean(minuteAt(i + 1)))
-      {
-        cut = i + 1;
-      }
-    }
-
-    // No clean cut fits: a lesson is split, rather than a page too wide.
-    if (cut == first)
-    {
-      cut = fits == first ? first + 1 : fits;
-    }
-
-    scales.add(scaleOf(minuteAt(first), minuteAt(cut)));
-    first = cut;
-  }
-
-  return scales;
-}
+const double _nameSize = 8.2;
+const double _leastNameSize = 5.4;
 
 List<pw.MultiPage> _gridPages(CalendarExportData data, _Styles styles)
 {
+  final window = data.window!;
+  final scale = TimeScale.even(window.$1, window.$2, _gridFormat.availableWidth - kNameColumnWidth);
+
   return [
-    for (final scale in _gridScales(data, styles))
-      pw.MultiPage(
-        pageFormat: _gridFormat,
-        maxPages: 60,
-        header: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            if (context.pageNumber == 1) _titleBlock(data, styles),
-            _ruler(data, styles, scale),
-          ],
-        ),
-        footer: (context) => _footer(context, data, styles),
-        build: (context) => [
-          for (var i = 0; i < data.lanes.length; i++)
-            _trackRow(data, styles, data.lanes[i], scale, striped: i.isOdd),
+    pw.MultiPage(
+      pageFormat: _gridFormat,
+      maxPages: 60,
+      header: (context) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          if (context.pageNumber == 1) _titleBlock(data, styles),
+          _ruler(data, styles, scale),
         ],
       ),
+      footer: (context) => _footer(context, data, styles),
+      build: (context) => [
+        for (var i = 0; i < data.lanes.length; i++)
+          _trackRow(data, styles, data.lanes[i], scale, striped: i.isOdd),
+      ],
+    ),
   ];
 }
 
@@ -610,7 +497,6 @@ pw.Widget _trackRow(
 })
 {
   final subLanes = lane.subLanesWith();
-
   final track = _gridFormat.availableWidth - kNameColumnWidth;
 
   double widthOf(int startMinutes, int endMinutes)
@@ -620,33 +506,22 @@ pw.Widget _trackRow(
         2 * kBlockGap;
   }
 
-  bool shows(int startMinutes, int endMinutes) => startMinutes < scale.end && endMinutes > scale.start;
-
-  final lessons = [
-    for (final (i, lesson) in lane.lessons.indexed)
-      if (shows(lesson.startMinutes, lesson.endMinutes)) (lesson: lesson, subLane: subLanes.laneOf[i]),
-  ];
-  final activities = [
-    for (final activity in lane.activities)
-      if (shows(activity.startMinutes, activity.endMinutes)) activity,
-  ];
-
   return CalendarPdfTrackRow(
     name: _laneHead(data, styles, lane),
     blocks: [
-      for (final shown in lessons)
-        _block(data, styles, shown.lesson, widthOf(shown.lesson.startMinutes, shown.lesson.endMinutes)),
-      for (final activity in activities)
+      for (final lesson in lane.lessons)
+        _block(data, styles, lesson, widthOf(lesson.startMinutes, lesson.endMinutes)),
+      for (final activity in lane.activities)
         _activityBlock(styles, activity, widthOf(activity.startMinutes, activity.endMinutes)),
     ],
     spans: [
-      for (final shown in lessons) (shown.lesson.startMinutes, shown.lesson.endMinutes),
-      for (final activity in activities) (activity.startMinutes, activity.endMinutes),
+      for (final lesson in lane.lessons) (lesson.startMinutes, lesson.endMinutes),
+      for (final activity in lane.activities) (activity.startMinutes, activity.endMinutes),
     ],
-    // Activities always take the top sub-lane: they never overlap lessons.
+    // Activities always take the top sub-lane; subLanesWith puts lessons alongside under them.
     laneOf: [
-      for (final shown in lessons) shown.subLane,
-      for (final _ in activities) 0,
+      ...subLanes.laneOf,
+      for (final _ in lane.activities) 0,
     ],
     laneCount: subLanes.laneCount,
     scale: scale,
@@ -654,136 +529,229 @@ pw.Widget _trackRow(
   );
 }
 
+// The name on one line, shrunk rather than cut; under it a pupil's hours, or a teacher's rooms.
 pw.Widget _laneHead(CalendarExportData data, _Styles styles, CalendarLane lane)
 {
+  final name = lane.person.fullName;
   final room = data.roomByTeacher[lane.personTaxCode];
+  final width = kNameColumnWidth - 6;
 
-  final windows = data.isByStudent
-      ? laneWhenLines(lane, bandStart: data.bandStart, bandEnd: data.bandEnd)
-      : const <({String mode, String said})>[];
+  var size = _nameSize;
+
+  while (size > _leastNameSize && styles.widths.of(name, styles.gridName(size)) > width)
+  {
+    size -= 0.2;
+  }
+
+  final rooms = room?.roomsInOrder ?? const <({String name, bool supervised})>[];
+  final anyShield = rooms.any((stay) => stay.supervised);
 
   return pw.Padding(
-    padding: const pw.EdgeInsets.only(right: 6),
+    padding: const pw.EdgeInsets.only(right: 6, top: 1),
     child: pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text(lane.person.fullName, style: styles.laneName),
-        if (room != null && room.changesRoom) ...[
-          for (final stay in room.stays) ...[
-            pw.SizedBox(height: 1),
-            pw.Text(
-              '${stay.room.name} ${formatMinutesRange(stay.startMinutes, stay.endMinutes)}',
-              style: styles.laneRoom,
+        pw.Text(name, style: styles.gridName(size), maxLines: 1),
+        pw.SizedBox(height: 1.5),
+        if (data.isByStudent)
+          for (final window in laneWhenLines(lane, bandStart: data.bandStart, bandEnd: data.bandEnd))
+            pw.Text(window.said, style: styles.gridAside)
+        else if (room != null && room.roomName == null)
+          pw.Text(modeLabel(kOnlineMode), style: styles.gridOnline)
+        else
+          for (final stay in rooms)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 1),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (stay.supervised)
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.only(top: 0.6, right: 1.6),
+                      child: pw.SvgImage(svg: _shieldIn(kPdfPresence), width: 6, height: 6),
+                    )
+                  else if (anyShield)
+                    pw.SizedBox(width: 7.6),
+                  pw.Expanded(child: pw.Text(stay.name, style: styles.gridRoom)),
+                ],
+              ),
             ),
-            if (stay.isSupervisor) pw.Text(kSupervisorLabel, style: styles.laneSupervisor),
-          ],
-        ]
-        else if (room != null) ...[
-          pw.SizedBox(height: 1),
-          if (room.roomName != null)
-            pw.Text(room.roomName!, style: styles.laneRoom)
-          else
-            pw.Text(modeLabel(kOnlineMode), style: styles.laneOnline),
-          if (room.isSupervisor) pw.Text(kSupervisorLabel, style: styles.laneSupervisor),
-        ],
-        if (data.isByStudent) ...[
-          pw.SizedBox(height: 1),
-          if (windows.isEmpty)
-            pw.Text(whenNothingLabel(data.view), style: styles.laneWhen)
-          else
-            for (final window in windows) pw.Text(window.said, style: styles.laneWhen),
-        ],
       ],
     ),
   );
 }
 
+// A two-line block: start and discipline above, who and where below.
 pw.Widget _block(CalendarExportData data, _Styles styles, LessonItem lesson, double width)
 {
   final accent = pdfLessonAccent(lesson.mode);
-  final where = lessonWhere(lesson);
   final topic = lessonTopic(lesson, data.ministrySubjects);
-  final hours = _hoursFor(data, styles, lesson, width - _blockPadding.horizontal - 2 * _blockBorder);
+  final room = data.roomByTeacher[lesson.teacherTaxCode];
 
-  return pw.Container(
-    decoration: pw.BoxDecoration(
-      color: pdfLessonSurface(lesson.mode),
-      border: pw.Border.all(color: accent, width: _blockBorder),
-      borderRadius: pw.BorderRadius.circular(2.5),
-    ),
-    padding: _blockPadding,
-    child: pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.RichText(
-          text: pw.TextSpan(
-            text: hours.first,
-            style: styles.blockHours(lesson.mode),
-            children: [for (final part in hours.skip(1)) pw.TextSpan(text: ' · $part', style: styles.blockLength)],
-          ),
-        ),
-        pw.SizedBox(height: 1),
-        pw.Text(topic.discipline, style: styles.blockTitle),
-        if (topic.subject case final subject?) pw.Text(subject, style: styles.blockSubject),
-        pw.SizedBox(height: 1.5),
-        pw.Text(lessonTitle(lesson, view: data.view), style: styles.blockWho),
-        if (_saysWhere(data, lesson)) pw.Text(where.label, style: styles.blockWhere(lesson.mode)),
-      ],
-    ),
+  final String? where;
+
+  if (data.isByStudent)
+  {
+    where = lessonWhere(lesson).label;
+  }
+  else
+  {
+    // A teacher changing room has each hour say where; online hours never name one.
+    where = lesson.mode == kPresenceMode && (room?.changesRoom ?? false)
+        ? room!.roomAt(lesson.startMinutes, lesson.endMinutes)?.name
+        : null;
+  }
+
+  final who = data.isByStudent ? _initialled(lesson.teacher.fullName) : lessonTitle(lesson, view: data.view);
+
+  return _gridBlock(
+    styles,
+    width: width,
+    accent: accent,
+    surface: pdfLessonSurface(lesson.mode),
+    start: formatTimeOfDayShort(lesson.startTime),
+    title: topic.discipline,
+    below: [who, ?where],
+    hoursStyle: styles.gridHours(accent),
   );
 }
 
 pw.Widget _activityBlock(_Styles styles, ScheduledActivity scheduled, double width)
 {
-  final usable = width - kBlockChrome;
-  final description = scheduled.description;
+  return _gridBlock(
+    styles,
+    width: width,
+    accent: kPdfActivity,
+    surface: kPdfActivitySurface,
+    start: formatTimeOfDayShort(timeOfDayFromMinutes(scheduled.startMinutes)),
+    title: scheduled.name,
+    below: [kActivityWord],
+    hoursStyle: styles.gridHours(kPdfActivity),
+  );
+}
 
-  return pw.Container(
-    decoration: pw.BoxDecoration(
-      color: kPdfActivitySurface,
-      border: pw.Border.all(color: kPdfActivity, width: 0.6),
-      borderRadius: pw.BorderRadius.circular(2.5),
-    ),
-    padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2.5),
-    child: pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
+pw.Widget _gridBlock(
+  _Styles styles, {
+  required double width,
+  required PdfColor accent,
+  required PdfColor surface,
+  required String start,
+  required String title,
+  required List<String> below,
+  required pw.TextStyle hoursStyle,
+})
+{
+  final room = width - _blockLead - _blockTrail - _blockLine;
+  final widths = styles.widths;
+
+  // The first line drops the title, then the hour; the second drops from its end.
+  final hourWidth = widths.of(start, hoursStyle);
+  final showsHour = hourWidth <= room;
+  final showsTitle = showsHour && hourWidth + widths.of(' $title', styles.gridTitle) <= room;
+
+  final second = <String>[];
+  var used = 0.0;
+
+  for (final (index, piece) in below.indexed)
+  {
+    final said = index == 0 ? piece : ' · $piece';
+    final needs = widths.of(said, styles.gridBelow);
+
+    if (used + needs > room)
+    {
+      break;
+    }
+
+    second.add(said);
+    used += needs;
+  }
+
+  return pw.SizedBox(
+    width: width,
+    height: _blockHeight,
+    child: pw.Stack(
       children: [
-        pw.Text(
-          usable >= 40 * _typeScale
-              ? formatMinutesRange(scheduled.startMinutes, scheduled.endMinutes)
-              : formatTimeOfDayShort(timeOfDayFromMinutes(scheduled.startMinutes)),
-          style: styles.activityHours,
+        pw.Positioned.fill(
+          child: pw.Container(
+            decoration: pw.BoxDecoration(
+              color: surface,
+              border: pw.Border.all(color: accent, width: _blockLine),
+              borderRadius: pw.BorderRadius.circular(2),
+            ),
+          ),
         ),
-        pw.Text(scheduled.name, style: styles.blockTitle),
-        if (description != null) pw.Text(description, style: styles.blockNote),
+        pw.Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          child: pw.Container(
+            width: _blockBar,
+            decoration: pw.BoxDecoration(
+              color: accent,
+              borderRadius: const pw.BorderRadius.horizontal(left: pw.Radius.circular(2)),
+            ),
+          ),
+        ),
+        pw.Positioned(
+          left: _blockLead,
+          top: 2.6,
+          child: pw.RichText(
+            maxLines: 1,
+            text: pw.TextSpan(
+              children: [
+                if (showsHour) pw.TextSpan(text: start, style: hoursStyle),
+                if (showsTitle) pw.TextSpan(text: ' $title', style: styles.gridTitle),
+              ],
+            ),
+          ),
+        ),
+        pw.Positioned(
+          left: _blockLead,
+          top: 13.6,
+          child: pw.Text(second.join(), style: styles.gridBelow, maxLines: 1),
+        ),
       ],
     ),
   );
 }
 
-// Longest first; the mode goes before the length, the end before the start.
-List<String> _hoursFor(CalendarExportData data, _Styles styles, LessonItem lesson, double room)
+// "Paola Cattaneo" as "P. Cattaneo": a pupil's row names the teacher in short.
+String _initialled(String fullName)
 {
-  final range = formatTimeRange(lesson.startTime, lesson.endTime);
-  final length = formatMinutes(lesson.minutes);
+  final parts = fullName.trim().split(RegExp(r'\s+'));
 
-  final forms = [
-    if (!data.isByStudent && lesson.mode == kOnlineMode) [range, length, modeLabel(kOnlineMode)],
-    [range, length],
-    [range],
-    [formatTimeOfDayShort(lesson.startTime)],
-  ];
-
-  return forms.firstWhere((parts) => _hoursWidth(styles, lesson.mode, parts) <= room, orElse: () => forms.last);
+  return parts.length < 2 ? fullName : '${parts.first.substring(0, 1)}. ${parts.skip(1).join(' ')}';
 }
 
-double _hoursWidth(_Styles styles, String mode, List<String> parts)
+String _shieldIn(PdfColor colour)
 {
-  final widths = styles.widths;
-
-  return widths.of(parts.first, styles.blockHours(mode)) +
-      parts.skip(1).fold(0.0, (total, part) => total + widths.of(' · $part', styles.blockLength));
+  return '<svg viewBox="0 0 24 24"><path d="M12 2.5l8 3v6c0 5-3.4 8.9-8 10.5C7.4 20.4 4 16.5 4 11.5v-6z" '
+      'fill="${colour.toHex().substring(0, 7)}"/></svg>';
 }
+
+// The list's legend word for hours held together, and the tag of a room's supervisor.
+const String _togetherLegend = 'Compresenza';
+const String _supervisorTagText = 'RESPONSABILE';
+
+// A shield, as the app marks a room's supervisor.
+const String _shield = '<svg viewBox="0 0 24 24">'
+    '<path d="M12 2.5l8 3v6c0 5-3.4 8.9-8 10.5C7.4 20.4 4 16.5 4 11.5v-6z" fill="#ffffff"/></svg>';
+
+const double _nameColumn = 108;
+
+// Every hour is a strip tinted as its block on the timeline, opened by a bar of its mode's colour.
+const double _stripBar = 2.4;
+const double _stripLead = _stripBar + 4.5;
+const double _stripTrail = 4;
+const double _stripGap = 2;
+
+// Hours held together sit in a violet frame; every other strip keeps its inset, so columns line up.
+const double _frameInset = 3;
+
+const double _hoursColumn = 70 * _typeScale;
+const double _placeColumn = 62 * _typeScale;
+const int _whoFlex = 9;
+const int _topicFlex = 11;
 
 pw.MultiPage _listPages(CalendarExportData data, _Styles styles, {required bool withGridNote})
 {
@@ -792,7 +760,7 @@ pw.MultiPage _listPages(CalendarExportData data, _Styles styles, {required bool 
     pageFormat: _listFormat,
     maxPages: 60,
     header: (context) => context.pageNumber == 1
-        ? _titleBlock(data, styles)
+        ? _titleBlock(data, styles, withLegend: false)
         : pw.SizedBox(),
     footer: (context) => _footer(context, data, styles),
     build: (context) => [
@@ -805,12 +773,19 @@ pw.MultiPage _listPages(CalendarExportData data, _Styles styles, {required bool 
         ),
         pw.SizedBox(height: 8),
       ],
-      pw.Text('Elenco completo delle lezioni', style: styles.tableHead),
+      pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
+        children: [
+          pw.Text('Elenco completo delle lezioni', style: styles.tableHead),
+          _legend(styles, withTogether: _holdsTogether(data)),
+        ],
+      ),
       pw.SizedBox(height: 6),
       pw.Table(
         tableWidth: pw.TableWidth.max,
         columnWidths: const {
-          0: pw.FixedColumnWidth(116),
+          0: pw.FixedColumnWidth(_nameColumn),
           1: pw.FlexColumnWidth(),
         },
         border: pw.TableBorder(
@@ -840,6 +815,19 @@ pw.MultiPage _listPages(CalendarExportData data, _Styles styles, {required bool 
   );
 }
 
+bool _holdsTogether(CalendarExportData data)
+{
+  return data.lanes.any((lane) => heldTogether(_spansOf(lane), (span) => span).any((together) => together.length > 1));
+}
+
+List<(int, int)> _spansOf(CalendarLane lane)
+{
+  return [
+    for (final lesson in lane.lessons) (lesson.startMinutes, lesson.endMinutes),
+    for (final activity in lane.activities) (activity.startMinutes, activity.endMinutes),
+  ];
+}
+
 pw.Widget _headCell(String label, _Styles styles)
 {
   return pw.Padding(
@@ -856,71 +844,77 @@ pw.Widget _cell(pw.Widget child)
   );
 }
 
+// The name, and under it only the rooms the teacher answers for: each hour says its own place.
 pw.Widget _nameCell(CalendarExportData data, _Styles styles, CalendarLane lane)
 {
-  final room = data.roomByTeacher[lane.personTaxCode];
+  final supervised = data.roomByTeacher[lane.personTaxCode]?.supervisedRooms ?? const <String>[];
 
   return _cell(pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
       pw.Text(lane.person.fullName, style: styles.cellName),
-      if (room != null && room.changesRoom)
-        for (final stay in room.stays) ...[
-          pw.Text(
-            '${stay.room.name} ${formatMinutesRange(stay.startMinutes, stay.endMinutes)}',
-            style: styles.cellRoom,
+      if (supervised.isNotEmpty) ...[
+        pw.SizedBox(height: 2.5),
+        _supervisorTag(styles),
+        for (final room in supervised)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 1.5),
+            child: pw.Text(room, style: styles.cellRoom),
           ),
-          if (stay.isSupervisor) pw.Text(kSupervisorLabel, style: styles.cellSupervisor),
-        ]
-      else ...[
-        if (room?.roomName != null) pw.Text(room!.roomName!, style: styles.cellRoom),
-        if (room?.isSupervisor == true) pw.Text(kSupervisorLabel, style: styles.cellSupervisor),
       ],
     ],
   ));
 }
 
-const Map<int, pw.TableColumnWidth> _studentLessonColumns = {
-  0: pw.FixedColumnWidth(58 * _typeScale),
-  1: pw.FlexColumnWidth(0.85),
-  2: pw.FlexColumnWidth(1.15),
-  3: pw.FixedColumnWidth(88 * _typeScale),
-};
-
-const Map<int, pw.TableColumnWidth> _teacherLessonColumns = {
-  0: pw.FixedColumnWidth(92 * _typeScale),
-  1: pw.FlexColumnWidth(0.85),
-  2: pw.FlexColumnWidth(1.15),
-};
-
-Map<int, pw.TableColumnWidth> _lessonColumnsFor(CalendarExportData data) =>
-    data.isByStudent ? _studentLessonColumns : _teacherLessonColumns;
-
-pw.Widget _lessonsHeadCell(CalendarExportData data, _Styles styles)
+pw.Widget _supervisorTag(_Styles styles)
 {
-  return pw.Padding(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-    child: pw.Table(
-      columnWidths: _lessonColumnsFor(data),
+  const double size = 5.6 * _typeScale;
+
+  return pw.Container(
+    padding: const pw.EdgeInsets.fromLTRB(3, 0.8, 3, 0.6),
+    decoration: pw.BoxDecoration(color: kPdfPresence, borderRadius: pw.BorderRadius.circular(2)),
+    child: pw.Row(
+      mainAxisSize: pw.MainAxisSize.min,
       children: [
-        pw.TableRow(
-          children: [
-            _lessonHead('Orario', styles),
-            _lessonHead(data.isByStudent ? 'Docente' : 'Studente', styles),
-            _lessonHead('Materia', styles),
-            if (data.isByStudent) _lessonHead('Luogo', styles),
-          ],
-        ),
+        pw.SvgImage(svg: _shield, width: size, height: size),
+        pw.SizedBox(width: 2),
+        pw.Text(_supervisorTagText, style: styles.supervisorTag),
       ],
     ),
   );
 }
 
-pw.Widget _lessonHead(String label, _Styles styles)
+pw.Widget _lessonsHeadCell(CalendarExportData data, _Styles styles)
 {
   return pw.Padding(
-    padding: const pw.EdgeInsets.only(right: 5),
-    child: pw.Text(label, style: styles.tableHead),
+    padding: const pw.EdgeInsets.fromLTRB(5 + _frameInset + _stripLead, 4, 5 + _frameInset + _stripTrail, 4),
+    child: _columns(
+      hours: pw.Text('Orario', style: styles.tableHead),
+      who: pw.Text(data.isByStudent ? 'Docente' : 'Studente', style: styles.tableHead),
+      topic: pw.Text('Materia', style: styles.tableHead),
+      place: pw.Text('Luogo', style: styles.tableHead),
+    ),
+  );
+}
+
+// A strip's four columns; the header lines its labels up the same way.
+pw.Widget _columns({
+  required pw.Widget hours,
+  required pw.Widget who,
+  required pw.Widget topic,
+  required pw.Widget place,
+})
+{
+  pw.Widget spaced(pw.Widget child) => pw.Padding(padding: const pw.EdgeInsets.only(right: 5), child: child);
+
+  return pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.SizedBox(width: _hoursColumn, child: spaced(hours)),
+      pw.Expanded(flex: _whoFlex, child: spaced(who)),
+      pw.Expanded(flex: _topicFlex, child: spaced(topic)),
+      pw.SizedBox(width: _placeColumn, child: place),
+    ],
   );
 }
 
@@ -928,67 +922,152 @@ pw.Widget _lessonsCell(CalendarExportData data, _Styles styles, CalendarLane lan
 {
   if (lane.lessons.isEmpty && lane.activities.isEmpty)
   {
-    return _cell(pw.Text('Nessuna lezione', style: styles.cellQuiet));
+    return pw.Padding(
+      padding: const pw.EdgeInsets.fromLTRB(5 + _frameInset + _stripLead, 5, 5, 5),
+      child: pw.Text('Nessuna lezione', style: styles.cellQuiet),
+    );
   }
 
-  final rows = <({int startMinutes, pw.TableRow row})>[
+  final hours = <_Hour>[
     for (final lesson in lane.lessons)
-      (startMinutes: lesson.startMinutes, row: _lessonRow(data, styles, lesson)),
+      (startMinutes: lesson.startMinutes, endMinutes: lesson.endMinutes, strip: _lessonStrip(data, styles, lesson)),
     for (final activity in lane.activities)
-      (startMinutes: activity.startMinutes, row: _activityRow(data, styles, activity)),
-  ]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+      (startMinutes: activity.startMinutes, endMinutes: activity.endMinutes, strip: _activityStrip(styles, activity)),
+  ];
 
-  return _cell(pw.Table(
-    columnWidths: _lessonColumnsFor(data),
-    border: pw.TableBorder(
-      horizontalInside: pw.BorderSide(color: kPdfLine, width: 0.4),
+  return pw.Padding(
+    padding: const pw.EdgeInsets.fromLTRB(5, 5, 5, 5 - _stripGap),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        for (final together in heldTogether(hours, _spanOf)) _togetherPiece(styles, together),
+      ],
     ),
-    children: [for (final entry in rows) entry.row],
-  ));
+  );
 }
 
-pw.TableRow _activityRow(
-  CalendarExportData data,
-  _Styles styles,
-  ScheduledActivity scheduled,
-)
-{
-  final fields = exportActivityFields(scheduled);
+// One hour of a row's lessons cell: a lesson or an activity.
+typedef _Hour = ({int startMinutes, int endMinutes, pw.Widget strip});
 
-  return pw.TableRow(
+(int, int) _spanOf(_Hour hour) => (hour.startMinutes, hour.endMinutes);
+
+// Hours held at the same time share a violet frame that says when.
+pw.Widget _togetherPiece(_Styles styles, List<_Hour> together)
+{
+  final strips = [
+    for (final hour in together)
+      pw.Padding(padding: const pw.EdgeInsets.only(bottom: _stripGap), child: hour.strip),
+  ];
+
+  if (together.length == 1)
+  {
+    return pw.Padding(padding: const pw.EdgeInsets.symmetric(horizontal: _frameInset), child: strips.single);
+  }
+
+  return pw.Container(
+    margin: const pw.EdgeInsets.only(bottom: _stripGap),
+    padding: const pw.EdgeInsets.fromLTRB(_frameInset, 2, _frameInset, 0),
+    decoration: pw.BoxDecoration(
+      border: pw.Border.all(color: kPdfViolet, width: 1),
+      borderRadius: pw.BorderRadius.circular(3),
+    ),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 2),
+          child: pw.Text(
+            togetherLabel([for (final hour in together) _spanOf(hour)]).toUpperCase(),
+            style: styles.together,
+          ),
+        ),
+        ...strips,
+      ],
+    ),
+  );
+}
+
+// Tinted as the hour's block on the timeline, the bar of its mode on the left.
+pw.Widget _strip({required PdfColor accent, required PdfColor surface, required pw.Widget child})
+{
+  return pw.Stack(
     children: [
-      _lessonField(pw.Text(fields.hours, style: styles.activityCellHours)),
-      _lessonField(pw.Text(fields.who, style: styles.cellLesson)),
-      _lessonField(pw.Text(fields.subject, style: styles.cellLesson)),
-      if (data.isByStudent) _lessonField(pw.SizedBox()),
+      pw.Container(
+        padding: const pw.EdgeInsets.fromLTRB(_stripLead, 3.2, _stripTrail, 3.2),
+        decoration: pw.BoxDecoration(color: surface, borderRadius: pw.BorderRadius.circular(2)),
+        child: child,
+      ),
+      pw.Positioned(
+        left: 0,
+        top: 0,
+        bottom: 0,
+        child: pw.Container(
+          width: _stripBar,
+          decoration: pw.BoxDecoration(
+            color: accent,
+            borderRadius: const pw.BorderRadius.horizontal(left: pw.Radius.circular(2)),
+          ),
+        ),
+      ),
     ],
   );
 }
 
-pw.TableRow _lessonRow(CalendarExportData data, _Styles styles, LessonItem lesson)
+pw.Widget _lessonStrip(CalendarExportData data, _Styles styles, LessonItem lesson)
 {
   final fields = exportLessonFields(
     lesson,
     view: data.view,
     ministrySubjects: data.ministrySubjects,
+    room: data.roomByTeacher[lesson.teacherTaxCode],
   );
+  final subject = fields.subject;
 
-  return pw.TableRow(
-    children: [
-      _lessonField(pw.Text(fields.hours, style: styles.cellHours)),
-      _lessonField(pw.Text(fields.who, style: styles.cellLesson)),
-      _lessonField(pw.Text(fields.subject, style: styles.cellLesson)),
-      if (fields.place != null)
-        _lessonField(pw.Text(fields.place!, style: styles.cellPlace(lesson.mode))),
-    ],
+  return _strip(
+    accent: pdfLessonAccent(lesson.mode),
+    surface: pdfLessonSurface(lesson.mode),
+    child: _columns(
+      hours: pw.Text(fields.hours, style: styles.cellHours(lesson.mode)),
+      who: pw.Text(fields.who, style: styles.cellLesson),
+      topic: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(fields.discipline, style: styles.cellTopic),
+          if (subject != null) pw.Text(subject, style: styles.cellAside),
+        ],
+      ),
+      place: pw.Text(fields.place, style: styles.cellPlace(lesson.mode)),
+    ),
   );
 }
 
-pw.Widget _lessonField(pw.Widget child)
+// An activity has no place: its name stands in the middle of the row, after the hours.
+pw.Widget _activityStrip(_Styles styles, ScheduledActivity scheduled)
 {
-  return pw.Padding(
-    padding: const pw.EdgeInsets.only(right: 5, top: 3.5, bottom: 3.5),
-    child: child,
+  final fields = exportActivityFields(scheduled);
+  final description = fields.description;
+
+  return _strip(
+    accent: kPdfActivity,
+    surface: kPdfActivitySurface,
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.SizedBox(
+          width: _hoursColumn,
+          child: pw.Text(fields.hours, style: styles.activityCellHours),
+        ),
+        pw.Expanded(
+          child: pw.Column(
+            children: [
+              pw.Text(fields.name, style: styles.cellTopic, textAlign: pw.TextAlign.center),
+              if (description != null)
+                pw.Text(description, style: styles.cellAside, textAlign: pw.TextAlign.center),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 }
 

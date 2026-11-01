@@ -72,26 +72,21 @@ class CalendarLanePanel extends StatelessWidget
             TextSpan(text: said, style: quiet),
             for (final stay in label.stays) ...[
               TextSpan(text: ' · ', style: quiet),
-              const WidgetSpan(
+              // A room the teacher answers for wears the shield in place of the door.
+              WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
                 child: Padding(
-                  padding: EdgeInsets.only(right: 3),
-                  child: Icon(Icons.meeting_room_outlined, size: 12, color: AppTheme.trialTealDeep),
+                  padding: const EdgeInsets.only(right: 3),
+                  child: stay.isSupervisor
+                      ? const AppTooltip(
+                          message: kSupervisorLabel,
+                          child: Icon(Icons.shield_rounded, size: 12, color: kSupervisorColor),
+                        )
+                      : const Icon(Icons.meeting_room_outlined, size: 12, color: AppTheme.trialTealDeep),
                 ),
               ),
               TextSpan(text: stay.room.name, style: named),
               if (label.changesRoom) TextSpan(text: ' ${formatMinutesRange(stay.startMinutes, stay.endMinutes)}', style: quiet),
-              if (label.changesRoom && stay.isSupervisor)
-                const WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: AppTooltip(
-                      message: kSupervisorLabel,
-                      child: Icon(Icons.shield_rounded, size: 12, color: kSupervisorColor),
-                    ),
-                  ),
-                ),
             ],
           ],
         ),
@@ -103,9 +98,6 @@ class CalendarLanePanel extends StatelessWidget
 
   Widget _buildHeader()
   {
-    // A lane changing room marks each room it answers for instead.
-    final isSupervisor = (room?.isSupervisor ?? false) && !(room?.changesRoom ?? false);
-
     return Row(
       children: [
         SizedBox(
@@ -156,13 +148,6 @@ class CalendarLanePanel extends StatelessWidget
                         ),
                       ),
                     ),
-                    if (isSupervisor) ...[
-                      const SizedBox(width: 6),
-                      const AppTooltip(
-                        message: kSupervisorLabel,
-                        child: Icon(Icons.shield_rounded, size: 14, color: kSupervisorColor),
-                      ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 2),

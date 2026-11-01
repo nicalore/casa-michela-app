@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -12,7 +14,6 @@ import '../models/presence_item.dart';
 import '../models/room_day_plan.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
-import '../widgets/calendar_activity_block.dart';
 import '../widgets/calendar_lesson_block.dart';
 
 class CalendarExportData
@@ -205,23 +206,35 @@ String exportLessonWho(LessonItem lesson, CalendarView view)
   return students.isEmpty ? 'Lezione' : students.map((student) => student.fullName).join(', ');
 }
 
-typedef ExportLessonFields = ({String hours, String who, String subject, String? place});
+// One lesson of the list. The discipline leads and the subject follows, as on its block.
+typedef ExportLessonFields = ({
+  String hours,
+  String who,
+  String discipline,
+  String? subject,
+  String place,
+});
 
 ExportLessonFields exportLessonFields(
   LessonItem lesson, {
   required CalendarView view,
   required List<MinistrySubjectItem> ministrySubjects,
+  LaneRoomLabel? room,
 })
 {
-  final about = lessonAbout(lesson, ministrySubjects);
-  final byStudent = view == CalendarView.byStudent;
-  final range = formatTimeRange(lesson.startTime, lesson.endTime);
+  final topic = lessonTopic(lesson, ministrySubjects);
+
+  // By teacher, the room they hold the hour in; an online hour names none, even from the association.
+  final seat = view == CalendarView.byTeacher && lesson.mode == kPresenceMode
+      ? room?.roomAt(lesson.startMinutes, lesson.endMinutes)?.name
+      : null;
 
   return (
-    hours: !byStudent && lesson.mode == kOnlineMode ? '$range · ${modeLabel(kOnlineMode)}' : range,
+    hours: formatTimeRange(lesson.startTime, lesson.endTime),
     who: exportLessonWho(lesson, view),
-    subject: about.disciplines == null ? about.subject : '${about.subject} – ${about.disciplines}',
-    place: byStudent ? lessonWhere(lesson).label : null,
+    discipline: topic.discipline,
+    subject: topic.subject,
+    place: seat ?? lessonWhere(lesson).label,
   );
 }
 
@@ -230,19 +243,82 @@ List<ExportLessonFields> exportLessonRows(CalendarExportData data)
   return [
     for (final lane in data.lanes)
       for (final lesson in lane.lessons)
-        exportLessonFields(lesson, view: data.view, ministrySubjects: data.ministrySubjects),
+        exportLessonFields(
+          lesson,
+          view: data.view,
+          ministrySubjects: data.ministrySubjects,
+          room: data.roomByTeacher[lesson.teacherTaxCode],
+        ),
   ];
 }
 
-// An activity in the same columns as a lesson, e.g. subject "Attività (description)".
-ExportLessonFields exportActivityFields(ScheduledActivity scheduled)
-{
-  final description = scheduled.description;
+typedef ExportActivityFields = ({String hours, String name, String? description});
 
+ExportActivityFields exportActivityFields(ScheduledActivity scheduled)
+{
   return (
     hours: formatMinutesRange(scheduled.startMinutes, scheduled.endMinutes),
-    who: scheduled.name,
-    subject: description == null ? kActivityWord : '$kActivityWord ($description)',
-    place: null,
+    name: scheduled.name,
+    description: scheduled.description,
   );
+}
+
+// A row's hours in clock order, those running at the same time gathered in one group.
+List<List<T>> heldTogether<T>(Iterable<T> items, (int, int) Function(T item) spanOf)
+{
+  final sorted = items.toList()..sort((a, b) => spanOf(a).$1.compareTo(spanOf(b).$1));
+  final groups = <List<T>>[];
+  var reach = 0;
+
+  for (final item in sorted)
+  {
+    final (start, end) = spanOf(item);
+
+    if (groups.isNotEmpty && start < reach)
+    {
+      groups.last.add(item);
+      reach = math.max(reach, end);
+    }
+    else
+    {
+      groups.add([item]);
+      reach = end;
+    }
+  }
+
+  return groups;
+}
+
+// Where the hours of a group run together, merged, in clock order.
+List<(int, int)> sharedStretches(List<(int, int)> spans)
+{
+  final shared = <(int, int)>[
+    for (var i = 0; i < spans.length; i++)
+      for (var j = i + 1; j < spans.length; j++)
+        (math.max(spans[i].$1, spans[j].$1), math.min(spans[i].$2, spans[j].$2)),
+  ].where((stretch) => stretch.$1 < stretch.$2).toList()..sort((a, b) => a.$1.compareTo(b.$1));
+
+  final merged = <(int, int)>[];
+
+  for (final stretch in shared)
+  {
+    if (merged.isNotEmpty && stretch.$1 <= merged.last.$2)
+    {
+      merged.last = (merged.last.$1, math.max(merged.last.$2, stretch.$2));
+    }
+    else
+    {
+      merged.add(stretch);
+    }
+  }
+
+  return merged;
+}
+
+// E.g. "Compresenza 14:30–15:00 e 15:15–15:30".
+String togetherLabel(List<(int, int)> spans)
+{
+  final stretches = sharedStretches(spans).map((stretch) => formatMinutesRange(stretch.$1, stretch.$2));
+
+  return 'Compresenza ${stretches.join(' e ')}';
 }

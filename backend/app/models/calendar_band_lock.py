@@ -19,6 +19,9 @@ from app.db.base import Base
 # Expired rows are never swept: age is read with the row, so they are already free.
 LOCK_TTL_SECONDS: Final[int] = 90
 
+# Five minutes without a change let the band go, however alive the window is.
+LOCK_IDLE_SECONDS: Final[int] = 300
+
 
 class CalendarBandLock(Base):
     __tablename__ = "calendar_band_locks"
@@ -53,6 +56,13 @@ class CalendarBandLock(Base):
     )
 
     heartbeat_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # The last change to the band; beats never move it.
+    written_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,

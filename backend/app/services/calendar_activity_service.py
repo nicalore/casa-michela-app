@@ -29,6 +29,12 @@ from app.services.lesson_guard import (
     assert_band_editable,
     assert_teacher_not_excluded,
 )
+from app.services.teacher_band_mode import (
+    BandHour,
+    assert_one_mode,
+    settle_teacher_band,
+)
+from app.services.teacher_occupancy import online_cannot_overlap_error
 
 _ENTITY_LABEL: Final[str] = "l'attività"
 _NOT_FOUND_ERROR: Final[str] = "Attività non trovata"
@@ -49,9 +55,7 @@ _OUTSIDE_AVAILABILITY_ERROR: Final[str] = (
     "Fuori dalla disponibilità del docente ({start} - {end})."
 )
 
-_LESSON_OVERLAP_ERROR: Final[str] = (
-    "Il docente ha già una lezione a quest'ora."
-)
+_FROM_HOME_ERROR: Final[str] = "A quest'ora il docente non è disponibile in presenza."
 
 _ACTIVITY_OVERLAP_ERROR: Final[str] = (
     "Il docente ha già un'altra attività a quest'ora."
@@ -158,6 +162,35 @@ class CalendarActivityService:
                 ),
             )
 
+    # Activities happen at the association: hours offered online never hold one. Sent on
+    # them, as an older window would, it goes on the presence hours that cover it.
+    async def _in_the_building(
+        self,
+        availability: Availability,
+        start_time: time,
+        end_time: time,
+    ) -> Availability:
+        if availability.mode == "presence":
+            return availability
+
+        inside = await self.session.scalar(
+            select(Availability).where(
+                Availability.teacher_tax_code == availability.teacher_tax_code,
+                Availability.date == availability.date,
+                Availability.mode == "presence",
+                Availability.start_time <= start_time,
+                Availability.end_time >= end_time,
+            ),
+        )
+
+        if inside is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_FROM_HOME_ERROR,
+            )
+
+        return inside
+
     async def _assert_free(
         self,
         availability: Availability,
@@ -166,17 +199,17 @@ class CalendarActivityService:
         *,
         exclude_id: int,
     ) -> None:
-        teaching = await self.repository.find_lesson_overlap(
+        online = await self.repository.find_online_lesson_overlap(
             teacher_tax_code=availability.teacher_tax_code,
             day=availability.date,
             start_time=start_time,
             end_time=end_time,
         )
 
-        if teaching is not None:
+        if online is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_LESSON_OVERLAP_ERROR,
+                detail=online_cannot_overlap_error(),
             )
 
         busy = await self.repository.find_teacher_overlap(
@@ -224,11 +257,24 @@ class CalendarActivityService:
             assignment.start_time,
             assignment.end_time,
         )
+        availability = await self._in_the_building(
+            availability,
+            assignment.start_time,
+            assignment.end_time,
+        )
         await self._assert_free(
             availability,
             assignment.start_time,
             assignment.end_time,
             exclude_id=activity.id,
+        )
+        await assert_one_mode(
+            self.session,
+            availability.teacher_tax_code,
+            activity.date,
+            activity.band,
+            BandHour(assignment.start_time, assignment.end_time, in_person=True),
+            activity_id=activity.id,
         )
 
         return availability
@@ -271,6 +317,10 @@ class CalendarActivityService:
 
         await self._assert_mine_to_write(identity, activity.date, activity.band)
 
+        teachers = (
+            {activity.availability.teacher_tax_code} if activity.availability else set()
+        )
+
         activity.name = payload.name
         activity.description = payload.description
 
@@ -285,8 +335,20 @@ class CalendarActivityService:
             activity.teacher_mode = availability.mode
             activity.start_time = assignment.start_time
             activity.end_time = assignment.end_time
+            teachers.add(availability.teacher_tax_code)
 
         async with integrity_guard(self.session, _UPDATE_ERROR):
+            await self.session.flush()
+
+            # Given or taken away, the activity may bring its teacher in or let them go.
+            for teacher_tax_code in sorted(teachers):
+                await settle_teacher_band(
+                    self.session,
+                    teacher_tax_code,
+                    activity.date,
+                    activity.band,
+                )
+
             await self.repository.commit()
 
         # Written by hand: nulling the relationship would also null the date
@@ -307,7 +369,17 @@ class CalendarActivityService:
 
         await self._assert_mine_to_write(identity, activity.date, activity.band)
 
+        teacher_tax_code = (
+            activity.availability.teacher_tax_code if activity.availability else None
+        )
+        day = activity.date
+        band = activity.band
+
         await self.repository.delete(activity)
+
+        if teacher_tax_code is not None:
+            await settle_teacher_band(self.session, teacher_tax_code, day, band)
+
         await self.repository.commit()
 
     # An activity in a settled band is read, not moved.

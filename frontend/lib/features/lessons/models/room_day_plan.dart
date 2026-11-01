@@ -71,6 +71,23 @@ class LaneRoomLabel
 
   bool get changesRoom => stays.length > 1;
 
+  // Once each, in the order the teacher goes to them; supervised if they answer for it at any hour.
+  List<({String name, bool supervised})> get roomsInOrder
+  {
+    final supervised = <int, bool>{};
+    final names = <int, String>{};
+
+    for (final stay in stays)
+    {
+      supervised[stay.room.id] = (supervised[stay.room.id] ?? false) || stay.isSupervisor;
+      names[stay.room.id] = stay.room.name;
+    }
+
+    return [for (final id in names.keys) (name: names[id]!, supervised: supervised[id]!)];
+  }
+
+  List<String> get supervisedRooms => [for (final room in roomsInOrder) if (room.supervised) room.name];
+
   RoomOptionItem? roomAt(int start, int end)
   {
     for (final stay in stays)
@@ -100,10 +117,11 @@ Map<String, LaneRoomLabel> laneRoomLabels({
   {
     final own = stretches[lane.teacherTaxCode] ?? const <TeacherRoomAssignmentItem>[];
 
-    // Room is by the hour, mode the band's: an online-only band gets no room here.
+    // Room is by the hour, and only for a lesson in person: an online one shows none, even
+    // taught from the association.
     final hours = <({int start, int end, RoomOptionItem? room})>[
       for (final lesson in lane.lessons)
-        if (lesson.teacherMode == kPresenceMode)
+        if (lesson.mode == kPresenceMode)
           (
             start: lesson.startMinutes,
             end: lesson.endMinutes,

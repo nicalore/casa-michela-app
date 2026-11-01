@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.core.time_band import TimeBandEnum
-from app.models.calendar_band_lock import LOCK_TTL_SECONDS, CalendarBandLock
+from app.models.calendar_band_lock import (
+    LOCK_IDLE_SECONDS,
+    LOCK_TTL_SECONDS,
+    CalendarBandLock,
+)
 from app.models.person import Person
 from app.repositories.calendar_band_lock_repository import (
     CalendarBandLockRepository,
@@ -31,7 +35,10 @@ def _to_response(lock: CalendarBandLock, people: dict[str, Person]) -> CalendarL
         holder_tax_code=lock.holder_tax_code,
         holder=PersonOption.model_validate(holder) if holder is not None else None,
         acquired_at=lock.acquired_at,
-        expires_at=lock.heartbeat_at + timedelta(seconds=LOCK_TTL_SECONDS),
+        expires_at=min(
+            lock.heartbeat_at + timedelta(seconds=LOCK_TTL_SECONDS),
+            lock.written_at + timedelta(seconds=LOCK_IDLE_SECONDS),
+        ),
     )
 
 
@@ -65,7 +72,7 @@ async def list_locks(
     )
 
 
-# There is no separate acquire endpoint: the heartbeat itself takes the band.
+# Keeps the caller's band while it changes it; only a change takes a band.
 # Responds with the current lock state either way, so a client learns here that
 # it lost the band.
 @router.post("/{lock_date}/{band}/heartbeat", response_model=CalendarLockState)
@@ -76,7 +83,7 @@ async def heartbeat(
     db: DbSession,
 ) -> CalendarLockState:
     locks = _repository(db)
-    beaten = await locks.claim(lock_date, str(band), identity.tax_code)
+    beaten = await locks.renew(lock_date, str(band), identity.tax_code)
 
     if beaten is not None:
         await db.commit()
