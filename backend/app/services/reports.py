@@ -1,9 +1,13 @@
+import asyncio
 import logging
-from collections.abc import Sequence
+import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import partial
 from html import escape
 from typing import Final
 
+import resend.exceptions
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +17,7 @@ from app.models.notification import Notification, NotificationKindEnum
 from app.models.person import Person
 from app.models.report import Report, ReportKindEnum, ReportRead
 from app.repositories.identity_repository import IdentityRepository
-from app.services import email_service
+from app.services import email_service, notice_mail
 from app.services.notice_mail import day_and_time
 from app.services.notifications import dismissals, notify, reachable_identities
 from app.services.push import PushBatch
@@ -44,6 +48,11 @@ _FIELD: Final[str] = """
 """
 _FIELD_GAP: Final[str] = '<div style="height: 16px;"></div>'
 
+SPACING_SECONDS: float = notice_mail.SPACING_SECONDS
+BACKOFF_SECONDS: float = 1
+
+_ATTEMPTS: Final[int] = 3
+
 
 class ReportNotSentError(Exception):
     pass
@@ -68,8 +77,22 @@ async def _holders(
     ]
 
 
+# Refused for going too fast: tried again a little later; the last refusal stands.
+def _send_patiently(send: Callable[[], None]) -> None:
+    for attempt in range(1, _ATTEMPTS):
+        try:
+            send()
+
+            return
+        except resend.exceptions.RateLimitError:
+            time.sleep(BACKOFF_SECONDS * attempt)
+
+    send()
+
+
 # One email per reader but its author; with no reader at all, the association's
-# mailbox. Fails only if every one does.
+# mailbox. Waits only for the first that leaves and fails only if none does; the
+# rest are returned for deliver_rest.
 async def send_to_readers(
     db: AsyncSession,
     report: Report,
@@ -78,7 +101,7 @@ async def send_to_readers(
     heading: str,
     body: str,
     reply_to: str | None = email_service.CONTACT_ADDRESS,
-) -> None:
+) -> list[Callable[[], None]]:
     holders = await _holders(db, audience(report))
     recipients = [
         (person.email, _GREETING.format(first_name=escape(person.first_name)))
@@ -89,30 +112,50 @@ async def send_to_readers(
     if not holders:
         recipients = [(email_service.CONTACT_ADDRESS, email_service.GREETING)]
 
+    sends: list[Callable[[], None]] = [
+        partial(
+            email_service.send_email,
+            recipient=address,
+            subject=subject,
+            heading=heading,
+            body=body,
+            reply_to=reply_to,
+            greeting=greeting,
+        )
+        for address, greeting in recipients
+    ]
+
     # Its author is its only reader: they have it in the app already.
-    if not recipients:
-        return
+    if not sends:
+        return []
 
     failure: Exception | None = None
-    sent = False
 
-    for address, greeting in recipients:
+    for index, send in enumerate(sends):
+        if index > 0:
+            await asyncio.sleep(SPACING_SECONDS)
+
         try:
-            email_service.send_email(
-                recipient=address,
-                subject=subject,
-                heading=heading,
-                body=body,
-                reply_to=reply_to,
-                greeting=greeting,
-            )
-            sent = True
+            await asyncio.to_thread(_send_patiently, send)
         except Exception as err:
             logger.exception("Report not delivered to one reader")
             failure = err
+            continue
 
-    if not sent:
-        raise ReportNotSentError(str(failure)) from failure
+        return sends[index + 1 :]
+
+    raise ReportNotSentError(str(failure)) from failure
+
+
+# In the background: the first pause spaces it from the email already sent.
+def deliver_rest(sends: Sequence[Callable[[], None]]) -> None:
+    for send in sends:
+        time.sleep(SPACING_SECONDS)
+
+        try:
+            _send_patiently(send)
+        except Exception:
+            logger.exception("Report not delivered to one reader")
 
 
 # Kept and told to its readers in the app, but its author, who has read it.
@@ -247,13 +290,16 @@ def resolved_mail(report: Report, reporter: Person) -> ResolvedMail:
 # In the background: the resolution stands whether the email goes or not.
 def deliver_resolved(mail: ResolvedMail) -> None:
     try:
-        email_service.send_email(
-            recipient=mail.address,
-            subject=_RESOLVED_SUBJECT,
-            heading=_RESOLVED_SUBJECT,
-            body=mail.body,
-            greeting=mail.greeting,
-            idempotency_key=f"report-{mail.report_id}-resolved",
+        _send_patiently(
+            partial(
+                email_service.send_email,
+                recipient=mail.address,
+                subject=_RESOLVED_SUBJECT,
+                heading=_RESOLVED_SUBJECT,
+                body=mail.body,
+                greeting=mail.greeting,
+                idempotency_key=f"report-{mail.report_id}-resolved",
+            )
         )
     except Exception:
         logger.exception("Report %s resolved but its author not told", mail.report_id)

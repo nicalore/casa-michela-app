@@ -23,7 +23,12 @@ from app.schemas.association_subject import (
     MissingSubjectReport,
 )
 from app.services import email_service, push
-from app.services.reports import ReportNotSentError, record_report, send_to_readers
+from app.services.reports import (
+    ReportNotSentError,
+    deliver_rest,
+    record_report,
+    send_to_readers,
+)
 from app.services.teaching_competence import select_teachers_left_without
 
 router = APIRouter(
@@ -184,7 +189,7 @@ async def report_missing_subject(
     )
 
     try:
-        await send_to_readers(
+        rest = await send_to_readers(
             db,
             report,
             reply_to=person.email,
@@ -211,6 +216,7 @@ async def report_missing_subject(
 
     await db.commit()
     background.add_task(push.deliver, batch)
+    background.add_task(deliver_rest, rest)
 
     return {"message": _REPORT_SENT_MESSAGE}
 

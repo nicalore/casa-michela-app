@@ -22,6 +22,10 @@ from app.services.reports import (
 
 _NOT_A_READER_ERROR: Final[str] = "Non ricevi segnalazioni."
 _REPORT_NOT_FOUND_ERROR: Final[str] = "Segnalazione non trovata."
+_REPORT_RESOLVED_ERROR: Final[str] = "Questa segnalazione è già stata risolta."
+_REPORT_RESOLVED_BY_ERROR: Final[str] = (
+    "Questa segnalazione è già stata risolta da {full_name}."
+)
 
 # The reports a member sent in, for those who receive them by email.
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -93,23 +97,41 @@ async def _responses(
     ]
 
 
-async def _open_report_or_404(
+# Resolved, it says by whom. Resolving locks it: of two at once, the second is told.
+async def _unresolved_report(
     db: DbSession,
     report_id: int,
     role: AdministratorRoleEnum,
+    *,
+    lock: bool = False,
 ) -> Report:
-    report = await db.scalar(
-        select(Report).where(
-            Report.id == report_id,
-            readable_by(role),
-            Report.resolved_at.is_(None),
-        )
-    )
+    query = select(Report).where(Report.id == report_id, readable_by(role))
+
+    if lock:
+        query = query.with_for_update()
+
+    report = await db.scalar(query)
 
     if report is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=_REPORT_NOT_FOUND_ERROR,
+        )
+
+    if report.resolved_at is not None:
+        resolver = _full_name(
+            await db.get(Person, report.resolved_by_tax_code)
+            if report.resolved_by_tax_code is not None
+            else None
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                _REPORT_RESOLVED_ERROR
+                if resolver is None
+                else _REPORT_RESOLVED_BY_ERROR.format(full_name=resolver)
+            ),
         )
 
     return report
@@ -139,7 +161,7 @@ async def open_report(
     current_account: CurrentAccount,
     db: DbSession,
 ) -> ReportResponse:
-    report = await _open_report_or_404(
+    report = await _unresolved_report(
         db,
         report_id,
         _role_or_403(current_account),
@@ -160,10 +182,11 @@ async def resolve(
     db: DbSession,
     background: BackgroundTasks,
 ) -> Response:
-    report = await _open_report_or_404(
+    report = await _unresolved_report(
         db,
         report_id,
         _role_or_403(current_account),
+        lock=True,
     )
     reporter = await db.get_one(Person, report.reporter_tax_code)
     mail = resolved_mail(report, reporter)

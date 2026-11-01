@@ -24,6 +24,17 @@ enum ReportKind
   }
 }
 
+// Resolved meanwhile by another reader: the server's message says by whom.
+class ReportAlreadyResolved implements Exception
+{
+  final String message;
+
+  const ReportAlreadyResolved(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class ReportCorrection
 {
   final String field;

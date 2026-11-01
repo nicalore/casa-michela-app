@@ -32,6 +32,17 @@ Future<void> openReport(BuildContext context, int id) async
   {
     report = await ApiService().openReport(id);
   }
+  on ReportAlreadyResolved catch (resolved)
+  {
+    ReportsBoard.instance.resolved(id);
+
+    if (context.mounted)
+    {
+      CustomSnackBar.show(context: context, message: resolved.message);
+    }
+
+    return;
+  }
   catch (error)
   {
     if (context.mounted)
@@ -83,9 +94,15 @@ class _ReportDetailsState extends State<_ReportDetails>
 
     setState(() => _busy = true);
 
+    String outcome = kResolved;
+
     try
     {
       await ApiService().resolveReport(_report.id);
+    }
+    on ReportAlreadyResolved catch (resolved)
+    {
+      outcome = resolved.message;
     }
     catch (error)
     {
@@ -105,7 +122,7 @@ class _ReportDetailsState extends State<_ReportDetails>
       return;
     }
 
-    CustomSnackBar.show(context: context, message: kResolved);
+    CustomSnackBar.show(context: context, message: outcome);
     Navigator.of(context).pop();
   }
 

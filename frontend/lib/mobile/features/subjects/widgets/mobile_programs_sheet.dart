@@ -110,12 +110,16 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
   // While searching every sector with results is open, save those closed by hand.
   final Set<String> _shutWhileSearching = {};
 
+  // The sector whose opening the tour took.
+  String? _tourSector;
+
   @override
   void initState()
   {
     super.initState();
     _selected = Set<int>.from(widget.initialSelected);
     mobileProgramsSectorOpened.value = false;
+    mobileProgramsSectorOpened.addListener(_onTourSector);
     _tourLater();
   }
 
@@ -146,9 +150,35 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
     startProgramsTour(taxCode: taxCode, held: widget.onRemove != null);
   }
 
+  // The tour stepping back to its sector step: the screen as before that touch.
+  void _onTourSector()
+  {
+    final String? key = _tourSector;
+
+    if (!mounted || key == null || mobileProgramsSectorOpened.value)
+    {
+      return;
+    }
+
+    _tourSector = null;
+
+    setState(()
+    {
+      if (_searching)
+      {
+        _shutWhileSearching.add(key);
+      }
+      else
+      {
+        _open.remove(key);
+      }
+    });
+  }
+
   @override
   void dispose()
   {
+    mobileProgramsSectorOpened.removeListener(_onTourSector);
     _searchController.dispose();
     super.dispose();
   }
@@ -177,8 +207,9 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
       }
     });
 
-    if (opening)
+    if (opening && !mobileProgramsSectorOpened.value)
     {
+      _tourSector = sector.key;
       mobileProgramsSectorOpened.value = true;
     }
   }

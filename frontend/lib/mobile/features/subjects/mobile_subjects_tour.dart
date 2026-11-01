@@ -120,8 +120,8 @@ const Map<ProgramsMark, int> _programsVersions = {
   ProgramsMark.list: 4,
   ProgramsMark.all: 2,
   ProgramsMark.groups: 2,
-  ProgramsMark.open: 4,
-  ProgramsMark.single: 5,
+  ProgramsMark.open: 5,
+  ProgramsMark.single: 6,
   ProgramsMark.confirm: 5,
   ProgramsMark.remove: 8,
 };
@@ -139,7 +139,7 @@ const Map<ProgramsMark, String> _programsTexts = {
   ProgramsMark.remove: 'Con «Rimuovi disciplina» smetti di insegnarla.',
 };
 
-// Set once a sector of the sheet is opened: the tour asks for it with a touch.
+// Set once a sector of the sheet is opened: the tour asks for it with a touch. Reset: that sector closes.
 final ValueNotifier<bool> mobileProgramsSectorOpened = ValueNotifier(false);
 
 String programsTourTarget(ProgramsMark mark) => 'subjects.programs.${mark.name}';
@@ -177,6 +177,8 @@ MobileTourStep _programsStep(ProgramsMark mark)
         reveal: target,
         watch: mobileProgramsSectorOpened,
         reached: () => mobileProgramsSectorOpened.value,
+        // The sheet closes the sector it opened; still set, a new touch would change nothing.
+        undo: () => mobileProgramsSectorOpened.value = false,
         present: () => isMobileTourTargetShown(target),
         seen: seen,
       ),

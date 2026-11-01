@@ -221,6 +221,12 @@ async def make_president(db: AsyncSession, *, enrolled: bool = True) -> Administ
     )
 
 
+async def make_teaching_president(db: AsyncSession) -> Teacher:
+    president = await make_president(db)
+
+    return await _persist(db, Teacher(tax_code=president.tax_code))
+
+
 # Not unique: as many as the association wants.
 async def make_it_manager(
     db: AsyncSession,

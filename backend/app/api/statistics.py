@@ -766,11 +766,13 @@ def _programme_on(
 
 
 # Dated by Presence.date, and includes teachers who no longer collaborate.
+# Bookings can change until their day is over, so only past days count.
 async def _appreciation_scores(
     db: AsyncSession,
     window: tuple[date, date],
 ) -> dict[str, TeacherAppreciation]:
     start, end = window
+    end = min(end, today_in_rome())
     in_window = and_(Presence.date >= start, Presence.date < end)
 
     booking_rows = (

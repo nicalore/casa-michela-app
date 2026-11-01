@@ -1429,6 +1429,7 @@ class ApiService
     }
     on DioException catch (e)
     {
+      _throwIfResolved(e);
       _refused(e, 'Impossibile aprire la segnalazione.');
     }
   }
@@ -1441,7 +1442,18 @@ class ApiService
     }
     on DioException catch (e)
     {
+      _throwIfResolved(e);
       _refused(e, 'Impossibile segnare la segnalazione come risolta.');
+    }
+  }
+
+  void _throwIfResolved(DioException error)
+  {
+    final Object? detail = error.response?.data is Map ? error.response?.data['detail'] : null;
+
+    if (error.response?.statusCode == 409 && detail is String)
+    {
+      throw ReportAlreadyResolved(detail);
     }
   }
 

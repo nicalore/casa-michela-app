@@ -60,10 +60,6 @@ class Account(CreatedAtMixin, UpdatedAtMixin, Base):
             "last_login IS NULL OR last_login >= created_at",
             name="last_login_after_creation",
         ),
-        CheckConstraint(
-            "last_login IS NOT NULL OR password_reset_required = TRUE",
-            name="first_login_requires_password_reset",
-        ),
         *not_blank_constraints(
             "username",
             "password_hash",

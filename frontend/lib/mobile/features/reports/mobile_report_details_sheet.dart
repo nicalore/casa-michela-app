@@ -9,6 +9,7 @@ import '../../../features/reports/report_item.dart';
 import '../../../features/reports/report_strings.dart';
 import '../../../features/reports/reports_board.dart';
 import '../../../services/api_service.dart';
+import '../../shared/mobile_line_breaks.dart';
 import '../../shared/mobile_palette.dart';
 import '../../shared/widgets/mobile_gold_button.dart';
 import '../../shared/widgets/mobile_notice.dart';
@@ -26,6 +27,17 @@ Future<void> showMobileReport(BuildContext context, int id) async
   try
   {
     report = await ApiService().openReport(id);
+  }
+  on ReportAlreadyResolved catch (resolved)
+  {
+    ReportsBoard.instance.resolved(id);
+
+    if (context.mounted)
+    {
+      MobileNotice.show(context, withoutOrphans(resolved.message));
+    }
+
+    return;
   }
   catch (e)
   {
@@ -75,9 +87,15 @@ class _ReportSheetState extends State<_ReportSheet>
 
     setState(() => _busy = true);
 
+    String outcome = kResolved;
+
     try
     {
       await ApiService().resolveReport(report.id);
+    }
+    on ReportAlreadyResolved catch (resolved)
+    {
+      outcome = withoutOrphans(resolved.message);
     }
     catch (e)
     {
@@ -99,7 +117,7 @@ class _ReportSheetState extends State<_ReportSheet>
 
     if (widget.page.mounted)
     {
-      MobileNotice.show(widget.page, kResolved);
+      MobileNotice.show(widget.page, outcome);
     }
   }
 

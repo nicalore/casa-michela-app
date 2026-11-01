@@ -20,9 +20,9 @@ from app.services.role_service import RoleService
 
 _KIND: Final[NotificationKindEnum] = NotificationKindEnum.RATING_REMINDER
 
-_TITLE: Final[str] = "Avvisa di aggiornare la valutazione di {name}"
-_BODY: Final[str] = "Tocca per farlo"
-_WEB_BODY: Final[str] = "Clicca per farlo"
+_TITLE: Final[str] = "Sono passate due settimane dall'iscrizione di {name}"
+_BODY: Final[str] = "Tocca per aggiornare la sua valutazione"
+_WEB_BODY: Final[str] = "Clicca per aggiornare la sua valutazione"
 
 _AFTER: Final[timedelta] = timedelta(days=14)
 

@@ -19,7 +19,7 @@ from app.models.administrator import Administrator
 from app.models.member import Member
 from app.models.person import Person
 from app.models.staff import Staff
-from app.services import started_hours
+from app.services import reports, started_hours
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -90,6 +90,13 @@ def audit_log(tmp_path: Path) -> Path:
     configure_audit_logger(directory / "audit_{date}.log")
 
     return directory
+
+
+# Report emails are spaced out for Resend's rate limit: tests need not wait.
+@pytest.fixture(autouse=True)
+def report_mails_unspaced(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(reports, "SPACING_SECONDS", 0)
+    monkeypatch.setattr(reports, "BACKOFF_SECONDS", 0)
 
 
 # Begun hours cannot change: tests writing hours on fixed dates run before them.

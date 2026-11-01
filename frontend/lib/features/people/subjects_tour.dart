@@ -28,7 +28,7 @@ const String kTourProgramsConfirm = 'subjects.programs.confirm';
 // True while the catalogue is open: the page's tour asks for it with a click.
 final ValueNotifier<bool> subjectsCatalogueOpen = ValueNotifier(false);
 
-// Set once a sector of the programmes window is opened: its tour asks for it with a click.
+// Set once a sector of the programmes window is opened: its tour asks for it with a click. Reset: that sector closes.
 final ValueNotifier<bool> programsSectorOpened = ValueNotifier(false);
 
 const String _title = 'Discipline';
@@ -36,7 +36,7 @@ const String _title = 'Discipline';
 // Bump a version on every change to that tour.
 const int _pageVersion = 3;
 const int _catalogueVersion = 4;
-const int _programsVersion = 6;
+const int _programsVersion = 7;
 const int _chosenVersion = 3;
 
 const List<DesktopTourSide> _belowFirst = [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.right];
@@ -212,6 +212,8 @@ final DesktopTour subjectsProgramsTour = DesktopTour(
       radius: 16,
       clickMovesOn: true,
       reveal: true,
+      // The window closes the sector it opened; still set, a new click would change nothing.
+      undo: () => programsSectorOpened.value = false,
       // The click that opens a sector moves the tour on before its rows are built.
       present: () => programsSectorOpened.value || isDesktopTourTargetShown(kTourProgramsSingle),
       coming: () => isDesktopTourTargetShown(kTourProgramsSectors),

@@ -72,18 +72,48 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
   // While searching every sector with results is open, save those closed by hand.
   final Set<String> _shutWhileSearching = {};
 
+  // The sector whose opening the tour took.
+  String? _tourSector;
+
   @override
   void initState()
   {
     super.initState();
     _selected = Set<int>.from(widget.initialSelected);
     programsSectorOpened.value = false;
+    programsSectorOpened.addListener(_onTourSector);
     startSubjectsTour(context, subjectsProgramsTour);
+  }
+
+  // The tour stepping back to its sector step: the window as before that click.
+  void _onTourSector()
+  {
+    final String? key = _tourSector;
+
+    if (!mounted || key == null || programsSectorOpened.value)
+    {
+      return;
+    }
+
+    _tourSector = null;
+
+    setState(()
+    {
+      if (_searching)
+      {
+        _shutWhileSearching.add(key);
+      }
+      else
+      {
+        _open.remove(key);
+      }
+    });
   }
 
   @override
   void dispose()
   {
+    programsSectorOpened.removeListener(_onTourSector);
     _searchController.dispose();
     super.dispose();
   }
@@ -112,8 +142,9 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
       }
     });
 
-    if (opening)
+    if (opening && !programsSectorOpened.value)
     {
+      _tourSector = sector.key;
       programsSectorOpened.value = true;
     }
   }

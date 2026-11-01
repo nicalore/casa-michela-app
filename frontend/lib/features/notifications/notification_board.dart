@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../services/api_service.dart';
+import '../reports/reports_board.dart';
 import 'notification_item.dart';
 import 'push_types.dart';
 
@@ -290,7 +291,15 @@ class NotificationBoard extends ChangeNotifier
           _arrival.value = item;
         }
       case PushNewsType.dismissed:
+        final bool aReport = _find(news.id)?.kind == NotificationKind.reportReceived;
+
         await load();
+
+        // Resolved by another reader, or only read on another device: the list knows which.
+        if (aReport)
+        {
+          unawaited(ReportsBoard.instance.refresh(ApiService().lastKnownIdentity));
+        }
       case PushNewsType.opened:
         NotificationItem? item = _find(news.id);
 

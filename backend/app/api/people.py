@@ -123,9 +123,15 @@ from app.services.person_wizard_service import (
     assert_course_exists,
     create_person_from_wizard,
 )
+from app.services.president import president_tax_code
 from app.services.pupil_lock import lock_pupil
 from app.services.rating_reminders import rating_updated
-from app.services.reports import ReportNotSentError, record_report, send_to_readers
+from app.services.reports import (
+    ReportNotSentError,
+    deliver_rest,
+    record_report,
+    send_to_readers,
+)
 from app.services.role_service import RoleService
 from app.services.student_notes import is_followed, note_response
 from app.services.teacher_evaluation import ordered_criteria
@@ -1969,8 +1975,9 @@ def _enrolled() -> ColumnElement[bool]:
     )
 
 
-# Collaborating enrolled teachers, reduced, with the disciplines teachable to the
-# reader's pupils. Declared before /{tax_code}, which would otherwise claim it.
+# Collaborating enrolled teachers but the president, reduced, with the disciplines
+# teachable to the reader's pupils. Declared before /{tax_code}, which would
+# otherwise claim it.
 @router.get(
     "/teachers",
     response_model=list[PersonResponse],
@@ -1989,6 +1996,11 @@ async def get_active_teachers(
         .options(*_person_load_options())
         .order_by(Person.first_name, Person.last_name)
     )
+    president = await president_tax_code(db)
+
+    if president is not None:
+        stmt = stmt.where(Teacher.tax_code != president)
+
     people = (await db.execute(stmt)).unique().scalars().all()
     pupils = await _pupil_programmes(db, identity.own_student_tax_codes)
 
@@ -2684,7 +2696,7 @@ async def report_person_error(
     )
 
     try:
-        await send_to_readers(
+        rest = await send_to_readers(
             db,
             report,
             subject=_REPORT_EMAIL_SUBJECT.format(full_name=full_name),
@@ -2709,6 +2721,7 @@ async def report_person_error(
 
     await db.commit()
     background.add_task(push.deliver, batch)
+    background.add_task(deliver_rest, rest)
 
     return {"status": "success", "message": _REPORT_SENT_MESSAGE}
 
@@ -3257,11 +3270,14 @@ async def update_not_preferred_teachers(
     # Bookings may change below, so serialize with the pupil's other writes.
     await lock_pupil(db, person.tax_code)
 
-    wanted = set(payload.teacher_tax_codes)
+    # Families neither add nor withdraw the president, whom they do not see.
+    president = None if identity.is_admin else await president_tax_code(db)
+    named = [code for code in payload.teacher_tax_codes if code != president]
+    wanted = set(named)
     existing = set(
         await db.scalars(select(Teacher.tax_code).where(Teacher.tax_code.in_(wanted)))
     ) - guessed_tax_codes(wanted)
-    missing = [code for code in payload.teacher_tax_codes if code not in existing]
+    missing = [code for code in named if code not in existing]
 
     if missing:
         raise HTTPException(
@@ -3280,7 +3296,7 @@ async def update_not_preferred_teachers(
     ).all()
 
     for row in open_rows:
-        if row.teacher_tax_code in wanted:
+        if row.teacher_tax_code in wanted or row.teacher_tax_code == president:
             continue
 
         if row.valid_from == today:

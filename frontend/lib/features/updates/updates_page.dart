@@ -41,9 +41,12 @@ const double _buttonWidth = 400;
 const double _buttonHeight = 52;
 const double _buttonFontSize = 14;
 const double _buttonGap = 16;
+const double _stackedButtonGap = 10;
 
 // Below the wide window: the button as tall as the page's controls, the heading on one line.
 const double _denseListBottomRoom = 36 + 30;
+// The smallest windows stack the two buttons.
+const double _stackedListBottomRoom = 36 + _stackedButtonGap + _denseListBottomRoom;
 const double _denseHeadingGap = 12;
 const double _denseCardGap = 10;
 const double _denseYearHeight = 20;
@@ -73,6 +76,9 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
 {
   final ApiService _apiService = ApiService();
   final ScrollController _scroll = ScrollController();
+  // Moved, not rebuilt, when the buttons stack.
+  final GlobalKey _termsKey = GlobalKey();
+  final GlobalKey _composeKey = GlobalKey();
 
   // Kept in the server's order, newest first.
   List<UpdateSummaryItem> _updates = [];
@@ -338,8 +344,10 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
     ];
   }
 
-  Widget _list(bool dense)
+  Widget _list(AppWindowSize size)
   {
+    final bool dense = size.isDense;
+
     if (_loaded && _updates.isEmpty)
     {
       return const Center(
@@ -361,7 +369,12 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
             controller: _scroll,
             slivers: [
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(_shadowRoom, _shadowRoom, _shadowRoom, dense ? _denseListBottomRoom : _listBottomRoom),
+                padding: EdgeInsets.fromLTRB(
+                  _shadowRoom,
+                  _shadowRoom,
+                  _shadowRoom,
+                  size.isMinimal ? _stackedListBottomRoom : (dense ? _denseListBottomRoom : _listBottomRoom),
+                ),
                 sliver: SliverList.builder(
                   itemCount: entries.length,
                   itemBuilder: (context, index) => PageTransitionItem(
@@ -377,9 +390,17 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
     );
   }
 
-  Widget _button({required String label, required IconData icon, required VoidCallback onPressed, bool busy = false})
+  Widget _button({
+    required GlobalKey key,
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+    required bool dense,
+    bool busy = false,
+  })
   {
     return DecoratedBox(
+      key: key,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         boxShadow: const [BoxShadow(color: Color(0x2E0B3350), offset: Offset(0, 10), blurRadius: 28)],
@@ -388,7 +409,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
         label: label,
         icon: icon,
         busy: busy,
-        width: AppPageDensity.of(context) ? null : _buttonWidth,
+        width: dense ? null : _buttonWidth,
         height: _buttonHeight,
         fontSize: _buttonFontSize,
         onPressed: onPressed,
@@ -396,15 +417,36 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
     );
   }
 
-  Widget _buttons()
+  Widget _buttons(AppWindowSize size)
   {
+    final Widget terms = _button(
+      key: _termsKey,
+      label: kTermsRequestButton,
+      icon: Icons.policy_rounded,
+      onPressed: _requestTerms,
+      dense: size.isDense,
+      busy: _requestingTerms,
+    );
+    final Widget compose = _button(
+      key: _composeKey,
+      label: kNewUpdateButton,
+      icon: Icons.add_rounded,
+      onPressed: _compose,
+      dense: size.isDense,
+    );
+
+    if (size.isMinimal)
+    {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [terms, const SizedBox(height: _stackedButtonGap), compose],
+      );
+    }
+
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        _button(label: kTermsRequestButton, icon: Icons.policy_rounded, onPressed: _requestTerms, busy: _requestingTerms),
-        const SizedBox(width: _buttonGap),
-        _button(label: kNewUpdateButton, icon: Icons.add_rounded, onPressed: _compose),
-      ],
+      children: [terms, const SizedBox(width: _buttonGap), compose],
     );
   }
 
@@ -469,7 +511,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
                                       crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
                                         ..._header(size),
-                                        Expanded(child: _list(size.isDense)),
+                                        Expanded(child: _list(size)),
                                       ],
                                     ),
                                     Positioned(
@@ -477,7 +519,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
                                       right: 0,
                                       bottom: 0,
                                       child: Center(
-                                        child: PageTransitionItem(slot: PageTransitionItem.header, child: _buttons()),
+                                        child: PageTransitionItem(slot: PageTransitionItem.header, child: _buttons(size)),
                                       ),
                                     ),
                                   ],
