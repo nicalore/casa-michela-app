@@ -118,7 +118,6 @@ class PresenceWizardDialog extends StatefulWidget
   final TimeBucket? band;
   final bool onlyFreeBands;
 
-  final VoidCallback? onEditSaved;
   final Future<bool> Function(String studentTaxCode, DateTime date, List<Map<String, dynamic>> modes, Function(String) onError) onCreateLessonRequest;
 
   final Future<bool> Function(String studentTaxCode, DateTime date, List<Map<String, dynamic>> modes, Function(String) onError) onReplaceLessonRequest;
@@ -144,7 +143,6 @@ class PresenceWizardDialog extends StatefulWidget
     required this.openingDays,
     this.band,
     this.onlyFreeBands = false,
-    this.onEditSaved,
     required this.onCreateLessonRequest,
     required this.onReplaceLessonRequest,
   });
@@ -1221,11 +1219,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     if (_isEditing || _isOwn)
     {
       Navigator.of(context).pop();
-
-      if (_isEditing)
-      {
-        widget.onEditSaved?.call();
-      }
     }
     else
     {

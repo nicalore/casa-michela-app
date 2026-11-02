@@ -22,7 +22,7 @@ import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
 import '../../lessons/widgets/calendar_lesson_block.dart' show lessonModeIcon;
 import '../bookings_tour.dart';
-import '../utils/booking_strings.dart' show deleteBand, moveBandLessons;
+import '../utils/booking_strings.dart' show addModeLabel, deleteBand, moveBandLessons;
 
 const double _radius = 24;
 const EdgeInsets _padding = EdgeInsets.fromLTRB(26, 24, 26, 24);
@@ -482,7 +482,7 @@ class _BookingDayRowState extends State<BookingDayRow>
     return [
       for (final mode in _addableModes(lane))
         AppGradientButton(
-          label: mode == kOnlineMode ? 'AGGIUNGI ONLINE' : 'AGGIUNGI IN PRESENZA',
+          label: addModeLabel(mode),
           icon: Icons.add_rounded,
           height: height,
           fontSize: _buttonFontSize,

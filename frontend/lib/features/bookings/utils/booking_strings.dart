@@ -54,6 +54,10 @@ String moveBandLessons(TimeBucket band) => 'Sposta le lezioni ${ofBandLabel(band
 
 String deleteBand(TimeBucket band) => 'Elimina ${theBandLabel(band)}';
 
+String deleteModeBooking(String mode) => 'Elimina la prenotazione ${_where(mode)}';
+
+String addModeLabel(String mode) => mode == kOnlineMode ? 'AGGIUNGI ONLINE' : 'AGGIUNGI IN PRESENZA';
+
 String lessonsMoved(int count) => count == 1 ? 'Materia spostata con successo!' : 'Lezioni spostate con successo!';
 
 String allLessonsTitle(String mode, {TimeBucket? band}) => 'Tutte le lezioni ${_whereIn(mode, band)}';

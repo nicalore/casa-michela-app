@@ -8,12 +8,15 @@ import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../association/models/association_subject_item.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
+import '../../bookings/utils/booking_replacement.dart';
+import '../../bookings/utils/booking_strings.dart' show modeBookingDeleted;
 import '../../people/models/person_face.dart';
 import '../../people/models/person_item.dart';
 import '../models/booking_summary_item.dart';
@@ -92,6 +95,14 @@ class _BookingsTabState extends State<BookingsTab>
   TimeBucket? _filterBucket;
 
   Set<String> _filterSubjects = {};
+
+  // By pupil and day: an open details window follows its day even when the card moves, or leaves the filters.
+  final Map<(String, DateTime), ValueNotifier<PresenceGroup>> _followed = {};
+
+  ValueNotifier<PresenceGroup> _follow(PresenceGroup group)
+  {
+    return _followed.putIfAbsent((group.studentTaxCode, group.date), () => ValueNotifier(group));
+  }
 
   bool get _hasFilters => _filterMode != null || _filterBucket != null || _filterSubjects.isNotEmpty;
 
@@ -198,6 +209,38 @@ class _BookingsTabState extends State<BookingsTab>
 
       _filterSubjects = _filterSubjects.where(available.contains).toSet();
     }
+
+    final groups = {for (final group in _dayGroups) (group.studentTaxCode, group.date): group};
+
+    // Post-frame: notifying the overlay dialog mid-build is an error.
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (!mounted)
+      {
+        return;
+      }
+
+      for (final MapEntry(:key, :value) in _followed.entries)
+      {
+        if (groups[key] case final PresenceGroup group)
+        {
+          value.value = group;
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose()
+  {
+    _searchController.dispose();
+
+    for (final follow in _followed.values)
+    {
+      follow.dispose();
+    }
+
+    super.dispose();
   }
 
   AppEmptyCard get _emptyCard
@@ -277,13 +320,23 @@ class _BookingsTabState extends State<BookingsTab>
     );
   }
 
-  void _showPresenceWizard({PresenceItem? presence, VoidCallback? onEditSaved})
+  void _showPresenceWizard({
+    PresenceItem? presence,
+    String? onlyMode,
+    TimeBucket? band,
+    bool openOnSubjects = false,
+    bool onlyFreeBands = false,
+  })
   {
     showBlurredDialog(
       context: context,
       barrierLabel: 'RequestWizard',
       builder: (context) => PresenceWizardDialog(
         existingPresence: presence,
+        onlyMode: onlyMode,
+        band: band,
+        openOnSubjects: openOnSubjects,
+        onlyFreeBands: onlyFreeBands,
         presences: widget.presences,
         openingDays: widget.openingDays,
         students: widget.students,
@@ -294,7 +347,6 @@ class _BookingsTabState extends State<BookingsTab>
         studyPrograms: widget.studyPrograms,
         availableDays: widget.availableDays,
         defaultDate: widget.selectedDay,
-        onEditSaved: onEditSaved,
         onCreateLessonRequest: widget.onCreateLessonRequest,
         onReplaceLessonRequest: widget.onReplaceLessonRequest,
       ),
@@ -339,16 +391,43 @@ class _BookingsTabState extends State<BookingsTab>
     );
   }
 
+  // One write, closed bands too: administrators are not held by the deadlines.
+  Future<void> _deleteMode(PresenceGroup group, String mode) async
+  {
+    final bool deleted = await widget.onReplaceLessonRequest(
+      group.studentTaxCode,
+      group.date,
+      [modeReplacement(group, mode, dropping: TimeBucket.values.toSet())],
+      (message) => CustomSnackBar.show(context: context, message: message, isError: true),
+    );
+
+    if (deleted && mounted)
+    {
+      CustomSnackBar.show(context: context, message: modeBookingDeleted(mode), isError: false);
+    }
+  }
+
   Widget _buildRequestCard(PresenceGroup group)
   {
+    final ValueNotifier<PresenceGroup> follow = _follow(group);
+
     return PresenceCard(
       group: group,
+      follow: follow,
       ministrySubjects: widget.ministrySubjects,
       students: widget.students,
       studyPrograms: widget.studyPrograms,
       teachers: widget.teachers,
-      onEditRequested: (onSaved) => _showPresenceWizard(presence: group.first, onEditSaved: onSaved),
-      onDelete: () => widget.onDeleteGroup(group.slots),
+      openingDays: widget.openingDays,
+      onEditMode: (mode, {TimeBucket? subjectsOf, bool freeBands = false}) => _showPresenceWizard(
+        presence: follow.value.first,
+        onlyMode: mode,
+        band: subjectsOf,
+        openOnSubjects: subjectsOf != null,
+        onlyFreeBands: freeBands,
+      ),
+      onDelete: () => widget.onDeleteGroup(follow.value.slots),
+      onDeleteMode: (mode) => _deleteMode(follow.value, mode),
       onEditSubject: widget.onEditBooking,
       onDeleteSubject: widget.onDeleteBookingQuietly,
       readOnly: widget.readOnly,

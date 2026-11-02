@@ -17,9 +17,12 @@ import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../association/models/ministry_subject_item.dart';
+import '../../association/models/opening_day_item.dart';
 import '../../association/models/study_program_item.dart';
+import '../../bookings/utils/booking_strings.dart' show addModeLabel, deleteModeBooking, kLessonEdited, kLessonIncomplete;
 import '../../people/models/person_item.dart';
 import '../utils/study_program_lookup.dart';
 import '../models/band_offer.dart';
@@ -41,10 +44,16 @@ const double _confirmWidth = 480;
 
 const double _pieceGap = 20;
 
+const double _modeHeadingHeight = 36;
+const double _addModeHeight = 32;
+
 String _timeRangeLabel(PresenceItem presence)
 {
   return formatTimeRange(presence.startTime, presence.endTime);
 }
+
+// A wizard over the details for one mode: all its hours, [subjectsOf]'s new subjects, or with [freeBands] the free bands.
+typedef RequestModeEditor = void Function(String mode, {TimeBucket? subjectsOf, bool freeBands});
 
 class PresenceCard extends StatefulWidget
 {
@@ -54,6 +63,9 @@ class PresenceCard extends StatefulWidget
 
   final PresenceGroup group;
 
+  // The day as the page has it now: the details opened off this card follow it, wherever the card goes.
+  final ValueListenable<PresenceGroup> follow;
+
   final List<MinistrySubjectItem> ministrySubjects;
 
   // Needed to work out which subjects the pupil's study programme allows.
@@ -62,9 +74,12 @@ class PresenceCard extends StatefulWidget
 
   final List<PersonItem> teachers;
 
-  // Opens the wizard over the details; [onSaved] closes them once the edit is saved.
-  final void Function(VoidCallback onSaved) onEditRequested;
+  // For the modes the day can still take.
+  final List<OpeningDayItem> openingDays;
+
+  final RequestModeEditor onEditMode;
   final VoidCallback onDelete;
+  final void Function(String mode) onDeleteMode;
 
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditSubject;
   final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteSubject;
@@ -75,12 +90,15 @@ class PresenceCard extends StatefulWidget
   const PresenceCard({
     super.key,
     required this.group,
+    required this.follow,
     required this.ministrySubjects,
     required this.students,
     required this.studyPrograms,
     required this.teachers,
-    required this.onEditRequested,
+    required this.openingDays,
+    required this.onEditMode,
     required this.onDelete,
+    required this.onDeleteMode,
     required this.onEditSubject,
     required this.onDeleteSubject,
     this.readOnly = false,
@@ -94,48 +112,24 @@ class _PresenceCardState extends State<PresenceCard>
 {
   bool _isHovering = false;
 
-  // A ValueNotifier so the dialog opened off this card sees later updates.
-  late final ValueNotifier<PresenceGroup> _group = ValueNotifier(widget.group);
-
-  @override
-  void didUpdateWidget(PresenceCard oldWidget)
-  {
-    super.didUpdateWidget(oldWidget);
-
-    // Post-frame: notifying the overlay dialog mid-build is an error.
-    WidgetsBinding.instance.addPostFrameCallback((_)
-    {
-      if (mounted)
-      {
-        _group.value = widget.group;
-      }
-    });
-  }
-
-  @override
-  void dispose()
-  {
-    _group.dispose();
-    super.dispose();
-  }
-
   void _showDetailsDialog()
   {
     showBlurredDialog(
       context: context,
       barrierLabel: 'RequestDetails',
       builder: (dialogContext) => _RequestDetailsDialogContent(
-        group: _group,
+        group: widget.follow,
         ministrySubjects: widget.ministrySubjects,
         offeredSubjects: offeredSubjects,
-        // Over the details, which stay put: a close and reopen would replay their entrance.
-        onEditRequested: () => widget.onEditRequested(() => Navigator.of(dialogContext).pop()),
-        onDelete: widget.onDelete,
         teachers: widget.teachers,
+        openingDays: widget.openingDays,
         studentStudyProgramId: _studentStudyProgramId,
         studentGender: _student?.gender,
-        onSaveSubject: _writeSubject,
-        onDeleteSubject: (mode, booking) => _showSubjectDeletion(dialogContext, booking: booking),
+        onEditMode: widget.onEditMode,
+        onDelete: widget.onDelete,
+        onDeleteMode: widget.onDeleteMode,
+        onEditSubject: widget.onEditSubject,
+        onDeleteSubject: widget.onDeleteSubject,
         readOnly: widget.readOnly,
       ),
     );
@@ -173,100 +167,6 @@ class _PresenceCardState extends State<PresenceCard>
     final student = _student;
 
     return student == null ? null : currentStudyProgramId(student);
-  }
-
-  // The row as the page has it now, not as the dialog captured it: a stale updated_at gets a 409.
-  ({int presenceId, BookingSummaryItem booking})? _whereItHangs(BookingSummaryItem booking)
-  {
-    for (final slot in widget.group.slots)
-    {
-      for (final row in slot.bookings)
-      {
-        if (row.id == booking.id)
-        {
-          return (presenceId: slot.id, booking: row);
-        }
-      }
-    }
-
-    return null;
-  }
-
-  // The endpoints write a booking whole: omitted fields are emptied, not kept.
-  Future<bool> _writeSubject(BookingSummaryItem existing, SubjectRequestDraft draft) async
-  {
-    if (!draft.isComplete)
-    {
-      CustomSnackBar.show(
-        context: context,
-        message: 'Servono la materia, almeno una disciplina e la durata.',
-        isError: true,
-      );
-
-      return false;
-    }
-
-    final held = _whereItHangs(existing);
-
-    if (held == null)
-    {
-      return false;
-    }
-
-    void showError(String message)
-    {
-      if (mounted)
-      {
-        CustomSnackBar.show(context: context, message: message, isError: true);
-      }
-    }
-
-    final subject = draft.toJson();
-
-    final success =
-        await widget.onEditSubject(held.booking, held.presenceId, subject, showError);
-
-    if (!mounted)
-    {
-      return success;
-    }
-
-    if (success)
-    {
-      CustomSnackBar.show(
-        context: context,
-        message: 'Materia modificata con successo!',
-        isError: false,
-      );
-    }
-
-    return success;
-  }
-
-  void _showSubjectDeletion(BuildContext dialogContext, {required BookingSummaryItem booking})
-  {
-    final presenceId = _whereItHangs(booking)?.presenceId;
-
-    if (presenceId == null)
-    {
-      return;
-    }
-
-    showBlurredDialog<void>(
-      context: dialogContext,
-      barrierLabel: 'ConfirmSubjectDeletion',
-      builder: (confirmContext) => _ConfirmSubjectDeletion(
-        label: bookingTitle(booking, widget.ministrySubjects),
-        discipline: bookingDisciplineLabel(booking, widget.ministrySubjects),
-        onConfirmed: () => widget.onDeleteSubject(booking, presenceId, (message)
-        {
-          if (mounted)
-          {
-            CustomSnackBar.show(context: context, message: message, isError: true);
-          }
-        }),
-      ),
-    );
   }
 
   @override
@@ -559,11 +459,14 @@ class _RequestDetailsDialogContent extends StatefulWidget
   // For gender agreement in the subject wizard's copy.
   final String? studentGender;
 
-  final VoidCallback onEditRequested;
-  final VoidCallback onDelete;
+  final List<OpeningDayItem> openingDays;
 
-  final Future<bool> Function(BookingSummaryItem existing, SubjectRequestDraft draft) onSaveSubject;
-  final void Function(String mode, BookingSummaryItem booking) onDeleteSubject;
+  final RequestModeEditor onEditMode;
+  final VoidCallback onDelete;
+  final void Function(String mode) onDeleteMode;
+
+  final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditSubject;
+  final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteSubject;
 
   final bool readOnly;
 
@@ -572,11 +475,13 @@ class _RequestDetailsDialogContent extends StatefulWidget
     required this.ministrySubjects,
     required this.offeredSubjects,
     required this.teachers,
+    required this.openingDays,
     required this.studentStudyProgramId,
     required this.studentGender,
-    required this.onEditRequested,
+    required this.onEditMode,
     required this.onDelete,
-    required this.onSaveSubject,
+    required this.onDeleteMode,
+    required this.onEditSubject,
     required this.onDeleteSubject,
     this.readOnly = false,
   });
@@ -630,7 +535,93 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     return draft;
   }
 
-  void _showDeleteConfirmation(BuildContext context)
+  void _showError(String message)
+  {
+    if (mounted)
+    {
+      CustomSnackBar.show(context: context, message: message, isError: true);
+    }
+  }
+
+  // The row as the page has it now, not as the window captured it: a stale updated_at gets a 409.
+  ({int presenceId, BookingSummaryItem booking})? _whereItHangs(BookingSummaryItem booking)
+  {
+    for (final slot in group.slots)
+    {
+      for (final row in slot.bookings)
+      {
+        if (row.id == booking.id)
+        {
+          return (presenceId: slot.id, booking: row);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // The endpoints write a booking whole: omitted fields are emptied, not kept.
+  Future<bool> _writeSubject(BookingSummaryItem existing, SubjectRequestDraft draft) async
+  {
+    if (!draft.isComplete)
+    {
+      _showError(kLessonIncomplete);
+
+      return false;
+    }
+
+    final held = _whereItHangs(existing);
+
+    if (held == null)
+    {
+      return false;
+    }
+
+    final success = await widget.onEditSubject(held.booking, held.presenceId, draft.toJson(), _showError);
+
+    if (success && mounted)
+    {
+      CustomSnackBar.show(context: context, message: kLessonEdited, isError: false);
+    }
+
+    return success;
+  }
+
+  void _showSubjectDeletion(BookingSummaryItem booking)
+  {
+    final presenceId = _whereItHangs(booking)?.presenceId;
+
+    if (presenceId == null)
+    {
+      return;
+    }
+
+    showBlurredDialog<void>(
+      context: context,
+      barrierLabel: 'ConfirmSubjectDeletion',
+      builder: (confirmContext) => _ConfirmSubjectDeletion(
+        label: bookingTitle(booking, widget.ministrySubjects),
+        discipline: bookingDisciplineLabel(booking, widget.ministrySubjects),
+        onConfirmed: () => widget.onDeleteSubject(booking, presenceId, _showError),
+      ),
+    );
+  }
+
+  static String _otherMode(String mode) => mode == kPresenceMode ? kOnlineMode : kPresenceMode;
+
+  bool _isBooked(String mode) => group.slotsFor(mode).isNotEmpty;
+
+  // A mode not asked yet goes in a band the association opens for it and the other mode leaves free.
+  bool _canAdd(String mode)
+  {
+    final Set<TimeBucket?> taken = {for (final slot in group.slots) bucketFor(slot.startTime)};
+
+    return TimeBucket.values.any((band) =>
+        !taken.contains(band) && openingWindowFor(widget.openingDays, group.date, mode, band) != null);
+  }
+
+  // [mode] null: the whole day.
+  void _showDeleteConfirmation(BuildContext context, {String? mode})
   {
     showBlurredDialog<void>(
       context: context,
@@ -660,8 +651,16 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
             onPressed: ()
             {
               Navigator.pop(confirmContext);
-              Navigator.pop(context);
-              widget.onDelete();
+
+              if (mode == null)
+              {
+                Navigator.pop(context);
+                widget.onDelete();
+              }
+              else
+              {
+                widget.onDeleteMode(mode);
+              }
             },
           ),
         ),
@@ -670,7 +669,11 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: 'La prenotazione di '),
+                  TextSpan(
+                    text: mode == null
+                        ? 'La prenotazione di '
+                        : 'La prenotazione ${mode == kOnlineMode ? kOnScreen : kInBuilding} di ',
+                  ),
                   TextSpan(
                     text: group.student.fullName,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
@@ -702,11 +705,61 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     );
   }
 
-  Widget _buildModeLabel(String text, {bool first = false})
+  Widget _buildModeAction(IconData icon, Color color, String tooltip, VoidCallback onTap)
   {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8, top: first ? 0 : 20),
-      child: AppEyebrow(text),
+    return AppTooltip(
+      message: tooltip,
+      child: FadeHoverIconButton(icon: icon, color: color, hoverColor: AppTheme.trialGoldSurface, onTap: onTap),
+    );
+  }
+
+  List<Widget> _buildModeActions(BuildContext context, String mode)
+  {
+    if (widget.readOnly)
+    {
+      return const [];
+    }
+
+    if (!_isBooked(mode))
+    {
+      return [
+        if (_canAdd(mode))
+          AppGradientButton(
+            label: addModeLabel(mode),
+            icon: Icons.add_rounded,
+            height: _addModeHeight,
+            fontSize: 11,
+            radius: _addModeHeight / 2,
+            horizontalPadding: 16,
+            onPressed: () => widget.onEditMode(mode, freeBands: true),
+          ),
+      ];
+    }
+
+    return [
+      _buildModeAction(Icons.edit_outlined, AppTheme.trialTealDeep, 'Modifica gli orari', () => widget.onEditMode(mode)),
+      // With one mode alone it would do what the footer's ELIMINA does.
+      if (_isBooked(_otherMode(mode)))
+        _buildModeAction(
+          Icons.delete_outline_rounded,
+          AppTheme.trialDanger,
+          deleteModeBooking(mode),
+          () => _showDeleteConfirmation(context, mode: mode),
+        ),
+    ];
+  }
+
+  // As tall with or without its buttons, so the two pieces start alike.
+  Widget _buildModeHeading(BuildContext context, String mode)
+  {
+    return SizedBox(
+      height: _modeHeadingHeight,
+      child: Row(
+        children: [
+          Expanded(child: AppEyebrow(modeLabel(mode))),
+          ..._buildModeActions(context, mode),
+        ],
+      ),
     );
   }
 
@@ -767,7 +820,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
           for (final offer in groupBandOffers(group, mode, skip: existing))
             if (offer.band == _bandOf(existing)) offer,
         ],
-        onSave: (draft) => widget.onSaveSubject(existing, draft),
+        onSave: (draft) => _writeSubject(existing, draft),
       ),
     );
   }
@@ -815,12 +868,13 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         ministrySubjects: widget.ministrySubjects,
         teachers: widget.teachers,
         onEdit: widget.readOnly ? null : (index) => _showSubjectWizard(context, mode, existing: stored[index]),
-        onRemove: widget.readOnly ? null : (index) => widget.onDeleteSubject(mode, stored[index]),
+        onRemove: widget.readOnly ? null : (index) => _showSubjectDeletion(stored[index]),
+        onAdd: widget.readOnly ? null : () => widget.onEditMode(mode, subjectsOf: band),
       ),
     ];
   }
 
-  Widget _buildMode(String mode)
+  Widget _buildMode(BuildContext context, String mode)
   {
     final bands = group.bandsFor(mode);
 
@@ -830,7 +884,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildModeLabel(modeLabel(mode), first: true),
+          _buildModeHeading(context, mode),
           if (bands.isEmpty)
             _buildEmpty('Non richiesto.')
           else
@@ -856,8 +910,8 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       title: group.student.fullName,
       leading: PersonAvatar(person: group.student, size: PersonAvatar.titleSize),
       maxWidth: 1040,
-      footer: widget.readOnly ? null : AppDialogFooter(
-        secondary: AppGradientButton(
+      footer: widget.readOnly ? null : AppDialogFooter.single(
+        AppGradientButton(
           label: 'ELIMINA',
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
@@ -865,13 +919,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: () => _showDeleteConfirmation(context),
-        ),
-        primary: AppGradientButton(
-          label: 'MODIFICA',
-          icon: Icons.edit_outlined,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: widget.onEditRequested,
         ),
       ),
       children: [
@@ -892,7 +939,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
           builder: (context, constraints)
           {
             final pieces = [
-              for (final mode in const [kPresenceMode, kOnlineMode]) _buildMode(mode),
+              for (final mode in const [kPresenceMode, kOnlineMode]) _buildMode(context, mode),
             ];
 
             if (constraints.maxWidth < 720)

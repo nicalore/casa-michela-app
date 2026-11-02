@@ -39,29 +39,6 @@ String ministrySubjectName(List<MinistrySubjectItem> subjects, int? id, {String 
   return fallback;
 }
 
-List<String> disciplineNames(List<MinistrySubjectItem> subjects, SubjectRequestDraft request)
-{
-  final names = <String>[];
-
-  for (final subject in subjects)
-  {
-    if (subject.id != request.ministrySubjectId)
-    {
-      continue;
-    }
-
-    for (final discipline in subject.associationSubjects)
-    {
-      if (request.associationSubjectIds.contains(discipline.id))
-      {
-        names.add(discipline.name);
-      }
-    }
-  }
-
-  return names;
-}
-
 List<String> teacherNames(List<PersonItem> teachers, List<String> taxCodes)
 {
   final names = <String>[];
@@ -195,12 +172,13 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
   String? get _discipline =>
       dividedDisciplineName(widget.ministrySubjects, widget.draft.ministrySubjectId, widget.draft.associationSubjectIds);
 
+  // The discipline leads and its subject goes under it, as on the calendar's cards.
+  String get _heading => _discipline ?? _title;
+
   String get _summary
   {
-    final disciplines = disciplineNames(widget.ministrySubjects, widget.draft);
-
     final pieces = <String>[
-      if (disciplines.isNotEmpty) disciplines.join(', '),
+      if (_discipline != null) _title,
       if (widget.draft.duration != null) formatMinutes(widget.draft.duration!),
     ];
 
@@ -213,7 +191,7 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
       context: context,
       barrierLabel: 'SubjectRequestDetails',
       builder: (dialogContext) => _SubjectRequestDetailsDialog(
-        title: _discipline ?? _title,
+        title: _heading,
         draft: widget.draft,
         ministrySubjects: widget.ministrySubjects,
         teachers: widget.teachers,
@@ -252,7 +230,7 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   OverflowTooltipText(
-                    text: _title,
+                    text: _heading,
                     maxLines: 1,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
