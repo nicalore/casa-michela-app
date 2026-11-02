@@ -2895,10 +2895,13 @@ class _CalendarTabState extends State<CalendarTab>
     );
   }
 
+  // From the programme of the latest enrollment: the enrollment itself carries only the level's label.
   Map<String, String> get _levelByStudent
   {
+    final levelOf = {for (final programme in widget.studyPrograms) programme.id: programme.level};
+
     return {
-      for (final person in widget.people) person.fiscalCode: ?currentEducationLevel(person),
+      for (final person in widget.people) person.fiscalCode: ?levelOf[currentStudyProgramId(person)],
     };
   }
 
