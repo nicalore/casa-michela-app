@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_field_label.dart';
@@ -471,7 +470,7 @@ class _OwnLessonDialog extends StatelessWidget
           ),
         ),
         maxWidth: withOther ? _dialogWidth : _singleWidth,
-        footer: _byStudent || !lessonHasBegun(lesson, romeNow())
+        footer: _byStudent
             ? null
             : AppDialogFooter.single(
                 maxWidth: _noteFooterWidth,

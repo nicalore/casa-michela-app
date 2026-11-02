@@ -1,5 +1,6 @@
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../association/models/subject_taxonomy.dart';
 import '../../people/models/person_face.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
@@ -306,12 +307,34 @@ List<PresenceBookingGroup> groupSchedulable({
     groups.add(PresenceBookingGroup(presences: stretches, bookings: bookings));
   }
 
-  groups.sort((a, b)
+  return groups..sort(_byNameThenStart);
+}
+
+int _byNameThenStart(PresenceBookingGroup a, PresenceBookingGroup b)
+{
+  final byName = compareByName(a.presence.student, b.presence.student);
+
+  return byName != 0 ? byName : a.startMinutes.compareTo(b.startMinutes);
+}
+
+// The bookings box: superiori first, then medie, then elementari, pupils with no school year
+// last; by name within each.
+List<PresenceBookingGroup> orderBySchoolLevel(
+  List<PresenceBookingGroup> groups,
+  Map<String, String> levelByStudent,
+)
+{
+  int order(PresenceBookingGroup group)
   {
-    final byName = compareByName(a.presence.student, b.presence.student);
+    final rank = schoolLevelRank(levelByStudent[group.presence.studentTaxCode] ?? '');
 
-    return byName != 0 ? byName : a.startMinutes.compareTo(b.startMinutes);
+    return rank == schoolLevels.length ? rank : schoolLevels.length - 1 - rank;
+  }
+
+  return [...groups]..sort((a, b)
+  {
+    final byLevel = order(a).compareTo(order(b));
+
+    return byLevel != 0 ? byLevel : _byNameThenStart(a, b);
   });
-
-  return groups;
 }

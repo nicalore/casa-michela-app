@@ -5,15 +5,6 @@ import 'calendar_pdf_document.dart';
 
 export 'calendar_export_data.dart';
 
-enum CalendarExportOutcome
-{
-  opened,
-
-  downloaded,
-
-  blocked,
-}
-
 class CalendarExportTabs
 {
   const CalendarExportTabs({required this.teachers, required this.students});
@@ -35,30 +26,24 @@ CalendarExportTabs openCalendarPdfTabs({
   );
 }
 
-Future<CalendarExportOutcome> writeCalendarPdfs({
+Future<void> writeCalendarPdfs({
   required CalendarExportData teachers,
   required CalendarExportData students,
   required CalendarExportTabs tabs,
 }) async
 {
-  var handedOver = false;
-
-  for (final (data, tab) in [(teachers, tabs.teachers), (students, tabs.students)])
-  {
-    final bytes = await buildCalendarPdf(data);
-    final fileName = calendarPdfFileName(data);
-
-    if (tab != null)
-    {
-      tab.present(bytes, fileName: fileName);
-
-      continue;
-    }
-
-    handedOver = downloadPdf(bytes, fileName: fileName) || handedOver;
-  }
-
-  return handedOver ? CalendarExportOutcome.downloaded : CalendarExportOutcome.opened;
+  await presentPdfs(
+    [
+      for (final (data, tab) in [(teachers, tabs.teachers), (students, tabs.students)])
+        (
+          tab: tab,
+          label: calendarPdfViewLabel(data),
+          fileName: calendarPdfFileName(data),
+          bytes: () => buildCalendarPdf(data),
+        ),
+    ],
+    title: calendarPdfBandTitle(teachers),
+  );
 }
 
 void failCalendarPdfTabs(CalendarExportTabs tabs, String message)

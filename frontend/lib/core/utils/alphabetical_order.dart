@@ -64,6 +64,9 @@ final Map<int, String> _swaps = {
 
 bool _isPlainAscii(int unit) => (unit >= 0x61 && unit <= 0x7a) || (unit >= 0x30 && unit <= 0x39);
 
+// What the order compares first, for searches that ignore the same things.
+String plainForSearch(String text) => _plain(text);
+
 String _plain(String text)
 {
   final String lower = text.toLowerCase();

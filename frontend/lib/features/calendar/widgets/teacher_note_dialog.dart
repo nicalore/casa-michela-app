@@ -22,15 +22,6 @@ const double _dialogWidth = 900;
 
 const int _lines = 10;
 
-// From its first minute on, on the association's clock.
-bool lessonHasBegun(LessonItem lesson, DateTime now)
-{
-  final DateTime date = lesson.date;
-  final DateTime start = DateTime(date.year, date.month, date.day, lesson.startTime.hour, lesson.startTime.minute);
-
-  return !start.isAfter(now);
-}
-
 // Every subject of the lesson, each once: the note is about the whole lesson.
 String lessonSubjects(LessonItem lesson, List<MinistrySubjectItem> ministrySubjects)
 {

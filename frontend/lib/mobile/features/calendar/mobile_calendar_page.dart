@@ -18,7 +18,6 @@ import '../../../features/calendar/utils/calendar_strings.dart';
 import '../../../features/calendar/utils/day_marks_loader.dart';
 import '../../../features/calendar/utils/teacher_band_call.dart';
 import '../../../features/calendar/utils/viewable_days.dart';
-import '../../../features/calendar/widgets/teacher_note_dialog.dart' show lessonHasBegun;
 import '../../../features/lessons/models/activity_item.dart';
 import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/models/calendar_publication_item.dart';
@@ -336,8 +335,6 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       return;
     }
 
-    final LessonItem? lesson = band == null ? null : _firstLessonOf(data.bandOf(band));
-
     await startMobileTourOnce(
       taxCode: taxCode,
       tour: calendarTour(
@@ -346,7 +343,6 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
         sheetMarks: band == null ? const {} : await unseenLessonSheetMarks(taxCode),
         sheet: _sheetLink,
         student: !_day.isBefore(_today),
-        note: lesson != null && lessonHasBegun(lesson, _clock.value),
       ),
     );
   }

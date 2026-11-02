@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -427,42 +426,40 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
     final String name = '${person.firstName} ${person.lastName}';
     final bool alsoEarlyExit = _needsEarlyExitForm(person);
+    final String day = DateFormat('dd-MM-yyyy').format(romeNow());
+    final String enrollmentTitle = 'Modulo di iscrizione · $name';
+    final String earlyExitTitle = 'Modulo uscita anticipata · $name';
 
     // Tabs must open before the first await, or the browser blocks them as popups.
-    final PdfTab? enrollmentTab = openPdfTab(title: 'Modulo di iscrizione · $name');
-    final PdfTab? earlyExitTab =
-        alsoEarlyExit ? openPdfTab(title: 'Modulo uscita anticipata · $name') : null;
-
-    final String day = DateFormat('dd-MM-yyyy').format(romeNow());
+    final PdfTab? enrollmentTab = openPdfTab(title: enrollmentTitle);
+    final PdfTab? earlyExitTab = alsoEarlyExit ? openPdfTab(title: earlyExitTitle) : null;
 
     setState(() => _isGeneratingForm = true);
 
-    var downloaded = false;
-
     try
     {
-      downloaded = await _present(
-        enrollmentTab,
-        () => ApiService().fetchEnrollmentForm(person.fiscalCode),
-        fileName: 'Modulo di iscrizione $name $day.pdf',
-      );
-
-      if (alsoEarlyExit)
-      {
-        downloaded = await _present(
-              earlyExitTab,
-              () => ApiService().fetchEarlyExitForm(person.fiscalCode),
-              fileName: 'Modulo uscita anticipata $name $day.pdf',
-            ) ||
-            downloaded;
-      }
+      final bool downloaded = await presentPdfs([
+        (
+          tab: enrollmentTab,
+          label: 'Modulo di iscrizione',
+          fileName: 'Modulo di iscrizione $name $day.pdf',
+          bytes: () => ApiService().fetchEnrollmentForm(person.fiscalCode),
+        ),
+        if (alsoEarlyExit)
+          (
+            tab: earlyExitTab,
+            label: 'Modulo uscita anticipata',
+            fileName: 'Modulo uscita anticipata $name $day.pdf',
+            bytes: () => ApiService().fetchEarlyExitForm(person.fiscalCode),
+          ),
+      ]);
 
       if (downloaded && mounted)
       {
         CustomSnackBar.show(
           context: context,
           message: alsoEarlyExit
-              ? 'Il browser ha bloccato una scheda: il modulo è stato scaricato.'
+              ? 'Il browser ha bloccato le schede: i moduli sono stati scaricati.'
               : 'Il browser ha bloccato la scheda: il modulo è stato scaricato.',
           isError: false,
         );
@@ -493,25 +490,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return person.roles.any((role) => role.toUpperCase() == 'STUDENTE') &&
         !person.isAdult &&
         (person.earlyExit ?? false);
-  }
-
-  // True when the browser refused the tab and the bytes were downloaded instead.
-  Future<bool> _present(
-    PdfTab? tab,
-    Future<Uint8List> Function() fetch, {
-    required String fileName,
-  }) async
-  {
-    final Uint8List bytes = await fetch();
-
-    if (tab != null)
-    {
-      tab.present(bytes, fileName: fileName);
-
-      return false;
-    }
-
-    return downloadPdf(bytes, fileName: fileName);
   }
 
   void _openEditDialog() async

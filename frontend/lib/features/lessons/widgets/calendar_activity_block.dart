@@ -9,9 +9,11 @@ import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../models/activity_item.dart';
+import '../utils/calendar_search.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
 import 'calendar_lesson_block.dart';
+import 'calendar_search_fade.dart';
 
 const IconData kActivityIcon = Icons.event_note_rounded;
 
@@ -84,6 +86,9 @@ class CalendarActivityBlock extends StatefulWidget
   // On the board below the wide window: a full-width row.
   final bool isRow;
 
+  // Found by its teacher's name.
+  final ValueListenable<CalendarSearch?>? search;
+
   const CalendarActivityBlock({
     super.key,
     required this.scheduled,
@@ -96,15 +101,24 @@ class CalendarActivityBlock extends StatefulWidget
     this.onDroppedOutside,
     this.onDragChanged,
     this.isRow = false,
+    this.search,
   });
 
   @override
   State<CalendarActivityBlock> createState() => _CalendarActivityBlockState();
 }
 
-class _CalendarActivityBlockState extends State<CalendarActivityBlock>
+class _CalendarActivityBlockState extends State<CalendarActivityBlock> with CalendarSearchMarks
 {
   bool _isHovering = false;
+
+  @override
+  ValueListenable<CalendarSearch?>? searchOf(CalendarActivityBlock widget) => widget.search;
+
+  @override
+  bool isFoundBy(CalendarSearch search) => search.findsActivity(widget.scheduled);
+
+  bool get _isLit => _isHovering || searchMarks.found;
 
   bool _isResizing = false;
 
@@ -220,8 +234,8 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
             color: kActivitySurface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: _isHovering ? AppTheme.trialGold : kActivityAccent.withValues(alpha: 0.35),
-              width: _isHovering ? 2 : 1.4,
+              color: _isLit ? AppTheme.trialGold : kActivityAccent.withValues(alpha: 0.35),
+              width: _isLit ? 2 : 1.4,
             ),
             boxShadow: AppTheme.cardShadow,
           ),
@@ -287,7 +301,7 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
 
     final Widget shown = AnimatedOpacity(
       duration: const Duration(milliseconds: 90),
-      opacity: _isResizing ? 0 : 1,
+      opacity: _isResizing ? 0 : (searchMarks.missed ? kSearchMissOpacity : 1),
       child: block,
     );
 

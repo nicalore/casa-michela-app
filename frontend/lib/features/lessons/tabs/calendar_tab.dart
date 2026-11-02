@@ -40,11 +40,13 @@ import '../models/presence_item.dart';
 import '../models/room_day_plan.dart';
 import '../models/schedulable_booking.dart';
 import '../export/calendar_pdf_export.dart';
+import '../utils/calendar_search.dart';
 import '../utils/excluded_teachers.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/online_only.dart';
 import '../utils/new_members.dart';
 import '../utils/opening_window.dart';
+import '../utils/study_program_lookup.dart';
 import '../utils/timeline_geometry.dart';
 import '../widgets/activity_dialog.dart';
 import '../widgets/activity_details_dialog.dart';
@@ -112,6 +114,7 @@ const double _denseActionHeight = 36;
 const double _denseActionFontSize = 12.5;
 const double _denseActionPadding = 14;
 const double _denseSearchWidth = 300;
+const double _composingSearchWidth = 360;
 
 // Narrower than this, the search takes the whole line.
 const double _denseSearchAlone = 560;
@@ -341,6 +344,10 @@ class _CalendarTabState extends State<CalendarTab>
   final TextEditingController _searchController = TextEditingController();
   String _search = '';
 
+  // Composing: lights what it finds, narrows nothing.
+  final TextEditingController _composingSearchController = TextEditingController();
+  final ValueNotifier<CalendarSearch?> _composingSearch = ValueNotifier(null);
+
   CalendarSort _sort = CalendarSort.room;
 
   CalendarLayout _layout = CalendarLayout.byHour;
@@ -448,9 +455,11 @@ class _CalendarTabState extends State<CalendarTab>
       WidgetsBinding.instance.addPostFrameCallback((_) => _sayWhichBand());
     }
 
-    if (!identical(widget.lessons, oldWidget.lessons) && !_hasRoomPlan)
+    // The rooms come again with every refresh of the lessons: another administrator may have
+    // changed them since they were read.
+    if (!identical(widget.lessons, oldWidget.lessons))
     {
-      _ensureRoomPlan();
+      _ensureRoomPlan(force: true, quietly: _hasRoomPlan);
     }
 
     if (_excluding == 0 && !setEquals(widget.excludedTeachers, oldWidget.excludedTeachers))
@@ -473,6 +482,8 @@ class _CalendarTabState extends State<CalendarTab>
 
     _clock?.cancel();
     _searchController.dispose();
+    _composingSearchController.dispose();
+    _composingSearch.dispose();
     _trackController.dispose();
     _sidewaysController.dispose();
     _carried.dispose();
@@ -1972,6 +1983,7 @@ class _CalendarTabState extends State<CalendarTab>
       bandStart: _bandStart,
       bandEnd: _bandEnd,
       isComposing: true,
+      search: _composingSearch,
       ministrySubjects: widget.ministrySubjects,
       subLaneOf: stacking.subLaneOf,
       warnedLessonIds: marked.warned,
@@ -2162,7 +2174,8 @@ class _CalendarTabState extends State<CalendarTab>
   // The load in flight, for whoever needs the rooms to wait for them.
   Future<void>? _roomPlanLoad;
 
-  Future<void> _ensureRoomPlan({bool force = false})
+  // [quietly]: a refresh behind the page, without the busy button or an error to show.
+  Future<void> _ensureRoomPlan({bool force = false, bool quietly = false})
   {
     final pending = _roomPlanLoad;
 
@@ -2178,18 +2191,24 @@ class _CalendarTabState extends State<CalendarTab>
       return Future.value();
     }
 
-    return _roomPlanLoad = _loadRoomPlan(load).whenComplete(() => _roomPlanLoad = null);
+    return _roomPlanLoad = _loadRoomPlan(load, quietly: quietly).whenComplete(() => _roomPlanLoad = null);
   }
 
-  Future<void> _loadRoomPlan(Future<RoomDayPlan?> Function(DateTime day, Function(String) onError) load) async
+  Future<void> _loadRoomPlan(
+    Future<RoomDayPlan?> Function(DateTime day, Function(String) onError) load, {
+    required bool quietly,
+  }) async
   {
     final day = _day;
 
-    setState(() => _isLoadingRoomPlan = true);
+    if (!quietly)
+    {
+      setState(() => _isLoadingRoomPlan = true);
+    }
 
     final plan = await load(day, (message)
     {
-      if (mounted)
+      if (mounted && !quietly)
       {
         CustomSnackBar.show(context: context, message: message, isError: true);
       }
@@ -2410,7 +2429,6 @@ class _CalendarTabState extends State<CalendarTab>
       availabilities: widget.availabilities,
       lessons: widget.lessons,
       activities: widget.activities,
-      openingDays: widget.openingDays,
       ministrySubjects: widget.ministrySubjects,
       roomPlan: _hasRoomPlan ? _roomPlan : null,
       publication: _publication,
@@ -2424,7 +2442,6 @@ class _CalendarTabState extends State<CalendarTab>
     return studentsExport(
       presences: widget.presences,
       lessons: widget.lessons,
-      openingDays: widget.openingDays,
       ministrySubjects: widget.ministrySubjects,
       publication: _publication,
       day: _day,
@@ -2454,23 +2471,14 @@ class _CalendarTabState extends State<CalendarTab>
 
     try
     {
-      // The rooms arrive a moment after the day: the document waits for them rather than race them.
-      await _ensureRoomPlan();
+      // The rooms as they are now, not as they were read: the document waits for them.
+      await _ensureRoomPlan(force: true);
 
-      final outcome = await writeCalendarPdfs(
+      await writeCalendarPdfs(
         teachers: _teachersExport(),
         students: _studentsExport(),
         tabs: tabs,
       );
-
-      if (mounted && outcome == CalendarExportOutcome.downloaded)
-      {
-        CustomSnackBar.show(
-          context: context,
-          message: 'Il browser ha bloccato una scheda: il PDF è stato scaricato.',
-          isError: false,
-        );
-      }
     }
     catch (error)
     {
@@ -2811,6 +2819,18 @@ class _CalendarTabState extends State<CalendarTab>
     return _buildBandAction();
   }
 
+  Widget _buildComposingSearch()
+  {
+    return SizedBox(
+      width: _isDense ? _denseSearchWidth : _composingSearchWidth,
+      child: AppSearchField(
+        controller: _composingSearchController,
+        onChanged: (value) => _composingSearch.value = CalendarSearch.of(value, widget.ministrySubjects),
+        hintText: 'Cerca nel calendario...',
+      ),
+    );
+  }
+
   Widget _buildPlanButton()
   {
     final open = openPanelCount(_bookingGroups, _unassignedActivities);
@@ -2875,10 +2895,17 @@ class _CalendarTabState extends State<CalendarTab>
     );
   }
 
+  Map<String, String> get _levelByStudent
+  {
+    return {
+      for (final person in widget.people) person.fiscalCode: ?currentEducationLevel(person),
+    };
+  }
+
   Widget _buildPanel({required BookingPanelShape shape, required CalendarDayIndex index})
   {
     return CalendarBookingPanel(
-      groups: _bookingGroups,
+      groups: orderBySchoolLevel(_bookingGroups, _levelByStudent),
       activities: _unassignedActivities,
       ministrySubjects: widget.ministrySubjects,
       teacherNames: _teacherNames,
@@ -2894,6 +2921,7 @@ class _CalendarTabState extends State<CalendarTab>
           : () => _addActivity(index),
       onOpenActivity: _activityTap(index),
       requestDetails: (entry) => _requestDetails(entry.booking, entry.presence.student.taxCode),
+      search: _composingSearch,
     );
   }
 
@@ -3032,7 +3060,14 @@ class _CalendarTabState extends State<CalendarTab>
   }
 
   // The page at the start, the requests button and the actions at the end; the end wraps under when short.
-  Widget _buildHeader(_CalendarShape shape, {Widget? summary, Widget? filters, Widget? actions, Widget? plan})
+  Widget _buildHeader(
+    _CalendarShape shape, {
+    Widget? summary,
+    Widget? filters,
+    Widget? actions,
+    Widget? plan,
+    Widget? search,
+  })
   {
     final Widget? leading = widget.leading;
 
@@ -3043,12 +3078,12 @@ class _CalendarTabState extends State<CalendarTab>
       runSpacing: 10,
       children: [
         ?leading,
-        if (plan != null || actions != null)
+        if (search != null || plan != null || actions != null)
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 12,
             runSpacing: 10,
-            children: [?plan, ?actions],
+            children: [?search, ?plan, ?actions],
           ),
       ],
     );
@@ -3104,6 +3139,7 @@ class _CalendarTabState extends State<CalendarTab>
           filters: _isSettled ? _buildFilters(isNarrow: shape == _CalendarShape.compact) : null,
           actions: _headerActions,
           plan: _isSettled || shape == _CalendarShape.compact || lanes.isEmpty ? null : _buildPlanButton(),
+          search: _isSettled || shape == _CalendarShape.compact || lanes.isEmpty ? null : _buildComposingSearch(),
         ),
         Expanded(child: _buildBody(lanes, index, shape)),
       ],

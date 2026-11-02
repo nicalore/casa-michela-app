@@ -172,7 +172,6 @@ MobileTour calendarTour({
   required Set<LessonSheetMark> sheetMarks,
   required LessonSheetTourLink sheet,
   bool student = false,
-  bool note = false,
   bool opened = false,
 })
 {
@@ -234,7 +233,7 @@ MobileTour calendarTour({
           touched: [target],
           tapEnds: true,
           present: () => sheet.open && sheet.note,
-          coming: () => (lessonAhead && note) || sheet.note,
+          coming: () => lessonAhead || sheet.note,
           seen: seen,
         ),
     };

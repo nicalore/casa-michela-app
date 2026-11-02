@@ -17,6 +17,9 @@ SchoolEnrollmentItem? _latestEnrollment(PersonItem student)
 
 int? currentStudyProgramId(PersonItem student) => _latestEnrollment(student)?.studyProgramId;
 
+// As SchoolLevel spells it; null without an enrollment.
+String? currentEducationLevel(PersonItem student) => _latestEnrollment(student)?.educationLevel;
+
 // Empty when the student has no enrollment or the program isn't loaded.
 Set<int> allowedMinistrySubjectIds(PersonItem student, List<StudyProgramItem> studyPrograms)
 {

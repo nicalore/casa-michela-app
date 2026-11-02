@@ -20,14 +20,34 @@ String _waitingPage(String title) => '''
   body{display:flex;flex-direction:column}
   #wait{flex:1;display:flex;align-items:center;justify-content:center;
     font-size:15px;text-align:center;padding:0 24px}
-  embed{flex:1;width:100%;border:0;display:block;min-height:0}
+  #docs{flex:1;position:relative;min-height:0}
+  #docs embed{position:absolute;top:0;left:0;width:100%;height:100%;border:0;visibility:hidden}
+  .pick{display:none}
+  #switch{flex:0 0 auto;display:flex;gap:6px;padding:7px 16px;background:#EBEFF3;
+    border-bottom:1px solid #DDE8E6}
+  #switch label{padding:4px 14px;border-radius:999px;border:1px solid #CBD9D6;background:#fff;
+    color:#0B6478;font-size:13px;font-weight:600;cursor:pointer}
   #bar{flex:0 0 auto;display:none;padding:7px 16px;background:#EBEFF3;
     border-top:1px solid #DDE8E6;font-size:13px}
-  #bar a{color:#0B6478;font-weight:600;text-decoration:none}
+  #bar a{display:none;color:#0B6478;font-weight:600;text-decoration:none}
   #bar a:hover{text-decoration:underline}
 </style></head>
 <body><div id="wait">Generazione del PDF in corso&hellip;</div>
-<div id="bar"><a id="save" download>Scarica il PDF</a></div></body></html>''';
+<div id="bar"></div></body></html>''';
+
+// The switch is radio buttons and their labels: the tab keeps working with no script, even once
+// the app that opened it is gone.
+String _pickedRules(int count)
+{
+  return [
+    for (var index = 0; index < count; index++) ...[
+      '#pick$index:checked~#docs embed:nth-child(${index + 1}){visibility:visible}',
+      '#pick$index:checked~#bar a:nth-child(${index + 1}){display:inline}',
+      '#pick$index:checked~#switch label:nth-child(${index + 1})'
+          '{background:#0B6478;border-color:#0B6478;color:#fff}',
+    ],
+  ].join('\n');
+}
 
 String _escaped(String text)
 {
@@ -87,38 +107,95 @@ class _WebPdfTab implements PdfTab
 
   final web.Window window;
 
-  // The document stays in this page, from a blob nobody has to ask the site for again, with a
-  // link beside it that saves it under its own name.
   @override
   void present(Uint8List bytes, {required String fileName})
   {
+    _show([(label: '', bytes: bytes, fileName: fileName)]);
+  }
+
+  @override
+  void presentTogether(List<PdfTabDocument> documents, {String? title})
+  {
+    if (title != null)
+    {
+      window.document.title = title;
+    }
+
+    _show(documents);
+  }
+
+  // Each document stays in this page, from a blob nobody has to ask the site for again, with a
+  // link below that saves it under its own name.
+  void _show(List<PdfTabDocument> documents)
+  {
     _forgetFormerWorker();
 
-    final url = web.URL.createObjectURL(_fileOf(bytes, fileName));
     final document = window.document;
-
-    final embed = document.createElement('embed') as web.HTMLEmbedElement
-      ..type = 'application/pdf'
-      ..src = url;
-
-    document.getElementById('wait')?.replaceWith(embed);
-
+    final body = document.body;
+    final waiting = document.getElementById('wait');
     final bar = document.getElementById('bar');
-    final save = document.getElementById('save') as web.HTMLAnchorElement?;
 
-    if (bar != null && save != null)
+    if (body == null || waiting == null || bar == null)
     {
-      save
-        ..href = url
-        ..download = fileName
-        ..textContent = 'Scarica "$fileName"';
-
-      bar.setAttribute('style', 'display:block');
+      return;
     }
+
+    final urls = [for (final shown in documents) web.URL.createObjectURL(_fileOf(shown.bytes, shown.fileName))];
+    final docs = document.createElement('div')..id = 'docs';
+    final switcher = document.createElement('div')..id = 'switch';
+
+    for (final (index, shown) in documents.indexed)
+    {
+      // In front of everything they pick, as the rules read them.
+      body.insertBefore(
+        (document.createElement('input') as web.HTMLInputElement)
+          ..type = 'radio'
+          ..name = 'pick'
+          ..id = 'pick$index'
+          ..className = 'pick'
+          ..checked = index == 0,
+        waiting,
+      );
+
+      switcher.append(
+        (document.createElement('label') as web.HTMLLabelElement)
+          ..htmlFor = 'pick$index'
+          ..textContent = shown.label,
+      );
+
+      docs.append(
+        (document.createElement('embed') as web.HTMLEmbedElement)
+          ..type = 'application/pdf'
+          ..src = urls[index],
+      );
+
+      bar.append(
+        (document.createElement('a') as web.HTMLAnchorElement)
+          ..href = urls[index]
+          ..download = shown.fileName
+          ..textContent = 'Scarica "${shown.fileName}"',
+      );
+    }
+
+    document.head?.append(document.createElement('style')..textContent = _pickedRules(documents.length));
+
+    if (documents.length > 1)
+    {
+      body.insertBefore(switcher, waiting);
+    }
+
+    waiting.replaceWith(docs);
+    bar.setAttribute('style', 'display:block');
 
     window.addEventListener(
       'pagehide',
-      ((web.Event event) => web.URL.revokeObjectURL(url)).toJS,
+      ((web.Event event)
+      {
+        for (final url in urls)
+        {
+          web.URL.revokeObjectURL(url);
+        }
+      }).toJS,
     );
   }
 

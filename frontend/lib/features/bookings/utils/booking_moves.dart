@@ -100,7 +100,7 @@ class BookingMove
 
 int _lengthOf(PresenceItem row) => minutesOfTimeOfDay(row.endTime) - minutesOfTimeOfDay(row.startTime);
 
-const String _overTwoHours = 'Non è possibile garantire più di due ore di lezione per la stessa disciplina in una fascia oraria';
+const String _overBandLimit = 'Non è possibile garantire più di cinque ore di lezione per la stessa disciplina in una fascia oraria';
 
 // A band books each discipline of a subject once, whatever was asked of it.
 bool _sameSubject(BookingSummaryItem a, BookingSummaryItem b)
@@ -446,7 +446,7 @@ class BookingMovePlanner
 
       if (same != null && same.duration + booking.duration > bookingDurationOptions.last)
       {
-        return _overTwoHours;
+        return _overBandLimit;
       }
     }
 

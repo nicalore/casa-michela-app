@@ -267,8 +267,8 @@ Future<List<CalendarLessonMark>> _unseenMarks(String taxCode) async
 }
 
 // Page, call and lesson window as one tour (a click opens the window); null if none is due.
-// [student], [note]: what the lit lesson's window shows.
-Future<DesktopTour?> calendarPageTour({required bool student, required bool note}) async
+// [student]: whether the lit lesson's window shows the student.
+Future<DesktopTour?> calendarPageTour({required bool student}) async
 {
   final String? taxCode = _teacher;
 
@@ -303,8 +303,7 @@ Future<DesktopTour?> calendarPageTour({required bool student, required bool note
           undo: index == 0 ? () => calendarLessonCloser?.call() : null,
           coming: () => lesson && switch (mark)
           {
-            CalendarLessonMark.details => true,
-            CalendarLessonMark.note => note,
+            CalendarLessonMark.details || CalendarLessonMark.note => true,
             _ => student,
           },
         ),

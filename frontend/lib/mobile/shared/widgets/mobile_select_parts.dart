@@ -52,7 +52,41 @@ class MobileSelectChip extends StatelessWidget
   final bool selected;
   final VoidCallback onTap;
 
-  const MobileSelectChip({super.key, required this.label, required this.selected, required this.onTap});
+  // Cannot be picked: still touchable, so its reason can be told.
+  final bool struck;
+
+  const MobileSelectChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.struck = false,
+  });
+
+  Widget _buildStruck()
+  {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 11),
+      decoration: BoxDecoration(
+        color: AppTheme.trialInk.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(19),
+      ),
+      child: Align(
+        widthFactor: 1,
+        child: Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.trialInk.withValues(alpha: 0.35),
+            decoration: TextDecoration.lineThrough,
+            decorationThickness: MobilePalette.strikeThickness,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context)
@@ -63,7 +97,7 @@ class MobileSelectChip extends StatelessWidget
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: _taken(
+        child: struck ? _buildStruck() : _taken(
           selected: selected,
           builder: (t) => Container(
             height: 38,

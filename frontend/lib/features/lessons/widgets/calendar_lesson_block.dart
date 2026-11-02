@@ -14,8 +14,10 @@ import '../../association/models/ministry_subject_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/calendar_day.dart';
 import '../models/lesson_item.dart';
+import '../utils/calendar_search.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
+import 'calendar_search_fade.dart';
 
 const double kStudentBlockHeight = 80;
 const double kTeacherBlockHeight = 64;
@@ -698,6 +700,9 @@ class CalendarLessonBlock extends StatefulWidget
   // Its request opens on a long hover: the short tooltip would only say less of it.
   final bool showsDetails;
 
+  // The editing calendar's search: a lesson it finds lights up, the others step back.
+  final ValueListenable<CalendarSearch?>? search;
+
   const CalendarLessonBlock({
     super.key,
     required this.lesson,
@@ -722,13 +727,14 @@ class CalendarLessonBlock extends StatefulWidget
     this.showsRoom = false,
     this.isRow = false,
     this.showsDetails = false,
+    this.search,
   });
 
   @override
   State<CalendarLessonBlock> createState() => _CalendarLessonBlockState();
 }
 
-class _CalendarLessonBlockState extends State<CalendarLessonBlock>
+class _CalendarLessonBlockState extends State<CalendarLessonBlock> with CalendarSearchMarks
 {
   bool _isHovering = false;
 
@@ -792,7 +798,13 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
     }
   }
 
-  bool get _isLit => _isHovering || _isLitByPartner;
+  @override
+  ValueListenable<CalendarSearch?>? searchOf(CalendarLessonBlock widget) => widget.search;
+
+  @override
+  bool isFoundBy(CalendarSearch search) => search.findsLesson(widget.lesson);
+
+  bool get _isLit => _isHovering || _isLitByPartner || searchMarks.found;
 
   void _hover(bool isHovering)
   {
@@ -1228,7 +1240,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
 
     final Widget shown = AnimatedOpacity(
       duration: const Duration(milliseconds: 90),
-      opacity: _isResizing ? 0 : 1,
+      opacity: _isResizing ? 0 : (searchMarks.missed ? kSearchMissOpacity : 1),
       child: block,
     );
 

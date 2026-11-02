@@ -61,11 +61,11 @@ _MINISTRY_REQUEST_WITHOUT_SUBJECTS_ERROR: Final[str] = (
 _SWEPT_KEY: Final[str] = "swept_presence_ids"
 
 # Max minutes per student per discipline of a subject in one band of a day, per
-# mode. The same discipline under two subjects takes two hours under each.
-_MAX_DISCIPLINE_MINUTES_PER_BAND: Final[int] = 120
+# mode. The same discipline under two subjects takes five hours under each.
+_MAX_DISCIPLINE_MINUTES_PER_BAND: Final[int] = 300
 
 _DISCIPLINE_OVER_BAND_LIMIT_ERROR: Final[str] = (
-    "Nella stessa fascia oraria uno studente non può superare le due ore "
+    "Nella stessa fascia oraria uno studente non può superare le cinque ore "
     "complessive sulla stessa disciplina"
 )
 
@@ -87,7 +87,7 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
     __table_args__ = (
         CheckConstraint("id > 0", name="positive_booking_id"),
         CheckConstraint(
-            "duration BETWEEN 15 AND 120 AND duration % 15 = 0",
+            "duration BETWEEN 15 AND 300 AND duration % 15 = 0",
             name="booking_duration_step",
         ),
         # Both columns null means a ministry-subject request; the child-table

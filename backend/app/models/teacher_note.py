@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from app.models.student import Student
 
 
-# A teacher's note after a lesson, for the administrators only; never changed.
+# A teacher's note on a lesson, for the administrators only; never changed.
 class TeacherNote(CreatedAtMixin, Base):
     __tablename__ = "teacher_notes"
 

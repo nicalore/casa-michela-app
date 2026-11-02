@@ -5,12 +5,10 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
 import '../../../../features/association/notices/notice_message_view.dart' show noticeTextStyle;
 import '../../../../features/calendar/widgets/own_lesson_dialog.dart';
-import '../../../../features/calendar/widgets/teacher_note_dialog.dart' show lessonHasBegun;
 import '../../../../features/lessons/models/calendar_day.dart';
 import '../../../../features/lessons/models/activity_item.dart';
 import '../../../../features/lessons/models/lesson_item.dart';
@@ -91,7 +89,7 @@ Future<void> showMobileLessonSheet({
       otherName: withStudent ? 'Studente' : null,
       otherVoices: student == null ? null : studentVoicesOf(student),
       otherFailedNote: kStudentFailedNote,
-      takesNote: lessonHasBegun(lesson, romeNow()),
+      takesNote: true,
       tourLink: tourLink,
     ),
   );

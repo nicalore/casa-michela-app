@@ -40,7 +40,7 @@ _NO_TAGS_ERROR: Final[str] = "Indica almeno un tipo di lezione."
 
 
 class BookingBase(BaseModel):
-    duration: int = Field(..., ge=15, le=120)
+    duration: int = Field(..., ge=15, le=300)
 
     ministry_subject_id: int | None = None
     association_subject_ids: list[int] = Field(default_factory=list)

@@ -4,7 +4,6 @@ import 'package:pdf/pdf.dart';
 import '../../../core/theme/app_theme.dart';
 import '../utils/opening_window.dart';
 import '../widgets/calendar_activity_block.dart';
-import '../widgets/calendar_lesson_block.dart' show kLessonPersonColor;
 
 PdfColor _pdf(Color colour)
 {
@@ -18,15 +17,10 @@ PdfColor _pdf(Color colour)
 final PdfColor kPdfInk = _pdf(AppTheme.trialOcean);
 
 final PdfColor kPdfViolet = _pdf(AppTheme.trialViolet);
-final PdfColor kPdfVioletSurface = _pdf(
-  Color.alphaBlend(AppTheme.trialViolet.withValues(alpha: 0.12), const Color(0xFFFFFFFF)),
-);
 
 final PdfColor kPdfBody = _pdf(AppTheme.trialInk);
 
 final PdfColor kPdfMuted = _pdf(AppTheme.trialMutedText);
-
-final PdfColor kPdfPerson = _pdf(kLessonPersonColor);
 
 final PdfColor kPdfPresence = _pdf(AppTheme.trialTealDeep);
 final PdfColor kPdfPresenceSurface = _pdf(AppTheme.todaySurface);
@@ -38,9 +32,7 @@ final PdfColor kPdfActivity = _pdf(kActivityAccent);
 final PdfColor kPdfActivitySurface = _pdf(kActivitySurface);
 
 final PdfColor kPdfLine = _pdf(AppTheme.trialLine);
-final PdfColor kPdfRule = _pdf(AppTheme.closedLine);
 
-final PdfColor kPdfBand = _pdf(AppTheme.pageBackground);
 final PdfColor kPdfHeaderGround = _pdf(AppTheme.trialPaper);
 
 const PdfColor kPdfWhite = PdfColors.white;

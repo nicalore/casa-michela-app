@@ -14,7 +14,8 @@ from app.services.teacher_note_notifications import (
 )
 from app.services.teacher_notes import write_teacher_note
 
-# Written by the teacher once the lesson begins; only administrators read or delete it.
+# Written by the teacher once the band is published;
+# only administrators read or delete it.
 router = APIRouter(tags=["people"])
 
 Teacher = Annotated[IdentityContext, Depends(require_role("TEACHER"))]

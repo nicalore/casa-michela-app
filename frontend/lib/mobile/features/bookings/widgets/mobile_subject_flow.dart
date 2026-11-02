@@ -164,6 +164,24 @@ class MobileSubjectFlow
     return available != null && minutesTaken > available;
   }
 
+  bool _fits(int minutes)
+  {
+    final int? available = minutesAvailable;
+
+    return available == null || minutesTakenByOthers + minutes <= available;
+  }
+
+  String _overStay(int taken)
+  {
+    return durationOverStay(
+      taken,
+      minutesAvailable ?? 0,
+      isSelf: isSelf,
+      name: pupil.firstName,
+      band: _choosesBand ? draft.band : null,
+    );
+  }
+
   String? blockedReason(SubjectRequestStep step)
   {
     switch (step)
@@ -182,13 +200,7 @@ class MobileSubjectFlow
 
         if (exceeds)
         {
-          return durationOverStay(
-            minutesTaken,
-            minutesAvailable ?? 0,
-            isSelf: isSelf,
-            name: pupil.firstName,
-            band: _choosesBand ? draft.band : null,
-          );
+          return _overStay(minutesTaken);
         }
 
         return null;
@@ -326,24 +338,42 @@ class MobileSubjectFlow
       ),
       _lit(
         SubjectFlowMark.durations,
-        Wrap(
-          spacing: kMobileChipGap,
-          runSpacing: kMobileChipGap,
-          children: [
-            for (final minutes in bookingDurationOptions)
-              MobileSelectChip(
-                label: formatMinutes(minutes),
-                selected: draft.duration == minutes,
-                onTap: ()
-                {
-                  draft.duration = minutes;
-                  onChanged();
-                },
-              ),
-          ],
+        Builder(
+          builder: (context) => Wrap(
+            spacing: kMobileChipGap,
+            runSpacing: kMobileChipGap,
+            children: [
+              for (final minutes in bookingDurationOptions) _durationChip(context, minutes, onChanged),
+            ],
+          ),
         ),
       ),
     ];
+  }
+
+  // The duration held is never struck: the count and the refusal tell it is too long.
+  Widget _durationChip(BuildContext context, int minutes, VoidCallback onChanged)
+  {
+    final bool held = draft.duration == minutes;
+    final bool struck = !held && !_fits(minutes);
+
+    return MobileSelectChip(
+      label: formatMinutes(minutes),
+      selected: held,
+      struck: struck,
+      onTap: ()
+      {
+        if (struck)
+        {
+          MobileNotice.show(context, _overStay(minutesTakenByOthers + minutes), error: true);
+
+          return;
+        }
+
+        draft.duration = minutes;
+        onChanged();
+      },
+    );
   }
 
   List<Widget> _teacherList({required bool tablet, required VoidCallback onChanged})

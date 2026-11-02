@@ -267,13 +267,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
     if (step == _Step.duration && _exceeds)
     {
-      return durationOverStay(
-        _minutesTaken,
-        _minutesAvailable ?? 0,
-        isSelf: widget.isSelf,
-        name: widget.studentName,
-        band: _choosesBand ? _draft.band : null,
-      );
+      return _overStay(_minutesTaken);
     }
 
     return null;
@@ -410,13 +404,33 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     );
   }
 
-  int get _minutesTaken => (_offer?.takenByOthers ?? 0) + (_draft.duration ?? 0);
+  int get _minutesTakenByOthers => _offer?.takenByOthers ?? 0;
+
+  int get _minutesTaken => _minutesTakenByOthers + (_draft.duration ?? 0);
 
   bool get _exceeds
   {
     final available = _minutesAvailable;
 
     return available != null && _minutesTaken > available;
+  }
+
+  bool _fits(int minutes)
+  {
+    final available = _minutesAvailable;
+
+    return available == null || _minutesTakenByOthers + minutes <= available;
+  }
+
+  String _overStay(int taken)
+  {
+    return durationOverStay(
+      taken,
+      _minutesAvailable ?? 0,
+      isSelf: widget.isSelf,
+      name: widget.studentName,
+      band: _choosesBand ? _draft.band : null,
+    );
   }
 
   Widget _buildDurationStep()
@@ -453,10 +467,13 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
             spacing: 10,
             runSpacing: 10,
             children: [
+              // The duration held is never struck: the count and the refusal tell it is too long.
               for (final minutes in bookingDurationOptions)
                 AppSelectableChip(
                   label: formatMinutes(minutes),
                   selected: _draft.duration == minutes,
+                  enabled: _draft.duration == minutes || _fits(minutes),
+                  disabledTooltip: _overStay(_minutesTakenByOthers + minutes),
                   onSelected: (_) => setState(() => _draft.duration = minutes),
                 ),
             ],

@@ -8,8 +8,10 @@ import '../../../shared/widgets/descender_room.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/schedulable_booking.dart';
+import '../utils/calendar_search.dart';
 import '../utils/lesson_placement.dart';
 import 'calendar_lesson_block.dart';
+import 'calendar_search_fade.dart';
 
 const double _cardRadius = 16;
 
@@ -143,6 +145,8 @@ class CalendarBookingCard extends StatefulWidget
 
   final ValueListenable<CarriedPlacement>? carriedAt;
 
+  final ValueListenable<CalendarSearch?>? search;
+
   const CalendarBookingCard({
     super.key,
     required this.entry,
@@ -153,15 +157,22 @@ class CalendarBookingCard extends StatefulWidget
     this.onPlanRequested,
     this.onDragChanged,
     this.carriedAt,
+    this.search,
   });
 
   @override
   State<CalendarBookingCard> createState() => _CalendarBookingCardState();
 }
 
-class _CalendarBookingCardState extends State<CalendarBookingCard>
+class _CalendarBookingCardState extends State<CalendarBookingCard> with CalendarSearchMarks
 {
   bool _hover = false;
+
+  @override
+  ValueListenable<CalendarSearch?>? searchOf(CalendarBookingCard widget) => widget.search;
+
+  @override
+  bool isFoundBy(CalendarSearch search) => search.findsBooking(widget.entry);
 
   BookingSummaryItem get _booking => widget.entry.booking;
 
@@ -427,8 +438,12 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
     final notPreferred = _namesOf(_booking.notPreferredTeacherTaxCodes);
     final onClick = _onClick;
 
-    final Widget card = Opacity(
-      opacity: widget.isGhosted ? 0.35 : 1,
+    final marks = searchMarks;
+
+    final Widget card = AnimatedOpacity(
+      opacity: widget.isGhosted ? 0.35 : (marks.missed ? kSearchMissOpacity : 1),
+      duration: kSearchFade,
+      curve: Curves.easeOut,
       child: MouseRegion(
         cursor: onClick == null ? MouseCursor.defer : SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hover = true),
@@ -442,8 +457,8 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
               color: Colors.white,
               borderRadius: BorderRadius.circular(_cardRadius),
               border: Border.all(
-                color: _hover ? AppTheme.trialGold : AppTheme.trialLine,
-                width: 1.5,
+                color: _hover || marks.found ? AppTheme.trialGold : AppTheme.trialLine,
+                width: marks.found ? 2 : 1.5,
               ),
               boxShadow: AppTheme.cardShadow,
             ),

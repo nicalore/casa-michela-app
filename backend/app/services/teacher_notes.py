@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Final
 
 from fastapi import HTTPException, status
@@ -6,18 +5,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.core.booking_window import now_in_rome
 from app.models.booking import Booking
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.ministry_subject import MinistrySubject
 from app.models.teacher_note import TeacherNote
+from app.repositories.calendar_publication_repository import (
+    CalendarPublicationRepository,
+)
 from app.schemas.student_note import StudentNoteWrite, TeacherNoteResponse
 
 _LESSON_NOT_FOUND_ERROR: Final[str] = "Lezione non trovata"
 _BOOKING_NOT_FOUND_ERROR: Final[str] = "Prenotazione non trovata"
 _NOT_THEIR_LESSON_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
-_NOT_STARTED_ERROR: Final[str] = "La lezione non è ancora iniziata."
 
 # The frontend's fallback for a ministry subject it cannot name.
 _UNNAMED_SUBJECT: Final[str] = "Materia"
@@ -83,12 +83,13 @@ async def write_teacher_note(
             detail=_NOT_THEIR_LESSON_ERROR,
         )
 
-    starts = datetime.combine(lesson.date, lesson.start_time)
+    # Unpublished, the lesson is not shown to its teacher yet.
+    publications = CalendarPublicationRepository(db)
 
-    if starts > now_in_rome().replace(tzinfo=None):
+    if not await publications.is_published(lesson.date, lesson.band):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NOT_STARTED_ERROR,
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_LESSON_NOT_FOUND_ERROR,
         )
 
     bookings = [link.booking for link in lesson.lesson_bookings]

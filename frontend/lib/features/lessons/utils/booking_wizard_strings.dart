@@ -227,8 +227,8 @@ enum SubjectRequestStep
       SubjectRequestStep.band => 'La lezione sarà pianificata solo negli orari della fascia che scegli.',
       SubjectRequestStep.what => 'Almeno una tipologia. Queste informazioni aiuteranno il docente a rendere '
           'la lezione più adatta alle ${isSelf ? 'tue esigenze' : 'esigenze $whose'}.',
-      SubjectRequestStep.duration => 'Ogni disciplina può essere prenotata da un minimo di 15 minuti a un massimo '
-          'di due ore. Se hai bisogno di altre ore, puoi richiedere una lezione online.',
+      SubjectRequestStep.duration => 'Ogni lezione può essere prenotata da un minimo di 15 minuti a un massimo '
+          'di 5 ore.',
       SubjectRequestStep.teachers => 'Se vuoi, puoi indicare fino a tre docenti '
           '${isSelf ? 'che preferisci' : 'preferiti $byWhom'}. '
           'Le preferenze indicate verranno tenute in considerazione, ma potrebbero non essere '

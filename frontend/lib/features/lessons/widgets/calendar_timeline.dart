@@ -16,6 +16,7 @@ import '../models/calendar_day.dart';
 import '../models/lesson_item.dart';
 import '../models/person_option_item.dart';
 import '../models/room_day_plan.dart';
+import '../utils/calendar_search.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/online_only.dart';
 import '../utils/opening_window.dart';
@@ -481,12 +482,16 @@ class _MarkedAvatar extends StatelessWidget
 
   final VoidCallback? onToggleExcluded;
 
+  // A teacher found by name wears the gold ring, unless a carried request marks them.
+  final ValueListenable<CalendarSearch?>? search;
+
   const _MarkedAvatar({
     required this.person,
     required this.standing,
     this.isExcluded = false,
     this.onToggleExcluded,
     this.size = _size,
+    this.search,
   });
 
   final double size;
@@ -517,12 +522,46 @@ class _MarkedAvatar extends StatelessWidget
     return null;
   }
 
+  Widget _ringed(Color ring, Widget face)
+  {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: ring, width: 2),
+      ),
+      child: face,
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
     final mark = _mark;
+    final finder = search;
 
-    final ring = mark?.accent ?? kAvoidedTeacherColor.withValues(alpha: 0);
+    final none = kAvoidedTeacherColor.withValues(alpha: 0);
+
+    final Widget face = Stack(
+      children: [
+        AnimatedOpacity(
+          duration: kExcludedLaneFade,
+          curve: kExcludedLaneCurve,
+          opacity: isExcluded ? kExcludedLaneOpacity : 1,
+          child: PersonAvatar(person: person, size: size - 8),
+        ),
+        if (onToggleExcluded != null)
+          Positioned.fill(
+            child: TeacherExclusionOverlay(
+              isExcluded: isExcluded,
+              onToggle: onToggleExcluded,
+              signSize: size < _size ? 20 : 26,
+            ),
+          ),
+      ],
+    );
 
     return SizedBox(
       width: size + 6,
@@ -530,33 +569,14 @@ class _MarkedAvatar extends StatelessWidget
       child: Stack(
         children: [
           Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              curve: Curves.easeOut,
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: ring, width: 2),
-              ),
-              child: Stack(
-                children: [
-                  AnimatedOpacity(
-                    duration: kExcludedLaneFade,
-                    curve: kExcludedLaneCurve,
-                    opacity: isExcluded ? kExcludedLaneOpacity : 1,
-                    child: PersonAvatar(person: person, size: size - 8),
+            child: mark != null || finder == null
+                ? _ringed(mark?.accent ?? none, face)
+                : ValueListenableBuilder<CalendarSearch?>(
+                    valueListenable: finder,
+                    child: face,
+                    builder: (context, found, face) =>
+                        _ringed(found != null && found.findsTeacher(person) ? AppTheme.trialGold : none, face!),
                   ),
-                  if (onToggleExcluded != null)
-                    Positioned.fill(
-                      child: TeacherExclusionOverlay(
-                        isExcluded: isExcluded,
-                        onToggle: onToggleExcluded,
-                        signSize: size < _size ? 20 : 26,
-                      ),
-                    ),
-                ],
-              ),
-            ),
           ),
           if (mark != null)
             Positioned(
@@ -803,6 +823,8 @@ class _LaneHeader extends StatelessWidget
   // Beside the online-only badge while composing; a published band keeps the badge alone.
   final bool showsOnlineOnlyBand;
 
+  final ValueListenable<CalendarSearch?>? search;
+
   const _LaneHeader({
     required this.lane,
     required this.bandStart,
@@ -813,6 +835,7 @@ class _LaneHeader extends StatelessWidget
     this.isExcluded = false,
     this.onToggleExcluded,
     this.showsOnlineOnlyBand = true,
+    this.search,
   });
 
   ({bool preferred, bool avoided}) _standingFor(CalendarDragPayload? payload)
@@ -974,6 +997,7 @@ class _LaneHeader extends StatelessWidget
           isExcluded: isExcluded,
           onToggleExcluded: onToggleExcluded,
           size: dense ? _MarkedAvatar._denseSize : _MarkedAvatar._size,
+          search: search,
         ),
         SizedBox(width: gap),
         Expanded(
@@ -1318,6 +1342,9 @@ class CalendarTimeline extends StatefulWidget
   // Composing: where each lesson too narrow for its words writes them, under its row.
   final Map<String, Map<int, CaptionSpot>> captions;
 
+  // The editing calendar's search: what it finds lights up, the rest steps back.
+  final ValueListenable<CalendarSearch?>? search;
+
   const CalendarTimeline({
     super.key,
     required this.lanes,
@@ -1354,6 +1381,7 @@ class CalendarTimeline extends StatefulWidget
     this.lessonDetails,
     this.viewportKey,
     this.captions = const {},
+    this.search,
   });
 
   @override
@@ -1937,6 +1965,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                 litLesson: _litLesson,
                 onHover: (isLit) => _light(lesson, isLit),
                 onTap: _tapOf(lesson),
+                search: widget.search,
               ),
             ),
       ],
@@ -2005,6 +2034,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
           ? null
           : (isLeftEdge, position) => _onActivityEdgeDrag(scheduled, isLeftEdge, position),
       onEdgeDragEnd: _onEdgeDragEnd,
+      search: widget.search,
     );
   }
 
@@ -2050,6 +2080,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
           (widget.roomByTeacher[lesson.teacherTaxCode]?.changesRoom ?? false),
       litLesson: _litLesson,
       onHover: (isLit) => _light(lesson, isLit),
+      search: widget.search,
       carriedAt: _carriedAt,
       onDragChanged: (payload)
       {
@@ -2413,6 +2444,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                       isExcluded: _isExcluded(lanes[index]),
                       onToggleExcluded: _toggleExcluded(lanes[index]),
                       showsOnlineOnlyBand: widget.isComposing,
+                      search: widget.search,
                     ),
                   ),
               ],

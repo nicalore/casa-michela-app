@@ -36,7 +36,6 @@ import 'widgets/own_day_timeline.dart';
 import 'widgets/own_lesson_block.dart';
 import 'widgets/own_lesson_dialog.dart';
 import 'widgets/own_lesson_list.dart';
-import 'widgets/teacher_note_dialog.dart' show lessonHasBegun;
 
 const Duration _tick = Duration(minutes: 1);
 
@@ -201,10 +200,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     }
 
     final LessonItem? lesson = _firstLessonIn(_band);
-    final DesktopTour? tour = await calendarPageTour(
-      student: lesson != null && !lesson.date.isBefore(_today),
-      note: lesson != null && lessonHasBegun(lesson, _now),
-    );
+    final DesktopTour? tour = await calendarPageTour(student: lesson != null && !lesson.date.isBefore(_today));
 
     if (tour != null && mounted)
     {

@@ -16,12 +16,14 @@ import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
 import '../models/presence_item.dart';
 import '../models/schedulable_booking.dart';
+import '../utils/calendar_search.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
 import 'calendar_activity_card.dart';
 import 'calendar_booking_card.dart';
 import 'calendar_lesson_block.dart';
 import 'calendar_request_details.dart';
+import 'calendar_search_fade.dart';
 import 'person_avatar.dart';
 
 
@@ -246,6 +248,9 @@ class CalendarBookingPanel extends StatelessWidget
   // A card held still under the pointer opens these.
   final WidgetBuilder Function(SchedulableBooking entry)? requestDetails;
 
+  // The editing calendar's search: found requests light up, the rest steps back.
+  final ValueListenable<CalendarSearch?>? search;
+
   const CalendarBookingPanel({
     super.key,
     required this.groups,
@@ -260,6 +265,7 @@ class CalendarBookingPanel extends StatelessWidget
     this.onAddActivity,
     this.onOpenActivity,
     this.requestDetails,
+    this.search,
   });
 
   BookingDragMode get _dragMode
@@ -365,6 +371,7 @@ class CalendarBookingPanel extends StatelessWidget
       onPlanRequested: onPlanRequested == null ? null : () => onPlanRequested!(entry),
       onDragChanged: onDragChanged,
       carriedAt: carriedAt,
+      search: search,
     );
 
     final details = requestDetails;
@@ -372,14 +379,19 @@ class CalendarBookingPanel extends StatelessWidget
     return details == null ? card : CalendarDetailsHover(details: details(entry), child: card);
   }
 
+  // Not placed yet, so nobody's: the search never finds one.
   Widget _buildActivityCard(ActivityItem activity)
   {
-    return CalendarActivityCard(
-      activity: activity,
-      dragMode: _dragMode,
-      onOpen: onOpenActivity == null ? null : () => onOpenActivity!(activity),
-      onDragChanged: onDragChanged,
-      carriedAt: carriedAt,
+    return CalendarSearchFade(
+      search: search,
+      finds: (_) => false,
+      child: CalendarActivityCard(
+        activity: activity,
+        dragMode: _dragMode,
+        onOpen: onOpenActivity == null ? null : () => onOpenActivity!(activity),
+        onDragChanged: onDragChanged,
+        carriedAt: carriedAt,
+      ),
     );
   }
 
@@ -423,6 +435,13 @@ class CalendarBookingPanel extends StatelessWidget
 
   Widget _buildStudentBlock(StudentBookingGroup student)
   {
+    // The pupil's name and hours step back with the last of their requests.
+    Widget faded(Widget child) => CalendarSearchFade(
+          search: search,
+          finds: (found) => student.presences.any((group) => group.bookings.any(found.findsBooking)),
+          child: child,
+        );
+
     return Container(
       padding: const EdgeInsets.fromLTRB(11, 11, 11, 13),
       decoration: BoxDecoration(
@@ -433,12 +452,12 @@ class CalendarBookingPanel extends StatelessWidget
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _StudentHeader(student: student),
+          faded(_StudentHeader(student: student)),
           for (final group in student.presences) ...[
             const SizedBox(height: 12),
             for (final (i, presence) in group.presences.indexed) ...[
               if (i > 0) const SizedBox(height: 4),
-              _PresenceBand(presence: presence),
+              faded(_PresenceBand(presence: presence)),
             ],
             for (final entry in group.bookings) ...[
               const SizedBox(height: 8),

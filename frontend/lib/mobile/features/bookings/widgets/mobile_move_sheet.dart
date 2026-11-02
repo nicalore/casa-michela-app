@@ -340,37 +340,11 @@ class _MoveSheetState extends State<_MoveSheet>
 
   Widget _buildOption(MoveOption option)
   {
-    final bool off = option.refusal != null;
-
-    if (!off)
-    {
-      return MobileSelectChip(label: option.label, selected: identical(option, _chosen), onTap: () => _choose(option));
-    }
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return MobileSelectChip(
+      label: option.label,
+      selected: identical(option, _chosen),
+      struck: option.refusal != null,
       onTap: () => _choose(option),
-      child: Container(
-        height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 11),
-        decoration: BoxDecoration(
-          color: AppTheme.trialInk.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(19),
-        ),
-        child: Align(
-          widthFactor: 1,
-          child: Text(
-            option.label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.trialInk.withValues(alpha: 0.35),
-              decoration: TextDecoration.lineThrough,
-              decorationThickness: MobilePalette.strikeThickness,
-            ),
-          ),
-        ),
-      ),
     );
   }
 

@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
-import '../../association/models/opening_day_item.dart';
 import '../../people/models/person_face.dart';
 import '../models/activity_item.dart';
 import '../models/availability_item.dart';
@@ -13,7 +12,6 @@ import '../models/lesson_item.dart';
 import '../models/presence_item.dart';
 import '../models/room_day_plan.dart';
 import '../utils/opening_window.dart';
-import '../utils/timeline_geometry.dart';
 import '../widgets/calendar_lesson_block.dart';
 
 class CalendarExportData
@@ -32,8 +30,6 @@ class CalendarExportData
   final int bandStart;
   final int bandEnd;
 
-  final (int, int)? window;
-
   final CalendarPublicationItem? publication;
 
   const CalendarExportData({
@@ -45,7 +41,6 @@ class CalendarExportData
     required this.ministrySubjects,
     required this.bandStart,
     required this.bandEnd,
-    required this.window,
     required this.publication,
   });
 
@@ -94,7 +89,6 @@ CalendarExportData teachersExport({
   required List<AvailabilityItem> availabilities,
   required List<LessonItem> lessons,
   required List<ActivityItem> activities,
-  required List<OpeningDayItem> openingDays,
   required List<MinistrySubjectItem> ministrySubjects,
   required RoomDayPlan? roomPlan,
   required CalendarPublicationItem? publication,
@@ -119,7 +113,6 @@ CalendarExportData teachersExport({
     lanes: orderByRoom(lanes: called, rooms: rooms),
     roomByTeacher: rooms,
     ministrySubjects: ministrySubjects,
-    openingDays: openingDays,
     publication: publication,
   );
 }
@@ -127,7 +120,6 @@ CalendarExportData teachersExport({
 CalendarExportData studentsExport({
   required List<PresenceItem> presences,
   required List<LessonItem> lessons,
-  required List<OpeningDayItem> openingDays,
   required List<MinistrySubjectItem> ministrySubjects,
   required CalendarPublicationItem? publication,
   required DateTime day,
@@ -153,7 +145,6 @@ CalendarExportData studentsExport({
     ),
     roomByTeacher: const {},
     ministrySubjects: ministrySubjects,
-    openingDays: openingDays,
     publication: publication,
   );
 }
@@ -165,14 +156,9 @@ CalendarExportData _assemble({
   required List<CalendarLane> lanes,
   required Map<String, LaneRoomLabel> roomByTeacher,
   required List<MinistrySubjectItem> ministrySubjects,
-  required List<OpeningDayItem> openingDays,
   required CalendarPublicationItem? publication,
 })
 {
-  final bandStart = bandStartMinutes(band);
-  final bandEnd = bandEndMinutes(band);
-  final opening = unionOpeningWindow(openingDays, day, band);
-
   return CalendarExportData(
     day: day,
     band: band,
@@ -180,16 +166,8 @@ CalendarExportData _assemble({
     lanes: lanes,
     roomByTeacher: roomByTeacher,
     ministrySubjects: ministrySubjects,
-    bandStart: bandStart,
-    bandEnd: bandEnd,
-    window: timelineWindow(
-      bandStartMinutes: bandStart,
-      bandEndMinutes: bandEnd,
-      opening: opening == null ? null : (opening.startMinutes, opening.endMinutes),
-      content: [
-        for (final lane in lanes) ...lane.contentSpans(bandStart, bandEnd),
-      ],
-    ),
+    bandStart: bandStartMinutes(band),
+    bandEnd: bandEndMinutes(band),
     publication: publication,
   );
 }
@@ -263,30 +241,23 @@ ExportActivityFields exportActivityFields(ScheduledActivity scheduled)
   );
 }
 
-// A row's hours in clock order, those running at the same time gathered in one group.
-List<List<T>> heldTogether<T>(Iterable<T> items, (int, int) Function(T item) spanOf)
+// Two hours of a row running at the same time, by their places in the row.
+typedef TogetherPair = ({int first, int second});
+
+// Every two hours that overlap, pair by pair: no more than two lessons run at once. A null span
+// (an activity) is nobody's pair.
+List<TogetherPair> togetherPairs(List<(int, int)?> spans)
 {
-  final sorted = items.toList()..sort((a, b) => spanOf(a).$1.compareTo(spanOf(b).$1));
-  final groups = <List<T>>[];
-  var reach = 0;
+  return [
+    for (var i = 0; i < spans.length; i++)
+      for (var j = i + 1; j < spans.length; j++)
+        if (_overlap(spans[i], spans[j])) (first: i, second: j),
+  ];
+}
 
-  for (final item in sorted)
-  {
-    final (start, end) = spanOf(item);
-
-    if (groups.isNotEmpty && start < reach)
-    {
-      groups.last.add(item);
-      reach = math.max(reach, end);
-    }
-    else
-    {
-      groups.add([item]);
-      reach = end;
-    }
-  }
-
-  return groups;
+bool _overlap((int, int)? a, (int, int)? b)
+{
+  return a != null && b != null && math.max(a.$1, b.$1) < math.min(a.$2, b.$2);
 }
 
 // Where the hours of a group run together, merged, in clock order.

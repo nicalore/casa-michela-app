@@ -362,73 +362,43 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   bool get _printsEnrollmentForms =>
       widget.purpose == PersonEditPurpose.create && needsEnrollmentForms(_form);
 
-  // Runs before saving; printed=false stops creation, blockedNote names tabs turned into downloads.
+  // Runs before saving; printed=false stops creation, blockedNote says the forms were downloaded.
   Future<({bool printed, String? blockedNote})> _printEnrollmentForms() async
   {
     final List<EnrollmentForm> forms = buildEnrollmentForms(_form);
     final String day = DateFormat('dd-MM-yyyy').format(romeNow());
 
     // Tabs must open before the first await, or the browser blocks them as popups.
-    final List<PdfTab?> tabs = [
-      for (final EnrollmentForm form in forms)
-        openPdfTab(title: 'Modulo di iscrizione · ${form.personName}'),
+    final List<PdfTabRequest> requests = [
+      for (final EnrollmentForm form in forms) ...[
+        (
+          tab: openPdfTab(title: 'Modulo di iscrizione · ${form.personName}'),
+          label: 'Modulo di iscrizione · ${form.personName}',
+          fileName: 'Modulo di iscrizione ${form.personName} $day.pdf',
+          bytes: () => ApiService().generateEnrollmentForm(form.request),
+        ),
+        if (form.needsEarlyExitForm)
+          (
+            tab: openPdfTab(title: 'Modulo uscita anticipata · ${form.personName}'),
+            label: 'Modulo uscita anticipata · ${form.personName}',
+            fileName: 'Modulo uscita anticipata ${form.personName} $day.pdf',
+            bytes: () => ApiService().generateEarlyExitForm(form.request),
+          ),
+      ],
     ];
 
-    final List<PdfTab?> earlyExitTabs = [
-      for (final EnrollmentForm form in forms)
-        form.needsEarlyExitForm
-            ? openPdfTab(title: 'Modulo uscita anticipata · ${form.personName}')
-            : null,
-    ];
-
-    var downloaded = false;
+    final bool downloaded;
 
     try
     {
-      for (final (int index, EnrollmentForm form) in forms.indexed)
-      {
-        final Uint8List bytes =
-            await ApiService().generateEnrollmentForm(form.request);
-        final String fileName =
-            'Modulo di iscrizione ${form.personName} $day.pdf';
-        final PdfTab? tab = tabs[index];
-
-        if (tab != null)
-        {
-          tab.present(bytes, fileName: fileName);
-        }
-        else
-        {
-          downloaded = downloadPdf(bytes, fileName: fileName) || downloaded;
-        }
-
-        if (!form.needsEarlyExitForm)
-        {
-          continue;
-        }
-
-        final Uint8List earlyExit =
-            await ApiService().generateEarlyExitForm(form.request);
-        final String earlyExitName =
-            'Modulo uscita anticipata ${form.personName} $day.pdf';
-        final PdfTab? earlyExitTab = earlyExitTabs[index];
-
-        if (earlyExitTab != null)
-        {
-          earlyExitTab.present(earlyExit, fileName: earlyExitName);
-        }
-        else
-        {
-          downloaded = downloadPdf(earlyExit, fileName: earlyExitName) || downloaded;
-        }
-      }
+      downloaded = await presentPdfs(requests);
     }
     catch (e)
     {
       // Tabs that already got their document ignore fail().
-      for (final PdfTab? tab in [...tabs, ...earlyExitTabs])
+      for (final PdfTabRequest request in requests)
       {
-        tab?.fail('Non è stato possibile generare il modulo.');
+        request.tab?.fail('Non è stato possibile generare il modulo.');
       }
 
       if (mounted)
@@ -446,9 +416,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     return (
       printed: true,
-      blockedNote: forms.length == 1
+      blockedNote: requests.length == 1
           ? 'Il browser ha bloccato la scheda: il modulo è stato scaricato.'
-          : 'Il browser ha bloccato una scheda: il modulo è stato scaricato.',
+          : 'Il browser ha bloccato le schede: i moduli sono stati scaricati.',
     );
   }
 

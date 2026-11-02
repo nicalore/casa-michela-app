@@ -8,7 +8,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/lesson_item.dart';
+import '../utils/calendar_search.dart';
 import 'calendar_lesson_block.dart';
+import 'calendar_search_fade.dart';
 
 const double kCaptionLineHeight = 20;
 
@@ -174,6 +176,9 @@ class LessonCaption extends StatelessWidget
 
   final CaptionSpot spot;
 
+  // Found or missed along with its block.
+  final ValueListenable<CalendarSearch?>? search;
+
   const LessonCaption({
     super.key,
     required this.lesson,
@@ -182,6 +187,7 @@ class LessonCaption extends StatelessWidget
     required this.onHover,
     required this.spot,
     this.onTap,
+    this.search,
   });
 
   @override
@@ -195,15 +201,16 @@ class LessonCaption extends StatelessWidget
       onExit: (_) => onHover(false),
       child: GestureDetector(
         onTap: onTap,
-        child: ValueListenableBuilder<int?>(
-          valueListenable: litLesson,
-          builder: (context, lit, child)
+        child: ListenableBuilder(
+          listenable: Listenable.merge([litLesson, ?search]),
+          builder: (context, child)
           {
-            final isLit = lit == lesson.id;
+            final found = search?.value;
+            final isLit = litLesson.value == lesson.id || (found != null && found.findsLesson(lesson));
 
             // The page colour under the words keeps the half-hour lines from crossing them.
             // Sized outside the animation: the width follows the track and must never animate.
-            return SizedBox(
+            return searchFaded((found: isLit, missed: found != null && !isLit), SizedBox(
               width: spot.width,
               height: spot.lines * kCaptionLineHeight - 1,
               child: AnimatedContainer(
@@ -217,7 +224,7 @@ class LessonCaption extends StatelessWidget
                 ),
                 child: child,
               ),
-            );
+            ));
           },
           child: BlockTexts(
             child: Row(

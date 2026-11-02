@@ -10,7 +10,7 @@ import '../../association/models/ministry_subject_item.dart';
 
 // Mirrors the backend's booking_duration_step check constraint.
 final List<int> bookingDurationOptions = [
-  for (var minutes = kQuarterHour; minutes <= 120; minutes += kQuarterHour) minutes,
+  for (var minutes = kQuarterHour; minutes <= 300; minutes += kQuarterHour) minutes,
 ];
 
 // Values must stay aligned with BookingTagEnum on the backend.
