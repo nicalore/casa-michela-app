@@ -241,7 +241,6 @@ class LessonRequestService:
                         # back_populates fills presence.bookings: no IO later.
                         self.session.add(
                             await self.booking_service.build_for_presence(
-                                identity,
                                 presence,
                                 subject,
                             )
@@ -303,7 +302,7 @@ class LessonRequestService:
                         self._lay(identity, plan)
 
                     for plan in plans:
-                        await self._fill(identity, plan)
+                        await self._fill(plan)
 
                     for plan in plans:
                         for presence in plan.dropped:
@@ -575,7 +574,7 @@ class LessonRequestService:
 
         plan.final.sort(key=lambda presence: presence.start_time)
 
-    async def _fill(self, identity: IdentityContext, plan: _ModePlan) -> None:
+    async def _fill(self, plan: _ModePlan) -> None:
         final = plan.final
 
         for booking in plan.gone:
@@ -592,7 +591,7 @@ class LessonRequestService:
 
                 continue
 
-            await self.booking_service.fill(identity, booking, subject)
+            await self.booking_service.fill(booking, subject)
 
             if booking.presence not in final or _band(booking.presence) != subject.band:
                 booking.presence = next(
@@ -604,9 +603,5 @@ class LessonRequestService:
 
         for presence, subject in assign_presences(final, new_subjects, taken=taken):
             self.session.add(
-                await self.booking_service.build_for_presence(
-                    identity,
-                    presence,
-                    subject,
-                ),
+                await self.booking_service.build_for_presence(presence, subject),
             )

@@ -152,7 +152,9 @@ class _EditNotPreferredTeachersDialogState extends State<_EditNotPreferredTeache
         setState(()
         {
           _teachers = activeCollaborators(
-            people.where((person) => person.roles.contains(_teacherRoleLabel)).toList(),
+            people
+                .where((person) => person.roles.contains(_teacherRoleLabel) && !person.isPresident)
+                .toList(),
           );
           _isLoading = false;
         });

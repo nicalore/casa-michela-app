@@ -3270,8 +3270,8 @@ async def update_not_preferred_teachers(
     # Bookings may change below, so serialize with the pupil's other writes.
     await lock_pupil(db, person.tax_code)
 
-    # Families neither add nor withdraw the president, whom they do not see.
-    president = None if identity.is_admin else await president_tax_code(db)
+    # Never avoided; an older row on them closes on the next save.
+    president = await president_tax_code(db)
     named = [code for code in payload.teacher_tax_codes if code != president]
     wanted = set(named)
     existing = set(
@@ -3296,7 +3296,7 @@ async def update_not_preferred_teachers(
     ).all()
 
     for row in open_rows:
-        if row.teacher_tax_code in wanted or row.teacher_tax_code == president:
+        if row.teacher_tax_code in wanted:
             continue
 
         if row.valid_from == today:

@@ -133,17 +133,15 @@ class BookingService:
         preferred_tax_codes: list[str],
         *,
         student_tax_code: str,
-        identity: IdentityContext,
     ) -> list[BookingPreferredTeacher]:
         if not preferred_tax_codes:
             return []
 
-        # Families never name the president; an older request loses them on save.
-        if not identity.is_admin:
-            president = await president_tax_code(self.repository.session)
-            preferred_tax_codes = [
-                code for code in preferred_tax_codes if code != president
-            ]
+        # Never asked for; an older request loses them on its next save.
+        president = await president_tax_code(self.repository.session)
+        preferred_tax_codes = [
+            code for code in preferred_tax_codes if code != president
+        ]
 
         existing = await self.repository.find_existing_teacher_tax_codes(
             preferred_tax_codes,
@@ -175,7 +173,6 @@ class BookingService:
 
     async def build_for_presence(
         self,
-        identity: IdentityContext,
         presence: Presence,
         payload: BookingBase,
     ) -> Booking:
@@ -197,16 +194,10 @@ class BookingService:
             preferred_teachers=await self.resolve_preferred_teachers(
                 payload.preferred_teacher_tax_codes,
                 student_tax_code=presence.student_tax_code,
-                identity=identity,
             ),
         )
 
-    async def fill(
-        self,
-        identity: IdentityContext,
-        booking: Booking,
-        payload: BookingBase,
-    ) -> None:
+    async def fill(self, booking: Booking, payload: BookingBase) -> None:
         children = _children_of(booking)
         booking.association_subject = await self._resolve_request_target(payload)
 
@@ -223,7 +214,6 @@ class BookingService:
         booking.preferred_teachers = await self.resolve_preferred_teachers(
             payload.preferred_teacher_tax_codes,
             student_tax_code=booking.presence.student_tax_code,
-            identity=identity,
         )
 
         # Child rows issue no UPDATE on the booking, so its version is bumped by hand.
@@ -321,7 +311,7 @@ class BookingService:
 
         self._assert_still_theirs(identity, presence)
 
-        booking = await self.build_for_presence(identity, presence, payload)
+        booking = await self.build_for_presence(presence, payload)
 
         async with integrity_guard(self.repository.session, _CREATE_ERROR):
             await self.repository.create(booking)
@@ -427,7 +417,7 @@ class BookingService:
 
             booking.presence = new_presence
 
-        await self.fill(identity, booking, payload)
+        await self.fill(booking, payload)
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):
             await self.repository.commit()

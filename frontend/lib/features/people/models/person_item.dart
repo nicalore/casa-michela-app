@@ -13,6 +13,8 @@ import 'school_enrollment_item.dart';
 import 'student_note_item.dart';
 import 'teacher_subject_item.dart';
 
+const String _presidentRole = 'PRESIDENT';
+
 class PersonItem implements PersonFace
 {
   static const int adultAge = 18;
@@ -226,6 +228,9 @@ class PersonItem implements PersonFace
   List<String> get notPreferredTeacherTaxCodes =>
       [for (final teacher in notPreferredTeachers ?? const []) teacher.taxCode];
 
+  // May teach, but is never a teacher to ask for or to avoid.
+  bool get isPresident => adminRole == _presidentRole;
+
   factory PersonItem.fromJson(Map<String, dynamic> json)
   {
     return PersonItem(
@@ -390,6 +395,6 @@ List<PersonItem> askableTeachers(
   final avoided = notPreferredTaxCodes.toSet();
 
   return eligible
-      .where((teacher) => !avoided.contains(teacher.fiscalCode))
+      .where((teacher) => !teacher.isPresident && !avoided.contains(teacher.fiscalCode))
       .toList();
 }

@@ -152,6 +152,10 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   int _selectedCollabMonth = romeNow().month;
 
   String _educationDistributionType = 'school';
+
+  // The grouping of the data shown, which lags the pill while a reload is on its way.
+  String _educationDataType = 'school';
+
   String _teacherRankingMode = 'absolute';
   String _appreciationPeriod = defaultStatsPeriod;
   String _availabilityPeriod = defaultStatsPeriod;
@@ -175,15 +179,19 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       return;
     }
 
+    final String type = _educationDistributionType;
+
     try
     {
-      final data = await _apiService.getStudentEducationDistribution(
-        _educationDistributionType,
-      );
+      final data = await _apiService.getStudentEducationDistribution(type);
 
       if (mounted)
       {
-        setState(() => _educationData = data);
+        setState(()
+        {
+          _educationData = data;
+          _educationDataType = type;
+        });
       }
     }
     catch (_) {}
@@ -811,6 +819,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         data: _cityData
             .map((item) => ChartDatum(label: item.city, count: item.count))
             .toList(),
+        othersLabel: (count) => 'Altre $count città',
       ),
     );
   }
@@ -859,6 +868,12 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         data: _educationData
             .map((item) => ChartDatum(label: item.label, count: item.count))
             .toList(),
+        othersLabel: (count) => switch (_educationDataType)
+        {
+          'program' => 'Altri $count percorsi',
+          'level' => 'Altri $count livelli',
+          _ => 'Altre $count scuole',
+        },
       ),
     );
   }
@@ -908,6 +923,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         data: _courseData
             .map((item) => ChartDatum(label: item.label, count: item.count))
             .toList(),
+        othersLabel: (count) => 'Altri $count corsi',
       ),
     );
   }

@@ -14,16 +14,29 @@ const LinearGradient _barGradient = AppTheme.chartBarGradient;
 
 const Color _hoveredBarColor = AppTheme.chartLilac;
 
+// The column holding what does not fit, in the charts' grey for "other".
+const LinearGradient _othersGradient = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [AppTheme.chartGrayLight, AppTheme.chartGray],
+);
+
+const Color _hoveredOthersColor = AppTheme.chartGray;
+
+// The popup's lift, arrow and padding above a bar's top.
+const double _popupChrome = 31;
+
+const double _othersColumnGap = 18;
+
 // The highlight rises inside the bar: a lerp between two hues passes through a dull mix.
 const Duration _hoverFill = Duration(milliseconds: 200);
 
-// The Y axis is painted outside the scrollable area so labels stay visible.
 const double _yAxisWidth = 45.0;
 
 // Shared by the widget and the painter: if they disagree, bars and labels drift.
 const double _plotBottomPadding = 52.0;
 
-// Below this slot width the plot scrolls horizontally instead of shrinking.
+// Below this slot width names break mid-word: the last column takes the rest, or the bars are laid across.
 const double _minBarSlotWidth = 95.0;
 
 const double _barWidthRatio = 0.6;
@@ -37,11 +50,16 @@ const double _acrossNamesMax = 200;
 const double _acrossRowGap = 10;
 const double _acrossBarHeight = 14;
 
+int _maxValueOf(List<ChartDatum> data) => chartMaxValue(data.map((item) => item.count).reduce(math.max));
+
 class BarChart extends StatefulWidget
 {
   final List<ChartDatum> data;
 
-  const BarChart({super.key, required this.data});
+  // Names the last column, which holds the bars that do not fit upright; without it they are laid across.
+  final String Function(int count)? othersLabel;
+
+  const BarChart({super.key, required this.data, this.othersLabel});
 
   @override
   State<BarChart> createState() => _BarChartState();
@@ -49,8 +67,6 @@ class BarChart extends StatefulWidget
 
 class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
 {
-  final ScrollController _scroll = ScrollController();
-
   final _FillLevels _fills = _FillLevels();
 
   // Runs only while some bar is still filling or draining.
@@ -71,9 +87,6 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
     super.initState();
     _ticker = createTicker(_tick);
     _fills.reset(widget.data.length);
-
-    // Bars slide under a still pointer, which would leave the wrong one lit.
-    _scroll.addListener(() => _hoverSlot(null));
   }
 
   @override
@@ -93,7 +106,6 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
   @override
   void dispose()
   {
-    _scroll.dispose();
     _ticker.dispose();
     _fills.dispose();
     super.dispose();
@@ -123,15 +135,31 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
     }
   }
 
-  List<Rect> _computeBarRects(double innerWidth, double chartHeight, int maxValue)
+  // The first columns, then one holding the rest; the data comes most numerous first.
+  List<ChartDatum> _columns(int fitting)
   {
-    final stepX = innerWidth / widget.data.length;
+    if (widget.data.length <= fitting)
+    {
+      return widget.data;
+    }
+
+    final List<ChartDatum> rest = widget.data.sublist(fitting - 1);
+
+    return [
+      ...widget.data.take(fitting - 1),
+      ChartDatum(label: widget.othersLabel!(rest.length), count: rest.fold(0, (sum, item) => sum + item.count)),
+    ];
+  }
+
+  List<Rect> _computeBarRects(List<ChartDatum> columns, double innerWidth, double chartHeight, int maxValue)
+  {
+    final stepX = innerWidth / columns.length;
     final barWidth = stepX * _barWidthRatio;
 
     return [
-      for (var i = 0; i < widget.data.length; i++)
+      for (var i = 0; i < columns.length; i++)
         () {
-          final barHeight = (widget.data[i].count / maxValue) * chartHeight;
+          final barHeight = (columns[i].count / maxValue) * chartHeight;
           final left = (i * stepX) + (stepX / 2) - (barWidth / 2);
 
           return Rect.fromLTWH(left, chartHeight - barHeight, barWidth, barHeight);
@@ -140,11 +168,11 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
   }
 
   // The whole column hit-tests, label included, so moving across bars never drops the popup.
-  void _hoverAt(Offset position, double innerWidth)
+  void _hoverAt(Offset position, double innerWidth, int columns)
   {
-    final slot = (position.dx / (innerWidth / widget.data.length)).floor();
+    final slot = (position.dx / (innerWidth / columns)).floor();
 
-    _hoverSlot(slot >= 0 && slot < widget.data.length ? slot : null);
+    _hoverSlot(slot >= 0 && slot < columns ? slot : null);
   }
 
   void _hoverSlot(int? index)
@@ -171,41 +199,77 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
     }
   }
 
-  String _popupText(int index)
+  String _popupText(ChartDatum datum)
   {
-    final datum = widget.data[index];
     final share = _total == 0 ? 0.0 : datum.count / _total * 100;
 
     return '${datum.label}: ${datum.count} (${share.toStringAsFixed(1)}%)';
   }
 
+  // One name per line, in more columns once a single one would rise out of the chart.
+  Widget _othersPopup(List<ChartDatum> rest, double room)
+  {
+    final TextStyle style = AppTheme.tooltipTextStyle;
+    final TextPainter line = TextPainter(
+      text: TextSpan(text: 'Ag', style: style),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final int fitting = math.max(3, (room / line.height).floor());
+
+    // Balanced, so the last column is never a lone name.
+    final int perColumn = (rest.length / (rest.length / fitting).ceil()).ceil();
+
+    line.dispose();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var start = 0; start < rest.length; start += perColumn)
+          Padding(
+            padding: EdgeInsets.only(left: start == 0 ? 0 : _othersColumnGap),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final datum in rest.skip(start).take(perColumn))
+                  Text('${datum.label}: ${datum.count}', style: style),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
-    final maxValue = chartMaxValue(widget.data.map((item) => item.count).reduce(math.max));
     final bool dense = AppPageDensity.of(context);
 
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final double room = constraints.maxWidth - _yAxisWidth;
+        final double innerWidth = constraints.maxWidth - _yAxisWidth;
+        final int fitting = (innerWidth / _minBarSlotWidth).floor();
 
-        // Dense, nothing scrolls sideways: columns too narrow for their names lay the bars across.
-        if (dense && room / widget.data.length < _minBarSlotWidth)
+        // Nothing scrolls sideways; dense windows fit too few columns for an «others» one to say much.
+        if (widget.data.length > fitting && (dense || widget.othersLabel == null || fitting < 2))
         {
-          return _BarsAcross(data: widget.data, maxValue: maxValue);
+          return _BarsAcross(data: widget.data, maxValue: _maxValueOf(widget.data));
         }
 
-        final innerWidth = dense ? room : math.max(room, widget.data.length * _minBarSlotWidth);
+        final List<ChartDatum> columns = _columns(fitting);
+        final int? othersIndex = columns.length < widget.data.length ? columns.length - 1 : null;
+        final int maxValue = _maxValueOf(columns);
 
         // A card that lets the chart size itself gives its height as a minimum.
         final double height = constraints.hasBoundedHeight ? constraints.maxHeight : constraints.minHeight;
         final chartHeight = height - _plotBottomPadding;
-        final barRects = _computeBarRects(innerWidth, chartHeight, maxValue);
+        final barRects = _computeBarRects(columns, innerWidth, chartHeight, maxValue);
         final popupIndex = _popupIndex;
-        final scrolled = _scroll.hasClients ? _scroll.offset : 0.0;
+        final bool popupOnOthers = othersIndex != null && popupIndex == othersIndex;
 
-        // The popup lives outside the scroll view, which would clip it.
         return SizedBox(
           height: height,
           child: Stack(
@@ -221,24 +285,19 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
                     ),
                   ),
                   Expanded(
-                    child: SingleChildScrollView(
-                      controller: _scroll,
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: SizedBox(
-                        width: innerWidth,
-                        height: height,
-                        child: MouseRegion(
-                          onHover: (event) => _hoverAt(event.localPosition, innerWidth),
-                          onExit: (_) => _hoverSlot(null),
-                          child: CustomPaint(
-                            size: Size.infinite,
-                            painter: _BarChartPainter(
-                              data: widget.data,
-                              barRects: barRects,
-                              hoveredIndex: _hoveredIndex,
-                              fills: _fills,
-                            ),
+                    child: SizedBox(
+                      height: height,
+                      child: MouseRegion(
+                        onHover: (event) => _hoverAt(event.localPosition, innerWidth, columns.length),
+                        onExit: (_) => _hoverSlot(null),
+                        child: CustomPaint(
+                          size: Size.infinite,
+                          painter: _BarChartPainter(
+                            data: columns,
+                            barRects: barRects,
+                            hoveredIndex: _hoveredIndex,
+                            othersIndex: othersIndex,
+                            fills: _fills,
                           ),
                         ),
                       ),
@@ -249,10 +308,13 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
               if (popupIndex != null && popupIndex < barRects.length)
                 ChartValuePopup(
                   target: Offset(
-                    _yAxisWidth + barRects[popupIndex].center.dx - scrolled,
+                    _yAxisWidth + barRects[popupIndex].center.dx,
                     barRects[popupIndex].top,
                   ),
-                  text: _popupText(popupIndex),
+                  text: popupOnOthers ? null : _popupText(columns[popupIndex]),
+                  content: popupOnOthers
+                      ? _othersPopup(widget.data.sublist(othersIndex), barRects[popupIndex].top - _popupChrome)
+                      : null,
                   isVisible: _hoveredIndex != null,
                 ),
             ],
@@ -438,12 +500,14 @@ class _BarChartPainter extends CustomPainter
   final List<ChartDatum> data;
   final List<Rect> barRects;
   final int? hoveredIndex;
+  final int? othersIndex;
   final _FillLevels fills;
 
   _BarChartPainter({
     required this.data,
     required this.barRects,
     required this.hoveredIndex,
+    required this.othersIndex,
     required this.fills,
   }) : super(repaint: fills);
 
@@ -475,12 +539,13 @@ class _BarChartPainter extends CustomPainter
     {
       final highlight = _highlightOf(i);
       final bool hovered = i == hoveredIndex;
+      final bool others = i == othersIndex;
 
       final Rect rect = barRects[i];
       final RRect bar = RRect.fromRectAndRadius(rect, const Radius.circular(8));
 
       // Per bar: a shader spans the rect it fills; a plot-wide one gives each bar a ramp slice.
-      canvas.drawRRect(bar, Paint()..shader = _barGradient.createShader(rect));
+      canvas.drawRRect(bar, Paint()..shader = (others ? _othersGradient : _barGradient).createShader(rect));
 
       if (highlight > 0)
       {
@@ -488,7 +553,7 @@ class _BarChartPainter extends CustomPainter
         canvas.clipRRect(bar);
         canvas.drawRect(
           Rect.fromLTRB(rect.left, rect.bottom - rect.height * highlight, rect.right, rect.bottom),
-          Paint()..color = _hoveredBarColor,
+          Paint()..color = others ? _hoveredOthersColor : _hoveredBarColor,
         );
         canvas.restore();
       }
@@ -519,6 +584,7 @@ class _BarChartPainter extends CustomPainter
   bool shouldRepaint(covariant _BarChartPainter oldDelegate)
   {
     return oldDelegate.hoveredIndex != hoveredIndex ||
+        oldDelegate.othersIndex != othersIndex ||
         oldDelegate.data != data ||
         oldDelegate.barRects != barRects;
   }
