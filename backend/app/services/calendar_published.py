@@ -223,8 +223,12 @@ async def announce_publication(
     return joined(batches)
 
 
+# Sorted keys: a stored draft comes back from JSONB with its keys reordered.
 def _key(rows: Iterable[dict[str, Any]]) -> str:
-    return json.dumps(sorted(rows, key=lambda row: json.dumps(row, sort_keys=True)))
+    return json.dumps(
+        sorted(rows, key=lambda row: json.dumps(row, sort_keys=True)),
+        sort_keys=True,
+    )
 
 
 # What each teacher and each pupil sees of a snapshot of the band.

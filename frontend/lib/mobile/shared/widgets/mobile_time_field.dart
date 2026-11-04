@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../mobile_palette.dart';
+import 'mobile_text_menu.dart';
 
 const double _height = 44;
 const double _radius = 14;
@@ -266,6 +267,7 @@ class _MobileTimeFieldState extends State<MobileTimeField>
         keyboardType: TextInputType.number,
         textInputAction: TextInputAction.done,
         inputFormatters: const [TimeTypingFormatter()],
+        contextMenuBuilder: mobileTextMenu,
         style: _valueStyle,
         cursorColor: AppTheme.trialTealDeep,
         decoration: const InputDecoration(isCollapsed: true, border: InputBorder.none),

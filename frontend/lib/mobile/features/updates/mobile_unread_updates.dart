@@ -9,6 +9,7 @@ import '../../../features/updates/update_item.dart';
 import '../../../features/updates/update_reading.dart';
 import '../../../features/updates/widgets/update_badges.dart';
 import '../../shared/widgets/mobile_sheet.dart';
+import '../../shared/widgets/mobile_text_menu.dart';
 import '../../shared/widgets/mobile_tour.dart';
 import '../notifications/mobile_notifications_offer.dart';
 
@@ -90,7 +91,12 @@ class _UpdatesSheet extends StatelessWidget
                       style: GoogleFonts.plusJakartaSans(fontSize: 21, fontWeight: FontWeight.w800, height: 1.25, color: AppTheme.trialInk),
                     ),
                     const SizedBox(height: 10),
-                    NoticeMessageView(message: update.message, images: images[update.id]!, tight: true),
+                    NoticeMessageView(
+                      message: update.message,
+                      images: images[update.id]!,
+                      tight: true,
+                      contextMenuBuilder: mobileQuillTextMenu,
+                    ),
                   ],
                 ),
               ),

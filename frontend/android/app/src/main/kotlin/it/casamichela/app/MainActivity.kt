@@ -51,6 +51,9 @@ class MainActivity : FlutterActivity() {
         notifications.setMethodCallHandler(::onNotificationsCall)
         PushBridge.channel = notifications
 
+        val textMenu = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TEXT_MENU_CHANNEL)
+        textMenu.setMethodCallHandler(TextMenu(textMenu) { findViewById(FLUTTER_VIEW_ID) }::onCall)
+
         createNotificationChannel()
     }
 

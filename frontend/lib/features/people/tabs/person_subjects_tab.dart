@@ -187,6 +187,9 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
       if (mounted)
       {
         CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+
+        // A refused save may be a stale updated_at: the next one must send the fresh one.
+        widget.onUpdate();
       }
     }
     finally
@@ -778,14 +781,17 @@ class _SubjectsAddDialogState extends State<_SubjectsAddDialog>
 
     try
     {
+      // Read again: another device may have saved while this window stood open.
+      final PersonItem person = await ApiService().getPerson(widget.person.fiscalCode);
+
       await ApiService().updateTeacherCompetences(
-        widget.person.fiscalCode,
+        person.fiscalCode,
         [
-          ..._competencesOf(widget.person.teacherSubjects ?? const []),
+          ..._competencesOf(person.teacherSubjects ?? const []),
           ...draft.competences,
         ],
-        [...widget.person.teacherServices ?? const <String>[], ...draft.services],
-        widget.person.teacherUpdatedAt,
+        [...person.teacherServices ?? const <String>[], ...draft.services],
+        person.teacherUpdatedAt,
       );
 
       if (mounted)

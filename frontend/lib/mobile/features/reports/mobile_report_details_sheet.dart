@@ -14,6 +14,7 @@ import '../../shared/mobile_palette.dart';
 import '../../shared/widgets/mobile_gold_button.dart';
 import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_sheet.dart';
+import '../../shared/widgets/mobile_text_menu.dart';
 import '../profile/widgets/mobile_detail_card.dart';
 
 const double _titleRoom = 18;
@@ -179,6 +180,7 @@ class _ReportSheetState extends State<_ReportSheet>
           padding: const EdgeInsets.only(top: 2, bottom: 10),
           child: SelectableText(
             description,
+            contextMenuBuilder: mobileTextMenu,
             style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w500, height: 1.55, color: AppTheme.trialInk),
           ),
         ),

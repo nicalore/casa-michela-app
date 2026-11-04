@@ -200,6 +200,22 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
     });
   }
 
+  // A section goes back to the home; the home lets the app close. The menu answers for itself while open.
+  void _onSystemBack(bool didPop)
+  {
+    final bool changing = _switchingTo != null || _arrivingSlug != null || _leavingRole != null;
+
+    if (didPop || changing || isMobileTourShown || MobileNavSheet.openness.value > 0)
+    {
+      return;
+    }
+
+    if (_destination != kMobileHomeSlug)
+    {
+      unawaited(_dropInto(kMobileHomeSlug));
+    }
+  }
+
   void _onCurtainMoved()
   {
     // Opening the menu reads the count again.
@@ -556,52 +572,56 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
         final String? arrivingRole = _arrivingRole;
         final String? arrivingSlug = _arrivingSlug;
 
-        return Scaffold(
-          // Fields live in sheets above the keyboard; resizing would lay out the page every frame.
-          resizeToAvoidBottomInset: false,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              MobileHandoverRise(
-                child: AnimatedBuilder(
-                  animation: _curtain,
-                  builder: (context, page) => Transform.translate(
-                    offset: Offset(
-                      0,
-                      _sinking ? -_curtainDrop * math.max(MobileNavSheet.openness.value, _fall.value) : 0,
+        return PopScope(
+          canPop: _destination == kMobileHomeSlug,
+          onPopInvokedWithResult: (didPop, _) => _onSystemBack(didPop),
+          child: Scaffold(
+            // Fields live in sheets above the keyboard; resizing would lay out the page every frame.
+            resizeToAvoidBottomInset: false,
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                MobileHandoverRise(
+                  child: AnimatedBuilder(
+                    animation: _curtain,
+                    builder: (context, page) => Transform.translate(
+                      offset: Offset(
+                        0,
+                        _sinking ? -_curtainDrop * math.max(MobileNavSheet.openness.value, _fall.value) : 0,
+                      ),
+                      child: page,
                     ),
-                    child: page,
-                  ),
-                  child: IgnorePointer(
-                    ignoring: leavingRole != null,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (leavingRole != null && leavingSlug != null) section(leavingRole, leavingSlug),
-                        section(role, _destination),
-                        if (arrivingRole != null && arrivingSlug != null)
-                          section(arrivingRole, arrivingSlug, arriving: true),
-                      ],
+                    child: IgnorePointer(
+                      ignoring: leavingRole != null,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (leavingRole != null && leavingSlug != null) section(leavingRole, leavingSlug),
+                          section(role, _destination),
+                          if (arrivingRole != null && arrivingSlug != null)
+                            section(arrivingRole, arrivingSlug, arriving: true),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              // Outside the page switcher, so a page change never restarts the shower.
-              const MobileBirthdayConfetti(),
-              MobileHalloweenBats(onHome: _destination == kMobileHomeSlug),
-              MobileHandoverBar(
-                head: MobileNavHead(destination: current),
-                child: MobileNavSheet(
-                  user: user,
-                  destinations: destinations,
-                  userDestinations: userDestinations,
-                  current: _destination,
-                  onDestination: _onDestination,
-                  onAction: (action) => _onAction(user, action),
+                // Outside the page switcher, so a page change never restarts the shower.
+                const MobileBirthdayConfetti(),
+                MobileHalloweenBats(onHome: _destination == kMobileHomeSlug),
+                MobileHandoverBar(
+                  head: MobileNavHead(destination: current),
+                  child: MobileNavSheet(
+                    user: user,
+                    destinations: destinations,
+                    userDestinations: userDestinations,
+                    current: _destination,
+                    onDestination: _onDestination,
+                    onAction: (action) => _onAction(user, action),
+                  ),
                 ),
-              ),
-              MobileTourLayer(ready: leavingRole == null && arrivingSlug == null),
-            ],
+                MobileTourLayer(ready: leavingRole == null && arrivingSlug == null),
+              ],
+            ),
           ),
         );
       },

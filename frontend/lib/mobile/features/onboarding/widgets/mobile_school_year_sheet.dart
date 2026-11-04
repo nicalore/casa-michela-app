@@ -14,6 +14,7 @@ import '../../../../features/people/widgets/school_year_wizard.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_danger_button.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
+import '../../../shared/widgets/mobile_text_menu.dart';
 import '../../../shared/widgets/mobile_height_reporter.dart';
 import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
@@ -662,6 +663,7 @@ class _YearStepper extends StatelessWidget
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(4),
               ],
+              contextMenuBuilder: mobileTextMenu,
               cursorColor: AppTheme.trialTealDeep,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 22,

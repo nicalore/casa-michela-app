@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../mobile_palette.dart';
+import 'mobile_text_menu.dart';
 
 const double _height = 58;
 const double _radius = 18;
@@ -250,6 +251,7 @@ class _MobileTextFieldState extends State<MobileTextField>
                     textInputAction: _multiline ? TextInputAction.newline : widget.textInputAction,
                     autofillHints: widget.autofillHints,
                     onSubmitted: widget.onSubmitted,
+                    contextMenuBuilder: mobileTextMenu,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

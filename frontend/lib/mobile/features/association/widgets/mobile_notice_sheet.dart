@@ -18,6 +18,7 @@ import '../../../shared/device_files.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
+import '../../../shared/widgets/mobile_text_menu.dart';
 import '../../profile/widgets/mobile_detail_card.dart';
 
 // The title wraps onto two lines more often than not: it needs air above the first card.
@@ -188,7 +189,7 @@ class _NoticeSheetState extends State<_NoticeSheet>
         MobileSheetCard(
           child: Padding(
             padding: const EdgeInsets.only(top: 4, bottom: 14),
-            child: NoticeMessageView(message: _notice.message, images: widget.images),
+            child: NoticeMessageView(message: _notice.message, images: widget.images, contextMenuBuilder: mobileQuillTextMenu),
           ),
         ),
         if (_notice.attachments.isNotEmpty) ...[

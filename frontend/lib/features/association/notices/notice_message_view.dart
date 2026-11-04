@@ -145,12 +145,16 @@ class NoticeMessageView extends StatefulWidget
   // True ends the view with the last line, as a plain text would.
   final bool tight;
 
+  // Null keeps the editor's own menu.
+  final QuillEditorContextMenuBuilder? contextMenuBuilder;
+
   const NoticeMessageView({
     super.key,
     required this.message,
     required this.images,
     this.textStyle,
     this.tight = false,
+    this.contextMenuBuilder,
   });
 
   @override
@@ -190,6 +194,7 @@ class _NoticeMessageViewState extends State<NoticeMessageView>
           showCursor: false,
           customStyles: noticeStyles(widget.textStyle),
           embedBuilders: [NoticeImageEmbedBuilder(widget.images), const NoticeDividerEmbedBuilder()],
+          contextMenuBuilder: widget.contextMenuBuilder,
         ),
       ),
     );
