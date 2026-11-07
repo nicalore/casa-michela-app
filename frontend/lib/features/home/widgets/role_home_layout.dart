@@ -13,6 +13,7 @@ import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/page_watermark.dart';
 import '../../../routing/app_router.dart';
+import '../../../routing/home_destinations.dart';
 import '../../../services/api_service.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../association/notices/notice_item.dart';
@@ -32,6 +33,7 @@ import '../../notifications/widgets/desktop_notifications_offer.dart';
 import '../../notifications/widgets/home_notifications_section.dart';
 import '../../psychologist/psychologist_tour.dart';
 import '../../updates/unread_updates.dart';
+import '../home_link.dart';
 import '../home_tour.dart';
 import '../models/month_summary_items.dart';
 import 'home_month_section.dart';
@@ -297,7 +299,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
           for (final child in month.children)
             HomeFigureGroup(
               name: named ? child.student.firstName : '',
-              figures: pupilFigures(child, withTariff: true),
+              figures: pupilFigures(child, withTariff: true, pupil: child.student.taxCode),
             ),
         ];
       }
@@ -450,6 +452,11 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     );
   }
 
+  void _follow(HomeLink link)
+  {
+    followHomeLink(link, role: widget.role);
+  }
+
   Widget _dayCard()
   {
     final DateTime now = romeNow();
@@ -470,6 +477,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
           feminine: _apiService.lastKnownIdentity?.gender == 'F',
         ),
         named: _named,
+        onLink: _follow,
       ),
     );
   }
@@ -485,6 +493,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
         title: monthTitleFor(widget.role),
         month: romeNow(),
         columns: HomeMonthSection.columnsFor(width: cardWidth, groups: _month ?? const []),
+        onLink: _follow,
       ),
     );
   }
@@ -510,7 +519,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     return _staggered(
       slot: 2,
       tour: kTourHomeNotifications,
-      card: HomeNotificationsSection(fill: tall, limit: limit),
+      card: HomeNotificationsSection(role: widget.role, fill: tall, limit: limit),
     );
   }
 

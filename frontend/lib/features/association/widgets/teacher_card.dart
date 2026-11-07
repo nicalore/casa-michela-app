@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../lessons/widgets/person_avatar.dart';
@@ -58,7 +59,7 @@ class _TeacherCardState extends State<TeacherCard>
       child: GestureDetector(
         onTap: widget.onTap,
         child: SizedBox(
-          height: dense ? TeacherCard.denseHeight : TeacherCard.height,
+          height: (dense ? TeacherCard.denseHeight : TeacherCard.height) + largeTextRoom(context, dense ? 33 : 40),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,

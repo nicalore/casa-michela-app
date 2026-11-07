@@ -7,8 +7,9 @@ from fastapi import HTTPException, status
 from app.api.rbac import IdentityContext, assert_may_book_for
 from app.core.booking_close import assert_still_open, bands_of
 from app.core.integrity import integrity_guard
-from app.core.optimistic_concurrency import assert_not_stale
+from app.core.optimistic_concurrency import assert_not_stale, stale_conflict
 from app.core.person_refs import guessed_tax_codes
+from app.core.time_band import band_of
 from app.models.association_subject import AssociationSubject
 from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
@@ -33,6 +34,7 @@ from app.services.pupil_lock import (
 from app.services.schedule_cascade import unschedule
 
 _ENTITY_LABEL: Final[str] = "la prenotazione"
+_DAY_LABEL: Final[str] = "la giornata"
 _NOT_FOUND_ERROR: Final[str] = "Prenotazione non trovata"
 _PRESENCE_NOT_FOUND_ERROR: Final[str] = "Presenza non trovata"
 _NO_SUBJECTS_ERROR: Final[str] = "Seleziona almeno una materia."
@@ -58,6 +60,14 @@ def _children_of(booking: Booking) -> tuple[frozenset, frozenset]:
             for row in booking.subjects_requested
         ),
         frozenset(row.teacher_tax_code for row in booking.preferred_teachers),
+    )
+
+
+def _same_band(one: Presence, other: Presence) -> bool:
+    return (
+        one.date == other.date
+        and one.mode == other.mode
+        and band_of(one.start_time) == band_of(other.start_time)
     )
 
 
@@ -296,6 +306,24 @@ class BookingService:
             is_admin=identity.overrides_closures,
         )
 
+    # A band's last lesson leaves with its hours: only a stale writer gets here.
+    async def _assert_band_keeps_a_lesson(self, booking: Booking) -> None:
+        presence = booking.presence
+        day = await self.presence_repository.list(
+            student_tax_code=presence.student_tax_code,
+            booker_tax_code=None,
+            date_from=presence.date,
+            date_to=presence.date,
+        )
+
+        if not any(
+            other.id != booking.id
+            for row in day
+            if _same_band(row, presence)
+            for other in row.bookings
+        ):
+            raise stale_conflict(_DAY_LABEL)
+
     async def create(
         self,
         identity: IdentityContext,
@@ -415,6 +443,9 @@ class BookingService:
 
             self._assert_still_theirs(identity, new_presence)
 
+            if not _same_band(new_presence, booking.presence):
+                await self._assert_band_keeps_a_lesson(booking)
+
             booking.presence = new_presence
 
         await self.fill(booking, payload)
@@ -431,6 +462,7 @@ class BookingService:
         assert_may_book_for(identity, booking.presence.student_tax_code)
 
         self._assert_still_theirs(identity, booking.presence)
+        await self._assert_band_keeps_a_lesson(booking)
 
         await unschedule(
             self.repository.session,

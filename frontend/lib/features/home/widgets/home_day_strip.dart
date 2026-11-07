@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -12,6 +13,8 @@ import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../../dashboard/widgets/published_pill.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/calendar_lesson_block.dart';
+import '../home_link.dart';
+import 'home_link_frame.dart';
 import 'home_schedule_data.dart';
 
 const List<String> kStripModes = [kPresenceMode, kOnlineMode];
@@ -23,6 +26,10 @@ final Color kStripClosedColor = AppTheme.trialMutedText.withValues(alpha: 0.62);
 const double kStripStackedBelow = 480;
 
 const double _stackedHeadWidth = 112;
+
+// Within the gaps around a band, short of the rules between them.
+const EdgeInsets _bandFrameOutset = EdgeInsets.symmetric(horizontal: 8, vertical: 6);
+const double _bandFrameRadius = 10;
 
 class StripScale
 {
@@ -340,6 +347,9 @@ class HomeDayStrip extends StatelessWidget
   // A lane per child instead of one per mode.
   final bool named;
 
+  // Null: the bands lead nowhere.
+  final ValueChanged<HomeLink>? onLink;
+
   const HomeDayStrip({
     super.key,
     required this.bands,
@@ -351,6 +361,7 @@ class HomeDayStrip extends StatelessWidget
     this.unconvenedLabel,
     this.isLoading = false,
     this.named = false,
+    this.onLink,
   });
 
   @override
@@ -400,8 +411,21 @@ class HomeDayStrip extends StatelessWidget
 
         return status == null
             ? ClosedBandColumn(band: band, stacked: stacked)
-            : _column(context, status, stacked: stacked);
+            : _linked(status, _column(context, status, stacked: stacked));
       },
+    );
+  }
+
+  // Every child's lanes lead to the same page: the calendar and the bookings show them all.
+  Widget _linked(HomeBandStatus status, Widget column)
+  {
+    final ValueChanged<HomeLink>? follow = onLink;
+
+    return HomeLinkFrame(
+      onTap: follow == null ? null : () => follow(homeBandLink(status.band, isPublished: status.isPublished)),
+      radius: _bandFrameRadius,
+      outset: _bandFrameOutset,
+      child: column,
     );
   }
 
@@ -479,7 +503,7 @@ class HomeDayStrip extends StatelessWidget
         head: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            StripBandHead(band: status.band, isPublished: status.isPublished),
+            StripBandHead(band: status.band, isPublished: status.showsPublished),
             const SizedBox(height: 2),
             heading,
           ],
@@ -491,7 +515,7 @@ class HomeDayStrip extends StatelessWidget
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        StripBandHead(band: status.band, isPublished: status.isPublished),
+        StripBandHead(band: status.band, isPublished: status.showsPublished),
         const SizedBox(height: 2),
         heading,
         for (final row in rows) ...[
@@ -521,7 +545,7 @@ class _ClosedLane extends StatelessWidget
         _LaneLabel(icon: lessonModeIcon(mode), label: modeLabel(mode), color: kStripClosedColor),
         SizedBox(height: scale.labelGap),
         SizedBox(
-          height: scale.track,
+          height: scale.track + largeTextRoom(context, scale.track),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -557,7 +581,7 @@ class _LaneLabel extends StatelessWidget
     final StripScale scale = StripScale.of(context);
 
     return SizedBox(
-      height: scale.label + 5,
+      height: scale.label + 5 + largeTextRoom(context, scale.label + 5),
       child: Row(
         children: [
           Icon(icon, size: scale.icon, color: color),
@@ -621,7 +645,7 @@ class StripLane extends StatelessWidget
         ),
         SizedBox(height: scale.labelGap),
         SizedBox(
-          height: scale.track,
+          height: scale.track + largeTextRoom(context, scale.track),
           child: Row(
             children: [
               Text(_clock(opening.startMinutes), style: _time(scale)),

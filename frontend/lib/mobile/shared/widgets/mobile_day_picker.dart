@@ -121,18 +121,21 @@ class MobileDayPicker extends StatelessWidget
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AnimatedDefaultTextStyle(
-            duration: _move,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-              color: weekday,
-              decoration: offered ? null : TextDecoration.lineThrough,
-              decorationThickness: MobilePalette.strikeThickness,
-              decorationColor: weekday,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: AnimatedDefaultTextStyle(
+              duration: _move,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
+                color: weekday,
+                decoration: offered ? null : TextDecoration.lineThrough,
+                decorationThickness: MobilePalette.strikeThickness,
+                decorationColor: weekday,
+              ),
+              child: Text(weekdayShortName(day.weekday).toUpperCase(), maxLines: 1),
             ),
-            child: Text(weekdayShortName(day.weekday).toUpperCase(), maxLines: 1),
           ),
           FittedBox(
             fit: BoxFit.scaleDown,

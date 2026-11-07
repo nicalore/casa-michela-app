@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -12,6 +13,7 @@ import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_density.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../people/models/person_item.dart';
@@ -695,7 +697,7 @@ class _BookingDayRowState extends State<BookingDayRow>
               folded: lanes < _denseLessonOneLineFrom,
               tour: tour,
               dense: true,
-              buttonsBelow: lanes < _denseButtonsBesideFrom,
+              buttonsBelow: lanes < _denseButtonsBesideFrom + largeTextRoom(context, _denseButtonsBesideFrom),
             ),
           ),
         ],
@@ -1036,7 +1038,7 @@ class _LaneViewState extends State<_LaneView>
 
     // The name in the day's names column, «Nessuna prenotazione» after it on one line, the buttons at the end.
     final Widget line = SizedBox(
-      height: _denseLaneHeaderHeight,
+      height: _denseLaneHeaderHeight + largeTextRoom(context, _denseLaneHeaderHeight),
       child: Row(
         children: [
           if (widget.named) ...[
@@ -1288,14 +1290,18 @@ class _ModeBlockState extends State<_ModeBlock>
           color: AppTheme.trialMutedText,
         ),
         const SizedBox(width: 5),
-        Text(
-          '${modeLabel(_mode)} · ${bandLabel(widget.band)}'.toUpperCase(),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: dense ? 10.5 : 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: dense ? 1.1 : 1.4,
-            height: 1.2,
-            color: AppTheme.trialMutedText,
+        Flexible(
+          child: WholeWords(
+            child: Text(
+              '${modeLabel(_mode)} · ${bandLabel(widget.band)}'.toUpperCase(),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: dense ? 10.5 : 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: dense ? 1.1 : 1.4,
+                height: 1.2,
+                color: AppTheme.trialMutedText,
+              ),
+            ),
           ),
         ),
         if (_hasClosed) ...[
@@ -2239,17 +2245,19 @@ class _Muted extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return DescenderRoom(
-      child: Text(
-        text,
-        maxLines: lines ?? (dense ? 2 : 1),
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: dense ? 12.5 : 15,
-          fontWeight: FontWeight.w600,
-          fontStyle: FontStyle.italic,
-          height: 1.35,
-          color: AppTheme.trialMutedText,
+    return WholeWords(
+      child: DescenderRoom(
+        child: Text(
+          text,
+          maxLines: lines ?? (dense ? 2 : 1),
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: dense ? 12.5 : 15,
+            fontWeight: FontWeight.w600,
+            fontStyle: FontStyle.italic,
+            height: 1.35,
+            color: AppTheme.trialMutedText,
+          ),
         ),
       ),
     );

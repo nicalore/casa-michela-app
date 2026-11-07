@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/descender_room.dart';
@@ -116,6 +117,7 @@ class _OwnDayTimelineState extends State<OwnDayTimeline>
         child: Center(
           child: Text(
             formatTimeOfDayShort(timeOfDayFromMinutes(minute)),
+            textScaler: drawnTextScaler(context),
             style: GoogleFonts.plusJakartaSans(
               fontSize: isHour ? 11 : 9.5,
               fontWeight: isHour ? FontWeight.w700 : FontWeight.w600,

@@ -46,6 +46,11 @@ mixin _TrendFilters<W extends StatefulWidget, T> on State<W>
   String resolution = _defaultResolution;
 
   List<T>? days;
+
+  // Where the period of [days] starts: [period] moves on before the answer lands.
+  DateTime? daysFrom;
+  DateTime? firstOpenDay;
+
   bool isLoading = false;
   int _request = 0;
 
@@ -68,15 +73,21 @@ mixin _TrendFilters<W extends StatefulWidget, T> on State<W>
   Future<void> load() async
   {
     final request = ++_request;
+    final from = statsPeriodStart(period);
     setState(() => isLoading = true);
 
     try
     {
-      final data = await fetch(statsPeriodParts(period), mode);
+      final (data, firstDay) = await (fetch(statsPeriodParts(period), mode), api.getFirstOpenDay(mode: mode)).wait;
 
       if (mounted && request == _request)
       {
-        setState(() => days = data);
+        setState(()
+        {
+          days = data;
+          daysFrom = from;
+          firstOpenDay = firstDay;
+        });
       }
     }
     catch (_) {}
@@ -87,6 +98,11 @@ mixin _TrendFilters<W extends StatefulWidget, T> on State<W>
         setState(() => isLoading = false);
       }
     }
+  }
+
+  List<TrendBucket> bucketsOf(List<DateTime> dates)
+  {
+    return trendBuckets(dates, resolution, from: daysFrom, firstOpenDay: firstOpenDay);
   }
 
   void choosePeriod(String value)
@@ -182,7 +198,8 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
   {
     final bool dense = StatMetrics.of(context).dense;
     final loaded = days ?? const <TeacherActivityDayItem>[];
-    final buckets = trendBuckets([for (final day in loaded) day.date], resolution);
+    final buckets = bucketsOf([for (final day in loaded) day.date]);
+    final positions = trendPositions(buckets, from: daysFrom);
 
     List<double> valuesOf(int Function(TeacherActivityDayItem day) pick)
     {
@@ -251,6 +268,7 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
               statChartHeight(context, _teachersChartHeight),
               () => DailyTrendChart(
                 axisLabels: axisLabels,
+                positions: positions,
                 series: teachers,
                 formatAxis: _countAxis,
                 hovered: hovered,
@@ -271,6 +289,7 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
               dense ? _denseHoursChartHeight : _hoursChartHeight,
               () => DailyTrendChart(
                 axisLabels: axisLabels,
+                positions: positions,
                 series: hours,
                 formatAxis: _hoursAxis,
                 hovered: hovered,
@@ -311,7 +330,8 @@ class _PresenceTrendCardState extends State<PresenceTrendCard>
   Widget build(BuildContext context)
   {
     final loaded = days ?? const <PresenceDayItem>[];
-    final buckets = trendBuckets([for (final day in loaded) day.date], resolution);
+    final buckets = bucketsOf([for (final day in loaded) day.date]);
+    final positions = trendPositions(buckets, from: daysFrom);
     final daily = [for (final day in loaded) day.studentCount];
     final students = [for (final bucket in buckets) bucket.valueOf(daily)];
 
@@ -344,6 +364,7 @@ class _PresenceTrendCardState extends State<PresenceTrendCard>
           statChartHeight(context, _presenceChartHeight),
           () => DailyTrendChart(
             axisLabels: [for (final bucket in buckets) bucket.axisLabel],
+            positions: positions,
             series: series,
             formatAxis: _countAxis,
             hovered: hovered,

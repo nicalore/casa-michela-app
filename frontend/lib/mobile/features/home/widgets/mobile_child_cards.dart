@@ -4,21 +4,26 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
+import '../../../../features/home/home_link.dart';
 import '../../../../features/home/widgets/home_month_section.dart';
 import '../../../../features/home/widgets/role_home_layout.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../../features/people/models/person_face.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_pupil_day.dart';
+import 'mobile_link.dart';
 
 const double _iconColumn = 44;
 const double _partGap = 11;
 const double _groupGap = 8;
 const double _cellGap = 12;
 const double _valueSize = 25;
+
+const double _cellChevronSize = 16;
 
 const EdgeInsets _cardPadding = EdgeInsets.fromLTRB(16, 14, 18, 16);
 
@@ -49,12 +54,14 @@ class MobileChildDayCard extends StatelessWidget
 {
   final MobileChildDay child;
 
-  const MobileChildDayCard({super.key, required this.child});
+  final ValueChanged<HomeLink>? onLink;
+
+  const MobileChildDayCard({super.key, required this.child, this.onLink});
 
   @override
   Widget build(BuildContext context)
   {
-    return _ChildCard(face: child.face, parts: _dayParts(child));
+    return _ChildCard(face: child.face, parts: _dayParts(child, onLink));
   }
 }
 
@@ -62,25 +69,28 @@ class MobileChildMonthCard extends StatelessWidget
 {
   final MobileChildMonth month;
 
-  const MobileChildMonthCard({super.key, required this.month});
+  final ValueChanged<HomeLink>? onLink;
+
+  const MobileChildMonthCard({super.key, required this.month, this.onLink});
 
   @override
   Widget build(BuildContext context)
   {
-    return _ChildCard(face: month.face, parts: [_Figures(month.figures)]);
+    return _ChildCard(face: month.face, parts: [_Figures(month.figures, onLink: onLink)]);
   }
 }
 
-List<Widget> _dayParts(MobileChildDay child)
+List<Widget> _dayParts(MobileChildDay child, ValueChanged<HomeLink>? onLink)
 {
   return child.stays.isEmpty
       ? [
           _NoteRow(
             MobileCardNote(emptyBandLabelFor(kParentRole), icon: Icons.event_busy_rounded),
             iconColumn: true,
+            onTap: onLink == null ? null : () => onLink(HomeWeekLink(pupil: child.taxCode)),
           ),
         ]
-      : [for (final band in child.bands) _BandStays(band)];
+      : [for (final band in child.bands) _BandStays(band, pupil: child.taxCode, onLink: onLink)];
 }
 
 Widget _hairline() => Container(height: 1, color: AppTheme.trialInk.withValues(alpha: 0.08));
@@ -120,7 +130,9 @@ class _Figures extends StatelessWidget
 {
   final List<HomeFigure> figures;
 
-  const _Figures(this.figures);
+  final ValueChanged<HomeLink>? onLink;
+
+  const _Figures(this.figures, {this.onLink});
 
   @override
   Widget build(BuildContext context)
@@ -135,7 +147,7 @@ class _Figures extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 for (var i = row; i < row + 2; i++)
-                  Expanded(child: i < figures.length ? _Cell(figures[i]) : const SizedBox()),
+                  Expanded(child: i < figures.length ? _Cell(figures[i], onLink: onLink) : const SizedBox()),
               ],
             ),
           ],
@@ -164,6 +176,8 @@ class MobileChildRowCard extends StatelessWidget
   // For a tour to light the two halves.
   final (String, String)? tourTargets;
 
+  final ValueChanged<HomeLink>? onLink;
+
   const MobileChildRowCard({
     super.key,
     required this.face,
@@ -173,6 +187,7 @@ class MobileChildRowCard extends StatelessWidget
     this.month,
     this.monthNote,
     this.tourTargets,
+    this.onLink,
   });
 
   Widget _today()
@@ -184,7 +199,7 @@ class MobileChildRowCard extends StatelessWidget
 
     return switch (day)
     {
-      final MobileChildDay day => _divided(_dayParts(day)),
+      final MobileChildDay day => _divided(_dayParts(day, onLink)),
       null => const SizedBox(),
     };
   }
@@ -198,7 +213,7 @@ class MobileChildRowCard extends StatelessWidget
 
     return switch (month)
     {
-      final MobileChildMonth month => _Figures(month.figures),
+      final MobileChildMonth month => _Figures(month.figures, onLink: onLink),
       null => const SizedBox(),
     };
   }
@@ -280,11 +295,17 @@ class _BandStays extends StatelessWidget
 {
   final MobileBandStays band;
 
-  const _BandStays(this.band);
+  final String pupil;
+  final ValueChanged<HomeLink>? onLink;
+
+  const _BandStays(this.band, {required this.pupil, this.onLink});
 
   Widget _head()
   {
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
           bandLabel(band.band).toUpperCase(),
@@ -295,10 +316,7 @@ class _BandStays extends StatelessWidget
             color: AppTheme.trialInk.withValues(alpha: 0.6),
           ),
         ),
-        if (band.isPublished) ...[
-          const SizedBox(width: 8),
-          const MobilePill('Pubblicato', dense: true),
-        ],
+        if (band.isPublished) const MobilePill('Pubblicato', dense: true),
       ],
     );
   }
@@ -355,7 +373,9 @@ class _BandStays extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Column(
+    final ValueChanged<HomeLink>? follow = onLink;
+
+    final Widget groups = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (i, group) in band.groups.indexed) ...[
@@ -363,6 +383,21 @@ class _BandStays extends StatelessWidget
           _group(group, headed: i == 0),
         ],
       ],
+    );
+
+    if (follow == null)
+    {
+      return groups;
+    }
+
+    return MobileLink(
+      onTap: () => follow(homeBandLink(band.band, isPublished: band.isPublished, pupil: pupil)),
+      child: Row(
+        children: [
+          Expanded(child: groups),
+          const MobileLinkChevron(),
+        ],
+      ),
     );
   }
 }
@@ -373,39 +408,45 @@ class _NoteRow extends StatelessWidget
 
   final bool iconColumn;
 
-  const _NoteRow(this.note, {required this.iconColumn});
+  final VoidCallback? onTap;
+
+  const _NoteRow(this.note, {required this.iconColumn, this.onTap});
 
   @override
   Widget build(BuildContext context)
   {
     final IconData? icon = note.icon;
 
-    return Row(
-      children: [
-        SizedBox(
-          width: iconColumn ? _iconColumn : 4,
-          child: icon == null
-              ? null
-              : Padding(
-                  padding: const EdgeInsets.only(left: 5),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Icon(icon, size: 22, color: MobilePalette.mutedText),
+    return MobileLink(
+      onTap: onTap,
+      child: Row(
+        children: [
+          SizedBox(
+            width: iconColumn ? _iconColumn : 4,
+            child: icon == null
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(left: 5),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Icon(icon, size: 22, color: MobilePalette.mutedText),
+                    ),
                   ),
-                ),
-        ),
-        Expanded(
-          child: Text(
-            note.text,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w600,
-              fontStyle: icon == null ? FontStyle.italic : FontStyle.normal,
-              color: MobilePalette.mutedText,
+          ),
+          Expanded(
+            child: Text(
+              note.text,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                fontStyle: icon == null ? FontStyle.italic : FontStyle.normal,
+                color: MobilePalette.mutedText,
+              ),
             ),
           ),
-        ),
-      ],
+          if (onTap != null) const MobileLinkChevron(),
+        ],
+      ),
     );
   }
 }
@@ -414,12 +455,28 @@ class _Cell extends StatelessWidget
 {
   final HomeFigure figure;
 
-  const _Cell(this.figure);
+  final ValueChanged<HomeLink>? onLink;
+
+  const _Cell(this.figure, {this.onLink});
 
   @override
   Widget build(BuildContext context)
   {
-    return Column(
+    final HomeLink? link = onLink == null ? null : figure.link;
+
+    final Widget label = WholeWords(
+      child: Text(
+        figure.label.toUpperCase(),
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+          color: AppTheme.trialInk.withValues(alpha: 0.62),
+        ),
+      ),
+    );
+
+    final Widget cell = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text.rich(
@@ -450,16 +507,26 @@ class _Cell extends StatelessWidget
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          figure.label.toUpperCase(),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.1,
-            color: AppTheme.trialInk.withValues(alpha: 0.62),
+        if (link == null)
+          label
+        else
+          Row(
+            children: [
+              Flexible(child: label),
+              // Takes no height, or this label would drop below the one beside it.
+              const SizedBox(
+                width: _cellChevronSize,
+                height: 0,
+                child: OverflowBox(
+                  maxHeight: _cellChevronSize,
+                  child: MobileLinkChevron(size: _cellChevronSize),
+                ),
+              ),
+            ],
           ),
-        ),
       ],
     );
+
+    return MobileLink(onTap: link == null ? null : () => onLink!(link), child: cell);
   }
 }

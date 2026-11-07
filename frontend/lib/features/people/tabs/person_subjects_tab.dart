@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/error_message.dart';
@@ -26,6 +27,7 @@ import '../../association/models/subject_taxonomy.dart';
 import '../models/person_item.dart';
 import '../models/teacher_subject_item.dart';
 import '../subjects_tour.dart';
+import '../utils/program_scope_strings.dart';
 import '../widgets/competence_picker.dart';
 import '../widgets/program_scope_dialog.dart';
 import '../widgets/teacher_competences_editor.dart';
@@ -126,6 +128,9 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   List<TeacherSubjectItem> get _subjects => widget.person.teacherSubjects ?? const [];
 
   List<String> get _services => widget.person.teacherServices ?? const [];
+
+  // The server refuses a teacher left with nothing: the last one is stopped before asking.
+  bool get _holdsOneOnly => _subjects.length + _services.length == 1;
 
   bool get _showingOnlyServices => _filterArea == kServicesFilterValue;
 
@@ -268,6 +273,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
         subjectName: subject.subjectName,
         programs: programs,
         initialSelected: subject.studyProgramIds.toSet(),
+        emptyRefusal: _holdsOneOnly ? kKeepOneCompetence : null,
         // Confirming with no programme left means giving up the discipline.
         onSave: (selected) => selected.isEmpty
             ? _removeSubject(subject)
@@ -278,6 +284,13 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
 
   void _confirmRemoval({required TextSpan warning, required VoidCallback onConfirm})
   {
+    if (_holdsOneOnly)
+    {
+      CustomSnackBar.show(context: context, message: kKeepOneCompetence, isError: true);
+
+      return;
+    }
+
     showBlurredDialog<void>(
       context: context,
       barrierLabel: 'ConfirmCompetenceRemoval',
@@ -647,7 +660,7 @@ class _CompetenceCardState extends State<_CompetenceCard>
       // Only the hover border fades: sizes that follow the window stay out of the animation.
       child: SizedBox(
         width: dense ? null : _subjectCardWidth,
-        height: dense ? _denseCardHeight : _subjectCardHeight,
+        height: (dense ? _denseCardHeight : _subjectCardHeight) + largeTextRoom(context, dense ? 36 : 64),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,

@@ -66,6 +66,7 @@ from app.schemas.statistics import (
     CourseDistributionItem,
     CurrentTotalsResponse,
     EducationDistributionItem,
+    FirstOpenDayResponse,
     LowAvailabilityTeacherItem,
     MemberTrendItem,
     MonthlyCountItem,
@@ -1625,6 +1626,22 @@ async def _open_days(
                 OpeningDay.start_time.is_not(None),
                 OpeningDay.date >= start,
                 OpeningDay.date < end,
+            ),
+        ),
+    )
+
+
+# Trends read zero before this day; a later closure is only a gap.
+@router.get("/first-open-day", response_model=FirstOpenDayResponse)
+async def get_first_open_day(
+    db: DbSession,
+    mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
+) -> FirstOpenDayResponse:
+    return FirstOpenDayResponse(
+        first_open_day=await db.scalar(
+            select(func.min(OpeningDay.date)).where(
+                OpeningDay.mode == mode.value,
+                OpeningDay.start_time.is_not(None),
             ),
         ),
     )

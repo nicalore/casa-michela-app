@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -10,6 +12,7 @@ import '../../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../../shared/widgets/unfolding_rows.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
 import '../../../shared/widgets/mobile_tour.dart';
@@ -101,14 +104,19 @@ class _AddModeFace extends StatelessWidget
         children: [
           Icon(Icons.add_rounded, size: iconSize, color: Colors.white),
           SizedBox(width: gap),
-          Text(
-            modeLabel(mode).toUpperCase(),
-            textScaler: scaler,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w800,
-              letterSpacing: letterSpacing,
-              color: Colors.white,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                modeLabel(mode).toUpperCase(),
+                textScaler: scaler,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: letterSpacing,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
         ],
@@ -179,6 +187,22 @@ class MobileTeacherFace extends StatelessWidget
   }
 }
 
+const double _nameGap = 10;
+
+double _widthOf(BuildContext context, String text, TextStyle style)
+{
+  final TextPainter painter = TextPainter(
+    text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  final double width = painter.width;
+
+  painter.dispose();
+
+  return width;
+}
+
 // Coloured by its mode; several ranges stand in a column after the band's name.
 class MobileBandTag extends StatelessWidget
 {
@@ -205,6 +229,19 @@ class MobileBandTag extends StatelessWidget
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
+    final TextStyle name = GoogleFonts.plusJakartaSans(
+      fontSize: 11,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 1,
+      color: accent,
+    );
+
+    final String label = bandLabel(offer.band).toUpperCase();
+    final Widget ranges = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [for (final range in offer.ranges) Text(range, style: hours)],
+    );
+
     const EdgeInsets inflate = EdgeInsets.symmetric(horizontal: 7, vertical: 5);
 
     return Container(
@@ -224,29 +261,31 @@ class MobileBandTag extends StatelessWidget
                 id: tourBand,
                 inflate: inflate,
                 radius: 12,
-                // The name on the first range's line.
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      bandLabel(offer.band).toUpperCase(),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                        color: accent,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Column(
+                child: LayoutBuilder(
+                  builder: (context, constraints)
+                  {
+                    final double widest = offer.ranges.map((range) => _widthOf(context, range, hours)).fold(0, math.max);
+
+                    // The name on the first range's line, or over the ranges when large type leaves no room.
+                    if (_widthOf(context, label, name) + _nameGap + widest > constraints.maxWidth)
+                    {
+                      return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [for (final range in offer.ranges) Text(range, style: hours)],
-                      ),
-                    ),
-                  ],
+                        children: [WholeWords(child: Text(label, style: name)), ranges],
+                      );
+                    }
+
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(label, style: name),
+                        const SizedBox(width: _nameGap),
+                        Flexible(child: ranges),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),

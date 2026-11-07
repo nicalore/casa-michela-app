@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/page_density.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../association/notices/notice_format.dart';
 import '../update_item.dart';
 import '../update_strings.dart';
@@ -91,15 +92,17 @@ class _UpdateCardState extends State<UpdateCard>
             : UpdateVersionBadge(update.version),
         SizedBox(width: dense ? 9 : 12),
         Expanded(
-          child: Text(
-            update.title,
-            maxLines: under ? 2 : 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: dense ? 15.5 : 19,
-              fontWeight: FontWeight.w700,
-              height: under ? 1.3 : null,
-              color: AppTheme.trialOcean,
+          child: WholeWords(
+            child: Text(
+              update.title,
+              maxLines: under ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: dense ? 15.5 : 19,
+                fontWeight: FontWeight.w700,
+                height: under ? 1.3 : null,
+                color: AppTheme.trialOcean,
+              ),
             ),
           ),
         ),

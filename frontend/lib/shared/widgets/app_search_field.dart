@@ -14,6 +14,9 @@ const Duration _focusFade = Duration(milliseconds: 200);
 
 class AppSearchField extends StatefulWidget
 {
+  // What a clipping parent must leave around the field for its focus ring.
+  static const double ringRoom = _focusRingWidth + 1;
+
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final String hintText;

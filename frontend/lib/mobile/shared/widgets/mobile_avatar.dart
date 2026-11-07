@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../services/profile_photo_image.dart';
+import '../../../shared/widgets/whole_words.dart';
 
 class MobileAvatar extends StatelessWidget
 {
@@ -42,13 +43,15 @@ class MobileAvatar extends StatelessWidget
     );
 
     final Widget fallback = this.fallback ?? Center(
-      child: Text(
-        initials,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: size * 0.33,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.5,
-          color: AppTheme.trialDeepWater,
+      child: WholeWords(
+        child: Text(
+          initials,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: size * 0.33,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+            color: AppTheme.trialDeepWater,
+          ),
         ),
       ),
     );

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/descender_room.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../lessons/models/activity_item.dart';
 import '../../lessons/models/availability_item.dart';
@@ -175,9 +177,19 @@ const double _figureRow = 24;
 const double _denseHoursRow = 19;
 const double _denseFigureRow = 20;
 
-double _hoursRowOf(BuildContext context) => AppBreakpoints.of(context).isDense ? _denseHoursRow : _hoursRow;
+double _hoursRowOf(BuildContext context)
+{
+  final double row = AppBreakpoints.of(context).isDense ? _denseHoursRow : _hoursRow;
 
-double _figureRowOf(BuildContext context) => AppBreakpoints.of(context).isDense ? _denseFigureRow : _figureRow;
+  return row + largeTextRoom(context, row);
+}
+
+double _figureRowOf(BuildContext context)
+{
+  final double row = AppBreakpoints.of(context).isDense ? _denseFigureRow : _figureRow;
+
+  return row + largeTextRoom(context, row);
+}
 
 // "Docenti", "studenti" and "lezioni": a band that has fewer keeps the empty rows.
 const int _figureRows = 3;
@@ -372,15 +384,17 @@ class _Figure extends StatelessWidget
         children: [
           SizedBox(
             width: 26,
-            child: Text(
-              '${figure.value}',
-              textAlign: TextAlign.right,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: scale.figure,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
-                color: AppTheme.trialOcean,
-                fontFeatures: const [FontFeature.tabularFigures()],
+            child: WholeWords(
+              child: Text(
+                '${figure.value}',
+                textAlign: TextAlign.right,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: scale.figure,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                  color: AppTheme.trialOcean,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
           ),

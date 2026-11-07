@@ -327,7 +327,7 @@ class CarriedRequest
 
   final Set<String> competentTeachers;
 
-  // Where the carried hours may land; empty for an activity, any row will do.
+  // Where the carried hours may land; empty for a pupil with no free hours, and for an activity.
   final List<(int, int)> windows;
 
   const CarriedRequest({
@@ -386,13 +386,25 @@ List<(int, int)> intersectWindows(List<(int, int)> first, List<(int, int)> secon
   ];
 }
 
-// Drop windows: the pupil's stretches for a booking, the common ones for a multi-pupil lesson.
+// Drop windows: the pupil's stretches for a booking, the common ones for a multi-pupil lesson,
+// less the hours the pupil is already in a lesson; a carried lesson leaves its own free.
 List<(int, int)> dragWindows(CalendarDayIndex index, CalendarDragPayload payload)
 {
+  List<(int, int)> free(List<(int, int)> windows, Set<String> students, {int? lessonId})
+  {
+    final taken = [
+      for (final student in students)
+        for (final lesson in index.lessonsByStudent[student] ?? const <LessonItem>[])
+          if (lesson.id != lessonId) (lesson.startMinutes, lesson.endMinutes),
+    ];
+
+    return [for (final window in windows) ...subtractSpans([window], taken)];
+  }
+
   switch (payload)
   {
     case BookingDragPayload(:final entry):
-      return entry.windowsIn(index.bandStart, index.bandEnd);
+      return free(entry.windowsIn(index.bandStart, index.bandEnd), {entry.presence.studentTaxCode});
 
     case LessonDragPayload(:final lesson):
       List<(int, int)>? common;
@@ -408,7 +420,7 @@ List<(int, int)> dragWindows(CalendarDayIndex index, CalendarDragPayload payload
         common = common == null ? own : intersectWindows(common, own);
       }
 
-      return common ?? const [];
+      return free(common ?? const [], lesson.studentTaxCodes, lessonId: lesson.id);
 
     case ActivityDragPayload():
       return const [];

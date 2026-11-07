@@ -7,6 +7,7 @@ import '../../shared/widgets/dialog_components.dart';
 import '../notifications/widgets/desktop_notifications_offer.dart';
 import 'update_item.dart';
 import 'update_reading.dart';
+import 'update_strings.dart';
 
 const Duration _waitStep = Duration(milliseconds: 200);
 
@@ -86,7 +87,7 @@ abstract final class UnreadUpdates
 
     try
     {
-      updates = await ApiService().getUnreadUpdates();
+      updates = await ApiService().getUnreadUpdates(version: kUpdateVersion);
     }
     catch (_)
     {

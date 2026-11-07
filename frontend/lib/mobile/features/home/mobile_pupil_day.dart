@@ -209,6 +209,7 @@ MobileLineBand _lineBand(
   return MobileLineBand(
     band: status.band,
     isPublished: status.isPublished,
+    showsPublished: status.showsPublished,
     entries: stays.isEmpty
         ? [MobileLineEntry(emptyBandLabelFor(_pupilRole))]
         : [

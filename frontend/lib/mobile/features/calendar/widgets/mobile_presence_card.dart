@@ -8,6 +8,7 @@ import '../../../../features/calendar/utils/pupil_band_presence.dart';
 import '../../../../features/calendar/utils/teacher_band_call.dart' show ModeSpan;
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../shared/widgets/descender_room.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import 'mobile_convocation_card.dart';
@@ -97,16 +98,18 @@ class MobilePupilHead extends StatelessWidget
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DescenderRoom(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: tablet ? 19 : 17,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
-                color: AppTheme.trialOcean,
+          WholeWords(
+            child: DescenderRoom(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: tablet ? 19 : 17,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                  color: AppTheme.trialOcean,
+                ),
               ),
             ),
           ),
@@ -193,8 +196,10 @@ class MobilePupilLine extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    // The summary leaves the name's line when large type or a long name take the room.
+    return Wrap(
+      spacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.end,
       children: [
         Text(
           name,
@@ -206,13 +211,12 @@ class MobilePupilLine extends StatelessWidget
             color: Colors.white,
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 2),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 2),
+          child: WholeWords(
             child: Text(
               _about,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: tablet ? 14 : 13.5,

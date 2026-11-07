@@ -13,6 +13,7 @@ import '../../../../features/dashboard/widgets/dashboard_today_section.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../../shared/widgets/descender_room.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
@@ -502,29 +503,33 @@ class MobileBirthdayTile extends StatelessWidget
               fallback: _initials(birthday, _faceSize),
             ),
             const SizedBox(height: 10),
-            DescenderRoom(
-              child: Text(
-                '${person.firstName} ${person.lastName}',
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                  height: 1.2,
-                  color: AppTheme.trialInk,
+            WholeWords(
+              child: DescenderRoom(
+                child: Text(
+                  '${person.firstName} ${person.lastName}',
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                    height: 1.2,
+                    color: AppTheme.trialInk,
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 3),
-            Text(
-              withoutOrphans(birthdayCaption(birthday)),
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13.5,
-                fontWeight: today ? FontWeight.w700 : FontWeight.w600,
-                color: today ? AppTheme.modifiedAccent : MobilePalette.mutedText,
+            WholeWords(
+              child: Text(
+                withoutOrphans(birthdayCaption(birthday)),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13.5,
+                  fontWeight: today ? FontWeight.w700 : FontWeight.w600,
+                  color: today ? AppTheme.modifiedAccent : MobilePalette.mutedText,
+                ),
               ),
             ),
           ],

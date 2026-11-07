@@ -7,6 +7,7 @@ import '../../../../features/notifications/device_notifications.dart';
 import '../../../../features/notifications/notification_kinds.dart';
 import '../../../../features/notifications/notification_strings.dart';
 import '../../../../features/settings/utils/settings_strings.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/navigation/mobile_destinations.dart';
 import '../../../shared/widgets/mobile_choice_sheet.dart';
@@ -106,10 +107,12 @@ class _MobileSystemCardState extends State<MobileSystemCard>
               height: 1.3,
               color: AppTheme.trialInk.withValues(alpha: _offOpacity),
             ),
-      subtitle: Text(
-        on
-            ? notificationKindsCount(kinds.enabledCount, kinds.choices?.length ?? 0)
-            : withoutOrphans(kNotificationKindsTurnOnFirst),
+      subtitle: WholeWords(
+        child: Text(
+          on
+              ? notificationKindsCount(kinds.enabledCount, kinds.choices?.length ?? 0)
+              : withoutOrphans(kNotificationKindsTurnOnFirst),
+        ),
       ),
       trailing: Opacity(opacity: on ? 1 : _offOpacity, child: MobileGlassListRow.chevron()),
       onTap: on ? () => showMobileNotificationKindsSheet(context) : null,

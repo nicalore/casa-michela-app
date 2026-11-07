@@ -6,10 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
@@ -24,6 +26,7 @@ import '../utils/timeline_geometry.dart';
 import 'calendar_activity_block.dart';
 import 'calendar_lesson_block.dart';
 import 'calendar_request_details.dart';
+import 'calendar_search_fade.dart';
 import 'lesson_captions.dart';
 import 'person_avatar.dart';
 import 'teacher_exclusion_overlay.dart';
@@ -132,6 +135,9 @@ class _TimelineAutoScroller
   }
 }
 
+const double _axisLabelWidth = 48;
+const double _halfLabelRoom = 44;
+
 class _AxisLabel extends StatelessWidget
 {
   final TimelineMetrics metrics;
@@ -155,6 +161,7 @@ class _AxisLabel extends StatelessWidget
       child: Center(
         child: Text(
           formatTimeOfDayShort(timeOfDayFromMinutes(minute)),
+          textScaler: drawnTextScaler(context),
           style: GoogleFonts.plusJakartaSans(
             fontSize: isHour ? 11 : 9.5,
             fontWeight: isHour ? FontWeight.w700 : FontWeight.w600,
@@ -299,18 +306,34 @@ class _TimelineGridPainter extends CustomPainter
       final x = metrics.xOf(minute);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), hour);
     }
-
-    for (var row = 1; row < metrics.rowCount; row++)
-    {
-      final y = metrics.topOfRow(row);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), quarter);
-    }
   }
 
   @override
-  bool shouldRepaint(_TimelineGridPainter oldDelegate)
+  bool shouldRepaint(_TimelineGridPainter oldDelegate) => !oldDelegate.metrics.sameAxis(metrics);
+}
+
+// Parts two rows from the name to the end of the hours, so a block, stacked or captioned, is seen to
+// be its row's. Travels with its row, as the grid cannot.
+const double _rowRuleWidth = 1.5;
+
+class _RowRule extends StatelessWidget
+{
+  const _RowRule();
+
+  @override
+  Widget build(BuildContext context)
   {
-    return !oldDelegate.metrics.sameAxis(metrics) || !listEquals(oldDelegate.metrics.rowHeights, metrics.rowHeights);
+    return IgnorePointer(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          key: const ValueKey('row-rule'),
+          height: _rowRuleWidth,
+          width: double.infinity,
+          child: ColoredBox(color: AppTheme.trialMutedText.withValues(alpha: 0.5)),
+        ),
+      ),
+    );
   }
 }
 
@@ -322,6 +345,19 @@ class _TimelineAxis extends StatelessWidget
 
   const _TimelineAxis({required this.metrics, this.keepsInside = false});
 
+  double _centreOf(int minute)
+  {
+    final double centre = metrics.xOf(minute);
+
+    return keepsInside ? centre.clamp(_axisLabelWidth / 2, math.max(_axisLabelWidth / 2, metrics.trackWidth - _axisLabelWidth / 2)) : centre;
+  }
+
+  // An hour at the track's edge is pushed inside, over the half hour next to it.
+  bool _clearOfHours(int minute)
+  {
+    return metrics.hourTicks().every((hour) => (_centreOf(hour) - _centreOf(minute)).abs() >= _halfLabelRoom);
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -331,7 +367,7 @@ class _TimelineAxis extends StatelessWidget
         clipBehavior: Clip.none,
         children: [
           for (final minute in metrics.halfTicks())
-            if (metrics.roomAround(minute, 30) >= 44)
+            if (metrics.roomAround(minute, 30) >= _halfLabelRoom && _clearOfHours(minute))
               _AxisLabel(
                 metrics: metrics,
                 minute: minute,
@@ -346,7 +382,14 @@ class _TimelineAxis extends StatelessWidget
   }
 }
 
-typedef _DragOutline = ({List<(int, int)> windows, String mode, Set<String> preferred, Set<String> avoided, int shortest});
+typedef _DragOutline = ({
+  List<(int, int)> windows,
+  bool dims,
+  String mode,
+  Set<String> preferred,
+  Set<String> avoided,
+  int shortest,
+});
 
 enum StretchReach
 {
@@ -482,7 +525,7 @@ class _MarkedAvatar extends StatelessWidget
 
   final VoidCallback? onToggleExcluded;
 
-  // A teacher found by name wears the gold ring, unless a carried request marks them.
+  // Whoever is found by name wears the gold ring, unless a carried request marks them.
   final ValueListenable<CalendarSearch?>? search;
 
   const _MarkedAvatar({
@@ -575,7 +618,7 @@ class _MarkedAvatar extends StatelessWidget
                     valueListenable: finder,
                     child: face,
                     builder: (context, found, face) =>
-                        _ringed(found != null && found.findsTeacher(person) ? AppTheme.trialGold : none, face!),
+                        _ringed(found != null && found.findsPerson(person) ? AppTheme.trialGold : none, face!),
                   ),
           ),
           if (mark != null)
@@ -975,9 +1018,11 @@ class _LaneHeader extends StatelessWidget
           const SizedBox(width: 4),
           // Written whole, as the name: the row grows to hold it.
           Flexible(
-            child: Text(
-              name ?? modeLabel(kOnlineMode),
-              style: _laneWhereStyle.copyWith(color: accent),
+            child: WholeWords(
+              child: Text(
+                name ?? modeLabel(kOnlineMode),
+                style: _laneWhereStyle.copyWith(color: accent),
+              ),
             ),
           ),
         ],
@@ -1014,10 +1059,12 @@ class _LaneHeader extends StatelessWidget
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DescenderRoom(
-                child: Text(
-                  lane.person.fullName,
-                  style: dense ? _denseLaneNameStyle : _laneNameStyle,
+              WholeWords(
+                child: DescenderRoom(
+                  child: Text(
+                    lane.person.fullName,
+                    style: dense ? _denseLaneNameStyle : _laneNameStyle,
+                  ),
                 ),
               ),
               const SizedBox(height: 3),
@@ -1342,7 +1389,7 @@ class CalendarTimeline extends StatefulWidget
   // Composing: where each lesson too narrow for its words writes them, under its row.
   final Map<String, Map<int, CaptionSpot>> captions;
 
-  // The editing calendar's search: what it finds lights up, the rest steps back.
+  // What the search finds lights up, the rest steps back.
   final ValueListenable<CalendarSearch?>? search;
 
   const CalendarTimeline({
@@ -1765,7 +1812,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     final presence = lane.spansIn(kPresenceMode, bandStart, bandEnd);
     final online = lane.spansIn(kOnlineMode, bandStart, bandEnd);
 
-    final bool carrying = outline != null && outline.windows.isNotEmpty;
+    final bool carrying = outline != null && outline.dims;
 
     // While something is carried every stretch dims, and only where it can land lights up.
     final StretchReach under = carrying ? StretchReach.closed : StretchReach.idle;
@@ -1775,7 +1822,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     {
       final carried = outline;
 
-      if (carried == null || carried.windows.isEmpty || !competent.contains(lane.personTaxCode))
+      if (carried == null || !competent.contains(lane.personTaxCode))
       {
         return const [];
       }
@@ -1863,6 +1910,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
 
     return (
       windows: carried.windows,
+      dims: carried.payload is! ActivityDragPayload,
       mode: outline.mode,
       preferred: outline.preferred,
       avoided: outline.avoided,
@@ -2334,6 +2382,20 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     );
   }
 
+  // Every row but the first opens with one.
+  List<Widget> _buildRowRules(String side)
+  {
+    return [
+      for (var index = 1; index < lanes.length; index++)
+        _buildRowLayer(
+          index,
+          key: ValueKey('rule-$side-${lanes[index].personTaxCode}'),
+          fades: false,
+          child: const _RowRule(),
+        ),
+    ];
+  }
+
   VoidCallback? _toggleExcluded(CalendarLane lane)
   {
     final say = widget.onExcludedChanged;
@@ -2364,6 +2426,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
             ),
           ),
         ),
+        ..._buildRowRules('hours'),
         for (var index = 0; index < lanes.length; index++)
           _buildRowLayer(
             index,
@@ -2429,22 +2492,27 @@ class _CalendarTimelineState extends State<CalendarTimeline>
             height: metrics.trackHeight,
             child: Stack(
               children: [
+                ..._buildRowRules('names'),
                 for (var index = 0; index < lanes.length; index++)
                   _buildRowLayer(
                     index,
                     key: ValueKey('name-${lanes[index].personTaxCode}'),
                     fades: false,
-                    child: _LaneHeader(
-                      lane: lanes[index],
-                      bandStart: bandStart,
-                      bandEnd: bandEnd,
-                      view: widget.view,
-                      room: widget.roomByTeacher[lanes[index].personTaxCode],
-                      carried: widget.carried,
-                      isExcluded: _isExcluded(lanes[index]),
-                      onToggleExcluded: _toggleExcluded(lanes[index]),
-                      showsOnlineOnlyBand: widget.isComposing,
+                    child: CalendarSearchTarget(
                       search: widget.search,
+                      finds: (found) => found.findsPerson(lanes[index].person),
+                      child: _LaneHeader(
+                        lane: lanes[index],
+                        bandStart: bandStart,
+                        bandEnd: bandEnd,
+                        view: widget.view,
+                        room: widget.roomByTeacher[lanes[index].personTaxCode],
+                        carried: widget.carried,
+                        isExcluded: _isExcluded(lanes[index]),
+                        onToggleExcluded: _toggleExcluded(lanes[index]),
+                        showsOnlineOnlyBand: widget.isComposing,
+                        search: widget.search,
+                      ),
                     ),
                   ),
               ],
@@ -2502,6 +2570,15 @@ class _CalendarTimelineState extends State<CalendarTimeline>
 
   @override
   Widget build(BuildContext context)
+  {
+    return CalendarSearchReveal(
+      search: widget.search,
+      head: kTimelineAxisHeight + 1,
+      child: _buildBody(),
+    );
+  }
+
+  Widget _buildBody()
   {
     return LayoutBuilder(
       builder: (context, constraints)

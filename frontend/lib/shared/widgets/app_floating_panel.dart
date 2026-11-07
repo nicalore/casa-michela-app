@@ -20,6 +20,12 @@ const double kFloatingDockGap = 16;
 // wherever the panel was taken: a panel only laid against an edge stays free.
 const double _dockPush = 32;
 
+// How far back the hand's way still counts towards where it is heading.
+const double _headingSpan = 96;
+
+// The run towards another edge that takes an offer away from the one standing: a wiggle falls short.
+const double _dockSwitch = 48;
+
 // Left to the page beside a docked panel, however far the panel is pulled.
 const double _leastBehind = 160;
 
@@ -277,6 +283,13 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
   Offset _origin = Offset.zero;
   Size _room = Size.zero;
 
+  // The hand's last position, and where it has been going lately.
+  Offset _hand = Offset.zero;
+  Offset _heading = Offset.zero;
+
+  // Over the whole window while the hand works: what it passes over stays still, its cursor stays.
+  OverlayEntry? _handCover;
+
   // Where the panel stood when it last went somewhere at once; it travels from there.
   Rect? _from;
   Rect _drawn = Rect.zero;
@@ -306,8 +319,33 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
   @override
   void dispose()
   {
+    _uncoverHand();
     _morph.dispose();
     super.dispose();
+  }
+
+  void _coverHand(MouseCursor cursor)
+  {
+    final OverlayState? overlay = Overlay.maybeOf(context, rootOverlay: true);
+
+    if (overlay == null)
+    {
+      return;
+    }
+
+    _handCover = OverlayEntry(
+      builder: (context) => MouseRegion(cursor: cursor, child: const SizedBox.expand()),
+    );
+
+    overlay.insert(_handCover!);
+  }
+
+  void _uncoverHand()
+  {
+    _handCover
+      ?..remove()
+      ..dispose();
+    _handCover = null;
   }
 
   // Docked while not torn off by the hand.
@@ -335,7 +373,22 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
     return box is RenderBox && box.hasSize ? box.globalToLocal(global) : null;
   }
 
-  // The edge the hand pushes the panel furthest past, beyond [_dockPush].
+  // How far the hand has lately gone towards [dock]; less than nothing when going away from it.
+  double _headingTo(AppFloatingDock dock)
+  {
+    return switch (dock)
+    {
+      AppFloatingDock.none => 0,
+      AppFloatingDock.top => -_heading.dy,
+      AppFloatingDock.left => -_heading.dx,
+      AppFloatingDock.right => _heading.dx,
+      AppFloatingDock.bottom => _heading.dy,
+    };
+  }
+
+  // The edge pushed past [_dockPush] that the hand is going towards, by as much and more than any
+  // other way. A tall panel leaves the hand far past the top or the bottom, so being past an edge
+  // says nothing alone. An edge offered stays until the panel comes off it or the hand clearly leaves.
   AppFloatingDock _dockPushed(Offset delta)
   {
     final Rect wanted = _start.shift(delta);
@@ -345,14 +398,24 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
       AppFloatingDock.left: -wanted.left,
       AppFloatingDock.right: wanted.right - _room.width,
       AppFloatingDock.bottom: wanted.bottom - _room.height,
-    }..removeWhere((dock, push) => push < _dockPush);
+    };
 
-    if (pushes.isEmpty)
+    final double most = math.max(_heading.dx.abs(), _heading.dy.abs());
+    final double run = _offered == AppFloatingDock.none ? _dockPush : _dockSwitch;
+
+    for (final MapEntry(key: dock, value: push) in pushes.entries)
     {
-      return AppFloatingDock.none;
+      final double heading = _headingTo(dock);
+
+      if (push >= _dockPush && heading >= run && heading >= most)
+      {
+        return dock;
+      }
     }
 
-    return pushes.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+    final bool held = (pushes[_offered] ?? 0) > 0 && _headingTo(_offered) > -_dockPush;
+
+    return held ? _offered : AppFloatingDock.none;
   }
 
   // Off a dock, at the size it floats at, the grab point where it was across the panel.
@@ -374,9 +437,14 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
   {
     final Rect here = _place.within(_room, widget.least);
 
+    _uncoverHand();
+    _coverHand(grip.moves ? SystemMouseCursors.grabbing : grip.cursor);
+
     setState(()
     {
       _origin = position;
+      _hand = position;
+      _heading = Offset.zero;
       _start = here;
 
       if (grip.moves && _place.isDocked)
@@ -405,11 +473,15 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
     }
 
     final Offset delta = position - _origin;
+    final Offset step = position - _hand;
 
     setState(()
     {
+      _hand = position;
+
       if (grip.moves)
       {
+        _heading = _heading * math.exp(-step.distance / _headingSpan) + step;
         _live = _moved(delta);
         _offered = _dockPushed(delta);
 
@@ -429,6 +501,8 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
   {
     final Rect? live = _live;
     final _Grip? grip = _grip;
+
+    _uncoverHand();
 
     if (live == null || grip == null)
     {
@@ -551,14 +625,14 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
     );
   }
 
-  Widget _buildOutline(Duration fade)
+  // Over the panel: carried to a side, it stands exactly where it would dock.
+  Widget? _buildOutline(Duration fade)
   {
     final Rect? rect = _place.dockedWithin(_outlined, _room, widget.least);
 
-    // Always a Positioned, so the panel after it keeps its place among the children.
     if (rect == null)
     {
-      return const Positioned(left: 0, top: 0, width: 0, height: 0, child: SizedBox.shrink());
+      return null;
     }
 
     return Positioned.fromRect(
@@ -570,9 +644,9 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
           curve: Curves.easeOutCubic,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: AppTheme.trialTealDeep.withValues(alpha: 0.08),
+              color: AppTheme.trialTealDeep.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(_radius),
-              border: Border.all(color: AppTheme.trialTealDeep.withValues(alpha: 0.55), width: 2),
+              border: Border.all(color: AppTheme.trialTealDeep, width: 3),
             ),
           ),
         ),
@@ -650,7 +724,6 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
                   bottom: insets.bottom,
                   child: widget.behind,
                 ),
-                _buildOutline(fade),
                 Positioned.fromRect(
                   rect: frame,
                   child: IgnorePointer(
@@ -668,6 +741,7 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
                     ),
                   ),
                 ),
+                ?_buildOutline(fade),
               ],
             );
           },
@@ -688,27 +762,11 @@ class _FloatingScope extends InheritedWidget
 }
 
 // The part of a floating panel it is carried by; nothing outside one.
-class AppFloatingGrip extends StatefulWidget
+class AppFloatingGrip extends StatelessWidget
 {
   final Widget child;
 
   const AppFloatingGrip({super.key, required this.child});
-
-  @override
-  State<AppFloatingGrip> createState() => _AppFloatingGripState();
-}
-
-class _AppFloatingGripState extends State<AppFloatingGrip>
-{
-  bool _held = false;
-
-  void _hold(bool held)
-  {
-    if (held != _held)
-    {
-      setState(() => _held = held);
-    }
-  }
 
   @override
   Widget build(BuildContext context)
@@ -717,30 +775,18 @@ class _AppFloatingGripState extends State<AppFloatingGrip>
 
     if (panel == null)
     {
-      return widget.child;
+      return child;
     }
 
     return MouseRegion(
-      cursor: _held ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
+      cursor: SystemMouseCursors.grab,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onPanStart: (details)
-        {
-          _hold(true);
-          panel._begin(_Grip.move, details.globalPosition);
-        },
+        onPanStart: (details) => panel._begin(_Grip.move, details.globalPosition),
         onPanUpdate: (details) => panel._update(details.globalPosition),
-        onPanEnd: (_)
-        {
-          _hold(false);
-          panel._end();
-        },
-        onPanCancel: ()
-        {
-          _hold(false);
-          panel._end();
-        },
-        child: widget.child,
+        onPanEnd: (_) => panel._end(),
+        onPanCancel: panel._end,
+        child: child,
       ),
     );
   }

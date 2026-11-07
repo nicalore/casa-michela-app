@@ -38,10 +38,12 @@ class TrendSeries
 class _Frame
 {
   final Size size;
-  final int count;
+  final List<double> positions;
   final int maxValue;
 
-  const _Frame(this.size, this.count, this.maxValue);
+  const _Frame(this.size, this.positions, this.maxValue);
+
+  int get count => positions.length;
 
   double get plotWidth => size.width - _padLeft - _padRight;
 
@@ -49,9 +51,19 @@ class _Frame
 
   double get bottom => _padTop + plotHeight;
 
-  double get stepX => count > 1 ? plotWidth / (count - 1) : plotWidth;
+  double get smallestStep
+  {
+    var smallest = plotWidth;
 
-  double xOf(int index) => count > 1 ? _padLeft + index * stepX : _padLeft + plotWidth / 2;
+    for (var index = 1; index < count; index++)
+    {
+      smallest = math.min(smallest, xOf(index) - xOf(index - 1));
+    }
+
+    return smallest;
+  }
+
+  double xOf(int index) => _padLeft + positions[index] * plotWidth;
 
   double yOf(double value) => bottom - value / maxValue * plotHeight;
 
@@ -62,26 +74,35 @@ class _Frame
 
   int indexAt(double x)
   {
-    if (count < 2)
+    var nearest = 0;
+
+    for (var index = 1; index < count; index++)
     {
-      return 0;
+      if ((xOf(index) - x).abs() < (xOf(nearest) - x).abs())
+      {
+        nearest = index;
+      }
     }
 
-    return ((x - _padLeft) / stepX).round().clamp(0, count - 1);
+    return nearest;
   }
 
   @override
   bool operator ==(Object other) =>
-      other is _Frame && other.size == size && other.count == count && other.maxValue == maxValue;
+      other is _Frame && other.size == size && other.positions == positions && other.maxValue == maxValue;
 
   @override
-  int get hashCode => Object.hash(size, count, maxValue);
+  int get hashCode => Object.hash(size, positions, maxValue);
 }
 
 // The pointer picks the nearest day on the X axis; [hovered] keeps charts of one card in step.
 class DailyTrendChart extends StatefulWidget
 {
   final List<String> axisLabels;
+
+  // Each point's place along the axis, from 0 to 1.
+  final List<double> positions;
+
   final List<TrendSeries> series;
   final String Function(int value) formatAxis;
   final ValueNotifier<int?> hovered;
@@ -93,6 +114,7 @@ class DailyTrendChart extends StatefulWidget
   const DailyTrendChart({
     super.key,
     required this.axisLabels,
+    required this.positions,
     required this.series,
     required this.formatAxis,
     required this.hovered,
@@ -221,7 +243,7 @@ class _DailyTrendChartState extends State<DailyTrendChart>
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final frame = _Frame(constraints.biggest, _count, maxValue);
+        final frame = _Frame(constraints.biggest, widget.positions, maxValue);
 
         return MouseRegion(
           onHover: (event) => _hover(event.localPosition, frame),
@@ -298,7 +320,7 @@ class _TrendPainter extends CustomPainter
     }
   }
 
-  // Every stride-th label, plus the last one; a stride label crowding the last is dropped.
+  // The first and the last, and between them each label with room after the one before.
   Set<int> _labelledIndices(List<TextPainter> labels)
   {
     final count = labels.length;
@@ -309,21 +331,22 @@ class _TrendPainter extends CustomPainter
     }
 
     final widest = labels.map((label) => label.width).reduce(math.max) + _labelGap;
-    final stride = widest > frame.stepX ? (widest / frame.stepX).ceil() : 1;
-    final indices = [for (var index = 0; index < count; index += stride) index];
     final last = count - 1;
+    final indices = <int>{0};
+    var previous = 0;
 
-    if (indices.last != last)
+    for (var index = 1; index < last; index++)
     {
-      if ((last - indices.last) * frame.stepX < widest)
-      {
-        indices.removeLast();
-      }
+      final x = frame.xOf(index);
 
-      indices.add(last);
+      if (x - frame.xOf(previous) >= widest && frame.xOf(last) - x >= widest)
+      {
+        indices.add(index);
+        previous = index;
+      }
     }
 
-    return indices.toSet();
+    return indices..add(last);
   }
 
   void _paintAxisLabels(Canvas canvas)
@@ -391,7 +414,7 @@ class _TrendPainter extends CustomPainter
 
     _paintAxisLabels(canvas);
 
-    final withMarkers = frame.count == 1 || frame.stepX >= _markerSpacing;
+    final withMarkers = frame.smallestStep >= _markerSpacing;
 
     for (final line in series)
     {

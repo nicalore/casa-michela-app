@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../features/lessons/utils/booking_window.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../mobile_line_breaks.dart';
 import '../mobile_palette.dart';
 import 'mobile_back_button.dart';
@@ -125,24 +126,28 @@ class MobileWizardGuide extends StatelessWidget
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          withoutOrphans(question),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
-            height: 1.2,
-            color: AppTheme.trialInk,
+        WholeWords(
+          child: Text(
+            withoutOrphans(question),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+              height: 1.2,
+              color: AppTheme.trialInk,
+            ),
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          withoutOrphans(hint),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            height: 1.45,
-            color: MobilePalette.mutedText,
+        WholeWords(
+          child: Text(
+            withoutOrphans(hint),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              color: MobilePalette.mutedText,
+            ),
           ),
         ),
       ],

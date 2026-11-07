@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../mobile_line_breaks.dart';
 import '../mobile_palette.dart';
 import 'mobile_back_button.dart';
@@ -870,24 +871,28 @@ class MobileSheet extends StatelessWidget
                 ),
                 const SizedBox(height: 4),
               ],
-              Text(
-                title,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.25,
-                  height: 1.15,
-                  color: AppTheme.trialInk,
+              WholeWords(
+                child: Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.25,
+                    height: 1.15,
+                    color: AppTheme.trialInk,
+                  ),
                 ),
               ),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    color: MobilePalette.mutedText,
+                WholeWords(
+                  child: Text(
+                    subtitle,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: MobilePalette.mutedText,
+                    ),
                   ),
                 ),
               ],
@@ -1610,14 +1615,16 @@ class MobileSheetText extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Text(
-      withoutOrphans(text),
-      textAlign: textAlign,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: 14.5,
-        fontWeight: FontWeight.w500,
-        height: 1.5,
-        color: AppTheme.trialInk.withValues(alpha: 0.8),
+    return WholeWords(
+      child: Text(
+        withoutOrphans(text),
+        textAlign: textAlign,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w500,
+          height: 1.5,
+          color: AppTheme.trialInk.withValues(alpha: 0.8),
+        ),
       ),
     );
   }

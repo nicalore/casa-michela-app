@@ -39,7 +39,6 @@ _FORBIDDEN_STUDENT_TAX_CODE_ERROR: Final[str] = (
     "Puoi gestire solo le presenze relative a te stesso o ai tuoi figli"
 )
 _FORBIDDEN_BOOKER_TAX_CODE_ERROR: Final[str] = "Puoi gestire solo le tue prenotazioni"
-_CREATE_ERROR: Final[str] = "Errore durante la creazione della presenza."
 _UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
 
 _OUTSIDE_OPENING_ERROR: Final[str] = (
@@ -368,17 +367,6 @@ class PresenceService:
 
         await self.repository.create(presence)
         await settle_collaboration(self.repository.session, student_tax_code)
-
-        return presence
-
-    async def create(
-        self,
-        identity: IdentityContext,
-        payload: PresenceCreate,
-    ) -> Presence:
-        async with integrity_guard(self.repository.session, _CREATE_ERROR):
-            presence = await self.prepare_create(identity, payload)
-            await self.repository.commit()
 
         return presence
 

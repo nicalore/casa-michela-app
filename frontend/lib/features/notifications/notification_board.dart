@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../services/api_service.dart';
 import '../reports/reports_board.dart';
 import 'notification_item.dart';
+import 'notification_roles.dart';
 import 'push_types.dart';
 
 // Mirrors _GONE_ONCE_READ in backend/app/api/notifications.py.
@@ -49,7 +50,15 @@ class NotificationBoard extends ChangeNotifier
   // When the current list was fetched: system notifications shown before it are in it.
   DateTime? get listedAt => _listedAt;
 
-  int get unread => _items?.where((item) => !item.read).length ?? 0;
+  // What the home of [role] lists; [items] keeps them all, for the tray and what marks them seen.
+  List<NotificationItem>? itemsOf(String role)
+  {
+    final String? taxCode = ApiService().identity.value?.taxCode;
+
+    return _items?.where((item) => concernsRole(item, role, taxCode: taxCode)).toList();
+  }
+
+  int unreadOf(String role) => itemsOf(role)?.where((item) => !item.read).length ?? 0;
 
   Future<void> load()
   {

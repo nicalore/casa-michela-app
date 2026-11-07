@@ -6,7 +6,7 @@ import '../models/lesson_item.dart';
 import '../models/person_option_item.dart';
 import '../models/schedulable_booking.dart';
 
-// The editing calendar's search: every word typed is found among the pupils, the teacher, the
+// The calendar's search: every word typed is found among the pupils, the teacher, the
 // materie and the disciplines of one lesson or request; case, accents and spaces do not count.
 class CalendarSearch
 {
@@ -49,7 +49,7 @@ class CalendarSearch
     ];
   }
 
-  bool findsTeacher(PersonOptionItem teacher) => _finds([teacher.fullName]);
+  bool findsPerson(PersonOptionItem person) => _finds([person.fullName]);
 
   bool findsLesson(LessonItem lesson)
   {
@@ -68,5 +68,5 @@ class CalendarSearch
     return _finds([entry.presence.student.fullName, ..._bookingNames(entry.booking)]);
   }
 
-  bool findsActivity(ScheduledActivity scheduled) => findsTeacher(scheduled.placement.teacher);
+  bool findsActivity(ScheduledActivity scheduled) => findsPerson(scheduled.placement.teacher);
 }

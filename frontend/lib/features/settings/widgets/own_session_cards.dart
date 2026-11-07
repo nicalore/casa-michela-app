@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/page_density.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../models/session_item.dart';
 import '../utils/settings_strings.dart';
 import 'session_card.dart';
@@ -13,6 +15,9 @@ const double _heroRadius = 28;
 const double _heroTile = 76;
 
 const double _cardRadius = 22;
+
+// Under this the chip leaves the name's line, or it would squeeze the text to a sliver.
+const double _chipBesideFrom = 360;
 
 // Below the wide window (AppPageDensity).
 const double _denseHeroRadius = 20;
@@ -58,39 +63,52 @@ class CurrentSessionCard extends StatelessWidget
           ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
           : const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
       decoration: _cardDecoration(dense ? _denseHeroRadius : _heroRadius),
-      child: Row(
-        children: [
-          Container(
-            width: tile,
-            height: tile,
-            decoration: BoxDecoration(
-              color: AppTheme.trialTealDeep.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(dense ? 12 : 22),
-            ),
-            child: Icon(sessionDeviceIcon(session.deviceType), size: dense ? 22 : 40, color: AppTheme.trialTealDeep),
-          ),
-          SizedBox(width: dense ? 12 : 22),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                OverflowTooltipText(
-                  text: sessionDeviceName(session),
-                  maxLines: 1,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: dense ? 16 : 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.trialOcean,
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints)
+        {
+          final bool chipBelow = constraints.maxWidth < _chipBesideFrom + largeTextRoom(context, _chipBesideFrom);
+
+          return Row(
+            children: [
+              Container(
+                width: tile,
+                height: tile,
+                decoration: BoxDecoration(
+                  color: AppTheme.trialTealDeep.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(dense ? 12 : 22),
                 ),
-                SizedBox(height: dense ? 2 : 4),
-                Text(_details(session), style: _detailStyle(dense: dense)),
+                child: Icon(sessionDeviceIcon(session.deviceType), size: dense ? 22 : 40, color: AppTheme.trialTealDeep),
+              ),
+              SizedBox(width: dense ? 12 : 22),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    OverflowTooltipText(
+                      text: sessionDeviceName(session),
+                      maxLines: 1,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: dense ? 16 : 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.trialOcean,
+                      ),
+                    ),
+                    SizedBox(height: dense ? 2 : 4),
+                    WholeWords(child: Text(_details(session), style: _detailStyle(dense: dense))),
+                    if (chipBelow) ...[
+                      const SizedBox(height: 8),
+                      const CurrentSessionChip(),
+                    ],
+                  ],
+                ),
+              ),
+              if (!chipBelow) ...[
+                const SizedBox(width: 16),
+                const CurrentSessionChip(),
               ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          const CurrentSessionChip(),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

@@ -1,28 +1,21 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/utils/role_label_mapper.dart';
-import '../../services/api_service.dart';
+import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
-import '../dashboard/widgets/dashboard_section_card.dart';
 import '../../routing/app_router.dart';
 import '../../routing/role_sections.dart';
-
-const double _maxContentWidth = 620;
 
 class SectionPlaceholderPage extends StatelessWidget
 {
   final String currentRoute;
 
-  final String eyebrow;
   final String title;
   final String description;
 
@@ -31,7 +24,6 @@ class SectionPlaceholderPage extends StatelessWidget
   const SectionPlaceholderPage({
     super.key,
     required this.currentRoute,
-    required this.eyebrow,
     required this.title,
     required this.description,
     this.showNavigation = true,
@@ -63,7 +55,6 @@ class RoleSectionPage extends StatelessWidget
   {
     return SectionPlaceholderPage(
       currentRoute: '${homeForRole(role)}/${section.slug}',
-      eyebrow: RoleLabelMapper.toLabel(role, feminine: ApiService().lastKnownIdentity?.gender == 'F'),
       title: section.label,
       description: 'Questa sezione non è ancora disponibile.',
     );
@@ -111,18 +102,12 @@ class _Body extends StatelessWidget
                 28,
               ),
               child: Center(
-                child: SizedBox(
-                  width: math.min(width - 2 * margin, _maxContentWidth),
-                  child: PageTransitionItem(
-                    slot: PageTransitionItem.header,
-                    child: DashboardSectionCard(
-                      eyebrow: page.eyebrow,
-                      title: page.title,
-                      child: DashboardComingSoon(
-                        icon: Icons.construction_rounded,
-                        description: page.description,
-                      ),
-                    ),
+                child: PageTransitionItem(
+                  slot: PageTransitionItem.header,
+                  child: AppEmptyCard(
+                    icon: Icons.construction_rounded,
+                    message: page.title,
+                    detail: page.description,
                   ),
                 ),
               ),

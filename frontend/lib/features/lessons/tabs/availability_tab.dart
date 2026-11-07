@@ -272,8 +272,6 @@ class _AvailabilityTabState extends State<AvailabilityTab>
         !isOpenOn(widget.openingDays, widget.selectedDay, kOnlineMode))
     {
       return LessonsClosedDay(
-        day: widget.selectedDay,
-        message: '',
         leftovers: [
           for (final group in _dayGroups)
             AvailabilityCard(

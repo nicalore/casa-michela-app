@@ -12,6 +12,7 @@ import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/shared_components.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../models/person_item.dart';
 
 const double _rowGap = 16;
@@ -332,23 +333,27 @@ class PersonFactsRow extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: start ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
-        Text(
-          fact.label,
-          textAlign: align,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: dense ? 12.5 : 14,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.trialMutedText,
+        WholeWords(
+          child: Text(
+            fact.label,
+            textAlign: align,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: dense ? 12.5 : 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.trialMutedText,
+            ),
           ),
         ),
         SizedBox(height: dense ? 4 : 8),
-        Text(
-          fact.value,
-          textAlign: align,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: dense ? 15 : 18,
-            fontWeight: FontWeight.w700,
-            color: fact.highlight ? AppTheme.trialDanger : AppTheme.trialInk,
+        WholeWords(
+          child: Text(
+            fact.value,
+            textAlign: align,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: dense ? 15 : 18,
+              fontWeight: FontWeight.w700,
+              color: fact.highlight ? AppTheme.trialDanger : AppTheme.trialInk,
+            ),
           ),
         ),
       ],
@@ -435,12 +440,14 @@ class _PersonPickerCardState extends State<PersonPickerCard>
         '${widget.person.firstName[0]}${widget.person.lastName[0]}'.toUpperCase();
 
     final Widget fallback = Center(
-      child: Text(
-        initials,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+      child: WholeWords(
+        child: Text(
+          initials,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.trialTealDeep,
+          ),
         ),
       ),
     );

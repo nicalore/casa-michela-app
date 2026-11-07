@@ -9,6 +9,7 @@ import '../../../../features/association/tabs/opening_hours/combined_hours.dart'
 import '../../../../features/association/tabs/opening_hours/mode_hours_parts.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import 'mobile_hours_parts.dart';
@@ -112,7 +113,7 @@ class MobileHoursTable
     Widget heading(String mode)
     {
       final Widget icon = Icon(lessonModeIcon(mode), size: _headingIconSize, color: hoursInk(mode));
-      final Widget text = Text(modeLabel(mode).toUpperCase(), maxLines: 2, style: _headingStyle(mode));
+      final Widget text = WholeWords(child: Text(modeLabel(mode).toUpperCase(), maxLines: 3, style: _headingStyle(mode)));
 
       return Expanded(
         child: inline

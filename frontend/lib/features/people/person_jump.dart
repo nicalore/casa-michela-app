@@ -32,6 +32,7 @@ abstract final class PersonJumps
 abstract final class OwnPageJumps
 {
   static bool _observations = false;
+  static bool _stats = false;
 
   // Bumped on every request.
   static final ValueNotifier<int> asked = ValueNotifier<int>(0);
@@ -48,5 +49,43 @@ abstract final class OwnPageJumps
     _observations = false;
 
     return pending;
+  }
+
+  // By a figure of the home.
+  static void requestStats()
+  {
+    _stats = true;
+    asked.value++;
+  }
+
+  static bool takeStats()
+  {
+    final bool pending = _stats;
+    _stats = false;
+
+    return pending;
+  }
+}
+
+// A child's statistics asked for by the home: a page not built yet takes them on start, a shown one listens.
+abstract final class ChildStatsJumps
+{
+  static String? _pupil;
+
+  // Bumped on every request.
+  static final ValueNotifier<int> asked = ValueNotifier<int>(0);
+
+  static void request(String taxCode)
+  {
+    _pupil = taxCode;
+    asked.value++;
+  }
+
+  static String? take()
+  {
+    final String? pupil = _pupil;
+    _pupil = null;
+
+    return pupil;
   }
 }

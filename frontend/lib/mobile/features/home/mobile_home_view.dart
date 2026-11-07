@@ -6,7 +6,9 @@ import '../../../core/utils/halloween.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../features/dashboard/widgets/dashboard_greeting.dart';
+import '../../../features/home/home_link.dart';
 import '../../../shared/widgets/descender_room.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
@@ -96,17 +98,19 @@ class MobileHomeFrame extends StatelessWidget
           ),
         ),
         const SizedBox(height: 6),
-        DescenderRoom(
-          child: Text(
-            greetingLineFor(firstName: firstName, birthDate: birthDate, now: now),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: tablet ? 36 : 30,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-              height: 1.05,
-              color: isHalloweenFor(birthDate, now) ? AppTheme.halloweenPumpkinLight : Colors.white,
+        WholeWords(
+          child: DescenderRoom(
+            child: Text(
+              greetingLineFor(firstName: firstName, birthDate: birthDate, now: now),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: tablet ? 36 : 30,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+                height: 1.05,
+                color: isHalloweenFor(birthDate, now) ? AppTheme.halloweenPumpkinLight : Colors.white,
+              ),
             ),
           ),
         ),
@@ -269,6 +273,7 @@ class MobileHomeSection extends StatelessWidget
 
 class MobileHomeView extends StatelessWidget
 {
+  final String role;
   final String firstName;
   final DateTime? birthDate;
 
@@ -284,8 +289,12 @@ class MobileHomeView extends StatelessWidget
 
   final MobileHomeNotices notices;
 
+  // Null: the bands lead nowhere.
+  final ValueChanged<HomeLink>? onLink;
+
   const MobileHomeView({
     super.key,
+    required this.role,
     required this.firstName,
     required this.birthDate,
     required this.loadingDay,
@@ -295,6 +304,7 @@ class MobileHomeView extends StatelessWidget
     required this.onRefresh,
     required this.pageController,
     this.notices = const MobileHomeNotices(),
+    this.onLink,
   });
 
   Widget _buildToday({required bool wide, bool fill = false})
@@ -313,13 +323,14 @@ class MobileHomeView extends StatelessWidget
 
     if (today.isClosed)
     {
-      return const MobileHomeClosed();
+      return MobileHomeClosed(tablet: fill);
     }
 
     return MobileDayTimeline(
       day: today,
       minBandHeight: wide ? _wideBandHeight : _phoneBandHeight,
       fill: fill,
+      onLink: onLink,
     );
   }
 
@@ -343,10 +354,11 @@ class MobileHomeView extends StatelessWidget
       birthDate: birthDate,
       onRefresh: onRefresh,
       pageController: pageController,
+      emptyPages: {if (!loadingDay && (day?.isClosed ?? false)) 0},
       pages: () => [
         MobileLoadSwitcher(child: _buildToday(wide: false)),
         MobileLoadSwitcher(child: _buildMonth()),
-        MobileNoticesList(notices: notices),
+        MobileNoticesList(role: role, notices: notices),
       ],
       tabletBody: (wide) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -389,7 +401,7 @@ class MobileHomeView extends StatelessWidget
             id: kHomeTourNotices,
             inflate: kHomeTourSectionInflate,
             radius: kHomeTourSectionRadius,
-            child: MobileHomeSection(title: names[2], child: MobileNoticesList(notices: notices)),
+            child: MobileHomeSection(title: names[2], child: MobileNoticesList(role: role, notices: notices)),
           ),
         ],
       ),
@@ -428,44 +440,15 @@ class MobileHomeStatus extends StatelessWidget
 
 class MobileHomeClosed extends StatelessWidget
 {
-  const MobileHomeClosed({super.key});
+  final bool tablet;
+
+  const MobileHomeClosed({super.key, required this.tablet});
 
   @override
   Widget build(BuildContext context)
   {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.event_busy_rounded, size: 26, color: Colors.white.withValues(alpha: 0.75)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  kMobileClosedTitle,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Nessuna apertura prevista.',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return Center(
+      child: MobileEmptyCard(icon: Icons.event_busy_rounded, message: kMobileClosedTitle, tablet: tablet),
     );
   }
 }

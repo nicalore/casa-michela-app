@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -27,6 +29,7 @@ import '../utils/booking_wizard_strings.dart';
 import '../utils/opening_window.dart';
 import '../utils/teacher_fit.dart';
 import 'booking_fields_section.dart';
+import 'duration_slider.dart';
 import 'subject_request_tile.dart';
 
 typedef _Step = SubjectRequestStep;
@@ -115,6 +118,8 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
   {
     super.initState();
 
+    _draft.duration ??= kQuarterHour;
+
     if (widget.bands.length == 1)
     {
       _draft.band = widget.bands.single.band;
@@ -185,8 +190,6 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
         card: card,
         first: step == (_choosesBand ? 1 : 0),
         editing: widget.isEditing,
-        online: widget.mode == kOnlineMode,
-        pupil: BookingsTourPupil.of(self: widget.isSelf, gender: widget.studentGender),
       );
 
       if (tour != null && mounted && _step == step)
@@ -260,14 +263,9 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       return kPickKindToGoOn;
     }
 
-    if (step == _Step.duration && _draft.duration == null)
-    {
-      return kPickDurationToGoOn;
-    }
-
     if (step == _Step.duration && _exceeds)
     {
-      return _overStay(_minutesTaken);
+      return _overStay;
     }
 
     return null;
@@ -390,15 +388,13 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
           ),
         ),
         _buildLabel(kTopicLabel),
-        DesktopTourTarget(
-          id: _tour(kTourBookingsSubjectTopic),
-          child: AppTextField(
-            controller: _topicController,
-            label: 'Argomento',
-            showLabel: false,
-            hintText: kTopicHint,
-            maxLength: FieldLimits.topic,
-          ),
+        AppTextField(
+          controller: _topicController,
+          label: 'Argomento',
+          showLabel: false,
+          hintText: kTopicHint,
+          maxLength: FieldLimits.topic,
+          tourId: _tour(kTourBookingsSubjectTopic),
         ),
       ],
     );
@@ -415,71 +411,29 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     return available != null && _minutesTaken > available;
   }
 
-  bool _fits(int minutes)
+  int get _longestDuration
   {
-    final available = _minutesAvailable;
+    final int? available = _minutesAvailable;
 
-    return available == null || _minutesTakenByOthers + minutes <= available;
+    return available == null
+        ? kLongestBookingMinutes
+        : math.max(kQuarterHour, math.min(available - _minutesTakenByOthers, kLongestBookingMinutes));
   }
 
-  String _overStay(int taken)
-  {
-    return durationOverStay(
-      taken,
-      _minutesAvailable ?? 0,
-      isSelf: widget.isSelf,
-      name: widget.studentName,
-      band: _choosesBand ? _draft.band : null,
-    );
-  }
+  String get _overStay => durationOverStay(mode: widget.mode, isSelf: widget.isSelf, name: widget.studentName);
 
   Widget _buildDurationStep()
   {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const AppFieldLabel(kDurationLabel),
-              if (_minutesAvailable != null)
-                DesktopTourTarget(
-                  id: _tour(kTourBookingsSubjectCount),
-                  child: Text(
-                    '${formatMinutes(_minutesTaken)} di '
-                    '${formatMinutes(_minutesAvailable!)}',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: _exceeds ? AppTheme.trialDanger : AppTheme.trialTealDeep,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        DesktopTourTarget(
-          id: _tour(kTourBookingsSubjectDurations),
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              // The duration held is never struck: the count and the refusal tell it is too long.
-              for (final minutes in bookingDurationOptions)
-                AppSelectableChip(
-                  label: formatMinutes(minutes),
-                  selected: _draft.duration == minutes,
-                  enabled: _draft.duration == minutes || _fits(minutes),
-                  disabledTooltip: _overStay(_minutesTakenByOthers + minutes),
-                  onSelected: (_) => setState(() => _draft.duration = minutes),
-                ),
-            ],
-          ),
-        ),
-      ],
+    final int? available = _minutesAvailable;
+
+    return DurationSlider(
+      minutes: _draft.duration ?? kQuarterHour,
+      longest: _longestDuration,
+      count: available == null ? null : '${formatMinutes(_minutesTaken)} di ${formatMinutes(available)}',
+      over: _exceeds,
+      onChanged: (minutes) => setState(() => _draft.duration = minutes),
+      trackTour: _tour(kTourBookingsSubjectDurations),
+      countTour: _tour(kTourBookingsSubjectCount),
     );
   }
 
@@ -513,17 +467,15 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildLabel(kTeacherNotesLabel, first: true),
-        DesktopTourTarget(
-          id: _tour(kTourBookingsSubjectNotes),
-          child: AppTextField(
-            controller: _notesController,
-            label: 'Note',
-            showLabel: false,
-            hintText: kTeacherNotesHint,
-            maxLength: FieldLimits.notes,
-            maxLines: 4,
-            minLines: 3,
-          ),
+        AppTextField(
+          controller: _notesController,
+          label: 'Note',
+          showLabel: false,
+          hintText: kTeacherNotesHint,
+          maxLength: FieldLimits.notes,
+          maxLines: 4,
+          minLines: 3,
+          tourId: _tour(kTourBookingsSubjectNotes),
         ),
       ],
     );

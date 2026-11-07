@@ -4,6 +4,7 @@ import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/opening_day_item.dart';
 import '../../../../features/association/tabs/opening_hours/combined_hours.dart';
 import '../../../../features/association/tabs/opening_hours/hours_strings.dart';
+import '../../../shared/widgets/mobile_empty_card.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import 'mobile_hours_table.dart';
 
@@ -23,17 +24,7 @@ class MobileStandardHoursCard extends StatelessWidget
 
     if (!hasStandardHours(schedule))
     {
-      return MobileGlassPanel(
-        padding: tablet ? const EdgeInsets.all(20) : const EdgeInsets.all(18),
-        borderRadius: BorderRadius.circular(_radius),
-        child: Center(
-          child: Text(
-            kNoStandardHours,
-            textAlign: TextAlign.center,
-            style: table.closedStyle().copyWith(fontWeight: FontWeight.w500),
-          ),
-        ),
-      );
+      return MobileEmptyCard(icon: Icons.schedule_rounded, message: kNoStandardHours, tablet: tablet);
     }
 
     final double labelWidth = table.labelWidth(context, [for (var weekday = 1; weekday <= 7; weekday++) weekdayFullName(weekday)]);

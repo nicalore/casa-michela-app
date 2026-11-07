@@ -6,7 +6,7 @@ class DayMarks
   // Shut in both modes.
   final Set<DateTime> closed;
 
-  // Dotted: a calendar published that day.
+  // Dotted: a calendar published that day for the reader, or a notice sent.
   final Set<DateTime> busy;
 
   const DayMarks({this.closed = const {}, this.busy = const {}});

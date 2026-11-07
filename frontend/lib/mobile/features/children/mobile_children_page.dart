@@ -10,6 +10,8 @@ import '../../../features/people/models/child_item.dart';
 import '../../../features/people/models/person_face.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../features/people/own_page.dart' show OwnPageSection;
+import '../../../features/people/person_jump.dart';
+import '../../../features/people/tabs/statistics/widgets/stats_data.dart';
 import '../../../features/people/widgets/person_detail_cards.dart';
 import '../../../features/people/widgets/person_detail_widgets.dart' show PersonDetailCard;
 import '../../../services/api_service.dart';
@@ -99,6 +101,12 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
   // One controller moved from child to child, so period and ranking are kept.
   MobilePupilStatsController? _stats;
 
+  // Asked by a figure of the home: the child's statistics, once the children are read.
+  bool _statsAsked = false;
+
+  // On the month the figure speaks of.
+  String _statsPeriod = defaultStatsPeriod;
+
   // Set once the page is in place; from then on every load and closed sheet looks for the tour.
   bool _settledIn = false;
 
@@ -106,9 +114,44 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
   void initState()
   {
     super.initState();
+
+    if (ChildStatsJumps.take() case final String pupil)
+    {
+      _shown = pupil;
+      _statsAsked = true;
+      _statsPeriod = kThisMonthStatsPeriod;
+    }
+
     _load().whenComplete(MobileHoldScope.hold(context));
     mobileTourChanges.addListener(_tourLater);
     MobileNavSheet.hidden.addListener(_tourLater);
+    ChildStatsJumps.asked.addListener(_onStatsAsked);
+  }
+
+  // A second touch on the home's figure while this page rises: spent, or it would wait for the next visit.
+  void _onStatsAsked()
+  {
+    final String? pupil = ChildStatsJumps.take();
+
+    if (pupil == null || !mounted)
+    {
+      return;
+    }
+
+    if (_children.where((child) => child.fiscalCode == pupil).firstOrNull case final PersonItem child)
+    {
+      _show(child);
+      _showStats();
+    }
+  }
+
+  // Before the tour's check, which leaves a page not on its start alone.
+  void _showStats()
+  {
+    if (_pages.hasClients)
+    {
+      _pages.jumpToPage(_sections.indexOf(OwnPageSection.stats));
+    }
   }
 
   @override
@@ -128,6 +171,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
   {
     mobileTourChanges.removeListener(_tourLater);
     MobileNavSheet.hidden.removeListener(_tourLater);
+    ChildStatsJumps.asked.removeListener(_onStatsAsked);
     _pages.dispose();
     _stats?.dispose();
     super.dispose();
@@ -206,6 +250,18 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
         _stats?.follow(child.fiscalCode);
       }
 
+      if (_statsAsked)
+      {
+        _statsAsked = false;
+        SchedulerBinding.instance.addPostFrameCallback((_)
+        {
+          if (mounted)
+          {
+            _showStats();
+          }
+        });
+      }
+
       _tourLater();
     }
     catch (e, stackTrace)
@@ -263,7 +319,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
 
   MobilePupilStatsController _statsOf(PersonItem child)
   {
-    return _stats ??= MobilePupilStatsController(child.fiscalCode)..load();
+    return _stats ??= MobilePupilStatsController(child.fiscalCode, period: _statsPeriod)..load();
   }
 
   @override

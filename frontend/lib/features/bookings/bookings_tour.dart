@@ -683,13 +683,13 @@ enum _SubjectMark { intro, kinds, topic, forward, durations, count, teachers, se
 const Map<_SubjectMark, int> _subjectVersions = {
   _SubjectMark.intro: 1,
   _SubjectMark.kinds: 2,
-  _SubjectMark.topic: 2,
+  _SubjectMark.topic: 3,
   _SubjectMark.forward: 3,
-  _SubjectMark.durations: 2,
-  _SubjectMark.count: 1,
+  _SubjectMark.durations: 4,
+  _SubjectMark.count: 2,
   _SubjectMark.teachers: 2,
   _SubjectMark.search: 2,
-  _SubjectMark.notes: 2,
+  _SubjectMark.notes: 3,
   _SubjectMark.add: 3,
   _SubjectMark.save: 3,
 };
@@ -701,14 +701,8 @@ Future<DesktopTour?> bookingsSubjectTour({
   required BookingsSubjectCard card,
   required bool first,
   required bool editing,
-  required bool online,
-  required BookingsTourPupil pupil,
 })
 {
-  final String total = pupil == BookingsTourPupil.self
-      ? 'il totale delle tue ore di ${_presence(online)}'
-      : 'il totale di ore di ${_presence(online)} di ${pupil.yours}';
-
   // Closing the window ends the tour.
   DesktopTourStep step(
     _SubjectMark mark,
@@ -772,14 +766,16 @@ Future<DesktopTour?> bookingsSubjectTour({
       BookingsSubjectCard.duration => [
           step(
             _SubjectMark.durations,
-            'Qui puoi selezionare la durata della lezione.',
+            'Trascinando il cursore cambi la durata della lezione.',
             target: kTourBookingsSubjectDurations,
+            pad: 4,
+            radius: 14,
             interactive: true,
           ),
           step(
             _SubjectMark.count,
             'Qui puoi vedere quante ore di lezione sono state prenotate rispetto al totale delle ore che puoi '
-                'richiedere. Se diventa rosso, significa che hai superato $total.',
+                'richiedere.',
             target: kTourBookingsSubjectCount,
             pad: 6,
             radius: 10,

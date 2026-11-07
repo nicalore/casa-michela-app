@@ -15,7 +15,6 @@ import '../../../shared/widgets/unfolding_rows.dart';
 import '../../association/models/program_tree.dart';
 import '../../association/models/study_program_item.dart';
 import '../subjects_tour.dart';
-import '../utils/program_scope_strings.dart';
 import 'person_detail_widgets.dart';
 
 // Past this many programmes the list gets a search field.
@@ -44,8 +43,8 @@ class ProgramScopeDialog extends StatefulWidget
   // An empty set means the discipline is being given up.
   final ValueChanged<Set<int>> onSave;
 
-  // A discipline not taken yet: confirming none is refused, there is nothing to give up.
-  final bool adding;
+  // Why confirming none is refused; null lets the discipline be given up.
+  final String? emptyRefusal;
 
   const ProgramScopeDialog({
     super.key,
@@ -53,7 +52,7 @@ class ProgramScopeDialog extends StatefulWidget
     required this.programs,
     required this.initialSelected,
     required this.onSave,
-    this.adding = false,
+    this.emptyRefusal,
   });
 
   @override
@@ -407,9 +406,11 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
             fontSize: kPersonDialogButtonFontSize,
             onPressed: ()
             {
-              if (widget.adding && _selected.isEmpty)
+              final String? refusal = widget.emptyRefusal;
+
+              if (refusal != null && _selected.isEmpty)
               {
-                CustomSnackBar.show(context: context, message: kPickProgramToAdd, isError: true);
+                CustomSnackBar.show(context: context, message: refusal, isError: true);
 
                 return;
               }

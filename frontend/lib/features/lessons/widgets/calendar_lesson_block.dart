@@ -23,8 +23,8 @@ const double kStudentBlockHeight = 80;
 const double kTeacherBlockHeight = 64;
 
 // Published blocks write the subject too, on a line of their own.
-const double kPublishedStudentBlockHeight = 98;
-const double kPublishedTeacherBlockHeight = 82;
+const double kPublishedStudentBlockHeight = 100;
+const double kPublishedTeacherBlockHeight = 84;
 
 // Published below the wide window: three lines, the hours, the discipline, then who and where.
 const double kDensePublishedBlockHeight = 66;
@@ -116,7 +116,9 @@ const Duration kExcludedLaneTravel = Duration(milliseconds: 340);
 const Curve kExcludedLaneCurve = Curves.easeOutCubic;
 
 // The teacher or the pupil on a block: darker than the muted text, which is hard to read there.
-const Color kLessonPersonColor = Color(0xFF3E5260);
+const Color kLessonPersonColor = Color(0xFF2A4356);
+
+const Color kLessonSubjectColor = Color(0xFF5B7082);
 
 Color lessonAccent(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
 
@@ -700,7 +702,7 @@ class CalendarLessonBlock extends StatefulWidget
   // Its request opens on a long hover: the short tooltip would only say less of it.
   final bool showsDetails;
 
-  // The editing calendar's search: a lesson it finds lights up, the others step back.
+  // A lesson the search finds lights up, the others step back.
   final ValueListenable<CalendarSearch?>? search;
 
   const CalendarLessonBlock({
@@ -1210,7 +1212,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock> with Calendar
                                   ),
                                 ),
                               ],
-                              SizedBox(height: widget.isComposing ? 2 : (_dense ? 3 : 4)),
+                              SizedBox(height: widget.isComposing ? 2 : (_dense ? 3 : 7)),
                               DescenderRoom(
                                 child: Text(
                                   _dense
@@ -1274,15 +1276,15 @@ TextStyle get _blockDisciplineStyle => GoogleFonts.plusJakartaSans(
     );
 
 TextStyle get _blockSubjectStyle => GoogleFonts.plusJakartaSans(
-      fontSize: 11.5,
-      fontWeight: FontWeight.w600,
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
       height: 1.2,
-      color: AppTheme.trialOcean,
+      color: kLessonSubjectColor,
     );
 
 TextStyle get _blockPersonStyle => GoogleFonts.plusJakartaSans(
-      fontSize: 12,
-      fontWeight: FontWeight.w600,
+      fontSize: 12.5,
+      fontWeight: FontWeight.w500,
       height: 1.15,
       color: kLessonPersonColor,
     );
@@ -1641,7 +1643,7 @@ double publishedLessonBlockHeight(
     height += 1 + tall(subject, _blockSubjectStyle);
   }
 
-  height += 4 + tall(lessonTitle(lesson, view: view), _blockPersonStyle);
+  height += 7 + tall(lessonTitle(lesson, view: view), _blockPersonStyle);
 
   if (view == CalendarView.byStudent || showsRoom)
   {

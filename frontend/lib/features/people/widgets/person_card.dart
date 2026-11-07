@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/profile_photo_image.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../models/person_item.dart';
 import 'role_chips_row.dart';
 
@@ -61,12 +63,14 @@ class _PersonCardState extends State<PersonCard>
         '${widget.person.firstName[0]}${widget.person.lastName[0]}'.toUpperCase();
 
     final Widget fallback = Center(
-      child: Text(
-        initials,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: dense ? 16 : 23,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+      child: WholeWords(
+        child: Text(
+          initials,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: dense ? 16 : 23,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.trialTealDeep,
+          ),
         ),
       ),
     );
@@ -115,7 +119,7 @@ class _PersonCardState extends State<PersonCard>
         onTap: widget.onTap,
         child: SizedBox(
           width: widget.width,
-          height: dense ? PersonCard.denseHeight : PersonCard.height,
+          height: (dense ? PersonCard.denseHeight : PersonCard.height) + largeTextRoom(context, dense ? 33 : 40),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,

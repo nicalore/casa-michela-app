@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_floating_panel.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -26,6 +27,7 @@ import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../association/models/room_item.dart';
 import '../../association/models/study_program_item.dart';
+import '../../calendar/utils/calendar_strings.dart';
 import '../../people/models/person_face.dart';
 import '../../people/models/person_item.dart';
 import '../models/activity_item.dart';
@@ -35,7 +37,6 @@ import '../models/calendar_day.dart';
 import '../models/calendar_lock_item.dart';
 import '../models/calendar_publication_item.dart';
 import '../models/lesson_item.dart';
-import '../models/person_option_item.dart';
 import '../models/presence_item.dart';
 import '../models/room_day_plan.dart';
 import '../models/schedulable_booking.dart';
@@ -341,12 +342,9 @@ class _CalendarTabState extends State<CalendarTab>
 
   CalendarView _view = CalendarView.byTeacher;
 
+  // Lights what it finds and narrows nothing, composing and published alike.
   final TextEditingController _searchController = TextEditingController();
-  String _search = '';
-
-  // Composing: lights what it finds, narrows nothing.
-  final TextEditingController _composingSearchController = TextEditingController();
-  final ValueNotifier<CalendarSearch?> _composingSearch = ValueNotifier(null);
+  final ValueNotifier<CalendarSearch?> _search = ValueNotifier(null);
 
   CalendarSort _sort = CalendarSort.room;
 
@@ -482,8 +480,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     _clock?.cancel();
     _searchController.dispose();
-    _composingSearchController.dispose();
-    _composingSearch.dispose();
+    _search.dispose();
     _trackController.dispose();
     _sidewaysController.dispose();
     _carried.dispose();
@@ -706,31 +703,6 @@ class _CalendarTabState extends State<CalendarTab>
         : _sort;
   }
 
-  bool get _isNarrowed => _search.trim().isNotEmpty;
-
-  bool _rowNames(CalendarLane lane, String query)
-  {
-    bool says(PersonOptionItem person) => person.fullName.toLowerCase().contains(query);
-
-    if (says(lane.person))
-    {
-      return true;
-    }
-
-    return lane.lessons.any((lesson) =>
-        says(lesson.teacher) ||
-        lesson.bookings.any((entry) => says(entry.presence.student)));
-  }
-
-  List<T> _narrow<T extends CalendarLane>(List<T> lanes)
-  {
-    final query = _search.trim().toLowerCase();
-
-    return lanes
-        .where((lane) => query.isEmpty || _rowNames(lane, query))
-        .toList();
-  }
-
   List<CalendarLane> _rowsFor(List<TeacherLane> lanes)
   {
     if (!_isSettled)
@@ -740,10 +712,10 @@ class _CalendarTabState extends State<CalendarTab>
 
     if (_view == CalendarView.byStudent)
     {
-      return _ordered(_narrow(_studentLanes));
+      return _ordered(_studentLanes);
     }
 
-    final called = _narrow(convokedTeachers(lanes));
+    final called = convokedTeachers(lanes);
 
     if (_shownSort == CalendarSort.room)
     {
@@ -1477,11 +1449,7 @@ class _CalendarTabState extends State<CalendarTab>
       if (!isNarrow) _buildLayoutPicker(),
     ];
 
-    final Widget search = AppSearchField(
-      controller: _searchController,
-      onChanged: (value) => setState(() => _search = value),
-      hintText: 'Cerca docente o studente...',
-    );
+    final Widget search = _buildSearchField();
 
     return LayoutBuilder(
       builder: (context, constraints)
@@ -1649,13 +1617,6 @@ class _CalendarTabState extends State<CalendarTab>
       return 'Nessun docente disponibile';
     }
 
-    if (_isNarrowed)
-    {
-      return _view == CalendarView.byStudent
-          ? 'Nessuno studente corrisponde alla ricerca'
-          : 'Nessun docente corrisponde alla ricerca';
-    }
-
     return _view == CalendarView.byStudent
         ? 'Nessuno studente in calendario'
         : 'Nessun docente convocato';
@@ -1663,52 +1624,12 @@ class _CalendarTabState extends State<CalendarTab>
 
   Widget _buildClosedBand()
   {
-    return Padding(
-      padding: const EdgeInsets.only(top: 64),
-      child: Column(
-        children: [
-          const Icon(Icons.event_busy_rounded, size: 44, color: AppTheme.trialMutedText),
-          const SizedBox(height: 16),
-          Text(
-            "L'Associazione è chiusa",
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              height: 1.3,
-              color: AppTheme.trialOcean,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const Center(child: AppEmptyCard(icon: Icons.event_busy_rounded, message: kAssociationClosedTitle));
   }
 
   Widget _buildEmptyBand({required String message})
   {
-    return Padding(
-      padding: const EdgeInsets.only(top: 64),
-      child: Column(
-        children: [
-          Icon(
-            _isSettled && _isNarrowed ? Icons.search_off_rounded : Icons.person_off_outlined,
-            size: 44,
-            color: AppTheme.trialMutedText,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              height: 1.3,
-              color: AppTheme.trialOcean,
-            ),
-          ),
-        ],
-      ),
-    );
+    return Center(child: AppEmptyCard(icon: Icons.person_off_outlined, message: message));
   }
 
   ({Map<int, int> subLaneOf, List<double> rowHeights, List<int> laneCounts}) _stackLanes(List<CalendarLane> lanes)
@@ -1947,8 +1868,8 @@ class _CalendarTabState extends State<CalendarTab>
     final now = _nowMinutes;
     final showsNow = now != null && now >= metrics.windowStartMinutes && now <= metrics.windowEndMinutes;
 
-    // Another day or band is drawn afresh: its rows never travel from where the old one had them.
-    final drawing = ValueKey((_day, _band, _redraws));
+    // Another day, band or reading of it is drawn afresh: its rows never travel from where the old one had them.
+    final drawing = ValueKey((_day, _band, _redraws, _isSettled));
 
     if (_isSettled)
     {
@@ -1970,6 +1891,7 @@ class _CalendarTabState extends State<CalendarTab>
         nowMinutes: showsNow ? now : null,
         onLessonTap: _openPublishedLesson,
         onActivityTap: _openPublishedActivity,
+        search: _search,
         scrollController: _trackController,
         sidewaysController: _sidewaysController,
         viewportKey: _viewportKey,
@@ -1983,7 +1905,7 @@ class _CalendarTabState extends State<CalendarTab>
       bandStart: _bandStart,
       bandEnd: _bandEnd,
       isComposing: true,
-      search: _composingSearch,
+      search: _search,
       ministrySubjects: widget.ministrySubjects,
       subLaneOf: stacking.subLaneOf,
       warnedLessonIds: marked.warned,
@@ -2057,6 +1979,7 @@ class _CalendarTabState extends State<CalendarTab>
       roomByTeacher: _roomLabelsFor(lanes),
       onLessonTap: _openPublishedLesson,
       onActivityTap: _openPublishedActivity,
+      search: _search,
     );
   }
 
@@ -2819,15 +2742,20 @@ class _CalendarTabState extends State<CalendarTab>
     return _buildBandAction();
   }
 
+  Widget _buildSearchField()
+  {
+    return AppSearchField(
+      controller: _searchController,
+      onChanged: (value) => _search.value = CalendarSearch.of(value, widget.ministrySubjects),
+      hintText: 'Cerca nel calendario...',
+    );
+  }
+
   Widget _buildComposingSearch()
   {
     return SizedBox(
       width: _isDense ? _denseSearchWidth : _composingSearchWidth,
-      child: AppSearchField(
-        controller: _composingSearchController,
-        onChanged: (value) => _composingSearch.value = CalendarSearch.of(value, widget.ministrySubjects),
-        hintText: 'Cerca nel calendario...',
-      ),
+      child: _buildSearchField(),
     );
   }
 
@@ -2924,7 +2852,7 @@ class _CalendarTabState extends State<CalendarTab>
           : () => _addActivity(index),
       onOpenActivity: _activityTap(index),
       requestDetails: (entry) => _requestDetails(entry.booking, entry.presence.student.taxCode),
-      search: _composingSearch,
+      search: _search,
     );
   }
 

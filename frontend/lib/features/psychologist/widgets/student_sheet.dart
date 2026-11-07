@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../association/tabs/opening_hours/hours_grid.dart' show TodayFrame;
 import '../../lessons/widgets/person_avatar.dart';
 import '../../people/models/person_item.dart';
@@ -582,9 +583,9 @@ class _YearRow extends StatelessWidget
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: _labelStyle(dense ? _denseLabelSize : 13)),
+        WholeWords(child: Text(label, style: _labelStyle(dense ? _denseLabelSize : 13))),
         SizedBox(height: dense ? 2 : 3),
-        Text(value, style: _valueStyle(dense ? _denseValueSize : 16)),
+        WholeWords(child: Text(value, style: _valueStyle(dense ? _denseValueSize : 16))),
       ],
     );
   }

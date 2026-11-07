@@ -143,8 +143,17 @@ async def settle_update_images(
     update.images = images
 
 
-# Newest first: those for a role held, published since the account exists, not read.
-async def unread_by(db: AsyncSession, account: Account) -> list[AppUpdate]:
+# As numbers: 0.5.10 comes after 0.5.9.
+def _version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+# Newest first: for a role held, since the account exists, unread, up to the version.
+async def unread_by(
+    db: AsyncSession,
+    account: Account,
+    version: str,
+) -> list[AppUpdate]:
     roles = update_roles_of(account.person)
 
     if not roles:
@@ -164,8 +173,9 @@ async def unread_by(db: AsyncSession, account: Account) -> list[AppUpdate]:
         )
         .order_by(AppUpdate.created_at.desc(), AppUpdate.id.desc())
     )
+    running = _version_key(version)
 
-    return list(updates)
+    return [update for update in updates if _version_key(update.version) <= running]
 
 
 async def mark_read(db: AsyncSession, tax_code: str, ids: Iterable[int]) -> None:

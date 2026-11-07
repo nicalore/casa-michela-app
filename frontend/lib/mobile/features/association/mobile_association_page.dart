@@ -20,9 +20,8 @@ import '../../../features/notifications/notice_jump.dart';
 import '../../../features/notifications/week_jump.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
-import '../../shared/mobile_palette.dart';
 import '../../shared/widgets/mobile_date_capsule.dart';
-import '../../shared/widgets/mobile_glass_panel.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_month_picker.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
@@ -730,7 +729,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
     {
       return [
         _Heading(kUpcomingVariationsTitle, tablet: tablet),
-        _EmptyCard(kNoUpcomingVariations, tablet: tablet),
+        MobileEmptyCard(icon: Icons.edit_calendar_rounded, message: kNoUpcomingVariations, tablet: tablet),
       ];
     }
 
@@ -952,34 +951,6 @@ class _Heading extends StatelessWidget
           fontWeight: FontWeight.w800,
           letterSpacing: -0.2,
           color: Colors.white,
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyCard extends StatelessWidget
-{
-  final String text;
-  final bool tablet;
-
-  const _EmptyCard(this.text, {required this.tablet});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MobileGlassPanel(
-      padding: EdgeInsets.all(tablet ? 20 : 18),
-      borderRadius: BorderRadius.circular(22),
-      child: Center(
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: tablet ? 15 : 14,
-            fontWeight: FontWeight.w500,
-            color: MobilePalette.mutedText,
-          ),
         ),
       ),
     );

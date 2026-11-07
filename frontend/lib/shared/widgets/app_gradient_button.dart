@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
 import 'dialog_density.dart';
 import 'page_density.dart';
+import 'whole_words.dart';
 
 const Duration _sweepDuration = Duration(milliseconds: 320);
 
@@ -20,6 +21,8 @@ const double _verticalPadding = 15;
 
 // Caps inside a dense dialog: its footer buttons and the ones in its cards.
 const double _denseHeight = 44;
+
+const double _wrappedRoom = 3;
 const double _denseFontSize = 13;
 const double _denseHorizontalPadding = 20;
 const double _denseVerticalPadding = 12;
@@ -158,6 +161,14 @@ class _AppGradientButtonState extends State<AppGradientButton>
     return height != null && _dense ? math.min(height, _denseHeight) : height;
   }
 
+  // A height to start from: a label on two lines makes the button grow, never cut.
+  BoxConstraints? get _minHeight
+  {
+    final double? height = _height;
+
+    return height == null ? null : BoxConstraints(minHeight: height);
+  }
+
   double get _fontSize
   {
     if (_page)
@@ -230,12 +241,14 @@ class _AppGradientButtonState extends State<AppGradientButton>
           const SizedBox(width: 8),
         ],
         Flexible(
-          child: Text(
-            widget.label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: _labelStyle(contentColor),
+          child: WholeWords(
+            child: Text(
+              widget.label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: _labelStyle(contentColor),
+            ),
           ),
         ),
         if (widget.badge case final badge?) ...[
@@ -270,7 +283,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
       decoration: BoxDecoration(gradient: widget.gradient),
       padding: EdgeInsets.symmetric(
         horizontal: _horizontal,
-        vertical: _height == null ? _vertical : 0,
+        vertical: _height == null ? _vertical : _wrappedRoom,
       ),
       child: ExcludeSemantics(child: _buildFace(Colors.white)),
     );
@@ -306,7 +319,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
         // Same skeleton as the live face: an aligned Container fills the width it is offered.
         child: Container(
           width: widget.width,
-          height: _height,
+          constraints: _minHeight,
           decoration: BoxDecoration(
             color: AppTheme.arrowDisabledSurface,
             borderRadius: BorderRadius.circular(widget.radius),
@@ -318,7 +331,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: _horizontal,
-                  vertical: _height == null ? _vertical : 0,
+                  vertical: _height == null ? _vertical : _wrappedRoom,
                 ),
                 child: _buildFace(AppTheme.trialMutedText),
               ),
@@ -365,7 +378,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
 
                 return Container(
                   width: widget.width,
-                  height: _height,
+                  constraints: _minHeight,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(widget.radius),
@@ -385,7 +398,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
                       Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: _horizontal,
-                          vertical: _height == null ? _vertical : 0,
+                          vertical: _height == null ? _vertical : _wrappedRoom,
                         ),
                         child: child,
                       ),

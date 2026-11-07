@@ -18,4 +18,7 @@ abstract final class MobilePalette
   // The two modes' colours lightened to read on the dark sea.
   static const Color presenceOnSea = Color(0xFF5FD3C4);
   static const Color onlineOnSea = Color(0xFFF2BB5C);
+
+  // A chart's months outside the chosen period; never see-through on the glass.
+  static const Color chartFaded = Color(0xFF7F92A3);
 }

@@ -8,11 +8,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
+import '../../../../features/home/home_link.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_opening_hours.dart';
 import '../../../shared/widgets/mobile_pill.dart';
 import '../mobile_home_day.dart';
+import 'mobile_link.dart';
 
 const double _timeWidth = 44;
 const double _railWidth = 18;
@@ -28,6 +30,10 @@ const double _nowHalo = 4;
 // Clears the next stop when a band's own text is taller than its block.
 const double _bodyBottom = 28;
 
+// Level with the band's name, on the line's far end.
+const double _chevronSize = 22;
+const double _chevronTop = -4;
+
 const double _endStopHeight = _stopRadius * 2 + _stopStroke;
 
 class MobileDayTimeline extends StatefulWidget
@@ -40,11 +46,15 @@ class MobileDayTimeline extends StatefulWidget
   // The last band takes the leftover height, reaching a neighbour-sized column's bottom.
   final bool fill;
 
+  // Null: the bands lead nowhere.
+  final ValueChanged<HomeLink>? onLink;
+
   const MobileDayTimeline({
     super.key,
     required this.day,
     this.minBandHeight = 150,
     this.fill = false,
+    this.onLink,
   });
 
   @override
@@ -126,6 +136,7 @@ class _MobileDayTimelineState extends State<MobileDayTimeline>
       band: band,
       minHeight: widget.minBandHeight,
       nowMinutes: _nowMinutes,
+      onLink: widget.onLink,
     );
   }
 }
@@ -136,35 +147,54 @@ class _BandBlock extends StatelessWidget
   final double minHeight;
   final ValueListenable<int?> nowMinutes;
 
+  final ValueChanged<HomeLink>? onLink;
+
   const _BandBlock({
     required this.band,
     required this.minHeight,
     required this.nowMinutes,
+    this.onLink,
   });
 
   @override
   Widget build(BuildContext context)
   {
-    return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: minHeight),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Rail(
-              label: formatTimeOfDayShort(timeOfDayFromMinutes(band.startMinutes)),
-              nowMinutes: nowMinutes,
-              bandStartMinutes: band.startMinutes,
-              bandEndMinutes: band.endMinutes,
-            ),
-            const SizedBox(width: _bodyGap),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: _bodyBottom),
-                child: _BandBody(band: band),
+    final ValueChanged<HomeLink>? follow = onLink;
+
+    return MobileLink(
+      onTap: follow == null ? null : () => follow(homeBandLink(band.band, isPublished: band.isPublished)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: minHeight),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _Rail(
+                label: formatTimeOfDayShort(timeOfDayFromMinutes(band.startMinutes)),
+                nowMinutes: nowMinutes,
+                bandStartMinutes: band.startMinutes,
+                bandEndMinutes: band.endMinutes,
               ),
-            ),
-          ],
+              const SizedBox(width: _bodyGap),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: _bodyBottom),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _BandBody(band: band),
+                      if (follow != null)
+                        const Positioned(
+                          top: _chevronTop,
+                          right: 0,
+                          child: MobileLinkChevron(size: _chevronSize, onSea: true),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -336,7 +366,10 @@ class _BandBody extends StatelessWidget
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: 10,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
               bandLabel(band.band).toUpperCase(),
@@ -347,10 +380,7 @@ class _BandBody extends StatelessWidget
                 color: Colors.white.withValues(alpha: 0.65),
               ),
             ),
-            if (band.isPublished) ...[
-              const SizedBox(width: 10),
-              const MobilePill('Pubblicato'),
-            ],
+            if (band.showsPublished) const MobilePill('Pubblicato'),
           ],
         ),
         const SizedBox(height: 4),

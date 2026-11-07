@@ -29,6 +29,7 @@ import '../../../features/notifications/calendar_seen.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
@@ -38,7 +39,6 @@ import '../../shared/widgets/mobile_swipe_page.dart';
 import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_calendar_day.dart';
 import 'mobile_calendar_tour.dart';
-import 'widgets/mobile_calendar_notice.dart';
 import 'widgets/mobile_calendar_timeline.dart';
 import 'widgets/mobile_convocation_card.dart';
 import 'widgets/mobile_lesson_card.dart';
@@ -654,7 +654,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       today: _today,
       first: oldestKeptDay(_today),
       last: _lastDay,
-      loadMarks: (from, to) => loadDayMarks(from, to, published: true),
+      loadMarks: (from, to) => teacherDayMarks(from, to, widget.user.taxCode),
       tourDays: kCalendarTourPickerDays,
       onShown: () => startMobileTourOnce(taxCode: widget.user.taxCode, tour: calendarPickerTour()),
     );
@@ -681,10 +681,11 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
     if (data.closed)
     {
-      return MobileCalendarNotice(
+      return MobileEmptyCard(
         icon: Icons.event_busy_rounded,
-        title: kAssociationClosedTitle,
-        message: data.closureNote,
+        message: kAssociationClosedTitle,
+        detail: data.closureNote,
+        tablet: tablet,
       );
     }
 
@@ -693,24 +694,26 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
     if (shown.state == MobileCalendarBandState.closed)
     {
-      return const MobileCalendarNotice(icon: Icons.event_busy_rounded, title: kAssociationClosedTitle);
+      return MobileEmptyCard(icon: Icons.event_busy_rounded, message: kAssociationClosedTitle, tablet: tablet);
     }
 
     if (shown.state == MobileCalendarBandState.unpublished)
     {
-      return MobileCalendarNotice(
+      return MobileEmptyCard(
         icon: Icons.pending_actions_rounded,
-        title: kCalendarUnpublishedTitle,
-        message: unpublishedBandMessage(band),
+        message: kCalendarUnpublishedTitle,
+        detail: unpublishedBandMessage(band),
+        tablet: tablet,
       );
     }
 
     if (shown.state == MobileCalendarBandState.empty || window == null)
     {
-      return MobileCalendarNotice(
+      return MobileEmptyCard(
         icon: Icons.free_cancellation_rounded,
-        title: kCalendarUnavailableTitle,
-        message: shown.offered ? notConvenedSentence(feminine: _feminine) : kNoAvailabilityGiven,
+        message: kCalendarUnavailableTitle,
+        detail: shown.offered ? notConvenedSentence(feminine: _feminine) : kNoAvailabilityGiven,
+        tablet: tablet,
       );
     }
 
@@ -847,7 +850,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
   // Margin inside the scroll view so card shadows are not clipped while paging.
   Widget _scrollable(Widget child, {required double side, required double bottom})
   {
-    final bool centred = child is MobileCalendarNotice || child is MobileWaiting;
+    final bool centred = child is MobileEmptyCard || child is MobileWaiting;
 
     return MobileSwipePage(
       child: RefreshIndicator(
@@ -866,7 +869,10 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
                       minHeight: math.max(0, constraints.maxHeight - _topRoom - bottom),
                     ),
                     child: Center(
-                      child: SizedBox(width: MobileNavSheet.tabletWidth, child: child),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: MobileNavSheet.tabletWidth),
+                        child: child,
+                      ),
                     ),
                   )
                 : child,

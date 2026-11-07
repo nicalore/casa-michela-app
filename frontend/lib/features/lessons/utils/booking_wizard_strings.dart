@@ -137,7 +137,7 @@ String allDisciplinesCovered({required bool isSelf, required String whose})
 const String kPickADayToSave = 'Seleziona almeno una giornata.';
 const String kGiveAnHour = 'Indica almeno un orario.';
 
-String onlineSubjectMissing(String days) => 'Scegli almeno una materia online$days.';
+String subjectMissing(String mode, String days) => 'Scegli almeno una materia.';
 
 String subjectsWithoutHours(String label) => 'Hai chiesto delle materie $label senza indicare gli orari.';
 
@@ -227,8 +227,7 @@ enum SubjectRequestStep
       SubjectRequestStep.band => 'La lezione sarà pianificata solo negli orari della fascia che scegli.',
       SubjectRequestStep.what => 'Almeno una tipologia. Queste informazioni aiuteranno il docente a rendere '
           'la lezione più adatta alle ${isSelf ? 'tue esigenze' : 'esigenze $whose'}.',
-      SubjectRequestStep.duration => 'Ogni lezione può essere prenotata da un minimo di 15 minuti a un massimo '
-          'di 5 ore.',
+      SubjectRequestStep.duration => kBookingLengthLimits,
       SubjectRequestStep.teachers => 'Se vuoi, puoi indicare fino a tre docenti '
           '${isSelf ? 'che preferisci' : 'preferiti $byWhom'}. '
           'Le preferenze indicate verranno tenute in considerazione, ma potrebbero non essere '
@@ -240,13 +239,15 @@ enum SubjectRequestStep
 }
 
 const String kPickKindToGoOn = 'Seleziona almeno un tipo di lezione per andare avanti.';
-const String kPickDurationToGoOn = 'Seleziona la durata per andare avanti.';
+const String kBookingLengthLimits = 'Ogni lezione può essere prenotata da un minimo di 15 minuti a un massimo di 5 ore.';
 
-String durationOverStay(int taken, int available, {required bool isSelf, String? name, TimeBucket? band})
+String durationOverStay({required String mode, required bool isSelf, String? name})
 {
-  return 'La durata totale delle lezioni${band == null ? '' : ' ${ofBandLabel(band)}'} è ${formatMinutes(taken)}, ma '
-      '${isSelf ? 'sei presente' : '${name ?? 'lo studente'} è presente'} '
-      'per ${formatMinutes(available)}.';
+  final String presence = mode == kOnlineMode ? 'presenza online' : 'presenza';
+
+  return isSelf
+      ? 'Supererebbe le tue ore di $presence.'
+      : 'Supererebbe le ore di $presence ${name == null ? 'dello studente' : 'di $name'}.';
 }
 
 String bandTimeAllTaken(String mode, TimeBucket band)
@@ -258,6 +259,8 @@ const String kLessonKindLabel = 'Tipo di lezione';
 const String kTopicLabel = 'Argomento (opzionale)';
 const String kTopicHint = 'Es. Disequazioni di secondo grado';
 const String kDurationLabel = 'Durata';
+const String kDurationHoursLabel = 'Ore';
+const String kDurationMinutesLabel = 'Minuti';
 const String kTeacherNotesLabel = 'Note per il docente';
 const String kTeacherNotesHint = 'Inserisci...';
 

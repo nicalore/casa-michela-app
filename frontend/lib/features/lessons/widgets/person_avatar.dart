@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../services/profile_photo_image.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../people/models/person_face.dart';
 
 class PersonAvatar extends StatelessWidget
@@ -25,12 +26,14 @@ class PersonAvatar extends StatelessWidget
     final initials = '${person.firstName[0]}${person.lastName[0]}'.toUpperCase();
 
     final Widget fallback = Center(
-      child: Text(
-        initials,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: size * 0.38,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+      child: WholeWords(
+        child: Text(
+          initials,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: size * 0.38,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.trialTealDeep,
+          ),
         ),
       ),
     );

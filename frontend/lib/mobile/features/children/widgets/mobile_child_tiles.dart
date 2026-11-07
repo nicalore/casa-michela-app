@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../features/people/models/person_item.dart';
 import '../../../../shared/widgets/descender_room.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
 import '../../../shared/widgets/mobile_choice_sheet.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
@@ -393,12 +394,14 @@ class MobileChildTile extends StatelessWidget
             gold: current,
           ),
           const SizedBox(height: _nameGap),
-          DescenderRoom(
-            child: Text(
-              child.firstName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _nameStyle(),
+          WholeWords(
+            child: DescenderRoom(
+              child: Text(
+                child.firstName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _nameStyle(),
+              ),
             ),
           ),
         ],

@@ -360,8 +360,6 @@ class _BookingsTabState extends State<BookingsTab>
         !isOpenOn(widget.openingDays, widget.selectedDay, kOnlineMode))
     {
       return LessonsClosedDay(
-        day: widget.selectedDay,
-        message: '',
         leftovers: [for (final group in _dayGroups) _buildRequestCard(group)],
       );
     }
@@ -392,18 +390,18 @@ class _BookingsTabState extends State<BookingsTab>
   }
 
   // One write, closed bands too: administrators are not held by the deadlines.
-  Future<void> _deleteMode(PresenceGroup group, String mode) async
+  Future<void> _deleteMode(PresenceGroup group, String mode, {TimeBucket? band}) async
   {
     final bool deleted = await widget.onReplaceLessonRequest(
       group.studentTaxCode,
       group.date,
-      [modeReplacement(group, mode, dropping: TimeBucket.values.toSet())],
+      [modeReplacement(group, mode, dropping: band == null ? TimeBucket.values.toSet() : {band})],
       (message) => CustomSnackBar.show(context: context, message: message, isError: true),
     );
 
     if (deleted && mounted)
     {
-      CustomSnackBar.show(context: context, message: modeBookingDeleted(mode), isError: false);
+      CustomSnackBar.show(context: context, message: modeBookingDeleted(mode, band: band), isError: false);
     }
   }
 
@@ -427,7 +425,7 @@ class _BookingsTabState extends State<BookingsTab>
         onlyFreeBands: freeBands,
       ),
       onDelete: () => widget.onDeleteGroup(follow.value.slots),
-      onDeleteMode: (mode) => _deleteMode(follow.value, mode),
+      onDeleteMode: (mode, {band}) => _deleteMode(follow.value, mode, band: band),
       onEditSubject: widget.onEditBooking,
       onDeleteSubject: widget.onDeleteBookingQuietly,
       readOnly: widget.readOnly,

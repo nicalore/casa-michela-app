@@ -468,7 +468,7 @@ class MobileBookingDraft
               null => null,
             },
       MobileBookingStepKind.subjects =>
-        mode == kOnlineMode && !requestsOf(group!).any((request) => request.band == step.band) ? kPickSubjectToGoOn : null,
+        requestsOf(group!).any((request) => request.band == step.band) ? null : kPickSubjectToGoOn,
     };
   }
 
@@ -542,9 +542,9 @@ class MobileBookingDraft
         return hoursOverlap(mode, band, days);
       }
 
-      if (mode == kOnlineMode && hours.bands.any((band) => !requests.any((request) => request.band == band)))
+      if (hours.bands.any((band) => !requests.any((request) => request.band == band)))
       {
-        return onlineSubjectMissing(days);
+        return subjectMissing(mode, days);
       }
 
       if (requests.isEmpty)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../features/home/home_link.dart';
 import '../../../features/people/models/person_face.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
@@ -10,6 +11,7 @@ import 'mobile_pupil_day.dart';
 import 'widgets/mobile_child_cards.dart';
 import 'widgets/mobile_notices_list.dart';
 
+const String _parentRole = 'PARENT';
 const String _noPupils = 'Nessuno studente associato.';
 
 const double _cardGap = 12;
@@ -40,6 +42,9 @@ class MobileParentHomeView extends StatelessWidget
 
   final MobileHomeNotices notices;
 
+  // Null: the cards lead nowhere.
+  final ValueChanged<HomeLink>? onLink;
+
   const MobileParentHomeView({
     super.key,
     required this.firstName,
@@ -51,6 +56,7 @@ class MobileParentHomeView extends StatelessWidget
     required this.onRefresh,
     required this.pageController,
     this.notices = const MobileHomeNotices(),
+    this.onLink,
   });
 
   bool get _loading => loadingDay || loadingMonth;
@@ -84,7 +90,7 @@ class MobileParentHomeView extends StatelessWidget
 
     if (today.isClosed)
     {
-      return const MobileHomeClosed();
+      return const MobileHomeClosed(tablet: false);
     }
 
     if (today.children.isEmpty)
@@ -96,7 +102,7 @@ class MobileParentHomeView extends StatelessWidget
 
     return _column([
       for (final child in _alphabetical(today.children, (child) => child.face))
-        MobileChildDayCard(child: child),
+        MobileChildDayCard(child: child, onLink: onLink),
     ]);
   }
 
@@ -123,7 +129,7 @@ class MobileParentHomeView extends StatelessWidget
 
     return _column([
       for (final child in _alphabetical(months, (child) => child.face))
-        MobileChildMonthCard(month: child),
+        MobileChildMonthCard(month: child, onLink: onLink),
     ]);
   }
 
@@ -183,6 +189,7 @@ class MobileParentHomeView extends StatelessWidget
             month: monthsOf[taxCode],
             monthNote: monthNote,
             tourTargets: (kHomeTourToday, kHomeTourMonth),
+            onLink: onLink,
           ),
         ],
       ],
@@ -200,13 +207,13 @@ class MobileParentHomeView extends StatelessWidget
       onRefresh: onRefresh,
       pageController: pageController,
       emptyPages: {
-        if (!loadingDay && (day?.children.isEmpty ?? false) && !day!.isClosed) 0,
+        if (!loadingDay && day != null && (day!.isClosed || day!.children.isEmpty)) 0,
         if (!loadingMonth && (month?.isEmpty ?? false)) 1,
       },
       pages: () => [
         MobileLoadSwitcher(child: _buildToday()),
         MobileLoadSwitcher(child: _buildMonth()),
-        MobileNoticesList(notices: notices),
+        MobileNoticesList(role: _parentRole, notices: notices),
       ],
       tabletBody: (_) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -223,7 +230,7 @@ class MobileParentHomeView extends StatelessWidget
             id: kHomeTourNotices,
             inflate: kHomeTourSectionInflate,
             radius: kHomeTourSectionRadius,
-            child: MobileHomeSection(title: names[2], child: MobileNoticesList(notices: notices)),
+            child: MobileHomeSection(title: names[2], child: MobileNoticesList(role: _parentRole, notices: notices)),
           ),
         ],
       ),

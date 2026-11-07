@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_tour.dart';
@@ -302,7 +303,7 @@ class _Row extends StatelessWidget
     final Widget value = data.valueWidget ??
         (data.isSensitive
             ? _HiddenValue(value: data.value, hidesLength: data.hidesLength)
-            : Text(data.value, style: mobileFactValueStyle()));
+            : WholeWords(child: Text(data.value, style: mobileFactValueStyle())));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

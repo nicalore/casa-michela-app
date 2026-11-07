@@ -20,6 +20,7 @@ from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.presence import Presence
 from app.schemas.lesson_request import (
+    NO_LESSON_ERROR,
     LessonRequestCreate,
     LessonRequestReplace,
     LessonRequestReplaceMode,
@@ -163,6 +164,27 @@ def _assert_seen(
             _assert_version(booking, bookings)
 
 
+# Hours come with a lesson; a stretch stored bare before this rule may stay as it is.
+def _assert_hours_have_lessons(plans: list["_ModePlan"]) -> None:
+    for plan in plans:
+        taught = {subject.band for subject in plan.block.subjects}
+
+        for slot in plan.block.slots:
+            kept = plan.kept.get(slot.presence_id) if slot.presence_id else None
+            stays_bare = (
+                kept is not None
+                and not kept.bookings
+                and (kept.start_time, kept.end_time)
+                == (slot.start_time, slot.end_time)
+            )
+
+            if slot.band not in taught and not stays_bare:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=NO_LESSON_ERROR,
+                )
+
+
 @dataclass
 class _ModePlan:
     payload: LessonRequestReplace
@@ -294,6 +316,7 @@ class LessonRequestService:
 
                 self._claim(identity, plans)
                 _assert_seen(identity, payloads, plans)
+                _assert_hours_have_lessons(plans)
                 await unschedule(self.session, await self._lessons_to_drop(plans))
 
                 # This order keeps a moving subject off stretches about to go.

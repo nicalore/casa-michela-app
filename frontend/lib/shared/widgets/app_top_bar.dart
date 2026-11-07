@@ -26,6 +26,7 @@ import 'page_transition.dart';
 import 'role_switch_dialog.dart';
 import 'snackbar.dart';
 import 'user_menu.dart';
+import 'whole_words.dart';
 
 const Color _headerShadow = Color(0x14000000);
 
@@ -509,12 +510,14 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
         backgroundColor: Colors.white,
         backgroundImage: photo,
         child: photo == null
-            ? Text(
-                _initials(_user!.fullName),
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: diameter * 0.37,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.trialTealDeep,
+            ? WholeWords(
+                child: Text(
+                  _initials(_user!.fullName),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: diameter * 0.37,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.trialTealDeep,
+                  ),
                 ),
               )
             : null,

@@ -303,6 +303,7 @@ class SubjectGroupRow extends StatefulWidget
   final String name;
   final List<String> booked;
   final bool open;
+  final bool keepInView;
   final VoidCallback onToggle;
   final List<Widget> children;
 
@@ -311,6 +312,7 @@ class SubjectGroupRow extends StatefulWidget
     required this.name,
     required this.booked,
     required this.open,
+    this.keepInView = true,
     required this.onToggle,
     required this.children,
   });
@@ -402,7 +404,7 @@ class _SubjectGroupRowState extends State<SubjectGroupRow>
         UnfoldingRows(
           open: widget.open,
           animate: effects,
-          keepInView: true,
+          keepInView: widget.keepInView,
           padding: const EdgeInsets.only(left: 36),
           children: widget.children,
         ),

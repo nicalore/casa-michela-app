@@ -366,19 +366,19 @@ class _AgendaRowState extends State<_AgendaRow>
                                   Text(
                                     subject,
                                     style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
                                       height: 1.2,
-                                      color: AppTheme.trialOcean,
+                                      color: kLessonSubjectColor,
                                     ),
                                   ),
                                 ],
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 7),
                                 Text(
                                   lessonTitle(_lesson, view: widget.view),
                                   style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w500,
                                     height: 1.2,
                                     color: kLessonPersonColor,
                                   ),

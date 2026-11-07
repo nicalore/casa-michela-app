@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_density.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/utils/opening_window.dart';
@@ -1111,17 +1112,19 @@ class _Muted extends StatelessWidget
   Widget build(BuildContext context)
   {
     // Dense columns are narrow: the words take a second line rather than an ellipsis.
-    return DescenderRoom(
-      child: Text(
-        text,
-        maxLines: dense ? 2 : 1,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: dense ? 12.5 : 14,
-          fontWeight: FontWeight.w600,
-          fontStyle: FontStyle.italic,
-          height: 1.35,
-          color: AppTheme.trialMutedText,
+    return WholeWords(
+      child: DescenderRoom(
+        child: Text(
+          text,
+          maxLines: dense ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: dense ? 12.5 : 14,
+            fontWeight: FontWeight.w600,
+            fontStyle: FontStyle.italic,
+            height: 1.35,
+            color: AppTheme.trialMutedText,
+          ),
         ),
       ),
     );

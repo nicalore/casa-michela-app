@@ -2092,12 +2092,12 @@ class ApiService
     }
   }
 
-  // Newest first, what the caller has still to read.
-  Future<List<UpdateReadingItem>> getUnreadUpdates() async
+  // Newest first, what the caller has still to read among those up to its version.
+  Future<List<UpdateReadingItem>> getUnreadUpdates({required String version}) async
   {
     try
     {
-      final response = await _dio.get('/app-updates/unread');
+      final response = await _dio.get('/app-updates/unread', queryParameters: {'version': version});
 
       return parseList(response.data, UpdateReadingItem.fromJson);
     }
@@ -3814,6 +3814,19 @@ class ApiService
     }
   }
 
+  Future<DateTime?> getFirstOpenDay({String mode = 'presence'}) async
+  {
+    try
+    {
+      final response = await _dio.get('/statistics/first-open-day', queryParameters: {'mode': mode});
+      return parseDate(response.data['first_open_day']);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile recuperare l'andamento. Riprova più tardi.");
+    }
+  }
+
   Future<List<TeacherActivityDayItem>> getTeacherActivityTrend({
     int? months,
     int? year,
@@ -4108,34 +4121,6 @@ class ApiService
   {
     final response = await _dio.get('/presences/$id');
     return PresenceItem.fromJson(response.data);
-  }
-
-  Future<PresenceItem> createPresence({
-    required String studentTaxCode,
-    required DateTime date,
-    required String mode,
-    required TimeOfDay startTime,
-    required TimeOfDay endTime,
-  }) async
-  {
-    try
-    {
-      final response = await _dio.post(
-        '/presences/',
-        data: {
-          'student_tax_code': studentTaxCode,
-          'date': formatDateOnly(date),
-          'mode': mode,
-          'start_time': formatTimeOfDay(startTime),
-          'end_time': formatTimeOfDay(endTime),
-        },
-      );
-      return PresenceItem.fromJson(response.data);
-    }
-    on DioException catch (e)
-    {
-      _refused(e, 'Errore durante la creazione della richiesta. Riprova più tardi.');
-    }
   }
 
   Future<PresenceItem> updatePresence({

@@ -49,6 +49,9 @@ const double _columnMaxHeight = 5 * 62 + 4 * _tileGap;
 
 class HomeNotificationsSection extends StatelessWidget
 {
+  // The page's own, not the active one: that changes while the old home is still up.
+  final String role;
+
   final double minHeight;
   final bool fill;
 
@@ -57,6 +60,7 @@ class HomeNotificationsSection extends StatelessWidget
 
   const HomeNotificationsSection({
     super.key,
+    required this.role,
     this.minHeight = 0,
     this.fill = false,
     this.limit,
@@ -69,14 +73,19 @@ class HomeNotificationsSection extends StatelessWidget
 
     return ListenableBuilder(
       listenable: Listenable.merge([board, DeviceNotifications.state]),
-      builder: (context, _) => DashboardSectionCard(
-        icon: Icons.notifications_rounded,
-        title: kNotificationsTitle,
-        minHeight: minHeight,
-        fill: fill,
-        action: board.unread > 0 ? _NewBadge(count: board.unread) : null,
-        child: _body(context, board),
-      ),
+      builder: (context, _)
+      {
+        final int unread = board.unreadOf(role);
+
+        return DashboardSectionCard(
+          icon: Icons.notifications_rounded,
+          title: kNotificationsTitle,
+          minHeight: minHeight,
+          fill: fill,
+          action: unread > 0 ? _NewBadge(count: unread) : null,
+          child: _body(context, board),
+        );
+      },
     );
   }
 
@@ -132,7 +141,7 @@ class HomeNotificationsSection extends StatelessWidget
       );
     }
 
-    final List<NotificationItem>? items = board.items;
+    final List<NotificationItem>? items = board.itemsOf(role);
 
     if (items == null || items.isEmpty)
     {

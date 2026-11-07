@@ -20,8 +20,10 @@ import '../../../../features/people/tabs/person_personal_stats_tab.dart'
         subjectHoursTitle;
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/people/tabs/statistics/widgets/stats_data.dart';
+import '../../../../features/people/tabs/statistics/widgets/trend_band.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/descender_room.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../layout/mobile_breakpoints.dart';
 import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
@@ -52,7 +54,7 @@ abstract class MobileStatsController<T> extends ChangeNotifier
 
   String taxCode;
 
-  String period = defaultStatsPeriod;
+  String period;
   String mode = kPresenceMode;
   T? statistics;
 
@@ -63,7 +65,7 @@ abstract class MobileStatsController<T> extends ChangeNotifier
   int _request = 0;
   bool _disposed = false;
 
-  MobileStatsController(this.taxCode);
+  MobileStatsController(this.taxCode, {this.period = defaultStatsPeriod});
 
   Future<T> fetch(StatsPeriod period);
 
@@ -145,7 +147,7 @@ abstract class MobileStatsController<T> extends ChangeNotifier
 
 class MobileTeacherStatsController extends MobileStatsController<TeacherPersonalStatisticsItem>
 {
-  MobileTeacherStatsController(super.taxCode);
+  MobileTeacherStatsController(super.taxCode, {super.period});
 
   @override
   Future<TeacherPersonalStatisticsItem> fetch(StatsPeriod period)
@@ -164,7 +166,7 @@ class MobilePupilStatsController extends MobileStatsController<StudentPersonalSt
 {
   RequestedSubjectKind kind = RequestedSubjectKind.ministrySubject;
 
-  MobilePupilStatsController(super.taxCode);
+  MobilePupilStatsController(super.taxCode, {super.period});
 
   @override
   Future<StudentPersonalStatisticsItem> fetch(StatsPeriod period)
@@ -208,7 +210,7 @@ class MobileTeacherStats extends StatelessWidget
       tourFilters: tourFilters,
       icon: Icons.event_available_rounded,
       title: kTeacherStatsTitle,
-      figures: (statistics) => _TeacherFigures(statistics: statistics),
+      figures: (statistics) => _TeacherFigures(statistics: statistics, period: controller.period),
       rankings: (statistics) => [
         MobileDetailCard(
           icon: Icons.menu_book_rounded,
@@ -245,7 +247,11 @@ class MobilePupilStats extends StatelessWidget
       tourFilters: tourFilters,
       icon: Icons.event_seat_rounded,
       title: kPupilStatsTitle,
-      figures: (statistics) => _PupilFigures(statistics: statistics, online: controller.shownMode == kOnlineMode),
+      figures: (statistics) => _PupilFigures(
+        statistics: statistics,
+        online: controller.shownMode == kOnlineMode,
+        period: controller.period,
+      ),
       rankings: (statistics) => [
         MobileDetailCard(
           icon: Icons.menu_book_rounded,
@@ -456,8 +462,9 @@ class _StatsBlockState<T> extends State<_StatsBlock<T>>
 class _TeacherFigures extends StatelessWidget
 {
   final TeacherPersonalStatisticsItem statistics;
+  final String period;
 
-  const _TeacherFigures({required this.statistics});
+  const _TeacherFigures({required this.statistics, required this.period});
 
   @override
   Widget build(BuildContext context)
@@ -483,7 +490,7 @@ class _TeacherFigures extends StatelessWidget
         if (statistics.monthlyTrend.isEmpty)
           const _NoData()
         else
-          MobileTrendChart(data: statistics.monthlyTrend),
+          MobileTrendChart(data: statistics.monthlyTrend, span: statsPeriodSpan(period, statistics.monthlyTrend)),
       ],
     );
   }
@@ -493,8 +500,9 @@ class _PupilFigures extends StatelessWidget
 {
   final StudentPersonalStatisticsItem statistics;
   final bool online;
+  final String period;
 
-  const _PupilFigures({required this.statistics, required this.online});
+  const _PupilFigures({required this.statistics, required this.online, required this.period});
 
   @override
   Widget build(BuildContext context)
@@ -518,7 +526,7 @@ class _PupilFigures extends StatelessWidget
         if (statistics.monthlyTrend.isEmpty)
           const _NoData()
         else
-          MobileTrendChart(data: statistics.monthlyTrend),
+          MobileTrendChart(data: statistics.monthlyTrend, span: statsPeriodSpan(period, statistics.monthlyTrend)),
       ],
     );
   }
@@ -643,16 +651,18 @@ class _RankRow extends StatelessWidget
               ),
             ),
             Expanded(
-              child: DescenderRoom(
-                child: Text(
-                  entry.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                    color: AppTheme.trialInk,
+              child: WholeWords(
+                child: DescenderRoom(
+                  child: Text(
+                    entry.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                      color: AppTheme.trialInk,
+                    ),
                   ),
                 ),
               ),
@@ -750,13 +760,15 @@ class _Figure extends StatelessWidget
           ),
         ),
         const SizedBox(height: 3),
-        Text(
-          withoutOrphans(label),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            height: 1.3,
-            color: MobilePalette.mutedText,
+        WholeWords(
+          child: Text(
+            withoutOrphans(label),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+              color: MobilePalette.mutedText,
+            ),
           ),
         ),
       ],

@@ -14,6 +14,7 @@ import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/calendar_activity_block.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../../shared/widgets/descender_room.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
 import '../../../shared/widgets/mobile_tour.dart';
@@ -30,19 +31,30 @@ const EdgeInsets _padding = EdgeInsets.fromLTRB(20, 9, 9, 8);
 
 const double _iconGap = 5;
 const double _checkGap = 4;
-const double _titleGap = 4;
+const double _titleGap = 5;
 const double _subjectGap = 1;
-const double _personGap = 4;
+const double _personGap = 9;
+const double _columnPersonGap = 8;
 const double _whereGap = 2;
 const double _whereIconGap = 4;
 
 const Color _pastAccent = Color(0xFF93A3AD);
+
+// A lesson gone by keeps its three levels, each a step back.
+const Color _pastTitle = Color(0xFF4A5C69);
+const Color _pastPerson = Color(0xFF4F6272);
+const Color _pastSubject = Color(0xFF8796A1);
+
+const Color _subjectColor = Color(0xFF6E808C);
 
 const double kMobilePhoneCardScale = 1.1;
 const double kMobileTabletCardScale = 1.15;
 
 // Under this inner width a card drops its icons.
 const double _narrowWidth = 81;
+
+// The elastic scale gives a card just what it asked for, give or take a rounding.
+const double _fitSlack = 0.01;
 
 // How far a word may shrink so a card never splits it across two lines.
 const double _minWordFit = 0.75;
@@ -373,9 +385,11 @@ class _CardBody extends StatelessWidget
 
   TextStyle get _titleStyle => _cardTitleStyle(scale: scale, past: past, inColumn: inColumn);
 
-  TextStyle get _subjectStyle => _cardSubjectStyle(scale: scale, past: past);
+  TextStyle get _subjectStyle => _cardSubjectStyle(scale: scale, past: past, inColumn: inColumn);
 
-  TextStyle get _personStyle => _cardPersonStyle(scale: scale);
+  TextStyle get _personStyle => _cardPersonStyle(scale: scale, past: past, inColumn: inColumn);
+
+  double get _personSpace => inColumn ? _columnPersonGap : _personGap;
 
   TextStyle _whereStyle(Color accent) => _cardWhereStyle(scale: scale, color: past ? _pastAccent : accent);
 
@@ -444,7 +458,7 @@ class _CardBody extends StatelessWidget
 
     for (final line in lines)
     {
-      if (height + line.height > room)
+      if (height + line.height > room + _fitSlack)
       {
         break;
       }
@@ -555,11 +569,11 @@ class _CardBody extends StatelessWidget
 
     final (TextStyle personStyle, int personLines, double personHeight) = subjectCut
         ? (_personStyle, 0, 0.0)
-        : _optional(entry.person, _personStyle, scaler, width, room - used - _personGap);
+        : _optional(entry.person, _personStyle, scaler, width, room - used - _personSpace);
 
     if (personLines > 0)
     {
-      used += _personGap + personHeight;
+      used += _personSpace + personHeight;
     }
 
     // Last, so it is the first to go.
@@ -640,21 +654,23 @@ class _CardBody extends StatelessWidget
                     ],
                   ),
                   const SizedBox(height: _titleGap),
-                  DescenderRoom(
-                    child: Text(
-                      entry.title,
-                      maxLines: lines.titleLines,
-                      overflow: TextOverflow.ellipsis,
-                      style: lines.titleStyle,
+                  WholeWords(
+                    child: DescenderRoom(
+                      child: Text(
+                        entry.title,
+                        maxLines: lines.titleLines,
+                        overflow: TextOverflow.ellipsis,
+                        style: lines.titleStyle,
+                      ),
                     ),
                   ),
                   if (lines.subjectLines > 0 && subject != null) ...[
                     const SizedBox(height: _subjectGap),
-                    DescenderRoom(child: Text(subject, maxLines: lines.subjectLines, overflow: TextOverflow.ellipsis, style: lines.subjectStyle)),
+                    WholeWords(child: DescenderRoom(child: Text(subject, maxLines: lines.subjectLines, overflow: TextOverflow.ellipsis, style: lines.subjectStyle))),
                   ],
                   if (lines.personLines > 0 && person != null) ...[
-                    const SizedBox(height: _personGap),
-                    DescenderRoom(child: Text(person, maxLines: lines.personLines, overflow: TextOverflow.ellipsis, style: lines.personStyle)),
+                    SizedBox(height: _personSpace),
+                    WholeWords(child: DescenderRoom(child: Text(person, maxLines: lines.personLines, overflow: TextOverflow.ellipsis, style: lines.personStyle))),
                   ],
                   if (lines.whereLines > 0 && where != null) ...[
                     const SizedBox(height: _whereGap),
@@ -716,24 +732,24 @@ TextStyle _cardHoursStyle({required double scale, required Color color}) => Goog
     );
 
 TextStyle _cardTitleStyle({required double scale, required bool past, bool inColumn = false}) => GoogleFonts.plusJakartaSans(
-      fontSize: (inColumn ? 15 : 15.5) * scale,
+      fontSize: (inColumn ? 15 : 18) * scale,
       fontWeight: FontWeight.w800,
       height: 1.2,
-      color: past ? MobilePalette.mutedText : AppTheme.trialOcean,
+      color: past ? _pastTitle : AppTheme.trialOcean,
     );
 
-TextStyle _cardSubjectStyle({required double scale, required bool past}) => GoogleFonts.plusJakartaSans(
-      fontSize: 12.5 * scale,
-      fontWeight: FontWeight.w600,
+TextStyle _cardSubjectStyle({required double scale, required bool past, bool inColumn = false}) => GoogleFonts.plusJakartaSans(
+      fontSize: (inColumn ? 11 : 11.5) * scale,
+      fontWeight: FontWeight.w500,
       height: 1.25,
-      color: past ? MobilePalette.mutedText : AppTheme.trialOcean,
+      color: past ? _pastSubject : _subjectColor,
     );
 
-TextStyle _cardPersonStyle({required double scale}) => GoogleFonts.plusJakartaSans(
-      fontSize: 13 * scale,
-      fontWeight: FontWeight.w600,
+TextStyle _cardPersonStyle({required double scale, required bool past, bool inColumn = false}) => GoogleFonts.plusJakartaSans(
+      fontSize: (inColumn ? 13 : 14) * scale,
+      fontWeight: FontWeight.w500,
       height: 1.25,
-      color: MobilePalette.mutedText,
+      color: past ? _pastPerson : kLessonPersonColor,
     );
 
 TextStyle _cardWhereStyle({required double scale, required Color color}) => GoogleFonts.plusJakartaSans(
@@ -823,7 +839,7 @@ class MobileLessonListCard extends StatelessWidget
                   ],
                   if (person != null) ...[
                     const SizedBox(height: _personGap),
-                    Text(person, style: _cardPersonStyle(scale: scale)),
+                    Text(person, style: _cardPersonStyle(scale: scale, past: past)),
                   ],
                   if (where != null) ...[
                     const SizedBox(height: _whereGap),
@@ -881,7 +897,7 @@ class _WhereLine extends StatelessWidget
           Icon(where.icon, size: iconSize, color: past ? _pastAccent : where.accent),
           const SizedBox(width: _whereIconGap),
         ],
-        Expanded(child: DescenderRoom(child: Text(where.label, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style))),
+        Expanded(child: WholeWords(child: DescenderRoom(child: Text(where.label, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style)))),
       ],
     );
   }

@@ -2,14 +2,17 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/utils/time_bucket.dart';
 
-// A band a calendar is asked to show from outside the page, by a notification.
+// A band a calendar is asked to show from outside the page, by a notification or the home.
 // The administrator's calendar is a screen with its own address instead.
 class CalendarJump
 {
   final DateTime day;
   final TimeBucket band;
 
-  const CalendarJump(this.day, this.band);
+  // The child to show, on a page that shows one at a time.
+  final String? pupil;
+
+  const CalendarJump(this.day, this.band, {this.pupil});
 }
 
 // One pending request: a page not built yet takes it when it starts, one already shown hears of it.
@@ -25,9 +28,9 @@ class CalendarJumpChannel
 
   bool get isPending => _pending != null;
 
-  void request(DateTime day, TimeBucket band, {String? role})
+  void request(DateTime day, TimeBucket band, {String? role, String? pupil})
   {
-    _pending = CalendarJump(DateTime(day.year, day.month, day.day), band);
+    _pending = CalendarJump(DateTime(day.year, day.month, day.day), band, pupil: pupil);
     _role = role;
     asked.value++;
   }

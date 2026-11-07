@@ -92,6 +92,9 @@ class HomeBandStatus
   });
 
   bool get isEmpty => lanes.every((lane) => lane.spans.isEmpty);
+
+  // Publication is news only to those with something in the band.
+  bool get showsPublished => isPublished && (offered || !isEmpty);
 }
 
 String homeSubjectsLabel(int count) => count == 1 ? '1 materia' : '$count materie';
@@ -185,7 +188,7 @@ List<HomeSlot> convenedSlots({
 }
 
 // A slot belongs to every band it overlaps.
-List<HomeSlot> _inBand(List<HomeSlot> slots, DateTime day, TimeBucket band)
+List<HomeSlot> slotsInBand(List<HomeSlot> slots, DateTime day, TimeBucket band)
 {
   final bandStart = bandStartMinutes(band);
   final bandEnd = bandEndMinutes(band);
@@ -271,11 +274,11 @@ List<HomeBandStatus> homeBands({
       continue;
     }
 
-    final List<HomeSlot> own = _inBand(slots, day, band);
+    final List<HomeSlot> own = slotsInBand(slots, day, band);
     final bool isPublished = published.contains(band);
 
     final List<HomeSlot> shown =
-        isPublished && convened != null ? _inBand(convened, day, band) : own;
+        isPublished && convened != null ? slotsInBand(convened, day, band) : own;
 
     final busy = shown.map((slot) => slot.name).toSet();
 

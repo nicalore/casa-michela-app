@@ -26,7 +26,7 @@ from app.services.availability_service import AvailabilityService
 from app.services.booking_service import BookingService
 from app.services.presence_service import PresenceService
 from tests.conftest import ADMIN_IDENTITY, identity_of
-from tests.factories import make_presence, make_room
+from tests.factories import make_booking, make_presence, make_room
 from tests.services.test_calendar_publication_service import (
     assignments,
     supervisions,
@@ -207,6 +207,7 @@ async def test_changing_the_length_takes_the_hour_off_the_timetable(
 async def test_deleting_a_request_takes_its_hours_with_it(db: AsyncSession) -> None:
     built = await scene(db)
     await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
+    await make_booking(db, built.presence)
 
     await _bookings(db).delete(ADMIN_IDENTITY, built.booking.id)
 

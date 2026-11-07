@@ -280,6 +280,7 @@ PersonDetailCard? paymentsCard(PersonItem person)
 PersonDetailCard collaborationCard(PersonItem person)
 {
   final int? cents = _grossCompensationCents(person);
+  final String iban = orDash(person.iban);
 
   return PersonDetailCard(
     title: 'Dettagli collaborazione',
@@ -297,7 +298,7 @@ PersonDetailCard collaborationCard(PersonItem person)
           cents == null ? missingValue : formatAmount(netOfCents(cents)),
         ),
       ],
-      DetailRowData('IBAN', orDash(person.iban), isSensitive: true),
+      DetailRowData('IBAN', iban, isSensitive: iban != missingValue),
     ],
   );
 }

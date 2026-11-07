@@ -38,6 +38,8 @@ import 'dashboard_section_card.dart';
 import 'dashboard_stats_section.dart';
 import 'dashboard_today_section.dart';
 
+const String _adminRole = 'ADMIN';
+
 // Widget tests run with kIsWeb false; this forces the web layout they target.
 @visibleForTesting
 bool debugAlwaysUseWebDashboard = false;
@@ -152,7 +154,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
 
     try
     {
-      notices = await _apiService.getHomeNotices('ADMIN');
+      notices = await _apiService.getHomeNotices(_adminRole);
     }
     catch (_)
     {
@@ -436,7 +438,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   {
     return _staggered(
       slot: 3,
-      card: HomeNotificationsSection(fill: tall, limit: limit),
+      card: HomeNotificationsSection(role: _adminRole, fill: tall, limit: limit),
     );
   }
 

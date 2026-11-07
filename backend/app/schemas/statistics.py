@@ -171,6 +171,10 @@ class PresenceDayItem(BaseModel):
     student_count: int
 
 
+class FirstOpenDayResponse(BaseModel):
+    first_open_day: date | None
+
+
 class SubjectHoursItem(BaseModel):
     name: str
     minutes: int

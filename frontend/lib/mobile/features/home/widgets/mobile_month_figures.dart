@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../features/home/home_link.dart';
 import '../../../../features/home/models/month_summary_items.dart';
 import '../../../../features/home/widgets/home_month_section.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
+import 'mobile_link.dart';
 
 const int _monthlyThreshold = 9;
 const int _weeklyThreshold = 2;
@@ -27,7 +29,9 @@ class MobileMonthFigures extends StatelessWidget
 {
   final TeacherMonthSummaryItem month;
 
-  const MobileMonthFigures({super.key, required this.month});
+  final ValueChanged<HomeLink>? onLink;
+
+  const MobileMonthFigures({super.key, required this.month, this.onLink});
 
   Widget _leadFor(int index, HomeFigure figure)
   {
@@ -61,7 +65,8 @@ class MobileMonthFigures extends StatelessWidget
     final List<HomeFigure> figures = teacherFigures(month);
 
     return _Rows([
-      for (var i = 0; i < figures.length; i++) _FigureRow(lead: _leadFor(i, figures[i]), figure: figures[i]),
+      for (var i = 0; i < figures.length; i++)
+        _FigureRow(lead: _leadFor(i, figures[i]), figure: figures[i], onLink: onLink),
     ]);
   }
 }
@@ -78,14 +83,16 @@ class MobilePupilMonthFigures extends StatelessWidget
 {
   final List<HomeFigure> figures;
 
-  const MobilePupilMonthFigures({super.key, required this.figures});
+  final ValueChanged<HomeLink>? onLink;
+
+  const MobilePupilMonthFigures({super.key, required this.figures, this.onLink});
 
   @override
   Widget build(BuildContext context)
   {
     return _Rows([
       for (final (i, figure) in figures.indexed)
-        _FigureRow(lead: _LeadIcon(_pupilIcons[i % _pupilIcons.length]), figure: figure),
+        _FigureRow(lead: _LeadIcon(_pupilIcons[i % _pupilIcons.length]), figure: figure, onLink: onLink),
     ]);
   }
 }
@@ -152,26 +159,33 @@ class _FigureRow extends StatelessWidget
   final HomeFigure figure;
   final bool compact;
 
-  const _FigureRow({required this.lead, required this.figure, this.compact = false});
+  final ValueChanged<HomeLink>? onLink;
+
+  const _FigureRow({required this.lead, required this.figure, this.compact = false, this.onLink});
 
   @override
   Widget build(BuildContext context)
   {
     final double lead = compact ? _compactLeadSize : _leadSize;
+    final HomeLink? link = onLink == null ? null : figure.link;
 
-    return MobileGlassPanel(
-      padding: compact ? _compactRowPadding : _rowPadding,
-      borderRadius: _rowRadius,
-      child: Row(
-        children: [
-          SizedBox(width: lead, height: lead, child: this.lead),
-          SizedBox(width: compact ? 14 : 16),
-          Expanded(child: _FigureText(figure: figure, compact: compact)),
-          if (compact) ...[
-            const SizedBox(width: 10),
-            _asideOf(figure, shrink: true),
+    return MobileLink(
+      onTap: link == null ? null : () => onLink!(link),
+      child: MobileGlassPanel(
+        padding: compact ? _compactRowPadding : _rowPadding,
+        borderRadius: _rowRadius,
+        child: Row(
+          children: [
+            SizedBox(width: lead, height: lead, child: this.lead),
+            SizedBox(width: compact ? 14 : 16),
+            Expanded(child: _FigureText(figure: figure, compact: compact)),
+            if (compact) ...[
+              const SizedBox(width: 10),
+              _asideOf(figure, shrink: true),
+            ],
+            if (link != null) const MobileLinkChevron(),
           ],
-        ],
+        ),
       ),
     );
   }

@@ -92,22 +92,22 @@ TextStyle get _denseTitleStyle => GoogleFonts.plusJakartaSans(
     );
 
 TextStyle get _subjectStyle => GoogleFonts.plusJakartaSans(
-      fontSize: 12,
-      fontWeight: FontWeight.w600,
+      fontSize: 11.5,
+      fontWeight: FontWeight.w500,
       height: 1.2,
-      color: AppTheme.trialOcean,
+      color: kLessonSubjectColor,
     );
 
 TextStyle get _personStyle => GoogleFonts.plusJakartaSans(
-      fontSize: 12.5,
-      fontWeight: FontWeight.w600,
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
       height: 1.2,
       color: kLessonPersonColor,
     );
 
 TextStyle get _densePersonStyle => GoogleFonts.plusJakartaSans(
       fontSize: 12,
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w500,
       height: 1.2,
       color: kLessonPersonColor,
     );
@@ -463,7 +463,7 @@ class OwnLessonBlock extends StatelessWidget
       height += 1 + tall(subject, _subjectStyle);
     }
 
-    height += 4 + tall(_title, _personStyle);
+    height += 7 + tall(_title, _personStyle);
 
     if (_saysWhere)
     {
@@ -527,7 +527,7 @@ class OwnLessonBlock extends StatelessWidget
           const SizedBox(height: 1),
           Text(subject, style: _subjectStyle),
         ],
-        const SizedBox(height: 4),
+        const SizedBox(height: 7),
         Text(_title, style: _personStyle),
         if (_saysWhere) ...[
           const SizedBox(height: 3),

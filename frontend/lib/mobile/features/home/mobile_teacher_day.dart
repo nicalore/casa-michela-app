@@ -209,6 +209,7 @@ MobileHomeDay teacherHomeDay(MobileTeacherDay day, {required bool feminine})
         MobileLineBand(
           band: band.band,
           isPublished: band.isPublished,
+          showsPublished: band.isPublished && band.state != MobileBandState.none,
           entries: _teacherEntries(band, feminine: feminine),
           openings: band.openings,
         ),

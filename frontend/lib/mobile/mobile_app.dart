@@ -13,6 +13,7 @@ import 'features/auth/mobile_sign_in_handover.dart';
 import 'features/onboarding/mobile_onboarding_page.dart';
 import 'layout/mobile_orientation_policy.dart';
 import 'layout/mobile_rotation_veil.dart';
+import 'layout/mobile_text_scale.dart';
 import 'shared/mobile_links.dart';
 import 'shared/widgets/mobile_background.dart';
 import 'shared/widgets/mobile_entrance_motion.dart';
@@ -64,7 +65,7 @@ class _MobileAppState extends State<MobileApp>
         locale: const Locale('it'),
         supportedLocales: const [Locale('it')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        builder: (context, child) => MobileBackground(child: MobileRotationVeil(child: child)),
+        builder: (context, child) => MobileTextScale(child: MobileBackground(child: MobileRotationVeil(child: child))),
         // An app link names a site route; the gate reads it itself.
         onGenerateInitialRoutes: (_) => [_entrance()],
         onGenerateRoute: (_) => _entrance(),
@@ -127,6 +128,7 @@ class _AuthGate extends StatelessWidget
           pageKey: key,
           page: page,
           placeholder: entrance == _Entrance.waiting,
+          fromOutside: entrance == _Entrance.reset,
         );
       },
     );
@@ -141,7 +143,15 @@ class _EntranceSwitcher extends StatefulWidget
   // The first real page replaces a placeholder without moving.
   final bool placeholder;
 
-  const _EntranceSwitcher({required this.pageKey, required this.page, required this.placeholder});
+  // Brought by a link while the system slides the app in: a motion of ours would cross that one.
+  final bool fromOutside;
+
+  const _EntranceSwitcher({
+    required this.pageKey,
+    required this.page,
+    required this.placeholder,
+    required this.fromOutside,
+  });
 
   @override
   State<_EntranceSwitcher> createState() => _EntranceSwitcherState();
@@ -216,7 +226,7 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
     _leavingKey = oldWidget.pageKey;
     _leaving = oldWidget.page;
     // A page never drawn is not seen leaving either.
-    _cut = oldWidget.placeholder || _deferring;
+    _cut = oldWidget.placeholder || _deferring || widget.fromOutside;
     _motion.value = 0;
     _waiting = true;
 

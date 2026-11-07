@@ -19,6 +19,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/card_scroll_area.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../association/tabs/opening_hours/hours_grid.dart' show TodayFrame;
 import '../models/membership_item.dart';
 import '../models/person_item.dart';
@@ -319,9 +320,9 @@ class PersonMembershipsTab extends StatelessWidget
       return Expanded(
         child: Column(
           children: [
-            Text(name, textAlign: TextAlign.center, style: label()),
+            WholeWords(child: Text(name, textAlign: TextAlign.center, style: label())),
             SizedBox(height: dense ? 3 : 5),
-            Text(text, textAlign: TextAlign.center, style: value(strong)),
+            WholeWords(child: Text(text, textAlign: TextAlign.center, style: value(strong))),
           ],
         ),
       );
@@ -435,8 +436,8 @@ class PersonMembershipsTab extends StatelessWidget
                     ],
                   ),
                 ),
-                cell(Text(_dateFormat.format(membership.startDate), style: _valueStyle(value, color: tint))),
-                cell(Text(_dateFormat.format(membership.endDate), style: _valueStyle(value, color: tint))),
+                cell(WholeWords(child: Text(_dateFormat.format(membership.startDate), style: _valueStyle(value, color: tint)))),
+                cell(WholeWords(child: Text(_dateFormat.format(membership.endDate), style: _valueStyle(value, color: tint)))),
               ],
             ),
           ],

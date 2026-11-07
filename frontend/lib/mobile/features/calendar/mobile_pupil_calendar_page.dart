@@ -31,6 +31,7 @@ import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_choice_sheet.dart';
 import '../../shared/widgets/mobile_date_capsule.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_filter_chip.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_month_picker.dart';
@@ -41,7 +42,6 @@ import '../../shared/widgets/mobile_tour.dart';
 import '../children/widgets/mobile_child_tiles.dart';
 import 'mobile_calendar_tour.dart';
 import 'mobile_pupil_calendar_day.dart';
-import 'widgets/mobile_calendar_notice.dart';
 import 'widgets/mobile_calendar_timeline.dart';
 import 'widgets/mobile_lesson_card.dart';
 import 'widgets/mobile_lesson_list.dart';
@@ -147,6 +147,9 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
   // A notification's band: once its day is read, the child shown is one with lessons in it.
   late TimeBucket? _askedBand = _openedFor?.band;
+
+  // The home's: that very child, whether or not they have lessons in the band.
+  late String? _askedPupil = _openedFor?.pupil;
 
   // Bumped on every fetch so a stale response is dropped.
   int _request = 0;
@@ -272,6 +275,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     }
 
     _askedBand = jump.band;
+    _askedPupil = jump.pupil;
     _reload(jump.day);
   }
 
@@ -590,8 +594,13 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
         if (asked != null)
         {
+          final String? pupil = _askedPupil;
+
           _askedBand = null;
-          _shown = _childWithLessonsIn(_data!.bandOf(asked)) ?? _shown;
+          _askedPupil = null;
+          _shown = _pupils.any((each) => each.fiscalCode == pupil)
+              ? pupil
+              : _childWithLessonsIn(_data!.bandOf(asked)) ?? _shown;
         }
 
         _loading = false;
@@ -744,7 +753,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
       today: _today,
       first: oldestKeptDay(_today),
       last: _lastDay,
-      loadMarks: (from, to) => loadDayMarks(from, to, published: true),
+      loadMarks: (from, to) => pupilDayMarks(from, to, {for (final PersonItem pupil in _pupils) pupil.fiscalCode}),
       tourDays: kCalendarTourPickerDays,
       onShown: () => startMobileTourOnce(taxCode: widget.user.taxCode, tour: calendarPickerTour()),
     );
@@ -853,10 +862,11 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
     if (data.closed)
     {
-      return MobileCalendarNotice(
+      return MobileEmptyCard(
         icon: Icons.event_busy_rounded,
-        title: kAssociationClosedTitle,
-        message: data.closureNote,
+        message: kAssociationClosedTitle,
+        detail: data.closureNote,
+        tablet: tablet,
       );
     }
 
@@ -864,15 +874,16 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
     if (shownBand.opening == null)
     {
-      return const MobileCalendarNotice(icon: Icons.event_busy_rounded, title: kAssociationClosedTitle);
+      return MobileEmptyCard(icon: Icons.event_busy_rounded, message: kAssociationClosedTitle, tablet: tablet);
     }
 
     if (!shownBand.settled)
     {
-      return MobileCalendarNotice(
+      return MobileEmptyCard(
         icon: Icons.pending_actions_rounded,
-        title: kCalendarUnpublishedTitle,
-        message: unpublishedBandMessage(band),
+        message: kCalendarUnpublishedTitle,
+        detail: unpublishedBandMessage(band),
+        tablet: tablet,
       );
     }
 
@@ -883,10 +894,11 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
     if (presences.every((presence) => presence.isEmpty) || window == null)
     {
-      return MobileCalendarNotice(
+      return MobileEmptyCard(
         icon: Icons.free_cancellation_rounded,
-        title: kCalendarUnavailableTitle,
-        message: kNoLessonsRequested,
+        message: kCalendarUnavailableTitle,
+        detail: kNoLessonsRequested,
+        tablet: tablet,
       );
     }
 
@@ -1291,7 +1303,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
   // Margin inside the scroll view so card shadows are not clipped while paging.
   Widget _scrollable(Widget child, {required double side, required double bottom})
   {
-    final bool centred = child is MobileCalendarNotice || child is MobileWaiting;
+    final bool centred = child is MobileEmptyCard || child is MobileWaiting;
 
     return MobileSwipePage(
       child: RefreshIndicator(
@@ -1310,7 +1322,10 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
                       minHeight: math.max(0, constraints.maxHeight - _topRoom - bottom),
                     ),
                     child: Center(
-                      child: SizedBox(width: MobileNavSheet.tabletWidth, child: child),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: MobileNavSheet.tabletWidth),
+                        child: child,
+                      ),
                     ),
                   )
                 : child,

@@ -14,6 +14,7 @@ import '../../../../features/notifications/notification_board.dart';
 import '../../../../features/notifications/notification_item.dart';
 import '../../../../features/notifications/notification_look.dart';
 import '../../../../features/notifications/notification_strings.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_card_delete_buttons.dart';
@@ -52,14 +53,17 @@ class MobileHomeNotices
 // The two feeds of the web home: activities still to come, the latest notices.
 class MobileNoticesList extends StatelessWidget
 {
+  // The page's own, not the active one: that changes while the old home is still up.
+  final String role;
+
   final MobileHomeNotices notices;
 
-  const MobileNoticesList({super.key, this.notices = const MobileHomeNotices()});
+  const MobileNoticesList({super.key, required this.role, this.notices = const MobileHomeNotices()});
 
   @override
   Widget build(BuildContext context)
   {
-    const Widget tasks = _NotificationsCard();
+    final Widget tasks = _NotificationsCard(role: role);
 
     final Widget latest = _NoticesCard(notices: notices);
 
@@ -117,7 +121,9 @@ class _Head extends StatelessWidget
 // Grows with its list: every notification is read here.
 class _NotificationsCard extends StatelessWidget
 {
-  const _NotificationsCard();
+  final String role;
+
+  const _NotificationsCard({required this.role});
 
   Widget _status(String text)
   {
@@ -157,7 +163,7 @@ class _NotificationsCard extends StatelessWidget
       );
     }
 
-    final List<NotificationItem>? items = board.items;
+    final List<NotificationItem>? items = board.itemsOf(role);
 
     if (items == null)
     {
@@ -197,6 +203,7 @@ class _NotificationsCard extends StatelessWidget
       {
         final NotificationSwitch device = DeviceNotifications.state.value;
         final bool off = device == NotificationSwitch.off || device == NotificationSwitch.blocked;
+        final int unread = board.unreadOf(role);
 
         return MobileGlassPanel(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -210,8 +217,8 @@ class _NotificationsCard extends StatelessWidget
                   title: kNotificationsTitle,
                   // Taller than the eyebrow: its room stays when none is new, so the text below holds still.
                   trailing: Visibility.maintain(
-                    visible: board.unread > 0,
-                    child: MobilePill(notificationsNewLabel(board.unread)),
+                    visible: unread > 0,
+                    child: MobilePill(notificationsNewLabel(unread)),
                   ),
                 ),
               ),
@@ -248,18 +255,22 @@ class _OffRow extends StatelessWidget
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  withoutOrphans(kNotificationsOffTitle),
-                  style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.trialInk),
+                WholeWords(
+                  child: Text(
+                    withoutOrphans(kNotificationsOffTitle),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.trialInk),
+                  ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  withoutOrphans(kNotificationsOffMobile),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                    color: AppTheme.modifiedAccent,
+                WholeWords(
+                  child: Text(
+                    withoutOrphans(kNotificationsOffMobile),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                      color: AppTheme.modifiedAccent,
+                    ),
                   ),
                 ),
               ],
@@ -419,23 +430,27 @@ class _NotificationLineState extends State<_NotificationLine> with SingleTickerP
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        withoutOrphans(item.title),
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14.5,
-                          fontWeight: item.read ? FontWeight.w700 : FontWeight.w800,
-                          letterSpacing: -0.1,
-                          color: AppTheme.trialInk,
+                      WholeWords(
+                        child: Text(
+                          withoutOrphans(item.title),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14.5,
+                            fontWeight: item.read ? FontWeight.w700 : FontWeight.w800,
+                            letterSpacing: -0.1,
+                            color: AppTheme.trialInk,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        withoutOrphans(item.body),
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                          color: MobilePalette.mutedText,
+                      WholeWords(
+                        child: Text(
+                          withoutOrphans(item.body),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            height: 1.35,
+                            color: MobilePalette.mutedText,
+                          ),
                         ),
                       ),
                     ],
@@ -640,7 +655,7 @@ class _NoticeLine extends StatelessWidget
                   const SizedBox(height: 2),
                   Text(
                     '$day · ${notice.authorName}',
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: MobilePalette.mutedText),
                   ),

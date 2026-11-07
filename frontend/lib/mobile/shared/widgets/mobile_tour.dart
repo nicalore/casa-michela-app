@@ -13,6 +13,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../features/settings/utils/settings_strings.dart';
 import '../../../services/seen_tours.dart';
 import '../../../shared/widgets/tour_cues.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../mobile_line_breaks.dart';
 import 'mobile_baseline_hang.dart';
@@ -2737,7 +2738,7 @@ class _TourBanner extends StatelessWidget
 
     if (glyphs.isEmpty || parts.length < 2)
     {
-      return Text(text, style: style);
+      return WholeWords(child: Text(text, style: style));
     }
 
     final double em = MediaQuery.textScalerOf(context).scale(_textSize);

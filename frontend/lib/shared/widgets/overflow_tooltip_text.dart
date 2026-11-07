@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 
 import 'app_tooltip.dart';
 import 'descender_room.dart';
+import 'whole_words.dart';
 
 // Re-measured with a TextPainter at the laid-out width: didExceedMaxLines is unreliable on web.
 class OverflowTooltipText extends StatefulWidget
@@ -101,24 +102,26 @@ class _OverflowTooltipTextState extends State<OverflowTooltipText>
   @override
   Widget build(BuildContext context)
   {
-    final Widget textWidget = DescenderRoom(
-      child: widget.textSpan != null
-        ? Text.rich(
-            widget.textSpan!,
-            key: _textKey,
-            maxLines: widget.maxLines,
-            overflow: TextOverflow.ellipsis,
-            textAlign: widget.textAlign,
-            style: widget.style,
-          )
-        : Text(
-            widget.text,
-            key: _textKey,
-            maxLines: widget.maxLines,
-            overflow: TextOverflow.ellipsis,
-            textAlign: widget.textAlign,
-            style: widget.style,
-          ),
+    final Widget textWidget = WholeWords(
+      child: DescenderRoom(
+        child: widget.textSpan != null
+          ? Text.rich(
+              widget.textSpan!,
+              key: _textKey,
+              maxLines: widget.maxLines,
+              overflow: TextOverflow.ellipsis,
+              textAlign: widget.textAlign,
+              style: widget.style,
+            )
+          : Text(
+              widget.text,
+              key: _textKey,
+              maxLines: widget.maxLines,
+              overflow: TextOverflow.ellipsis,
+              textAlign: widget.textAlign,
+              style: widget.style,
+            ),
+      ),
     );
 
     // Re-checked on every laid-out size: the width decides the overflow as much as the text.

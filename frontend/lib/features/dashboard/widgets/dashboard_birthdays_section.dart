@@ -6,6 +6,7 @@ import '../../../core/utils/birthday.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart' show formatDayMonthFull, formatDayMonthShort;
 import '../../../shared/widgets/descender_room.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../people/models/person_face.dart';
 import '../../people/models/person_item.dart';
 import 'dashboard_section_card.dart';
@@ -276,12 +277,14 @@ class _BirthdayRowState extends State<_BirthdayRow>
                   gradient: today ? _birthdayGradient : AppTheme.brandGradient,
                   shape: BoxShape.circle,
                 ),
-                child: Text(
-                  initials.toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: widget.tight ? 12 : 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                child: WholeWords(
+                  child: Text(
+                    initials.toUpperCase(),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: widget.tight ? 12 : 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),

@@ -37,6 +37,7 @@ import '../utils/booking_window.dart';
 import '../utils/booking_wizard_strings.dart';
 import '../utils/opening_window.dart';
 import '../utils/study_program_lookup.dart';
+import '../utils/subject_search.dart';
 import 'band_schedule.dart';
 import 'lesson_day_field.dart';
 import 'lessons_form_fields.dart';
@@ -179,6 +180,9 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     for (final mode in _modes)
       mode: List.filled(_subjectCategoryLabels.length, ''),
   };
+
+  // Groups a search opened and the reader folded: they stay so until the search changes.
+  final Set<String> _foldedFound = {};
 
   // One per subjects card: two cards of a mode can be on screen while the carousel turns.
   final Map<String, ScrollController> _subjectScrollControllers = {};
@@ -888,8 +892,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         }
 
       case _Step.subjects:
-        if (card.mode == kOnlineMode &&
-            !_answersOf(card.group!).requests[kOnlineMode]!.any((request) => request.band == card.band))
+        if (!_hasChosen(card))
         {
           return kPickSubjectToGoOn;
         }
@@ -1020,11 +1023,14 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         }
       }
 
-      if (_effectiveModes(group).contains(kOnlineMode) &&
-          answers.hours[kOnlineMode]!.isNotEmpty &&
-          answers.requests[kOnlineMode]!.isEmpty)
+      for (final mode in _effectiveModes(group))
       {
-        return onlineSubjectMissing(days);
+        final requests = answers.requests[mode]!;
+
+        if (answers.hours[mode]!.bands.any((band) => !requests.any((request) => request.band == band)))
+        {
+          return subjectMissing(mode, days);
+        }
       }
 
       for (final mode in _modes)
@@ -1478,7 +1484,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
               child: ScrollEdgeFade(
                 child: SingleChildScrollView(
                   controller: scroll,
-                  padding: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.fromLTRB(AppSearchField.ringRoom, AppSearchField.ringRoom, 12, 0),
                   child: switch (category)
                   {
                     _ministryCategory => _buildMinistryList(group, mode, band),
@@ -1544,14 +1550,18 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       child: AppSearchField(
         controller: _subjectSearchControllers[mode]![category],
         hintText: hint,
-        onChanged: (value) => setState(() => _subjectQueries[mode]![category] = value),
+        onChanged: (value) => setState(()
+        {
+          _subjectQueries[mode]![category] = value;
+          _foldedFound.clear();
+        }),
       ),
     );
   }
 
   bool _matchesQuery(String name, String mode, int category)
   {
-    return name.toLowerCase().contains(_subjectQueries[mode]![category].toLowerCase());
+    return nameFound(name, _subjectQueries[mode]![category]);
   }
 
   Widget _buildPickRow({
@@ -1639,7 +1649,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     }
 
     final subjects = all
-        .where((subject) => _matchesQuery(subject.name, mode, _ministryCategory))
+        .where((subject) => subjectFound(subject, _subjectQueries[mode]![_ministryCategory]))
         .where((subject) => _offersSome(group, mode, band, subject))
         .toList();
 
@@ -1690,7 +1700,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   bool _offersSome(_DayGroup group, String mode, TimeBucket band, MinistrySubjectItem subject)
   {
     return !widget.openOnSubjects ||
-        subject.associationSubjects
+        disciplinesFound(subject, _subjectQueries[mode]![_ministryCategory])
             .any((discipline) => _bookedDiscipline(group, mode, band, subject.id, discipline.id)?.existing == null);
   }
 
@@ -1726,7 +1736,10 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   Widget _buildSubjectGroup(_DayGroup group, String mode, TimeBucket band, MinistrySubjectItem subject)
   {
     final String card = '$mode/${band.name}';
-    final bool open = _openSubject[card] == subject.id;
+    final String query = _subjectQueries[mode]![_ministryCategory];
+    final String folded = '$card/${subject.id}';
+    final bool found = foundInside(subject, query);
+    final bool open = found ? !_foldedFound.contains(folded) : _openSubject[card] == subject.id;
 
     final Widget row = SubjectGroupRow(
       key: ValueKey(subject.id),
@@ -1736,11 +1749,20 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           if (_bookedDiscipline(group, mode, band, subject.id, discipline.id) != null) discipline.name,
       ],
       open: open,
+      // A search must not carry the list away from its own field.
+      keepInView: !found,
       onToggle: ()
       {
         setState(()
         {
-          if (open)
+          if (found)
+          {
+            if (!_foldedFound.remove(folded))
+            {
+              _foldedFound.add(folded);
+            }
+          }
+          else if (open)
           {
             _openSubject.remove(card);
           }
@@ -1753,7 +1775,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         _tellPicked();
       },
       children: [
-        for (final discipline in subject.associationSubjects)
+        for (final discipline in disciplinesFound(subject, query))
           if (_bookedDiscipline(group, mode, band, subject.id, discipline.id) case final SubjectRequestDraft request?)
             if (!widget.openOnSubjects || request.existing == null)
               SubjectPickRow(
@@ -1780,7 +1802,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       ],
     );
 
-    return DesktopTourTarget(id: _toured && open ? kTourBookingsWizardOpen : null, child: row);
+    return DesktopTourTarget(id: _toured && open && !found ? kTourBookingsWizardOpen : null, child: row);
   }
 
   // Told after the frame: a tour waiting for the disciplines must find them drawn.

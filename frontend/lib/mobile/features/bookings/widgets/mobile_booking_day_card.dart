@@ -7,6 +7,7 @@ import '../../../../core/utils/week_range.dart';
 import '../../../../features/lessons/models/presence_item.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_action_circle.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
@@ -396,23 +397,27 @@ class _LessonRow extends StatelessWidget
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (lesson.divided)
-                      Text(
-                        lesson.title.toUpperCase(),
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: tablet ? 11.5 : 10.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1,
-                          height: 1.35,
-                          color: muted ? MobilePalette.mutedText : AppTheme.trialTealDeep,
+                      WholeWords(
+                        child: Text(
+                          lesson.title.toUpperCase(),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: tablet ? 11.5 : 10.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.1,
+                            height: 1.35,
+                            color: muted ? MobilePalette.mutedText : AppTheme.trialTealDeep,
+                          ),
                         ),
                       ),
-                    Text(
-                      lesson.divided ? lesson.disciplines.join(', ') : lesson.title,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: titleSize,
-                        fontWeight: FontWeight.w800,
-                        height: 1.3,
-                        color: muted ? MobilePalette.mutedText : AppTheme.trialOcean,
+                    WholeWords(
+                      child: Text(
+                        lesson.divided ? lesson.disciplines.join(', ') : lesson.title,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: titleSize,
+                          fontWeight: FontWeight.w800,
+                          height: 1.3,
+                          color: muted ? MobilePalette.mutedText : AppTheme.trialOcean,
+                        ),
                       ),
                     ),
                   ],

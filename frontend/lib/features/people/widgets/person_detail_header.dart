@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_back_button.dart';
 import '../../../shared/widgets/app_section_rail.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../models/person_item.dart';
 import '../own_tour.dart';
 import 'profile_avatar.dart';
@@ -51,12 +52,14 @@ Widget _staticFace(BuildContext context, PersonItem person, double size)
   final String initials = '${person.firstName[0]}${person.lastName[0]}'.toUpperCase();
 
   final Widget fallback = Center(
-    child: Text(
-      initials,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: size / 3,
-        fontWeight: FontWeight.w700,
-        color: AppTheme.trialTealDeep,
+    child: WholeWords(
+      child: Text(
+        initials,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: size / 3,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.trialTealDeep,
+        ),
       ),
     ),
   );

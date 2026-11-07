@@ -19,6 +19,7 @@ import '../../../../features/lessons/models/subject_request.dart';
 import '../../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/utils/study_program_lookup.dart';
+import '../../../../features/lessons/utils/subject_search.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../../services/api_service.dart';
 import '../../../shared/widgets/mobile_band_editor.dart';
@@ -124,6 +125,9 @@ class _WizardState extends State<_Wizard>
 
   // Per band, the subject whose disciplines are listed under it.
   final Map<TimeBucket, int> _openSubject = {};
+
+  // Groups a search opened and the reader folded: they stay so until the search changes.
+  final Set<(TimeBucket, int)> _foldedFound = {};
 
   bool _categoryForward = true;
 
@@ -668,7 +672,7 @@ class _WizardState extends State<_Wizard>
   bool _offersSome(MobileBookingGroup group, TimeBucket band, MinistrySubjectItem subject)
   {
     return !_draft.subjectsOnly ||
-        subject.associationSubjects.any((discipline) => _bookedDiscipline(group, band, subject.id, discipline.id)?.existing == null);
+        disciplinesFound(subject, _query).any((discipline) => _bookedDiscipline(group, band, subject.id, discipline.id)?.existing == null);
   }
 
   void _pickDiscipline(MobileBookingGroup group, TimeBucket band, MinistrySubjectItem subject, AssociationSubjectOption discipline)
@@ -697,7 +701,8 @@ class _WizardState extends State<_Wizard>
   // A subject divided in disciplines opens in place: each discipline is booked on its own.
   Widget _subjectGroup(MobileBookingGroup group, TimeBucket band, MinistrySubjectItem subject, String page)
   {
-    final bool open = _openSubject[band] == subject.id;
+    final bool found = foundInside(subject, _query);
+    final bool open = found ? !_foldedFound.contains((band, subject.id)) : _openSubject[band] == subject.id;
 
     final Widget built = MobileSubjectGroup(
       title: subject.name,
@@ -710,7 +715,14 @@ class _WizardState extends State<_Wizard>
       {
         setState(()
         {
-          if (open)
+          if (found)
+          {
+            if (!_foldedFound.remove((band, subject.id)))
+            {
+              _foldedFound.add((band, subject.id));
+            }
+          }
+          else if (open)
           {
             _openSubject.remove(band);
           }
@@ -722,7 +734,7 @@ class _WizardState extends State<_Wizard>
         _tourLater();
       },
       children: [
-        for (final discipline in subject.associationSubjects)
+        for (final discipline in disciplinesFound(subject, _query))
           if (_bookedDiscipline(group, band, subject.id, discipline.id) case final SubjectRequestDraft request?)
             if (!_draft.subjectsOnly || request.existing == null)
               MobileSelectRow(
@@ -748,7 +760,7 @@ class _WizardState extends State<_Wizard>
     // Always wrapped, lit only open: the group keeps its state, and its unfolding, either way.
     return MobileTourTarget(
       key: ValueKey(subject.id),
-      id: open ? bookingWizardTourTarget(BookingWizardMark.open, page) : null,
+      id: open && !found ? bookingWizardTourTarget(BookingWizardMark.open, page) : null,
       inflate: _tourOpenInflate,
       radius: _tourOpenRadius,
       clipped: true,
@@ -788,7 +800,9 @@ class _WizardState extends State<_Wizard>
     );
   }
 
-  bool _matches(String name) => name.toLowerCase().contains(_searches[_category].text.trim().toLowerCase());
+  String get _query => _searches[_category].text;
+
+  bool _matches(String name) => nameFound(name, _query);
 
   List<Widget> _buildCategory(MobileBookingGroup group, TimeBucket band, String page)
   {
@@ -805,7 +819,7 @@ class _WizardState extends State<_Wizard>
         }
 
         final List<MinistrySubjectItem> shown =
-            all.where((subject) => _matches(subject.name) && _offersSome(group, band, subject)).toList();
+            all.where((subject) => subjectFound(subject, _query) && _offersSome(group, band, subject)).toList();
 
         return [
           if (shown.isEmpty) MobileQuietLine(kSubjectNoMatch[_category]),
@@ -929,7 +943,7 @@ class _WizardState extends State<_Wizard>
             MobileSearchField(
               controller: _searches[_category],
               hintText: kSubjectSearchHints[_category],
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(_foldedFound.clear),
               onGlass: true,
             ),
             const SizedBox(height: 12),

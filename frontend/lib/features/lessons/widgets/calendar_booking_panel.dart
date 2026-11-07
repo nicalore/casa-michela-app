@@ -248,7 +248,7 @@ class CalendarBookingPanel extends StatelessWidget
   // A card held still under the pointer opens these.
   final WidgetBuilder Function(SchedulableBooking entry)? requestDetails;
 
-  // The editing calendar's search: found requests light up, the rest steps back.
+  // Requests the search finds light up, the rest steps back.
   final ValueListenable<CalendarSearch?>? search;
 
   const CalendarBookingPanel({
@@ -487,16 +487,19 @@ class CalendarBookingPanel extends StatelessWidget
       return ScrollEdgeFade(child: SingleChildScrollView(child: _buildEmpty()));
     }
 
-    return ScrollEdgeFade(
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (i, row) in rows.indexed) ...[
-              if (i > 0) const SizedBox(height: _blockGap),
-              row,
+    return CalendarSearchReveal(
+      search: search,
+      child: ScrollEdgeFade(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, row) in rows.indexed) ...[
+                if (i > 0) const SizedBox(height: _blockGap),
+                row,
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

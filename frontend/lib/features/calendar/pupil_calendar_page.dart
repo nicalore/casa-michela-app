@@ -9,6 +9,7 @@ import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
+import '../../shared/utils/day_marks.dart';
 import '../../shared/widgets/app_filter_pill.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/filter_menu.dart';
@@ -29,6 +30,7 @@ import '../people/models/person_face.dart';
 import 'calendar_tour.dart';
 import 'pupil_calendar_tour.dart';
 import 'utils/calendar_strings.dart';
+import 'utils/day_marks_loader.dart';
 import 'utils/pupil_band_presence.dart';
 import 'utils/viewable_days.dart';
 import 'widgets/band_summary_card.dart';
@@ -299,6 +301,21 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
       for (final child in children.where((child) => child.roles.contains(_pupilRole)).toList()..sort(compareByName))
         (taxCode: child.fiscalCode, firstName: child.firstName, gender: child.gender),
     ];
+  }
+
+  // The picker reads on hover, possibly before the page's first load is over.
+  Future<DayMarks> _loadMarks(DateTime from, DateTime to) async
+  {
+    try
+    {
+      final pupils = _pupils ?? await _readPupils();
+
+      return await pupilDayMarks(from, to, {for (final pupil in pupils) pupil.taxCode});
+    }
+    catch (_)
+    {
+      return DayMarks.none;
+    }
   }
 
   Future<void> _loadDay({bool quiet = false}) async
@@ -727,6 +744,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
       onDay: _goToDay,
       isClosed: !_isLoading && !_failed && _isDayClosed,
       closureNote: _closureNote,
+      loadMarks: _loadMarks,
       tools: (isNarrow) => isNarrow ? const [] : [_buildLayoutPicker()],
       onPickerOpen: _onPickerOpen,
       body: _buildBody,

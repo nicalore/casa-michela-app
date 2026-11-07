@@ -18,7 +18,6 @@ class RoleUnavailablePage extends StatelessWidget
 
     return SectionPlaceholderPage(
       currentRoute: '',
-      eyebrow: 'Area personale',
       title: role != null ? RoleLabelMapper.toLabel(role, feminine: user?.gender == 'F') : 'Il tuo ruolo',
       description: "L'area dedicata al tuo ruolo non è ancora disponibile.",
       showNavigation: false,

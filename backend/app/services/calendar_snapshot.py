@@ -132,6 +132,40 @@ def snapshot_of(
     }
 
 
+# Keeps a draft restorable once the teacher no longer exists, without their tax code.
+def without_teacher(snapshot: dict[str, Any], tax_code: str) -> dict[str, Any]:
+    def others(key: str) -> list[dict[str, Any]]:
+        return [
+            row
+            for row in snapshot.get(key, [])
+            if row["teacher_tax_code"] != tax_code
+        ]
+
+    unassigned = {
+        "availability_id": None,
+        "teacher_tax_code": None,
+        "teacher_mode": None,
+        "start_time": None,
+        "end_time": None,
+    }
+
+    return {
+        **snapshot,
+        _LESSONS: others(_LESSONS),
+        _ASSIGNMENTS: others(_ASSIGNMENTS),
+        _SUPERVISIONS: others(_SUPERVISIONS),
+        _ACTIVITIES: _ordered_activities(
+            [
+                {**row, **unassigned} if row["teacher_tax_code"] == tax_code else row
+                for row in snapshot.get(_ACTIVITIES, [])
+            ],
+        ),
+        _EXCLUSIONS: [
+            code for code in snapshot.get(_EXCLUSIONS, []) if code != tax_code
+        ],
+    }
+
+
 # Exclusions were never published, so they don't count toward "changed".
 def _as_published(snapshot: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in snapshot.items() if key != _EXCLUSIONS}

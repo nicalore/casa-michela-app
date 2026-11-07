@@ -28,6 +28,7 @@ import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast, isLess
 import '../notifications/calendar_seen.dart';
 import 'calendar_tour.dart';
 import 'utils/calendar_strings.dart';
+import 'utils/day_marks_loader.dart';
 import 'utils/teacher_band_call.dart';
 import 'utils/viewable_days.dart';
 import 'widgets/calendar_page_shell.dart';
@@ -610,6 +611,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       onDay: _goToDay,
       isClosed: !_isLoading && !_failed && _isDayClosed,
       closureNote: _closureNote,
+      loadMarks: (from, to) => teacherDayMarks(from, to, _meTaxCode),
       onPickerOpen: _onPickerOpen,
       body: _buildBody,
     );

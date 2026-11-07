@@ -28,6 +28,8 @@ _DUPLICATE_DAY_ERROR: Final[str] = (
     "Ogni giornata va indicata una volta sola nella stessa richiesta."
 )
 
+NO_LESSON_ERROR: Final[str] = "Seleziona almeno una materia."
+
 
 class LessonRequestSlot(TimeBandMixin):
     @model_validator(mode="after")
@@ -85,6 +87,15 @@ class LessonRequestMode(_ModeHours):
     slots: list[LessonRequestSlot] = Field(..., min_length=1)
 
     subjects: list[LessonRequestSubject] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _every_band_has_a_lesson(self) -> Self:
+        taught = {subject.band for subject in self.subjects}
+
+        if any(slot.band not in taught for slot in self.slots):
+            raise ValueError(NO_LESSON_ERROR)
+
+        return self
 
 
 class LessonRequestRowVersion(BaseModel):

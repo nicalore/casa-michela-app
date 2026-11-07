@@ -337,7 +337,7 @@ class _TeacherRow extends StatelessWidget
                   const SizedBox(height: 2),
                   Text(
                     taughtSubjectsLabel(subjectsOf(teacher).length),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12.5,

@@ -16,6 +16,7 @@ import '../../../features/people/own_page.dart'
     show OwnPageSection, ownPageSectionsOf, ownReportableFields;
 import '../../../features/people/person_jump.dart';
 import '../../../features/people/tabs/own_other_info_tab.dart' show ownOtherCards;
+import '../../../features/people/tabs/statistics/widgets/stats_data.dart';
 import '../../../features/people/utils/student_notes_strings.dart';
 import '../../../features/people/widgets/person_detail_cards.dart';
 import '../../../features/people/widgets/person_detail_widgets.dart';
@@ -113,15 +114,51 @@ class _MobileOwnPageState extends State<MobileOwnPage>
   // Asked by a notification: the Osservazioni, once the record is read.
   bool _observationsAsked = false;
 
+  // Asked by a figure of the home: the statistics, once the record is read.
+  bool _statsAsked = false;
+
+  // On the month the figure speaks of.
+  String _statsPeriod = defaultStatsPeriod;
+
   @override
   void initState()
   {
     super.initState();
     _observationsAsked = OwnPageJumps.takeObservations();
+    _statsAsked = OwnPageJumps.takeStats();
+
+    if (_statsAsked)
+    {
+      _statsPeriod = kThisMonthStatsPeriod;
+    }
+
     _load().then((_) => _loadStats()).whenComplete(MobileHoldScope.hold(context));
     mobileTourChanges.addListener(_tourLater);
     MobileNavSheet.hidden.addListener(_tourLater);
     OwnPageJumps.asked.addListener(_onObservationsAsked);
+    OwnPageJumps.asked.addListener(_onStatsAsked);
+  }
+
+  // A second touch on the home's figure while this page rises: spent, or it would wait for the next visit.
+  void _onStatsAsked()
+  {
+    if (mounted && OwnPageJumps.takeStats())
+    {
+      if (_person case final PersonItem person)
+      {
+        _showStats(person);
+      }
+    }
+  }
+
+  void _showStats(PersonItem person)
+  {
+    final int index = ownPageSectionsOf(person).indexOf(OwnPageSection.stats);
+
+    if (index >= 0 && _pages.hasClients)
+    {
+      _pages.jumpToPage(index);
+    }
   }
 
   // Already open: read again, as the note announced may be newer than the one shown.
@@ -185,6 +222,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
     mobileTourChanges.removeListener(_tourLater);
     MobileNavSheet.hidden.removeListener(_tourLater);
     OwnPageJumps.asked.removeListener(_onObservationsAsked);
+    OwnPageJumps.asked.removeListener(_onStatsAsked);
     _pages.dispose();
     _teacherStats?.dispose();
     _pupilStats?.dispose();
@@ -219,6 +257,17 @@ class _MobileOwnPageState extends State<MobileOwnPage>
           if (mounted)
           {
             _showObservations(person);
+          }
+        });
+      }
+      else if (_statsAsked)
+      {
+        _statsAsked = false;
+        SchedulerBinding.instance.addPostFrameCallback((_)
+        {
+          if (mounted)
+          {
+            _showStats(person);
           }
         });
       }
@@ -307,7 +356,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
 
     if (_isTeacher(person) && _teacherStats == null)
     {
-      final MobileTeacherStatsController stats = MobileTeacherStatsController(person.fiscalCode);
+      final MobileTeacherStatsController stats = MobileTeacherStatsController(person.fiscalCode, period: _statsPeriod);
 
       _teacherStats = stats;
       loads.add(stats.load());
@@ -315,7 +364,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
 
     if (_isPupil(person) && _pupilStats == null)
     {
-      final MobilePupilStatsController stats = MobilePupilStatsController(person.fiscalCode);
+      final MobilePupilStatsController stats = MobilePupilStatsController(person.fiscalCode, period: _statsPeriod);
 
       _pupilStats = stats;
       loads.add(stats.load());
@@ -326,12 +375,12 @@ class _MobileOwnPageState extends State<MobileOwnPage>
 
   MobileTeacherStatsController _teacherStatsOf(PersonItem person)
   {
-    return _teacherStats ??= MobileTeacherStatsController(person.fiscalCode)..load();
+    return _teacherStats ??= MobileTeacherStatsController(person.fiscalCode, period: _statsPeriod)..load();
   }
 
   MobilePupilStatsController _pupilStatsOf(PersonItem person)
   {
-    return _pupilStats ??= MobilePupilStatsController(person.fiscalCode)..load();
+    return _pupilStats ??= MobilePupilStatsController(person.fiscalCode, period: _statsPeriod)..load();
   }
 
   Future<void> _editFace() async

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show ClipOp;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,17 +9,31 @@ import '../../../models/member_trend_item.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 import 'stats_constants.dart';
+import 'trend_band.dart';
 
 // Shared by the hit testing and the painter: if they drift, hover targets leave the points.
 const double _chartPaddingLeft = 40.0;
 const double _chartPaddingBottom = 30.0;
+
+// Past the plot: short of the scale on the left, round the last month's label on the right.
+const double _bandOverhangLeft = 7;
+const double _bandOverhangRight = 18;
+const double _bandAbove = 8;
+
+// Down past the two lines of a month's label.
+const double _bandBelow = 45;
+const double _bandRadius = 12;
+const double _bandAlpha = 0.1;
 
 class TrendLineChart extends StatefulWidget
 {
   final List<MemberTrendItem> data;
   final bool isMonthly;
 
-  const TrendLineChart({required this.data, required this.isMonthly, super.key});
+  // The months of the chosen period; null marks none.
+  final TrendSpan? span;
+
+  const TrendLineChart({required this.data, required this.isMonthly, this.span, super.key});
 
   @override
   State<TrendLineChart> createState() => _TrendLineChartState();
@@ -104,12 +119,17 @@ class _TrendLineChartState extends State<TrendLineChart>
               child: MouseRegion(
                 onHover: (event) => _onHover(event.localPosition, points),
                 onExit: (_) => setState(() => _hoveredIndex = null),
-                child: CustomPaint(
-                  size: Size.infinite,
-                  painter: _TrendLineChartPainter(
-                    data: widget.data,
-                    maxValue: maxValue,
-                    isMonthly: widget.isMonthly,
+                child: TrendBandBuilder(
+                  span: widget.span,
+                  count: widget.data.length,
+                  builder: (context, band) => CustomPaint(
+                    size: Size.infinite,
+                    painter: _TrendLineChartPainter(
+                      data: widget.data,
+                      maxValue: maxValue,
+                      isMonthly: widget.isMonthly,
+                      band: band,
+                    ),
                   ),
                 ),
               ),
@@ -135,11 +155,13 @@ class _TrendLineChartPainter extends CustomPainter
   final List<MemberTrendItem> data;
   final int maxValue;
   final bool isMonthly;
+  final TrendBand band;
 
   _TrendLineChartPainter({
     required this.data,
     required this.maxValue,
     required this.isMonthly,
+    required this.band,
   });
 
   TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(
@@ -158,11 +180,11 @@ class _TrendLineChartPainter extends CustomPainter
   }
 
   // The last point is always labelled; a stride label too close to it is dropped.
-  Set<int> _visibleLabelIndices(double stepX)
+  ({Set<int> indices, int stride}) _visibleLabels(double stepX)
   {
     if (data.length <= 1)
     {
-      return {0};
+      return (indices: {0}, stride: 1);
     }
 
     final sampleText = isMonthly ? '${monthAbbreviations[0]}\n9999' : '9999';
@@ -187,7 +209,7 @@ class _TrendLineChartPainter extends CustomPainter
 
     if (indices.isNotEmpty && indices.last == lastIndex)
     {
-      return indices.toSet();
+      return (indices: indices.toSet(), stride: stride);
     }
 
     if (indices.isNotEmpty)
@@ -203,7 +225,27 @@ class _TrendLineChartPainter extends CustomPainter
 
     indices.add(lastIndex);
 
-    return indices.toSet();
+    return (indices: indices.toSet(), stride: stride);
+  }
+
+  Rect _bandRect(Size size, double stepX, double chartHeight)
+  {
+    return Rect.fromLTRB(
+      math.max(_chartPaddingLeft + band.start * stepX, _chartPaddingLeft - _bandOverhangLeft),
+      -_bandAbove,
+      math.min(_chartPaddingLeft + band.end * stepX, size.width + _bandOverhangRight),
+      chartHeight + _bandBelow,
+    );
+  }
+
+  TextStyle _monthStyle(int index, double alpha)
+  {
+    final bool marked = band.marks(index);
+
+    return _labelStyle.copyWith(
+      color: (marked ? AppTheme.trialOcean : AppTheme.trialMutedText).withValues(alpha: alpha),
+      fontWeight: marked ? FontWeight.w800 : null,
+    );
   }
 
   void _paintGrid(Canvas canvas, Size size, double chartHeight, TextPainter textPainter)
@@ -259,11 +301,17 @@ class _TrendLineChartPainter extends CustomPainter
     final chartWidth = size.width - _chartPaddingLeft;
     final chartHeight = size.height - _chartPaddingBottom;
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    final stepX = data.length > 1 ? chartWidth / (data.length - 1) : chartWidth / 2;
+    final bandRect = _bandRect(size, stepX, chartHeight);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bandRect, const Radius.circular(_bandRadius)),
+      Paint()..color = AppTheme.chartOcean.withValues(alpha: _bandAlpha * band.strength),
+    );
 
     _paintGrid(canvas, size, chartHeight, textPainter);
 
-    final stepX = data.length > 1 ? chartWidth / (data.length - 1) : chartWidth / 2;
-    final labelIndices = _visibleLabelIndices(stepX);
+    final labels = _visibleLabels(stepX);
     final points = <Offset>[];
 
     for (var i = 0; i < data.length; i++)
@@ -272,9 +320,11 @@ class _TrendLineChartPainter extends CustomPainter
       final y = chartHeight - ((data[i].totalMembers / maxValue) * chartHeight);
       points.add(Offset(x, y));
 
-      if (labelIndices.contains(i))
+      final labelAlpha = band.labelAlpha(i, labels.indices, labels.stride);
+
+      if (labelAlpha > 0)
       {
-        textPainter.text = TextSpan(text: _labelFor(data[i]), style: _labelStyle);
+        textPainter.text = TextSpan(text: _labelFor(data[i]), style: _monthStyle(i, labelAlpha));
         textPainter.textAlign = TextAlign.center;
         textPainter.layout();
         textPainter.paint(
@@ -291,23 +341,35 @@ class _TrendLineChartPainter extends CustomPainter
       linePath.lineTo(points[i].dx, points[i].dy);
     }
 
+    final linePaint = Paint()
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.save();
+    canvas.clipRect(bandRect, clipOp: ClipOp.difference);
+    canvas.drawPath(linePath, linePaint..color = AppTheme.chartGrayLight);
+    canvas.restore();
+
+    canvas.save();
+    canvas.clipRect(bandRect);
     canvas.drawPath(
       linePath,
-      Paint()
+      linePaint
         ..shader = AppTheme.chartLineGradient.createShader(
           Rect.fromLTWH(_chartPaddingLeft, 0, chartWidth, chartHeight),
-        )
-        ..strokeWidth = 3
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
+        ),
     );
-
     _paintArea(canvas, linePath, points, chartWidth, chartHeight);
+    canvas.restore();
 
-    for (final point in points)
+    for (var i = 0; i < points.length; i++)
     {
-      final color = chartLineColorAt((point.dx - _chartPaddingLeft) / chartWidth);
+      final point = points[i];
+      final color = band.covers(i)
+          ? chartLineColorAt((point.dx - _chartPaddingLeft) / chartWidth)
+          : AppTheme.chartGrayLight;
       canvas.drawCircle(point, 5, Paint()..color = color);
       canvas.drawCircle(point, 3, Paint()..color = Colors.white);
     }
@@ -318,6 +380,6 @@ class _TrendLineChartPainter extends CustomPainter
   @override
   bool shouldRepaint(covariant _TrendLineChartPainter oldDelegate)
   {
-    return oldDelegate.data != data;
+    return oldDelegate.data != data || oldDelegate.band != band;
   }
 }

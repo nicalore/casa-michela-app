@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
+
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -78,7 +80,10 @@ class CalendarExportData
         ...given.map((activity) => activity.teacherTaxCode),
       }.length,
       students: all.expand((lesson) => lesson.studentTaxCodes).toSet().length,
-      lessons: all.length,
+      lessons: {
+        for (final lane in lanes)
+          for (final stretch in exportStretches(this, lane)) stretch.first.id,
+      }.length,
       activities: given.length,
     );
   }
@@ -184,7 +189,7 @@ String exportLessonWho(LessonItem lesson, CalendarView view)
   return students.isEmpty ? 'Lezione' : students.map((student) => student.fullName).join(', ');
 }
 
-// One lesson of the list. The discipline leads and the subject follows, as on its block.
+// One strip of the list. The discipline leads and the subject follows, as on its block.
 typedef ExportLessonFields = ({
   String hours,
   String who,
@@ -193,40 +198,65 @@ typedef ExportLessonFields = ({
   String place,
 });
 
-ExportLessonFields exportLessonFields(
-  LessonItem lesson, {
-  required CalendarView view,
-  required List<MinistrySubjectItem> ministrySubjects,
-  LaneRoomLabel? room,
-})
+ExportLessonFields exportStretchFields(CalendarExportData data, List<LessonItem> stretch)
 {
-  final topic = lessonTopic(lesson, ministrySubjects);
+  final lesson = stretch.first;
+  final topic = lessonTopic(lesson, data.ministrySubjects);
 
   // By teacher, the room they hold the hour in; an online hour names none, even from the association.
-  final seat = view == CalendarView.byTeacher && lesson.mode == kPresenceMode
-      ? room?.roomAt(lesson.startMinutes, lesson.endMinutes)?.name
+  final seat = data.view == CalendarView.byTeacher && lesson.mode == kPresenceMode
+      ? data.roomByTeacher[lesson.teacherTaxCode]?.roomAt(lesson.startMinutes, lesson.endMinutes)?.name
       : null;
 
   return (
-    hours: formatTimeRange(lesson.startTime, lesson.endTime),
-    who: exportLessonWho(lesson, view),
+    hours: formatTimeRange(lesson.startTime, stretch.last.endTime),
+    who: exportLessonWho(lesson, data.view),
     discipline: topic.discipline,
     subject: topic.subject,
     place: seat ?? lessonWhere(lesson).label,
   );
 }
 
+bool _continues(CalendarExportData data, LessonItem before, LessonItem after)
+{
+  final first = exportStretchFields(data, [before]);
+  final second = exportStretchFields(data, [after]);
+
+  return before.endMinutes == after.startMinutes &&
+      before.teacherTaxCode == after.teacherTaxCode &&
+      setEquals(before.studentTaxCodes, after.studentTaxCodes) &&
+      (first.discipline, first.subject, first.place) == (second.discipline, second.subject, second.place);
+}
+
+// A row's lessons as printed, in clock order: those reading the same, each starting as the one
+// before ends, are one stretch, even with another lesson held alongside them.
+List<List<LessonItem>> exportStretches(CalendarExportData data, CalendarLane lane)
+{
+  final lessons = [...lane.lessons]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+  final stretches = <List<LessonItem>>[];
+
+  for (final lesson in lessons)
+  {
+    final open = stretches.where((stretch) => _continues(data, stretch.last, lesson)).firstOrNull;
+
+    if (open == null)
+    {
+      stretches.add([lesson]);
+    }
+    else
+    {
+      open.add(lesson);
+    }
+  }
+
+  return stretches;
+}
+
 List<ExportLessonFields> exportLessonRows(CalendarExportData data)
 {
   return [
     for (final lane in data.lanes)
-      for (final lesson in lane.lessons)
-        exportLessonFields(
-          lesson,
-          view: data.view,
-          ministrySubjects: data.ministrySubjects,
-          room: data.roomByTeacher[lesson.teacherTaxCode],
-        ),
+      for (final stretch in exportStretches(data, lane)) exportStretchFields(data, stretch),
   ];
 }
 

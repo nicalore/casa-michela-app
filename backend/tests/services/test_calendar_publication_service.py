@@ -710,6 +710,7 @@ async def test_an_hour_whose_request_went_cannot_be_put_back(
     built = await _settled_afternoon(db)
     await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
     await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
+    await make_booking(db, built[0].presence)
 
     await BookingService(BookingRepository(db), PresenceRepository(db)).delete(
         ADMIN_IDENTITY,
@@ -788,6 +789,7 @@ async def test_a_reopened_band_takes_lesson_writes_again(db: AsyncSession) -> No
 async def test_a_cascade_on_a_settled_band_reopens_it(db: AsyncSession) -> None:
     built, _ = await _settled_afternoon(db)
     await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+    await make_booking(db, built.presence)
 
     await BookingService(BookingRepository(db), PresenceRepository(db)).delete(
         ADMIN_IDENTITY,

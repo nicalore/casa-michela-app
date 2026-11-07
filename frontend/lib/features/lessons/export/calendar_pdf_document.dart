@@ -397,7 +397,7 @@ pw.MultiPage _listPages(CalendarExportData data, _Styles styles)
 {
   final tracks = [
     for (final lane in data.lanes)
-      for (final bracket in _bracketsOf(_hoursOf(lane))) bracket.track + 1,
+      for (final bracket in _bracketsOf(_hoursOf(data, lane))) bracket.track + 1,
   ].fold(0, math.max);
   final gutter = tracks == 0 ? 3.0 : 2 + tracks * _bracketTrack + _bracketReach;
 
@@ -616,16 +616,21 @@ pw.Widget _columns({
   );
 }
 
-// One hour of a row: a lesson or an activity.
-typedef _Hour = ({int startMinutes, int endMinutes, LessonItem? lesson, ScheduledActivity? activity});
+// One strip of a row: a stretch of lessons or an activity.
+typedef _Hour = ({int startMinutes, int endMinutes, List<LessonItem>? stretch, ScheduledActivity? activity});
 
-List<_Hour> _hoursOf(CalendarLane lane)
+List<_Hour> _hoursOf(CalendarExportData data, CalendarLane lane)
 {
   return [
-    for (final lesson in lane.lessons)
-      (startMinutes: lesson.startMinutes, endMinutes: lesson.endMinutes, lesson: lesson, activity: null),
+    for (final stretch in exportStretches(data, lane))
+      (
+        startMinutes: stretch.first.startMinutes,
+        endMinutes: stretch.last.endMinutes,
+        stretch: stretch,
+        activity: null,
+      ),
     for (final activity in lane.activities)
-      (startMinutes: activity.startMinutes, endMinutes: activity.endMinutes, lesson: null, activity: activity),
+      (startMinutes: activity.startMinutes, endMinutes: activity.endMinutes, stretch: null, activity: activity),
   ]..sort((a, b) => a.startMinutes != b.startMinutes
       ? a.startMinutes.compareTo(b.startMinutes)
       : a.endMinutes.compareTo(b.endMinutes));
@@ -638,7 +643,7 @@ typedef _Bracket = ({int first, int second, int track, double opensAt, double cl
 
 List<_Bracket> _bracketsOf(List<_Hour> hours)
 {
-  final pairs = togetherPairs([for (final hour in hours) hour.lesson == null ? null : _spanOf(hour)]);
+  final pairs = togetherPairs([for (final hour in hours) hour.stretch == null ? null : _spanOf(hour)]);
   final opening = {for (final pair in pairs) pair.first};
   final closing = {for (final pair in pairs) pair.second};
 
@@ -676,7 +681,7 @@ List<_Bracket> _bracketsOf(List<_Hour> hours)
 // Every hour of a row as its strip, bracketed with the other of its pair.
 List<pw.Widget> _lessonStrips(CalendarExportData data, _Styles styles, CalendarLane lane, double gutter)
 {
-  final hours = _hoursOf(lane);
+  final hours = _hoursOf(data, lane);
   final brackets = _bracketsOf(hours);
 
   // Beside each pupil, the hours they share with the other of the pair.
@@ -692,9 +697,9 @@ List<pw.Widget> _lessonStrips(CalendarExportData data, _Styles styles, CalendarL
         index: index,
         brackets: brackets,
         gutter: gutter,
-        strip: hour.lesson == null
+        strip: hour.stretch == null
             ? _activityStrip(styles, hour.activity!)
-            : _lessonStrip(data, styles, hour.lesson!, together: togetherWith(index)),
+            : _lessonStrip(data, styles, hour.stretch!, together: togetherWith(index)),
       ),
   ];
 }
@@ -824,14 +829,15 @@ pw.Widget _strip({required PdfColor accent, required PdfColor surface, required 
   );
 }
 
-pw.Widget _lessonStrip(CalendarExportData data, _Styles styles, LessonItem lesson, {List<String> together = const []})
+pw.Widget _lessonStrip(
+  CalendarExportData data,
+  _Styles styles,
+  List<LessonItem> stretch, {
+  List<String> together = const [],
+})
 {
-  final fields = exportLessonFields(
-    lesson,
-    view: data.view,
-    ministrySubjects: data.ministrySubjects,
-    room: data.roomByTeacher[lesson.teacherTaxCode],
-  );
+  final lesson = stretch.first;
+  final fields = exportStretchFields(data, stretch);
   final subject = fields.subject;
 
   return _strip(

@@ -4,6 +4,7 @@ import '../../../core/utils/rome_clock.dart';
 import '../../../features/association/models/opening_day_item.dart';
 import '../../../features/association/notices/notice_item.dart';
 import '../../../features/auth/models/me_response.dart';
+import '../../../features/home/home_link.dart';
 import '../../../features/home/models/month_summary_items.dart';
 import '../../../features/lessons/models/activity_item.dart';
 import '../../../features/lessons/models/availability_item.dart';
@@ -17,6 +18,7 @@ import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_tour.dart';
 import '../notifications/mobile_notifications_offer.dart';
 import '../updates/mobile_unread_updates.dart';
+import 'mobile_home_links.dart';
 import 'mobile_home_tour.dart';
 import 'mobile_home_view.dart';
 import 'mobile_teacher_day.dart';
@@ -28,6 +30,8 @@ Future<T?> _quiet<T>(Future<T> future)
 {
   return future.then<T?>((value) => value).catchError((_) => null);
 }
+
+const String _teacherRole = 'TEACHER';
 
 class MobileTeacherHomePage extends StatefulWidget
 {
@@ -205,6 +209,11 @@ class _MobileTeacherHomePageState extends State<MobileTeacherHomePage>
     });
   }
 
+  void _follow(HomeLink link)
+  {
+    followMobileHomeLink(link, role: _teacherRole);
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -213,15 +222,17 @@ class _MobileTeacherHomePageState extends State<MobileTeacherHomePage>
     final TeacherMonthSummaryItem? month = _month;
 
     return MobileHomeView(
+      role: _teacherRole,
       firstName: user.firstName,
       birthDate: user.birthDate,
       loadingDay: _loadingDay,
       day: day == null ? null : teacherHomeDay(day, feminine: user.gender == 'F'),
       loadingMonth: _loadingMonth,
-      month: month == null ? null : MobileMonthFigures(month: month),
+      month: month == null ? null : MobileMonthFigures(month: month, onLink: _follow),
       onRefresh: _reload,
       pageController: _pageController,
       notices: _notices,
+      onLink: _follow,
     );
   }
 }

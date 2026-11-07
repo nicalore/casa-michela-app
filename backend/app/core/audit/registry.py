@@ -84,11 +84,13 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "availability_id",
         body_fields=("date", "teacher_tax_code"),
     ),
-    **_crud(
-        "/presences",
-        "Presence",
-        "presence_id",
-        body_fields=("date", "student_tax_code"),
+    ("PUT", "/presences/{presence_id}"): AuditRule(
+        "Presence modification",
+        path_params=("presence_id",),
+    ),
+    ("DELETE", "/presences/{presence_id}"): AuditRule(
+        "Presence elimination",
+        path_params=("presence_id",),
     ),
     **_crud(
         "/room-supervisions",

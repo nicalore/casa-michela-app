@@ -6,6 +6,7 @@ import '../../../core/utils/rome_clock.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/shared_components.dart';
+import '../../../shared/widgets/whole_words.dart';
 import 'person_detail_widgets.dart';
 import 'person_row_models.dart';
 
@@ -210,13 +211,15 @@ class _RowFactsLine extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          fact.label.toUpperCase(),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.1,
-            color: AppTheme.trialMutedText,
+        WholeWords(
+          child: Text(
+            fact.label.toUpperCase(),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.1,
+              color: AppTheme.trialMutedText,
+            ),
           ),
         ),
         const SizedBox(height: 4),

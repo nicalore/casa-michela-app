@@ -9,7 +9,9 @@ import '../../../core/utils/money.dart';
 import '../../../core/utils/week_range.dart' show formatMinutes, formatMonthYear;
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
+import '../home_link.dart';
 import '../models/month_summary_items.dart';
+import 'home_link_frame.dart';
 
 enum HomeFigureTone { plain, pending, absent }
 
@@ -40,6 +42,9 @@ class HomeFigure
   // A length of time: value reads "4h 45m" and holds its units itself.
   final bool isTime;
 
+  // The page that details it; none while that page is yet to come.
+  final HomeLink? link;
+
   const HomeFigure({
     required this.label,
     required this.value,
@@ -47,9 +52,10 @@ class HomeFigure
     this.warning,
     this.delta,
     this.tone = HomeFigureTone.plain,
+    this.link,
   }) : isTime = false;
 
-  HomeFigure.time({required this.label, required int minutes, this.delta})
+  HomeFigure.time({required this.label, required int minutes, this.delta, this.link})
       : value = formatMinutes(minutes),
         unit = '',
         warning = null,
@@ -166,6 +172,7 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
         (change) => '$change',
         unit: _days,
       ),
+      link: const HomeStatsLink(),
     ),
     HomeFigure(
       label: 'A settimana',
@@ -177,6 +184,8 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
         (change) => (change / 10).toStringAsFixed(1),
         unit: (change) => _days(change / 10),
       ),
+      // Its warning is put right on the week, not read about.
+      link: const HomeWeekLink(),
     ),
     HomeFigure.time(
       label: 'Lezioni',
@@ -185,6 +194,7 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
         month.workedMinutes - last.workedMinutes,
         (change) => formatMinutes(change.toInt()),
       ),
+      link: const HomeStatsLink(),
     ),
     if (cents != null)
       withAmount
@@ -222,26 +232,37 @@ HomeFigure _tariffFigure(PupilMonthFiguresItem figures)
   return const HomeFigure(label: 'Modalità', value: '—', tone: HomeFigureTone.absent);
 }
 
-List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool withTariff, bool withWeekly = false})
+// [pupil]: the child they are of, on a parent's home.
+List<HomeFigure> pupilFigures(
+  PupilMonthFiguresItem figures, {
+  required bool withTariff,
+  bool withWeekly = false,
+  String? pupil,
+})
 {
+  final HomeLink stats = HomeStatsLink(pupil: pupil);
+
   return [
     HomeFigure(
       label: 'Presenze',
       value: '${figures.totalPresences}',
       unit: _days(figures.totalPresences),
+      link: stats,
     ),
     if (withWeekly)
       HomeFigure(
         label: 'A settimana',
         value: figures.weeklyPresences.toStringAsFixed(1),
         unit: _days(figures.weeklyPresences),
+        link: stats,
       ),
     HomeFigure(
       label: 'Prenotazioni',
       value: '${figures.bookedPresences}',
       unit: _days(figures.bookedPresences),
+      link: HomeWeekLink(pupil: pupil),
     ),
-    HomeFigure.time(label: 'Lezioni', minutes: figures.lessonMinutes),
+    HomeFigure.time(label: 'Lezioni', minutes: figures.lessonMinutes, link: stats),
     if (withTariff) _tariffFigure(figures),
   ];
 }
@@ -383,6 +404,9 @@ class HomeMonthSection extends StatelessWidget
   // Set by the page: a LayoutBuilder cannot report a height inside a row of equal-height cards.
   final int columns;
 
+  // Null: the figures lead nowhere.
+  final ValueChanged<HomeLink>? onLink;
+
   const HomeMonthSection({
     super.key,
     required this.groups,
@@ -390,6 +414,7 @@ class HomeMonthSection extends StatelessWidget
     required this.month,
     this.isLoading = false,
     this.columns = 2,
+    this.onLink,
   });
 
   @override
@@ -606,6 +631,7 @@ class HomeMonthSection extends StatelessWidget
             height: rowHeight,
             flexes: flexes,
             perLine: perLine,
+            onLink: onLink,
           ),
       ],
     );
@@ -647,7 +673,7 @@ class HomeMonthSection extends StatelessWidget
               if (i > 0) SizedBox(width: scale.gap),
               Expanded(
                 child: i < row.length
-                    ? _FigureTile(figure: row[i], scale: scale, keepsAsideLine: aside)
+                    ? _FigureTile(figure: row[i], scale: scale, keepsAsideLine: aside, onLink: onLink)
                     : const SizedBox(),
               ),
             ],
@@ -682,6 +708,8 @@ class _TableRow extends StatelessWidget
   final List<int>? flexes;
   final int? perLine;
 
+  final ValueChanged<HomeLink>? onLink;
+
   const _TableRow({
     required this.group,
     required this.dense,
@@ -689,7 +717,12 @@ class _TableRow extends StatelessWidget
     required this.height,
     this.flexes,
     this.perLine,
+    this.onLink,
   });
+
+  // The frame stays clear of the row's rules and of the next column, and leaves the figure room on its left.
+  static const EdgeInsets _cellOutset = EdgeInsets.fromLTRB(8, -3, -6, -3);
+  static const double _cellRadius = 8;
 
   @override
   Widget build(BuildContext context)
@@ -710,9 +743,14 @@ class _TableRow extends StatelessWidget
       for (final (index, figure) in group.figures.indexed)
         Expanded(
           flex: flexes?[index % across] ?? 1,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: FittedBox(fit: BoxFit.scaleDown, child: _TableValue(figure: figure, dense: dense)),
+          child: HomeLinkFrame(
+            onTap: _tapOf(figure, onLink),
+            radius: _cellRadius,
+            outset: _cellOutset,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(fit: BoxFit.scaleDown, child: _TableValue(figure: figure, dense: dense)),
+            ),
           ),
         ),
     ];
@@ -846,10 +884,13 @@ class _FigureTile extends StatelessWidget
 
   final bool keepsAsideLine;
 
+  final ValueChanged<HomeLink>? onLink;
+
   const _FigureTile({
     required this.figure,
     required this.scale,
     required this.keepsAsideLine,
+    this.onLink,
   });
 
   @override
@@ -974,7 +1015,7 @@ class _FigureTile extends StatelessWidget
                   )),
           );
 
-    return Container(
+    final Widget tile = Container(
       padding: EdgeInsets.symmetric(horizontal: scale.side, vertical: scale.padding),
       decoration: BoxDecoration(
         color: warned ? AppTheme.modifiedAccentSurface : AppTheme.trialPaper,
@@ -999,5 +1040,14 @@ class _FigureTile extends StatelessWidget
         ],
       ),
     );
+
+    return HomeLinkFrame(onTap: _tapOf(figure, onLink), radius: scale.radius, child: tile);
   }
+}
+
+VoidCallback? _tapOf(HomeFigure figure, ValueChanged<HomeLink>? onLink)
+{
+  final HomeLink? link = figure.link;
+
+  return link == null || onLink == null ? null : () => onLink(link);
 }

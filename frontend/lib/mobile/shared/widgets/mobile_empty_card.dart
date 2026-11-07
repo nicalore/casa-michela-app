@@ -3,19 +3,28 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/whole_words.dart';
+import '../mobile_line_breaks.dart';
+import '../mobile_palette.dart';
 import 'mobile_glass_panel.dart';
 
 class MobileEmptyCard extends StatelessWidget
 {
   final IconData icon;
   final String message;
+
+  // A sentence under the message; empty counts as none.
+  final String? detail;
+
   final bool tablet;
 
-  const MobileEmptyCard({super.key, required this.icon, required this.message, required this.tablet});
+  const MobileEmptyCard({super.key, required this.icon, required this.message, this.detail, required this.tablet});
 
   @override
   Widget build(BuildContext context)
   {
+    final String? detail = this.detail;
+
     return MobileGlassPanel(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
@@ -23,16 +32,33 @@ class MobileEmptyCard extends StatelessWidget
         children: [
           Icon(icon, size: 36, color: AppTheme.trialTealDeep),
           const SizedBox(height: 10),
-          Text(
-            emptyCardText(message),
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: tablet ? 17 : 16,
-              fontWeight: FontWeight.w700,
-              height: 1.3,
-              color: AppTheme.trialTealDeep,
+          WholeWords(
+            child: Text(
+              withoutOrphans(emptyCardText(message)),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: tablet ? 17 : 16,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+                color: AppTheme.trialTealDeep,
+              ),
             ),
           ),
+          if (detail != null && detail.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            WholeWords(
+              child: Text(
+                withoutOrphans(detail),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: tablet ? 14.5 : 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                  color: MobilePalette.mutedText,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

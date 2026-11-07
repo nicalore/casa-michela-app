@@ -26,9 +26,11 @@ import 'edit/person_edit_report_dialog.dart';
 import 'models/child_item.dart';
 import 'models/person_face.dart';
 import 'models/person_item.dart';
+import 'person_jump.dart';
 import 'tabs/person_memberships_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
+import 'tabs/statistics/widgets/stats_data.dart';
 import 'widgets/person_detail_cards.dart';
 import 'widgets/person_detail_header.dart';
 import 'widgets/person_detail_widgets.dart';
@@ -105,6 +107,15 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
 
   int _selectedSection = 0;
 
+  // Asked by a figure of the home: this child's statistics, once the children are read.
+  String? _statsAsked;
+
+  // How many times each child was asked for: their tab starts anew on the month, whatever it was left on.
+  final Map<String, int> _statsVisits = {};
+
+  // A tour would take the page back to its start: it waits for the next visit.
+  bool _tourHeld = false;
+
   List<RailGroup> get _sections => [
     for (final child in _children)
       RailGroup(title: child.firstName, entries: _entries),
@@ -125,7 +136,50 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
 
     childrenPageSection.value = null;
     visitedSections.add(_selectedSection);
+    _statsAsked = ChildStatsJumps.take();
+    _tourHeld = _statsAsked != null;
+    ChildStatsJumps.asked.addListener(_onStatsAsked);
     _load();
+  }
+
+  @override
+  void dispose()
+  {
+    ChildStatsJumps.asked.removeListener(_onStatsAsked);
+    super.dispose();
+  }
+
+  // Already built: straight there, before the page comes back in view.
+  void _onStatsAsked()
+  {
+    final String? asked = ChildStatsJumps.take();
+
+    if (asked == null || !mounted)
+    {
+      return;
+    }
+
+    _statsAsked = asked;
+    _tourHeld = true;
+
+    if (_children.isNotEmpty)
+    {
+      _showStats();
+    }
+  }
+
+  void _showStats()
+  {
+    final String? asked = _statsAsked;
+    final int child = _children.indexWhere((each) => each.fiscalCode == asked);
+
+    _statsAsked = null;
+
+    if (asked != null && child >= 0)
+    {
+      _statsVisits.update(asked, (visits) => visits + 1, ifAbsent: () => 1);
+      _selectSection(child * _entries.length + _statsIndex);
+    }
   }
 
   // Told after the frame: a tour waiting for it redraws itself, which a build in progress forbids.
@@ -158,6 +212,13 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
   // Begun on the followed child's personal information.
   Future<void> _startTour() async
   {
+    if (_tourHeld)
+    {
+      _tourHeld = false;
+
+      return;
+    }
+
     if (_children.isEmpty || isDesktopTourShown)
     {
       return;
@@ -224,6 +285,12 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
       });
 
       _tellSection();
+
+      if (_statsAsked != null)
+      {
+        _showStats();
+      }
+
       _startTour();
     }
     catch (e, stackTrace)
@@ -253,6 +320,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
   Widget _buildSection(PersonItem child, int entry)
   {
     final bool toured = _children.indexOf(child) == _toured;
+    final int? visits = _statsVisits[child.fiscalCode];
 
     final Widget report = Center(
       child: DesktopTourTarget(
@@ -267,7 +335,14 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
       _membershipsIndex => PersonMembershipsTab(person: child, footer: report),
       _schoolIndex => PersonSchoolsTab(person: child, footer: report),
       _otherIndex => _ChildOtherInfoTab(person: child, footer: report),
-      _ => PersonPersonalStatsTab(person: child, footer: report, childTour: toured, pupilOnly: true),
+      _ => PersonPersonalStatsTab(
+          key: visits == null ? null : ValueKey(visits),
+          person: child,
+          footer: report,
+          childTour: toured,
+          pupilOnly: true,
+          period: visits == null ? defaultStatsPeriod : kThisMonthStatsPeriod,
+        ),
     };
   }
 

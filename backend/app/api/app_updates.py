@@ -82,8 +82,21 @@ Message = Annotated[
 
 Recipients = Annotated[list[AppUpdateRoleEnum], Form(min_length=1)]
 
+RunningVersion = Annotated[
+    str | None,
+    Query(max_length=field_lengths.APP_VERSION),
+]
+
 # Images of the message, each named by the key the message writes after image:.
 Images = Annotated[list[UploadFile] | None, File()]
+
+
+def _assert_version(version: str) -> None:
+    if not _VERSION.fullmatch(version):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_VERSION_ERROR,
+        )
 
 
 @router.get("/", response_model=list[AppUpdateSummaryResponse])
@@ -108,14 +121,21 @@ async def count_recipients(
     )
 
 
-# What the caller has still to read, the newest first.
+# What the caller has still to read, the newest first; no version, nothing to read.
 @router.get("/unread", response_model=list[AppUpdateReadingResponse])
 async def unread_updates(
     current_account: CurrentAccount,
     db: DbSession,
+    version: RunningVersion = None,
 ) -> list[AppUpdateReadingResponse]:
+    if version is None:
+        return []
+
+    _assert_version(version)
+
     return [
-        reading_response(update) for update in await unread_by(db, current_account)
+        reading_response(update)
+        for update in await unread_by(db, current_account, version)
     ]
 
 
@@ -174,11 +194,7 @@ async def create_update(
     version: Annotated[CleanStr, Form(max_length=field_lengths.APP_VERSION)],
     images: Images = None,
 ) -> AppUpdateResponse:
-    if not _VERSION.fullmatch(version):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_VERSION_ERROR,
-        )
+    _assert_version(version)
 
     update = AppUpdate(
         author_tax_code=manager.tax_code,

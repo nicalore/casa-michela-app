@@ -19,7 +19,6 @@ from app.schemas.opening_day import OpeningModeEnum
 from app.schemas.person import PersonOption
 from app.schemas.presence import (
     CompetenceWaiverResponse,
-    PresenceCreate,
     PresenceResponse,
     PresenceUpdate,
 )
@@ -117,20 +116,6 @@ async def _settle_reminder(
     batch = await presence_booked(db, presence.student_tax_code, presence.date)
     await db.commit()
     background.add_task(push.deliver, batch)
-
-
-@router.post("/", response_model=PresenceResponse)
-async def create_presence(
-    payload: PresenceCreate,
-    identity: CurrentIdentity,
-    db: DbSession,
-    background: BackgroundTasks,
-) -> PresenceResponse:
-    service = PresenceService(PresenceRepository(db))
-    presence = await service.create(identity, payload)
-    await _settle_reminder(db, presence, background)
-
-    return (await to_responses(db, identity, [presence]))[0]
 
 
 @router.get("/{presence_id}", response_model=PresenceResponse)

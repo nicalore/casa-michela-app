@@ -444,9 +444,11 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
       );
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [terms, const SizedBox(width: _buttonGap), compose],
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: _buttonGap,
+      runSpacing: _stackedButtonGap,
+      children: [terms, compose],
     );
   }
 

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
@@ -10,9 +11,11 @@ import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
 import '../models/lesson_item.dart';
 import '../models/room_day_plan.dart';
+import '../utils/calendar_search.dart';
 import 'calendar_activity_block.dart';
 import 'calendar_lane_panel.dart';
 import 'calendar_lesson_block.dart';
+import 'calendar_search_fade.dart';
 
 const double kBoardCardMin = 232;
 const double kBoardCardMax = 320;
@@ -96,6 +99,8 @@ class CalendarLessonBoard extends StatelessWidget
 
   final void Function(ActivityItem activity)? onActivityTap;
 
+  final ValueListenable<CalendarSearch?>? search;
+
   const CalendarLessonBoard({
     super.key,
     required this.lanes,
@@ -111,6 +116,7 @@ class CalendarLessonBoard extends StatelessWidget
     this.roomByTeacher = const {},
     this.onLessonTap,
     this.onActivityTap,
+    this.search,
   });
 
   bool _showsRoom(CalendarLane lane)
@@ -170,6 +176,7 @@ class CalendarLessonBoard extends StatelessWidget
             showsRoom: _showsRoom(lane),
             isRow: dense,
             onTap: onLessonTap == null || lesson.isProvisional ? null : () => onLessonTap!(lesson),
+            search: search,
           ),
         ),
       for (final scheduled in lane.activities)
@@ -181,6 +188,7 @@ class CalendarLessonBoard extends StatelessWidget
             width: cardWidth,
             isRow: dense,
             onTap: onActivityTap == null ? null : () => onActivityTap!(scheduled.activity),
+            search: search,
           ),
         ),
     ];
@@ -394,24 +402,33 @@ class CalendarLessonBoard extends StatelessWidget
         final bool dense = AppBreakpoints.of(context).isDense;
         final cardWidth = dense ? available : math.min(available, math.max(_boardCardWidth(available), _widestCard(context)));
 
-        return ScrollEdgeFade(
-          child: ListView.separated(
-            padding: EdgeInsets.zero,
-            itemCount: lanes.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 14),
-            itemBuilder: (context, index)
-            {
-              final lane = lanes[index];
-
-              return CalendarLanePanel(
-                lane: lane,
-                view: view,
-                bandStart: bandStart,
-                bandEnd: bandEnd,
-                room: roomByTeacher[lane.personTaxCode],
-                child: _buildLane(context, lane, cardWidth, available, dense),
-              );
-            },
+        // Every lane built, not a lazy list: the search has to reach those out of sight.
+        return CalendarSearchReveal(
+          search: search,
+          child: ScrollEdgeFade(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (index, lane) in lanes.indexed) ...[
+                    if (index > 0) const SizedBox(height: 14),
+                    CalendarSearchTarget(
+                      search: search,
+                      finds: (found) => found.findsPerson(lane.person),
+                      child: CalendarLanePanel(
+                        lane: lane,
+                        view: view,
+                        bandStart: bandStart,
+                        bandEnd: bandEnd,
+                        room: roomByTeacher[lane.personTaxCode],
+                        search: search,
+                        child: _buildLane(context, lane, cardWidth, available, dense),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         );
       },

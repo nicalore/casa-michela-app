@@ -22,7 +22,7 @@ import '../../../shared/widgets/tab_layout.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../association/models/study_program_item.dart';
-import '../../bookings/utils/booking_strings.dart' show addModeLabel, deleteModeBooking, kLessonEdited, kLessonIncomplete;
+import '../../bookings/utils/booking_strings.dart' show addModeLabel, deleteModeBooking, kLessonEdited, kLessonIncomplete, lastLessonNote;
 import '../../people/models/person_item.dart';
 import '../utils/study_program_lookup.dart';
 import '../models/band_offer.dart';
@@ -79,7 +79,7 @@ class PresenceCard extends StatefulWidget
 
   final RequestModeEditor onEditMode;
   final VoidCallback onDelete;
-  final void Function(String mode) onDeleteMode;
+  final void Function(String mode, {TimeBucket? band}) onDeleteMode;
 
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditSubject;
   final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteSubject;
@@ -463,7 +463,7 @@ class _RequestDetailsDialogContent extends StatefulWidget
 
   final RequestModeEditor onEditMode;
   final VoidCallback onDelete;
-  final void Function(String mode) onDeleteMode;
+  final void Function(String mode, {TimeBucket? band}) onDeleteMode;
 
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditSubject;
   final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteSubject;
@@ -544,7 +544,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
   }
 
   // The row as the page has it now, not as the window captured it: a stale updated_at gets a 409.
-  ({int presenceId, BookingSummaryItem booking})? _whereItHangs(BookingSummaryItem booking)
+  ({int presenceId, String mode, BookingSummaryItem booking})? _whereItHangs(BookingSummaryItem booking)
   {
     for (final slot in group.slots)
     {
@@ -552,7 +552,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       {
         if (row.id == booking.id)
         {
-          return (presenceId: slot.id, booking: row);
+          return (presenceId: slot.id, mode: slot.mode, booking: row);
         }
       }
     }
@@ -589,12 +589,19 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
 
   void _showSubjectDeletion(BookingSummaryItem booking)
   {
-    final presenceId = _whereItHangs(booking)?.presenceId;
+    final held = _whereItHangs(booking);
 
-    if (presenceId == null)
+    if (held == null)
     {
       return;
     }
+
+    final String mode = held.mode;
+    final TimeBucket? band = _bandOf(booking);
+
+    // The last lesson of a band takes the band's hours with it.
+    final bool last = group.requestsFor(mode, band: band).length == 1;
+    final bool emptiesDay = last && group.slots.every((slot) => slot.mode == mode && bucketFor(slot.startTime) == band);
 
     showBlurredDialog<void>(
       context: context,
@@ -602,7 +609,23 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       builder: (confirmContext) => _ConfirmSubjectDeletion(
         label: bookingTitle(booking, widget.ministrySubjects),
         discipline: bookingDisciplineLabel(booking, widget.ministrySubjects),
-        onConfirmed: () => widget.onDeleteSubject(booking, presenceId, _showError),
+        note: last ? lastLessonNote(mode, band: band) : '',
+        onConfirmed: ()
+        {
+          if (emptiesDay)
+          {
+            Navigator.pop(context);
+            widget.onDelete();
+          }
+          else if (last)
+          {
+            widget.onDeleteMode(mode, band: band);
+          }
+          else
+          {
+            widget.onDeleteSubject(booking, held.presenceId, _showError);
+          }
+        },
       ),
     );
   }
@@ -977,11 +1000,15 @@ class _ConfirmSubjectDeletion extends StatelessWidget
   // "Materia - Disciplina" for a subject divided in disciplines.
   final String? discipline;
 
-  final Future<bool> Function() onConfirmed;
+  // What else goes with it, after the sentence.
+  final String note;
+
+  final VoidCallback onConfirmed;
 
   const _ConfirmSubjectDeletion({
     required this.label,
     required this.discipline,
+    required this.note,
     required this.onConfirmed,
   });
 
@@ -1027,7 +1054,7 @@ class _ConfirmSubjectDeletion extends StatelessWidget
                   text: discipline ?? label,
                   style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                 ),
-                TextSpan(text: discipline == null ? ' verrà tolta dalla richiesta.' : ' verrà rimossa dalla richiesta.'),
+                TextSpan(text: '${discipline == null ? ' verrà tolta dalla richiesta.' : ' verrà rimossa dalla richiesta.'}$note'),
               ],
             ),
             style: GoogleFonts.plusJakartaSans(

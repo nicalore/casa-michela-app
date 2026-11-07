@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -7,7 +8,9 @@ import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../models/calendar_day.dart';
 import '../models/room_day_plan.dart';
+import '../utils/calendar_search.dart';
 import 'calendar_lesson_block.dart';
+import 'calendar_search_fade.dart';
 import 'person_avatar.dart';
 import 'teacher_exclusion_overlay.dart';
 
@@ -30,6 +33,9 @@ class CalendarLanePanel extends StatelessWidget
 
   final VoidCallback? onToggleExcluded;
 
+  // Whoever is found by name wears the gold ring.
+  final ValueListenable<CalendarSearch?>? search;
+
   final Widget child;
 
   const CalendarLanePanel({
@@ -42,7 +48,38 @@ class CalendarLanePanel extends StatelessWidget
     this.room,
     this.isExcluded = false,
     this.onToggleExcluded,
+    this.search,
   });
+
+  Widget _buildFace()
+  {
+    final Widget face = PersonAvatar(person: lane.person, size: PersonAvatar.listSize);
+    final finder = search;
+
+    if (finder == null)
+    {
+      return face;
+    }
+
+    return ValueListenableBuilder<CalendarSearch?>(
+      valueListenable: finder,
+      child: face,
+      builder: (context, found, face)
+      {
+        final bool isFound = found != null && found.findsPerson(lane.person);
+
+        return AnimatedContainer(
+          duration: kSearchFade,
+          curve: Curves.easeOut,
+          foregroundDecoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppTheme.trialGold.withValues(alpha: isFound ? 1 : 0), width: 2),
+          ),
+          child: face,
+        );
+      },
+    );
+  }
 
   Widget _buildWhen()
   {
@@ -109,7 +146,7 @@ class CalendarLanePanel extends StatelessWidget
                 duration: kExcludedLaneFade,
                 curve: kExcludedLaneCurve,
                 opacity: isExcluded ? kExcludedLaneOpacity : 1,
-                child: PersonAvatar(person: lane.person, size: PersonAvatar.listSize),
+                child: _buildFace(),
               ),
               if (onToggleExcluded != null)
                 Positioned.fill(

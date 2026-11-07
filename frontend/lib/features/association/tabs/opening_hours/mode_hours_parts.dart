@@ -8,6 +8,7 @@ import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_tooltip.dart';
 import '../../../../shared/widgets/desktop_tour.dart';
 import '../../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../../shared/widgets/whole_words.dart';
 import '../../../lessons/utils/opening_window.dart';
 import '../../../lessons/widgets/calendar_lesson_block.dart';
 import '../../models/opening_day_item.dart';
@@ -134,7 +135,7 @@ class ClosedPill extends StatelessWidget
       child: Center(
         widthFactor: expand ? null : 1,
         heightFactor: dense ? 1 : null,
-        child: Text(kClosedLabel, style: _style(isOverride, dense: dense)),
+        child: WholeWords(child: Text(kClosedLabel, style: _style(isOverride, dense: dense))),
       ),
     );
   }

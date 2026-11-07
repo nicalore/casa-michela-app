@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_field_label.dart';
+import 'desktop_tour.dart';
 import 'dialog_density.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -86,6 +87,9 @@ class AppTextField extends StatefulWidget
 
   final bool enabled;
 
+  // Marks the box alone: the counter's row under it would pull a tour's hole off centre.
+  final String? tourId;
+
   const AppTextField({
     super.key,
     required this.controller,
@@ -106,6 +110,7 @@ class AppTextField extends StatefulWidget
     this.errorText,
     this.keyboardType,
     this.enabled = true,
+    this.tourId,
   });
 
   @override
@@ -237,56 +242,59 @@ class _AppTextFieldState extends State<AppTextField>
                 ],
               ),
             ),
-          AnimatedContainer(
-            duration: _focusFade,
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              color: widget.enabled ? _fieldSurface : AppTheme.trialPaper,
-              borderRadius: BorderRadius.circular(dense ? _denseFieldRadius : _fieldRadius),
-              border: Border.all(color: outline, width: _borderWidth),
-              boxShadow: [
-                BoxShadow(
-                  color: ring.withValues(alpha: _hasFocus ? _focusRingOpacity : 0),
-                  spreadRadius: _hasFocus ? _focusRingWidth : 0,
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: widget.controller,
-              focusNode: _focusNode,
-              enabled: widget.enabled,
-              keyboardType: widget.keyboardType,
-              obscureText: widget.obscureText,
-              maxLength: widget.maxLength,
-              maxLines: widget.obscureText ? 1 : (widget.maxLines ?? 1),
-              minLines: widget.minLines,
-              textCapitalization: widget.textCapitalization,
-              inputFormatters: widget.inputFormatters,
-              onChanged: widget.onChanged,
-              onSubmitted: widget.onSubmitted,
-              cursorColor: AppTheme.trialTealDeep,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: fontSize,
-                height: 1.28,
-                color: widget.enabled ? AppTheme.trialInk : AppTheme.trialMutedText,
-                fontWeight: FontWeight.w600,
+          DesktopTourTarget(
+            id: widget.tourId,
+            child: AnimatedContainer(
+              duration: _focusFade,
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: widget.enabled ? _fieldSurface : AppTheme.trialPaper,
+                borderRadius: BorderRadius.circular(dense ? _denseFieldRadius : _fieldRadius),
+                border: Border.all(color: outline, width: _borderWidth),
+                boxShadow: [
+                  BoxShadow(
+                    color: ring.withValues(alpha: _hasFocus ? _focusRingOpacity : 0),
+                    spreadRadius: _hasFocus ? _focusRingWidth : 0,
+                  ),
+                ],
               ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
-                counterText: '',
-                contentPadding: dense
-                    ? const EdgeInsets.symmetric(horizontal: _denseHorizontalPadding, vertical: _denseVerticalPadding)
-                    : const EdgeInsets.symmetric(horizontal: _contentPadding, vertical: _contentPadding),
-                hintText: widget.hintText,
-                hintStyle: GoogleFonts.plusJakartaSans(
+              child: TextField(
+                controller: widget.controller,
+                focusNode: _focusNode,
+                enabled: widget.enabled,
+                keyboardType: widget.keyboardType,
+                obscureText: widget.obscureText,
+                maxLength: widget.maxLength,
+                maxLines: widget.obscureText ? 1 : (widget.maxLines ?? 1),
+                minLines: widget.minLines,
+                textCapitalization: widget.textCapitalization,
+                inputFormatters: widget.inputFormatters,
+                onChanged: widget.onChanged,
+                onSubmitted: widget.onSubmitted,
+                cursorColor: AppTheme.trialTealDeep,
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: fontSize,
                   height: 1.28,
-                  color: AppTheme.trialMutedText,
-                  fontWeight: FontWeight.w500,
+                  color: widget.enabled ? AppTheme.trialInk : AppTheme.trialMutedText,
+                  fontWeight: FontWeight.w600,
                 ),
-                suffixIcon: widget.suffix,
-                suffixIconConstraints: BoxConstraints(minWidth: dense ? 44 : 52, minHeight: dense ? 34 : 40),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  counterText: '',
+                  contentPadding: dense
+                      ? const EdgeInsets.symmetric(horizontal: _denseHorizontalPadding, vertical: _denseVerticalPadding)
+                      : const EdgeInsets.symmetric(horizontal: _contentPadding, vertical: _contentPadding),
+                  hintText: widget.hintText,
+                  hintStyle: GoogleFonts.plusJakartaSans(
+                    fontSize: fontSize,
+                    height: 1.28,
+                    color: AppTheme.trialMutedText,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  suffixIcon: widget.suffix,
+                  suffixIconConstraints: BoxConstraints(minWidth: dense ? 44 : 52, minHeight: dense ? 34 : 40),
+                ),
               ),
             ),
           ),

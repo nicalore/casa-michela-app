@@ -9,6 +9,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/people/models/member_trend_item.dart';
 import '../../../../features/people/tabs/statistics/widgets/chart_common.dart' show chartMaxValue;
 import '../../../../features/people/tabs/statistics/widgets/stats_constants.dart' show monthAbbreviations;
+import '../../../../features/people/tabs/statistics/widgets/trend_band.dart';
 import '../../../shared/mobile_palette.dart';
 
 const double _height = 168;
@@ -21,6 +22,16 @@ const double _bottom = 24;
 
 const double _pointRadius = 3.4;
 const double _chosenRadius = 5.5;
+
+// Every other month is named.
+const int _labelStride = 2;
+
+// Short of the scale, past the first point.
+const double _bandOverhang = 7;
+const double _bandAbove = 12;
+const double _bandBelow = 2;
+const double _bandRadius = 9;
+const double _bandAlpha = 0.5;
 
 // A tap this close to a point, sideways, picks it.
 const double _reach = 24;
@@ -35,7 +46,10 @@ class MobileTrendChart extends StatefulWidget
 {
   final List<MemberTrendItem> data;
 
-  const MobileTrendChart({super.key, required this.data});
+  // The months of the chosen period; null marks none.
+  final TrendSpan? span;
+
+  const MobileTrendChart({super.key, required this.data, this.span});
 
   @override
   State<MobileTrendChart> createState() => _MobileTrendChartState();
@@ -128,13 +142,18 @@ class _MobileTrendChartState extends State<MobileTrendChart> with SingleTickerPr
       builder: (context, constraints) => GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (details) => _pick(details.localPosition, constraints.maxWidth),
-        child: CustomPaint(
-          size: Size(constraints.maxWidth, _height),
-          painter: _TrendPainter(
-            data: widget.data,
-            chosen: _chosen,
-            shown: _shown,
-            scaler: MediaQuery.textScalerOf(context),
+        child: TrendBandBuilder(
+          span: widget.span,
+          count: widget.data.length,
+          builder: (context, band) => CustomPaint(
+            size: Size(constraints.maxWidth, _height),
+            painter: _TrendPainter(
+              data: widget.data,
+              chosen: _chosen,
+              shown: _shown,
+              scaler: MediaQuery.textScalerOf(context),
+              band: band,
+            ),
           ),
         ),
       ),
@@ -147,6 +166,7 @@ class _TrendPainter extends CustomPainter
   final List<MemberTrendItem> data;
   final int? chosen;
   final TextScaler scaler;
+  final TrendBand band;
 
   final Animation<double> shown;
 
@@ -155,6 +175,7 @@ class _TrendPainter extends CustomPainter
     required this.chosen,
     required this.shown,
     required this.scaler,
+    required this.band,
   }) : super(repaint: shown);
 
   TextPainter _text(
@@ -183,6 +204,18 @@ class _TrendPainter extends CustomPainter
     final double step = data.length > 1 ? width / (data.length - 1) : 0;
 
     double yOf(int value) => _top + height * (1 - value / max);
+
+    final Rect bandRect = Rect.fromLTRB(
+      math.max(_left + band.start * step, _left - _bandOverhang),
+      _top - _bandAbove,
+      math.min(_left + band.end * step, size.width),
+      size.height + _bandBelow,
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bandRect, const Radius.circular(_bandRadius)),
+      Paint()..color = Colors.white.withValues(alpha: _bandAlpha * band.strength),
+    );
 
     final Paint grid = Paint()
       ..color = AppTheme.trialInk.withValues(alpha: 0.08)
@@ -218,6 +251,18 @@ class _TrendPainter extends CustomPainter
       ..lineTo(points.first.dx, _top + height)
       ..close();
 
+    final Paint stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.save();
+    canvas.clipRect(bandRect, clipOp: ui.ClipOp.difference);
+    canvas.drawPath(line, stroke..color = MobilePalette.chartFaded);
+    canvas.restore();
+
+    canvas.save();
+    canvas.clipRect(bandRect);
     canvas.drawPath(
       area,
       Paint()
@@ -231,18 +276,11 @@ class _TrendPainter extends CustomPainter
         ).createShader(Rect.fromLTWH(0, _top, size.width, height)),
     );
 
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = AppTheme.chartViolet
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
-        ..strokeJoin = StrokeJoin.round,
-    );
+    canvas.drawPath(line, stroke..color = AppTheme.chartViolet);
+    canvas.restore();
 
     final Paint fill = Paint()..color = Colors.white;
     final Paint ring = Paint()
-      ..color = AppTheme.chartViolet
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -252,14 +290,28 @@ class _TrendPainter extends CustomPainter
           ? ui.lerpDouble(_pointRadius, _chosenRadius, shown.value.clamp(0.0, 1.0))!
           : _pointRadius;
       canvas.drawCircle(points[i], radius, fill);
-      canvas.drawCircle(points[i], radius, ring);
+      canvas.drawCircle(points[i], radius, ring..color = band.covers(i) ? AppTheme.chartViolet : MobilePalette.chartFaded);
     }
 
-    // Every other month, counted back from the last so the newest is named.
-    for (var i = data.length - 1; i >= 0; i -= 2)
+    // Counted back from the last so the newest is named.
+    final Set<int> regular = {for (var i = data.length - 1; i >= 0; i -= _labelStride) i};
+
+    for (var i = 0; i < data.length; i++)
     {
+      final double alpha = band.labelAlpha(i, regular, _labelStride);
+
+      if (alpha == 0)
+      {
+        continue;
+      }
+
+      final bool marked = band.marks(i);
       final int? month = data[i].month;
-      final TextPainter label = _text(month == null ? '${data[i].year}' : monthAbbreviations[month - 1]);
+      final TextPainter label = _text(
+        month == null ? '${data[i].year}' : monthAbbreviations[month - 1],
+        color: (marked ? AppTheme.chartViolet : MobilePalette.mutedText).withValues(alpha: alpha),
+        weight: marked ? FontWeight.w800 : FontWeight.w700,
+      );
       final double x = (points[i].dx - label.width / 2).clamp(0.0, size.width - label.width);
 
       label.paint(canvas, Offset(x, size.height - label.height));
@@ -307,6 +359,9 @@ class _TrendPainter extends CustomPainter
   @override
   bool shouldRepaint(_TrendPainter oldDelegate)
   {
-    return oldDelegate.data != data || oldDelegate.chosen != chosen || oldDelegate.scaler != scaler;
+    return oldDelegate.data != data ||
+        oldDelegate.chosen != chosen ||
+        oldDelegate.scaler != scaler ||
+        oldDelegate.band != band;
   }
 }

@@ -8,9 +8,11 @@ import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../association/models/ministry_subject_item.dart';
 
+const int kLongestBookingMinutes = 300;
+
 // Mirrors the backend's booking_duration_step check constraint.
 final List<int> bookingDurationOptions = [
-  for (var minutes = kQuarterHour; minutes <= 300; minutes += kQuarterHour) minutes,
+  for (var minutes = kQuarterHour; minutes <= kLongestBookingMinutes; minutes += kQuarterHour) minutes,
 ];
 
 // Values must stay aligned with BookingTagEnum on the backend.

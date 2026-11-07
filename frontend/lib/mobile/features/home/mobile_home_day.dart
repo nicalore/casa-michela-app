@@ -37,6 +37,7 @@ class MobileLineBand
 {
   final TimeBucket band;
   final bool isPublished;
+  final bool showsPublished;
   final List<MobileLineEntry> entries;
 
   final List<MobileModeSpan> openings;
@@ -44,6 +45,7 @@ class MobileLineBand
   const MobileLineBand({
     required this.band,
     required this.isPublished,
+    required this.showsPublished,
     required this.entries,
     required this.openings,
   });

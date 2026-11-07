@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/layout/app_breakpoints.dart';
+import '../../core/layout/dense_text_scale.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/alphabetical_order.dart';
 import 'app_filter_pill.dart';
@@ -143,6 +144,9 @@ class TabHeaderGap extends StatelessWidget
 }
 
 // The pills, then the count: under them when wide, at their right end when dense.
+const double _countGap = 12;
+const double _pillsBesideCount = 170;
+
 class TabFiltersRow extends StatelessWidget
 {
   final List<Widget> filters;
@@ -192,43 +196,67 @@ class TabFiltersRow extends StatelessWidget
       );
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            heightFactor: 1,
-            child: DesktopTourTarget(
-              id: tour,
-              child: Wrap(
-                spacing: _denseFilterSpacing,
-                runSpacing: _denseFilterSpacing,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: filters,
-              ),
+    final Widget pills = DesktopTourTarget(
+      id: tour,
+      child: Wrap(
+        spacing: _denseFilterSpacing,
+        runSpacing: _denseFilterSpacing,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: filters,
+      ),
+    );
+
+    if (countLabel == null)
+    {
+      return Align(alignment: Alignment.centerLeft, heightFactor: 1, child: pills);
+    }
+
+    final TextStyle countStyle = GoogleFonts.plusJakartaSans(
+      fontSize: _denseCountFontSize,
+      fontWeight: FontWeight.w600,
+      color: AppTheme.trialMutedText,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final TextPainter count = TextPainter(
+          text: TextSpan(text: countLabel, style: DefaultTextStyle.of(context).style.merge(countStyle)),
+          textDirection: TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout();
+        final double left = constraints.maxWidth - count.width - _countGap;
+
+        count.dispose();
+
+        // Beside the count the pills would lose their words.
+        if (left < _pillsBesideCount + largeTextRoom(context, _pillsBesideCount))
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              pills,
+              const SizedBox(height: _denseFilterSpacing),
+              Text(countLabel, style: countStyle),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: Align(alignment: Alignment.centerLeft, heightFactor: 1, child: pills)),
+            const SizedBox(width: _countGap),
+            // Level with the first row of pills.
+            SizedBox(
+              height: 36,
+              child: Center(child: Text(countLabel, maxLines: 1, style: countStyle)),
             ),
-          ),
-        ),
-        if (countLabel != null) ...[
-          const SizedBox(width: 12),
-          // Level with the first row of pills.
-          SizedBox(
-            height: 36,
-            child: Center(
-              child: Text(
-                countLabel,
-                maxLines: 1,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: _denseCountFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.trialMutedText,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
+          ],
+        );
+      },
     );
   }
 }

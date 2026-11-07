@@ -12,6 +12,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/whole_words.dart';
 
 const double _defaultSize = 90;
 
@@ -218,12 +219,14 @@ class ProfileAvatarState extends State<ProfileAvatar>
               backgroundColor: Colors.transparent,
               backgroundImage: photo,
               child:           !hasImage
-                  ? Text(
-                      _initials,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize:   widget.size * 32 / _defaultSize,
-                        fontWeight: FontWeight.w700,
-                        color:      Colors.white,
+                  ? WholeWords(
+                      child: Text(
+                        _initials,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize:   widget.size * 32 / _defaultSize,
+                          fontWeight: FontWeight.w700,
+                          color:      Colors.white,
+                        ),
                       ),
                     )
                   : null,

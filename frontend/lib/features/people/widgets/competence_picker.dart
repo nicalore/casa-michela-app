@@ -20,6 +20,7 @@ import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
 import '../../association/tabs/pupil_subjects_tab.dart' show subjectsFoundLabel;
 import '../subjects_tour.dart';
+import '../utils/program_scope_strings.dart';
 import 'person_detail_widgets.dart';
 import 'program_scope_dialog.dart';
 
@@ -505,7 +506,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
       builder: (context) => ProgramScopeDialog(
         subjectName: subject.name,
         programs: _programsOf(subject),
-        adding: widget.isSelected[subject.id] != true,
+        emptyRefusal: widget.isSelected[subject.id] != true ? kPickProgramToAdd : null,
         // An unchosen discipline starts with all programmes ticked.
         initialSelected: widget.programsBySubject[subject.id] ??
             _programsOf(subject).map((program) => program.id).toSet(),

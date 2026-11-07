@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'whole_words.dart';
 
 const double _fieldFontSize = 13;
 
@@ -54,6 +55,6 @@ class AppEyebrow extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Text(text.toUpperCase(), style: eyebrowTextStyle());
+    return WholeWords(child: Text(text.toUpperCase(), style: eyebrowTextStyle()));
   }
 }

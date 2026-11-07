@@ -35,15 +35,9 @@ CHOOSABLE: Final[dict[NotificationKindEnum, frozenset[str]]] = {
     ),
     NotificationKindEnum.AVAILABILITY_REMINDER: frozenset({"TEACHER"}),
     NotificationKindEnum.BOOKING_REMINDER: frozenset({"PARENT", _SELF_BOOKER}),
+    # Only the roles with a page of hours for its tap to open.
     NotificationKindEnum.OPENING_HOURS_CHANGED: frozenset(
-        {
-            "ADMIN",
-            "TEACHER",
-            "PARENT",
-            "STUDENT",
-            "PSYCHOLOGIST",
-            "COURSE_PARTICIPANT",
-        },
+        {"ADMIN", "TEACHER", "PARENT", "STUDENT"},
     ),
     NotificationKindEnum.BOOKING_ADDED: frozenset({"PARENT", "STUDENT"}),
     NotificationKindEnum.BOOKING_CANCELLED: frozenset({"PARENT", "STUDENT"}),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/layout/app_breakpoints.dart';
+import '../../core/layout/dense_text_scale.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_field_label.dart';
 import 'overflow_tooltip_text.dart';
@@ -89,7 +90,7 @@ class _AppCatalogueCardState extends State<AppCatalogueCard>
         onTap: widget.onTap,
         // Only the hover border fades: an animated size lets the content spill out on a resize.
         child: SizedBox(
-          height: dense ? AppCatalogueCard.denseHeight : AppCatalogueCard.height,
+          height: (dense ? AppCatalogueCard.denseHeight : AppCatalogueCard.height) + largeTextRoom(context, dense ? 46 : 64),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,

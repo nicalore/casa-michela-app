@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
+import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -450,7 +451,7 @@ class _BandButtonState extends State<_BandButton>
         onTap: _closed ? null : widget.onOpen,
         // Sized outside the animation: only the border's colour fades, the face stays white.
         child: SizedBox(
-          height: dense ? 44 : 52,
+          height: (dense ? 44 : 52) + largeTextRoom(context, dense ? 31 : 33),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,

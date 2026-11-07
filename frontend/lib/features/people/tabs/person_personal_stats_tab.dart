@@ -22,6 +22,7 @@ import 'statistics/widgets/stat_filters.dart';
 import 'statistics/widgets/stat_widgets.dart';
 import 'statistics/widgets/stats_data.dart';
 import 'statistics/widgets/stats_layout.dart';
+import 'statistics/widgets/trend_band.dart';
 import 'statistics/widgets/trend_line_chart.dart';
 
 const Color _sectionDivider = AppTheme.trialLine;
@@ -62,6 +63,9 @@ class PersonPersonalStatsTab extends StatefulWidget
   // A parent reads only the pupil figures, even of a child who also teaches.
   final bool pupilOnly;
 
+  // What every card starts on.
+  final String period;
+
   const PersonPersonalStatsTab({
     super.key,
     required this.person,
@@ -69,6 +73,7 @@ class PersonPersonalStatsTab extends StatefulWidget
     this.footer,
     this.childTour = false,
     this.pupilOnly = false,
+    this.period = defaultStatsPeriod,
   });
 
   @override
@@ -91,9 +96,9 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
   bool _isAppreciationLoading = false;
   bool _isStudentLoading = false;
 
-  String _teacherPeriod = defaultStatsPeriod;
-  String _appreciationPeriod = defaultStatsPeriod;
-  String _studentPeriod = defaultStatsPeriod;
+  late String _teacherPeriod = widget.period;
+  late String _appreciationPeriod = widget.period;
+  late String _studentPeriod = widget.period;
 
   String _teacherMode = kPresenceMode;
   String _studentMode = kPresenceMode;
@@ -517,6 +522,7 @@ class PersonalAvailabilityCard extends StatelessWidget
                     : TrendLineChart(
                         data: statistics.monthlyTrend,
                         isMonthly: true,
+                        span: statsPeriodSpan(period, statistics.monthlyTrend),
                       ),
               ),
               const StatPartDivider(color: _sectionDivider),
@@ -762,7 +768,11 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
               height: statChartHeight(context, _chartHeight),
               child: widget.statistics.monthlyTrend.isEmpty
                   ? const EmptyChartMessage()
-                  : TrendLineChart(data: widget.statistics.monthlyTrend, isMonthly: true),
+                  : TrendLineChart(
+                      data: widget.statistics.monthlyTrend,
+                      isMonthly: true,
+                      span: statsPeriodSpan(widget.period, widget.statistics.monthlyTrend),
+                    ),
             ),
             const StatPartDivider(color: _sectionDivider),
             RankingPair(

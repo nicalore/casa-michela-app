@@ -9,6 +9,8 @@ import 'widgets/mobile_admin_cards.dart';
 import 'widgets/mobile_month_figures.dart';
 import 'widgets/mobile_notices_list.dart';
 
+const String _adminRole = 'ADMIN';
+
 const List<String> kAdminHomePages = ['Oggi', 'Questo mese', 'Compleanni', 'Notifiche e avvisi'];
 
 // The desktop card's wording.
@@ -143,7 +145,7 @@ class MobileAdminHomeView extends StatelessWidget
           ),
         ),
         const SizedBox(height: MobileHomeFrame.sectionGap),
-        MobileHomeSection(title: names[3], child: MobileNoticesList(notices: notices)),
+        MobileHomeSection(title: names[3], child: MobileNoticesList(role: _adminRole, notices: notices)),
       ],
     );
   }
@@ -165,7 +167,7 @@ class MobileAdminHomeView extends StatelessWidget
         MobileLoadSwitcher(child: _buildToday()),
         MobileLoadSwitcher(child: _buildMonth()),
         MobileLoadSwitcher(child: _buildBirthdays()),
-        MobileNoticesList(notices: notices),
+        MobileNoticesList(role: _adminRole, notices: notices),
       ],
       tabletBody: (_) => _buildTablet(),
     );

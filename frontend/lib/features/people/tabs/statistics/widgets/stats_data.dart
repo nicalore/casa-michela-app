@@ -95,6 +95,9 @@ const int statsMonthsWindow = 12;
 
 const String defaultStatsPeriod = 'last-12';
 
+// What the home's month shows, so a figure followed there reads the same.
+const String kThisMonthStatsPeriod = 'last-1';
+
 // Exactly one of the two shapes is set, mirroring the backend's parameters.
 typedef StatsPeriod = ({int? months, int? year, int? month});
 
@@ -113,7 +116,7 @@ List<FilterOption<String>> statsPeriodOptions()
   final now = romeNow();
 
   final options = <FilterOption<String>>[
-    const FilterOption(value: 'last-1', label: 'Questo mese'),
+    const FilterOption(value: kThisMonthStatsPeriod, label: 'Questo mese'),
     for (var months = 2; months <= statsMonthsWindow; months++)
       FilterOption(value: 'last-$months', label: 'Ultimi $months mesi'),
   ];
@@ -144,4 +147,20 @@ StatsPeriod statsPeriodParts(String period)
   final parts = period.split('-');
 
   return (months: null, year: int.parse(parts[0]), month: int.parse(parts[1]));
+}
+
+// A month of zero or less is normalised into the year before it.
+DateTime statsPeriodStart(String period)
+{
+  final parts = statsPeriodParts(period);
+  final months = parts.months;
+
+  if (months == null)
+  {
+    return DateTime(parts.year!, parts.month!);
+  }
+
+  final now = romeNow();
+
+  return DateTime(now.year, now.month - months + 1);
 }

@@ -15,6 +15,7 @@ import '../../../features/association/models/study_program_item.dart';
 import '../../../features/association/models/subject_taxonomy.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../features/people/models/teacher_subject_item.dart';
+import '../../../features/people/utils/program_scope_strings.dart';
 import '../../../features/people/widgets/competence_picker.dart' show kServicesFilterValue;
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
@@ -688,8 +689,16 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     );
   }
 
-  Future<bool> _confirmRemoval(BuildContext from, _Entry entry)
+  Future<bool> _confirmRemoval(BuildContext from, _Entry entry) async
   {
+    // The server refuses a teacher left with nothing: stopped here, before the row goes.
+    if (!_heldEntries.any((held) => held.key != entry.key && !_leaving.contains(held.key)))
+    {
+      MobileNotice.show(from, kKeepOneCompetence, error: true);
+
+      return false;
+    }
+
     return showMobileConfirmSheet(
       context: from,
       eyebrow: 'Rimozione',
@@ -700,6 +709,19 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
       confirmLabel: 'Rimuovi',
       confirmIcon: Icons.delete_outline_rounded,
     );
+  }
+
+  // Counted as gone at once, so the row left is the last while this one slides out.
+  Future<bool> _confirmSlide(_Entry entry) async
+  {
+    final bool confirmed = await _confirmRemoval(context, entry);
+
+    if (confirmed && mounted)
+    {
+      setState(() => _leaving.add(entry.key));
+    }
+
+    return confirmed;
   }
 
   void _remove(_Entry entry)
@@ -756,7 +778,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
       inflate: EdgeInsets.fromLTRB(_tourCardInflate, _tourCardInflate, _tourCardInflate, _tourCardInflate - gap),
       radius: MobileSubjectCard.radius + _tourCardInflate,
       child: MobileRemovableRow(
-        onConfirm: () => _confirmRemoval(context, entry),
+        onConfirm: () => _confirmSlide(entry),
         onRemoved: () => _remove(entry),
         gap: gap,
         leaving: _leaving.contains(entry.key),

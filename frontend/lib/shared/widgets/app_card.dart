@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import 'page_density.dart';
+import 'whole_words.dart';
 
 const double _badgeSize = 90;
 const double _cardPadding = 32;
@@ -72,13 +73,15 @@ class AppCard extends StatelessWidget
 
   Widget _buildTitle(bool dense)
   {
-    return Text(
-      title,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: dense ? _pageTitleSize : (compact ? 21 : 26),
-        fontWeight: FontWeight.w700,
-        color: AppTheme.trialOcean,
-        height: 1.1,
+    return WholeWords(
+      child: Text(
+        title,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: dense ? _pageTitleSize : (compact ? 21 : 26),
+          fontWeight: FontWeight.w700,
+          color: AppTheme.trialOcean,
+          height: 1.1,
+        ),
       ),
     );
   }
@@ -246,23 +249,27 @@ class AppInfoRow extends StatelessWidget
     final AppWindowSize size = AppBreakpoints.of(context);
     final bool narrow = dense ? size.isMinimal : size.isNarrow;
 
-    final Widget labelText = Text(
-      label,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: dense ? (narrow ? 12.5 : _pageRowSize) : 18,
-        fontWeight: FontWeight.w500,
-        color: AppTheme.trialMutedText,
+    final Widget labelText = WholeWords(
+      child: Text(
+        label,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: dense ? (narrow ? 12.5 : _pageRowSize) : 18,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.trialMutedText,
+        ),
       ),
     );
 
     final Widget valueBody = valueWidget ??
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: dense ? _pageRowSize : 18,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.trialInk,
-            letterSpacing: valueLetterSpacing,
+        WholeWords(
+          child: Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: dense ? _pageRowSize : 18,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.trialInk,
+              letterSpacing: valueLetterSpacing,
+            ),
           ),
         );
 

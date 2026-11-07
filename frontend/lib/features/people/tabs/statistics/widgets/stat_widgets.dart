@@ -7,6 +7,7 @@ import '../../../../../shared/widgets/app_card.dart';
 import '../../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../../shared/widgets/page_density.dart';
 import '../../../../../shared/widgets/show_more_button.dart';
+import '../../../../../shared/widgets/whole_words.dart';
 import '../../../models/person_face.dart';
 import '../../../models/student_presence_statistics_item.dart';
 import '../../../models/retention_rate_item.dart';
@@ -246,21 +247,25 @@ class StatFigure extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: metrics.labelSize,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.trialMutedText,
+        WholeWords(
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: metrics.labelSize,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.trialMutedText,
+            ),
           ),
         ),
         SizedBox(height: metrics.labelGap),
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: metrics.figureSize,
-            fontWeight: FontWeight.w800,
-            color: AppTheme.trialTealDeep,
+        WholeWords(
+          child: Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: metrics.figureSize,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.trialTealDeep,
+            ),
           ),
         ),
       ],
@@ -586,13 +591,15 @@ class RetentionCard extends StatelessWidget
       ),
     );
 
-    final Widget sentence = Text(
-      describe(retention),
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: dense ? 13.5 : 15,
-        fontWeight: FontWeight.w500,
-        color: AppTheme.trialMutedText,
-        height: dense ? 1.45 : 1.5,
+    final Widget sentence = WholeWords(
+      child: Text(
+        describe(retention),
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: dense ? 13.5 : 15,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.trialMutedText,
+          height: dense ? 1.45 : 1.5,
+        ),
       ),
     );
 

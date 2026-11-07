@@ -335,7 +335,7 @@ _MEMBERSHIP_ALREADY_REVOKED_ERROR: Final[str] = (
     "L'iscrizione per l'anno corrente risulta già revocata."
 )
 _EMPTY_COMPETENCES_ERROR: Final[str] = (
-    "Un docente deve insegnare almeno una disciplina."
+    "Un docente deve insegnare almeno una disciplina o un servizio."
 )
 _UNKNOWN_SERVICES_ERROR: Final[str] = "Alcuni servizi indicati non esistono: {names}."
 

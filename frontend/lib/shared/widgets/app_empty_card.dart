@@ -8,16 +8,32 @@ import 'scroll_edge_fade.dart';
 
 const String kNoSearchMatch = 'Nessun elemento trovato per questa ricerca.';
 
+const double _detailMaxWidth = 460;
+
 class AppEmptyCard extends StatelessWidget
 {
   final IconData icon;
   final String message;
 
-  const AppEmptyCard({super.key, required this.icon, required this.message});
+  // A sentence under the message; empty counts as none.
+  final String? detail;
+
+  const AppEmptyCard({super.key, required this.icon, required this.message, this.detail});
 
   @override
   Widget build(BuildContext context)
   {
+    final String? detail = this.detail;
+
+    final Widget title = Text(
+      emptyCardText(message),
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 19,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.trialTealDeep,
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 26),
       decoration: BoxDecoration(
@@ -31,14 +47,28 @@ class AppEmptyCard extends StatelessWidget
           Icon(icon, size: 30, color: AppTheme.trialTealDeep),
           const SizedBox(width: 16),
           Flexible(
-            child: Text(
-              emptyCardText(message),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.trialTealDeep,
-              ),
-            ),
+            child: detail == null || detail.isEmpty
+                ? title
+                : ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: _detailMaxWidth),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        title,
+                        const SizedBox(height: 4),
+                        Text(
+                          detail,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                            color: AppTheme.trialMutedText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),

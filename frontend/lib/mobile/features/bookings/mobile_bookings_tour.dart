@@ -970,8 +970,8 @@ const Map<SubjectFlowMark, int> _subjectVersions = {
   SubjectFlowMark.kinds: 3,
   SubjectFlowMark.topic: 2,
   SubjectFlowMark.next: 4,
-  SubjectFlowMark.durations: 3,
-  SubjectFlowMark.count: 1,
+  SubjectFlowMark.durations: 5,
+  SubjectFlowMark.count: 2,
   SubjectFlowMark.teachers: 3,
   SubjectFlowMark.search: 2,
   SubjectFlowMark.notes: 3,
@@ -986,13 +986,8 @@ String subjectFlowTourTarget(SubjectFlowMark mark) => 'bookings.subject.${mark.n
 
 (String, int) _subjectSeen(SubjectFlowMark mark) => ('$_slug.subject.${mark.name}', _subjectVersions[mark]!);
 
-String _subjectText(SubjectFlowMark mark, {required bool online, required BookingTourPupil pupil})
+String _subjectText(SubjectFlowMark mark)
 {
-  final String presence = online ? 'presenza online' : 'presenza';
-  final String total = pupil == BookingTourPupil.self
-      ? 'il totale delle tue ore di $presence'
-      : 'il totale di ore di $presence di ${pupil.yours}';
-
   return switch (mark)
   {
     SubjectFlowMark.intro =>
@@ -1004,10 +999,10 @@ String _subjectText(SubjectFlowMark mark, {required bool online, required Bookin
           'compilarlo quando possibile: conoscere in anticipo gli argomenti da trattare aiuta il docente a preparare '
           'la lezione in modo più mirato ed efficace.',
     SubjectFlowMark.next => 'Quando hai fatto, tocca «Avanti».',
-    SubjectFlowMark.durations => 'Qui puoi selezionare la durata della lezione.',
+    SubjectFlowMark.durations =>
+      'Con + e − cambi la durata della lezione. Toccando un valore puoi anche scriverlo direttamente.',
     SubjectFlowMark.count =>
-      'Qui puoi vedere quante ore di lezione sono state prenotate rispetto al totale delle ore che puoi richiedere. '
-          'Se diventa rosso, significa che hai superato $total.',
+      'Qui puoi vedere quante ore di lezione sono state prenotate rispetto al totale delle ore che puoi richiedere.',
     SubjectFlowMark.teachers => 'Puoi selezionare fino a tre docenti preferiti per la lezione.',
     SubjectFlowMark.search => 'Puoi cercare direttamente un docente tramite il suo nome e cognome.',
     SubjectFlowMark.notes => 'Qui puoi aggiungere eventuali altre osservazioni o informazioni che ritieni utili.',
@@ -1047,14 +1042,12 @@ Future<void> startSubjectFlowTour({
   required String page,
   required bool first,
   required bool editing,
-  required bool online,
-  required BookingTourPupil pupil,
   required SubjectFlowTourPulse pulse,
 })
 {
   MobileTourStep build(SubjectFlowMark mark, (String, int) seen)
   {
-    final String text = _subjectText(mark, online: online, pupil: pupil);
+    final String text = _subjectText(mark);
     final String target = subjectFlowTourTarget(mark);
 
     bool built() => isMobileTourTargetShown(target);

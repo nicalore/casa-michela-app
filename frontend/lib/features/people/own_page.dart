@@ -32,6 +32,7 @@ import 'tabs/person_memberships_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
 import 'widgets/person_detail_cards.dart';
+import 'tabs/statistics/widgets/stats_data.dart';
 import 'widgets/person_detail_header.dart';
 
 enum OwnPageSection
@@ -132,6 +133,12 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
   // Asked by a notification: the Osservazioni, once the record is read.
   bool _observationsAsked = false;
 
+  // Asked by a figure of the home: the statistics, once the record is read.
+  bool _statsAsked = false;
+
+  // On the month the figure speaks of.
+  String _statsPeriod = defaultStatsPeriod;
+
   List<OwnPageSection> get _sections
   {
     final PersonItem? person = _person;
@@ -147,7 +154,15 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
     visitedSections.add(_selectedSection);
     ownPageSection.value = null;
     _observationsAsked = OwnPageJumps.takeObservations();
+    _statsAsked = OwnPageJumps.takeStats();
+
+    if (_statsAsked)
+    {
+      _statsPeriod = kThisMonthStatsPeriod;
+    }
+
     OwnPageJumps.asked.addListener(_onObservationsAsked);
+    OwnPageJumps.asked.addListener(_onStatsAsked);
     _load();
   }
 
@@ -155,6 +170,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
   void dispose()
   {
     OwnPageJumps.asked.removeListener(_onObservationsAsked);
+    OwnPageJumps.asked.removeListener(_onStatsAsked);
     super.dispose();
   }
 
@@ -168,6 +184,25 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
 
     _observationsAsked = true;
     _load();
+  }
+
+  // A second touch on the home's figure while this page rises: spent, or it would wait for the next visit.
+  void _onStatsAsked()
+  {
+    if (mounted && OwnPageJumps.takeStats() && _person != null)
+    {
+      _showStats();
+    }
+  }
+
+  void _showStats()
+  {
+    final int index = _sections.indexOf(OwnPageSection.stats);
+
+    if (index >= 0 && index != _selectedSection)
+    {
+      _selectSection(index);
+    }
   }
 
   // Straight on it when the record first shows; a record already shown turns to it.
@@ -219,6 +254,11 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
       {
         _observationsAsked = false;
         _showObservations();
+      }
+      else if (_statsAsked)
+      {
+        _statsAsked = false;
+        _showStats();
       }
       else
       {
@@ -375,6 +415,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
           person: person,
           forOwner: true,
           footer: centred,
+          period: _statsPeriod,
         ),
       OwnPageSection.observations => OwnObservationsTab(person: person),
     };

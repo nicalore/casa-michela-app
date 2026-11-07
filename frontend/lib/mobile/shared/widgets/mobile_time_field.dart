@@ -104,14 +104,14 @@ class TimeTypingFormatter extends TextInputFormatter
   }
 }
 
-int snapTypedTime(int minutes, {required int min, required int max})
+int snapTypedTime(int value, {required int min, required int max, int step = kQuarterHour})
 {
-  final int snapped = (minutes / kQuarterHour).round() * kQuarterHour;
+  final int snapped = (value / step).round() * step;
 
   return snapped.clamp(min, max);
 }
 
-class MobileTimeField extends StatefulWidget
+class MobileTimeField extends StatelessWidget
 {
   final String label;
 
@@ -131,10 +131,62 @@ class MobileTimeField extends StatefulWidget
   });
 
   @override
-  State<MobileTimeField> createState() => _MobileTimeFieldState();
+  Widget build(BuildContext context)
+  {
+    return MobileStepField(
+      label: label,
+      value: minutes,
+      min: min,
+      max: max,
+      step: kQuarterHour,
+      format: (minutes) => formatTimeOfDayShort(timeOfDayFromMinutes(minutes)),
+      parse: parseTypedTime,
+      inputFormatters: const [TimeTypingFormatter()],
+      onChanged: onChanged,
+    );
+  }
 }
 
-class _MobileTimeFieldState extends State<MobileTimeField>
+// Its buttons repeat while held; a tap on the value types it.
+class MobileStepField extends StatefulWidget
+{
+  final String label;
+
+  final int value;
+  final int min;
+  final int max;
+  final int step;
+
+  final String Function(int value) format;
+
+  // Typed text to a value; null leaves it as it was.
+  final int? Function(String text) parse;
+  final List<TextInputFormatter> inputFormatters;
+
+  final ValueChanged<int> onChanged;
+
+  // A spent button touched, with the value it asked for.
+  final ValueChanged<int>? onRefused;
+
+  const MobileStepField({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.step,
+    required this.format,
+    required this.parse,
+    required this.inputFormatters,
+    required this.onChanged,
+    this.onRefused,
+  });
+
+  @override
+  State<MobileStepField> createState() => _MobileStepFieldState();
+}
+
+class _MobileStepFieldState extends State<MobileStepField>
 {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focus = FocusNode();
@@ -154,12 +206,12 @@ class _MobileTimeFieldState extends State<MobileTimeField>
   }
 
   @override
-  void didUpdateWidget(MobileTimeField oldWidget)
+  void didUpdateWidget(MobileStepField oldWidget)
   {
     super.didUpdateWidget(oldWidget);
 
     // Carried by the other end while untouched, e.g. as focus came here from it.
-    if (_typing && _controller.text == _initial && widget.minutes != oldWidget.minutes)
+    if (_typing && _controller.text == _initial && widget.value != oldWidget.value)
     {
       _selectShown();
     }
@@ -175,13 +227,13 @@ class _MobileTimeFieldState extends State<MobileTimeField>
     super.dispose();
   }
 
-  String get _shown => formatTimeOfDayShort(timeOfDayFromMinutes(widget.minutes));
+  String get _shown => widget.format(widget.value);
 
   void _step(int delta)
   {
-    final int next = (widget.minutes + delta).clamp(widget.min, widget.max);
+    final int next = (widget.value + delta).clamp(widget.min, widget.max);
 
-    if (next == widget.minutes)
+    if (next == widget.value)
     {
       _stopRepeat();
 
@@ -232,7 +284,7 @@ class _MobileTimeFieldState extends State<MobileTimeField>
       return;
     }
 
-    final int? typed = _controller.text == _initial ? null : parseTypedTime(_controller.text);
+    final int? typed = _controller.text == _initial ? null : widget.parse(_controller.text);
 
     setState(() => _typing = false);
 
@@ -241,9 +293,9 @@ class _MobileTimeFieldState extends State<MobileTimeField>
       return;
     }
 
-    final int next = snapTypedTime(typed, min: widget.min, max: widget.max);
+    final int next = snapTypedTime(typed, min: widget.min, max: widget.max, step: widget.step);
 
-    if (next != widget.minutes)
+    if (next != widget.value)
     {
       widget.onChanged(next);
     }
@@ -266,7 +318,7 @@ class _MobileTimeFieldState extends State<MobileTimeField>
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
         textInputAction: TextInputAction.done,
-        inputFormatters: const [TimeTypingFormatter()],
+        inputFormatters: widget.inputFormatters,
         contextMenuBuilder: mobileTextMenu,
         style: _valueStyle,
         cursorColor: AppTheme.trialTealDeep,
@@ -325,16 +377,18 @@ class _MobileTimeFieldState extends State<MobileTimeField>
             children: [
               _StepButton(
                 icon: Icons.remove_rounded,
-                enabled: widget.minutes > widget.min,
-                onDown: () => _startRepeat(-kQuarterHour),
+                enabled: widget.value > widget.min,
+                onDown: () => _startRepeat(-widget.step),
                 onUp: _stopRepeat,
+                onRefused: () => widget.onRefused?.call(widget.value - widget.step),
               ),
               Expanded(child: _buildValue()),
               _StepButton(
                 icon: Icons.add_rounded,
-                enabled: widget.minutes < widget.max,
-                onDown: () => _startRepeat(kQuarterHour),
+                enabled: widget.value < widget.max,
+                onDown: () => _startRepeat(widget.step),
                 onUp: _stopRepeat,
+                onRefused: () => widget.onRefused?.call(widget.value + widget.step),
               ),
             ],
           ),
@@ -350,12 +404,14 @@ class _StepButton extends StatelessWidget
   final bool enabled;
   final VoidCallback onDown;
   final VoidCallback onUp;
+  final VoidCallback onRefused;
 
   const _StepButton({
     required this.icon,
     required this.enabled,
     required this.onDown,
     required this.onUp,
+    required this.onRefused,
   });
 
   @override
@@ -366,7 +422,7 @@ class _StepButton extends StatelessWidget
       enabled: enabled,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: enabled ? (_) => onDown() : null,
+        onTapDown: (_) => enabled ? onDown() : onRefused(),
         onTapUp: (_) => onUp(),
         onTapCancel: onUp,
         child: SizedBox(

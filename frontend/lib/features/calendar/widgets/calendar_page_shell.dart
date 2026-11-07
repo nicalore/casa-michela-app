@@ -10,6 +10,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_page_container.dart';
 import '../../../shared/utils/day_marks.dart';
 import '../../../shared/widgets/app_calendar_button.dart';
+import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
@@ -21,7 +22,6 @@ import '../../association/tabs/opening_hours/calendar_bounds.dart';
 import '../../lessons/widgets/lessons_closed_day.dart';
 import '../calendar_tour.dart';
 import '../utils/calendar_strings.dart';
-import '../utils/day_marks_loader.dart';
 
 export '../utils/calendar_strings.dart' show ofBand;
 
@@ -86,8 +86,7 @@ class CalendarPageShell extends StatelessWidget
   final bool isClosed;
   final String? closureNote;
 
-  // What the month picker marks besides closures; closures alone when null.
-  final DayMarksLoader? loadMarks;
+  final DayMarksLoader loadMarks;
 
   final List<Widget> Function(bool isNarrow) tools;
 
@@ -110,7 +109,7 @@ class CalendarPageShell extends StatelessWidget
     required this.onDay,
     required this.isClosed,
     this.closureNote,
-    this.loadMarks,
+    required this.loadMarks,
     this.tools = _noTools,
     this.intro,
     this.onPickerOpen,
@@ -178,7 +177,7 @@ class CalendarPageShell extends StatelessWidget
       first: oldestKeptDay(romeNow()),
       last: lastDay,
       onPicked: onDay,
-      loadMarks: loadMarks ?? (from, to) => loadDayMarks(from, to, published: true),
+      loadMarks: loadMarks,
       tourDays: kTourCalendarPickerDays,
       onOpen: onPickerOpen,
       size: dense ? _denseButton : CarouselArrowButton.defaultSize,
@@ -317,6 +316,19 @@ class CalendarPageShell extends StatelessWidget
 
     final Widget content = body(isNarrow);
 
+    // Alone on the page, the notice stands in the middle of the room left.
+    if (intro == null && content is CalendarEmptyBand)
+    {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          SizedBox(height: headerGap),
+          Expanded(child: PageTransitionItem(slot: PageTransitionItem.list, child: content)),
+        ],
+      );
+    }
+
     if (size.isDense && intro == null && content is CalendarSplitBody)
     {
       return Column(
@@ -420,72 +432,23 @@ class CalendarEmptyBand extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final String? message = this.message;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 56, bottom: 8),
-      child: Column(
-        children: [
-          Icon(icon, size: 52, color: AppTheme.trialMutedText),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 30,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-              color: AppTheme.trialOcean,
-            ),
-          ),
-          if (message != null) ...[
-            const SizedBox(height: 16),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Text(
-                message,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                height: 1.4,
-                  color: AppTheme.trialMutedText,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+    return Center(child: AppEmptyCard(icon: icon, message: title, detail: message));
   }
 }
 
-class CalendarClosedBand extends StatelessWidget
+class CalendarClosedBand extends CalendarEmptyBand
 {
-  const CalendarClosedBand({super.key});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return const CalendarEmptyBand(icon: Icons.event_busy_rounded, title: kAssociationClosedTitle);
-  }
+  const CalendarClosedBand({super.key}) : super(icon: Icons.event_busy_rounded, title: kAssociationClosedTitle);
 }
 
-class CalendarUnpublishedBand extends StatelessWidget
+class CalendarUnpublishedBand extends CalendarEmptyBand
 {
-  final TimeBucket band;
-
-  const CalendarUnpublishedBand({super.key, required this.band});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return CalendarEmptyBand(
-      icon: Icons.pending_actions_rounded,
-      title: kCalendarUnpublishedTitle,
-      message: unpublishedBandMessage(band),
-    );
-  }
+  CalendarUnpublishedBand({super.key, required TimeBucket band})
+      : super(
+          icon: Icons.pending_actions_rounded,
+          title: kCalendarUnpublishedTitle,
+          message: unpublishedBandMessage(band),
+        );
 }
 
 class CalendarLoading extends StatelessWidget

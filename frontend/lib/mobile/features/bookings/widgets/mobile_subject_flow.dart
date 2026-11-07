@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/constants/field_limits.dart';
 import '../../../../core/utils/time_bucket.dart';
@@ -23,6 +25,7 @@ import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 import '../../../shared/widgets/mobile_text_field.dart';
+import '../../../shared/widgets/mobile_time_field.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import '../../../shared/widgets/mobile_wizard_parts.dart';
 import '../mobile_bookings_tour.dart';
@@ -36,6 +39,16 @@ const double _settled = 0.001;
 
 const EdgeInsets _tourInflate = EdgeInsets.all(5);
 const double _tourRadius = 20;
+
+final List<TextInputFormatter> _hoursTyping = [
+  FilteringTextInputFormatter.digitsOnly,
+  LengthLimitingTextInputFormatter(1),
+];
+
+final List<TextInputFormatter> _minutesTyping = [
+  FilteringTextInputFormatter.digitsOnly,
+  LengthLimitingTextInputFormatter(2),
+];
 
 // What a tour explains on each page, in its order.
 const Map<SubjectRequestStep, List<SubjectFlowMark>> _tourMarks = {
@@ -110,6 +123,8 @@ class MobileSubjectFlow
       draft.band = bands.single.band;
     }
 
+    draft.duration ??= kQuarterHour;
+
     _opened = _answers;
   }
 
@@ -164,23 +179,16 @@ class MobileSubjectFlow
     return available != null && minutesTaken > available;
   }
 
-  bool _fits(int minutes)
+  int get _longestDuration
   {
     final int? available = minutesAvailable;
 
-    return available == null || minutesTakenByOthers + minutes <= available;
+    return available == null
+        ? kLongestBookingMinutes
+        : math.max(kQuarterHour, math.min(available - minutesTakenByOthers, kLongestBookingMinutes));
   }
 
-  String _overStay(int taken)
-  {
-    return durationOverStay(
-      taken,
-      minutesAvailable ?? 0,
-      isSelf: isSelf,
-      name: pupil.firstName,
-      band: _choosesBand ? draft.band : null,
-    );
-  }
+  String get _overStay => durationOverStay(mode: mode, isSelf: isSelf, name: pupil.firstName);
 
   String? blockedReason(SubjectRequestStep step)
   {
@@ -193,17 +201,7 @@ class MobileSubjectFlow
         return draft.tags.isEmpty ? kPickKindToGoOn : null;
 
       case SubjectRequestStep.duration:
-        if (draft.duration == null)
-        {
-          return kPickDurationToGoOn;
-        }
-
-        if (exceeds)
-        {
-          return _overStay(minutesTaken);
-        }
-
-        return null;
+        return exceeds ? _overStay : null;
 
       case SubjectRequestStep.teachers:
       case SubjectRequestStep.notes:
@@ -338,41 +336,73 @@ class MobileSubjectFlow
       ),
       _lit(
         SubjectFlowMark.durations,
-        Builder(
-          builder: (context) => Wrap(
-            spacing: kMobileChipGap,
-            runSpacing: kMobileChipGap,
-            children: [
-              for (final minutes in bookingDurationOptions) _durationChip(context, minutes, onChanged),
-            ],
-          ),
-        ),
+        Builder(builder: (context) => _durationFields(context, onChanged)),
       ),
     ];
   }
 
-  // The duration held is never struck: the count and the refusal tell it is too long.
-  Widget _durationChip(BuildContext context, int minutes, VoidCallback onChanged)
+  void _setDuration(int minutes, VoidCallback onChanged)
   {
-    final bool held = draft.duration == minutes;
-    final bool struck = !held && !_fits(minutes);
+    draft.duration = minutes.clamp(kQuarterHour, _longestDuration);
+    onChanged();
+  }
 
-    return MobileSelectChip(
-      label: formatMinutes(minutes),
-      selected: held,
-      struck: struck,
-      onTap: ()
-      {
-        if (struck)
-        {
-          MobileNotice.show(context, _overStay(minutesTakenByOthers + minutes), error: true);
+  // A field's own end refuses nothing: only the time left and the booking's limits do.
+  void _refuseDuration(BuildContext context, int minutes)
+  {
+    final int? available = minutesAvailable;
 
-          return;
-        }
+    if (available != null && minutesTakenByOthers + minutes > available)
+    {
+      MobileNotice.show(context, _overStay, error: true);
+    }
+    else if (minutes < kQuarterHour || minutes > kLongestBookingMinutes)
+    {
+      MobileNotice.show(context, kBookingLengthLimits, error: true);
+    }
+  }
 
-        draft.duration = minutes;
-        onChanged();
-      },
+  Widget _durationFields(BuildContext context, VoidCallback onChanged)
+  {
+    final int total = draft.duration ?? kQuarterHour;
+    final int longest = _longestDuration;
+    final int hours = total ~/ 60;
+    final int minutes = total % 60;
+    final int fewestMinutes = hours == 0 ? kQuarterHour : 0;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: MobileStepField(
+            label: kDurationHoursLabel,
+            value: hours,
+            min: 0,
+            max: longest ~/ 60,
+            step: 1,
+            format: (value) => '$value',
+            parse: int.tryParse,
+            inputFormatters: _hoursTyping,
+            onChanged: (value) => _setDuration(value * 60 + minutes, onChanged),
+            onRefused: (value) => _refuseDuration(context, value * 60 + minutes),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: MobileStepField(
+            label: kDurationMinutesLabel,
+            value: minutes,
+            min: fewestMinutes,
+            max: (longest - hours * 60).clamp(fewestMinutes, 60 - kQuarterHour),
+            step: kQuarterHour,
+            format: (value) => '$value',
+            parse: int.tryParse,
+            inputFormatters: _minutesTyping,
+            onChanged: (value) => _setDuration(hours * 60 + value, onChanged),
+            onRefused: (value) => _refuseDuration(context, hours * 60 + value),
+          ),
+        ),
+      ],
     );
   }
 
@@ -711,8 +741,6 @@ class _MobileSubjectPageState extends State<MobileSubjectPage>
       page: key,
       first: index == 0,
       editing: _flow.isEditing,
-      online: _flow.mode == kOnlineMode,
-      pupil: BookingTourPupil.of(self: _flow.isSelf, gender: _flow.pupil.gender),
       pulse: _tourPulse,
     );
   }
