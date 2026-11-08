@@ -40,7 +40,8 @@ class PersonAvatar extends StatelessWidget
 
     final ProfilePhotoImage? photo = ProfilePhotoImage.of(
       person.profileImageUrl,
-      cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+      // Drawn inside the 2 px ring.
+      cacheWidth: ((size - 4) * MediaQuery.devicePixelRatioOf(context)).round(),
     );
 
     return Container(
@@ -56,6 +57,7 @@ class PersonAvatar extends StatelessWidget
             ? Image(
                 image: photo,
                 fit: BoxFit.cover,
+                filterQuality: ProfilePhotoImage.filterQuality,
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

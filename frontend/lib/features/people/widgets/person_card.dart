@@ -77,7 +77,8 @@ class _PersonCardState extends State<PersonCard>
 
     final ProfilePhotoImage? photo = ProfilePhotoImage.of(
       widget.person.profileImageUrl,
-      cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+      // Drawn inside the 2 px ring.
+      cacheWidth: ((size - 4) * MediaQuery.devicePixelRatioOf(context)).round(),
     );
 
     return Container(
@@ -93,6 +94,7 @@ class _PersonCardState extends State<PersonCard>
             ? Image(
                 image: photo,
                 fit: BoxFit.cover,
+                filterQuality: ProfilePhotoImage.filterQuality,
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

@@ -95,7 +95,10 @@ class _AppPhotoUploaderState
     }
     else if (!_isDeleted)
     {
-      imageProvider = ProfilePhotoImage.of(widget.initialImageUrl);
+      imageProvider = ProfilePhotoImage.of(
+        widget.initialImageUrl,
+        cacheWidth: (_size * MediaQuery.devicePixelRatioOf(context)).round(),
+      );
     }
 
     final bool hasImage = imageProvider != null;
@@ -107,7 +110,13 @@ class _AppPhotoUploaderState
         color: kPickedSurface,
         shape: BoxShape.circle,
         image: hasImage
-            ? DecorationImage(image: imageProvider, fit: BoxFit.cover)
+            ? DecorationImage(
+                image: imageProvider,
+                fit: BoxFit.cover,
+                filterQuality: imageProvider is ProfilePhotoImage
+                    ? ProfilePhotoImage.filterQuality
+                    : FilterQuality.low,
+              )
             : null,
       ),
       child: !hasImage

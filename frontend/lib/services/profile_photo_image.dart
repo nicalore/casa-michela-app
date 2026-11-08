@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import 'api_service.dart';
+import 'profile_photo_shrink_stub.dart' if (dart.library.js_interop) 'profile_photo_shrink_web.dart';
 
 // Photos are served only to a signed-in reader: fetched through the API client and its token.
 @immutable
@@ -12,8 +14,11 @@ class ProfilePhotoImage extends ImageProvider<ProfilePhotoImage>
 {
   final String path;
 
-  // Physical pixels; a smaller photo keeps its own width.
+  // Physical pixels the shorter side reaches, so wide photos still cover a circle; smaller ones keep their size.
   final int? cacheWidth;
+
+  // The web shrinks faces to the drawn pixels: nearest keeps them sharp at fractional positions.
+  static const FilterQuality filterQuality = kIsWeb ? FilterQuality.none : FilterQuality.medium;
 
   const ProfilePhotoImage._(this.path, this.cacheWidth);
 
@@ -39,8 +44,14 @@ class ProfilePhotoImage extends ImageProvider<ProfilePhotoImage>
   @override
   ImageStreamCompleter loadImage(ProfilePhotoImage key, ImageDecoderCallback decode)
   {
+    // The web engine shrinks decodes without filtering and faces come out grainy: the browser shrinks them.
+    if (kIsWeb)
+    {
+      return OneFrameImageStreamCompleter(_evictOnFailure(key, () => _loadShrunk(key)));
+    }
+
     return MultiFrameImageStreamCompleter(
-      codec: _load(key, decode),
+      codec: _evictOnFailure(key, () => _load(key, decode)),
       scale: 1,
       debugLabel: key.path,
     );
@@ -48,11 +59,23 @@ class ProfilePhotoImage extends ImageProvider<ProfilePhotoImage>
 
   Future<ui.Codec> _load(ProfilePhotoImage key, ImageDecoderCallback decode) async
   {
+    final Uint8List bytes = await ApiService().fetchProfileImage(key.path);
+
+    return decode(await ui.ImmutableBuffer.fromUint8List(bytes), getTargetSize: _targetSize);
+  }
+
+  Future<ImageInfo> _loadShrunk(ProfilePhotoImage key) async
+  {
+    final Uint8List bytes = await ApiService().fetchProfileImage(key.path);
+
+    return ImageInfo(image: await shrinkProfilePhotoImpl(bytes, key.cacheWidth), debugLabel: key.path);
+  }
+
+  Future<T> _evictOnFailure<T>(ProfilePhotoImage key, Future<T> Function() load) async
+  {
     try
     {
-      final Uint8List bytes = await ApiService().fetchProfileImage(key.path);
-
-      return decode(await ui.ImmutableBuffer.fromUint8List(bytes), getTargetSize: _targetSize);
+      return await load();
     }
     catch (_)
     {
@@ -67,9 +90,12 @@ class ProfilePhotoImage extends ImageProvider<ProfilePhotoImage>
   {
     final int? limit = cacheWidth;
 
-    return limit == null || limit >= width
-        ? ui.TargetImageSize(width: width, height: height)
-        : ui.TargetImageSize(width: limit);
+    if (limit == null || limit >= math.min(width, height))
+    {
+      return ui.TargetImageSize(width: width, height: height);
+    }
+
+    return width <= height ? ui.TargetImageSize(width: limit) : ui.TargetImageSize(height: limit);
   }
 
   @override

@@ -54,8 +54,6 @@ class ProfileAvatarState extends State<ProfileAvatar>
 
   final ImagePicker _picker = ImagePicker();
 
-  ProfilePhotoImage? get _photo => ProfilePhotoImage.of(widget.profileImageUrl);
-
   String get _initials
   {
     final String first = widget.firstName.isNotEmpty ? widget.firstName[0] : '';
@@ -214,18 +212,28 @@ class ProfileAvatarState extends State<ProfileAvatar>
               gradient: AppTheme.brandGradient,
               shape:    BoxShape.circle,
             ),
-            child: CircleAvatar(
-              key:             ValueKey(photo),
-              backgroundColor: Colors.transparent,
-              backgroundImage: photo,
-              child:           !hasImage
-                  ? WholeWords(
-                      child: Text(
-                        _initials,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize:   widget.size * 32 / _defaultSize,
-                          fontWeight: FontWeight.w700,
-                          color:      Colors.white,
+            child: DecoratedBox(
+              key:        ValueKey(photo),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: photo == null
+                    ? null
+                    : DecorationImage(
+                        image:         photo,
+                        fit:           BoxFit.cover,
+                        filterQuality: ProfilePhotoImage.filterQuality,
+                      ),
+              ),
+              child: !hasImage
+                  ? Center(
+                      child: WholeWords(
+                        child: Text(
+                          _initials,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize:   widget.size * 32 / _defaultSize,
+                            fontWeight: FontWeight.w700,
+                            color:      Colors.white,
+                          ),
                         ),
                       ),
                     )
@@ -257,7 +265,10 @@ class ProfileAvatarState extends State<ProfileAvatar>
   @override
   Widget build(BuildContext context) 
   {
-    final ProfilePhotoImage? photo  = _photo;
+    final ProfilePhotoImage? photo  = ProfilePhotoImage.of(
+      widget.profileImageUrl,
+      cacheWidth: (widget.size * MediaQuery.devicePixelRatioOf(context)).round(),
+    );
     final bool               isBusy = _isUploading || _isDeleting;
 
     final Widget face = _buildFace(photo, widget.canEdit && isBusy);

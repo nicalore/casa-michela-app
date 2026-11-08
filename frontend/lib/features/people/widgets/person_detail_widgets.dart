@@ -454,7 +454,8 @@ class _PersonPickerCardState extends State<PersonPickerCard>
 
     final ProfilePhotoImage? photo = ProfilePhotoImage.of(
       widget.person.profileImageUrl,
-      cacheWidth: (PersonPickerCard._avatarSize * MediaQuery.devicePixelRatioOf(context)).round(),
+      // Drawn inside the 2 px ring.
+      cacheWidth: ((PersonPickerCard._avatarSize - 4) * MediaQuery.devicePixelRatioOf(context)).round(),
     );
 
     return Container(
@@ -470,6 +471,7 @@ class _PersonPickerCardState extends State<PersonPickerCard>
             ? Image(
                 image: photo,
                 fit: BoxFit.cover,
+                filterQuality: ProfilePhotoImage.filterQuality,
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

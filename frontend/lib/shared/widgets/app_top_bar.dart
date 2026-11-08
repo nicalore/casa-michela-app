@@ -495,7 +495,11 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
 
   Widget _buildAvatar(String? imageUrl, double diameter)
   {
-    final ProfilePhotoImage? photo = ProfilePhotoImage.of(imageUrl);
+    final ProfilePhotoImage? photo = ProfilePhotoImage.of(
+      imageUrl,
+      // Drawn inside the 2 px ring.
+      cacheWidth: ((diameter - 4) * MediaQuery.devicePixelRatioOf(context)).round(),
+    );
 
     return Container(
       width: diameter,
@@ -504,19 +508,30 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
         shape: BoxShape.circle,
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
       ),
-      // Keyed on the URL: a backgroundImage swap alone would not rebuild on a new picture.
-      child: CircleAvatar(
+      // Keyed on the URL: an image swap alone would not rebuild on a new picture.
+      child: DecoratedBox(
         key: ValueKey(photo),
-        backgroundColor: Colors.white,
-        backgroundImage: photo,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          image: photo == null
+              ? null
+              : DecorationImage(
+                  image: photo,
+                  fit: BoxFit.cover,
+                  filterQuality: ProfilePhotoImage.filterQuality,
+                ),
+        ),
         child: photo == null
-            ? WholeWords(
-                child: Text(
-                  _initials(_user!.fullName),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: diameter * 0.37,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.trialTealDeep,
+            ? Center(
+                child: WholeWords(
+                  child: Text(
+                    _initials(_user!.fullName),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: diameter * 0.37,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.trialTealDeep,
+                    ),
                   ),
                 ),
               )
