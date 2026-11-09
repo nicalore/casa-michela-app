@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/money.dart' show formatAmount;
 import '../../../core/utils/week_range.dart' show formatMinutes;
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -12,12 +13,14 @@ import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../lessons/utils/opening_window.dart' show kOnlineMode, kPresenceMode;
+import '../models/member_trend_item.dart';
 import '../models/person_item.dart';
 import '../children_tour.dart';
 import '../own_tour.dart';
 import '../models/personal_statistics_items.dart';
 import '../models/student_presence_statistics_item.dart';
 import 'statistics/widgets/appreciation_students_dialog.dart';
+import 'statistics/widgets/chart_common.dart' show TrendScale;
 import 'statistics/widgets/stat_filters.dart';
 import 'statistics/widgets/stat_widgets.dart';
 import 'statistics/widgets/stats_data.dart';
@@ -44,6 +47,36 @@ const String kTeacherStatsTitle = 'Disponibilità e lezioni';
 const String kTopTeachersTitle = '$kRankingLimit docenti con più ore';
 const String kTaughtDisciplinesTitle = '$kRankingLimit discipline più insegnate';
 const String kTopStudentsTitle = '$kRankingLimit studenti più seguiti';
+const String kAvailabilityTotalLabel = 'Disponibilità nel periodo';
+const String kLessonHoursLabel = 'Ore di lezione nel periodo';
+const String kAvailabilityTrendTitle = 'Disponibilità per mese, ultimi 12 mesi';
+const String kLessonTrendTitle = 'Ore di lezione per mese, ultimi 12 mesi';
+const String kGrossPayLabel = 'Paga lorda nel periodo';
+const String kPaidHoursLabel = 'Ore pagate nel periodo';
+const String kPayTrendTitle = 'Paga lorda per mese, ultimi 12 mesi';
+
+// Each chart of the teacher card with its scale; pay only for who was paid some month.
+List<({List<MemberTrendItem> data, TrendScale scale})> teacherTrends(TeacherPersonalStatisticsItem statistics)
+{
+  return [
+    (data: statistics.monthlyTrend, scale: TrendScale.count),
+    (data: statistics.monthlyLessonMinutes, scale: TrendScale.minutes),
+    if (statistics.hasPay) (data: statistics.monthlyPay, scale: TrendScale.cents),
+  ];
+}
+
+// No paid month in the period: nothing to sum, not a zero.
+String grossPayText(TeacherPersonalStatisticsItem statistics)
+{
+  final int? cents = statistics.grossPay;
+
+  return cents == null ? '—' : formatAmount(cents);
+}
+
+String paidHoursText(TeacherPersonalStatisticsItem statistics)
+{
+  return statistics.grossPay == null ? '—' : formatMinutes(statistics.paidMinutes);
+}
 
 String subjectHoursTitle(RequestedSubjectKind kind) => '$kRankingLimit ${kind.hoursTitle}';
 
@@ -362,6 +395,50 @@ String presenceTrendTitle({required bool online})
   return online ? 'Presenze online per mese, ultimi 12 mesi' : 'Presenze per mese, ultimi 12 mesi';
 }
 
+// The pupil card names the online mode, as its presence figures do.
+String pupilLessonHoursLabel({required bool online})
+{
+  return online ? 'Ore di lezione online nel periodo' : kLessonHoursLabel;
+}
+
+String pupilLessonTrendTitle({required bool online})
+{
+  return online ? 'Ore di lezione online per mese, ultimi 12 mesi' : kLessonTrendTitle;
+}
+
+List<({List<MemberTrendItem> data, TrendScale scale})> pupilTrends(StudentPersonalStatisticsItem statistics)
+{
+  return [
+    (data: statistics.monthlyTrend, scale: TrendScale.count),
+    (data: statistics.monthlyLessonMinutes, scale: TrendScale.minutes),
+  ];
+}
+
+// A twelve-month chart of a personal card, the chosen period marked.
+Widget _personalTrend(
+  BuildContext context,
+  String period,
+  List<MemberTrendItem> data,
+  TrendScale scale,
+  double axis, {
+  bool bars = false,
+})
+{
+  return SizedBox(
+    height: statChartHeight(context, _chartHeight),
+    child: data.isEmpty
+        ? const EmptyChartMessage()
+        : TrendLineChart(
+            data: data,
+            isMonthly: true,
+            span: statsPeriodSpan(period, data),
+            scale: scale,
+            bars: bars,
+            leftPadding: axis,
+          ),
+  );
+}
+
 List<String> availabilityShortfalls(TeacherPersonalStatisticsItem statistics, {required bool forOwner})
 {
   return [
@@ -472,6 +549,7 @@ class PersonalAvailabilityCard extends StatelessWidget
     final banners = [
       for (final shortfall in availabilityShortfalls(statistics, forOwner: forOwner)) _banner(shortfall, metrics.dense),
     ];
+    final double axis = trendChartPadding(teacherTrends(statistics));
 
     return DesktopTourTarget(
       id: tour ? kTourOwnStats : null,
@@ -507,24 +585,38 @@ class PersonalAvailabilityCard extends StatelessWidget
                   ),
                   const StatDivider(),
                   _Figure(
-                    label: 'Totale nel periodo',
+                    label: kAvailabilityTotalLabel,
                     value: '${statistics.totalAvailabilities}',
+                  ),
+                  const StatDivider(),
+                  _Figure(
+                    label: kLessonHoursLabel,
+                    value: formatMinutes(statistics.lessonMinutes),
                   ),
                 ],
               ),
               const StatPartDivider(color: _sectionDivider),
-              const StatSectionTitle('Disponibilità per mese, ultimi 12 mesi'),
+              const StatSectionTitle(kAvailabilityTrendTitle),
               SizedBox(height: metrics.titleGap),
-              SizedBox(
-                height: statChartHeight(context, _chartHeight),
-                child: statistics.monthlyTrend.isEmpty
-                    ? const EmptyChartMessage()
-                    : TrendLineChart(
-                        data: statistics.monthlyTrend,
-                        isMonthly: true,
-                        span: statsPeriodSpan(period, statistics.monthlyTrend),
-                      ),
-              ),
+              _personalTrend(context, period, statistics.monthlyTrend, TrendScale.count, axis),
+              const StatPartDivider(color: _sectionDivider),
+              const StatSectionTitle(kLessonTrendTitle),
+              SizedBox(height: metrics.titleGap),
+              _personalTrend(context, period, statistics.monthlyLessonMinutes, TrendScale.minutes, axis),
+              if (statistics.hasPay) ...[
+                const StatPartDivider(color: _sectionDivider),
+                Row(
+                  children: [
+                    _Figure(label: kGrossPayLabel, value: grossPayText(statistics)),
+                    const StatDivider(),
+                    _Figure(label: kPaidHoursLabel, value: paidHoursText(statistics)),
+                  ],
+                ),
+                const StatPartDivider(color: _sectionDivider),
+                const StatSectionTitle(kPayTrendTitle),
+                SizedBox(height: metrics.titleGap),
+                _personalTrend(context, period, statistics.monthlyPay, TrendScale.cents, axis, bars: true),
+              ],
               const StatPartDivider(color: _sectionDivider),
               RankingPair(
                 first: _subjectHoursRanking(kTaughtDisciplinesTitle, statistics.taughtDisciplines),
@@ -720,6 +812,8 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
   Widget build(BuildContext context)
   {
     final online = widget.shownMode == kOnlineMode;
+    final StudentPersonalStatisticsItem statistics = widget.statistics;
+    final double axis = trendChartPadding(pupilTrends(statistics));
 
     final Widget card = AppCard(
       title: kPupilStatsTitle,
@@ -757,23 +851,23 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
                 const StatDivider(),
                 _Figure(
                   label: 'Giorni totali nel periodo',
-                  value: '${widget.statistics.totalPresenceDays}',
+                  value: '${statistics.totalPresenceDays}',
+                ),
+                const StatDivider(),
+                _Figure(
+                  label: pupilLessonHoursLabel(online: online),
+                  value: formatMinutes(statistics.lessonMinutes),
                 ),
               ],
             ),
             const StatPartDivider(color: _sectionDivider),
             StatSectionTitle(presenceTrendTitle(online: online)),
             SizedBox(height: StatMetrics.of(context).titleGap),
-            SizedBox(
-              height: statChartHeight(context, _chartHeight),
-              child: widget.statistics.monthlyTrend.isEmpty
-                  ? const EmptyChartMessage()
-                  : TrendLineChart(
-                      data: widget.statistics.monthlyTrend,
-                      isMonthly: true,
-                      span: statsPeriodSpan(widget.period, widget.statistics.monthlyTrend),
-                    ),
-            ),
+            _personalTrend(context, widget.period, statistics.monthlyTrend, TrendScale.count, axis),
+            const StatPartDivider(color: _sectionDivider),
+            StatSectionTitle(pupilLessonTrendTitle(online: online)),
+            SizedBox(height: StatMetrics.of(context).titleGap),
+            _personalTrend(context, widget.period, statistics.monthlyLessonMinutes, TrendScale.minutes, axis),
             const StatPartDivider(color: _sectionDivider),
             RankingPair(
               first: _subjectHoursRanking(subjectHoursTitle(_kind), widget.statistics.lessonHours.of(_kind)),

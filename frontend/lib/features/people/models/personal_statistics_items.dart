@@ -1,7 +1,23 @@
 import '../../../core/utils/json_parsing.dart';
+import '../../../core/utils/money.dart' show parseAmountCents;
 import '../../lessons/models/person_option_item.dart';
 import 'member_trend_item.dart';
 import 'student_presence_statistics_item.dart';
+
+int? _cents(Object? json) => json == null ? null : parseAmountCents(json.toString());
+
+// The points carry minutes; an answer without them gives none.
+List<MemberTrendItem> monthlyMinutesPoints(Object? value)
+{
+  return [
+    for (final point in value as List<dynamic>? ?? const [])
+      MemberTrendItem(
+        year: point['year'] as int,
+        month: point['month'] as int,
+        totalMembers: point['minutes'] as int,
+      ),
+  ];
+}
 
 List<MemberTrendItem> monthlyTrendPoints(Object? value)
 {
@@ -113,6 +129,20 @@ class TeacherPersonalStatisticsItem
   final List<SubjectHoursItem> taughtDisciplines;
   final List<PersonHoursItem> topStudents;
 
+  // Lessons over in the chosen mode; the monthly points carry minutes.
+  final int lessonMinutes;
+  final List<MemberTrendItem> monthlyLessonMinutes;
+
+  // Both modes, in cents; null when no month of the period was paid.
+  final int? grossPay;
+  final int paidMinutes;
+
+  // In cents, an unpaid month at 0.
+  final List<MemberTrendItem> monthlyPay;
+
+  // Some month of the twelve was paid: a volunteer has no pay to show.
+  final bool hasPay;
+
   const TeacherPersonalStatisticsItem({
     required this.weeklyAverage,
     required this.totalAvailabilities,
@@ -122,10 +152,18 @@ class TeacherPersonalStatisticsItem
     required this.isBelowMonthlyThreshold,
     required this.taughtDisciplines,
     required this.topStudents,
+    this.lessonMinutes = 0,
+    this.monthlyLessonMinutes = const [],
+    this.grossPay,
+    this.paidMinutes = 0,
+    this.monthlyPay = const [],
+    this.hasPay = false,
   });
 
   factory TeacherPersonalStatisticsItem.fromJson(Map<String, dynamic> json)
   {
+    final List<dynamic> pay = json['monthly_pay'] as List<dynamic>? ?? const [];
+
     return TeacherPersonalStatisticsItem(
       weeklyAverage: parseDouble(json['weekly_average']),
       totalAvailabilities: json['total_availabilities'] as int,
@@ -135,6 +173,19 @@ class TeacherPersonalStatisticsItem
       isBelowMonthlyThreshold: json['is_below_monthly_threshold'] as bool,
       taughtDisciplines: parseList(json['taught_disciplines'], SubjectHoursItem.fromJson),
       topStudents: parseList(json['top_students'], PersonHoursItem.fromJson),
+      lessonMinutes: json['lesson_minutes'] as int? ?? 0,
+      monthlyLessonMinutes: monthlyMinutesPoints(json['monthly_lesson_minutes']),
+      grossPay: _cents(json['gross_pay']),
+      paidMinutes: json['paid_minutes'] as int? ?? 0,
+      monthlyPay: [
+        for (final point in pay)
+          MemberTrendItem(
+            year: point['year'] as int,
+            month: point['month'] as int,
+            totalMembers: _cents(point['gross']) ?? 0,
+          ),
+      ],
+      hasPay: pay.any((point) => point['gross'] != null),
     );
   }
 }
@@ -178,12 +229,18 @@ class StudentPersonalStatisticsItem
   final SubjectHoursRankings lessonHours;
   final List<PersonHoursItem> topTeachers;
 
+  // Lessons over in the chosen mode; the monthly points carry minutes.
+  final int lessonMinutes;
+  final List<MemberTrendItem> monthlyLessonMinutes;
+
   const StudentPersonalStatisticsItem({
     required this.weeklyPresenceDays,
     required this.totalPresenceDays,
     required this.monthlyTrend,
     required this.lessonHours,
     required this.topTeachers,
+    this.lessonMinutes = 0,
+    this.monthlyLessonMinutes = const [],
   });
 
   factory StudentPersonalStatisticsItem.fromJson(Map<String, dynamic> json)
@@ -194,6 +251,8 @@ class StudentPersonalStatisticsItem
       monthlyTrend: monthlyTrendPoints(json['monthly_trend']),
       lessonHours: SubjectHoursRankings.fromJson(json['lesson_hours'] as Map<String, dynamic>),
       topTeachers: parseList(json['top_teachers'], PersonHoursItem.fromJson),
+      lessonMinutes: json['lesson_minutes'] as int? ?? 0,
+      monthlyLessonMinutes: monthlyMinutesPoints(json['monthly_lesson_minutes']),
     );
   }
 }

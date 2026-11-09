@@ -1,4 +1,3 @@
-from collections import defaultdict
 from collections.abc import Collection, Sequence
 from datetime import UTC, date, datetime, timedelta
 from html import escape
@@ -26,7 +25,7 @@ from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, IdentityContext, require_role
 from app.core import field_lengths
 from app.core.birthdays import age_on, is_birthday
-from app.core.booking_window import today_in_rome
+from app.core.booking_window import now_in_rome, today_in_rome
 from app.core.downloads import inline_disposition
 from app.core.labels import (
     roman_numeral,
@@ -47,7 +46,6 @@ from app.models.lesson_booking import LessonBooking
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership, MembershipRevocationEnum
 from app.models.methodological_note import MethodologicalNote
-from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import GenderEnum, Person
@@ -61,7 +59,6 @@ from app.models.service import Service
 from app.models.staff import CollaborationTypeEnum, Staff
 from app.models.student import CertificationTypeEnum, Student
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
-from app.models.study_program_subject import StudyProgramSubject
 from app.models.teacher import Teacher
 from app.models.teacher_note import TeacherNote
 from app.models.teacher_service import TeacherService
@@ -107,6 +104,7 @@ from app.schemas.person_wizard import PersonWizardPayload
 from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
 from app.services import email_service, push
 from app.services.collaboration import stop_collaboration
+from app.services.compensation import set_terms
 from app.services.early_exit_form import (
     build_early_exit_form,
     early_exit_form_file_name,
@@ -138,7 +136,6 @@ from app.services.teacher_evaluation import ordered_criteria
 from app.services.teacher_evaluation import teacher_rating as teacher_rating_of
 from app.services.teacher_notes import teacher_note_response
 from app.services.teaching_competence import (
-    lacks_competence,
     replace_competences,
     replace_services,
 )
@@ -215,6 +212,7 @@ _NO_EARLY_EXIT_ERROR: Final[str] = (
     "La persona non ha un'uscita anticipata autorizzata."
 )
 _PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
+_MISSING_COLLABORATION_ERROR: Final[str] = "Indica il tipo di collaborazione."
 _PERSON_FORBIDDEN_ERROR: Final[str] = "Non hai accesso ai dati di questa persona."
 
 # Outside the household a person shows an age, never the birth date, sex or roles.
@@ -1689,34 +1687,51 @@ async def _sync_staff_profiles(
     payload: PersonUpdatePayload,
     staff_data: StaffUpdateData,
 ) -> None:
-    collaboration_type = CollaborationTypeEnum(staff_data.collaboration_type)
     iban = staff_data.iban or None
-    gross_compensation = staff_data.gross_compensation
 
     existing_staff = await db.scalar(
         select(Staff).where(Staff.tax_code == person.tax_code)
     )
 
     if existing_staff is None:
+        if staff_data.collaboration_type is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_MISSING_COLLABORATION_ERROR,
+            )
+
+        collaboration_type = CollaborationTypeEnum(staff_data.collaboration_type)
+
         db.add(
             Staff(
                 tax_code=person.tax_code,
                 collaboration_type=collaboration_type,
                 iban=iban,
-                gross_compensation=gross_compensation,
+                gross_compensation=staff_data.gross_compensation,
             )
         )
         await db.flush()
     else:
-        await db.execute(
-            update(Staff)
-            .where(Staff.tax_code == person.tax_code)
-            .values(
-                collaboration_type=collaboration_type,
-                iban=iban,
-                gross_compensation=gross_compensation,
-            )
-        )
+        # Left out, it stays: it changes in the Compensi tab.
+        if "iban" in staff_data.model_fields_set:
+            existing_staff.iban = iban
+
+        collaboration_type = existing_staff.collaboration_type
+
+        if staff_data.collaboration_type is not None:
+            collaboration_type = CollaborationTypeEnum(staff_data.collaboration_type)
+
+            if (
+                collaboration_type != existing_staff.collaboration_type
+                or staff_data.gross_compensation != existing_staff.gross_compensation
+            ):
+                await set_terms(
+                    db,
+                    existing_staff,
+                    now_in_rome().date().replace(day=1),
+                    collaboration_type,
+                    staff_data.gross_compensation,
+                )
 
     if _ROLE_CODE_ADMIN in roles and payload.admin_data:
         await _sync_administrator_profile(
@@ -1849,115 +1864,11 @@ def _with_children(full: PersonResponse, kept: frozenset[str]) -> PersonResponse
     )
 
 
-# (programme of the latest enrolment, disciplines that programme holds).
-_PupilProgramme = tuple[int | None, frozenset[int]]
-
-
-async def _pupil_programmes(
-    db: AsyncSession,
-    tax_codes: Collection[str],
-) -> list[_PupilProgramme]:
-    if not tax_codes:
-        return []
-
-    rows = (
-        await db.execute(
-            select(
-                SchoolEnrollment.student_tax_code,
-                SchoolEnrollment.study_program_id,
-                SchoolEnrollment.start_year,
-            ).where(SchoolEnrollment.student_tax_code.in_(tax_codes)),
-        )
-    ).all()
-
-    latest: dict[str, tuple[int, int]] = {}
-
-    for student_tax_code, study_program_id, start_year in rows:
-        current = latest.get(student_tax_code)
-
-        if current is None or start_year > current[1]:
-            latest[student_tax_code] = (study_program_id, start_year)
-
-    programmes = {programme for programme, _ in latest.values()}
-    within: dict[int, set[int]] = defaultdict(set)
-
-    if programmes:
-        within_rows = (
-            await db.execute(
-                select(
-                    StudyProgramSubject.study_program_id,
-                    MinistryAssociationSubject.association_subject_id,
-                )
-                .join(
-                    MinistryAssociationSubject,
-                    MinistryAssociationSubject.ministry_subject_id
-                    == StudyProgramSubject.ministry_subject_id,
-                )
-                .where(StudyProgramSubject.study_program_id.in_(programmes)),
-            )
-        ).all()
-
-        for programme, subject_id in within_rows:
-            within[programme].add(subject_id)
-
-    return [
-        (programme, frozenset(within.get(programme or 0, ())))
-        for programme, _ in (latest.get(code, (None, 0)) for code in tax_codes)
-    ]
-
-
-# Calendar rule: a discipline on the pupil's programme needs that programme's
-# competence, any other needs any competence at all.
-def _teachable_subject_ids(
-    teacher: Teacher,
-    pupils: Sequence[_PupilProgramme],
-) -> set[int]:
-    granted = {
-        (competence.association_subject_id, competence.study_program_id)
-        for competence in teacher.teaching_competences
-    }
-    any_programme = {subject_id for subject_id, _ in granted}
-
-    if not pupils:
-        return any_programme
-
-    return {
-        subject_id
-        for subject_id in any_programme
-        if any(
-            not lacks_competence(
-                subject_id,
-                programmes=() if programme is None else (programme,),
-                within=within,
-                granted=granted,
-                any_programme=any_programme,
-            )
-            for programme, within in pupils
-        )
-    }
-
-
-def _catalogue_entry(
-    person: Person,
-    pupils: Sequence[_PupilProgramme],
-) -> PersonResponse:
-    member = person.member_profile
-    staff = member.staff_profile if member is not None else None
-    teacher = staff.teacher_profile if staff is not None else None
-    allowed = set() if teacher is None else _teachable_subject_ids(teacher, pupils)
-
-    full = _map_person_to_response(person, show_teacher_rating=False)
-    data = full.model_dump(include=set(_PUPIL_VIEW_FIELDS))
-
-    subjects = [
-        subject
-        for subject in data["teacher_subjects"] or []
-        if subject["subject_id"] in allowed
-    ]
-    data["teacher_subjects"] = subjects or None
-    data["taught_subjects"] = sorted(subject["subject_name"] for subject in subjects)
-
-    return PersonResponse(**data)
+def _catalogue_entry(person: Person) -> PersonResponse:
+    return _view(
+        _map_person_to_response(person, show_teacher_rating=False),
+        _PUPIL_VIEW_FIELDS,
+    )
 
 
 # Enrolled: the latest membership, unrevoked and inside its renewal window.
@@ -1975,18 +1886,15 @@ def _enrolled() -> ColumnElement[bool]:
     )
 
 
-# Collaborating enrolled teachers but the president, reduced, with the disciplines
-# teachable to the reader's pupils. Declared before /{tax_code}, which would
-# otherwise claim it.
+# Collaborating enrolled teachers but the president, reduced, with every discipline
+# they teach, whatever the reader's programme. Declared before /{tax_code}, which
+# would otherwise claim it.
 @router.get(
     "/teachers",
     response_model=list[PersonResponse],
     dependencies=[Depends(require_role("STUDENT", "PARENT"))],
 )
-async def get_active_teachers(
-    identity: CurrentIdentity,
-    db: DbSession,
-) -> list[PersonResponse]:
+async def get_active_teachers(db: DbSession) -> list[PersonResponse]:
     stmt = (
         select(Person)
         .join(Member, Member.tax_code == Person.tax_code)
@@ -2002,9 +1910,8 @@ async def get_active_teachers(
         stmt = stmt.where(Teacher.tax_code != president)
 
     people = (await db.execute(stmt)).unique().scalars().all()
-    pupils = await _pupil_programmes(db, identity.own_student_tax_codes)
 
-    return [_catalogue_entry(person, pupils) for person in people]
+    return [_catalogue_entry(person) for person in people]
 
 
 # Declared before /{tax_code}, which would otherwise claim it.

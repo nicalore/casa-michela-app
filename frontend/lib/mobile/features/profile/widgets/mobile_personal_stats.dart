@@ -4,21 +4,36 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/week_range.dart' show formatMinutes;
+import '../../../../features/people/models/member_trend_item.dart';
 import '../../../../features/people/models/personal_statistics_items.dart';
 import '../../../../features/people/models/student_presence_statistics_item.dart';
 import '../../../../features/people/own_page.dart' show OwnPageSection;
 import '../../../../features/people/tabs/person_personal_stats_tab.dart'
     show
         availabilityShortfalls,
+        grossPayText,
+        kAvailabilityTotalLabel,
+        kAvailabilityTrendTitle,
+        kGrossPayLabel,
+        kLessonHoursLabel,
+        kLessonTrendTitle,
+        kPaidHoursLabel,
+        kPayTrendTitle,
         kPupilStatsTitle,
         kTaughtDisciplinesTitle,
         kTeacherStatsTitle,
         kTopStudentsTitle,
         kTopTeachersTitle,
+        paidHoursText,
         presenceDaysPerWeekLabel,
         presenceTrendTitle,
-        subjectHoursTitle;
+        pupilLessonHoursLabel,
+        pupilLessonTrendTitle,
+        pupilTrends,
+        subjectHoursTitle,
+        teacherTrends;
 import '../../../../features/lessons/utils/opening_window.dart';
+import '../../../../features/people/tabs/statistics/widgets/chart_common.dart' show TrendScale;
 import '../../../../features/people/tabs/statistics/widgets/stats_data.dart';
 import '../../../../features/people/tabs/statistics/widgets/trend_band.dart';
 import '../../../../services/api_service.dart';
@@ -459,6 +474,23 @@ class _StatsBlockState<T> extends State<_StatsBlock<T>>
   }
 }
 
+// A twelve-month chart of a personal card, the chosen period marked.
+Widget _mobileTrend(String period, List<MemberTrendItem> data, TrendScale scale, double axis, {bool bars = false})
+{
+  if (data.isEmpty)
+  {
+    return const _NoData();
+  }
+
+  return MobileTrendChart(
+    data: data,
+    span: statsPeriodSpan(period, data),
+    scale: scale,
+    bars: bars,
+    leftPadding: axis,
+  );
+}
+
 class _TeacherFigures extends StatelessWidget
 {
   final TeacherPersonalStatisticsItem statistics;
@@ -469,6 +501,8 @@ class _TeacherFigures extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final double axis = mobileTrendPadding(teacherTrends(statistics), MediaQuery.textScalerOf(context));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -481,16 +515,30 @@ class _TeacherFigures extends StatelessWidget
           ),
           second: _Figure(
             value: '${statistics.totalAvailabilities}',
-            label: 'Totale nel periodo',
+            label: kAvailabilityTotalLabel,
           ),
         ),
         const _Hairline(),
-        const _SectionTitle('Disponibilità per mese, ultimi 12 mesi'),
+        const _SectionTitle(kAvailabilityTrendTitle),
         const SizedBox(height: 8),
-        if (statistics.monthlyTrend.isEmpty)
-          const _NoData()
-        else
-          MobileTrendChart(data: statistics.monthlyTrend, span: statsPeriodSpan(period, statistics.monthlyTrend)),
+        _mobileTrend(period, statistics.monthlyTrend, TrendScale.count, axis),
+        const _Hairline(),
+        _Figure(value: formatMinutes(statistics.lessonMinutes), label: kLessonHoursLabel),
+        const SizedBox(height: 14),
+        const _SectionTitle(kLessonTrendTitle),
+        const SizedBox(height: 8),
+        _mobileTrend(period, statistics.monthlyLessonMinutes, TrendScale.minutes, axis),
+        if (statistics.hasPay) ...[
+          const _Hairline(),
+          _FigurePair(
+            first: _Figure(value: grossPayText(statistics), label: kGrossPayLabel, shrink: true),
+            second: _Figure(value: paidHoursText(statistics), label: kPaidHoursLabel),
+          ),
+          const _Hairline(),
+          const _SectionTitle(kPayTrendTitle),
+          const SizedBox(height: 8),
+          _mobileTrend(period, statistics.monthlyPay, TrendScale.cents, axis, bars: true),
+        ],
       ],
     );
   }
@@ -507,6 +555,8 @@ class _PupilFigures extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final double axis = mobileTrendPadding(pupilTrends(statistics), MediaQuery.textScalerOf(context));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -523,10 +573,13 @@ class _PupilFigures extends StatelessWidget
         const _Hairline(),
         _SectionTitle(presenceTrendTitle(online: online)),
         const SizedBox(height: 8),
-        if (statistics.monthlyTrend.isEmpty)
-          const _NoData()
-        else
-          MobileTrendChart(data: statistics.monthlyTrend, span: statsPeriodSpan(period, statistics.monthlyTrend)),
+        _mobileTrend(period, statistics.monthlyTrend, TrendScale.count, axis),
+        const _Hairline(),
+        _Figure(value: formatMinutes(statistics.lessonMinutes), label: pupilLessonHoursLabel(online: online)),
+        const SizedBox(height: 14),
+        _SectionTitle(pupilLessonTrendTitle(online: online)),
+        const SizedBox(height: 8),
+        _mobileTrend(period, statistics.monthlyLessonMinutes, TrendScale.minutes, axis),
       ],
     );
   }
@@ -741,24 +794,32 @@ class _Figure extends StatelessWidget
   final String value;
   final String label;
 
-  const _Figure({required this.value, required this.label});
+  // An amount scales down rather than break across lines in a narrow half.
+  final bool shrink;
+
+  const _Figure({required this.value, required this.label, this.shrink = false});
 
   @override
   Widget build(BuildContext context)
   {
+    // One line even when measured narrow, or the pair would keep the room of a wrapped amount.
+    final Widget figure = Text(
+      value,
+      maxLines: shrink ? 1 : null,
+      softWrap: !shrink,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 32,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.5,
+        height: 1.1,
+        color: AppTheme.trialTealDeep,
+      ),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-            height: 1.1,
-            color: AppTheme.trialTealDeep,
-          ),
-        ),
+        shrink ? FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: figure) : figure,
         const SizedBox(height: 3),
         WholeWords(
           child: Text(

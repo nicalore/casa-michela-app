@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from typing import Annotated, Any, Final
 from zoneinfo import ZoneInfo
 
@@ -70,6 +71,8 @@ from app.schemas.statistics import (
     LowAvailabilityTeacherItem,
     MemberTrendItem,
     MonthlyCountItem,
+    MonthlyMinutesItem,
+    MonthlyPayItem,
     PersonHoursItem,
     PresenceDayItem,
     RequestedSubjectItem,
@@ -100,6 +103,11 @@ from app.services.availability_weeks import (
     weekly_average,
     weeks_of,
 )
+from app.services.compensation import (
+    CompensationMonth,
+    load_terms,
+    months_compensation,
+)
 from app.services.enrollment_spans import (
     enrolled_days,
     enrolled_spans,
@@ -124,7 +132,7 @@ _UNKNOWN_AREA_LABEL: Final[str] = "Altra Area"
 _TOP_SUBJECTS_LIMIT: Final[int] = 10
 _TOP_PEOPLE_LIMIT: Final[int] = 10
 
-# Calendars older than a year are deleted, so only 12 months back are askable.
+# Only 12 months back are askable.
 _STATS_MONTHS_WINDOW: Final[int] = 12
 
 _MONTH_OUT_OF_STATS_WINDOW_ERROR: Final[str] = (
@@ -1861,6 +1869,21 @@ async def get_teacher_personal_statistics(
         window,
         mode.value,
     )
+    lesson_minutes, monthly_lesson_minutes = _minutes_summary(
+        await _lesson_minutes_by_day(
+            db,
+            Availability.teacher_tax_code == tax_code,
+            Lesson.teacher_mode == mode.value,
+        ),
+        start,
+        end,
+    )
+    pay = await _monthly_pay(db, tax_code)
+    paid_in_period = [
+        (month.gross, month.paid_minutes)
+        for first, month in pay
+        if window[0] <= first < window[1] and month.gross is not None
+    ]
 
     return TeacherPersonalStatisticsResponse(
         weekly_average=round(weekly_average(weeks), 1),
@@ -1883,6 +1906,18 @@ async def get_teacher_personal_statistics(
         ),
         taught_disciplines=taught_disciplines,
         top_students=top_students,
+        lesson_minutes=lesson_minutes,
+        monthly_lesson_minutes=monthly_lesson_minutes,
+        gross_pay=(
+            sum((gross for gross, _ in paid_in_period), Decimal("0.00"))
+            if paid_in_period
+            else None
+        ),
+        paid_minutes=sum(minutes for _, minutes in paid_in_period),
+        monthly_pay=[
+            MonthlyPayItem(year=first.year, month=first.month, gross=month.gross)
+            for first, month in pay
+        ],
     )
 
 
@@ -2335,6 +2370,62 @@ async def _teaching_hours(
     return _ranked_minutes(disciplines), await _ranked_people(db, students)
 
 
+# Lessons over in the chart's twelve months; per day, overlaps are one stretch.
+async def _lesson_minutes_by_day(
+    db: AsyncSession,
+    *conditions: ColumnElement[bool],
+) -> dict[date, int]:
+    rows = await _lessons_over(
+        db,
+        _lesson_rows().where(*conditions),
+        _stats_window(None, None, None),
+    )
+    spans: dict[date, set[tuple[time, time]]] = defaultdict(set)
+
+    for row in rows:
+        spans[row.date].add((row.start_time, row.end_time))
+
+    return {day: _union_minutes(day_spans) for day, day_spans in spans.items()}
+
+
+# The period's total and the twelve months of the chart.
+def _minutes_summary(
+    by_day: Mapping[date, int],
+    start: date,
+    end: date,
+) -> tuple[int, list[MonthlyMinutesItem]]:
+    by_month: Counter[tuple[int, int]] = Counter()
+
+    for day, minutes in by_day.items():
+        by_month[(day.year, day.month)] += minutes
+
+    return (
+        sum(minutes for day, minutes in by_day.items() if start <= day < end),
+        [
+            MonthlyMinutesItem(year=item.year, month=item.month, minutes=item.count)
+            for item in _pad_monthly(by_month)
+        ],
+    )
+
+
+# The chart's twelve months as Compensi prices them.
+async def _monthly_pay(
+    db: AsyncSession,
+    tax_code: str,
+) -> list[tuple[date, CompensationMonth]]:
+    now = now_in_rome()
+    months = [date(item.year, item.month, 1) for item in _pad_monthly({})]
+    priced = await months_compensation(
+        db,
+        tax_code,
+        months,
+        lambda day, end_time: _is_over(day, end_time, now),
+        await load_terms(db, tax_code),
+    )
+
+    return list(zip(months, priced, strict=True))
+
+
 @router.get(
     "/students/presence-statistics",
     response_model=StudentPresenceStatisticsResponse,
@@ -2549,6 +2640,15 @@ async def get_student_personal_statistics(
     ).all()
 
     lesson_hours, top_teachers = await _lesson_hours(db, tax_code, window, mode.value)
+    lesson_minutes, monthly_lesson_minutes = _minutes_summary(
+        await _lesson_minutes_by_day(
+            db,
+            Presence.student_tax_code == tax_code,
+            Lesson.mode == mode.value,
+        ),
+        start,
+        end,
+    )
 
     return StudentPersonalStatisticsResponse(
         weekly_presence_days=round(total_days / weeks, 1) if weeks > 0 else 0.0,
@@ -2568,6 +2668,8 @@ async def get_student_personal_statistics(
         ),
         lesson_hours=lesson_hours,
         top_teachers=top_teachers,
+        lesson_minutes=lesson_minutes,
+        monthly_lesson_minutes=monthly_lesson_minutes,
     )
 
 

@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from pydantic import BaseModel
 
@@ -159,6 +160,20 @@ class MonthlyCountItem(BaseModel):
     count: int
 
 
+class MonthlyMinutesItem(BaseModel):
+    year: int
+    month: int
+    minutes: int
+
+
+class MonthlyPayItem(BaseModel):
+    year: int
+    month: int
+
+    # None in a month not paid: volunteer, FSL or unpaid.
+    gross: Decimal | None
+
+
 class TeacherActivityDayItem(BaseModel):
     date: date
     available: int
@@ -217,6 +232,15 @@ class TeacherPersonalStatisticsResponse(BaseModel):
     taught_disciplines: list[SubjectHoursItem]
     top_students: list[PersonHoursItem]
 
+    # Lessons over in the published calendar in the mode asked, overlaps once.
+    lesson_minutes: int
+    monthly_lesson_minutes: list[MonthlyMinutesItem]
+
+    # Both modes, as Compensi reads them; None when no month of the period is paid.
+    gross_pay: Decimal | None
+    paid_minutes: int
+    monthly_pay: list[MonthlyPayItem]
+
 
 # Asked apart from the availabilities: the two carry periods of their own.
 class TeacherAppreciationStatisticsResponse(BaseModel):
@@ -246,3 +270,7 @@ class StudentPersonalStatisticsResponse(BaseModel):
 
     lesson_hours: SubjectHoursRankings
     top_teachers: list[PersonHoursItem]
+
+    # Lessons over in the published calendar in the mode asked, overlaps once.
+    lesson_minutes: int
+    monthly_lesson_minutes: list[MonthlyMinutesItem]

@@ -67,7 +67,7 @@ class BarChart extends StatefulWidget
 
 class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
 {
-  final _FillLevels _fills = _FillLevels();
+  final ChartFillLevels _fills = ChartFillLevels();
 
   // Runs only while some bar is still filling or draining.
   late final Ticker _ticker;
@@ -114,22 +114,10 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
   void _tick(Duration elapsed)
   {
     final step = (elapsed - _lastTick).inMicroseconds / _hoverFill.inMicroseconds;
-    final levels = _fills.levels;
-    var settled = true;
 
     _lastTick = elapsed;
 
-    for (var i = 0; i < levels.length; i++)
-    {
-      final double target = i == _hoveredIndex ? 1 : 0;
-
-      levels[i] = target > levels[i] ? math.min(target, levels[i] + step) : math.max(target, levels[i] - step);
-      settled = settled && levels[i] == target;
-    }
-
-    _fills.changed();
-
-    if (settled)
+    if (_fills.advance(_hoveredIndex, step))
     {
       _ticker.stop();
     }
@@ -482,26 +470,13 @@ class _YAxisPainter extends CustomPainter
 }
 
 // Gold level per bar, 0 to 1; each moves on its own, so a quick sweep never makes one jump.
-class _FillLevels extends ChangeNotifier
-{
-  List<double> levels = const [];
-
-  void reset(int count)
-  {
-    levels = List.filled(count, 0.0);
-    notifyListeners();
-  }
-
-  void changed() => notifyListeners();
-}
-
 class _BarChartPainter extends CustomPainter
 {
   final List<ChartDatum> data;
   final List<Rect> barRects;
   final int? hoveredIndex;
   final int? othersIndex;
-  final _FillLevels fills;
+  final ChartFillLevels fills;
 
   _BarChartPainter({
     required this.data,
@@ -510,11 +485,6 @@ class _BarChartPainter extends CustomPainter
     required this.othersIndex,
     required this.fills,
   }) : super(repaint: fills);
-
-  double _highlightOf(int index)
-  {
-    return index < fills.levels.length ? Curves.easeOut.transform(fills.levels[index]) : 0;
-  }
 
   @override
   void paint(Canvas canvas, Size size)
@@ -537,7 +507,7 @@ class _BarChartPainter extends CustomPainter
 
     for (var i = 0; i < barRects.length; i++)
     {
-      final highlight = _highlightOf(i);
+      final highlight = fills.eased(i);
       final bool hovered = i == hoveredIndex;
       final bool others = i == othersIndex;
 
