@@ -271,32 +271,38 @@ ExportActivityFields exportActivityFields(ScheduledActivity scheduled)
   );
 }
 
-// Two hours of a row running at the same time, by their places in the row.
-typedef TogetherPair = ({int first, int second});
-
-// Every two hours that overlap, pair by pair: no more than two lessons run at once. A null span
-// (an activity) is nobody's pair.
-List<TogetherPair> togetherPairs(List<(int, int)?> spans)
+// Hours of a row all running at one moment, by their places in the row, each group as large as it
+// gets: a chain (the first ends before the third begins) is two groups, never one. A null span (an
+// activity) is in none.
+List<List<int>> togetherGroups(List<(int, int)?> spans)
 {
-  return [
-    for (var i = 0; i < spans.length; i++)
-      for (var j = i + 1; j < spans.length; j++)
-        if (_overlap(spans[i], spans[j])) (first: i, second: j),
-  ];
+  // Every group is all running at the latest of its starts.
+  final running = [
+    for (final moment in {for (final span in spans) if (span != null) span.$1})
+      [
+        for (final (index, span) in spans.indexed)
+          if (span != null && span.$1 <= moment && moment < span.$2) index,
+      ],
+  ]..sort((a, b) => b.length.compareTo(a.length));
+
+  final groups = <List<int>>[];
+
+  for (final candidate in running)
+  {
+    if (candidate.length > 1 && !groups.any((group) => candidate.every(group.contains)))
+    {
+      groups.add(candidate);
+    }
+  }
+
+  return groups..sort((a, b) => a.first != b.first ? a.first.compareTo(b.first) : a.last.compareTo(b.last));
 }
 
-bool _overlap((int, int)? a, (int, int)? b)
-{
-  return a != null && b != null && math.max(a.$1, b.$1) < math.min(a.$2, b.$2);
-}
-
-// Where the hours of a group run together, merged, in clock order.
-List<(int, int)> sharedStretches(List<(int, int)> spans)
+// Where [own] runs alongside any of [others], merged, in clock order.
+List<(int, int)> sharedStretches((int, int) own, List<(int, int)> others)
 {
   final shared = <(int, int)>[
-    for (var i = 0; i < spans.length; i++)
-      for (var j = i + 1; j < spans.length; j++)
-        (math.max(spans[i].$1, spans[j].$1), math.min(spans[i].$2, spans[j].$2)),
+    for (final other in others) (math.max(own.$1, other.$1), math.min(own.$2, other.$2)),
   ].where((stretch) => stretch.$1 < stretch.$2).toList()..sort((a, b) => a.$1.compareTo(b.$1));
 
   final merged = <(int, int)>[];
@@ -317,9 +323,9 @@ List<(int, int)> sharedStretches(List<(int, int)> spans)
 }
 
 // E.g. "Compresenza 14:30–15:00 e 15:15–15:30".
-String togetherLabel(List<(int, int)> spans)
+String togetherLabel((int, int) own, List<(int, int)> others)
 {
-  final stretches = sharedStretches(spans).map((stretch) => formatMinutesRange(stretch.$1, stretch.$2));
+  final stretches = sharedStretches(own, others).map((stretch) => formatMinutesRange(stretch.$1, stretch.$2));
 
   return 'Compresenza ${stretches.join(' e ')}';
 }

@@ -41,8 +41,11 @@ const String kCertifiedOverlapWarning =
 
 const int kMaxConcurrentStudents = 2;
 
+// Pupils at these levels may crowd past the limit, as long as nobody else is there.
+const Set<String> kUncappedLevels = {'PRIMARY_SCHOOL', 'MIDDLE_SCHOOL'};
+
 const String kTooManyStudentsRefusal =
-    'Non è possibile sovrapporre più di $kMaxConcurrentStudents lezioni.';
+    'Non è possibile sovrapporre più di due lezioni con gli studenti delle superiori.';
 
 const String kOnlineCannotOverlapRefusal =
     "Le lezioni online non possono avere sovrapposizioni.";
@@ -116,6 +119,9 @@ class CalendarDayIndex
   // Read once from the people list rather than looked up per drop.
   final Set<String> certifiedStudents;
 
+  // By the latest enrollment, as the server reads it; without one a pupil keeps the limit.
+  final Set<String> uncappedStudents;
+
   final Map<int, Set<int>> disciplinesByProgramme;
 
   final Map<int, String> disciplineNames;
@@ -140,6 +146,7 @@ class CalendarDayIndex
     required this.certifiedStudents,
     required this.disciplinesByProgramme,
     required this.disciplineNames,
+    this.uncappedStudents = const {},
     this.excludedTeachers = const {},
     this.competenceWaivers = const {},
   });
@@ -182,6 +189,8 @@ class CalendarDayIndex
     final services = <String, Set<String>>{};
     final programmes = <String, int>{};
     final certified = <String>{};
+    final uncapped = <String>{};
+    final levelOf = {for (final programme in studyPrograms) programme.id: programme.level};
 
     for (final person in people)
     {
@@ -202,6 +211,11 @@ class CalendarDayIndex
       if (programme != null)
       {
         programmes[person.fiscalCode] = programme;
+
+        if (kUncappedLevels.contains(levelOf[programme]))
+        {
+          uncapped.add(person.fiscalCode);
+        }
       }
 
       if (person.certificationTypes.isNotEmpty)
@@ -250,6 +264,7 @@ class CalendarDayIndex
           },
       },
       disciplineNames: {for (final subject in associationSubjects) subject.id: subject.name},
+      uncappedStudents: uncapped,
       excludedTeachers: excludedTeachers,
       competenceWaivers: {
         for (final entry in bookings.values)
@@ -722,7 +737,8 @@ String? _refusePresences({
 String? _refuseOccupancy({
   required TeacherLane lane,
   required String mode,
-  required int students,
+  required Set<String> students,
+  required Set<String> uncapped,
   required int startMinutes,
   required int endMinutes,
   int? lessonId,
@@ -755,12 +771,20 @@ String? _refuseOccupancy({
     return kOnlineCannotOverlapRefusal;
   }
 
-  final peak = peakConcurrentStudents([
-    for (final lesson in others) (lesson.startMinutes, lesson.endMinutes, lesson.studentTaxCodes.length),
-    (startMinutes, endMinutes, students),
-  ]);
+  (int, int, int, int) span(int start, int end, Set<String> pupils)
+  {
+    return (start, end, pupils.length, pupils.where((pupil) => !uncapped.contains(pupil)).length);
+  }
 
-  return peak > kMaxConcurrentStudents ? kTooManyStudentsRefusal : null;
+  final crowded = overcrowded(
+    [
+      for (final lesson in others) span(lesson.startMinutes, lesson.endMinutes, lesson.studentTaxCodes),
+      span(startMinutes, endMinutes, students),
+    ],
+    limit: kMaxConcurrentStudents,
+  );
+
+  return crowded ? kTooManyStudentsRefusal : null;
 }
 
 String? _refuseStudentClash({
@@ -1027,7 +1051,8 @@ LessonPlacement validatePlacement({
       _refuseOccupancy(
         lane: lane,
         mode: mode,
-        students: students.length,
+        students: students,
+        uncapped: index.uncappedStudents,
         startMinutes: startMinutes,
         endMinutes: endMinutes,
         lessonId: lessonId,

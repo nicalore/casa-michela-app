@@ -116,30 +116,36 @@ List<(int, int)> subtractSpans(List<(int, int)> from, List<(int, int)> holes)
   return remaining;
 }
 
-// Mirrors backend teacher_occupancy.peak_concurrent_students, so refusals come under the pointer.
-int peakConcurrentStudents(List<(int, int, int)> spans)
+// Mirrors backend teacher_occupancy.overcrowded, so refusals come under the pointer.
+// Each span is (start, end, pupils, of whom keep the limit): past [limit] only the others may be there.
+bool overcrowded(List<(int, int, int, int)> spans, {required int limit})
 {
-  final events = <(int, int)>[];
+  final events = <(int, int, int)>[];
 
   for (final span in spans)
   {
-    events.add((span.$1, span.$3));
-    events.add((span.$2, -span.$3));
+    events.add((span.$1, span.$3, span.$4));
+    events.add((span.$2, -span.$3, -span.$4));
   }
 
   // Negative deltas sort first, so closures precede openings at the same minute.
   events.sort((a, b) => a.$1 != b.$1 ? a.$1.compareTo(b.$1) : a.$2.compareTo(b.$2));
 
-  var peak = 0;
   var current = 0;
+  var capped = 0;
 
   for (final event in events)
   {
     current += event.$2;
-    peak = math.max(peak, current);
+    capped += event.$3;
+
+    if (current > limit && capped > 0)
+    {
+      return true;
+    }
   }
 
-  return peak;
+  return false;
 }
 
 // Assigns each span the first free sub-lane.

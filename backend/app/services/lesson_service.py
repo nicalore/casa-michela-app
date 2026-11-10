@@ -24,6 +24,7 @@ from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.presence import Presence
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
+from app.models.study_program import EducationLevelEnum, StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
@@ -48,10 +49,12 @@ from app.services.teacher_band_mode import (
 )
 from app.services.teacher_occupancy import (
     MAX_CONCURRENT_STUDENTS,
+    UNCAPPED_LEVELS,
     online_cannot_overlap_error,
+    overcrowded,
     overlaps_an_online_hour,
-    peak_concurrent_students,
     spans_with,
+    students_of,
     too_many_students_error,
 )
 from app.services.teaching_competence import lacks_competence
@@ -368,16 +371,26 @@ class LessonService:
                 detail=online_cannot_overlap_error(),
             )
 
-        peak = peak_concurrent_students(
+        pupils = student_tax_codes.union(*(students_of(row) for row in overlapping))
+
+        # Levels matter only past the limit.
+        uncapped = (
+            await self._uncapped_students(pupils)
+            if len(pupils) > MAX_CONCURRENT_STUDENTS
+            else set()
+        )
+
+        crowded = overcrowded(
             spans_with(
                 overlapping,
                 start_time=start_time,
                 end_time=end_time,
-                students=len(student_tax_codes),
+                students=student_tax_codes,
+                uncapped=uncapped,
             ),
         )
 
-        if peak > MAX_CONCURRENT_STUDENTS:
+        if crowded:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=too_many_students_error(),
@@ -414,34 +427,49 @@ class LessonService:
                 detail=_STUDENT_OVERLAP_ERROR,
             )
 
+    # Highest start_year wins, as the app reads it (api/people.py _latest_enrollment).
+    async def _latest_programmes(
+        self,
+        tax_codes: set[str],
+    ) -> dict[str, tuple[int, EducationLevelEnum]]:
+        if not tax_codes:
+            return {}
+
+        rows = await self.session.execute(
+            select(
+                SchoolEnrollment.student_tax_code,
+                StudyProgram.id,
+                StudyProgram.level,
+            )
+            .join(StudyProgram, StudyProgram.id == SchoolEnrollment.study_program_id)
+            .where(SchoolEnrollment.student_tax_code.in_(tax_codes))
+            .order_by(SchoolEnrollment.start_year),
+        )
+
+        return {
+            student_tax_code: (programme, level)
+            for student_tax_code, programme, level in rows
+        }
+
     async def _study_programmes_of(
         self,
         bookings: Sequence[Booking],
     ) -> set[int]:
-        tax_codes = {booking.presence.student_tax_code for booking in bookings}
-
-        if not tax_codes:
-            return set()
-
-        rows = (
-            await self.session.execute(
-                select(
-                    SchoolEnrollment.student_tax_code,
-                    SchoolEnrollment.study_program_id,
-                    SchoolEnrollment.start_year,
-                ).where(SchoolEnrollment.student_tax_code.in_(tax_codes)),
-            )
-        ).all()
-
-        latest: dict[str, tuple[int, int]] = {}
-
-        for student_tax_code, study_program_id, start_year in rows:
-            current = latest.get(student_tax_code)
-
-            if current is None or start_year > current[1]:
-                latest[student_tax_code] = (study_program_id, start_year)
+        latest = await self._latest_programmes(
+            {booking.presence.student_tax_code for booking in bookings},
+        )
 
         return {programme for programme, _ in latest.values()}
+
+    # Without an enrollment a pupil keeps the limit.
+    async def _uncapped_students(self, tax_codes: set[str]) -> set[str]:
+        latest = await self._latest_programmes(tax_codes)
+
+        return {
+            student_tax_code
+            for student_tax_code, (_, level) in latest.items()
+            if level in UNCAPPED_LEVELS
+        }
 
     async def _disciplines_within(
         self,

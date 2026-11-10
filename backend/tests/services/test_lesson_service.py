@@ -13,6 +13,7 @@ from app.models.calendar_publication import CalendarPublication
 from app.models.competence_waiver import CompetenceWaiver
 from app.models.presence import Presence
 from app.models.student import Student
+from app.models.study_program import EducationLevelEnum, StudyProgram
 from app.models.teacher import Teacher
 from app.models.teaching_competence import TeachingCompetence
 from app.repositories.lesson_repository import LessonRepository, LessonVisibility
@@ -147,11 +148,16 @@ async def _second_pupil_on(
     teacher: Teacher,
     *,
     mode: str = "presence",
+    programme: StudyProgram | None = None,
 ) -> Pupil:
     subject = await make_discipline(db)
     await make_competence(db, teacher, subject)
 
     student = await make_student(db)
+
+    if programme is not None:
+        await make_enrollment(db, student, programme)
+
     presence = await make_presence(
         db,
         student,
@@ -511,7 +517,52 @@ async def test_a_teacher_may_not_take_three_pupils_at_once(db: AsyncSession) -> 
         )
 
     assert error.value.status_code == 400
-    assert "sovrapporre più di 2 lezioni" in error.value.detail
+    assert "sovrapporre più di due lezioni" in error.value.detail
+
+
+async def test_primary_and_middle_pupils_crowd_past_the_limit(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db)
+    primary = await make_study_program(db, level=EducationLevelEnum.PRIMARY_SCHOOL)
+    middle = await make_study_program(db, level=EducationLevelEnum.MIDDLE_SCHOOL)
+
+    await make_enrollment(db, built.student, primary)
+    await service(db).create(ADMIN_IDENTITY, payload(built))
+
+    for programme in (primary, middle, middle):
+        pupil = await _second_pupil_on(db, built.teacher, programme=programme)
+        lesson, _ = await service(db).create(
+            ADMIN_IDENTITY,
+            pupil_payload(built.availability, pupil),
+        )
+
+        assert lesson.id is not None
+
+
+async def test_a_high_school_pupil_keeps_the_limit_of_two(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db)
+    primary = await make_study_program(db, level=EducationLevelEnum.PRIMARY_SCHOOL)
+    high_school = await make_study_program(db)
+
+    await make_enrollment(db, built.student, high_school)
+    await service(db).create(ADMIN_IDENTITY, payload(built))
+
+    second = await _second_pupil_on(db, built.teacher, programme=primary)
+    await service(db).create(ADMIN_IDENTITY, pupil_payload(built.availability, second))
+
+    third = await _second_pupil_on(db, built.teacher, programme=primary)
+
+    with pytest.raises(HTTPException) as error:
+        await service(db).create(
+            ADMIN_IDENTITY,
+            pupil_payload(built.availability, third),
+        )
+
+    assert error.value.status_code == 400
+    assert "studenti delle superiori" in error.value.detail
 
 
 async def test_hours_that_only_touch_do_not_count_as_at_once(

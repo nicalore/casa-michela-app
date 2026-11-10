@@ -3,12 +3,18 @@ from datetime import time
 from typing import Final
 
 from app.models.lesson import Lesson
+from app.models.study_program import EducationLevelEnum
 
 # The limit counts people, not lessons: a group hour of two fills the teacher.
 MAX_CONCURRENT_STUDENTS: Final[int] = 2
 
+# Pupils at these levels may crowd past the limit, as long as nobody else is there.
+UNCAPPED_LEVELS: Final[frozenset[EducationLevelEnum]] = frozenset(
+    {EducationLevelEnum.PRIMARY_SCHOOL, EducationLevelEnum.MIDDLE_SCHOOL},
+)
+
 _TOO_MANY_STUDENTS_ERROR: Final[str] = (
-    "Non è possibile sovrapporre più di {maximum} lezioni."
+    "Non è possibile sovrapporre più di due lezioni con gli studenti delle superiori."
 )
 
 # A remote hour is exclusive for its whole length.
@@ -16,8 +22,8 @@ _ONLINE_CANNOT_OVERLAP_ERROR: Final[str] = (
     "Le lezioni online non possono avere sovrapposizioni."
 )
 
-# (start, end, how many pupils it carries).
-StudentSpan = tuple[time, time, int]
+# (start, end, how many pupils it carries, how many of them keep the limit).
+StudentSpan = tuple[time, time, int, int]
 
 
 def students_of(lesson: Lesson) -> set[str]:
@@ -25,7 +31,7 @@ def students_of(lesson: Lesson) -> set[str]:
 
 
 def too_many_students_error() -> str:
-    return _TOO_MANY_STUDENTS_ERROR.format(maximum=MAX_CONCURRENT_STUDENTS)
+    return _TOO_MANY_STUDENTS_ERROR
 
 
 def online_cannot_overlap_error() -> str:
@@ -33,24 +39,27 @@ def online_cannot_overlap_error() -> str:
 
 
 # Summing weights is safe: a pupil cannot overlap themselves (checked
-# elsewhere). (moment, delta) sorts closures first, so touching hours never overlap.
-def peak_concurrent_students(spans: Sequence[StudentSpan]) -> int:
-    events: list[tuple[time, int]] = []
+# elsewhere). Closures sort first, so touching hours never overlap.
+def overcrowded(spans: Sequence[StudentSpan]) -> bool:
+    events: list[tuple[time, int, int]] = []
 
-    for start_time, end_time, students in spans:
-        events.append((start_time, students))
-        events.append((end_time, -students))
+    for start_time, end_time, students, capped in spans:
+        events.append((start_time, students, capped))
+        events.append((end_time, -students, -capped))
 
     events.sort()
 
-    peak = 0
     current = 0
+    current_capped = 0
 
-    for _, delta in events:
+    for _, delta, capped_delta in events:
         current += delta
-        peak = max(peak, current)
+        current_capped += capped_delta
 
-    return peak
+        if current > MAX_CONCURRENT_STUDENTS and current_capped > 0:
+            return True
+
+    return False
 
 
 def overlaps_an_online_hour(overlapping: Sequence[Lesson], *, mode: str) -> bool:
@@ -66,9 +75,13 @@ def spans_with(
     *,
     start_time: time,
     end_time: time,
-    students: int,
+    students: set[str],
+    uncapped: set[str],
 ) -> list[StudentSpan]:
+    def span(start: time, end: time, pupils: set[str]) -> StudentSpan:
+        return (start, end, len(pupils), len(pupils - uncapped))
+
     return [
-        *((row.start_time, row.end_time, len(students_of(row))) for row in lessons),
-        (start_time, end_time, students),
+        *(span(row.start_time, row.end_time, students_of(row)) for row in lessons),
+        span(start_time, end_time, students),
     ]

@@ -382,8 +382,8 @@ const double _stripLead = _stripBar + 4.5;
 const double _stripTrail = 4;
 const double _stripGap = 2;
 
-// Two lessons held together are joined by a violet bracket left of their strips; brackets that
-// nest take a track each, the shorter nearer the strips.
+// Lessons held together are joined by a violet bracket left of their strips, with a tooth for each
+// one between its ends; brackets that nest take a track each, the shorter nearer the strips.
 const double _bracketTrack = 3.2;
 const double _bracketStroke = 1.1;
 const double _bracketReach = 1.6;
@@ -638,14 +638,14 @@ List<_Hour> _hoursOf(CalendarExportData data, CalendarLane lane)
 
 (int, int) _spanOf(_Hour hour) => (hour.startMinutes, hour.endMinutes);
 
-// A pair of lessons held together, its track, and where it meets its two strips (from their tops).
-typedef _Bracket = ({int first, int second, int track, double opensAt, double closesAt});
+// A group of lessons held together, its track, and where it meets its end strips (from their tops).
+typedef _Bracket = ({int first, int last, List<int> members, int track, double opensAt, double closesAt});
 
 List<_Bracket> _bracketsOf(List<_Hour> hours)
 {
-  final pairs = togetherPairs([for (final hour in hours) hour.stretch == null ? null : _spanOf(hour)]);
-  final opening = {for (final pair in pairs) pair.first};
-  final closing = {for (final pair in pairs) pair.second};
+  final groups = togetherGroups([for (final hour in hours) hour.stretch == null ? null : _spanOf(hour)]);
+  final opening = {for (final group in groups) group.first};
+  final closing = {for (final group in groups) group.last};
 
   // A strip closing one pair and opening the next meets them at different heights, so they never read as one.
   double opensAt(int index) => closing.contains(index) ? 0.72 : 0.5;
@@ -654,9 +654,9 @@ List<_Bracket> _bracketsOf(List<_Hour> hours)
   final reach = <double>[];
   final brackets = <_Bracket>[];
 
-  for (final pair in pairs)
+  for (final group in groups)
   {
-    final from = pair.first + opensAt(pair.first);
+    final from = group.first + opensAt(group.first);
     var track = reach.indexWhere((end) => end < from);
 
     if (track < 0)
@@ -665,30 +665,34 @@ List<_Bracket> _bracketsOf(List<_Hour> hours)
       reach.add(0);
     }
 
-    reach[track] = pair.second + closesAt(pair.second);
+    reach[track] = group.last + closesAt(group.last);
     brackets.add((
-      first: pair.first,
-      second: pair.second,
+      first: group.first,
+      last: group.last,
+      members: group,
       track: track,
-      opensAt: opensAt(pair.first),
-      closesAt: closesAt(pair.second),
+      opensAt: opensAt(group.first),
+      closesAt: closesAt(group.last),
     ));
   }
 
   return brackets;
 }
 
-// Every hour of a row as its strip, bracketed with the other of its pair.
+// Every hour of a row as its strip, bracketed with the others of its group.
 List<pw.Widget> _lessonStrips(CalendarExportData data, _Styles styles, CalendarLane lane, double gutter)
 {
   final hours = _hoursOf(data, lane);
   final brackets = _bracketsOf(hours);
 
-  // Beside each pupil, the hours they share with the other of the pair.
+  // Beside each pupil, the hours they share with the others of the group.
   List<String> togetherWith(int index) => [
         for (final bracket in brackets)
-          if (bracket.first == index || bracket.second == index)
-            togetherLabel([_spanOf(hours[bracket.first]), _spanOf(hours[bracket.second])]),
+          if (bracket.members.contains(index))
+            togetherLabel(_spanOf(hours[index]), [
+              for (final other in bracket.members)
+                if (other != index) _spanOf(hours[other]),
+            ]),
       ];
 
   return [
@@ -732,7 +736,7 @@ pw.Widget _bracketed({
 {
   final crossing = [
     for (final bracket in brackets)
-      if (bracket.first <= index && index <= bracket.second) bracket,
+      if (bracket.first <= index && index <= bracket.last) bracket,
   ];
   final body = pw.Padding(padding: pw.EdgeInsets.only(left: gutter, bottom: _stripGap), child: strip);
 
@@ -757,7 +761,8 @@ pw.Widget _bracketed({
   );
 }
 
-// Drawn strip by strip: a bracket opens on its first strip, runs past those between, closes on its second.
+// Drawn strip by strip: a bracket opens on its first strip, runs past those between with a tooth for
+// each of its own, closes on its last.
 void _paintBrackets(PdfGraphics canvas, PdfPoint size, int index, List<_Bracket> brackets)
 {
   final strip = size.y - _stripGap;
@@ -777,13 +782,18 @@ void _paintBrackets(PdfGraphics canvas, PdfPoint size, int index, List<_Bracket>
       ]
       else
         PdfPoint(x, size.y),
-      if (index == bracket.second) ...[
+      if (index == bracket.last) ...[
         PdfPoint(x, at(bracket.closesAt)),
         PdfPoint(edge, at(bracket.closesAt)),
       ]
       else
         PdfPoint(x, 0),
     ]);
+
+    if (index != bracket.first && index != bracket.last && bracket.members.contains(index))
+    {
+      _strokeBracket(canvas, [PdfPoint(x, at(0.5)), PdfPoint(edge, at(0.5))]);
+    }
   }
 }
 

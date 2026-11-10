@@ -32,7 +32,11 @@ from app.models.service import Service
 from app.models.staff import Staff
 from app.models.student import Student
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
-from app.models.study_program import HighSchoolTrackEnum, StudyProgram
+from app.models.study_program import (
+    EducationLevelEnum,
+    HighSchoolTrackEnum,
+    StudyProgram,
+)
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
@@ -305,16 +309,22 @@ async def make_discipline(
     )
 
 
-async def make_study_program(db: AsyncSession) -> StudyProgram:
+async def make_study_program(
+    db: AsyncSession,
+    *,
+    level: EducationLevelEnum = EducationLevelEnum.HIGH_SCHOOL,
+) -> StudyProgram:
+    high_school = level == EducationLevelEnum.HIGH_SCHOOL
+
     return await _persist(
         db,
         StudyProgram(
-            level="HIGH_SCHOOL",
+            level=level,
             name=f"Indirizzo {next(_counter)}",
             # Every year, so make_enrollment's grade always fits.
-            high_school_track=HighSchoolTrackEnum.OTHER,
+            high_school_track=HighSchoolTrackEnum.OTHER if high_school else None,
             min_year=1,
-            max_year=5,
+            max_year=3 if level == EducationLevelEnum.MIDDLE_SCHOOL else 5,
         ),
     )
 

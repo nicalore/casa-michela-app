@@ -165,14 +165,6 @@ class TeacherLane extends CalendarLane
 
     return presence.any((a) => online.any((b) => spansOverlap(a.$1, a.$2, b.$1, b.$2)));
   }
-
-  int get peakStudents
-  {
-    return peakConcurrentStudents([
-      for (final lesson in lessons)
-        (lesson.startMinutes, lesson.endMinutes, lesson.studentTaxCodes.length),
-    ]);
-  }
 }
 
 List<({String mode, String said})> laneWhenLines(
