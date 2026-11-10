@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/time_bucket.dart' show TimeBucket, bucketFor;
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -82,7 +83,8 @@ List<TeacherLane> teachersInBuilding(List<TeacherLane> lanes)
       .toList();
 }
 
-// Stored shift durations are ignored: supervisors cover their current lessons in the room.
+// Stored shift durations are ignored: supervisors cover their current lessons in the room, and the gaps
+// between them. Mirrors rooms_left_open in room_occupancy.py.
 bool isRoomPlanSettled({
   required List<TeacherLane> lanes,
   required List<TeacherRoomAssignmentItem> assignments,
@@ -98,6 +100,7 @@ bool isRoomPlanSettled({
   for (final lane in lanes)
   {
     final own = stretches[lane.teacherTaxCode] ?? const <TeacherRoomAssignmentItem>[];
+    final stays = <(int, int, TimeBucket), List<(int, int)>>{};
 
     for (final lesson in lane.lessons)
     {
@@ -106,9 +109,9 @@ bool isRoomPlanSettled({
         continue;
       }
 
-      final room = stretchAt(own, lesson.startMinutes, lesson.endMinutes)?.room.id;
+      final stretch = stretchAt(own, lesson.startMinutes, lesson.endMinutes);
 
-      if (room == null)
+      if (stretch == null)
       {
         // An online lesson needs no room, even taught from the association.
         if (lesson.mode == kOnlineMode)
@@ -119,14 +122,22 @@ bool isRoomPlanSettled({
         return false;
       }
 
+      final room = stretch.room.id;
       final hours = (lesson.startMinutes, lesson.endMinutes);
 
       occupied.putIfAbsent(room, () => []).add(hours);
 
       if (watching.contains((room, lane.teacherTaxCode)))
       {
-        covered.putIfAbsent(room, () => []).add(hours);
+        stays.putIfAbsent((room, stretch.startMinutes, lesson.band), () => []).add(hours);
       }
+    }
+
+    final presence = presenceHoldingLessons(lane);
+
+    for (final MapEntry(key: (room, _, _), value: hours) in stays.entries)
+    {
+      covered.putIfAbsent(room, () => []).addAll(bridgeLessonGaps(hours, presence));
     }
   }
 
@@ -1131,8 +1142,8 @@ class _RoomPlan
 {
   final RoomItem room;
 
-  // One entry per teacher, with their hours in this room only.
-  final List<({TeacherLane lane, List<(int, int)> hours})> teachers;
+  // One entry per teacher: their hours in this room only, and the stays joining them across gaps.
+  final List<({TeacherLane lane, List<(int, int)> hours, List<(int, int)> stays})> teachers;
 
   final Set<String> supervisors;
 
@@ -1150,22 +1161,25 @@ class _RoomPlan
 
   int get windowEnd => occupied.last.$2;
 
-  List<(int, int)> get covered
+  List<(int, int)> get _watched
   {
     return mergeSpans([
       for (final entry in teachers)
-        if (supervisors.contains(entry.lane.teacherTaxCode)) ...entry.hours,
+        if (supervisors.contains(entry.lane.teacherTaxCode)) ...entry.stays,
     ]);
   }
 
-  List<(int, int)> get uncovered => subtractSpans(occupied, covered);
+  List<(int, int)> get uncovered => subtractSpans(occupied, _watched);
+
+  // Lesson time only: a gap with nobody teaching stays an empty room on the bar.
+  List<(int, int)> get covered => subtractSpans(occupied, uncovered);
 
   List<PlannedShift> get shifts
   {
     return [
       for (final entry in teachers)
         if (supervisors.contains(entry.lane.teacherTaxCode))
-          for (final span in entry.hours)
+          for (final span in entry.stays)
             PlannedShift(
               roomId: room.id,
               teacherTaxCode: entry.lane.teacherTaxCode,
@@ -1418,7 +1432,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
     for (final room in widget.rooms)
     {
-      final teachers = <({TeacherLane lane, List<(int, int)> hours})>[];
+      final teachers = <({TeacherLane lane, List<(int, int)> hours, List<(int, int)> stays})>[];
 
       for (final lane in widget.lanes)
       {
@@ -1432,7 +1446,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
         if (hours.isNotEmpty)
         {
-          teachers.add((lane: lane, hours: hours));
+          teachers.add((lane: lane, hours: hours, stays: _staysIn(lane, room.id)));
         }
       }
 
@@ -1449,6 +1463,46 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     }
 
     return plans;
+  }
+
+  // Gaps are bridged only within a piece and a band, where the server bridges them too.
+  List<(int, int)> _staysIn(TeacherLane lane, int roomId)
+  {
+    final units = _units[lane.teacherTaxCode]!;
+    final rooms = _roomOfUnit[lane.teacherTaxCode]!;
+    final presence = presenceHoldingLessons(lane);
+
+    final stays = <(int, int)>[];
+    var run = <(int, int)>[];
+    TimeBucket? runBand;
+
+    void close()
+    {
+      stays.addAll(bridgeLessonGaps(run, presence));
+      run = [];
+      runBand = null;
+    }
+
+    for (var index = 0; index < units.length; index++)
+    {
+      final unit = units[index];
+      final band = bucketFor(timeOfDayFromMinutes(unit.start));
+
+      if (rooms[index] != roomId || band != runBand)
+      {
+        close();
+      }
+
+      if (rooms[index] == roomId)
+      {
+        run.add((unit.start, unit.end));
+        runBand = band;
+      }
+    }
+
+    close();
+
+    return stays;
   }
 
   List<PlannedShift> get _desiredShifts => [for (final plan in _plans) ...plan.shifts];
@@ -2047,7 +2101,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
               _SupervisorCard(
                 key: ValueKey('${plan.room.id}:${entry.lane.teacherTaxCode}'),
                 lane: entry.lane,
-                hours: entry.hours.map((span) => formatMinutesRange(span.$1, span.$2)).join(', '),
+                hours: entry.stays.map((span) => formatMinutesRange(span.$1, span.$2)).join(', '),
                 pupils: _pupilsIn(entry.lane, entry.hours),
                 elsewhere: _elsewhereOfRoom(entry.lane, plan.room.id),
                 width: width,

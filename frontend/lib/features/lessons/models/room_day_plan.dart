@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../../../core/utils/alphabetical_order.dart';
+import '../../../core/utils/week_range.dart' show minutesOfTimeOfDay;
 import '../../people/models/person_face.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
@@ -53,6 +54,42 @@ TeacherRoomAssignmentItem? stretchAt(List<TeacherRoomAssignmentItem> stretches, 
   }
 
   return found;
+}
+
+// The in-person hours that hold the lane's lessons in the building.
+List<(int, int)> presenceHoldingLessons(TeacherLane lane)
+{
+  final held = {
+    for (final lesson in lane.lessons)
+      if (lesson.teacherMode == kPresenceMode) lesson.availabilityId,
+  };
+
+  return [
+    for (final slot in lane.availabilities)
+      if (held.contains(slot.id)) (minutesOfTimeOfDay(slot.startTime), minutesOfTimeOfDay(slot.endTime)),
+  ];
+}
+
+// One band, one stay: the teacher stays between lessons where their in-person hours run on.
+// Mirrors _bridged in room_occupancy.py.
+List<(int, int)> bridgeLessonGaps(List<(int, int)> spans, List<(int, int)> presence)
+{
+  final open = mergeSpans(presence);
+  final joined = <(int, int)>[];
+
+  for (final span in mergeSpans(spans))
+  {
+    if (joined.isNotEmpty && subtractSpans([(joined.last.$2, span.$1)], open).isEmpty)
+    {
+      joined.last = (joined.last.$1, span.$2);
+
+      continue;
+    }
+
+    joined.add(span);
+  }
+
+  return joined;
 }
 
 // Hours are those of the lane's own hours in the room, not the row's.
