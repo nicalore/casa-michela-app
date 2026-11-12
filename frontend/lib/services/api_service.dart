@@ -34,6 +34,7 @@ import '../features/lessons/models/room_supervision_item.dart';
 import '../features/lessons/models/teacher_room_assignment_item.dart';
 import '../features/notifications/notification_item.dart';
 import '../features/people/models/age_distribution_item.dart';
+import '../features/people/models/booking_history_items.dart';
 import '../features/people/models/certification_distribution_item.dart';
 import '../features/people/models/city_distribution_item.dart';
 import '../features/people/models/course_distribution_item.dart';
@@ -4219,6 +4220,30 @@ class ApiService
     {
       _refused(e, 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
     }
+  }
+
+  Future<BookingHistoryMonth> getBookingHistory(String taxCode, DateTime month) async
+  {
+    final response = await _dio.get(
+      '/people/$taxCode/bookings-history',
+      queryParameters: {'year': month.year, 'month': month.month},
+    );
+
+    return BookingHistoryMonth.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<Set<DateTime>> getBookingHistoryMonths(String taxCode) async
+  {
+    final response = await _dio.get('/people/$taxCode/bookings-history/months');
+
+    return {for (final month in response.data as List<dynamic>) DateTime.parse(month as String)};
+  }
+
+  Future<LessonItem> getLesson(int id) async
+  {
+    final response = await _dio.get('/lessons/$id');
+
+    return LessonItem.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<List<LessonItem>> getLessons({DateTime? dateFrom, DateTime? dateTo}) async

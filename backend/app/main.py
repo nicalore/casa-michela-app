@@ -13,6 +13,7 @@ from app.api import (
     association_subjects,
     auth,
     availabilities,
+    booking_history,
     bookings,
     calendar_activities,
     calendar_locks,
@@ -134,6 +135,7 @@ app.include_router(support.router)
 app.include_router(statistics.router)
 app.include_router(statistics.personal_router)
 app.include_router(home.router)
+app.include_router(booking_history.router)
 app.include_router(availabilities.router)
 app.include_router(presences.router)
 app.include_router(bookings.router)

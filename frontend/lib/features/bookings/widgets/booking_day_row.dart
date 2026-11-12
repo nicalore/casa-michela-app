@@ -434,7 +434,7 @@ class _BookingDayRowState extends State<BookingDayRow>
             AppEyebrow(weekdayFullName(widget.day.weekday)),
             if (widget.isToday) ...[
               const SizedBox(width: 8),
-              const _TodayPill(),
+              const BookingTodayPill(),
             ],
           ],
         ),
@@ -635,7 +635,7 @@ class _BookingDayRowState extends State<BookingDayRow>
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             AppEyebrow(weekdayFullName(widget.day.weekday)),
-            if (widget.isToday) const _TodayPill(),
+            if (widget.isToday) const BookingTodayPill(),
             ?bin,
           ],
         ),
@@ -662,7 +662,7 @@ class _BookingDayRowState extends State<BookingDayRow>
             if (bin != null) ...[const SizedBox(width: _actionGap), bin],
           ],
         ),
-        if (widget.isToday) const _TodayPill(),
+        if (widget.isToday) const BookingTodayPill(),
       ],
     );
   }
@@ -2264,9 +2264,10 @@ class _Muted extends StatelessWidget
   }
 }
 
-class _TodayPill extends StatelessWidget
+// The «OGGI» mark beside a day's name.
+class BookingTodayPill extends StatelessWidget
 {
-  const _TodayPill();
+  const BookingTodayPill({super.key});
 
   @override
   Widget build(BuildContext context)

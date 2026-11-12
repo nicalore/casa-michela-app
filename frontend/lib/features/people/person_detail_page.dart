@@ -29,6 +29,7 @@ import 'person_jump.dart';
 import 'edit/person_edit_dialog.dart';
 import 'tabs/person_account_shared.dart';
 import 'tabs/person_account_tab.dart';
+import 'tabs/person_booking_history_tab.dart';
 import 'tabs/person_children_tab.dart';
 import 'tabs/person_devices_tab.dart';
 import 'tabs/person_info_tab.dart';
@@ -40,6 +41,7 @@ import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
 import 'tabs/person_subjects_tab.dart';
 import 'tabs/person_teacher_parent_tab.dart';
+import 'utils/booking_history_strings.dart' show kBookingHistorySection;
 import 'widgets/create_account_dialog.dart';
 import 'widgets/person_detail_header.dart';
 
@@ -348,6 +350,15 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           pupil: isPupil,
           teacher: isTeacher,
         ),
+      ));
+    }
+
+    // Past bookings stay readable whatever became of the membership.
+    if (roles.contains('STUDENTE'))
+    {
+      sections.add(PersonSection(
+        label: kBookingHistorySection,
+        view: PersonBookingHistoryTab(person: person),
       ));
     }
 
