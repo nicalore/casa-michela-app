@@ -176,13 +176,13 @@ class _CalendarBookingCardState extends State<CalendarBookingCard> with Calendar
 
   BookingSummaryItem get _booking => widget.entry.booking;
 
-  String? get _discipline => dividedDisciplineName(
+  String? get _discipline => subjectDisciplineName(
         widget.ministrySubjects,
         _booking.ministrySubjectId,
         _booking.associationSubjects.map((subject) => subject.id),
       );
 
-  // A subject divided in disciplines: the discipline leads, its subject goes under it.
+  // A named discipline leads, its subject goes under it.
   String get _title => _discipline ?? bookingTitle(_booking, widget.ministrySubjects);
 
   String get _status

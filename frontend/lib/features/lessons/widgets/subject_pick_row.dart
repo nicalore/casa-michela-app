@@ -15,6 +15,7 @@ import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/unfolding_rows.dart';
 import '../../association/models/ministry_subject_item.dart';
+import '../utils/booking_wizard_strings.dart';
 
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
@@ -44,6 +45,9 @@ class SubjectPickRow extends StatefulWidget
   // Empty when there is nothing to say; the name is then centred.
   final String subtitle;
 
+  // A subject's only discipline, said under its name though there is nothing to choose.
+  final String? discipline;
+
   final bool selected;
 
   // False for single-discipline subjects: there is nothing to open.
@@ -58,6 +62,7 @@ class SubjectPickRow extends StatefulWidget
     super.key,
     required this.name,
     this.subtitle = '',
+    this.discipline,
     required this.selected,
     required this.hasChoice,
     this.leading,
@@ -125,6 +130,26 @@ class _SubjectPickRowState extends State<SubjectPickRow>
                           color: AppTheme.trialOcean,
                         ),
                       ),
+                      if (widget.discipline case final String discipline) ...[
+                        const SizedBox(height: 1),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(text: kSingleDisciplineLabel),
+                              TextSpan(
+                                text: discipline,
+                                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+                              ),
+                            ],
+                          ),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: _lineHeight,
+                            color: AppTheme.trialMutedText,
+                          ),
+                        ),
+                      ],
                       if (widget.subtitle.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(

@@ -149,8 +149,8 @@ class MobileSubjectFlow
 
   String get eyebrow => '${draft.displayName} · ${modeLabel(mode).toLowerCase()}';
 
-  // A subject divided in disciplines is booked one discipline at a time: the title names it.
-  String? get discipline => dividedDisciplineName(ministrySubjects, draft.ministrySubjectId, draft.associationSubjectIds);
+  // The title names the discipline, even a subject's only one.
+  String? get discipline => subjectDisciplineName(ministrySubjects, draft.ministrySubjectId, draft.associationSubjectIds);
 
   String get title => discipline ?? (isEditing ? kEditSubjectTitle : kAddSubjectTitle);
 

@@ -112,7 +112,7 @@ class CalendarRequestDetails extends StatelessWidget
 
     final String subject = booking.serviceName ?? ministrySubjectName(ministrySubjects, booking.ministrySubjectId);
     final String? discipline = booking.serviceName == null
-        ? dividedDisciplineName(ministrySubjects, booking.ministrySubjectId, booking.associationSubjects.map((option) => option.id))
+        ? subjectDisciplineName(ministrySubjects, booking.ministrySubjectId, booking.associationSubjects.map((option) => option.id))
         : null;
 
     return Container(
@@ -148,7 +148,7 @@ class CalendarRequestDetails extends StatelessWidget
               ),
             ),
             const SizedBox(height: 14),
-            // As the day page: the subject said apart when divided in disciplines.
+            // As the day page: the subject said apart when a discipline is named.
             if (discipline != null) ...[
               _buildVoice('Materia', subject),
               const SizedBox(height: 14),

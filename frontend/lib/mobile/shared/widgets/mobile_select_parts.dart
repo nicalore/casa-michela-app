@@ -131,6 +131,10 @@ class MobileSelectRow extends StatelessWidget
 {
   final String title;
   final String? subtitle;
+
+  // Said under the title, as «Disciplina: Grammatica inglese».
+  final ({String label, String value})? fact;
+
   final bool selected;
 
   final Widget? leading;
@@ -141,6 +145,7 @@ class MobileSelectRow extends StatelessWidget
     super.key,
     required this.title,
     this.subtitle,
+    this.fact,
     required this.selected,
     this.leading,
     required this.onTap,
@@ -162,6 +167,30 @@ class MobileSelectRow extends StatelessWidget
             color: Color.lerp(AppTheme.trialInk, Colors.white, t),
           ),
         ),
+        if (fact case (:final String label, :final String value))
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: label),
+                  TextSpan(
+                    text: value,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w700,
+                      color: Color.lerp(AppTheme.trialInk, Colors.white, t),
+                    ),
+                  ),
+                ],
+              ),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+                color: Color.lerp(MobilePalette.mutedText, Colors.white.withValues(alpha: 0.85), t),
+              ),
+            ),
+          ),
         if (subtitle != null && subtitle.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 2),

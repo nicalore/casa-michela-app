@@ -1572,6 +1572,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     required bool Function(SubjectRequestDraft request) matches,
     required SubjectRequestDraft Function() onPick,
     String? description,
+    String? discipline,
   })
   {
     final SubjectRequestDraft? chosen = _chosen(group, mode, band, matches);
@@ -1580,6 +1581,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     return SubjectPickRow(
       name: name,
       subtitle: _sayBoth(chosen == null ? null : _summaryOf(chosen), description),
+      discipline: discipline,
       selected: chosen != null,
       hasChoice: false,
       onSelected: (_)
@@ -1648,10 +1650,9 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       );
     }
 
-    final subjects = all
+    final subjects = dividedFirst(all
         .where((subject) => subjectFound(subject, _subjectQueries[mode]![_ministryCategory]))
-        .where((subject) => _offersSome(group, mode, band, subject))
-        .toList();
+        .where((subject) => _offersSome(group, mode, band, subject)));
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1669,6 +1670,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
               mode: mode,
               band: band,
               name: subject.name,
+              discipline: subject.associationSubjects.singleOrNull?.name,
               matches: (request) => request.ministrySubjectId == subject.id,
               onPick: () => SubjectRequestDraft(
                 kind: BookingRequestKind.ministrySubject,

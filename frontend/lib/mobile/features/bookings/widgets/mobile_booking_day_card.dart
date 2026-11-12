@@ -392,7 +392,7 @@ class _LessonRow extends StatelessWidget
           child: Row(
             children: [
               Expanded(
-                // Divided subject: the discipline leads, the subject small above it.
+                // A named discipline leads, the subject small above it.
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

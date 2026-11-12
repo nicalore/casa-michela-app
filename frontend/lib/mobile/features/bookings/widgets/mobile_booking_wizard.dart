@@ -774,6 +774,7 @@ class _WizardState extends State<_Wizard>
     TimeBucket band, {
     required String name,
     String? description,
+    String? discipline,
     required bool Function(SubjectRequestDraft request) matches,
     required SubjectRequestDraft Function() pick,
   })
@@ -783,6 +784,7 @@ class _WizardState extends State<_Wizard>
     return MobileSelectRow(
       title: name,
       subtitle: _subtitle(picked, description),
+      fact: discipline == null ? null : (label: kSingleDisciplineLabel, value: discipline),
       selected: picked != null,
       onTap: ()
       {
@@ -819,7 +821,7 @@ class _WizardState extends State<_Wizard>
         }
 
         final List<MinistrySubjectItem> shown =
-            all.where((subject) => subjectFound(subject, _query) && _offersSome(group, band, subject)).toList();
+            dividedFirst(all.where((subject) => subjectFound(subject, _query) && _offersSome(group, band, subject)));
 
         return [
           if (shown.isEmpty) MobileQuietLine(kSubjectNoMatch[_category]),
@@ -831,6 +833,7 @@ class _WizardState extends State<_Wizard>
                 group,
                 band,
                 name: subject.name,
+                discipline: subject.associationSubjects.singleOrNull?.name,
                 matches: (request) => request.ministrySubjectId == subject.id,
                 pick: () => SubjectRequestDraft(
                   kind: BookingRequestKind.ministrySubject,

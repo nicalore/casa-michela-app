@@ -121,6 +121,9 @@ String formatDayMonthFull(DateTime date)
   return '${date.day} ${_monthNamesFull[date.month - 1]}';
 }
 
+// "settembre".
+String formatMonthName(DateTime month) => _monthNamesFull[month.month - 1];
+
 // "Settembre 2026".
 String formatMonthYear(DateTime month)
 {

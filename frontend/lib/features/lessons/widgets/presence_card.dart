@@ -997,7 +997,7 @@ class _ConfirmSubjectDeletion extends StatelessWidget
 {
   final String label;
 
-  // "Materia - Disciplina" for a subject divided in disciplines.
+  // "Materia - Disciplina" when the discipline is named.
   final String? discipline;
 
   // What else goes with it, after the sentence.

@@ -158,19 +158,12 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
     for (final entry in lesson.bookings) bookingTitle(entry.booking, ministrySubjects),
   };
 
-  final rest = [
-    for (final name in lesson.disciplineNames)
-      if (!subjects.contains(name)) name,
-  ];
+  // Named even when the subject is undivided or bears the same name.
+  final disciplines = lesson.disciplineNames;
 
-  final bool divided = lesson.bookings.any((entry) => ministrySubjects
-      .where((subject) => subject.id == entry.booking.ministrySubjectId)
-      .any((subject) => subject.associationSubjects.length > 1));
-
-  // A lone discipline adds nothing to an undivided subject; a divided one always says which.
   return (
     subject: subjects.isEmpty ? 'Lezione' : subjects.join(' · '),
-    disciplines: rest.isEmpty || (rest.length < 2 && !divided) ? null : rest.join(', '),
+    disciplines: disciplines.isEmpty ? null : disciplines.join(', '),
   );
 }
 

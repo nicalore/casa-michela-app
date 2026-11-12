@@ -1555,24 +1555,7 @@ class _LessonRowState extends State<_LessonRow>
 
   String get _title => bookingTitle(_booking, widget.ministrySubjects);
 
-  // A subject with a single discipline would only repeat its own name.
-  List<String> get _disciplines
-  {
-    if (_booking.kind != BookingRequestKind.ministrySubject)
-    {
-      return const [];
-    }
-
-    for (final subject in widget.ministrySubjects)
-    {
-      if (subject.id == _booking.ministrySubjectId && subject.associationSubjects.length <= 1)
-      {
-        return const [];
-      }
-    }
-
-    return [for (final subject in _booking.associationSubjects) subject.name];
-  }
+  List<String> get _disciplines => bookingDisciplineNames(_booking, widget.ministrySubjects);
 
   List<PersonItem> get _preferredTeachers
   {

@@ -108,7 +108,6 @@ class _LessonDetailsDialog extends StatelessWidget
   // As teachers, parents and pupils see it, with what the administrators need.
   List<LessonVoice> get _voices
   {
-    // A single discipline adds nothing to the subject and is left out.
     final disciplines = lessonAbout(lesson, ministrySubjects).disciplines;
 
     return [

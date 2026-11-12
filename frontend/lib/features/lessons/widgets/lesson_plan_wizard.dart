@@ -1069,7 +1069,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     }
 
     final presenceLabel = mode == kOnlineMode ? 'Online' : 'Presente';
-    final String? discipline = dividedDisciplineName(
+    final String? discipline = subjectDisciplineName(
       widget.ministrySubjects,
       _booking.ministrySubjectId,
       _booking.associationSubjects.map((subject) => subject.id),

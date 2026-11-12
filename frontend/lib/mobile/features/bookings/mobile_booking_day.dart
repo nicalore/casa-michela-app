@@ -20,7 +20,7 @@ class MobileBookingLesson
 
   final String title;
 
-  // Only for a subject with several disciplines: one alone would repeat its name.
+  // The booked discipline, even a subject's only one, unless it repeats the subject's name.
   final List<String> disciplines;
 
   final List<String> tags;
@@ -43,7 +43,7 @@ class MobileBookingLesson
 
   bool get divided => disciplines.isNotEmpty;
 
-  // "Materia - Disciplina" for a subject divided in disciplines.
+  // "Materia - Disciplina" when the discipline is named.
   String get named => divided ? disciplineLabel(title, disciplines.join(', ')) : title;
 
   String? get topic => _said(booking.topic);
@@ -132,24 +132,6 @@ bool _slotClosed(PresenceItem slot, DateTime day, DateTime now)
   return band != null && haveBookingsClosed(day, band, now);
 }
 
-List<String> _disciplinesOf(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects)
-{
-  if (booking.kind != BookingRequestKind.ministrySubject)
-  {
-    return const [];
-  }
-
-  for (final subject in ministrySubjects)
-  {
-    if (subject.id == booking.ministrySubjectId && subject.associationSubjects.length <= 1)
-    {
-      return const [];
-    }
-  }
-
-  return [for (final subject in booking.associationSubjects) subject.name];
-}
-
 MobileBookingDay bookingDay({
   required DateTime date,
   required DateTime now,
@@ -174,7 +156,7 @@ MobileBookingDay bookingDay({
       slot: slot,
       booking: booking,
       title: bookingTitle(booking, ministrySubjects),
-      disciplines: _disciplinesOf(booking, ministrySubjects),
+      disciplines: bookingDisciplineNames(booking, ministrySubjects),
       tags: bookingTagLabels(booking.tags),
       teachers: [
         for (final taxCode in booking.preferredTeacherTaxCodes)

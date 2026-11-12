@@ -23,3 +23,14 @@ bool foundInside(MinistrySubjectItem subject, String query)
 {
   return query.trim().isNotEmpty && subject.associationSubjects.any((discipline) => nameFound(discipline.name, query));
 }
+
+// Subjects with several disciplines first, then those with one, each keeping its order.
+List<MinistrySubjectItem> dividedFirst(Iterable<MinistrySubjectItem> subjects)
+{
+  final List<MinistrySubjectItem> all = subjects.toList();
+
+  return [
+    ...all.where((subject) => subject.associationSubjects.length > 1),
+    ...all.where((subject) => subject.associationSubjects.length <= 1),
+  ];
+}

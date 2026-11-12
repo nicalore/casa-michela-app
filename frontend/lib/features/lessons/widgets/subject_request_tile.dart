@@ -168,9 +168,9 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
     return ministrySubjectName(widget.ministrySubjects, widget.draft.ministrySubjectId);
   }
 
-  // A subject divided in disciplines is named by its discipline.
+  // Named by its discipline, even a subject's only one.
   String? get _discipline =>
-      dividedDisciplineName(widget.ministrySubjects, widget.draft.ministrySubjectId, widget.draft.associationSubjectIds);
+      subjectDisciplineName(widget.ministrySubjects, widget.draft.ministrySubjectId, widget.draft.associationSubjectIds);
 
   // The discipline leads and its subject goes under it, as on the calendar's cards.
   String get _heading => _discipline ?? _title;
@@ -328,11 +328,11 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
   {
     String said(String value) => value.trim().isEmpty ? _empty : value.trim();
 
-    final bool divided =
-        dividedDisciplineName(ministrySubjects, draft.ministrySubjectId, draft.associationSubjectIds) != null;
+    final bool named =
+        subjectDisciplineName(ministrySubjects, draft.ministrySubjectId, draft.associationSubjectIds) != null;
 
     return [
-      if (divided) ('Materia', ministrySubjectName(ministrySubjects, draft.ministrySubjectId)),
+      if (named) ('Materia', ministrySubjectName(ministrySubjects, draft.ministrySubjectId)),
       ('Durata', draft.duration == null ? _empty : formatMinutes(draft.duration!)),
       ('Tipo di lezione', said(bookingTagLabels(draft.tags).join(', '))),
       ('Argomento', said(draft.topic)),

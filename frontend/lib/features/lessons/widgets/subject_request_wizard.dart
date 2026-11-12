@@ -217,7 +217,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
   int get _steps => _stepList.length;
 
-  String? get _discipline => dividedDisciplineName(widget.ministrySubjects, _draft.ministrySubjectId, _draft.associationSubjectIds);
+  String? get _discipline => subjectDisciplineName(widget.ministrySubjects, _draft.ministrySubjectId, _draft.associationSubjectIds);
 
   @override
   void dispose()
@@ -581,7 +581,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
     final String? discipline = _discipline;
 
-    // Divided subject: the discipline is the title, its subject goes in the eyebrow.
+    // A named discipline is the title, its subject goes in the eyebrow.
     return AppDialogStack(
       eyebrow: [
         'Passo ${_step + 1} di $_steps',

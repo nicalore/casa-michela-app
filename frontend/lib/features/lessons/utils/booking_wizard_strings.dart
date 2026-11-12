@@ -118,6 +118,9 @@ const List<String> kSubjectNoMatch = [
   'Nessun servizio trovato per questa ricerca.',
 ];
 
+// Under a subject with a single discipline, before its name.
+const String kSingleDisciplineLabel = 'Disciplina: ';
+
 const String kNoServices = 'Nessun servizio disponibile.';
 const String kFrozenLessonsLabel = 'Lezioni già prenotate';
 const String kFrozenLessonsHint = 'Le prenotazioni della loro fascia sono chiuse: non si possono più modificare.';
