@@ -75,12 +75,12 @@ const AvailabilityGuide kOwnDaysGuide = (
 );
 
 const AvailabilityGuide kOwnPresenceGuide = (
-  question: 'Quando sei disponibile in presenza?',
+  question: 'Quando sei disponibile $kInBuilding?',
   hint: 'Indica gli orari in cui puoi essere in Associazione per le lezioni.',
 );
 
 const AvailabilityGuide kOwnOnlineGuide = (
-  question: 'Quando sei disponibile online?',
+  question: 'Quando sei disponibile $kOnScreen?',
   hint: 'Indica gli orari in cui puoi fare lezione a distanza.',
 );
 

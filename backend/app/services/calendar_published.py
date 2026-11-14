@@ -15,6 +15,7 @@ from app.models.booking import Booking
 from app.models.calendar_activity import CalendarActivity
 from app.models.lesson import Lesson
 from app.models.notification import Notification, NotificationKindEnum
+from app.models.opening_day import OpeningDay
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import GenderEnum
 from app.models.presence import Presence
@@ -122,6 +123,20 @@ async def _called(db: AsyncSession, day: date, band: TimeBandEnum) -> set[str]:
     return set(await db.scalars(by_lesson.union(by_activity)))
 
 
+# Openings belong to the band they start in, as in calendar_hours_sync.
+async def _online_only(db: AsyncSession, day: date, band: TimeBandEnum) -> bool:
+    start, end = band_bounds(band)
+    modes = await db.scalars(
+        select(OpeningDay.mode).where(
+            OpeningDay.date == day,
+            OpeningDay.start_time >= start,
+            OpeningDay.start_time < end,
+        )
+    )
+
+    return set(modes) == {"online"}
+
+
 # Families who booked the band and teachers available for it; nobody else hears.
 Holding = Callable[[Iterable[str], str], list[str]]
 
@@ -208,15 +223,17 @@ async def announce_publication(
     ]
 
     called = await _called(db, day, band)
+    online_only = await _online_only(db, day, band)
     texts: dict[str, Texts] = {}
 
+    # An online-only band tells only those called.
     for code in holding(await _available(db, day, band), "TEACHER"):
         gender = accounts[code].person.gender
-        texts[code] = (
-            _called_texts(_CALLED_TITLES[gender], phrase)
-            if code in called
-            else _not_called_texts(_NOT_CALLED_TITLES[gender])
-        )
+
+        if code in called:
+            texts[code] = _called_texts(_CALLED_TITLES[gender], phrase)
+        elif not online_only:
+            texts[code] = _not_called_texts(_NOT_CALLED_TITLES[gender])
 
     batches.extend(await _tell_teachers(db, texts, (day, band)))
 
@@ -388,9 +405,10 @@ async def announce_changes(
     )
     called_before = _called_in(before)
     called_after = _called_in(after)
+    online_only = await _online_only(db, day, band)
 
     # The first notice, as announce_publication words it for that reader.
-    def first(kind: NotificationKindEnum, code: str) -> Texts:
+    def first(kind: NotificationKindEnum, code: str) -> Texts | None:
         if kind == families:
             return (
                 _PUPIL_TITLE.format(band=phrase),
@@ -402,6 +420,9 @@ async def announce_changes(
 
         if code in called_after:
             return _called_texts(_CALLED_TITLES[gender], phrase)
+
+        if online_only:
+            return None
 
         return _not_called_texts(_NOT_CALLED_TITLES[gender])
 
@@ -437,8 +458,8 @@ async def announce_changes(
 
         if fingerprint(part_after) != known["view"]:
             groups[(kind, news(kind, code), json.dumps(known))].append(code)
-        elif known["unseen"]:
-            groups[(kind, first(kind, code), "")].append(code)
+        elif known["unseen"] and (wording := first(kind, code)) is not None:
+            groups[(kind, wording, "")].append(code)
 
     batches = [await dismissals(db, [row for row in gone if row.read_at is None])]
 

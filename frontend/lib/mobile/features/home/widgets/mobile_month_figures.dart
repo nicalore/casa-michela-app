@@ -183,7 +183,6 @@ class _FigureRow extends StatelessWidget
               const SizedBox(width: 10),
               _asideOf(figure, shrink: true),
             ],
-            if (link != null) const MobileLinkChevron(),
           ],
         ),
       ),

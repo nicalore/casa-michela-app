@@ -10,6 +10,7 @@ import '../../../../features/availability/utils/availability_strings.dart';
 import '../../../../features/lessons/models/availability_item.dart';
 import '../../../../features/lessons/utils/booking_window.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
+import '../../../../features/lessons/widgets/calendar_lesson_block.dart' show lessonAccent;
 import '../../../../services/api_service.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_height_reporter.dart';
@@ -392,9 +393,15 @@ class _WizardState extends State<_Wizard>
     final TimeBucket? addBand = wizardTourAddBand(_draft, step);
 
     return [
-      MobileWizardGuide(question: _guideFor(step.mode).question, hint: _guideFor(step.mode).hint),
-      // Days with different openings get separate steps, each naming its days.
-      if (_draft.groups.length > 1) MobileDaysTag(days: step.group.days),
+      MobileWizardGuide(
+        question: _guideFor(step.mode).question,
+        hint: _guideFor(step.mode).hint,
+        accent: (
+          words: step.mode == kOnlineMode ? kOnScreen : kInBuilding,
+          color: lessonAccent(step.mode),
+        ),
+      ),
+      MobileDaysTag(days: step.group.days),
       const SizedBox(height: 6),
       for (final bucket in TimeBucket.values) ...[
         const SizedBox(height: _blockGap),

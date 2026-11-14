@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -43,6 +45,79 @@ const double _figuresOneLineMinWidth = 560;
 DateTime _monthOf(DateTime day) => DateTime(day.year, day.month);
 
 String _hours(int minutes) => minutes == 0 ? '0h' : formatMinutes(minutes);
+
+const double _lessonTimeGap = 10;
+
+// A long name goes on between first name and surname, never inside either.
+String _teacherName(BookingHistoryPerson teacher)
+{
+  return '${teacher.firstName.replaceAll(' ', '\u00A0')} ${teacher.lastName.replaceAll(' ', '\u00A0')}';
+}
+
+TextStyle _teacherStyle(_Sizes sizes)
+{
+  return GoogleFonts.plusJakartaSans(
+    fontSize: sizes.teacherSize,
+    fontWeight: FontWeight.w600,
+    height: 1.35,
+    color: AppTheme.trialInk,
+  );
+}
+
+TextStyle _lessonTimeStyle(_Sizes sizes)
+{
+  return GoogleFonts.plusJakartaSans(
+    fontSize: sizes.timeSize,
+    fontWeight: FontWeight.w600,
+    height: 1.35,
+    color: AppTheme.trialMutedText,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
+}
+
+double _lineWidth(String text, TextStyle style, TextScaler scaler)
+{
+  final TextPainter painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: scaler,
+    maxLines: 1,
+  )..layout();
+  final double width = painter.width;
+  painter.dispose();
+
+  return width;
+}
+
+// The lessons column of the month as wide as its longest teacher and times, so no name is cut.
+double _outcomeWidthOf(BuildContext context, BookingHistoryMonth month, _Sizes sizes)
+{
+  final TextScaler scaler = MediaQuery.textScalerOf(context);
+  // The theme's letter spacing reaches the texts too.
+  final TextStyle inherited = DefaultTextStyle.of(context).style;
+  final TextStyle teacher = inherited.merge(_teacherStyle(sizes));
+  final TextStyle time = inherited.merge(_lessonTimeStyle(sizes));
+  double widest = 0;
+
+  for (final day in month.days)
+  {
+    for (final stretch in day.stretches)
+    {
+      for (final booking in stretch.bookings)
+      {
+        for (final lesson in booking.lessons)
+        {
+          final double line = _lineWidth(_teacherName(lesson.teacher), teacher, scaler)
+            + _lessonTimeGap
+            + _lineWidth(formatTimeRange(lesson.startTime, lesson.endTime), time, scaler);
+          widest = math.max(widest, line);
+        }
+      }
+    }
+  }
+
+  return math.max(sizes.outcomeWidth, widest.ceilToDouble() + 1);
+}
 
 // Every size that steps down with the window, in one place.
 class _Sizes
@@ -408,20 +483,37 @@ class _PersonBookingHistoryTabState extends State<PersonBookingHistoryTab>
 
     final DateTime today = romeNow();
 
+    // The lessons column is measured: measured again once the fonts arrive.
+    final Widget days = ListenableBuilder(
+      listenable: PaintingBinding.instance.systemFonts,
+      builder: (context, _)
+      {
+        final double outcomeWidth = _outcomeWidthOf(context, shown, sizes);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final day in shown.days) ...[
+              if (day != shown.days.first) SizedBox(height: sizes.dayGap),
+              _DayCard(
+                day: day,
+                isToday: isSameDate(day.date, today),
+                sizes: sizes,
+                outcomeWidth: outcomeWidth,
+                onOpenLesson: _openLesson,
+              ),
+            ],
+          ],
+        );
+      },
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _FiguresCard(shown: shown, sizes: sizes),
         SizedBox(height: gap),
-        for (final day in shown.days) ...[
-          if (day != shown.days.first) SizedBox(height: sizes.dayGap),
-          _DayCard(
-            day: day,
-            isToday: isSameDate(day.date, today),
-            sizes: sizes,
-            onOpenLesson: _openLesson,
-          ),
-        ],
+        days,
       ],
     );
   }
@@ -589,9 +681,16 @@ class _DayCard extends StatelessWidget
   final BookingHistoryDay day;
   final bool isToday;
   final _Sizes sizes;
+  final double outcomeWidth;
   final ValueChanged<int> onOpenLesson;
 
-  const _DayCard({required this.day, required this.isToday, required this.sizes, required this.onOpenLesson});
+  const _DayCard({
+    required this.day,
+    required this.isToday,
+    required this.sizes,
+    required this.outcomeWidth,
+    required this.onOpenLesson,
+  });
 
   Widget _buildDayName()
   {
@@ -652,7 +751,7 @@ class _DayCard extends StatelessWidget
       children: [
         for (final stretch in day.stretches) ...[
           if (stretch != day.stretches.first) SizedBox(height: sizes.stretchGap),
-          _StretchBlock(stretch: stretch, sizes: sizes, onOpenLesson: onOpenLesson),
+          _StretchBlock(stretch: stretch, sizes: sizes, outcomeWidth: outcomeWidth, onOpenLesson: onOpenLesson),
         ],
       ],
     );
@@ -721,9 +820,10 @@ class _StretchBlock extends StatelessWidget
 {
   final BookingHistoryStretch stretch;
   final _Sizes sizes;
+  final double outcomeWidth;
   final ValueChanged<int> onOpenLesson;
 
-  const _StretchBlock({required this.stretch, required this.sizes, required this.onOpenLesson});
+  const _StretchBlock({required this.stretch, required this.sizes, required this.outcomeWidth, required this.onOpenLesson});
 
   bool get _online => stretch.mode == kOnlineMode;
 
@@ -836,7 +936,7 @@ class _StretchBlock extends StatelessWidget
         ),
         for (final booking in stretch.bookings) ...[
           SizedBox(height: booking == stretch.bookings.first ? sizes.headingGap : sizes.rowGap),
-          _BookingRow(booking: booking, sizes: sizes, onOpenLesson: onOpenLesson),
+          _BookingRow(booking: booking, sizes: sizes, outcomeWidth: outcomeWidth, onOpenLesson: onOpenLesson),
         ],
       ],
     );
@@ -848,9 +948,11 @@ class _BookingRow extends StatefulWidget
 {
   final BookingHistoryBooking booking;
   final _Sizes sizes;
+  // The month's lessons column, the same on every row so the columns line up.
+  final double outcomeWidth;
   final ValueChanged<int> onOpenLesson;
 
-  const _BookingRow({required this.booking, required this.sizes, required this.onOpenLesson});
+  const _BookingRow({required this.booking, required this.sizes, required this.outcomeWidth, required this.onOpenLesson});
 
   @override
   State<_BookingRow> createState() => _BookingRowState();
@@ -940,35 +1042,22 @@ class _BookingRowState extends State<_BookingRow>
 
   Widget _buildLessonLine(BookingHistoryLesson lesson)
   {
+    // A name too long for the column goes on to a second line, never cut.
     final Widget line = Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
         Expanded(
-          child: DescenderRoom(
-            child: Text(
-              lesson.teacher.fullName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: _sizes.teacherSize,
-                fontWeight: FontWeight.w600,
-                height: 1.35,
-                color: AppTheme.trialInk,
-              ),
-            ),
+          child: WholeWords(
+            child: Text(_teacherName(lesson.teacher), style: _teacherStyle(_sizes)),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: _lessonTimeGap),
         Text(
           formatTimeRange(lesson.startTime, lesson.endTime),
           maxLines: 1,
           softWrap: false,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: _sizes.timeSize,
-            fontWeight: FontWeight.w600,
-            height: 1.35,
-            color: AppTheme.trialMutedText,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+          style: _lessonTimeStyle(_sizes),
         ),
       ],
     );
@@ -1029,7 +1118,7 @@ class _BookingRowState extends State<_BookingRow>
     );
   }
 
-  Widget _buildOneLine()
+  Widget _buildOneLine(double outcomeWidth)
   {
     final double gap = _sizes.columnGap;
 
@@ -1043,7 +1132,7 @@ class _BookingRowState extends State<_BookingRow>
         SizedBox(width: gap),
         SizedBox(width: _sizes.durationWidth, child: _buildDuration()),
         SizedBox(width: gap),
-        SizedBox(width: _sizes.outcomeWidth, child: _buildOutcome()),
+        SizedBox(width: outcomeWidth, child: _buildOutcome()),
       ],
     );
   }
@@ -1083,9 +1172,11 @@ class _BookingRowState extends State<_BookingRow>
       builder: (context, constraints)
       {
         final _Sizes s = _sizes;
-        final double fixed = s.nameWidth + s.durationWidth + s.outcomeWidth + 5 * s.columnGap;
+        // The lessons take room from topic and kinds down to their least; past that, names wrap.
+        final double room = constraints.maxWidth - s.nameWidth - s.durationWidth - 5 * s.columnGap - 2 * s.aboutMinWidth;
+        final double outcome = math.min(widget.outcomeWidth, room);
 
-        return constraints.maxWidth - fixed >= 2 * s.aboutMinWidth ? _buildOneLine() : _buildFolded();
+        return outcome >= s.outcomeWidth ? _buildOneLine(outcome) : _buildFolded();
       },
     );
 

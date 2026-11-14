@@ -10,6 +10,7 @@ import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/home/home_link.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
+import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_opening_hours.dart';
 import '../../../shared/widgets/mobile_pill.dart';
@@ -30,9 +31,9 @@ const double _nowHalo = 4;
 // Clears the next stop when a band's own text is taller than its block.
 const double _bodyBottom = 28;
 
-// Level with the band's name, on the line's far end.
-const double _chevronSize = 22;
-const double _chevronTop = -4;
+// The tile reaches above and below the text, which stays level with its stop.
+const EdgeInsets _tilePadding = EdgeInsets.symmetric(horizontal: 12);
+const EdgeInsets _tileBleed = EdgeInsets.fromLTRB(0, 10, 0, 12);
 
 const double _endStopHeight = _stopRadius * 2 + _stopStroke;
 
@@ -161,8 +162,10 @@ class _BandBlock extends StatelessWidget
   {
     final ValueChanged<HomeLink>? follow = onLink;
 
+    // The whole row answers the finger, but only the tile fades under it.
     return MobileLink(
       onTap: follow == null ? null : () => follow(homeBandLink(band.band, isPublished: band.isPublished)),
+      dims: false,
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: minHeight),
         child: IntrinsicHeight(
@@ -179,16 +182,17 @@ class _BandBlock extends StatelessWidget
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: _bodyBottom),
-                  child: Stack(
-                    clipBehavior: Clip.none,
+                  // A column, so the tile hugs the text instead of the band's whole height.
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _BandBody(band: band),
-                      if (follow != null)
-                        const Positioned(
-                          top: _chevronTop,
-                          right: 0,
-                          child: MobileLinkChevron(size: _chevronSize, onSea: true),
-                        ),
+                      MobileLinkTile(
+                        onSea: true,
+                        lit: follow != null,
+                        padding: _tilePadding,
+                        bleed: _tileBleed,
+                        child: _BandBody(band: band),
+                      ),
                     ],
                   ),
                 ),
@@ -408,7 +412,7 @@ class _StateLine extends StatelessWidget
     final bool muted = mode == null;
 
     return Text(
-      entry.text,
+      withoutOrphans(entry.text),
       style: GoogleFonts.plusJakartaSans(
         fontSize: muted ? 15 : 15.5,
         fontWeight: muted ? FontWeight.w600 : FontWeight.w800,

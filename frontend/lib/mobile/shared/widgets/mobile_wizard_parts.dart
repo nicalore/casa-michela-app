@@ -118,7 +118,38 @@ class MobileWizardGuide extends StatelessWidget
   final String question;
   final String hint;
 
-  const MobileWizardGuide({super.key, required this.question, required this.hint});
+  // Words of the question drawn in their own colour, such as a mode.
+  final ({String words, Color color})? accent;
+
+  const MobileWizardGuide({super.key, required this.question, required this.hint, this.accent});
+
+  InlineSpan _questionSpan()
+  {
+    final String shown = withoutOrphans(question);
+    final ({String words, Color color})? accent = this.accent;
+
+    if (accent == null)
+    {
+      return TextSpan(text: shown);
+    }
+
+    // withoutOrphans may have made a space of the words unbreakable.
+    final RegExp words = RegExp(RegExp.escape(accent.words).replaceAll(' ', '[ \u00A0]'));
+    final RegExpMatch? found = words.firstMatch(shown);
+
+    if (found == null)
+    {
+      return TextSpan(text: shown);
+    }
+
+    return TextSpan(
+      children: [
+        TextSpan(text: shown.substring(0, found.start)),
+        TextSpan(text: found[0], style: TextStyle(color: accent.color)),
+        TextSpan(text: shown.substring(found.end)),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context)
@@ -127,8 +158,8 @@ class MobileWizardGuide extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         WholeWords(
-          child: Text(
-            withoutOrphans(question),
+          child: Text.rich(
+            _questionSpan(),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 20,
               fontWeight: FontWeight.w800,

@@ -20,10 +20,8 @@ import 'mobile_link.dart';
 const double _iconColumn = 44;
 const double _partGap = 11;
 const double _groupGap = 8;
-const double _cellGap = 12;
+const double _cellGap = 10;
 const double _valueSize = 25;
-
-const double _cellChevronSize = 16;
 
 const EdgeInsets _cardPadding = EdgeInsets.fromLTRB(16, 14, 18, 16);
 
@@ -112,6 +110,20 @@ Widget _divided(List<Widget> parts)
   );
 }
 
+// Tiles need no rule between them, only room.
+Widget _tiles(List<Widget> tiles)
+{
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (final (i, tile) in tiles.indexed) ...[
+        if (i > 0) const SizedBox(height: _cellGap),
+        tile,
+      ],
+    ],
+  );
+}
+
 Widget _head(PersonFace face)
 {
   return Text(
@@ -137,22 +149,21 @@ class _Figures extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Column(
-        children: [
-          for (var row = 0; row < figures.length; row += 2) ...[
-            if (row > 0) const SizedBox(height: _cellGap),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = row; i < row + 2; i++)
-                  Expanded(child: i < figures.length ? _Cell(figures[i], onLink: onLink) : const SizedBox()),
+    return Column(
+      children: [
+        for (var row = 0; row < figures.length; row += 2) ...[
+          if (row > 0) const SizedBox(height: _cellGap),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = row; i < row + 2; i++) ...[
+                if (i > row) const SizedBox(width: _cellGap),
+                Expanded(child: i < figures.length ? _Cell(figures[i], onLink: onLink) : const SizedBox()),
               ],
-            ),
-          ],
+            ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -199,7 +210,7 @@ class MobileChildRowCard extends StatelessWidget
 
     return switch (day)
     {
-      final MobileChildDay day => _divided(_dayParts(day, onLink)),
+      final MobileChildDay day => _tiles(_dayParts(day, onLink)),
       null => const SizedBox(),
     };
   }
@@ -286,7 +297,7 @@ class _ChildCard extends StatelessWidget
     return MobileGlassPanel(
       padding: _cardPadding,
       borderRadius: _cardRadius,
-      child: _divided([_head(face), ...parts]),
+      child: _divided([_head(face), _tiles(parts)]),
     );
   }
 }
@@ -385,19 +396,11 @@ class _BandStays extends StatelessWidget
       ],
     );
 
-    if (follow == null)
-    {
-      return groups;
-    }
-
     return MobileLink(
-      onTap: () => follow(homeBandLink(band.band, isPublished: band.isPublished, pupil: pupil)),
-      child: Row(
-        children: [
-          Expanded(child: groups),
-          const MobileLinkChevron(),
-        ],
-      ),
+      onTap: follow == null
+          ? null
+          : () => follow(homeBandLink(band.band, isPublished: band.isPublished, pupil: pupil)),
+      child: MobileLinkTile(lit: follow != null, child: groups),
     );
   }
 }
@@ -419,33 +422,35 @@ class _NoteRow extends StatelessWidget
 
     return MobileLink(
       onTap: onTap,
-      child: Row(
-        children: [
-          SizedBox(
-            width: iconColumn ? _iconColumn : 4,
-            child: icon == null
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(left: 5),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Icon(icon, size: 22, color: MobilePalette.mutedText),
+      child: MobileLinkTile(
+        lit: onTap != null,
+        child: Row(
+          children: [
+            SizedBox(
+              width: iconColumn ? _iconColumn : 4,
+              child: icon == null
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.only(left: 5),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Icon(icon, size: 22, color: MobilePalette.mutedText),
+                      ),
                     ),
-                  ),
-          ),
-          Expanded(
-            child: Text(
-              note.text,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-                fontStyle: icon == null ? FontStyle.italic : FontStyle.normal,
-                color: MobilePalette.mutedText,
+            ),
+            Expanded(
+              child: Text(
+                note.text,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  fontStyle: icon == null ? FontStyle.italic : FontStyle.normal,
+                  color: MobilePalette.mutedText,
+                ),
               ),
             ),
-          ),
-          if (onTap != null) const MobileLinkChevron(),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -507,26 +512,13 @@ class _Cell extends StatelessWidget
           ),
         ),
         const SizedBox(height: 2),
-        if (link == null)
-          label
-        else
-          Row(
-            children: [
-              Flexible(child: label),
-              // Takes no height, or this label would drop below the one beside it.
-              const SizedBox(
-                width: _cellChevronSize,
-                height: 0,
-                child: OverflowBox(
-                  maxHeight: _cellChevronSize,
-                  child: MobileLinkChevron(size: _cellChevronSize),
-                ),
-              ),
-            ],
-          ),
+        label,
       ],
     );
 
-    return MobileLink(onTap: link == null ? null : () => onLink!(link), child: cell);
+    return MobileLink(
+      onTap: link == null ? null : () => onLink!(link),
+      child: MobileLinkTile(lit: link != null, child: cell),
+    );
   }
 }
