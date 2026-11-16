@@ -6,10 +6,12 @@ import '../../../../core/utils/rome_clock.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_filter_pill.dart';
+import '../../../../shared/widgets/app_load_failed.dart';
 import '../../../../shared/widgets/filter_menu.dart';
 import '../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../shared/widgets/page_transition.dart';
 import '../../../../shared/widgets/scroll_edge_fade.dart';
+import '../../../association/association_strings.dart';
 import '../../../association/models/association_subject_item.dart';
 import '../../../association/models/subject_taxonomy.dart';
 import '../../../lessons/utils/opening_window.dart' show kPresenceMode;
@@ -111,6 +113,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   final ApiService _apiService = ApiService();
 
   bool _isLoading = true;
+  Object? _loadFailure;
   bool _isTrendLoading = false;
   bool _isCollabTrendLoading = false;
   bool _isRetentionLoading = false;
@@ -408,8 +411,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
 
   Future<void> _loadData() async
   {
-    setState(() => _isLoading = true);
-
     try
     {
       final collabRetentionFuture = _collabRetentionType == 'year'
@@ -469,8 +470,13 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       _ageData = _sortedByAgeGroup(results[6] as List<AgeDistributionItem>);
 
       await _loadRoleSpecificData();
+
+      _loadFailure = null;
     }
-    catch (_) {}
+    catch (e)
+    {
+      _loadFailure = e;
+    }
     finally
     {
       if (mounted)
@@ -1349,6 +1355,11 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       return const Center(
         child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
       );
+    }
+
+    if (_loadFailure != null)
+    {
+      return AppLoadFailedRoom(error: _loadFailure, message: kAssociationLoadFailed, onRetry: _loadData);
     }
 
     return Navigator(

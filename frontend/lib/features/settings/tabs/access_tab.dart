@@ -6,6 +6,7 @@ import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/password_policy_checklist.dart';
@@ -39,7 +40,7 @@ class _AccessTabState extends State<AccessTab>
 
   MeResponse? _me;
   bool _isLoading = true;
-  String? _errorMessage;
+  Object? _loadFailure;
 
   @override
   void initState()
@@ -64,6 +65,7 @@ class _AccessTabState extends State<AccessTab>
         {
           _me = meResponse;
           _isLoading = false;
+          _loadFailure = null;
         });
       }
     }
@@ -74,7 +76,7 @@ class _AccessTabState extends State<AccessTab>
         setState(()
         {
           _isLoading = false;
-          _errorMessage = readableApiError(e);
+          _loadFailure = e;
         });
       }
     }
@@ -153,7 +155,7 @@ class _AccessTabState extends State<AccessTab>
   @override
   Widget build(BuildContext context)
   {
-    // Part of the section handover, else these paint over the section still leaving.
+    // Part of the section handover, else it paints over the section still leaving.
     if (_isLoading)
     {
       return const PageTransitionItem(
@@ -167,24 +169,9 @@ class _AccessTabState extends State<AccessTab>
       );
     }
 
-    if (_errorMessage != null || _me == null)
+    if (_loadFailure != null || _me == null)
     {
-      return PageTransitionItem(
-        slot: PageTransitionItem.header,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 40.0),
-            child: Text(
-              kAccountLoadFailed,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.trialMutedText,
-              ),
-            ),
-          ),
-        ),
-      );
+      return AppLoadFailedRoom(error: _loadFailure, message: kAccountLoadFailed, onRetry: _fetchAccount);
     }
 
     final me = _me!;

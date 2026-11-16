@@ -16,6 +16,7 @@ import '../../../shared/utils/day_marks.dart';
 import '../../../shared/widgets/app_calendar_button.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/filter_menu.dart';
@@ -89,6 +90,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
   // Kept in the server's order, newest first.
   List<NoticeSummaryItem> _notices = [];
   bool _loaded = false;
+  Object? _loadFailure;
   String _searchText = '';
   bool _onlyMine = false;
   SortCriterion _sort = SortCriterion.dateDesc;
@@ -165,6 +167,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
         {
           _notices = notices;
           _loaded = true;
+          _loadFailure = null;
         });
         widget.onShown?.call();
       }
@@ -176,9 +179,12 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
         return;
       }
 
-      setState(() => _loaded = true);
-
-      if (!quiet)
+      // Never read: the failure takes the list's place; a list on show stays.
+      if (!_loaded)
+      {
+        setState(() => _loadFailure = error);
+      }
+      else if (!quiet)
       {
         CustomSnackBar.show(context: context, message: readableApiError(error), isError: true);
       }
@@ -806,6 +812,13 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
     final List<NoticeSummaryItem> notices = _filtered;
 
     _dense = AppBreakpoints.of(context).isDense;
+
+    final Object? failure = _loadFailure;
+
+    if (!_loaded && failure != null)
+    {
+      return AppLoadFailedRoom(error: failure, message: readableApiError(failure), onRetry: _load);
+    }
 
     return AppPageDensity(dense: _dense, child: _buildContent(notices));
   }

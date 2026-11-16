@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/desktop_tour.dart';
@@ -64,6 +65,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
+  Object? _loadFailure;
   List<PersonItem> _teachers = [];
   List<OpinionPupil> _pupils = [];
 
@@ -105,6 +107,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
         _teachers = teachers;
         _pupils = pupils;
         _isLoading = false;
+        _loadFailure = null;
       });
     }
     catch (e)
@@ -114,8 +117,11 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
         return;
       }
 
-      setState(() => _isLoading = false);
-      CustomSnackBar.show(context: context, message: kAssociationLoadFailed, isError: true);
+      setState(()
+      {
+        _isLoading = false;
+        _loadFailure = e;
+      });
     }
   }
 
@@ -257,6 +263,11 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
     if (_isLoading)
     {
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+    }
+
+    if (_loadFailure != null)
+    {
+      return AppLoadFailedRoom(error: _loadFailure, message: kAssociationLoadFailed, onRetry: _load);
     }
 
     final teachers = _filteredTeachers;

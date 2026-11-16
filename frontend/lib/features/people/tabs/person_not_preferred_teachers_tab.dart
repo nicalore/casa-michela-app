@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -133,6 +134,7 @@ class _EditNotPreferredTeachersDialogState extends State<_EditNotPreferredTeache
 
   bool _isLoading = true;
   bool _isSubmitting = false;
+  Object? _loadFailure;
 
   @override
   void initState()
@@ -157,6 +159,7 @@ class _EditNotPreferredTeachersDialogState extends State<_EditNotPreferredTeache
                 .toList(),
           );
           _isLoading = false;
+          _loadFailure = null;
         });
       }
     }
@@ -164,8 +167,11 @@ class _EditNotPreferredTeachersDialogState extends State<_EditNotPreferredTeache
     {
       if (mounted)
       {
-        setState(() => _isLoading = false);
-        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+        setState(()
+        {
+          _isLoading = false;
+          _loadFailure = e;
+        });
       }
     }
   }
@@ -217,6 +223,17 @@ class _EditNotPreferredTeachersDialogState extends State<_EditNotPreferredTeache
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+      );
+    }
+
+    if (_loadFailure != null)
+    {
+      return Center(
+        child: AppLoadFailedPanel(
+          error: _loadFailure,
+          message: 'Impossibile caricare le anagrafiche dal server.',
+          onRetry: _loadTeachers,
+        ),
       );
     }
 

@@ -14,6 +14,7 @@ import '../../services/api_service.dart';
 import '../../shared/widgets/app_back_button.dart';
 import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_gradient_button.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_heading.dart';
@@ -83,6 +84,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
   // Kept in the server's order, newest first.
   List<UpdateSummaryItem> _updates = [];
   bool _loaded = false;
+  Object? _loadFailure;
   bool _requestingTerms = false;
 
   @override
@@ -111,18 +113,16 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
         {
           _updates = updates;
           _loaded = true;
+          _loadFailure = null;
         });
       }
     }
     catch (error)
     {
-      if (!mounted)
+      if (mounted)
       {
-        return;
+        setState(() => _loadFailure = error);
       }
-
-      setState(() => _loaded = true);
-      CustomSnackBar.show(context: context, message: readableApiError(error), isError: true);
     }
   }
 
@@ -347,6 +347,12 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
   Widget _list(AppWindowSize size)
   {
     final bool dense = size.isDense;
+    final Object? failure = _loadFailure;
+
+    if (!_loaded && failure != null)
+    {
+      return AppLoadFailedRoom(error: failure, message: readableApiError(failure), onRetry: _load);
+    }
 
     if (_loaded && _updates.isEmpty)
     {

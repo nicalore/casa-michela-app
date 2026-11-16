@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
@@ -12,6 +11,7 @@ import '../../core/utils/error_message.dart';
 import '../../core/utils/rome_clock.dart';
 import '../../services/api_service.dart';
 import '../../shared/export/pdf_tab.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_section_tabs.dart';
@@ -74,7 +74,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   int _selectedSection = 0;
   bool _isLoading = true;
   bool _isGeneratingForm = false;
-  String? _errorMessage;
+  Object? _loadFailure;
   PersonItem? _person;
   MeResponse? _currentUser;
 
@@ -180,7 +180,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       setState(()
       {
         _isLoading = true;
-        _errorMessage = null;
+        _loadFailure = null;
       });
     }
 
@@ -197,6 +197,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           _accountController =
               person.hasAccount ? PersonAccountController(person.fiscalCode) : null;
           _isLoading = false;
+          _loadFailure = null;
 
           // A refresh can drop the selected section; fall back to the first.
           if (_selectedSection >= _sections.length)
@@ -225,12 +226,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
     catch (e)
     {
-      if (mounted && !quiet)
+      if (mounted && (!quiet || _person == null))
       {
         setState(()
         {
           _isLoading = false;
-          _errorMessage = readableApiError(e);
+          _loadFailure = e;
         });
       }
     }
@@ -596,18 +597,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
-    if (_errorMessage != null || _person == null)
+    if (_loadFailure != null || _person == null)
     {
-      return Center(
-        child: Text(
-          'Errore durante il caricamento. Riprova più tardi.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
+      return AppLoadFailedRoom(
+        error: _loadFailure,
+        message: 'Errore durante il caricamento. Riprova più tardi.',
+        onRetry: () => _fetchPersonData(quiet: true),
       );
     }
 

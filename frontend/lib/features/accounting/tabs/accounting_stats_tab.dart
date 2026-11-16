@@ -11,8 +11,8 @@ import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
-import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -77,7 +77,7 @@ class _AccountingStatsTabState extends State<AccountingStatsTab>
 
   String _period = _shownPeriod;
   AccountingStats? _data;
-  String? _error;
+  Object? _error;
 
   // Lordo, netto, ritenute.
   int _payView = 0;
@@ -130,7 +130,7 @@ class _AccountingStatsTabState extends State<AccountingStatsTab>
         return;
       }
 
-      setState(() => _error = readableApiError(error));
+      setState(() => _error = error);
     }
   }
 
@@ -182,12 +182,14 @@ class _AccountingStatsTabState extends State<AccountingStatsTab>
   Widget build(BuildContext context)
   {
     final AccountingStats? data = _data;
-    final String? error = _error;
+    final Object? error = _error;
 
     final Widget body = switch ((data, error))
     {
-      (_, final String message) when data == null => AppEmptyRoom(
-          card: AppEmptyCard(icon: Icons.error_outline_rounded, message: message),
+      (_, final Object failure) when data == null => AppLoadFailedRoom(
+          error: failure,
+          message: readableApiError(failure),
+          onRetry: _load,
         ),
       (final AccountingStats stats, _) => _StatsBody(
           stats: stats,

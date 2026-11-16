@@ -8,6 +8,7 @@ import '../../layout/mobile_breakpoints.dart';
 import '../../shared/mobile_links.dart';
 import '../../shared/widgets/mobile_flow_page.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_password_fields.dart';
@@ -34,6 +35,9 @@ class _MobileResetPasswordPageState extends State<MobileResetPasswordPage>
   final ApiService _apiService = ApiService();
 
   bool _checking = true;
+
+  // No answer while checking the link: it may still be good, so the page stays and offers a retry.
+  Object? _checkFailure;
   bool _busy = false;
   bool _leaving = false;
 
@@ -60,14 +64,22 @@ class _MobileResetPasswordPageState extends State<MobileResetPasswordPage>
 
       if (mounted)
       {
-        setState(() => _checking = false);
+        setState(()
+        {
+          _checking = false;
+          _checkFailure = null;
+        });
       }
     }
     catch (e)
     {
-      if (mounted)
+      if (mounted && isConnectionFailure(e))
       {
-        _leave(notice: isConnectionFailure(e) ? connectionFailureMessage : _invalidLink, error: true);
+        setState(() => _checkFailure = e);
+      }
+      else if (mounted)
+      {
+        _leave(notice: _invalidLink, error: true);
       }
     }
   }
@@ -187,7 +199,9 @@ class _MobileResetPasswordPageState extends State<MobileResetPasswordPage>
             const SizedBox(height: 22),
             MobileLoadSwitcher(
               child: _checking
-                  ? const MobileWaiting()
+                  ? (_checkFailure == null
+                      ? const MobileWaiting()
+                      : MobileLoadFailed(error: _checkFailure, message: _invalidLink, onRetry: _check, tablet: tablet))
                   : MobileGlassPanel(
                       child: AutofillGroup(
                         onDisposeAction: AutofillContextAction.cancel,

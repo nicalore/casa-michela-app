@@ -18,6 +18,7 @@ import '../../shared/widgets/mobile_choice_sheet.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_filter_chip.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_current_card.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
@@ -54,7 +55,7 @@ class _MobileReportsPageState extends State<MobileReportsPage>
   final GlobalKey _switcher = GlobalKey();
 
   ReportKind? _kind;
-  String? _failure;
+  Object? _failure;
   bool _opening = false;
 
   @override
@@ -79,7 +80,7 @@ class _MobileReportsPageState extends State<MobileReportsPage>
     {
       if (mounted)
       {
-        setState(() => _failure = readableApiError(e));
+        setState(() => _failure = e);
       }
     }
   }
@@ -134,23 +135,6 @@ class _MobileReportsPageState extends State<MobileReportsPage>
     }
   }
 
-  Widget _status(String text)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-          color: Colors.white.withValues(alpha: 0.75),
-        ),
-      ),
-    );
-  }
-
   Widget _cards(List<ReportItem> reports, {required bool tablet, required double margin})
   {
     final double room = MediaQuery.sizeOf(context).width - margin * 2;
@@ -187,11 +171,20 @@ class _MobileReportsPageState extends State<MobileReportsPage>
 
   Widget _body({required bool tablet, required double margin})
   {
-    final String? failure = _failure;
+    final Object? failure = _failure;
 
     if (!_board.loaded)
     {
-      return failure == null ? const MobileWaiting() : _status(failure);
+      return failure == null
+          ? const MobileWaiting()
+          : Center(
+              child: MobileLoadFailed(
+                error: failure,
+                message: readableApiError(failure),
+                onRetry: _load,
+                tablet: tablet,
+              ),
+            );
     }
 
     final List<ReportItem> reports = _shown;
@@ -280,8 +273,8 @@ class _MobileReportsPageState extends State<MobileReportsPage>
                     ],
                   ),
                 ),
-                // Nothing to solve: the card stands in the middle of the room left.
-                if (_board.loaded && _shown.isEmpty)
+                // Nothing to solve, or nothing read: the card stands in the middle of the room left.
+                if (_board.loaded ? _shown.isEmpty : _failure != null)
                   SliverFillRemaining(hasScrollBody: false, child: Padding(padding: sides, child: body))
                 else
                   SliverPadding(padding: sides, sliver: SliverToBoxAdapter(child: body)),

@@ -9,6 +9,7 @@ import '../../core/utils/error_message.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_empty_card.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_section_tabs.dart' show AppTitleMenu;
@@ -71,6 +72,8 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
   final GlobalKey _sheetKey = GlobalKey();
 
   bool _isLoading = true;
+  bool _failed = false;
+  Object? _loadFailure;
 
   List<PersonItem> _students = [];
 
@@ -113,6 +116,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
       {
         _students = students;
         _isLoading = false;
+        _failed = false;
 
         if (!students.any((student) => student.fiscalCode == _selectedCode))
         {
@@ -131,12 +135,13 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
         return;
       }
 
-      setState(() => _isLoading = false);
-
-      if (!quiet)
+      // A refresh that fails keeps what is shown.
+      setState(()
       {
-        CustomSnackBar.show(context: context, message: kLoadFailed, isError: true);
-      }
+        _isLoading = false;
+        _failed = !quiet || _students.isEmpty;
+        _loadFailure = error;
+      });
     }
   }
 
@@ -424,6 +429,11 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     if (_isLoading)
     {
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+    }
+
+    if (_failed)
+    {
+      return AppLoadFailedRoom(error: _loadFailure, message: kLoadFailed, onRetry: _load);
     }
 
     const Widget none = Center(

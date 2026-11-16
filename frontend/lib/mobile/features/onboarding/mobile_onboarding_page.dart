@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
@@ -15,6 +14,7 @@ import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
 import '../../shared/widgets/mobile_flow_page.dart';
 import '../../shared/widgets/mobile_info_sheet.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
@@ -52,6 +52,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
 
   bool _loading = true;
   bool _failed = false;
+  Object? _loadFailure;
   bool _busy = false;
   bool _leaving = false;
 
@@ -114,6 +115,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
         );
         _index = _start;
         _loading = false;
+        _failed = false;
       });
 
       // The changed-documents page says it all on the page, with no (i).
@@ -132,6 +134,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
         {
           _loading = false;
           _failed = true;
+          _loadFailure = e;
         });
       }
     }
@@ -657,6 +660,8 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
               waiting: _loading,
               capsule: _loading ? null : _buildCapsule(),
               tablet: tablet,
+              error: _loadFailure,
+              onRetry: _load,
             ),
     );
 
@@ -703,7 +708,16 @@ class _Status extends StatelessWidget
   final Widget? capsule;
   final bool tablet;
 
-  const _Status({required this.waiting, required this.capsule, required this.tablet});
+  final Object? error;
+  final Future<void> Function() onRetry;
+
+  const _Status({
+    required this.waiting,
+    required this.capsule,
+    required this.tablet,
+    required this.error,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context)
@@ -724,14 +738,9 @@ class _Status extends StatelessWidget
                       dimension: 26,
                       child: CircularProgressIndicator(strokeWidth: 2.6, color: Colors.white),
                     )
-                  : Text(
-                      _loadFailed,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.84),
-                      ),
+                  : ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: MobileNavSheet.tabletWidth),
+                      child: MobileLoadFailed(error: error, message: _loadFailed, onRetry: onRetry, tablet: tablet),
                     ),
             ),
           ),

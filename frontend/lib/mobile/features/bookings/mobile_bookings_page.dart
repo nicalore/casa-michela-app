@@ -41,6 +41,7 @@ import '../../shared/widgets/mobile_filter_chip.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
 import '../../shared/widgets/mobile_info_button.dart';
 import '../../shared/widgets/mobile_info_sheet.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
@@ -113,6 +114,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
 
   bool _loading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   // Set once the page is in place; from then on every load and page change looks for a tour.
   bool _toured = false;
@@ -490,6 +492,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
       {
         _loading = false;
         _failed = !quiet || _pupils.isEmpty;
+        _loadFailure = e;
       });
     }
   }
@@ -1001,7 +1004,9 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
 
     if (_failed)
     {
-      return const _Status(kBookingsLoadFailed);
+      return Center(
+        child: MobileLoadFailed(error: _loadFailure, message: kBookingsLoadFailed, onRetry: _load, tablet: tablet),
+      );
     }
 
     if (pupil == null)
@@ -1079,10 +1084,10 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
     );
   }
 
-  // Whether the week shows the empty card alone.
+  // Whether the week shows the empty or failed card alone.
   bool _isEmptyWeek(int index)
   {
-    return !(index == 1 && !isNextWeekUnlocked(_now)) && !_loading && !_failed && _pupil == null;
+    return !(index == 1 && !isNextWeekUnlocked(_now)) && !_loading && (_failed || _pupil == null);
   }
 
   // Margin inside the scroll view so card shadows are not clipped while paging.
@@ -1274,31 +1279,6 @@ class _LockedWeek extends StatelessWidget
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Status extends StatelessWidget
-{
-  final String text;
-
-  const _Status(this.text);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-          color: Colors.white.withValues(alpha: 0.75),
-        ),
       ),
     );
   }

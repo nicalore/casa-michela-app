@@ -12,6 +12,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_field_label.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_month_button.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/descender_room.dart';
@@ -20,6 +21,7 @@ import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/whole_words.dart';
+import '../../association/association_strings.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/tabs/opening_hours/calendar_bounds.dart';
 import '../../bookings/widgets/booking_day_row.dart' show BookingTodayPill;
@@ -299,6 +301,7 @@ class _PersonBookingHistoryTabState extends State<PersonBookingHistoryTab>
   Set<DateTime> _booked = const {};
 
   bool _fetching = true;
+  Object? _loadFailure;
 
   // Only the last month asked for may land: the arrows can outrun the answers.
   int _asked = 0;
@@ -329,6 +332,7 @@ class _PersonBookingHistoryTabState extends State<PersonBookingHistoryTab>
         {
           _shown = shown;
           _fetching = false;
+          _loadFailure = null;
         });
       }
     }
@@ -343,8 +347,8 @@ class _PersonBookingHistoryTabState extends State<PersonBookingHistoryTab>
       {
         _shown = null;
         _fetching = false;
+        _loadFailure = error;
       });
-      CustomSnackBar.show(context: context, message: readableApiError(error), isError: true);
     }
   }
 
@@ -522,6 +526,7 @@ class _PersonBookingHistoryTabState extends State<PersonBookingHistoryTab>
   Widget build(BuildContext context)
   {
     final BookingHistoryMonth? shown = _shown;
+    final Object? failure = _loadFailure;
     final bool dense = AppBreakpoints.of(context).isDense;
     final _Sizes sizes = _Sizes.of(context);
     final double gap = personCardGap(context);
@@ -561,7 +566,9 @@ class _PersonBookingHistoryTabState extends State<PersonBookingHistoryTab>
                         duration: _fetchFade,
                         opacity: _fetching ? _fetchingOpacity : 1,
                         child: _buildMonth(shown, sizes, gap),
-                      ),
+                      )
+                    else if (failure != null)
+                      AppLoadFailedRoom(error: failure, message: kAssociationLoadFailed, onRetry: _load),
                   ]),
                 ),
               ),

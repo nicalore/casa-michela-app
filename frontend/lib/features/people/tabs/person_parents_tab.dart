@@ -6,6 +6,7 @@ import '../../../core/utils/error_message.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
@@ -23,6 +24,8 @@ import '../models/person_item.dart';
 import '../widgets/authorized_pickup_dialog.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/relative_card.dart';
+
+const String _peopleLoadFailed = 'Impossibile caricare le anagrafiche dal server.';
 
 const int _adultAge = 18;
 const int _maxParentsPerPerson = 2;
@@ -426,6 +429,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
   late Map<String, ParentalRelationshipDraft> _selected;
 
   bool _isLoading = true;
+  Object? _loadFailure;
   List<PersonItem> _candidates = [];
   String _searchText = '';
   _ParentSort _sort = _ParentSort.surnameAsc;
@@ -471,14 +475,19 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
         {
           _candidates = allPeople.where(_isCandidate).toList();
           _isLoading = false;
+          _loadFailure = null;
         });
       }
     }
-    catch (_)
+    catch (e)
     {
       if (mounted)
       {
-        setState(() => _isLoading = false);
+        setState(()
+        {
+          _isLoading = false;
+          _loadFailure = e;
+        });
       }
     }
   }
@@ -582,6 +591,11 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );
+    }
+
+    if (_loadFailure != null)
+    {
+      return Center(child: AppLoadFailedPanel(error: _loadFailure, message: _peopleLoadFailed, onRetry: _loadCandidates));
     }
 
     if (candidates.isEmpty)

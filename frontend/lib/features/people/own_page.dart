@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
@@ -11,6 +10,7 @@ import '../../core/utils/error_message.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_gradient_button.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_section_tabs.dart';
@@ -122,6 +122,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
 
   bool _isLoading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   PersonItem? _person;
 
@@ -271,10 +272,12 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
         return;
       }
 
+      // A refresh that fails keeps what is shown.
       setState(()
       {
         _isLoading = false;
-        _failed = true;
+        _failed = _person == null;
+        _loadFailure = e;
       });
     }
   }
@@ -432,22 +435,6 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
     );
   }
 
-  Widget _buildNotice(String message)
-  {
-    return Center(
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          color: AppTheme.trialMutedText,
-        ),
-      ),
-    );
-  }
-
   Widget _buildBody(AppWindowSize size)
   {
     if (_isLoading)
@@ -459,7 +446,11 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
 
     if (_failed || person == null)
     {
-      return _buildNotice('Non è stato possibile caricare i tuoi dati.');
+      return AppLoadFailedRoom(
+        error: _loadFailure,
+        message: 'Non è stato possibile caricare i tuoi dati.',
+        onRetry: _load,
+      );
     }
 
     final List<OwnPageSection> sections = _sections;

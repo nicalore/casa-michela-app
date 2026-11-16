@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_page_container.dart';
 import '../../../shared/utils/day_marks.dart';
 import '../../../shared/widgets/app_calendar_button.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
@@ -317,7 +318,7 @@ class CalendarPageShell extends StatelessWidget
     final Widget content = body(isNarrow);
 
     // Alone on the page, the notice stands in the middle of the room left.
-    if (intro == null && content is CalendarEmptyBand)
+    if (intro == null && (content is CalendarEmptyBand || content is AppLoadFailedRoom))
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -461,33 +462,6 @@ class CalendarLoading extends StatelessWidget
     return const Padding(
       padding: EdgeInsets.only(top: 60),
       child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
-    );
-  }
-}
-
-class CalendarNote extends StatelessWidget
-{
-  final String text;
-
-  const CalendarNote(this.text, {super.key});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(top: 40),
-      child: Center(
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            fontStyle: FontStyle.italic,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
-      ),
     );
   }
 }

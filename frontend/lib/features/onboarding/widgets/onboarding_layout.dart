@@ -10,6 +10,7 @@ import '../../../core/utils/error_message.dart';
 import '../../../routing/app_router.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/corner_glow.dart';
 import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -79,7 +80,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   bool _isLoading = true;
   bool _isFinishing = false;
   bool _isLeaving = false;
-  String? _errorMessage;
+  Object? _loadFailure;
 
   MeResponse? _me;
   PersonItem? _person;
@@ -139,6 +140,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
           onboarding: me.onboardingRequired,
         );
         _isLoading = false;
+        _loadFailure = null;
       });
     }
     catch (e)
@@ -147,7 +149,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       {
         setState(()
         {
-          _errorMessage = readableApiError(e);
+          _loadFailure = e;
           _isLoading = false;
         });
       }
@@ -756,18 +758,12 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTealDeep));
     }
 
-    if (_errorMessage != null || _person == null || _steps.isEmpty)
+    if (_loadFailure != null || _person == null || _steps.isEmpty)
     {
-      return Center(
-        child: Text(
-          _errorMessage ?? 'Non è stato possibile aprire il primo accesso.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
+      return AppLoadFailedRoom(
+        error: _loadFailure,
+        message: 'Non è stato possibile aprire il primo accesso.',
+        onRetry: _load,
       );
     }
 

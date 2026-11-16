@@ -11,6 +11,7 @@ import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/utils/day_marks.dart';
 import '../../shared/widgets/app_filter_pill.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/filter_menu.dart';
 import '../../shared/widgets/page_transition.dart';
@@ -91,6 +92,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
   bool _isLoading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   // The person is read before the dialog opens; a second click meanwhile is dropped.
   bool _isOpeningLesson = false;
@@ -382,6 +384,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
       {
         _isLoading = false;
         _failed = !quiet || _failed;
+        _loadFailure = e;
       });
     }
   }
@@ -654,7 +657,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
     if (_failed)
     {
-      return const CalendarNote(kCalendarLoadFailed);
+      return AppLoadFailedRoom(error: _loadFailure, message: kCalendarLoadFailed, onRetry: _loadDay);
     }
 
     if (unionOpeningWindow(_openingDays, _day, _band) == null)

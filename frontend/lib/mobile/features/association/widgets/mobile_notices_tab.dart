@@ -20,6 +20,7 @@ import '../../../shared/widgets/mobile_choice_sheet.dart';
 import '../../../shared/widgets/mobile_current_card.dart';
 import '../../../shared/widgets/mobile_filter_chip.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
+import '../../../shared/widgets/mobile_load_failed.dart';
 import '../../../shared/widgets/mobile_load_switcher.dart';
 import '../../../shared/widgets/mobile_month_picker.dart';
 import '../../../shared/widgets/mobile_nav_sheet.dart';
@@ -28,7 +29,6 @@ import '../../../shared/widgets/mobile_swipe_page.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_association_tour.dart';
 import '../mobile_notices_board.dart';
-import 'mobile_association_status.dart';
 import 'mobile_notice_sheet.dart';
 
 const double _radius = 22;
@@ -356,7 +356,17 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
 
     if (_board.failed)
     {
-      return _tourNotices(const MobileAssociationStatus(kAssociationLoadFailed));
+      return Center(
+        child: _tourNotices(
+          MobileLoadFailed(
+            error: _board.failure,
+            message: kAssociationLoadFailed,
+            onRetry: _board.load,
+            tablet: widget.tablet,
+          ),
+          radius: MobileGlassPanel.cardRadius.topLeft.x + _tourCardInflate.top,
+        ),
+      );
     }
 
     final List<NoticeSummaryItem> notices = _board.shown;
@@ -455,7 +465,7 @@ class _MobileNoticesTabState extends State<MobileNoticesTab>
               padding: EdgeInsets.symmetric(horizontal: widget.margin),
               child: _buildBody(),
             ),
-            fill: !_board.loading && !_board.failed && _board.shown.isEmpty,
+            fill: !_board.loading && (_board.failed || _board.shown.isEmpty),
             tail: const [MobileTourRunway()],
           ),
         ),

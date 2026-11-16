@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../services/api_service.dart';
+import '../../../../shared/widgets/app_load_failed.dart';
 import '../../../../shared/widgets/page_transition.dart';
 import '../../../../shared/widgets/scroll_edge_fade.dart';
+import '../../../association/association_strings.dart';
 import '../../models/current_totals_item.dart';
 import '../../models/member_trend_item.dart';
 import '../../models/retention_rate_item.dart';
@@ -28,6 +30,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   final ApiService _apiService = ApiService();
 
   bool _isLoading = true;
+  Object? _loadFailure;
   bool _isTrendLoading = false;
   bool _isCollabTrendLoading = false;
   bool _isRetentionLoading = false;
@@ -60,8 +63,6 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
 
   Future<void> _loadData() async
   {
-    setState(() => _isLoading = true);
-
     try
     {
       final collabRetentionFuture = _collabRetentionType == 'year'
@@ -99,9 +100,12 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
       );
       _retentionData = results[3] as RetentionRateItem;
       _collabRetentionData = results[4] as RetentionRateItem;
+      _loadFailure = null;
     }
-    catch (_)
-    {}
+    catch (e)
+    {
+      _loadFailure = e;
+    }
     finally
     {
       if (mounted)
@@ -481,6 +485,11 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     if (_isLoading)
     {
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+    }
+
+    if (_loadFailure != null)
+    {
+      return AppLoadFailedRoom(error: _loadFailure, message: kAssociationLoadFailed, onRetry: _loadData);
     }
 
     // Nested Navigator so this tab has its own Overlay for the filter menus.

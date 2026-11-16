@@ -11,6 +11,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/hover_gold_frame.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -90,7 +91,7 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
   int? _most = _shownMost;
 
   ToSettle? _data;
-  String? _error;
+  Object? _error;
 
   // A later answer drops an earlier one.
   int _request = 0;
@@ -145,7 +146,7 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
         return;
       }
 
-      setState(() => _error = readableApiError(error));
+      setState(() => _error = error);
     }
   }
 
@@ -273,12 +274,14 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
   {
     final bool dense = AppBreakpoints.of(context).isDense;
     final ToSettle? data = _data;
-    final String? error = _error;
+    final Object? error = _error;
 
     final Widget body = switch ((data, error))
     {
-      (_, final String message) when data == null => AppEmptyRoom(
-          card: AppEmptyCard(icon: Icons.error_outline_rounded, message: message),
+      (_, final Object failure) when data == null => AppLoadFailedRoom(
+          error: failure,
+          message: readableApiError(failure),
+          onRetry: _load,
         ),
       (final ToSettle list, _) => _body(list, dense),
       _ => const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),

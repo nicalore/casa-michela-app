@@ -7,6 +7,7 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/tabs/opening_hours/lost_calendars.dart';
@@ -24,6 +25,7 @@ class PersonAccountController extends ChangeNotifier
   // Null until the first answer.
   PersonAccountItem? account;
   bool failed = false;
+  Object? failure;
 
   Future<void>? _loading;
   bool _disposed = false;
@@ -32,15 +34,19 @@ class PersonAccountController extends ChangeNotifier
 
   Future<void> ensureLoaded() => _loading ??= _load();
 
+  Future<void> retry() => _loading = _load();
+
   Future<void> _load() async
   {
     try
     {
       account = await ApiService().getPersonAccount(fiscalCode);
+      failed = false;
     }
-    catch (_)
+    catch (e)
     {
       failed = true;
+      failure = e;
     }
 
     _notify();
@@ -85,7 +91,7 @@ Widget? accountPlaceholder(PersonAccountController controller)
 {
   if (controller.failed)
   {
-    return PersonEmptyState(message: kAccountLoadFailed);
+    return AppLoadFailedRoom(error: controller.failure, message: kAccountLoadFailed, onRetry: controller.retry);
   }
 
   if (controller.account == null)

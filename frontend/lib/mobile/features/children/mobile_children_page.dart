@@ -19,6 +19,7 @@ import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_filter_chip.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
@@ -96,6 +97,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
 
   bool _loading = true;
   bool _failed = false;
+  Object? _loadFailure;
   int _request = 0;
 
   // One controller moved from child to child, so period and ranking are kept.
@@ -278,6 +280,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
       {
         _loading = false;
         _failed = !quiet || _children.isEmpty;
+        _loadFailure = e;
       });
     }
   }
@@ -391,7 +394,14 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
                   child: _loading
                       ? const MobileWaiting()
                       : _failed
-                          ? const _Status('Non è stato possibile caricare i dati dei figli.')
+                          ? Center(
+                              child: MobileLoadFailed(
+                                error: _loadFailure,
+                                message: 'Non è stato possibile caricare i dati dei figli.',
+                                onRetry: _load,
+                                tablet: tablet,
+                              ),
+                            )
                           : Center(
                               child: MobileEmptyCard(
                                 icon: Icons.family_restroom_rounded,
@@ -401,7 +411,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
                             ),
                 ),
               ),
-              fill: !_loading && !_failed,
+              fill: !_loading,
             ),
           )
         // Never kept alive, which stalls the header; statistics load with their page.
@@ -690,30 +700,5 @@ class _ReportButton extends StatelessWidget
     return tablet
         ? Center(child: SizedBox(width: MobileNavSheet.tabletWidth, child: button))
         : button;
-  }
-}
-
-class _Status extends StatelessWidget
-{
-  final String text;
-
-  const _Status(this.text);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-          color: Colors.white.withValues(alpha: 0.75),
-        ),
-      ),
-    );
   }
 }

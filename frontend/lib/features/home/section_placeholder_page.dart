@@ -21,12 +21,16 @@ class SectionPlaceholderPage extends StatelessWidget
 
   final bool showNavigation;
 
+  // In place of the card made of title and description.
+  final Widget? content;
+
   const SectionPlaceholderPage({
     super.key,
     required this.currentRoute,
-    required this.title,
-    required this.description,
+    this.title = '',
+    this.description = '',
     this.showNavigation = true,
+    this.content,
   });
 
   @override
@@ -101,16 +105,17 @@ class _Body extends StatelessWidget
                 margin,
                 28,
               ),
-              child: Center(
-                child: PageTransitionItem(
-                  slot: PageTransitionItem.header,
-                  child: AppEmptyCard(
-                    icon: Icons.construction_rounded,
-                    message: page.title,
-                    detail: page.description,
+              child: page.content ??
+                  Center(
+                    child: PageTransitionItem(
+                      slot: PageTransitionItem.header,
+                      child: AppEmptyCard(
+                        icon: Icons.construction_rounded,
+                        message: page.title,
+                        detail: page.description,
+                      ),
+                    ),
                   ),
-                ),
-              ),
             ),
           ),
           AppTopBar(currentRoute: page.currentRoute, showNavigation: page.showNavigation),

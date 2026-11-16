@@ -14,9 +14,11 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../association/association_strings.dart';
 import '../../association/models/school_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../models/person_item.dart';
@@ -206,6 +208,9 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
   bool _isLoading = true;
   bool _isSaving = false;
 
+  // Until the catalogues arrive the rows are not built: saving then would drop the years on record.
+  Object? _loadFailure;
+
   List<SchoolItem> _allSchools = [];
   List<StudyProgramItem> _allPrograms = [];
 
@@ -259,14 +264,22 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
 
       if (mounted)
       {
-        setState(() => _isLoading = false);
+        setState(()
+        {
+          _isLoading = false;
+          _loadFailure = null;
+        });
       }
     }
-    catch (_)
+    catch (e)
     {
       if (mounted)
       {
-        setState(() => _isLoading = false);
+        setState(()
+        {
+          _isLoading = false;
+          _loadFailure = e;
+        });
       }
     }
   }
@@ -376,6 +389,22 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
 
   Future<void> _save() async
   {
+    if (_isLoading)
+    {
+      return;
+    }
+
+    if (_loadFailure != null)
+    {
+      CustomSnackBar.show(
+        context: context,
+        message: loadFailureSentence(_loadFailure, kAssociationLoadFailed),
+        isError: true,
+      );
+
+      return;
+    }
+
     if (_rows.isEmpty)
     {
       CustomSnackBar.show(
@@ -481,6 +510,10 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                   child: Center(
                     child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
                   ),
+                )
+              : _loadFailure != null
+              ? Center(
+                  child: AppLoadFailedPanel(error: _loadFailure, message: kAssociationLoadFailed, onRetry: _loadData),
                 )
               : Column(
                   mainAxisSize: MainAxisSize.min,

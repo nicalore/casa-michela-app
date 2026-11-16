@@ -20,6 +20,7 @@ class MobileTeachersDirectory extends ChangeNotifier
 
   bool loading = true;
   bool failed = false;
+  Object? failure;
 
   List<PersonItem> _teachers = const [];
   List<OpinionPupil> _pupils = const [];
@@ -78,6 +79,7 @@ class MobileTeachersDirectory extends ChangeNotifier
       // A refresh that fails keeps what is shown.
       loading = false;
       failed = !quiet || _teachers.isEmpty;
+      failure = e;
     }
 
     notifyListeners();

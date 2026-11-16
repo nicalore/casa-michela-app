@@ -7,6 +7,7 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -46,6 +47,7 @@ class _DevicesTabState extends State<DevicesTab>
   // Null while loading.
   List<SessionItem>? _sessions;
   bool _failed = false;
+  Object? _loadFailure;
   final Set<String> _revoking = {};
   bool _revokingOthers = false;
 
@@ -64,14 +66,22 @@ class _DevicesTabState extends State<DevicesTab>
 
       if (mounted)
       {
-        setState(() => _sessions = sessions);
+        setState(()
+        {
+          _sessions = sessions;
+          _failed = false;
+        });
       }
     }
-    catch (_)
+    catch (e)
     {
       if (mounted)
       {
-        setState(() => _failed = true);
+        setState(()
+        {
+          _failed = true;
+          _loadFailure = e;
+        });
       }
     }
   }
@@ -223,27 +233,12 @@ class _DevicesTabState extends State<DevicesTab>
   {
     final sessions = _sessions;
 
-    // Part of the section handover, else these paint over the section still leaving.
     if (_failed)
     {
-      return PageTransitionItem(
-        slot: PageTransitionItem.header,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 40.0),
-            child: Text(
-              kSessionsLoadFailed,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.trialMutedText,
-              ),
-            ),
-          ),
-        ),
-      );
+      return AppLoadFailedRoom(error: _loadFailure, message: kSessionsLoadFailed, onRetry: _fetchSessions);
     }
 
+    // Part of the section handover, else it paints over the section still leaving.
     if (sessions == null)
     {
       return const PageTransitionItem(

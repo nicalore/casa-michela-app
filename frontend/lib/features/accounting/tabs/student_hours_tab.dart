@@ -15,6 +15,7 @@ import '../../../shared/widgets/app_add_row_button.dart';
 import '../../../shared/widgets/app_calendar_button.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/page_heading.dart';
@@ -74,7 +75,7 @@ class _StudentHoursTabState extends State<StudentHoursTab> with DestinationRefre
 
   List<OpeningDayItem> _openings = const [];
   StudentHoursBand? _data;
-  String? _error;
+  Object? _error;
   bool _busy = false;
   bool _exporting = false;
 
@@ -199,7 +200,7 @@ class _StudentHoursTabState extends State<StudentHoursTab> with DestinationRefre
         return;
       }
 
-      setState(() => _error = readableApiError(error));
+      setState(() => _error = error);
     }
   }
 
@@ -680,12 +681,14 @@ class _StudentHoursTabState extends State<StudentHoursTab> with DestinationRefre
   {
     final bool dense = AppBreakpoints.of(context).isDense;
     final StudentHoursBand? data = _data;
-    final String? error = _error;
+    final Object? error = _error;
 
     final Widget body = switch ((data, error))
     {
-      (_, final String message) when data == null => AppEmptyRoom(
-          card: AppEmptyCard(icon: Icons.error_outline_rounded, message: message),
+      (_, final Object failure) when data == null => AppLoadFailedRoom(
+          error: failure,
+          message: readableApiError(failure),
+          onRetry: _load,
         ),
       (final StudentHoursBand band, _) => _buildBody(band, dense),
       _ => const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),

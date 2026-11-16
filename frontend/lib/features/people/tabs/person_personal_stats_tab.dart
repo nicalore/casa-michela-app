@@ -8,10 +8,12 @@ import '../../../core/utils/week_range.dart' show formatMinutes;
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
+import '../../association/association_strings.dart';
 import '../../lessons/utils/opening_window.dart' show kOnlineMode, kPresenceMode;
 import '../models/member_trend_item.dart';
 import '../models/person_item.dart';
@@ -118,6 +120,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
   final ApiService _apiService = ApiService();
 
   bool _isLoading = true;
+  Object? _loadFailure;
   TeacherPersonalStatisticsItem? _teacherStats;
   TeacherAppreciationStatisticsItem? _appreciationStats;
   StudentPersonalStatisticsItem? _studentStats;
@@ -153,8 +156,6 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
 
   Future<void> _loadAll() async
   {
-    setState(() => _isLoading = true);
-
     await Future.wait([
       if (_isTeacher) _loadTeacherStats(),
       if (_isTeacher && !widget.forOwner) _loadAppreciationStats(),
@@ -188,7 +189,10 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
         setState(() => _teacherStats = data);
       }
     }
-    catch (_) {}
+    catch (e)
+    {
+      _loadFailure = e;
+    }
     finally
     {
       if (mounted)
@@ -218,7 +222,10 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
         setState(() => _appreciationStats = data);
       }
     }
-    catch (_) {}
+    catch (e)
+    {
+      _loadFailure = e;
+    }
     finally
     {
       if (mounted)
@@ -254,7 +261,10 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
         });
       }
     }
-    catch (_) {}
+    catch (e)
+    {
+      _loadFailure = e;
+    }
     finally
     {
       if (mounted)
@@ -336,6 +346,12 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
     ];
 
     final Widget? footer = widget.footer;
+
+    // Set by any part's failed read; it matters only while nothing is on show.
+    if (cards.isEmpty && _loadFailure != null)
+    {
+      return AppLoadFailedRoom(error: _loadFailure, message: kAssociationLoadFailed, onRetry: _loadAll);
+    }
 
     if (cards.isEmpty)
     {

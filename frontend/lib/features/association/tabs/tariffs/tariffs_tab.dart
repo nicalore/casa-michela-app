@@ -8,10 +8,10 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/money.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_load_failed.dart';
 import '../../../../shared/widgets/page_density.dart';
 import '../../../../shared/widgets/page_transition.dart';
 import '../../../../shared/widgets/shared_components.dart';
-import '../../../../shared/widgets/snackbar.dart';
 import '../../models/standard_tariffs_item.dart';
 import '../opening_hours/mode_hours_parts.dart' show measureText;
 import 'tariff_dialogs.dart';
@@ -86,6 +86,7 @@ class _TariffsTabState extends State<TariffsTab>
 {
   StandardTariffsItem? _tariffs;
   bool _loading = true;
+  Object? _loadFailure;
 
   @override
   void initState()
@@ -109,15 +110,18 @@ class _TariffsTabState extends State<TariffsTab>
         });
       }
     }
-    catch (_)
+    catch (e)
     {
       if (!mounted)
       {
         return;
       }
 
-      setState(() => _loading = false);
-      CustomSnackBar.show(context: context, message: kTariffsLoadFailed, isError: true);
+      setState(()
+      {
+        _loading = false;
+        _loadFailure = e;
+      });
     }
   }
 
@@ -154,7 +158,7 @@ class _TariffsTabState extends State<TariffsTab>
 
     if (tariffs == null)
     {
-      return const SizedBox.shrink();
+      return AppLoadFailedRoom(error: _loadFailure, message: kTariffsLoadFailed, onRetry: _load);
     }
 
     return AppPageDensity(

@@ -33,6 +33,7 @@ import '../../shared/widgets/mobile_choice_sheet.dart';
 import '../../shared/widgets/mobile_date_capsule.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_filter_chip.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_month_picker.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
@@ -135,6 +136,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
   bool _loading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   MobilePupilCalendarDay? _data;
 
@@ -628,6 +630,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
       {
         _loading = false;
         _failed = !quiet || _failed;
+        _loadFailure = e;
       });
     }
   }
@@ -857,7 +860,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
 
     if (_failed || data == null)
     {
-      return const _Status(kCalendarLoadFailed);
+      return MobileLoadFailed(error: _loadFailure, message: kCalendarLoadFailed, onRetry: _load, tablet: tablet);
     }
 
     if (data.closed)
@@ -1303,7 +1306,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
   // Margin inside the scroll view so card shadows are not clipped while paging.
   Widget _scrollable(Widget child, {required double side, required double bottom})
   {
-    final bool centred = child is MobileEmptyCard || child is MobileWaiting;
+    final bool centred = child is MobileEmptyCard || child is MobileWaiting || child is MobileLoadFailed;
 
     return MobileSwipePage(
       child: RefreshIndicator(
@@ -1340,28 +1343,3 @@ typedef _Present = ({int? nowMinutes, bool pastDay, Key? nowKey});
 
 // What a tour lights in a band: the children's summary, and its lesson.
 typedef _BandTour = ({String cards, LessonItem? lesson, String lessonId});
-
-class _Status extends StatelessWidget
-{
-  final String text;
-
-  const _Status(this.text);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-          color: Colors.white.withValues(alpha: 0.75),
-        ),
-      ),
-    );
-  }
-}

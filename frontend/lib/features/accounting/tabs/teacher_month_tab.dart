@@ -16,6 +16,7 @@ import '../../../services/api_service.dart';
 import '../../../shared/export/file_download.dart';
 import '../../../shared/export/pdf_tab.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_month_button.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/page_heading.dart';
@@ -64,7 +65,7 @@ class _TeacherMonthTabState extends State<TeacherMonthTab> with DestinationRefre
   late DateTime _month = _shownMonth ?? _thisMonth;
 
   TeacherMonth? _data;
-  String? _error;
+  Object? _error;
 
   // Rules picked and not saved yet: leaving the screen drops them.
   final Map<String, VolunteeringRule> _chosen = {};
@@ -136,7 +137,7 @@ class _TeacherMonthTabState extends State<TeacherMonthTab> with DestinationRefre
         return;
       }
 
-      setState(() => _error = readableApiError(error));
+      setState(() => _error = error);
     }
   }
 
@@ -602,12 +603,14 @@ class _TeacherMonthTabState extends State<TeacherMonthTab> with DestinationRefre
   {
     final bool dense = AppBreakpoints.of(context).isDense;
     final TeacherMonth? data = _data;
-    final String? error = _error;
+    final Object? error = _error;
 
     final Widget body = switch ((data, error))
     {
-      (_, final String message) when data == null => AppEmptyRoom(
-          card: AppEmptyCard(icon: Icons.error_outline_rounded, message: message),
+      (_, final Object failure) when data == null => AppLoadFailedRoom(
+          error: failure,
+          message: readableApiError(failure),
+          onRetry: _load,
         ),
       (final TeacherMonth month, _) => _buildBody(month, dense),
       _ => const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),

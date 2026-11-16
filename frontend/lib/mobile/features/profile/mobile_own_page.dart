@@ -27,6 +27,7 @@ import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_info_button.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
@@ -100,6 +101,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
 
   bool _loading = true;
   bool _failed = false;
+  Object? _loadFailure;
   int _request = 0;
 
   // They outlive the pages that display them.
@@ -288,6 +290,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
       {
         _loading = false;
         _failed = !quiet || _person == null;
+        _loadFailure = e;
       });
     }
   }
@@ -467,13 +470,25 @@ class _MobileOwnPageState extends State<MobileOwnPage>
     final Widget body = person == null
         ? _scrollable(
             bottom: bar + _handleClearance,
+            fill: true,
             children: [
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: margin),
                 child: MobileLoadSwitcher(
+                  waiting: _loading,
+                  // A column keeps the spinner at the top of the filled room.
                   child: _loading
-                      ? const MobileWaiting()
-                      : _Status(_failed ? 'Non è stato possibile caricare i tuoi dati.' : ''),
+                      ? const Column(children: [MobileWaiting()])
+                      : _failed
+                          ? Center(
+                              child: MobileLoadFailed(
+                                error: _loadFailure,
+                                message: 'Non è stato possibile caricare i tuoi dati.',
+                                onRetry: _load,
+                                tablet: tablet,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                 ),
               ),
             ],
@@ -883,31 +898,6 @@ class _RolePill extends StatelessWidget
           fontWeight: FontWeight.w800,
           letterSpacing: 1,
           color: Colors.white,
-        ),
-      ),
-    );
-  }
-}
-
-class _Status extends StatelessWidget
-{
-  final String text;
-
-  const _Status(this.text);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-          color: Colors.white.withValues(alpha: 0.75),
         ),
       ),
     );

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
@@ -9,6 +8,7 @@ import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_gradient_button.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_menu.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
@@ -102,6 +102,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
 
   bool _isLoading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   List<PersonItem> _children = [];
 
@@ -307,6 +308,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
       {
         _isLoading = false;
         _failed = !quiet || _children.isEmpty;
+        _loadFailure = e;
       });
     }
   }
@@ -429,22 +431,6 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
     );
   }
 
-  Widget _buildNotice(String message)
-  {
-    return Center(
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          color: AppTheme.trialMutedText,
-        ),
-      ),
-    );
-  }
-
   Widget _buildBody(AppWindowSize size)
   {
     if (_isLoading)
@@ -454,7 +440,11 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
 
     if (_failed)
     {
-      return _buildNotice('Non è stato possibile caricare i dati dei figli.');
+      return AppLoadFailedRoom(
+        error: _loadFailure,
+        message: 'Non è stato possibile caricare i dati dei figli.',
+        onRetry: _load,
+      );
     }
 
     if (_children.isEmpty)

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -23,6 +24,7 @@ import '../../shared/widgets/mobile_confirm_sheet.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
 import '../../shared/widgets/mobile_info_button.dart';
 import '../../shared/widgets/mobile_info_sheet.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
@@ -82,6 +84,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
 
   bool _loading = true;
   bool _failed = false;
+  Object? _loadFailure;
   bool _deleting = false;
 
   // Set once the page is in place; from then on every load and page change looks for a tour.
@@ -338,6 +341,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
       {
         _loading = false;
         _failed = !quiet || _taxCode == null;
+        _loadFailure = e;
       });
     }
   }
@@ -579,7 +583,12 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
 
     if (_failed)
     {
-      return const _Status('Non è stato possibile caricare le disponibilità.');
+      return MobileLoadFailed(
+        error: _loadFailure,
+        message: 'Non è stato possibile caricare le disponibilità.',
+        onRetry: _load,
+        tablet: tablet,
+      );
     }
 
     // A tour lights the first button of each kind, the first lock, and every coloured slot.
@@ -672,22 +681,42 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   // Margin inside the scroll view so card shadows are not clipped while paging.
   Widget _scrollable(Widget child, {required double side, required double bottom})
   {
+    final bool centred = child is MobileLoadFailed;
+
     return MobileSwipePage(
       child: RefreshIndicator(
         color: AppTheme.trialGold,
         backgroundColor: AppTheme.trialDeepWater,
         onRefresh: () => _load(quiet: true),
-        child: SingleChildScrollView(
-          clipBehavior: Clip.none,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(side, _topRoom, side, bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              MobileLoadSwitcher(child: child),
-              const MobileTourRunway(),
-            ],
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            clipBehavior: Clip.none,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(side, _topRoom, side, bottom),
+            // Same tree either way, so the switcher still raises the failed card.
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: centred ? math.max(0, constraints.maxHeight - _topRoom - bottom) : 0,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  MobileLoadSwitcher(
+                    child: centred
+                        ? Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: MobileNavSheet.tabletWidth),
+                              child: child,
+                            ),
+                          )
+                        : child,
+                  ),
+                  const MobileTourRunway(),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -729,31 +758,6 @@ class _LockedWeek extends StatelessWidget
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Status extends StatelessWidget
-{
-  final String text;
-
-  const _Status(this.text);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-          color: Colors.white.withValues(alpha: 0.75),
-        ),
       ),
     );
   }

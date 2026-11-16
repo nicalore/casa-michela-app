@@ -17,7 +17,9 @@ import '../../shared/device_files.dart';
 import '../../shared/widgets/mobile_confirm_sheet.dart';
 import '../../shared/widgets/mobile_danger_button.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
+import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_gold_button.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
@@ -81,6 +83,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
   // Null while loading.
   List<SessionItem>? _sessions;
   bool _sessionsFailed = false;
+  Object? _sessionsFailure;
   int _sessionsRequest = 0;
 
   bool _revokingOthers = false;
@@ -184,7 +187,11 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
       }
 
       // A refresh that fails keeps what is shown.
-      setState(() => _sessionsFailed = !quiet || _sessions == null);
+      setState(()
+      {
+        _sessionsFailed = !quiet || _sessions == null;
+        _sessionsFailure = e;
+      });
     }
   }
 
@@ -400,12 +407,13 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
       ],
     );
 
-    Widget page(List<Widget> children, {Future<void> Function()? onRefresh})
+    Widget page(List<Widget> children, {Future<void> Function()? onRefresh, bool? fill})
     {
       return _SettingsPage(
         margin: margin,
         bottom: bottom,
         onRefresh: onRefresh,
+        fill: fill,
         children: children,
       );
     }
@@ -420,7 +428,11 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
           children: [
             page([MobileAppearanceCards(tablet: tablet)]),
             page(_buildAccess(tablet: tablet), onRefresh: _refreshAccount),
-            page(_buildDevices(tablet: tablet), onRefresh: () => _loadSessions(quiet: true)),
+            page(
+              _buildDevices(tablet: tablet),
+              onRefresh: () => _loadSessions(quiet: true),
+              fill: _sessions == null && _sessionsFailed,
+            ),
             page([MobileSystemCard(onTutorial: () => showMobileTutorialSheet(context: context, user: widget.user))]),
             page(_buildInfo(tablet: tablet)),
           ],
@@ -461,7 +473,19 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
     return [
       MobileLoadSwitcher(
         child: sessions == null
-            ? (_sessionsFailed ? const _Status(kSessionsLoadFailed) : const MobileWaiting())
+            ? (_sessionsFailed
+                ? Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: MobileNavSheet.tabletWidth),
+                      child: MobileLoadFailed(
+                        error: _sessionsFailure,
+                        message: kSessionsLoadFailed,
+                        onRetry: _loadSessions,
+                        tablet: tablet,
+                      ),
+                    ),
+                  )
+                : const MobileWaiting())
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -510,22 +534,31 @@ class _SettingsPage extends StatelessWidget
   final Future<void> Function()? onRefresh;
   final List<Widget> children;
 
+  // Set on a page of one child, which fills the room left when true.
+  final bool? fill;
+
   const _SettingsPage({
     required this.margin,
     required this.bottom,
     required this.onRefresh,
     required this.children,
+    this.fill,
   });
 
   @override
   Widget build(BuildContext context)
   {
-    final Widget list = ListView(
-      clipBehavior: Clip.none,
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(margin, _topRoom, margin, bottom),
-      children: children,
-    );
+    final EdgeInsets padding = EdgeInsets.fromLTRB(margin, _topRoom, margin, bottom);
+    final bool? fill = this.fill;
+
+    final Widget list = fill == null
+        ? ListView(
+            clipBehavior: Clip.none,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: padding,
+            children: children,
+          )
+        : MobileEmptyScroll(padding: padding, body: children.single, fill: fill);
 
     final Future<void> Function()? onRefresh = this.onRefresh;
 
@@ -553,30 +586,5 @@ class _ButtonWidth extends StatelessWidget
   Widget build(BuildContext context)
   {
     return tablet ? Center(child: SizedBox(width: MobileNavSheet.tabletWidth, child: child)) : child;
-  }
-}
-
-class _Status extends StatelessWidget
-{
-  final String text;
-
-  const _Status(this.text);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-          color: Colors.white.withValues(alpha: 0.75),
-        ),
-      ),
-    );
   }
 }

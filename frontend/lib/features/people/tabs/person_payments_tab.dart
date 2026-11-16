@@ -12,6 +12,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
@@ -65,7 +66,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
   StudentPaymentsItem? _payments;
 
   // Why the tab could not be read, shown in its place.
-  String? _error;
+  Object? _error;
 
   // The association's tariffs: what a change proposes and which kinds are turned off.
   StandardTariffsItem? _standard;
@@ -81,10 +82,12 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
   {
     try
     {
-      final (StudentPaymentsItem payments, StandardTariffsItem? standard) = await (
-        ApiService().getStudentPayments(widget.person.fiscalCode),
-        ApiService().getStandardTariffs().then<StandardTariffsItem?>((tariffs) => tariffs, onError: (_) => null),
-      ).wait;
+      // Both under way at once; the payments' own failure is what the tab reports.
+      final Future<StandardTariffsItem?> tariffs = ApiService()
+          .getStandardTariffs()
+          .then<StandardTariffsItem?>((tariffs) => tariffs, onError: (_) => null);
+      final StudentPaymentsItem payments = await ApiService().getStudentPayments(widget.person.fiscalCode);
+      final StandardTariffsItem? standard = await tariffs;
 
       if (mounted)
       {
@@ -92,6 +95,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
         {
           _payments = payments;
           _standard = standard;
+          _error = null;
         });
       }
     }
@@ -99,7 +103,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     {
       if (mounted)
       {
-        setState(() => _error = readableApiError(error));
+        setState(() => _error = error);
       }
     }
   }
@@ -435,11 +439,11 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     final _Metrics metrics = _Metrics.of(AppBreakpoints.of(context).isDense);
     final double gap = personCardGap(context);
 
-    final String? error = _error;
+    final Object? error = _error;
 
     if (payments == null && error != null)
     {
-      return AppEmptyRoom(card: AppEmptyCard(icon: Icons.error_outline_rounded, message: error));
+      return AppLoadFailedRoom(error: error, message: readableApiError(error), onRetry: _load);
     }
 
     if (payments == null)

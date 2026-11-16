@@ -16,6 +16,7 @@ import '../../services/api_service.dart';
 import '../../shared/widgets/app_dialog_footer.dart';
 import '../../shared/widgets/app_dialog_stack.dart';
 import '../../shared/widgets/app_gradient_button.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/carousel_arrow_button.dart';
@@ -77,6 +78,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
 
   bool _isLoading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   List<AvailabilityItem> _availabilities = [];
 
@@ -332,6 +334,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
       {
         _isLoading = false;
         _failed = !quiet || _availabilities.isEmpty;
+        _loadFailure = e;
       });
     }
   }
@@ -669,25 +672,6 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
       );
     }
 
-    if (_failed)
-    {
-      return Padding(
-        padding: const EdgeInsets.only(top: 40),
-        child: Center(
-          child: Text(
-            'Non è stato possibile caricare le disponibilità.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              fontStyle: FontStyle.italic,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-        ),
-      );
-    }
-
     final DateTime today = _today;
 
     // Each mark of the tour goes to the first day showing it.
@@ -788,15 +772,21 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
                               ),
                               SizedBox(height: size.isDense ? _denseHeaderGap : _headerGap),
                               Expanded(
-                                child: DesktopTourTarget(
-                                  id: kTourAvailabilityDays,
-                                  child: PageTransitionScrollView(
-                                    child: PageTransitionItem(
-                                      slot: PageTransitionItem.list,
-                                      child: _buildRows(),
-                                    ),
-                                  ),
-                                ),
+                                child: _failed && !_isLoading
+                                    ? AppLoadFailedRoom(
+                                        error: _loadFailure,
+                                        message: 'Non è stato possibile caricare le disponibilità.',
+                                        onRetry: _loadData,
+                                      )
+                                    : DesktopTourTarget(
+                                        id: kTourAvailabilityDays,
+                                        child: PageTransitionScrollView(
+                                          child: PageTransitionItem(
+                                            slot: PageTransitionItem.list,
+                                            child: _buildRows(),
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ],
                           ),

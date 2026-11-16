@@ -13,6 +13,7 @@ import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/app_dialog_footer.dart';
 import '../../../../shared/widgets/app_dialog_stack.dart';
 import '../../../../shared/widgets/app_gradient_button.dart';
+import '../../../../shared/widgets/app_load_failed.dart';
 import '../../../../shared/widgets/desktop_tour.dart';
 import '../../../../shared/widgets/dialog_components.dart';
 import '../../../../shared/widgets/page_density.dart';
@@ -68,11 +69,17 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
   bool _isLoadingWeek = true;
   List<OpeningDayItem> _weekOpeningDays = [];
 
+  // The week _weekOpeningDays belongs to; null before the first read.
+  DateTime? _weekHeld;
+  Object? _weekFailure;
+
   // Bumped on every fetch so a stale answer cannot overwrite fresher data.
   int _weekRequestId = 0;
   int _variationsRequestId = 0;
 
   bool _isLoadingVariations = true;
+  bool _variationsHeld = false;
+  Object? _variationsFailure;
   List<OpeningDayItem> _upcomingVariations = [];
   List<OpeningDayItem> _todayRows = [];
 
@@ -132,6 +139,8 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       setState(()
       {
         _weekOpeningDays = days;
+        _weekHeld = weekStart;
+        _weekFailure = null;
         _isLoadingWeek = false;
       });
       _tellShown();
@@ -143,8 +152,17 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
         return;
       }
 
-      setState(() => _isLoadingWeek = false);
-      CustomSnackBar.show(context: context, message: kWeekHoursLoadFailed, isError: true);
+      setState(()
+      {
+        _isLoadingWeek = false;
+        _weekFailure = e;
+      });
+
+      // A week on show keeps its hours and is told; one never read shows the failure in its place.
+      if (_holdsShownWeek)
+      {
+        CustomSnackBar.show(context: context, message: kWeekHoursLoadFailed, isError: true);
+      }
     }
   }
 
@@ -171,6 +189,8 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
         _todayRows = days.where((day) => isSameDate(day.date, today)).toList();
         _variationsWindowEnd = addDays(today, kVariationsWindowDays);
         _scheduleByMode = standardScheduleOf(days, today);
+        _variationsHeld = true;
+        _variationsFailure = null;
         _isLoadingVariations = false;
       });
       _tellShown();
@@ -182,9 +202,37 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
         return;
       }
 
-      setState(() => _isLoadingVariations = false);
-      CustomSnackBar.show(context: context, message: kVariationsLoadFailed, isError: true);
+      setState(()
+      {
+        _isLoadingVariations = false;
+        _variationsFailure = e;
+      });
+
+      if (_variationsHeld)
+      {
+        CustomSnackBar.show(context: context, message: kVariationsLoadFailed, isError: true);
+      }
     }
+  }
+
+  bool get _holdsShownWeek
+  {
+    final DateTime? held = _weekHeld;
+
+    return held != null && isSameDate(held, _weekStart);
+  }
+
+  bool get _isWeekMissing => !_isLoadingWeek && _weekFailure != null && !_holdsShownWeek;
+
+  bool get _areVariationsMissing => !_isLoadingVariations && _variationsFailure != null && !_variationsHeld;
+
+  // Reads only the parts the view is short of.
+  Future<void> _retryLoad() async
+  {
+    await Future.wait([
+      if (_isWeekMissing) _loadWeek(),
+      if (_areVariationsMissing) _loadUpcomingVariations(),
+    ]);
   }
 
   void _tellShown()
@@ -453,6 +501,15 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
     // Below the wide window the cards and buttons take a dense page's sizes.
     final bool dense = AppBreakpoints.of(context).isDense;
     final double gap = dense ? _denseCardGap : kHoursCardGap;
+
+    if (_isWeekMissing || _areVariationsMissing)
+    {
+      return AppLoadFailedRoom(
+        error: _isWeekMissing ? _weekFailure : _variationsFailure,
+        message: _isWeekMissing ? kWeekHoursLoadFailed : kVariationsLoadFailed,
+        onRetry: _retryLoad,
+      );
+    }
 
     return AppPageDensity(dense: dense, child: _buildCards(gap));
   }

@@ -12,13 +12,13 @@ import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_dismiss_button.dart';
 import '../../../shared/widgets/mobile_empty_card.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
+import '../../../shared/widgets/mobile_load_failed.dart';
 import '../../../shared/widgets/mobile_load_switcher.dart';
 import '../../../shared/widgets/mobile_nav_sheet.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_swipe_page.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_catalogue.dart';
-import 'mobile_association_status.dart';
 import 'mobile_missing_subject_sheet.dart';
 
 const double _radius = 22;
@@ -80,7 +80,14 @@ class _MobileCatalogueTabState extends State<MobileCatalogueTab>
 
     if (_catalogue.failed)
     {
-      return const MobileAssociationStatus(kAssociationLoadFailed);
+      return Center(
+        child: MobileLoadFailed(
+          error: _catalogue.failure,
+          message: kAssociationLoadFailed,
+          onRetry: _catalogue.load,
+          tablet: widget.tablet,
+        ),
+      );
     }
 
     if (_catalogue.isEmpty)
@@ -133,7 +140,7 @@ class _MobileCatalogueTabState extends State<MobileCatalogueTab>
                   SizedBox(height: widget.tablet ? 30 : 26),
                 ],
                 body: _buildBody(),
-                fill: !_catalogue.loading && !_catalogue.failed && _catalogue.groups.isEmpty,
+                fill: !_catalogue.loading && (_catalogue.failed || _catalogue.groups.isEmpty),
               ),
             ),
           ),

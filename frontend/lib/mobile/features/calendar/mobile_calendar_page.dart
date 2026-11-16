@@ -30,6 +30,7 @@ import '../../../features/people/models/person_item.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
@@ -114,6 +115,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
   bool _loading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   MobileCalendarDay? _data;
 
@@ -480,6 +482,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       {
         _loading = false;
         _failed = !quiet || _failed;
+        _loadFailure = e;
       });
     }
   }
@@ -676,7 +679,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
     if (_failed || data == null)
     {
-      return const _Status(kCalendarLoadFailed);
+      return MobileLoadFailed(error: _loadFailure, message: kCalendarLoadFailed, onRetry: _load, tablet: tablet);
     }
 
     if (data.closed)
@@ -850,7 +853,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
   // Margin inside the scroll view so card shadows are not clipped while paging.
   Widget _scrollable(Widget child, {required double side, required double bottom})
   {
-    final bool centred = child is MobileEmptyCard || child is MobileWaiting;
+    final bool centred = child is MobileEmptyCard || child is MobileWaiting || child is MobileLoadFailed;
 
     return MobileSwipePage(
       child: RefreshIndicator(
@@ -877,31 +880,6 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
                   )
                 : child,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Status extends StatelessWidget
-{
-  final String text;
-
-  const _Status(this.text);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-          color: Colors.white.withValues(alpha: 0.75),
         ),
       ),
     );

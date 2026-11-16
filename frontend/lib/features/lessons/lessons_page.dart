@@ -14,6 +14,7 @@ import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_back_button.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
@@ -62,6 +63,24 @@ final ValueNotifier<_LessonsPageState?> _host = ValueNotifier(null);
 const String _teacherRoleLabel = 'Docente';
 const String _studentRoleLabel = 'Studente';
 
+const String _loadFailed = 'Non è stato possibile caricare le lezioni.';
+
+enum _WindowPart
+{
+  people,
+  ministrySubjects,
+  studyPrograms,
+  availabilities,
+  presences,
+  openingDays,
+  associationSubjects,
+  services,
+  lessons,
+  rooms,
+  publications,
+  activities,
+}
+
 class LessonsPage extends StatefulWidget
 {
   const LessonsPage({super.key});
@@ -97,6 +116,22 @@ class _LessonsPageState extends State<LessonsPage>
   LessonsDayView _dayView = LessonsDayView.availability;
 
   bool _isLoading = true;
+
+  final Set<_WindowPart> _heldParts = {};
+
+  // Parts never read whose last read failed: the page cannot be shown without them.
+  Set<_WindowPart> _missingParts = {};
+
+  Object? _loadFailure;
+
+  // A day outside the window whose read failed, and why.
+  DateTime? _failedDay;
+  Object? _dayFailure;
+
+  bool get _isShortOfData => _missingParts.isNotEmpty || (_failedDay != null && isSameDate(_failedDay!, _day));
+
+  Object? get _shortageReason => _missingParts.isNotEmpty ? _loadFailure : _dayFailure;
+
   List<PersonItem> _people = [];
   List<MinistrySubjectItem> _ministrySubjects = [];
 
@@ -126,6 +161,7 @@ class _LessonsPageState extends State<LessonsPage>
   late final CalendarBandWatch _watch = CalendarBandWatch(
     beat: _beat,
     poll: _pollShownDay,
+    glance: _glanceAtTheLocks,
     releasedElsewhere: _apiService.calendarLocksReleasedElsewhere,
   );
 
@@ -227,15 +263,23 @@ class _LessonsPageState extends State<LessonsPage>
       return;
     }
 
+    // A day never read shows the failure in its place; one on show keeps it and is told.
+    final bool held = inside || _readDays.contains(_keyOf(day));
+    Object? failure;
+
     setState(() => _isLoadingDay = true);
 
-    final loaded = await _executeLoadDay(day, (message)
-    {
-      if (mounted)
+    final loaded = await _executeLoadDay(
+      day,
+      (message)
       {
-        CustomSnackBar.show(context: context, message: message, isError: true);
-      }
-    });
+        if (mounted && held)
+        {
+          CustomSnackBar.show(context: context, message: message, isError: true);
+        }
+      },
+      onFailure: (e) => failure = e,
+    );
 
     if (!mounted)
     {
@@ -249,6 +293,20 @@ class _LessonsPageState extends State<LessonsPage>
       if (loaded)
       {
         _readDays.add(_keyOf(day));
+      }
+
+      if (loaded || held)
+      {
+        if (_failedDay != null && isSameDate(_failedDay!, day))
+        {
+          _failedDay = null;
+          _dayFailure = null;
+        }
+      }
+      else
+      {
+        _failedDay = day;
+        _dayFailure = failure;
       }
     });
   }
@@ -270,9 +328,33 @@ class _LessonsPageState extends State<LessonsPage>
     });
 
     _watchTheShownSection();
-    unawaited(_readDay(target.day, fresh: target.fresh));
+    unawaited(_readForTheCalendar(target));
 
     return ticket;
+  }
+
+  // The page under the screen never polls: its day may be old, and so may the band's locks.
+  Future<void> _readForTheCalendar(LessonsCalendarTarget target) async
+  {
+    final DateTime day = target.day;
+
+    // A band shown before raises no view change: its locks are read here.
+    if (_isShowing(day, target.band))
+    {
+      unawaited(_readTheLocks(day));
+    }
+
+    final bool held = _availableDays.any((other) => isSameDate(other, day)) || _readDays.contains(_keyOf(day));
+
+    if (target.fresh || !held)
+    {
+      await _readDay(day, fresh: target.fresh);
+
+      return;
+    }
+
+    // Already on show: read again without the spinner.
+    await _executeLoadDay(day, (_) {});
   }
 
   void _detachCalendar(int ticket)
@@ -287,7 +369,7 @@ class _LessonsPageState extends State<LessonsPage>
   }
 
   @override
-  void onDestinationShown() => _loadAllData(quiet: true);
+  void onDestinationShown() => _loadAllData();
 
   List<T> _keepingDaysOutsideWindow<T>(
     List<T> held,
@@ -322,116 +404,146 @@ class _LessonsPageState extends State<LessonsPage>
     }
   }
 
-  Future<void> _loadAllData({bool quiet = false}) async
+  // Reads one part of the window; the returned call stores it.
+  Future<VoidCallback> _readPart(_WindowPart part) async
+  {
+    final DateTime from = _availableDays.first;
+    final DateTime to = _availableDays.last;
+
+    switch (part)
+    {
+      case _WindowPart.people:
+        final people = await _apiService.getPeople();
+
+        return () => _people = people;
+      case _WindowPart.ministrySubjects:
+        final subjects = await _apiService.getMinistrySubjects();
+
+        return () => _ministrySubjects = subjects;
+      case _WindowPart.studyPrograms:
+        final programs = await _apiService.getStudyPrograms();
+
+        return () => _studyPrograms = programs;
+      case _WindowPart.availabilities:
+        final availabilities = await _apiService.getAvailabilities(dateFrom: from, dateTo: to);
+
+        return () => _availabilities = _keepingDaysOutsideWindow(_availabilities, availabilities, (item) => item.date);
+      case _WindowPart.presences:
+        final presences = await _apiService.getPresences(dateFrom: from, dateTo: to);
+
+        return () => _presences = _keepingDaysOutsideWindow(_presences, presences, (item) => item.date);
+      case _WindowPart.openingDays:
+        final modes = await Future.wait([
+          _apiService.getOpeningDays(dateFrom: from, dateTo: to, mode: kPresenceMode),
+          _apiService.getOpeningDays(dateFrom: from, dateTo: to, mode: kOnlineMode),
+        ]);
+
+        return () => _openingDays = _keepingDaysOutsideWindow(
+          _openingDays,
+          [...modes[0], ...modes[1]],
+          (item) => item.date,
+        );
+      case _WindowPart.associationSubjects:
+        final subjects = await _apiService.getAssociationSubjects();
+
+        return () => _associationSubjects = subjects;
+      case _WindowPart.services:
+        final services = await _apiService.getServices();
+
+        return () => _services = services;
+      case _WindowPart.lessons:
+        final lessons = await _apiService.getLessons(dateFrom: from, dateTo: to);
+
+        return () => _lessons = _keepingDaysOutsideWindow(_lessons, lessons, (item) => item.date);
+      case _WindowPart.rooms:
+        final rooms = await _apiService.getRooms();
+
+        return () => _rooms = rooms;
+      case _WindowPart.publications:
+        final publications = await _apiService.getCalendarPublications(dateFrom: from, dateTo: to);
+
+        return () => _publications = _keepingDaysOutsideWindow(_publications, publications, (item) => item.date);
+      case _WindowPart.activities:
+        final activities = await _apiService.getCalendarActivities(dateFrom: from, dateTo: to);
+
+        return () => _activities = _keepingDaysOutsideWindow(_activities, activities, (item) => item.date);
+    }
+  }
+
+  // Every part is read on its own: one failing keeps the others, and a retry reads only the missing.
+  Future<void> _loadAllData({Set<_WindowPart>? only}) async
   {
     unawaited(_readWhoIAm());
 
-    try
+    final Set<_WindowPart> parts = only ?? _WindowPart.values.toSet();
+    final List<VoidCallback> stores = [];
+    final Set<_WindowPart> failed = {};
+    Object? failure;
+
+    await Future.wait([
+      for (final part in parts)
+        _readPart(part).then(stores.add).catchError((Object e, StackTrace stackTrace)
+        {
+          reportCaughtError(e, stackTrace, during: 'il caricamento di Lezioni');
+          failed.add(part);
+          failure ??= e;
+        }),
+    ]);
+
+    if (!mounted)
     {
-      final results = await Future.wait([
-        _apiService.getPeople(),
-        _apiService.getMinistrySubjects(),
-        _apiService.getStudyPrograms(),
-        _apiService.getAvailabilities(
-          dateFrom: _availableDays.first,
-          dateTo: _availableDays.last,
-        ),
-        _apiService.getPresences(
-          dateFrom: _availableDays.first,
-          dateTo: _availableDays.last,
-        ),
-        _apiService.getOpeningDays(
-          dateFrom: _availableDays.first,
-          dateTo: _availableDays.last,
-          mode: kPresenceMode,
-        ),
-        _apiService.getOpeningDays(
-          dateFrom: _availableDays.first,
-          dateTo: _availableDays.last,
-          mode: kOnlineMode,
-        ),
-        _apiService.getAssociationSubjects(),
-        _apiService.getServices(),
-        _apiService.getLessons(
-          dateFrom: _availableDays.first,
-          dateTo: _availableDays.last,
-        ),
-        _apiService.getRooms(),
-        _apiService.getCalendarPublications(
-          dateFrom: _availableDays.first,
-          dateTo: _availableDays.last,
-        ),
-        _apiService.getCalendarActivities(
-          dateFrom: _availableDays.first,
-          dateTo: _availableDays.last,
-        ),
-      ]);
-
-      if (!mounted)
-      {
-        return;
-      }
-
-      setState(()
-      {
-        _people = results[0] as List<PersonItem>;
-        _ministrySubjects = results[1] as List<MinistrySubjectItem>;
-        _studyPrograms = results[2] as List<StudyProgramItem>;
-        _availabilities = _keepingDaysOutsideWindow(
-          _availabilities,
-          results[3] as List<AvailabilityItem>,
-          (item) => item.date,
-        );
-        _presences = _keepingDaysOutsideWindow(
-          _presences,
-          results[4] as List<PresenceItem>,
-          (item) => item.date,
-        );
-        _openingDays = _keepingDaysOutsideWindow(
-          _openingDays,
-          [
-            ...results[5] as List<OpeningDayItem>,
-            ...results[6] as List<OpeningDayItem>,
-          ],
-          (item) => item.date,
-        );
-        _associationSubjects = results[7] as List<AssociationSubjectItem>;
-        _services = results[8] as List<ServiceItem>;
-        _lessons = _keepingDaysOutsideWindow(
-          _lessons,
-          results[9] as List<LessonItem>,
-          (item) => item.date,
-        );
-        _rooms = results[10] as List<RoomItem>;
-        _publications = _keepingDaysOutsideWindow(
-          _publications,
-          results[11] as List<CalendarPublicationItem>,
-          (item) => item.date,
-        );
-        _activities = _keepingDaysOutsideWindow(
-          _activities,
-          results[12] as List<ActivityItem>,
-          (item) => item.date,
-        );
-        _isLoading = false;
-      });
+      return;
     }
-    catch (e, stackTrace)
+
+    setState(()
     {
-      reportCaughtError(e, stackTrace, during: 'il caricamento di Lezioni');
-
-      if (!mounted)
+      for (final store in stores)
       {
-        return;
+        store();
       }
 
-      setState(() => _isLoading = false);
+      _heldParts.addAll(parts.difference(failed));
+      // A part held from before keeps what it had: only one never read leaves the page short.
+      _missingParts = {..._missingParts.difference(parts), ...failed.difference(_heldParts)};
+      _loadFailure = _missingParts.isEmpty ? null : failure ?? _loadFailure;
+      _isLoading = false;
+    });
+  }
 
-      if (!quiet)
-      {
-        CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
-      }
+  Future<void> _retryLoad() async
+  {
+    final DateTime? failedDay = _failedDay;
+
+    await Future.wait([
+      if (_missingParts.isNotEmpty) _loadAllData(only: {..._missingParts}),
+      if (failedDay != null) _retryDay(failedDay),
+    ]);
+  }
+
+  Future<void> _retryDay(DateTime day) async
+  {
+    Object? failure;
+
+    final loaded = await _executeLoadDay(day, (_) {}, onFailure: (e) => failure = e);
+
+    if (!mounted || _failedDay == null || !isSameDate(_failedDay!, day))
+    {
+      return;
     }
+
+    setState(()
+    {
+      if (loaded)
+      {
+        _readDays.add(_keyOf(day));
+        _failedDay = null;
+        _dayFailure = null;
+      }
+      else
+      {
+        _dayFailure = failure;
+      }
+    });
   }
 
   Future<bool> _executeCreateAvailability(String teacherTaxCode, DateTime date, String mode, TimeOfDay startTime, TimeOfDay endTime, Function(String) onError)
@@ -660,7 +772,7 @@ class _LessonsPageState extends State<LessonsPage>
     return true;
   }
 
-  Future<bool> _executeLoadDay(DateTime day, Function(String) onError) async
+  Future<bool> _executeLoadDay(DateTime day, Function(String) onError, {void Function(Object error)? onFailure}) async
   {
     // The band on show re-reads who is left out too: another administrator may have changed it.
     final shown = _shownBand;
@@ -722,6 +834,7 @@ class _LessonsPageState extends State<LessonsPage>
     }
     catch (e)
     {
+      onFailure?.call(e);
       onError(readableApiError(e));
 
       return false;
@@ -1176,6 +1289,26 @@ class _LessonsPageState extends State<LessonsPage>
         if (isSameDate(presence.date, day))
           for (final booking in presence.bookings) booking.id,
     };
+  }
+
+  // Somebody began building since the last look: their hours are read at once.
+  Future<void> _glanceAtTheLocks() async
+  {
+    final day = _shownDay;
+
+    if (day == null)
+    {
+      return;
+    }
+
+    final bool wasWatching = _isCalendarReadOnly;
+
+    await _readTheLocks(day);
+
+    if (mounted && !wasWatching && _isCalendarReadOnly)
+    {
+      await _executeLoadDay(day, (_) {});
+    }
   }
 
   Future<void> _pollShownDay() async
@@ -2113,6 +2246,8 @@ class _LessonsPageState extends State<LessonsPage>
         SizedBox(height: dense ? 14 : 20),
         if (_isLoading || _isLoadingDay)
           const Expanded(child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)))
+        else if (_isShortOfData)
+          Expanded(child: _buildLoadFailed())
         else ...[
           // A closed day says so below: its bands have nothing to open.
           if (!_isSelectedDayClosed) ...[
@@ -2173,17 +2308,27 @@ class _LessonsPageState extends State<LessonsPage>
     );
   }
 
+  Widget _buildLoadFailed()
+  {
+    return AppLoadFailedRoom(error: _shortageReason, message: _loadFailed, onRetry: _retryLoad);
+  }
+
   Widget _buildCalendarPage(BuildContext context, AppWindowSize size, LessonsCalendarTarget target)
   {
     final Widget leading = _buildCalendarLeading(context, size, target);
+    final bool waiting = _isLoading || _isLoadingDay || !isSameDate(_day, target.day);
 
-    if (_isLoading || _isLoadingDay || !isSameDate(_day, target.day))
+    if (waiting || _isShortOfData)
     {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Align(alignment: Alignment.centerLeft, child: leading),
-          const Expanded(child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))),
+          Expanded(
+            child: waiting
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))
+                : _buildLoadFailed(),
+          ),
         ],
       );
     }
@@ -2265,7 +2410,7 @@ class _LessonsPageState extends State<LessonsPage>
   // The open day's figures beside the page's name; none while loading or on a closed day.
   String? get _dayNote
   {
-    if (_isLoading || _isLoadingDay || _isSelectedDayClosed)
+    if (_isLoading || _isLoadingDay || _isShortOfData || _isSelectedDayClosed)
     {
       return null;
     }

@@ -8,10 +8,12 @@ import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../../features/reports/reports_board.dart';
 import '../../../services/api_service.dart';
+import '../../layout/mobile_breakpoints.dart';
 import '../../shared/navigation/mobile_destinations.dart';
 import '../../shared/widgets/mobile_birthday_confetti.dart';
 import '../../shared/widgets/mobile_halloween_bats.dart';
 import '../../shared/widgets/mobile_handover.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_role_sheet.dart';
@@ -499,6 +501,36 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
     return MobilePlaceholderPage(title: current.label);
   }
 
+  // A kept session whose identity could not be read yet: the reason and the way to read it now.
+  Widget _buildUnread()
+  {
+    final bool tablet = MobileBreakpoints.of(context).isTablet;
+
+    return Scaffold(
+      body: ValueListenableBuilder<Object?>(
+        valueListenable: _apiService.identityFailure,
+        builder: (context, failure, _) => failure == null
+            ? const SizedBox.shrink()
+            : SafeArea(
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: tablet ? 44 : 20),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: MobileNavSheet.tabletWidth),
+                      child: MobileLoadFailed(
+                        error: failure,
+                        message: 'Non è stato possibile caricare i tuoi dati.',
+                        onRetry: _apiService.retryIdentity,
+                        tablet: tablet,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -510,7 +542,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
 
         if (user == null)
         {
-          return const Scaffold();
+          return _buildUnread();
         }
 
         _lastUser = user;

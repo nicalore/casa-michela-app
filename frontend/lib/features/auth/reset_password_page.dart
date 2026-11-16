@@ -7,10 +7,13 @@ import '../../services/api_service.dart';
 import '../../shared/widgets/app_dialog_footer.dart';
 import '../../shared/widgets/app_dialog_stack.dart';
 import '../../shared/widgets/app_gradient_button.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/password_field.dart';
 import '../../shared/widgets/password_policy_checklist.dart';
 import 'widgets/auth_pill_page.dart';
 import '../../shared/widgets/snackbar.dart';
+
+const String _invalidLink = 'Il link non è più valido. Richiedine uno nuovo.';
 
 class ResetPasswordPage extends StatefulWidget
 {
@@ -35,6 +38,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
 
   bool _isSaving = false;
   bool _isValidating = true;
+
+  // No answer while checking the link: it may still be good, so the page stays and offers a retry.
+  Object? _validationFailure;
 
   @override
   void initState()
@@ -66,17 +72,25 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
 
       if (mounted)
       {
-        setState(() => _isValidating = false);
+        setState(()
+        {
+          _isValidating = false;
+          _validationFailure = null;
+        });
       }
     }
     catch (e)
     {
-      if (mounted)
+      if (mounted && isConnectionFailure(e))
+      {
+        setState(() => _validationFailure = e);
+      }
+      else if (mounted)
       {
         context.go('/login');
         CustomSnackBar.show(
           context: context,
-          message: 'Il link non è più valido. Richiedine uno nuovo.',
+          message: _invalidLink,
           isError: true,
         );
       }
@@ -153,9 +167,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
   {
     if (_isValidating)
     {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppTheme.trialPaper,
-        body: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+        body: _validationFailure == null
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))
+            : AppLoadFailedRoom(error: _validationFailure, message: _invalidLink, onRetry: _validateToken),
       );
     }
 

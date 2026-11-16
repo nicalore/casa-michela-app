@@ -8,6 +8,7 @@ import 'package:flutter/material.dart' show AppLifecycleListener, TimeOfDay;
 import '../core/config/api_config.dart';
 import '../core/utils/alphabetical_order.dart';
 import '../core/utils/content_disposition.dart';
+import '../core/utils/error_message.dart';
 import '../core/utils/json_parsing.dart';
 import '../core/utils/time_bucket.dart';
 import '../features/association/models/association_subject_item.dart';
@@ -256,6 +257,9 @@ class ApiService
 
   // The router's synchronous redirect needs the active role: the identity lives in a notifier.
   final ValueNotifier<MeResponse?> identity = ValueNotifier(null);
+
+  // Why the identity of a kept session could not be read; null once it is.
+  final ValueNotifier<Object?> identityFailure = ValueNotifier(null);
 
   // The role worn before the identity arrives: read from storage at start.
   String? _wornRole;
@@ -685,6 +689,11 @@ class ApiService
 
   Never _refused(DioException error, String fallback)
   {
+    if (error.response == null)
+    {
+      throw const ServerUnreachable();
+    }
+
     final detail = error.response?.data is Map ? error.response?.data['detail'] : null;
 
     // A destructive write is refused with a typed cost, so callers can confirm instead of erroring.
@@ -774,6 +783,7 @@ class ApiService
           return;
         }
 
+        identityFailure.value = e;
         unawaited(_recoverIdentity());
       }
     }
@@ -794,21 +804,47 @@ class ApiService
       }
       catch (e)
       {
-        if (_passwordResetRequired(e))
+        if (!_heardOfIdentity(e))
         {
-          authState.value = AuthState.passwordChangeRequired;
-
-          return;
-        }
-
-        if (_sessionRefused(e))
-        {
-          _leaveSession();
-
           return;
         }
       }
     }
+  }
+
+  // The placeholder home's retry: reads the identity now instead of at the next backoff.
+  Future<void> retryIdentity() async
+  {
+    try
+    {
+      await me();
+    }
+    catch (e)
+    {
+      _heardOfIdentity(e);
+    }
+  }
+
+  // False when the failure ended the wait for the identity (password change or session refused).
+  bool _heardOfIdentity(Object error)
+  {
+    if (_passwordResetRequired(error))
+    {
+      authState.value = AuthState.passwordChangeRequired;
+
+      return false;
+    }
+
+    if (_sessionRefused(error))
+    {
+      _leaveSession();
+
+      return false;
+    }
+
+    identityFailure.value = error;
+
+    return true;
   }
 
   // A refusal may mean a role was revoked: the identity is re-read; a burst of refusals asks once.
@@ -2241,6 +2277,7 @@ class ApiService
     final me = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
 
     identity.value = me;
+    identityFailure.value = null;
 
     return me;
   }
@@ -3239,11 +3276,14 @@ class ApiService
     }
   }
 
+  // The heaviest answer by far: a slow line needs more than the default.
+  static const Duration _registerTimeout = Duration(seconds: 60);
+
   Future<List<PersonItem>> getPeople({bool refresh = false})
   {
     return _peopleMemo.read(() async
     {
-      final response = await _dio.get('/people/');
+      final response = await _dio.get('/people/', options: Options(receiveTimeout: _registerTimeout));
       return parseList(response.data, PersonItem.fromJson);
     }, refresh: refresh);
   }

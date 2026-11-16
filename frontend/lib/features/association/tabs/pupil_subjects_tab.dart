@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
@@ -53,6 +54,7 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
+  Object? _loadFailure;
   List<AssociationSubjectItem> _subjects = [];
 
   String _searchText = '';
@@ -88,6 +90,7 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
       {
         _subjects = subjects;
         _isLoading = false;
+        _loadFailure = null;
       });
     }
     catch (e)
@@ -97,8 +100,11 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
         return;
       }
 
-      setState(() => _isLoading = false);
-      CustomSnackBar.show(context: context, message: kAssociationLoadFailed, isError: true);
+      setState(()
+      {
+        _isLoading = false;
+        _loadFailure = e;
+      });
     }
   }
 
@@ -139,6 +145,11 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
     if (_isLoading)
     {
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+    }
+
+    if (_loadFailure != null)
+    {
+      return AppLoadFailedRoom(error: _loadFailure, message: kAssociationLoadFailed, onRetry: _load);
     }
 
     final subjects = _filteredSubjects;

@@ -9,6 +9,7 @@ import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../association/models/ministry_subject_item.dart';
@@ -70,6 +71,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
   bool _isLoading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   // The person is read before the dialog opens; a second click meanwhile is dropped.
   bool _isOpeningLesson = false;
@@ -295,6 +297,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       {
         _isLoading = false;
         _failed = !quiet || _failed;
+        _loadFailure = e;
       });
     }
   }
@@ -537,7 +540,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
     if (_failed)
     {
-      return const CalendarNote(kCalendarLoadFailed);
+      return AppLoadFailedRoom(error: _loadFailure, message: kCalendarLoadFailed, onRetry: _loadDay);
     }
 
     if (unionOpeningWindow(_openingDays, _day, _band) == null)

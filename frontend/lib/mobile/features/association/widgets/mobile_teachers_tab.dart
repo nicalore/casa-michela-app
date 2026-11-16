@@ -13,13 +13,13 @@ import '../../../shared/widgets/mobile_choice_sheet.dart';
 import '../../../shared/widgets/mobile_empty_card.dart';
 import '../../../shared/widgets/mobile_filter_chip.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
+import '../../../shared/widgets/mobile_load_failed.dart';
 import '../../../shared/widgets/mobile_load_switcher.dart';
 import '../../../shared/widgets/mobile_nav_sheet.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_swipe_page.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_teachers_directory.dart';
-import 'mobile_association_status.dart';
 import 'mobile_teacher_choice_sheets.dart';
 import 'mobile_teacher_sheet.dart';
 
@@ -153,7 +153,14 @@ class _MobileTeachersTabState extends State<MobileTeachersTab>
 
     if (_directory.failed)
     {
-      return const MobileAssociationStatus(kAssociationLoadFailed);
+      return Center(
+        child: MobileLoadFailed(
+          error: _directory.failure,
+          message: kAssociationLoadFailed,
+          onRetry: _directory.load,
+          tablet: widget.tablet,
+        ),
+      );
     }
 
     final List<PersonItem> teachers = _directory.shown;
@@ -245,7 +252,7 @@ class _MobileTeachersTabState extends State<MobileTeachersTab>
               padding: EdgeInsets.symmetric(horizontal: widget.margin),
               child: _buildBody(),
             ),
-            fill: !_directory.loading && !_directory.failed && _directory.shown.isEmpty,
+            fill: !_directory.loading && (_directory.failed || _directory.shown.isEmpty),
           ),
         ),
       ),

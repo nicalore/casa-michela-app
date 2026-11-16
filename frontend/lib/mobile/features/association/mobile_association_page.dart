@@ -22,6 +22,7 @@ import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_date_capsule.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_month_picker.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
@@ -32,7 +33,6 @@ import 'mobile_association_tour.dart';
 import 'mobile_catalogue.dart';
 import 'mobile_notices_board.dart';
 import 'mobile_teachers_directory.dart';
-import 'widgets/mobile_association_status.dart';
 import 'widgets/mobile_catalogue_tab.dart';
 import 'widgets/mobile_hours_day_card.dart';
 import 'widgets/mobile_hours_week_tables.dart';
@@ -139,6 +139,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
 
   bool _loadingWeek = true;
   bool _weekFailed = false;
+  Object? _weekFailure;
 
   // Rows of both modes for the week shown.
   List<OpeningDayItem> _weekRows = const [];
@@ -148,6 +149,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
 
   bool _loadingOutlook = true;
   bool _outlookFailed = false;
+  Object? _outlookFailure;
 
   List<OpeningDayItem> _variations = const [];
   StandardSchedule _schedule = const {};
@@ -443,6 +445,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
       {
         _loadingWeek = false;
         _weekFailed = !quiet || _weekFailed;
+        _weekFailure = e;
       });
     }
   }
@@ -488,6 +491,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
       {
         _loadingOutlook = false;
         _outlookFailed = !quiet || _outlookFailed;
+        _outlookFailure = e;
       });
     }
   }
@@ -637,7 +641,12 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
   {
     if (_weekFailed)
     {
-      return const MobileAssociationStatus(kWeekHoursLoadFailed);
+      return MobileLoadFailed(
+        error: _weekFailure,
+        message: kWeekHoursLoadFailed,
+        onRetry: () => Future.wait([_loadWeek(), if (_outlookFailed) _loadOutlook()]),
+        tablet: tablet,
+      );
     }
 
     final CombinedDay? day = _loadingWeek ? _keptDay : days.firstWhere((day) => isSameDate(day.date, _selected));
@@ -677,9 +686,20 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
   {
     if (!_loadingOutlook && _outlookFailed)
     {
-      return const [
-        SizedBox(height: 30),
-        MobileAssociationStatus(kVariationsLoadFailed),
+      // The week's card above already offers the retry for both.
+      if (_weekFailed)
+      {
+        return const [];
+      }
+
+      return [
+        const SizedBox(height: 30),
+        MobileLoadFailed(
+          error: _outlookFailure,
+          message: kVariationsLoadFailed,
+          onRetry: _loadOutlook,
+          tablet: false,
+        ),
       ];
     }
 

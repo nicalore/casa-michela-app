@@ -8,6 +8,7 @@ import '../../../core/utils/role_label_mapper.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -27,6 +28,8 @@ import '../models/school_enrollment_item.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/authorized_pickup_dialog.dart';
 import '../widgets/relative_card.dart';
+
+const String _peopleLoadFailed = 'Impossibile caricare le anagrafiche dal server.';
 
 const int _adultAge = 18;
 const int _maxParentsPerMinor = 2;
@@ -259,6 +262,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
   final Map<String, ParentalRelationshipDraft> _selectedMinors = {};
 
   bool _isLoadingData = true;
+  Object? _loadFailure;
   bool _isSubmitting = false;
   List<PersonItem> _allMinors = [];
 
@@ -321,6 +325,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
         {
           _allMinors = allPeople.where(_isCandidate).toList();
           _isLoadingData = false;
+          _loadFailure = null;
         });
       }
     }
@@ -328,7 +333,11 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     {
       if (mounted)
       {
-        setState(() => _isLoadingData = false);
+        setState(()
+        {
+          _isLoadingData = false;
+          _loadFailure = e;
+        });
       }
     }
   }
@@ -619,6 +628,11 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );
+    }
+
+    if (_loadFailure != null)
+    {
+      return Center(child: AppLoadFailedPanel(error: _loadFailure, message: _peopleLoadFailed, onRetry: _loadAllData));
     }
 
     if (minors.isEmpty)

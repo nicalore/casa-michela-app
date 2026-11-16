@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
@@ -7,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
@@ -32,6 +32,7 @@ class _TeacherSubjectsPageState extends State<TeacherSubjectsPage> with Destinat
 
   bool _isLoading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   PersonItem? _person;
 
@@ -83,6 +84,7 @@ class _TeacherSubjectsPageState extends State<TeacherSubjectsPage> with Destinat
       {
         _isLoading = false;
         _failed = !quiet || _person == null;
+        _loadFailure = e;
       });
     }
   }
@@ -98,17 +100,10 @@ class _TeacherSubjectsPageState extends State<TeacherSubjectsPage> with Destinat
 
     if (_failed || person == null)
     {
-      return Center(
-        child: Text(
-          'Non è stato possibile caricare le discipline.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            fontStyle: FontStyle.italic,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
+      return AppLoadFailedRoom(
+        error: _loadFailure,
+        message: 'Non è stato possibile caricare le discipline.',
+        onRetry: _load,
       );
     }
 

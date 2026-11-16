@@ -7,6 +7,7 @@ import '../../../core/utils/alphabetical_order.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
@@ -40,6 +41,8 @@ enum _PeopleSort
 const int _maxColumns = 4;
 const double _cardGap = 16;
 
+const String _loadFailed = 'Impossibile caricare le anagrafiche dal server.';
+
 class PeopleSearchTab extends StatefulWidget
 {
   const PeopleSearchTab({super.key});
@@ -70,6 +73,8 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
   late PeopleFilterState _filterState;
 
   bool _isLoading = true;
+  bool _failed = false;
+  Object? _loadFailure;
 
   List<PersonItem> _people = [];
 
@@ -187,6 +192,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         _availableStudyPrograms = _distinctSorted(_people.map((person) => person.studyProgram));
         _availableSubjects = _distinctSorted(_people.expand((person) => person.taughtSubjects));
         _isLoading = false;
+        _failed = false;
       });
     }
     catch (e)
@@ -196,15 +202,17 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         return;
       }
 
-      setState(() => _isLoading = false);
-
-      if (!quiet)
+      // A list on show stays: only a reload asked for says it failed.
+      setState(()
       {
-        CustomSnackBar.show(
-          context: context,
-          message: 'Impossibile caricare le anagrafiche dal server.',
-          isError: true,
-        );
+        _isLoading = false;
+        _failed = _people.isEmpty;
+        _loadFailure = e;
+      });
+
+      if (!quiet && !_failed)
+      {
+        CustomSnackBar.show(context: context, message: _loadFailed, isError: true);
       }
     }
   }
@@ -402,6 +410,8 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
             padding: EdgeInsets.only(top: 60),
             child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
           )
+        else if (_failed)
+          Expanded(child: AppLoadFailedRoom(error: _loadFailure, message: _loadFailed, onRetry: _loadData))
         else
           _buildResultList(people),
       ],

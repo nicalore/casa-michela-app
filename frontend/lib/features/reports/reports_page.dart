@@ -13,6 +13,7 @@ import '../../services/api_service.dart';
 import '../../shared/widgets/app_back_button.dart';
 import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_filter_pill.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/filter_menu.dart';
@@ -57,6 +58,8 @@ class _ReportsPageState extends State<ReportsPage>
 
   ReportKind? _kind;
 
+  Object? _failure;
+
   @override
   void initState()
   {
@@ -86,10 +89,25 @@ class _ReportsPageState extends State<ReportsPage>
     try
     {
       await _board.load();
+
+      if (mounted)
+      {
+        setState(() => _failure = null);
+      }
     }
     catch (error)
     {
-      if (mounted)
+      if (!mounted)
+      {
+        return;
+      }
+
+      // Never read: the failure takes the list's place; reports on show stay.
+      if (!_board.loaded)
+      {
+        setState(() => _failure = error);
+      }
+      else
       {
         CustomSnackBar.show(context: context, message: readableApiError(error), isError: true);
       }
@@ -226,6 +244,28 @@ class _ReportsPageState extends State<ReportsPage>
     );
   }
 
+  Widget _buildBody(List<ReportItem> reports)
+  {
+    final Object? failure = _failure;
+
+    if (!_board.loaded && failure != null)
+    {
+      return AppLoadFailedRoom(error: failure, message: readableApiError(failure), onRetry: _load);
+    }
+
+    if (_board.loaded && reports.isEmpty)
+    {
+      return const Center(
+        child: PageTransitionItem(
+          slot: PageTransitionItem.list,
+          child: AppEmptyCard(icon: Icons.task_alt_rounded, message: kNoReports),
+        ),
+      );
+    }
+
+    return _list(reports);
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -288,14 +328,7 @@ class _ReportsPageState extends State<ReportsPage>
                                   Expanded(
                                     child: AppPageDensity(
                                       dense: size.isDense,
-                                      child: _board.loaded && reports.isEmpty
-                                          ? const Center(
-                                              child: PageTransitionItem(
-                                                slot: PageTransitionItem.list,
-                                                child: AppEmptyCard(icon: Icons.task_alt_rounded, message: kNoReports),
-                                              ),
-                                            )
-                                          : _list(reports),
+                                      child: _buildBody(reports),
                                     ),
                                   ),
                                 ],

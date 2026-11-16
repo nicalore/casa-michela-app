@@ -1,4 +1,3 @@
-import '../../shared/widgets/app_empty_card.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -16,7 +15,9 @@ import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_dialog_footer.dart';
 import '../../shared/widgets/app_dialog_stack.dart';
+import '../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/app_gradient_button.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/carousel_arrow_button.dart';
@@ -96,6 +97,7 @@ class _BookingsPageState extends State<BookingsPage>
 
   bool _isLoading = true;
   bool _failed = false;
+  Object? _loadFailure;
 
   List<PresenceItem> _presences = [];
   List<OpeningDayItem> _openingDays = [];
@@ -405,6 +407,7 @@ class _BookingsPageState extends State<BookingsPage>
       {
         _isLoading = false;
         _failed = !quiet || _pupils.isEmpty;
+        _loadFailure = e;
       });
     }
   }
@@ -1122,25 +1125,6 @@ class _BookingsPageState extends State<BookingsPage>
     );
   }
 
-  Widget _buildNotice(String text, {double top = 40})
-  {
-    return Padding(
-      padding: EdgeInsets.only(top: top),
-      child: Center(
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            fontStyle: FontStyle.italic,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
-      ),
-    );
-  }
-
   void _noticeNewParts(Set<BookingsTourMark> parts)
   {
     final bool fresh = !_partsOnShow.containsAll(parts);
@@ -1196,11 +1180,6 @@ class _BookingsPageState extends State<BookingsPage>
         padding: EdgeInsets.only(top: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );
-    }
-
-    if (_failed)
-    {
-      return _buildNotice(kBookingsLoadFailed);
     }
 
     final DateTime today = _today;
@@ -1302,6 +1281,12 @@ class _BookingsPageState extends State<BookingsPage>
                                             slot: PageTransitionItem.list,
                                             child: AppEmptyCard(icon: Icons.family_restroom_rounded, message: kNoPupils),
                                           ),
+                                        )
+                                      : _failed && !_isLoading
+                                      ? AppLoadFailedRoom(
+                                          error: _loadFailure,
+                                          message: kBookingsLoadFailed,
+                                          onRetry: _loadData,
                                         )
                                       : PageTransitionScrollView(
                                           child: PageTransitionItem(

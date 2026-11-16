@@ -15,6 +15,7 @@ class MobileCatalogue extends ChangeNotifier
 
   bool loading = true;
   bool failed = false;
+  Object? failure;
 
   List<AssociationSubjectItem> _subjects = const [];
 
@@ -58,6 +59,7 @@ class MobileCatalogue extends ChangeNotifier
       // A refresh that fails keeps what is shown.
       loading = false;
       failed = !quiet || _subjects.isEmpty;
+      failure = e;
     }
 
     notifyListeners();

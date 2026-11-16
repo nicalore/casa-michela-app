@@ -22,6 +22,7 @@ import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_choice_sheet.dart';
 import '../../shared/widgets/mobile_confirm_sheet.dart';
 import '../../shared/widgets/mobile_filter_chip.dart';
+import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
@@ -143,6 +144,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
   bool _loading = true;
   bool _failed = false;
+  Object? _loadFailure;
   bool _saving = false;
 
   // Set once the page is in place; then every load, page change and closed sheet looks for a tour.
@@ -414,6 +416,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
       {
         _loading = false;
         _failed = !quiet || _taxCode == null;
+        _loadFailure = e;
       });
     }
   }
@@ -789,23 +792,6 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     );
   }
 
-  Widget _buildStatus(String text)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w500,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-          color: Colors.white.withValues(alpha: 0.75),
-        ),
-      ),
-    );
-  }
-
   Widget _buildBody(List<_Entry> entries, {required bool held, required int columns})
   {
     if (_loading)
@@ -815,7 +801,12 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
     if (_failed)
     {
-      return _buildStatus('Non è stato possibile caricare le discipline.');
+      return MobileLoadFailed(
+        error: _loadFailure,
+        message: 'Non è stato possibile caricare le discipline.',
+        onRetry: _load,
+        tablet: MobileBreakpoints.of(context).isTablet,
+      );
     }
 
     final List<_Entry> shown = entries.where(_filters.keeps).toList();
@@ -1042,7 +1033,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   // Margin inside the scroll view so card shadows are not clipped while paging.
   Widget _scrollable(Widget child, {required double side, required double bottom, required String tourId})
   {
-    final bool empty = child is MobileEmptyCard;
+    final bool empty = child is MobileEmptyCard || child is MobileLoadFailed;
 
     // Inside the switcher, so an empty card alone is lit, and centred in the room left.
     final Widget lit = MobileTourTarget(

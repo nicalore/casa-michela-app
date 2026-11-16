@@ -14,6 +14,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_month_button.dart';
 import '../../../shared/widgets/app_text_link.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
@@ -136,6 +137,9 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
   }
 
   CompensationMonth? _shown;
+
+  // Why the month on show could not be read.
+  Object? _failure;
   Set<DateTime> _worked = const {};
 
   bool _fetching = true;
@@ -179,6 +183,7 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
         {
           _shown = shown;
           _fetching = false;
+          _failure = null;
         });
       }
     }
@@ -194,8 +199,8 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
       {
         _shown = null;
         _fetching = false;
+        _failure = error;
       });
-      CustomSnackBar.show(context: context, message: readableApiError(error), isError: true);
     }
   }
 
@@ -599,6 +604,15 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
                       const Padding(
                         padding: EdgeInsets.only(top: 60),
                         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+                      )
+                    else if (shown == null && _failure != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 40),
+                        child: AppLoadFailedRoom(
+                          error: _failure,
+                          message: readableApiError(_failure!),
+                          onRetry: _load,
+                        ),
                       )
                     else if (shown != null)
                       AnimatedOpacity(

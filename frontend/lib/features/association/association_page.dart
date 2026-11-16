@@ -5,6 +5,7 @@ import '../../core/layout/app_breakpoints.dart';
 import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
+import '../../shared/widgets/app_load_failed.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_section_tabs.dart';
@@ -14,7 +15,7 @@ import '../../shared/widgets/page_transition.dart';
 import '../notifications/notice_jump.dart';
 import '../notifications/week_jump.dart';
 import '../../shared/widgets/page_watermark.dart';
-import '../../shared/widgets/snackbar.dart';
+import 'association_strings.dart';
 import 'models/association_subject_item.dart';
 import 'models/course_item.dart';
 import 'models/ministry_subject_item.dart';
@@ -78,6 +79,8 @@ class _AssociationPageState extends State<AssociationPage>
 
   // Shared entities; setState here reaches mounted tabs via didUpdateWidget.
   bool _isLoading = true;
+  bool _failed = false;
+  Object? _loadFailure;
   List<SchoolItem> _schools = [];
   List<StudyProgramItem> _studyPrograms = [];
   List<MinistrySubjectItem> _ministrySubjects = [];
@@ -167,6 +170,7 @@ class _AssociationPageState extends State<AssociationPage>
         _rooms = results[6] as List<RoomItem>;
         _weeklyTemplates = results[7] as List<WeeklyTemplateItem>;
         _isLoading = false;
+        _failed = false;
       });
     }
     catch (e)
@@ -176,12 +180,12 @@ class _AssociationPageState extends State<AssociationPage>
         return;
       }
 
-      setState(() => _isLoading = false);
-
-      if (!quiet)
+      setState(()
       {
-        CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
-      }
+        _isLoading = false;
+        _failed = !quiet || _failed;
+        _loadFailure = e;
+      });
     }
   }
 
@@ -485,6 +489,11 @@ class _AssociationPageState extends State<AssociationPage>
     if (_isLoading)
     {
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+    }
+
+    if (_failed)
+    {
+      return AppLoadFailedRoom(error: _loadFailure, message: kAssociationLoadFailed, onRetry: _loadAllData);
     }
 
     return PageSections(

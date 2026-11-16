@@ -18,6 +18,7 @@ class MobileNoticesBoard extends ChangeNotifier
 
   bool loading = true;
   bool failed = false;
+  Object? failure;
 
   List<NoticeSummaryItem> _notices = const [];
   bool _oldestFirst = false;
@@ -65,6 +66,7 @@ class MobileNoticesBoard extends ChangeNotifier
       // A refresh that fails keeps what is shown.
       loading = false;
       failed = !quiet || _notices.isEmpty;
+      failure = e;
     }
 
     notifyListeners();
