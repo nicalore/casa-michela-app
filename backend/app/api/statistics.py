@@ -1787,6 +1787,10 @@ def _rank_among(scores: Mapping[str, int], tax_code: str) -> int | None:
     return 1 + sum(1 for score in scores.values() if score > mine)
 
 
+# Teachers do not read their own pay for now; admins always do.
+_TEACHERS_READ_OWN_PAY = False
+
+
 @personal_router.get(
     "/teachers/{tax_code}/personal-statistics",
     response_model=TeacherPersonalStatisticsResponse,
@@ -1878,7 +1882,8 @@ async def get_teacher_personal_statistics(
         start,
         end,
     )
-    pay = await _monthly_pay(db, tax_code)
+    reads_pay = identity.is_admin or _TEACHERS_READ_OWN_PAY
+    pay = await _monthly_pay(db, tax_code) if reads_pay else []
     paid_in_period = [
         (month.gross, month.paid_minutes)
         for first, month in pay
