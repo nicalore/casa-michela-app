@@ -24,6 +24,7 @@ from app.schemas.calendar_activity import (
     CalendarActivityCreate,
     CalendarActivityUpdate,
 )
+from app.services.calendar_freeze import assert_not_started
 from app.services.lesson_guard import (
     assert_band_claimed,
     assert_band_editable,
@@ -317,6 +318,9 @@ class CalendarActivityService:
 
         await self._assert_mine_to_write(identity, activity.date, activity.band)
 
+        before = (activity.availability_id, activity.start_time, activity.end_time)
+        began = activity.start_time
+
         teachers = (
             {activity.availability.teacher_tax_code} if activity.availability else set()
         )
@@ -336,6 +340,10 @@ class CalendarActivityService:
             activity.start_time = assignment.start_time
             activity.end_time = assignment.end_time
             teachers.add(availability.teacher_tax_code)
+
+        # Teacher and times are fixed once begun, nor can they be set to start before now.
+        if (activity.availability_id, activity.start_time, activity.end_time) != before:
+            assert_not_started(activity.date, began, activity.start_time)
 
         async with integrity_guard(self.session, _UPDATE_ERROR):
             await self.session.flush()
@@ -368,6 +376,7 @@ class CalendarActivityService:
         activity = await self.get_or_404(activity_id)
 
         await self._assert_mine_to_write(identity, activity.date, activity.band)
+        assert_not_started(activity.date, activity.start_time)
 
         teacher_tax_code = (
             activity.availability.teacher_tax_code if activity.availability else None

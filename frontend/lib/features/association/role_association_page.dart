@@ -29,16 +29,10 @@ const int _hoursIndex = 0;
 const int _subjectsIndex = 1;
 const int _teachersIndex = 2;
 
-// Last on every rail: after the hours alone for teachers, after the meetings for parents.
-int _noticesIndexFor(String role) => switch (role)
-{
-  _teacherRole => 1,
-  _parentRole => 4,
-  _ => 3,
-};
+// Last on every rail: after the hours alone for teachers.
+int _noticesIndexFor(String role) => role == _teacherRole ? 1 : 3;
 
 const String _hours = kAssociationHoursLabel;
-const String _meetings = kAssociationMeetingsLabel;
 const String _notices = kAssociationNoticesLabel;
 
 // Order matches the PageSections below; the constants above index both.
@@ -48,15 +42,13 @@ List<RailGroup> _sectionsFor(String role)
     if (role == _teacherRole)
       const RailGroup(entries: [_hours, _notices])
     else
-      RailGroup(
+      const RailGroup(
         entries: [
           _hours,
           kAssociationSubjectsLabel,
           kAssociationTeachersLabel,
-          if (role == _parentRole) _meetings,
           _notices,
         ],
-        unavailable: const {_meetings},
       ),
   ];
 }
@@ -225,8 +217,6 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
               ? PupilTeachersTab(role: widget.role, canReport: canSpeakFor(widget.role))
               : const SizedBox.shrink(),
         ],
-        // Not built yet: named on the rail, never opened.
-        if (widget.role == _parentRole) const SizedBox.shrink(),
         visitedSections.contains(_noticesIndex)
             ? NoticesTab(readerRole: widget.role, onShown: _startTours)
             : const SizedBox.shrink(),

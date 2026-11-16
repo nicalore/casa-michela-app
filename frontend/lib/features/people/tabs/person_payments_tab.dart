@@ -1,0 +1,945 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../../core/layout/app_breakpoints.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/error_message.dart';
+import '../../../core/utils/money.dart';
+import '../../../core/utils/rome_clock.dart';
+import '../../../core/utils/week_range.dart';
+import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/page_heading.dart';
+import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
+import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/tab_layout.dart';
+import '../../accounting/utils/accounting_strings.dart' show kExportPdf;
+import '../../association/models/standard_tariffs_item.dart';
+import '../models/person_item.dart';
+import '../models/student_payments_item.dart';
+import '../utils/payments_strings.dart';
+import '../widgets/person_detail_widgets.dart';
+import '../widgets/student_payment_dialogs.dart';
+import '../widgets/student_payment_history.dart';
+
+const double _contentWidth = 1600;
+
+const double _figureGap = 40;
+const double _figureRunGap = 14;
+
+const Duration _barFill = Duration(milliseconds: 450);
+
+// Under this a month shows its mark without the word.
+const double _monthWordMinWidth = 64;
+
+const double _monthGap = 8;
+
+const double _actionGap = 12;
+
+// ESPORTA PDF floats at the foot as NUOVA COMUNICAZIONE does; the last table scrolls clear of it.
+const double _exportWidth = 330;
+const double _exportHeight = 52;
+const double _exportRoom = _exportHeight + 40;
+
+
+// What a pupil pays for Aiuto Compiti and whether it is settled; administrators only.
+class PersonPaymentsTab extends StatefulWidget
+{
+  final PersonItem person;
+
+  const PersonPaymentsTab({super.key, required this.person});
+
+  @override
+  State<PersonPaymentsTab> createState() => _PersonPaymentsTabState();
+}
+
+class _PersonPaymentsTabState extends State<PersonPaymentsTab>
+{
+  StudentPaymentsItem? _payments;
+
+  // Why the tab could not be read, shown in its place.
+  String? _error;
+
+  // The association's tariffs: what a change proposes and which kinds are turned off.
+  StandardTariffsItem? _standard;
+
+  @override
+  void initState()
+  {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async
+  {
+    try
+    {
+      final (StudentPaymentsItem payments, StandardTariffsItem? standard) = await (
+        ApiService().getStudentPayments(widget.person.fiscalCode),
+        ApiService().getStandardTariffs().then<StandardTariffsItem?>((tariffs) => tariffs, onError: (_) => null),
+      ).wait;
+
+      if (mounted)
+      {
+        setState(()
+        {
+          _payments = payments;
+          _standard = standard;
+        });
+      }
+    }
+    catch (error)
+    {
+      if (mounted)
+      {
+        setState(() => _error = readableApiError(error));
+      }
+    }
+  }
+
+  // A window that saved hands back the tab as it now stands.
+  Future<void> _open(Future<StudentPaymentsItem?> window, String saved) async
+  {
+    final StudentPaymentsItem? payments = await window;
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    // Closed without saving, maybe refused for figures gone stale: they are read again, quietly.
+    if (payments == null)
+    {
+      unawaited(_refresh());
+
+      return;
+    }
+
+    setState(() => _payments = payments);
+    CustomSnackBar.show(context: context, message: saved);
+  }
+
+  Future<void> _refresh() async
+  {
+    try
+    {
+      final StudentPaymentsItem payments = await ApiService().getStudentPayments(widget.person.fiscalCode);
+
+      if (mounted)
+      {
+        setState(() => _payments = payments);
+      }
+    }
+    catch (_)
+    {
+      // What is shown stays: the next write says if something is wrong.
+    }
+  }
+
+  void _renew(StudentPaymentsItem payments)
+  {
+    _open(
+      showRenewDialog(context: context, person: widget.person, payments: payments),
+      payments.tariff?.isPackage == true ? kPackageRenewed : kFeeRenewed,
+    );
+  }
+
+  void _changeTariff(StudentPaymentsItem payments)
+  {
+    _open(
+      showChangeTariffDialog(
+        context: context,
+        person: widget.person,
+        payments: payments,
+        standard: _standard?.of(payments.schoolLevel),
+      ),
+      kTariffChanged,
+    );
+  }
+
+  void _giveTariff(StudentPaymentsItem payments)
+  {
+    _open(
+      showFirstTariffDialog(
+        context: context,
+        person: widget.person,
+        payments: payments,
+        standard: _standard?.of(payments.schoolLevel),
+      ),
+      kTariffGiven,
+    );
+  }
+
+  void _changeRate(StudentPaymentsItem payments)
+  {
+    _open(showChangeRateDialog(context: context, person: widget.person, payments: payments), kRateChanged);
+  }
+
+  void _payAhead(StudentPaymentsItem payments)
+  {
+    _open(showPayAheadDialog(context: context, person: widget.person, payments: payments), kHoursPaidAhead);
+  }
+
+  void _settle(StudentPaymentsItem payments, HoursLineItem line)
+  {
+    _open(
+      showSettleDialog(context: context, person: widget.person, payments: payments, line: line),
+      kHoursSettled,
+    );
+  }
+
+  void _openRow(StudentPaymentsItem payments, PaymentHistoryRow row)
+  {
+    _open(
+      showPaymentDetails(context: context, person: widget.person, payments: payments, row: row),
+      row.isPaid ? kPaymentCancelled : (row.isFee ? kFeeSettled : kHoursSettled),
+    );
+  }
+
+  void _settleRow(StudentPaymentsItem payments, PaymentHistoryRow row)
+  {
+    if (row.isFee)
+    {
+      _open(
+        showFeeSettleDialog(context: context, person: widget.person, payments: payments, row: row),
+        kFeeSettled,
+      );
+
+      return;
+    }
+
+    final HoursLineItem? line = payments.line(row.kind);
+
+    if (line != null)
+    {
+      _settle(payments, line);
+    }
+  }
+
+  void _export(StudentPaymentsItem payments)
+  {
+    showPaymentsExport(context: context, person: widget.person, payments: payments);
+  }
+
+  // «Pagato quest'anno € 865,00» beside the year's heading.
+  Widget _paid(String label, int cents, bool dense)
+  {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: '$label  '),
+          TextSpan(
+            text: formatAmount(cents),
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: AppTheme.trialOcean),
+          ),
+        ],
+      ),
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: dense ? 13 : 14.5,
+        fontWeight: FontWeight.w500,
+        color: AppTheme.trialMutedText,
+      ),
+    );
+  }
+
+  // A table per calendar year, the newest first; nothing is dropped as the years go by.
+  List<Widget> _history(StudentPaymentsItem payments, double gap)
+  {
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final int thisYear = romeNow().year;
+    final Map<int, List<PaymentHistoryRow>> years = paymentsByYear(payments.history, thisYear);
+
+    if (years.isEmpty)
+    {
+      return [
+        SizedBox(height: gap + 8),
+        const PageHeading(kHistoryHeading),
+        const SizedBox(height: 12),
+        const Center(child: AppEmptyCard(icon: Icons.receipt_long_rounded, message: kNoPayments)),
+      ];
+    }
+
+    return [
+      for (final MapEntry(key: year, value: rows) in years.entries) ...[
+        SizedBox(height: gap + 8),
+        PageHeading(
+          historyYearHeading(year),
+          trailing: _paid(
+            year == thisYear ? kPaidThisYearLabel : paidInYear(year),
+            rows.where((row) => row.isPaid).fold(0, (sum, row) => sum + row.amountCents),
+            dense,
+          ),
+        ),
+        const SizedBox(height: 12),
+        PaymentHistoryTable(
+          rows: rows,
+          metrics: PaymentHistoryMetrics.of(dense: dense),
+          showHours: payments.student,
+          onOpen: (row) => _openRow(payments, row),
+          onSettle: (row) => _settleRow(payments, row),
+        ),
+      ],
+    ];
+  }
+
+  // Below the wide window the PDF does not float: it leads the row of buttons, or stands alone.
+  Widget _exportButton(StudentPaymentsItem payments)
+  {
+    return tabActionButton(
+      label: kExportPdf,
+      icon: Icons.picture_as_pdf_outlined,
+      onPressed: () => _export(payments),
+    );
+  }
+
+  // An enrolled pupil on file without a tariff: nothing else can be done before one is given.
+  Widget _firstTariffAction(StudentPaymentsItem payments)
+  {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: tabActionButton(
+        label: kGiveTariffLabel,
+        icon: Icons.add_rounded,
+        onPressed: () => _giveTariff(payments),
+      ),
+    );
+  }
+
+  Widget _actions(StudentPaymentsItem payments)
+  {
+    final StudentTariffItem tariff = payments.tariff!;
+    final StandardTariffItem? standard = _standard?.of(payments.schoolLevel);
+
+    // Nothing to change to when every other kind is turned off for the level.
+    final bool changeable = standard == null ||
+        ['HOURLY', 'PACKAGE', 'MONTHLY'].any((kind) => kind != tariff.kind && standard.enabled(kind));
+
+    // One paid ahead at a time: the buttons wait for it to start.
+    final String? off = switch (payments.queued)
+    {
+      QueuedPayment.package => kPackageQueuedReason,
+      QueuedPayment.month => kMonthQueuedReason,
+      QueuedPayment.change => changeQueuedReason(payments.queuedStartsOn, ahead: tariff.isHourly),
+      null => null,
+    };
+
+    final Widget change = tabActionButton(
+      label: kChangeTariffLabel,
+      icon: Icons.swap_horiz_rounded,
+      disabledReason: off,
+      onPressed: () => _changeTariff(payments),
+    );
+
+    final Widget export = _exportButton(payments);
+
+    final Widget tariffButtons = Wrap(
+      alignment: WrapAlignment.end,
+      spacing: _actionGap,
+      runSpacing: _actionGap,
+      children: tariff.isHourly
+          ? [
+              if (changeable) change,
+              tabActionButton(
+                label: kChangeRateLabel,
+                icon: Icons.edit_rounded,
+                disabledReason: off,
+                onPressed: () => _changeRate(payments),
+              ),
+              tabActionButton(
+                label: kPayAheadLabel,
+                icon: Icons.more_time_rounded,
+                disabledReason: off,
+                onPressed: () => _payAhead(payments),
+              ),
+            ]
+          : [
+              if (changeable) change,
+              tabActionButton(
+                label: kRenewLabel,
+                icon: Icons.autorenew_rounded,
+                disabledReason: off,
+                onPressed: () => _renew(payments),
+              ),
+            ],
+    );
+
+    // Nothing to export without a payment.
+    if (payments.history.isEmpty || !AppBreakpoints.of(context).isDense)
+    {
+      return tariffButtons;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        export,
+        const SizedBox(width: _actionGap),
+        Expanded(child: tariffButtons),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final StudentPaymentsItem? payments = _payments;
+    final _Metrics metrics = _Metrics.of(AppBreakpoints.of(context).isDense);
+    final double gap = personCardGap(context);
+
+    final String? error = _error;
+
+    if (payments == null && error != null)
+    {
+      return AppEmptyRoom(card: AppEmptyCard(icon: Icons.error_outline_rounded, message: error));
+    }
+
+    if (payments == null)
+    {
+      return const Padding(
+        padding: EdgeInsets.only(top: 60),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
+        ),
+      );
+    }
+
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final bool floating = !dense && payments.history.isNotEmpty;
+
+    // A member's tariff buttons; none for fees alone, none for whoever is not enrolled (what is owed is still
+    // settled in the history).
+    final bool tariffActions = payments.tariff != null && !payments.readOnly;
+    final bool exportAlone = dense && !tariffActions && payments.history.isNotEmpty;
+
+    final Widget content = ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: floating ? _exportRoom : 40),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _contentWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                _SummaryCard(payments: payments, metrics: metrics),
+                if (tariffActions) ...[
+                  SizedBox(height: gap),
+                  _actions(payments),
+                ],
+                if (payments.student && payments.tariff == null && !payments.readOnly) ...[
+                  SizedBox(height: gap),
+                  _firstTariffAction(payments),
+                ],
+                if (exportAlone) ...[
+                  SizedBox(height: gap),
+                  Align(alignment: Alignment.centerLeft, child: _exportButton(payments)),
+                ],
+                if (payments.state != null) ...[
+                  SizedBox(height: gap),
+                  _StatusCard(payments: payments, metrics: metrics),
+                  ..._history(payments, gap),
+                ]
+                else if (!payments.student) ...[
+                  ..._history(payments, gap),
+                ],
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (!floating)
+    {
+      return content;
+    }
+
+    return Stack(
+      children: [
+        Positioned.fill(child: content),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Center(
+            child: PageTransitionItem(
+              slot: PageTransitionItem.header,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [BoxShadow(color: Color(0x2E0B3350), offset: Offset(0, 10), blurRadius: 28)],
+                ),
+                child: AppGradientButton(
+                  label: kExportPdf,
+                  icon: Icons.picture_as_pdf_outlined,
+                  width: _exportWidth,
+                  height: _exportHeight,
+                  fontSize: 14,
+                  onPressed: () => _export(payments),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Every size that steps down with the window, in one place.
+class _Metrics
+{
+  final double radius;
+  final EdgeInsets padding;
+  final double labelText;
+  final double valueText;
+  final double badge;
+  final double badgeIcon;
+  final double titleText;
+  final double subtitleText;
+  final double ruleGap;
+  final double barText;
+  final double bar;
+  final double monthHeight;
+  final double monthText;
+  final double monthWord;
+
+  const _Metrics({
+    required this.radius,
+    required this.padding,
+    required this.labelText,
+    required this.valueText,
+    required this.badge,
+    required this.badgeIcon,
+    required this.titleText,
+    required this.subtitleText,
+    required this.ruleGap,
+    required this.barText,
+    required this.bar,
+    required this.monthHeight,
+    required this.monthText,
+    required this.monthWord,
+  });
+
+  factory _Metrics.of(bool dense)
+  {
+    if (!dense)
+    {
+      return const _Metrics(
+        radius: 32,
+        padding: EdgeInsets.fromLTRB(30, 22, 30, 24),
+        labelText: 12,
+        valueText: 22,
+        badge: 52,
+        badgeIcon: 28,
+        titleText: 23,
+        subtitleText: 15,
+        ruleGap: 20,
+        barText: 15,
+        bar: 14,
+        monthHeight: 74,
+        monthText: 14,
+        monthWord: 11,
+      );
+    }
+
+    return const _Metrics(
+      radius: 24,
+      padding: EdgeInsets.fromLTRB(20, 14, 20, 16),
+      labelText: 10,
+      valueText: 17,
+      badge: 40,
+      badgeIcon: 22,
+      titleText: 18,
+      subtitleText: 13,
+      ruleGap: 14,
+      barText: 13,
+      bar: 10,
+      monthHeight: 60,
+      monthText: 12.5,
+      monthWord: 10,
+    );
+  }
+}
+
+class _Card extends StatelessWidget
+{
+  final _Metrics metrics;
+  final Widget child;
+
+  const _Card({required this.metrics, required this.child});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      padding: metrics.padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(metrics.radius),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: child,
+    );
+  }
+}
+
+class _Rule extends StatelessWidget
+{
+  final _Metrics metrics;
+
+  const _Rule({required this.metrics});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: metrics.ruleGap),
+      child: const Divider(height: 1, thickness: 1, color: Color(0xFFEDF2F1)),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget
+{
+  final StudentPaymentsItem payments;
+  final _Metrics metrics;
+
+  const _SummaryCard({required this.payments, required this.metrics});
+
+  String get _method
+  {
+    final String? method = payments.paymentMethod;
+
+    if (method == null)
+    {
+      return '—';
+    }
+
+    return kPaymentMethodLabels[method] ?? payments.paymentMethodOther ?? '—';
+  }
+
+  Widget _figure(String label, String value)
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: PageHeading.style().copyWith(fontSize: metrics.labelText, letterSpacing: 1.4),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          value,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: metrics.valueText,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.trialOcean,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final StudentTariffItem? tariff = payments.tariff;
+
+    return _Card(
+      metrics: metrics,
+      child: Wrap(
+        spacing: _figureGap,
+        runSpacing: _figureRunGap,
+        children: [
+          // A member who is not a pupil pays only the fees: no tariff.
+          if (payments.student) ...[
+            _figure(kTariffFigure, tariff == null ? '—' : kTariffKindLabels[tariff.kind] ?? '—'),
+            _figure(
+              kCostFigure,
+              tariff == null ? '—' : tariffCost(tariff.kind, tariff.amountCents, tariff.packageHours),
+            ),
+          ],
+          _figure(kPaymentMethodFigure, _method),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusCard extends StatelessWidget
+{
+  final StudentPaymentsItem payments;
+  final _Metrics metrics;
+
+  const _StatusCard({required this.payments, required this.metrics});
+
+  bool get _ok => payments.state == PaymentState.ok;
+
+  String get _title => paymentStateTitle(payments);
+
+  String? get _subtitle => paymentStateLine(payments, romeNow());
+
+  Widget _header()
+  {
+    final String? subtitle = _subtitle;
+
+    return Row(
+      children: [
+        Container(
+          width: metrics.badge,
+          height: metrics.badge,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: _ok ? AppTheme.brandGradient : AppTheme.goldGradient,
+          ),
+          child: Icon(
+            _ok ? Icons.check_rounded : Icons.warning_amber_rounded,
+            size: metrics.badgeIcon,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 18),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _title,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: metrics.titleText,
+                  fontWeight: FontWeight.w800,
+                  color: _ok ? AppTheme.trialOcean : AppTheme.modifiedAccent,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: metrics.subtitleText,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.trialMutedText,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _details()
+  {
+    final PackageStatusItem? package = payments.package;
+    final AheadStatusItem? ahead = payments.ahead;
+    final List<MonthStateItem>? months = payments.months;
+
+    return [
+      if (package != null && payments.tariff?.isPackage == true) ...[
+        _Rule(metrics: metrics),
+        _HoursBar(used: package.usedMinutes, total: package.totalMinutes, metrics: metrics),
+      ],
+      if (ahead != null && payments.tariff?.isHourly == true) ...[
+        _Rule(metrics: metrics),
+        _HoursBar(used: ahead.usedMinutes, total: ahead.totalMinutes, metrics: metrics),
+      ],
+      if (months != null) ...[
+        _Rule(metrics: metrics),
+        _MonthStrip(months: months, metrics: metrics),
+      ],
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return _Card(
+      metrics: metrics,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _header(),
+          ..._details(),
+        ],
+      ),
+    );
+  }
+}
+
+// A package's hours, or those paid ahead: used on the left, left on the right.
+class _HoursBar extends StatelessWidget
+{
+  final int used;
+  final int total;
+  final _Metrics metrics;
+
+  const _HoursBar({required this.used, required this.total, required this.metrics});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final bool usedUp = used >= total;
+    final double share = total == 0 ? 1 : (used / total).clamp(0, 1).toDouble();
+
+    final String right = leftLabel(usedUp ? 0 : total - used);
+
+    final TextStyle label = GoogleFonts.plusJakartaSans(
+      fontSize: metrics.barText,
+      fontWeight: FontWeight.w700,
+      color: AppTheme.trialOcean,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text(usedLabel(used), style: label)),
+            const SizedBox(width: 16),
+            Text(right, style: usedUp ? label.copyWith(color: AppTheme.modifiedAccent) : label),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(metrics.bar / 2),
+          child: SizedBox(
+            height: metrics.bar,
+            child: Stack(
+              children: [
+                const Positioned.fill(child: ColoredBox(color: Color(0xFFE6EEEE))),
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: share),
+                  duration: _barFill,
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) => FractionallySizedBox(
+                    widthFactor: value,
+                    heightFactor: 1,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(metrics.bar / 2),
+                        gradient: LinearGradient(
+                          colors: usedUp
+                              ? AppTheme.goldGradient.colors
+                              : [AppTheme.trialTurquoise, AppTheme.trialTealDeep],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// The school year's months: paid in teal, this one to renew in gold, the others plain.
+class _MonthStrip extends StatelessWidget
+{
+  final List<MonthStateItem> months;
+  final _Metrics metrics;
+
+  const _MonthStrip({required this.months, required this.metrics});
+
+  static String _short(DateTime month)
+  {
+    final String name = formatMonthName(month);
+
+    return '${name[0].toUpperCase()}${name.substring(1, 3)}';
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final double cell = (constraints.maxWidth - _monthGap * (months.length - 1)) / months.length;
+        final bool words = cell >= _monthWordMinWidth;
+
+        return Row(
+          children: [
+            for (final (index, month) in months.indexed) ...[
+              if (index > 0) const SizedBox(width: _monthGap),
+              Expanded(child: _MonthCell(month: month, label: _short(month.month), words: words, metrics: metrics)),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MonthCell extends StatelessWidget
+{
+  final MonthStateItem month;
+  final String label;
+  final bool words;
+  final _Metrics metrics;
+
+  const _MonthCell({required this.month, required this.label, required this.words, required this.metrics});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final MonthState state = month.state;
+    final bool marked = state != MonthState.none;
+    final Color accent = state == MonthState.paid ? AppTheme.trialTealDeep : AppTheme.modifiedAccent;
+
+    return Container(
+      height: metrics.monthHeight,
+      decoration: BoxDecoration(
+        color: switch (state)
+        {
+          MonthState.paid => AppTheme.paidSurface,
+          MonthState.due => AppTheme.modifiedAccentSurface,
+          MonthState.none => AppTheme.quietSurface,
+        },
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: metrics.monthText,
+              fontWeight: FontWeight.w700,
+              color: marked ? AppTheme.trialOcean : const Color(0xFFA9B7BF),
+            ),
+          ),
+          if (marked) ...[
+            const SizedBox(height: 4),
+            Icon(
+              state == MonthState.paid ? Icons.check_rounded : Icons.autorenew_rounded,
+              size: metrics.monthText + 3,
+              color: accent,
+            ),
+            if (words) ...[
+              const SizedBox(height: 2),
+              Text(
+                state == MonthState.paid ? kMonthPaid : kMonthDue,
+                maxLines: 1,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: metrics.monthWord,
+                  fontWeight: FontWeight.w700,
+                  color: accent,
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}

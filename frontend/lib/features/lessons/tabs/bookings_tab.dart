@@ -50,6 +50,9 @@ class BookingsTab extends StatefulWidget
   // A day outside the booking window: shown, never changed.
   final bool readOnly;
 
+  // Subjects whose lesson has begun: shown, never changed.
+  final Set<int> begunBookingIds;
+
   final LessonsDayView view;
   final ValueChanged<LessonsDayView> onViewSelected;
 
@@ -72,6 +75,7 @@ class BookingsTab extends StatefulWidget
     required this.selectedDay,
     required this.openingDays,
     this.readOnly = false,
+    this.begunBookingIds = const {},
     required this.view,
     required this.onViewSelected,
     required this.onCreateLessonRequest,
@@ -347,6 +351,7 @@ class _BookingsTabState extends State<BookingsTab>
         studyPrograms: widget.studyPrograms,
         availableDays: widget.availableDays,
         defaultDate: widget.selectedDay,
+        begunBookingIds: widget.begunBookingIds,
         onCreateLessonRequest: widget.onCreateLessonRequest,
         onReplaceLessonRequest: widget.onReplaceLessonRequest,
       ),
@@ -429,6 +434,7 @@ class _BookingsTabState extends State<BookingsTab>
       onEditSubject: widget.onEditBooking,
       onDeleteSubject: widget.onDeleteBookingQuietly,
       readOnly: widget.readOnly,
+      begunBookingIds: widget.begunBookingIds,
     );
   }
 }

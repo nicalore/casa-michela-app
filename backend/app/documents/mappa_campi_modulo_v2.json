@@ -3,7 +3,7 @@
     "template": "modulo_iscrizione_26-27_v2_acroform.pdf",
     "origine": "Modulo_di_iscrizione_26-27.pdf revisione del 07/09/2026 (LibreOffice 24.2)",
     "anno_sociale": "2026/2027",
-    "campi_totali": 85,
+    "campi_totali": 87,
     "checkbox_valore_spunta": "/Yes",
     "checkbox_valore_vuoto": "/Off",
     "note": [
@@ -11,7 +11,9 @@
       "Appiattire con pikepdf: pdf.flatten_annotations() prima di save(), per eliminare l'evidenziazione azzurra dei viewer.",
       "Nuovi campi rispetto alla versione precedente: corso_altri, corso_altri_nome, corso_altri_costo.",
       "Firma e riquadro 'Riservato alla Segreteria' restano senza campi: compilazione a mano.",
-      "Le 5 checkbox tariffa_* sono aggiunte da noi nella tabella tariffe: senza riquadro disegnato, il widget rende solo il segno di spunta (invisibile se non selezionato)."
+      "Le 5 checkbox tariffa_* sono aggiunte da noi nella tabella tariffe: senza riquadro disegnato, il widget rende solo il segno di spunta (invisibile se non selezionato).",
+      "tariffa_concordata e' aggiunto da noi sotto la tabella tariffe: scritto solo quando la tariffa non ha una casella.",
+      "quote_concordate non e' nel modulo: lo aggiunge il codice (enrollment_form_space.py) sotto la sezione 8, spostando in giu' di 14 pt le sezioni dalla 9, solo quando le quote non sono quelle stampate."
     ]
   },
   "campi": {
@@ -439,6 +441,16 @@
       "tipo": "checkbox",
       "pagina": 2,
       "descrizione": "Adesione al sostegno psicologico (Sez. 6)"
+    },
+    "tariffa_concordata": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Tariffa Aiuto Compiti diversa dalla tabella (Sez. 4), riga sotto la tabella"
+    },
+    "quote_concordate": {
+      "tipo": "testo",
+      "pagina": 2,
+      "descrizione": "Quote associative diverse da quelle stampate (Sez. 8), riga sotto la modalita' di pagamento"
     }
   }
 }

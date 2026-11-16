@@ -100,10 +100,7 @@ List<String> ownReportableFields(PersonItem person)
     ],
     if (sections.contains(OwnPageSection.school)) ...kSchoolReportableFields,
     if (isMinorPupil) ...['Uscita anticipata', 'Contatto di emergenza', 'Allergie e farmaci'],
-    if (isStaff && paymentsCard(person) != null) ...[
-      'Modalità di pagamento',
-      if (isPupil) 'Tariffa',
-    ],
+    if (isStaff && paymentsCard(person) != null) 'Modalità di pagamento',
     if (roles.contains('AMMINISTRATORE')) 'Ruolo amministratore',
   ];
 }

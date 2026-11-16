@@ -1,115 +1,31 @@
-// Aiuto Compiti rates in force for the 2026/2027 school year; the choice itself lives on the student record.
+// Aiuto Compiti tariffs: what the creation wizard offers, with the enrolment form's figures written in.
 
-const String kHourlyTariff = 'Tariffa oraria';
+const String kHourlyTariff = 'A ore';
 const String kPackageTariff = 'Pacchetto';
+const String kMonthlyTariff = 'Quota mensile';
 
-const List<String> kHomeworkTariffChoices = [kHourlyTariff, kPackageTariff];
+const List<String> kTariffChoices = [kHourlyTariff, kPackageTariff, kMonthlyTariff];
 
-// Primary school has nothing to choose: one flat fee, whatever the hours.
-const String kPrimarySchoolTariff = 'Retta fissa mensile — € 170,00 al mese';
-
-class HomeworkTariff
-{
-  final String hourlyRate;
-
-  final String packageOffer;
-
-  // What an hour costs once the package is bought: the form's 'Equivalente orario'.
-  final String packageHourlyRate;
-
-  const HomeworkTariff({
-    required this.hourlyRate,
-    required this.packageOffer,
-    required this.packageHourlyRate,
-  });
-
-  String get summary =>
-      '$kHourlyTariff $hourlyRate\n$kPackageTariff $packageOffer, '
-      'equivalente a $packageHourlyRate.';
-}
-
-// Codes stored on the pupil: the level plus the rate chosen.
-const String kPrimaryTariffCode = 'PRIMARY_MONTHLY';
-
-const Map<String, Map<String, String>> _tariffCodes = {
-  'MIDDLE_SCHOOL': {
-    kHourlyTariff: 'MIDDLE_HOURLY',
-    kPackageTariff: 'MIDDLE_PACKAGE',
-  },
-  'HIGH_SCHOOL': {
-    kHourlyTariff: 'HIGH_HOURLY',
-    kPackageTariff: 'HIGH_PACKAGE',
-  },
+const Map<String, String> kTariffKinds = {
+  kHourlyTariff: 'HOURLY',
+  kPackageTariff: 'PACKAGE',
+  kMonthlyTariff: 'MONTHLY',
 };
 
-String? homeworkTariffCodeOf({required String? level, required String? choice})
-{
-  if (level == 'PRIMARY_SCHOOL')
-  {
-    return kPrimaryTariffCode;
-  }
+const String kTariffLabel = 'Tariffa Aiuto Compiti';
+const String kHourlyCostLabel = 'Costo orario';
+const String kPackageHoursLabel = 'Ore del pacchetto';
+const String kPackageCostLabel = 'Costo del pacchetto';
+const String kMonthlyCostLabel = 'Quota mensile';
 
-  return _tariffCodes[level]?[choice];
-}
+const String kPaidChoice = 'Pagato';
+const String kUnpaidChoice = 'Non pagato';
+const String kPaidFeminineChoice = 'Pagata';
+const String kUnpaidFeminineChoice = 'Non pagata';
 
-String? homeworkTariffChoiceOf(String? code)
-{
-  for (final Map<String, String> byChoice in _tariffCodes.values)
-  {
-    for (final MapEntry<String, String> entry in byChoice.entries)
-    {
-      if (entry.value == code)
-      {
-        return entry.key;
-      }
-    }
-  }
+// Under the figures when they differ from the level's standard tariff.
+String standardTariffNote(String levelLabel, String terms) => 'Tariffa standard delle ${levelLabel.toLowerCase()}: $terms';
 
-  return null;
-}
-
-String? homeworkTariffLabel(String? code)
-{
-  if (code == null)
-  {
-    return null;
-  }
-
-  if (code == kPrimaryTariffCode)
-  {
-    return kPrimarySchoolTariff;
-  }
-
-  for (final MapEntry<String, Map<String, String>> level in _tariffCodes.entries)
-  {
-    for (final MapEntry<String, String> entry in level.value.entries)
-    {
-      if (entry.value != code)
-      {
-        continue;
-      }
-
-      final HomeworkTariff tariff = kHomeworkTariffs[level.key]!;
-      final String figures =
-          entry.key == kHourlyTariff ? tariff.hourlyRate : tariff.packageOffer;
-
-      return '${entry.key} — $figures';
-    }
-  }
-
-  return null;
-}
-
-// Keyed by the school level of the study programme, as SchoolLevel spells it.
-const Map<String, HomeworkTariff> kHomeworkTariffs = {
-  'MIDDLE_SCHOOL': HomeworkTariff(
-    hourlyRate: '€ 13,00 / ora',
-    packageOffer: '18 ore a € 215,00',
-    packageHourlyRate: '€ 11,95 / ora',
-  ),
-  'HIGH_SCHOOL': HomeworkTariff(
-    hourlyRate: '€ 14,00 / ora',
-    packageOffer: '20 ore a € 260,00',
-    packageHourlyRate: '€ 13,00 / ora',
-  ),
-};
+// The annual fees of the year the new member joins.
+String membershipFeeLabel(int year) => 'Iscrizione $year';
+String insuranceFeeLabel(int year) => 'Assicurazione $year';

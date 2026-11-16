@@ -99,6 +99,12 @@ void followMobileNotification(NotificationItem item)
     case NotificationKind.administratorNoteAdded:
       OwnPageJumps.requestObservations();
       MobileShellRequests.open(me.activeRole, kMobileOwnPageSlug);
+    case NotificationKind.volunteeringChanged:
+      if (me.availableRoles.contains(_teacherRole))
+      {
+        // The teacher's Compensi are not there yet: the home shows the month's pay.
+        MobileShellRequests.open(_teacherRole, kMobileHomeSlug);
+      }
     case NotificationKind.noticeReceived:
       final int? id = item.noticeId;
       final String? role = calendarRoleFor(

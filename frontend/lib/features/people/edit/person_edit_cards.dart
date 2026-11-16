@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
@@ -20,11 +21,18 @@ import '../widgets/membership_edit_row.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/person_row_models.dart';
 import '../widgets/school_enrollment_edit_row.dart' hide currentSchoolYearStart;
+import '../utils/compensation_strings.dart' show kRateHint;
 import '../widgets/school_year_wizard.dart';
+import '../../association/models/standard_tariffs_item.dart';
+import '../../association/tabs/tariffs/tariffs_strings.dart' show kTariffLevelLabels, tariffOffFor;
+import '../models/student_payments_item.dart';
+import '../utils/payments_strings.dart'
+    show changeQueuedReason, currentTariff, feePaymentBlock, kPackagePaymentBlock, tariffCost;
 import 'homework_tariffs.dart';
 import 'person_edit_form.dart';
 import 'widgets/person_chip_group_field.dart';
 import '../../../shared/widgets/app_choice_card.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 
 // UI-only chip for "no certification"; the form stores it as an empty set.
 const String _noCertification = 'No';
@@ -53,13 +61,16 @@ class PersonEditCardContext
 
 const double _choiceGap = 12;
 
-const String _tariffLabel = 'Tariffa Aiuto Compiti';
+const double _tariffFieldGap = 16;
 
-final TextStyle _tariffStyle = GoogleFonts.plusJakartaSans(
-  fontSize: 14,
-  fontWeight: FontWeight.w600,
-  color: AppTheme.trialInk,
-);
+// Side by side from this width: the tariff beside the fees, or the two fees.
+const double _paymentColumnsWidth = 820;
+const double _paymentColumnGap = 36;
+const double _paymentBlockGap = 24;
+const double _feeGap = 22;
+const double _feeAmountWidth = 170;
+
+const int _packageHoursDigits = 3;
 
 Widget cardSection(String label, Widget child)
 {
@@ -70,6 +81,28 @@ Widget cardSection(String label, Widget child)
       const SizedBox(height: 10),
       child,
     ],
+  );
+}
+
+// Drafts: why a choice is off when a history keeps roles or the membership.
+const String kKeptRoleNote = 'Non si può togliere: ci sono lezioni, ore o pagamenti registrati.';
+const String kKeptRolesNote =
+    'Non si può scegliere: alcuni ruoli hanno lezioni, ore o pagamenti registrati.';
+const String kKeptMembershipNote =
+    'Non si può scegliere: ci sono pagamenti registrati nel periodo di iscrizione.';
+
+// An option off keeps its own words; the reason shows on hover.
+Widget _offWithReason(String? reason, Widget card)
+{
+  if (reason == null)
+  {
+    return card;
+  }
+
+  return AppTooltip(
+    waitDuration: const Duration(milliseconds: 400),
+    message: reason,
+    child: card,
   );
 }
 
@@ -98,17 +131,21 @@ class InvolvementCard extends StatelessWidget
             ctx.onChanged();
           },
         ),
-        AppChoiceCard(
-          icon: Icons.card_membership_rounded,
-          title: 'Solo socio',
-          subtitle: 'Paga regolarmente la quota di iscrizione per sostenere '
-              'l\'Associazione, ma non ricopre alcun ruolo.',
-          selected: ctx.form.involvementType == 1,
-          onSelected: (_)
-          {
-            ctx.form.chooseInvolvement(1);
-            ctx.onChanged();
-          },
+        _offWithReason(
+          ctx.form.keepsSomeRole ? kKeptRolesNote : null,
+          AppChoiceCard(
+            icon: Icons.card_membership_rounded,
+            title: 'Solo socio',
+            subtitle: 'Paga regolarmente la quota di iscrizione per sostenere '
+                'l\'Associazione, ma non ricopre alcun ruolo.',
+            disabled: ctx.form.keepsSomeRole,
+            selected: ctx.form.involvementType == 1,
+            onSelected: (_)
+            {
+              ctx.form.chooseInvolvement(1);
+              ctx.onChanged();
+            },
+          ),
         ),
       ],
     );
@@ -192,16 +229,22 @@ class RolesCard extends StatelessWidget
 
   Widget _buildCard(PersonRoleOption role)
   {
-    return AppChoiceCard(
-      icon: _icons[role.id] ?? Icons.person_outline,
-      title: role.label,
-      subtitle: role.description,
-      selected: ctx.form.selectedRoles.contains(role.id),
-      onSelected: (selected)
-      {
-        ctx.form.toggleRole(role.id, selected);
-        ctx.onChanged();
-      },
+    final bool kept = ctx.form.isRoleKept(role.id);
+
+    return _offWithReason(
+      kept ? kKeptRoleNote : null,
+      AppChoiceCard(
+        icon: _icons[role.id] ?? Icons.person_outline,
+        title: role.label,
+        subtitle: role.description,
+        disabled: kept,
+        selected: ctx.form.selectedRoles.contains(role.id),
+        onSelected: (selected)
+        {
+          ctx.form.toggleRole(role.id, selected);
+          ctx.onChanged();
+        },
+      ),
     );
   }
 }
@@ -230,16 +273,20 @@ class AssociationCard extends StatelessWidget
             ctx.onChanged();
           },
         ),
-        AppChoiceCard(
-          icon: Icons.person_off_outlined,
-          title: 'No',
-          subtitle: 'Il genitore viene registrato solo come tutore del minore.',
-          selected: ctx.form.parentIsMember == false,
-          onSelected: (_)
-          {
-            ctx.form.parentIsMember = false;
-            ctx.onChanged();
-          },
+        _offWithReason(
+          ctx.form.keepsMembership ? kKeptMembershipNote : null,
+          AppChoiceCard(
+            icon: Icons.person_off_outlined,
+            title: 'No',
+            subtitle: 'Il genitore viene registrato solo come tutore del minore.',
+            disabled: ctx.form.keepsMembership,
+            selected: ctx.form.parentIsMember == false,
+            onSelected: (_)
+            {
+              ctx.form.parentIsMember = false;
+              ctx.onChanged();
+            },
+          ),
         ),
       ],
     );
@@ -942,6 +989,36 @@ class ContactsCard extends StatelessWidget
   }
 }
 
+// The new year's start; the year is the one in course.
+class ReEnrollmentCard extends StatelessWidget
+{
+  final PersonEditCardContext ctx;
+
+  const ReEnrollmentCard({super.key, required this.ctx});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    // Sized to the row, as the memberships card holds its own.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MembershipEditRow(
+          yearController: ctx.form.reEnrollYearCtrl,
+          dayMonthController: ctx.form.reEnrollStartCtrl,
+          yearError: null,
+          startError: ctx.errors['reEnrollStart'],
+          onYearChanged: (_) {},
+          onDayMonthChanged: (_) => ctx.clearError('reEnrollStart'),
+          onRemove: null,
+          yearFixed: true,
+        ),
+      ],
+    );
+  }
+}
+
 class MembershipsCard extends StatelessWidget
 {
   final PersonEditCardContext ctx;
@@ -978,6 +1055,7 @@ class MembershipsCard extends StatelessWidget
                           rows.removeAt(i).dispose();
                           ctx.onChanged();
                         },
+                  locked: rows[i].locked,
                 ),
             ],
           ),
@@ -1006,64 +1084,384 @@ class MembershipsCard extends StatelessWidget
   }
 }
 
-class PaymentCard extends StatelessWidget
+class PaymentCard extends StatefulWidget
 {
   final PersonEditCardContext ctx;
 
   const PaymentCard({super.key, required this.ctx});
 
-  // Asked only once the current year has a programme: the rate follows the school level.
-  Widget? _tariff()
+  @override
+  State<PaymentCard> createState() => _PaymentCardState();
+}
+
+class _PaymentCardState extends State<PaymentCard>
+{
+  PersonEditCardContext get ctx => widget.ctx;
+
+  // The level comes from the step before: its figures are written in as the card shows.
+  @override
+  void initState()
   {
-    if (!ctx.form.activeRoles.contains('STUDENTE'))
-    {
-      return null;
-    }
-
-    final String? level = ctx.form.currentSchoolLevel;
-
-    if (level == 'PRIMARY_SCHOOL')
-    {
-      return cardSection(
-        _tariffLabel,
-        Text(kPrimarySchoolTariff, style: _tariffStyle),
-      );
-    }
-
-    final HomeworkTariff? tariff = kHomeworkTariffs[level];
-
-    if (tariff == null)
-    {
-      return null;
-    }
-
-    return PersonChipGroupField(
-      label: _tariffLabel,
-      options: kHomeworkTariffChoices,
-      value: ctx.form.homeworkTariffValue,
-      note: tariff.summary,
-      errorText: ctx.errors['tariffaAiutoCompiti'],
-      onChanged: (value)
-      {
-        ctx.form.homeworkTariffValue = value;
-        ctx.clearError('tariffaAiutoCompiti');
-      },
-    );
+    super.initState();
+    ctx.form.syncTariffDefaults();
+    ctx.form.syncFeeDefaults();
   }
 
   @override
-  Widget build(BuildContext context)
+  void didUpdateWidget(PaymentCard oldWidget)
   {
-    final Widget? tariff = _tariff();
+    super.didUpdateWidget(oldWidget);
+    ctx.form.syncTariffDefaults();
+    ctx.form.syncFeeDefaults();
+  }
+
+  // Typing redraws the card: the standard tariff line follows the figures.
+  void _typed(String key)
+  {
+    ctx.clearError(key);
+    setState(() {});
+  }
+
+  Widget _amountField(String label, TextEditingController controller)
+  {
+    return AppTextField(
+      controller: controller,
+      label: label,
+      hintText: kRateHint,
+      keyboardType: TextInputType.number,
+      errorText: ctx.errors['tariffaCosto'],
+      onChanged: (_) => _typed('tariffaCosto'),
+    );
+  }
+
+  Widget _figures(String choice)
+  {
+    final PersonEditForm form = ctx.form;
+
+    if (choice == kHourlyTariff)
+    {
+      return _amountField(kHourlyCostLabel, form.tariffHourlyCtrl);
+    }
+
+    if (choice == kMonthlyTariff)
+    {
+      return _amountField(kMonthlyCostLabel, form.tariffMonthlyCtrl);
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: AppTextField(
+            controller: form.tariffPackageHoursCtrl,
+            label: kPackageHoursLabel,
+            hintText: 'Es. 18',
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            maxLength: _packageHoursDigits,
+            errorText: ctx.errors['tariffaOre'],
+            onChanged: (_) => _typed('tariffaOre'),
+          ),
+        ),
+        const SizedBox(width: _tariffFieldGap),
+        Expanded(child: _amountField(kPackageCostLabel, form.tariffPackageCostCtrl)),
+      ],
+    );
+  }
+
+  Widget _note(String text)
+  {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 1),
+          child: Icon(Icons.info_outline_rounded, size: 17, color: AppTheme.trialTurquoise),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              height: 1.4,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Shown only while the figures differ from the level's standard tariff.
+  Widget? _standardNote()
+  {
+    final PersonEditForm form = ctx.form;
+    final ({int cents, int? hours})? standard = form.tariffStandardFigures;
+    final String? kind = kTariffKinds[form.tariffKindValue];
+
+    if (standard == null || kind == null)
+    {
+      return null;
+    }
+
+    final String level = kTariffLevelLabels[form.currentSchoolLevel] ?? '';
+
+    return _note(standardTariffNote(level, tariffCost(kind, standard.cents, standard.hours)));
+  }
+
+  Widget _paidSwitch({
+    required bool value,
+    required bool feminine,
+    required ValueChanged<bool> onChanged,
+  })
+  {
+    return AppSegmentedSwitch(
+      value: value,
+      trueLabel: feminine ? kPaidFeminineChoice : kPaidChoice,
+      falseLabel: feminine ? kUnpaidFeminineChoice : kUnpaidChoice,
+      hugContent: true,
+      onChanged: (paid) => setState(() => onChanged(paid)),
+    );
+  }
+
+  // The package or this month's fee, paid with the enrolment.
+  Widget? _firstPayment()
+  {
+    final PersonEditForm form = ctx.form;
+
+    if (!form.asksFirstPayment)
+    {
+      return null;
+    }
+
+    final bool package = form.tariffKindValue == kPackageTariff;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (tariff != null) ...[
-          tariff,
-          const SizedBox(height: 24),
+        AppFieldLabel(package ? kPackagePaymentBlock : feePaymentBlock(romeNow())),
+        const SizedBox(height: 10),
+        _paidSwitch(
+          value: form.firstPaymentPaid,
+          feminine: !package,
+          onChanged: (paid) => form.firstPaymentPaid = paid,
+        ),
+      ],
+    );
+  }
+
+  // The tariff already chosen and waiting to start, shown instead of the choice.
+  Widget _keptTariff(StudentTariffItem tariff)
+  {
+    final StudentPaymentsItem? payments = ctx.form.paymentsOnFile;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const AppFieldLabel(kTariffLabel),
+        const SizedBox(height: 10),
+        Text(
+          currentTariff(tariff.kind, tariff.amountCents, tariff.packageHours),
+          style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+        ),
+        const SizedBox(height: 12),
+        _note(changeQueuedReason(payments?.queuedStartsOn, ahead: payments?.tariff?.isHourly ?? false)),
+      ],
+    );
+  }
+
+  Widget? _tariff()
+  {
+    final PersonEditForm form = ctx.form;
+
+    if (form.keptTariff case final StudentTariffItem kept)
+    {
+      return _keptTariff(kept);
+    }
+
+    if (!form.asksTariff)
+    {
+      return null;
+    }
+
+    final StandardTariffItem defaults = form.levelTariffs!;
+    final String off = tariffOffFor(form.currentSchoolLevel);
+    final String? choice = form.tariffKindValue;
+    final Widget? note = choice == null ? null : _standardNote();
+    final Widget? payment = _firstPayment();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PersonChipGroupField(
+          label: kTariffLabel,
+          options: kTariffChoices,
+          value: choice,
+          struck: {
+            for (final String option in kTariffChoices)
+              if (!defaults.enabled(kTariffKinds[option]!)) option: off,
+          },
+          errorText: ctx.errors['tariffaAiutoCompiti'],
+          onChanged: (value)
+          {
+            form.tariffKindValue = value;
+            ctx.errors.remove('tariffaCosto');
+            ctx.errors.remove('tariffaOre');
+            ctx.clearError('tariffaAiutoCompiti');
+          },
+        ),
+        if (choice != null) ...[
+          const SizedBox(height: 20),
+          _figures(choice),
         ],
+        if (note != null) ...[
+          const SizedBox(height: 12),
+          note,
+        ],
+        if (payment != null) ...[
+          const SizedBox(height: 20),
+          payment,
+        ],
+      ],
+    );
+  }
+
+  Widget _fee({
+    required String label,
+    required bool paid,
+    required ValueChanged<bool> onPaid,
+    required TextEditingController controller,
+    required String errorKey,
+  })
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppFieldLabel(label),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _paidSwitch(value: paid, feminine: true, onChanged: onPaid),
+            const SizedBox(width: _tariffFieldGap),
+            SizedBox(
+              width: _feeAmountWidth,
+              child: AppTextField(
+                controller: controller,
+                label: label,
+                showLabel: false,
+                hintText: kRateHint,
+                keyboardType: TextInputType.number,
+                errorText: ctx.errors[errorKey],
+                onChanged: (_) => ctx.clearError(errorKey),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Membership first, insurance second.
+  (Widget, Widget)? _fees()
+  {
+    final PersonEditForm form = ctx.form;
+    final int? year = form.feesYear;
+
+    if (!form.asksFees || year == null)
+    {
+      return null;
+    }
+
+    return (
+      _fee(
+        label: membershipFeeLabel(year),
+        paid: form.membershipFeePaid,
+        onPaid: (paid) => form.membershipFeePaid = paid,
+        controller: form.membershipFeeCtrl,
+        errorKey: 'quotaIscrizione',
+      ),
+      _fee(
+        label: insuranceFeeLabel(year),
+        paid: form.insuranceFeePaid,
+        onPaid: (paid) => form.insuranceFeePaid = paid,
+        controller: form.insuranceFeeCtrl,
+        errorKey: 'quotaAssicurazione',
+      ),
+    );
+  }
+
+  // The divider in the middle runs as tall as the taller column, whichever it is.
+  Widget _columns(Widget first, Widget second)
+  {
+    return Stack(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: _paymentColumnGap),
+            Expanded(child: second),
+          ],
+        ),
+        const Positioned.fill(
+          child: Center(
+            child: SizedBox(
+              width: 1,
+              height: double.infinity,
+              child: ColoredBox(color: AppTheme.trialLine),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _stacked(List<Widget> blocks, double gap)
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < blocks.length; i++) ...[
+          if (i > 0) SizedBox(height: gap),
+          blocks[i],
+        ],
+      ],
+    );
+  }
+
+  Widget? _top(bool wide)
+  {
+    final Widget? tariff = _tariff();
+    final (Widget, Widget)? fees = _fees();
+
+    if (fees == null)
+    {
+      return tariff;
+    }
+
+    final Widget feeColumn = _stacked([fees.$1, fees.$2], _feeGap);
+
+    if (tariff == null)
+    {
+      return wide ? _columns(fees.$1, fees.$2) : feeColumn;
+    }
+
+    return wide ? _columns(tariff, feeColumn) : _stacked([tariff, feeColumn], _paymentBlockGap);
+  }
+
+  Widget _method()
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         PersonChipGroupField(
           label: 'Modalità di pagamento',
           options: const ['Contanti', 'Bonifico bancario', 'Altro'],
@@ -1085,6 +1483,34 @@ class PaymentCard extends StatelessWidget
             onChanged: (_) => ctx.clearError('altraModalitaPagamento'),
           ),
       ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final Widget? top = _top(constraints.maxWidth >= _paymentColumnsWidth);
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ?top,
+            // The tariff alone, for a member on file: their method lives in «Pagamenti».
+            if (ctx.form.asksPaymentStep) ...[
+              if (top != null)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: _paymentBlockGap),
+                  child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+                ),
+              _method(),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -1573,9 +1999,7 @@ class StaffCard extends StatelessWidget
       children: [
         PersonChipGroupField(
           label: 'Collaborazione',
-          options: forced
-              ? const ['Non pagato']
-              : const ['Volontario', 'Retribuito', 'FSL (Ex PCTO)'],
+          options: forced ? const ['Non pagato'] : kCollaborationChoices,
           value: ctx.form.collaborationTypeValue,
           enabled: !forced,
           note: forced
@@ -1599,15 +2023,17 @@ class StaffCard extends StatelessWidget
             onChanged: (_) => ctx.clearError('compensoLordo'),
           ),
         ],
-        const SizedBox(height: 20),
-        AppTextField(
-          controller: ctx.form.ibanCtrl,
-          label: 'IBAN',
-          hintText: 'Es. IT00A...',
-          maxLength: FieldLimits.iban,
-          errorText: ctx.errors['iban'],
-          onChanged: (_) => ctx.clearError('iban'),
-        ),
+        if (!ctx.form.ibanInCompensi) ...[
+          const SizedBox(height: 20),
+          AppTextField(
+            controller: ctx.form.ibanCtrl,
+            label: 'IBAN',
+            hintText: 'Es. IT00A...',
+            maxLength: FieldLimits.iban,
+            errorText: ctx.errors['iban'],
+            onChanged: (_) => ctx.clearError('iban'),
+          ),
+        ],
       ],
     );
   }

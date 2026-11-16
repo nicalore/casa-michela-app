@@ -17,6 +17,8 @@ const double _borderWidth = 1.5;
 
 const double _rowGap = 3;
 
+const double _offAlpha = 0.45;
+
 class AppSegmentedTabs extends StatefulWidget
 {
   final List<String> labels;
@@ -31,8 +33,14 @@ class AppSegmentedTabs extends StatefulWidget
 
   final bool hugContent;
 
+  // Room each side of a label: less where a table must fit the whole control.
+  final double segmentPadding;
+
   // Per tab, the id a tour lights it by.
   final List<String?> tours;
+
+  // Shown muted and not picked: a band the association keeps shut, say.
+  final Set<int> disabled;
 
   const AppSegmentedTabs({
     super.key,
@@ -43,11 +51,41 @@ class AppSegmentedTabs extends StatefulWidget
     this.fontSize = 14,
     this.padding = const EdgeInsets.only(bottom: 24),
     this.hugContent = false,
+    this.segmentPadding = _segmentPadding,
     this.tours = const [],
+    this.disabled = const {},
   });
+
+  // Its width on one row, for a parent that has to leave it the room.
+  static double widthOf(
+    List<String> labels, {
+    required double fontSize,
+    required TextScaler scaler,
+    double segmentPadding = _segmentPadding,
+  })
+  {
+    final TextStyle style = _labelStyleOf(fontSize);
+
+    return labels.fold<double>(0, (sum, label) => sum + _segmentWidth(label, style, scaler, segmentPadding)) +
+        2 * (_padding + _borderWidth);
+  }
 
   @override
   State<AppSegmentedTabs> createState() => _AppSegmentedTabsState();
+}
+
+TextStyle _labelStyleOf(double fontSize) => GoogleFonts.plusJakartaSans(fontSize: fontSize, fontWeight: FontWeight.w700);
+
+double _segmentWidth(String label, TextStyle style, TextScaler scaler, double padding)
+{
+  final painter = TextPainter(
+    text: TextSpan(text: label, style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: scaler,
+    maxLines: 1,
+  )..layout();
+
+  return painter.width + 2 * padding;
 }
 
 class _AppSegmentedTabsState extends State<AppSegmentedTabs>
@@ -79,7 +117,8 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
 
     if (!identical(oldWidget.labels, widget.labels) ||
         oldWidget.labels.length != widget.labels.length ||
-        oldWidget.fontSize != widget.fontSize)
+        oldWidget.fontSize != widget.fontSize ||
+        oldWidget.segmentPadding != widget.segmentPadding)
     {
       _measureAll();
     }
@@ -93,10 +132,7 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
     super.dispose();
   }
 
-  TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(
-        fontSize: widget.fontSize,
-        fontWeight: FontWeight.w700,
-      );
+  TextStyle get _labelStyle => _labelStyleOf(widget.fontSize);
 
   void _measureAll()
   {
@@ -133,17 +169,7 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
     setState(() => _widths = measured);
   }
 
-  double _measure(String label, TextScaler scaler)
-  {
-    final painter = TextPainter(
-      text: TextSpan(text: label, style: _labelStyle),
-      textDirection: TextDirection.ltr,
-      textScaler: scaler,
-      maxLines: 1,
-    )..layout();
-
-    return painter.width + 2 * _segmentPadding;
-  }
+  double _measure(String label, TextScaler scaler) => _segmentWidth(label, _labelStyle, scaler, widget.segmentPadding);
 
   List<List<int>> _pack(List<double> widths, double available)
   {
@@ -184,17 +210,21 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
 
   Widget _buildSegmentFace(int index, double width, bool active)
   {
+    final bool off = widget.disabled.contains(index) && !active;
+
     return SizedBox(
       width: width,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => widget.onSelected(index),
+        onTap: off ? null : () => widget.onSelected(index),
         child: Center(
           child: AnimatedDefaultTextStyle(
             duration: kSegmentedSlide,
             curve: kSegmentedSlideCurve,
             style: _labelStyle.copyWith(
-              color: active ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+              color: active
+                  ? AppTheme.trialTealDeep
+                  : AppTheme.trialMutedText.withValues(alpha: off ? _offAlpha : 1),
             ),
             child: DescenderRoom(
               child: Text(

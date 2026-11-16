@@ -107,6 +107,12 @@ bool haveBookingsClosed(DateTime day, TimeBucket band, DateTime now)
   return !now.isBefore(bookingsCloseAt(day, band));
 }
 
+// Mirrors has_begun in app/services/calendar_freeze.py: hours begun are never written.
+bool hasBegun(DateTime day, TimeOfDay start, DateTime now)
+{
+  return !DateTime(day.year, day.month, day.day, start.hour, start.minute).isAfter(now);
+}
+
 String bookingsCloseLabel(DateTime day, TimeBucket band)
 {
   final at = bookingsCloseAt(day, band);

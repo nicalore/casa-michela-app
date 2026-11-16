@@ -46,6 +46,11 @@ class CalendarDayAgenda extends StatelessWidget
 
   final void Function(ActivityItem activity)? onActivityTap;
 
+  // A lane's name leads to that person's record.
+  final void Function(CalendarLane lane)? onOpenPerson;
+
+  final ScrollController? scrollController;
+
   const CalendarDayAgenda({
     super.key,
     required this.lanes,
@@ -62,6 +67,8 @@ class CalendarDayAgenda extends StatelessWidget
     this.onExcludedChanged,
     this.onLessonTap,
     this.onActivityTap,
+    this.onOpenPerson,
+    this.scrollController,
   });
 
   int get _rowCount
@@ -132,6 +139,7 @@ class CalendarDayAgenda extends StatelessWidget
       room: roomByTeacher[lane.personTaxCode],
       isExcluded: excludedTeachers.contains(lane.personTaxCode),
       onToggleExcluded: _toggleExcluded(lane),
+      onOpenPerson: onOpenPerson == null ? null : () => onOpenPerson!(lane),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -159,6 +167,7 @@ class CalendarDayAgenda extends StatelessWidget
         Expanded(
           child: ScrollEdgeFade(
             child: ListView.separated(
+              controller: scrollController,
               padding: EdgeInsets.zero,
               itemCount: lanes.length,
               separatorBuilder: (context, index) => const SizedBox(height: 14),

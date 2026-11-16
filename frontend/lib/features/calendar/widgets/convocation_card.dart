@@ -34,14 +34,14 @@ class ConvocationCard extends StatelessWidget
           icon: lessonModeIcon(kPresenceMode),
           label: modeLabel(kPresenceMode),
           accent: lessonAccent(kPresenceMode),
-          surface: lessonSurface(kPresenceMode),
+          surface: lessonBadgeSurface(kPresenceMode),
         ),
       if (modes.contains(kOnlineMode))
         BandChip(
           icon: lessonModeIcon(kOnlineMode),
           label: modeLabel(kOnlineMode),
           accent: lessonAccent(kOnlineMode),
-          surface: lessonSurface(kOnlineMode),
+          surface: lessonBadgeSurface(kOnlineMode),
         ),
     ];
   }
@@ -88,7 +88,7 @@ class _RoomChip extends StatelessWidget
       icon: Icons.meeting_room_outlined,
       label: name,
       accent: AppTheme.trialTealDeep,
-      surface: AppTheme.todaySurface,
+      surface: AppTheme.presenceBadge,
     );
   }
 }

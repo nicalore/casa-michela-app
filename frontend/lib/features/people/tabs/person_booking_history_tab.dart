@@ -855,7 +855,7 @@ class _StretchBlock extends StatelessWidget
       height: sizes.chipHeight,
       padding: EdgeInsets.symmetric(horizontal: sizes == _Sizes.dense ? 8 : 11),
       decoration: BoxDecoration(
-        color: _online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface,
+        color: _online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge,
         borderRadius: BorderRadius.circular(sizes.chipHeight / 2),
       ),
       child: Align(

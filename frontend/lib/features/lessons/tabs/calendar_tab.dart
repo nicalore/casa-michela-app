@@ -96,6 +96,52 @@ enum CalendarCompactView
   planned,
 }
 
+// The calendar as it was left for a record, given back when the way back leads to the same band.
+class _LeftCalendar
+{
+  final DateTime day;
+  final TimeBucket band;
+
+  final CalendarView view;
+  final CalendarSort sort;
+  final CalendarLayout layout;
+  final CalendarCompactView compactView;
+
+  final String search;
+
+  final bool panelOpen;
+
+  final double down;
+  final double sideways;
+  final double list;
+
+  const _LeftCalendar({
+    required this.day,
+    required this.band,
+    required this.view,
+    required this.sort,
+    required this.layout,
+    required this.compactView,
+    required this.search,
+    required this.panelOpen,
+    required this.down,
+    required this.sideways,
+    required this.list,
+  });
+
+  static _LeftCalendar? _kept;
+
+  // Given once: any other calendar opened meanwhile forgets it.
+  static _LeftCalendar? take(DateTime day, TimeBucket band)
+  {
+    final kept = _kept;
+
+    _kept = null;
+
+    return kept != null && isSameDate(kept.day, day) && kept.band == band ? kept : null;
+  }
+}
+
 const String _kDraftPillTooltip = 'Le modifiche saranno inviate una volta confermate.';
 
 const String _kDraftDiscarded = 'Modifiche annullate.';
@@ -286,6 +332,9 @@ class CalendarTab extends StatefulWidget
     required Function(String) onError,
   })? onReadmitTeacher;
 
+  // Opens a teacher's or pupil's record; the calendar is given back as it was on the way back.
+  final ValueChanged<String>? onOpenPerson;
+
   const CalendarTab({
     super.key,
     required this.day,
@@ -322,6 +371,7 @@ class CalendarTab extends StatefulWidget
     this.excludedTeachers = const {},
     this.onExcludeTeacher,
     this.onReadmitTeacher,
+    this.onOpenPerson,
     this.today,
   });
 
@@ -352,17 +402,23 @@ class _CalendarTabState extends State<CalendarTab>
 
   CalendarCompactView _compactView = CalendarCompactView.toPlan;
 
+  // Taken before anything else reads it, in initState.
+  late final _LeftCalendar? _back = _LeftCalendar.take(widget.day, widget.band);
+
   // Open on a band with requests to plan; it stays open across drags, fading away while one is under way.
   // A notifier: opening and closing must not rebuild the day, or the fade is spent on that frame.
-  late final ValueNotifier<bool> _panelOpen = ValueNotifier(_hasWorkToPlan);
+  late final ValueNotifier<bool> _panelOpen = ValueNotifier(_back?.panelOpen ?? _hasWorkToPlan);
 
   // Where the requests were left, for every band until the page reloads.
   static AppFloatingPlace? _panelPlace;
 
   bool get _hasWorkToPlan => !_isSettled && openPanelCount(_bookingGroups, _unassignedActivities) > 0;
 
-  final ScrollController _trackController = ScrollController();
-  final ScrollController _sidewaysController = ScrollController();
+  late final ScrollController _trackController = ScrollController(initialScrollOffset: _back?.down ?? 0);
+  late final ScrollController _sidewaysController = ScrollController(initialScrollOffset: _back?.sideways ?? 0);
+
+  // The board's and the compact agenda's, one at a time.
+  late final ScrollController _listController = ScrollController(initialScrollOffset: _back?.list ?? 0);
 
   // The rows keep their state and offset when the sideways bar comes or goes around them.
   final GlobalKey _trackViewKey = GlobalKey();
@@ -382,6 +438,7 @@ class _CalendarTabState extends State<CalendarTab>
   void initState()
   {
     super.initState();
+    _restoreLeft();
     _carriedAt.addListener(_sayWhatIsWrong);
 
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -483,6 +540,7 @@ class _CalendarTabState extends State<CalendarTab>
     _search.dispose();
     _trackController.dispose();
     _sidewaysController.dispose();
+    _listController.dispose();
     _carried.dispose();
     _panelOpen.dispose();
     _carriedAt.dispose();
@@ -773,7 +831,61 @@ class _CalendarTabState extends State<CalendarTab>
       lesson: lesson,
       ministrySubjects: widget.ministrySubjects,
       view: _view,
+      onOpenPerson: widget.onOpenPerson == null ? null : (person) => _openPerson(person.taxCode),
     );
+  }
+
+  void _restoreLeft()
+  {
+    final back = _back;
+
+    if (back == null)
+    {
+      return;
+    }
+
+    _view = back.view;
+    _sort = back.sort;
+    _layout = back.layout;
+    _compactView = back.compactView;
+    _searchController.text = back.search;
+    _search.value = CalendarSearch.of(back.search, widget.ministrySubjects);
+  }
+
+  static double _offsetOf(ScrollController controller)
+  {
+    return controller.positions.length == 1 ? controller.offset : 0;
+  }
+
+  void _openPerson(String taxCode)
+  {
+    final open = widget.onOpenPerson;
+
+    if (open == null)
+    {
+      return;
+    }
+
+    _LeftCalendar._kept = _LeftCalendar(
+      day: _day,
+      band: _band,
+      view: _view,
+      sort: _sort,
+      layout: _layout,
+      compactView: _compactView,
+      search: _searchController.text,
+      panelOpen: _panelOpen.value,
+      down: _offsetOf(_trackController),
+      sideways: _offsetOf(_sidewaysController),
+      list: _offsetOf(_listController),
+    );
+
+    open(taxCode);
+  }
+
+  void Function(CalendarLane lane)? get _openLane
+  {
+    return widget.onOpenPerson == null ? null : (lane) => _openPerson(lane.personTaxCode);
   }
 
   void Function(LessonItem) _lessonTap(CalendarDayIndex index)
@@ -783,7 +895,20 @@ class _CalendarTabState extends State<CalendarTab>
       return _openPublishedLesson;
     }
 
-    return (lesson) => _openLesson(lesson, index);
+    // Begun, a lesson is no longer planned: it is read here and corrected in the daily summary.
+    return (lesson)
+    {
+      final DateTime now = romeNow();
+
+      if (isLessonPast(lesson, now) || isLessonRunning(lesson, now))
+      {
+        unawaited(_openPublishedLesson(lesson));
+
+        return;
+      }
+
+      unawaited(_openLesson(lesson, index));
+    };
   }
 
   Future<void> _openLesson(LessonItem lesson, CalendarDayIndex index) async
@@ -1892,6 +2017,7 @@ class _CalendarTabState extends State<CalendarTab>
         onLessonTap: _openPublishedLesson,
         onActivityTap: _openPublishedActivity,
         search: _search,
+        onOpenPerson: _openLane,
         scrollController: _trackController,
         sidewaysController: _sidewaysController,
         viewportKey: _viewportKey,
@@ -1928,6 +2054,7 @@ class _CalendarTabState extends State<CalendarTab>
       onDragChanged: widget.isReadOnly ? null : (payload) => _carry(payload, index),
       excludedTeachers: widget.excludedTeachers,
       onExcludedChanged: widget.isReadOnly || widget.onExcludeTeacher == null ? null : _setExcluded,
+      onOpenPerson: _openLane,
       scrollController: _trackController,
       sidewaysController: _sidewaysController,
       lessonDetails: _lessonDetails,
@@ -1980,6 +2107,8 @@ class _CalendarTabState extends State<CalendarTab>
       onLessonTap: _openPublishedLesson,
       onActivityTap: _openPublishedActivity,
       search: _search,
+      onOpenPerson: _openLane,
+      scrollController: _listController,
     );
   }
 
@@ -2901,6 +3030,8 @@ class _CalendarTabState extends State<CalendarTab>
           : _setExcluded,
       onLessonTap: _isSettled ? _openPublishedLesson : _lessonTap(index),
       onActivityTap: _activityTap(index),
+      onOpenPerson: _openLane,
+      scrollController: _listController,
     );
   }
 

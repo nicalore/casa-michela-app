@@ -18,6 +18,7 @@ import '../features/association/models/course_item.dart';
 import '../features/association/models/room_item.dart';
 import '../features/association/models/school_item.dart';
 import '../features/association/models/service_item.dart';
+import '../features/association/models/standard_tariffs_item.dart';
 import '../features/association/models/study_program_item.dart';
 import '../features/association/models/weekly_template_item.dart';
 import '../features/association/notices/notice_item.dart';
@@ -34,9 +35,17 @@ import '../features/lessons/models/room_supervision_item.dart';
 import '../features/lessons/models/teacher_room_assignment_item.dart';
 import '../features/notifications/notification_item.dart';
 import '../features/people/models/age_distribution_item.dart';
-import '../features/people/models/booking_history_items.dart';
 import '../features/people/models/certification_distribution_item.dart';
 import '../features/people/models/city_distribution_item.dart';
+import '../features/people/models/booking_history_items.dart';
+import '../features/people/models/compensation_items.dart';
+import '../features/accounting/models/accounting_stats_items.dart';
+import '../features/accounting/models/student_hours_items.dart';
+import '../features/accounting/models/payments_month_items.dart';
+import '../features/accounting/models/student_month_items.dart';
+import '../features/accounting/models/to_settle_items.dart';
+import '../features/accounting/models/teacher_hours_items.dart';
+import '../features/accounting/models/teacher_month_items.dart';
 import '../features/people/models/course_distribution_item.dart';
 import '../features/people/models/current_totals_item.dart';
 import '../features/people/models/daily_trend_items.dart';
@@ -47,6 +56,7 @@ import '../features/people/models/person_item.dart';
 import '../features/people/models/retention_rate_item.dart';
 import '../features/people/models/personal_statistics_items.dart';
 import '../features/people/models/student_note_item.dart';
+import '../features/people/models/student_payments_item.dart';
 import '../features/people/models/student_presence_statistics_item.dart';
 import '../features/people/models/teacher_appreciation_item.dart';
 import '../features/people/models/teacher_availability_statistics_item.dart';
@@ -2308,6 +2318,554 @@ class ApiService
     }
   }
 
+  Future<CompensationMonth> getCompensation(String taxCode, DateTime month) async
+  {
+    final response = await _dio.get(
+      '/people/$taxCode/compensation',
+      queryParameters: {'year': month.year, 'month': month.month},
+    );
+
+    return CompensationMonth.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<StudentPaymentsItem> getStudentPayments(String taxCode) async
+  {
+    final response = await _dio.get('/people/$taxCode/payments');
+
+    return StudentPaymentsItem.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // Each write answers with the tab as it now stands.
+  Future<StudentPaymentsItem> _postStudentPayments(String taxCode, String path, Map<String, dynamic> data) async
+  {
+    try
+    {
+      final response = await _dio.post('/people/$taxCode/payments/$path', data: data);
+
+      return StudentPaymentsItem.fromJson(response.data as Map<String, dynamic>);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio del pagamento. Riprova più tardi.');
+    }
+  }
+
+  Future<StudentPaymentsItem> _deleteStudentPayments(String taxCode, String path) async
+  {
+    try
+    {
+      final response = await _dio.delete('/people/$taxCode/payments/$path');
+
+      return StudentPaymentsItem.fromJson(response.data as Map<String, dynamic>);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la revoca del pagamento. Riprova più tardi.');
+    }
+  }
+
+  // The package or month running, bought again: renewing is paying.
+  Future<StudentPaymentsItem> renewStudentTariff({
+    required String taxCode,
+    required int amountCents,
+    int? packageHours,
+    required Map<String, dynamic> payment,
+  })
+  {
+    return _postStudentPayments(taxCode, 'renewal', {
+      'amount_cents': amountCents,
+      'package_hours': packageHours,
+      'payment': payment,
+    });
+  }
+
+  Future<StudentPaymentsItem> changeStudentTariff({
+    required String taxCode,
+    required String kind,
+    required int amountCents,
+    int? packageHours,
+    DateTime? startsOn,
+    bool nextMonth = false,
+    Map<String, dynamic>? payment,
+  })
+  {
+    return _postStudentPayments(taxCode, 'tariff', {
+      'kind': kind,
+      'amount_cents': amountCents,
+      'package_hours': packageHours,
+      'starts_on': startsOn == null ? null : formatDateOnly(startsOn),
+      'next_month': nextMonth,
+      'payment': payment,
+    });
+  }
+
+  // A whole line of hours, paid by the hour.
+  Future<StudentPaymentsItem> settleStudentHours({
+    required String taxCode,
+    required String hoursKind,
+    required int centsPerHour,
+    required Map<String, dynamic> payment,
+    required int expectedMinutes,
+  })
+  {
+    // The minutes shown go along: the server refuses if the line grew meanwhile.
+    return _postStudentPayments(taxCode, 'settlement', {
+      'hours_kind': hoursKind,
+      'cents_per_hour': centsPerHour,
+      'payment': payment,
+      'expected_minutes': expectedMinutes,
+    });
+  }
+
+  // An annual fee owed, paid now: the body is the payment itself.
+  Future<StudentPaymentsItem> settleMembershipFee({
+    required String taxCode,
+    required int feeId,
+    required Map<String, dynamic> payment,
+  })
+  {
+    return _postStudentPayments(taxCode, 'fees/$feeId/settlement', payment);
+  }
+
+  // The hours it covered or settled are to settle again.
+  Future<StudentPaymentsItem> cancelStudentPayment({required String taxCode, required int paymentId})
+  {
+    return _deleteStudentPayments(taxCode, '$paymentId');
+  }
+
+  // The fee is owed again.
+  Future<StudentPaymentsItem> cancelMembershipFeePayment({required String taxCode, required int feeId})
+  {
+    return _deleteStudentPayments(taxCode, 'fees/$feeId/settlement');
+  }
+
+  // Hourly tariff only: lessons draw on them before anything is due.
+  Future<StudentPaymentsItem> payStudentHoursAhead({
+    required String taxCode,
+    required int minutes,
+    required int centsPerHour,
+    required Map<String, dynamic> payment,
+  })
+  {
+    return _postStudentPayments(taxCode, 'ahead', {
+      'minutes': minutes,
+      'cents_per_hour': centsPerHour,
+      'payment': payment,
+    });
+  }
+
+  Future<StandardTariffsItem> getStandardTariffs() async
+  {
+    final response = await _dio.get('/standard-tariffs/');
+
+    return StandardTariffsItem.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // Each write answers with every level and the fees as they now stand.
+  Future<StandardTariffsItem> _putStandardTariffs(String path, Map<String, dynamic> data) async
+  {
+    try
+    {
+      final response = await _dio.put('/standard-tariffs/$path', data: data);
+
+      return StandardTariffsItem.fromJson(response.data as Map<String, dynamic>);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio delle tariffe. Riprova più tardi.');
+    }
+  }
+
+  Future<StandardTariffsItem> updateStandardTariff(StandardTariffItem tariff)
+  {
+    return _putStandardTariffs('levels/${tariff.level}', tariff.toJson());
+  }
+
+  Future<StandardTariffsItem> updateAnnualFees(AnnualFeesItem fees)
+  {
+    return _putStandardTariffs('fees', fees.toJson());
+  }
+
+  // By their first day.
+  Future<Set<DateTime>> getCompensationMonths(String taxCode) async
+  {
+    final response = await _dio.get('/people/$taxCode/compensation/months');
+
+    return {for (final month in response.data as List<dynamic>) DateTime.parse(month as String)};
+  }
+
+  Future<BookingHistoryMonth> getBookingHistory(String taxCode, DateTime month) async
+  {
+    final response = await _dio.get(
+      '/people/$taxCode/bookings-history',
+      queryParameters: {'year': month.year, 'month': month.month},
+    );
+
+    return BookingHistoryMonth.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<Set<DateTime>> getBookingHistoryMonths(String taxCode) async
+  {
+    final response = await _dio.get('/people/$taxCode/bookings-history/months');
+
+    return {for (final month in response.data as List<dynamic>) DateTime.parse(month as String)};
+  }
+
+  // Null removes it.
+  Future<void> updateIban(String taxCode, String? iban) async
+  {
+    try
+    {
+      await _dio.put('/people/$taxCode/compensation/iban', data: {'iban': iban});
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio dell\'IBAN. Riprova più tardi.');
+    }
+  }
+
+  // Holds from that month until the next change.
+  Future<void> updateCompensation({
+    required String taxCode,
+    required DateTime month,
+    required String collaborationType,
+    required String? grossCompensation,
+  }) async
+  {
+    try
+    {
+      await _dio.put(
+        '/people/$taxCode/compensation',
+        data: {
+          'year': month.year,
+          'month': month.month,
+          'collaboration_type': collaborationType,
+          'gross_compensation': grossCompensation,
+        },
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio del compenso. Riprova più tardi.');
+    }
+  }
+
+  // The teacher's rule for the unpaid hour from [month] until their next change.
+  Future<void> updateVolunteeringRule({
+    required String taxCode,
+    required DateTime month,
+    required VolunteeringRule rule,
+  }) async
+  {
+    try
+    {
+      await _dio.put(
+        '/people/$taxCode/compensation/volunteering',
+        data: {'year': month.year, 'month': month.month, 'rule': rule.name},
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio del volontariato. Riprova più tardi.');
+    }
+  }
+
+  // The daily summary of teachers' hours for one band.
+  Future<TeacherHoursBand> getTeacherHours(DateTime day, TimeBucket band) async
+  {
+    final response = await _dio.get(_teacherHoursPath(day, band));
+
+    return TeacherHoursBand.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  String _teacherHoursPath(DateTime day, TimeBucket band) => '/accounting/teacher-hours/${apiDate(day)}/${apiBand(band)}';
+
+  // Each write answers with the band as it now stands.
+  Future<TeacherHoursBand> _teacherHoursWrite(Future<Response<dynamic>> Function() call) async
+  {
+    try
+    {
+      final response = await call();
+
+      return TeacherHoursBand.fromJson(response.data as Map<String, dynamic>);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio delle ore. Riprova più tardi.');
+    }
+  }
+
+  // Only what is passed changes; a null volunteer with setVolunteer means none at all.
+  Future<TeacherHoursBand> updateTeacherHours(
+    DateTime day,
+    TimeBucket band,
+    String taxCode, {
+    List<HoursSpan>? work,
+    bool setVolunteer = false,
+    HoursSpan? volunteer,
+    bool? absent,
+  })
+  {
+    return _teacherHoursWrite(
+      () => _dio.put(
+        '${_teacherHoursPath(day, band)}/$taxCode',
+        data: {
+          'work': ?work?.map((span) => span.toJson()).toList(),
+          if (setVolunteer) 'volunteer': volunteer?.toJson(),
+          'absent': ?absent,
+        },
+      ),
+    );
+  }
+
+  Future<TeacherHoursBand> addTeacherHours(
+    DateTime day,
+    TimeBucket band, {
+    required String taxCode,
+    required String mode,
+    required List<HoursSpan> work,
+    bool setVolunteer = false,
+    HoursSpan? volunteer,
+  })
+  {
+    return _teacherHoursWrite(
+      () => _dio.post(
+        _teacherHoursPath(day, band),
+        data: {
+          'tax_code': taxCode,
+          'mode': mode,
+          'work': work.map((span) => span.toJson()).toList(),
+          if (setVolunteer) 'volunteer': volunteer?.toJson(),
+        },
+      ),
+    );
+  }
+
+  // Back to the calendar; a row added by hand leaves the summary.
+  Future<TeacherHoursBand> dropTeacherHours(DateTime day, TimeBucket band, String taxCode)
+  {
+    return _teacherHoursWrite(() => _dio.delete('${_teacherHoursPath(day, band)}/$taxCode'));
+  }
+
+  Future<TeacherHoursBand> confirmTeacherHours(DateTime day, TimeBucket band)
+  {
+    return _teacherHoursWrite(() => _dio.post('${_teacherHoursPath(day, band)}/confirm'));
+  }
+
+  Future<TeacherHoursBand> reopenTeacherHours(DateTime day, TimeBucket band)
+  {
+    return _teacherHoursWrite(() => _dio.post('${_teacherHoursPath(day, band)}/reopen'));
+  }
+
+  // The daily summary of pupils' hours for one band.
+  Future<StudentHoursBand> getStudentHours(DateTime day, TimeBucket band) async
+  {
+    final response = await _dio.get(_studentHoursPath(day, band));
+
+    return StudentHoursBand.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  String _studentHoursPath(DateTime day, TimeBucket band) => '/accounting/student-hours/${apiDate(day)}/${apiBand(band)}';
+
+  // Each write answers with the band as it now stands.
+  Future<StudentHoursBand> _studentHoursWrite(Future<Response<dynamic>> Function() call) async
+  {
+    try
+    {
+      final response = await call();
+
+      return StudentHoursBand.fromJson(response.data as Map<String, dynamic>);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio delle ore. Riprova più tardi.');
+    }
+  }
+
+  // Only what is passed changes.
+  Future<StudentHoursBand> updateStudentHours(
+    DateTime day,
+    TimeBucket band,
+    String taxCode, {
+    List<HoursSpan>? work,
+    bool? absent,
+  })
+  {
+    return _studentHoursWrite(
+      () => _dio.put(
+        '${_studentHoursPath(day, band)}/$taxCode',
+        data: {
+          'work': ?work?.map((span) => span.toJson()).toList(),
+          'absent': ?absent,
+        },
+      ),
+    );
+  }
+
+  Future<StudentHoursBand> addStudentHours(
+    DateTime day,
+    TimeBucket band, {
+    required String taxCode,
+    required String mode,
+    required List<HoursSpan> work,
+  })
+  {
+    return _studentHoursWrite(
+      () => _dio.post(
+        _studentHoursPath(day, band),
+        data: {
+          'tax_code': taxCode,
+          'mode': mode,
+          'work': work.map((span) => span.toJson()).toList(),
+        },
+      ),
+    );
+  }
+
+  // Back to the calendar; a row added by hand leaves the summary.
+  Future<StudentHoursBand> dropStudentHours(DateTime day, TimeBucket band, String taxCode)
+  {
+    return _studentHoursWrite(() => _dio.delete('${_studentHoursPath(day, band)}/$taxCode'));
+  }
+
+  Future<StudentHoursBand> confirmStudentHours(DateTime day, TimeBucket band)
+  {
+    return _studentHoursWrite(() => _dio.post('${_studentHoursPath(day, band)}/confirm'));
+  }
+
+  Future<StudentHoursBand> reopenStudentHours(DateTime day, TimeBucket band)
+  {
+    return _studentHoursWrite(() => _dio.post('${_studentHoursPath(day, band)}/reopen'));
+  }
+
+  // The monthly summary of teachers: only confirmed bands count.
+  Future<TeacherMonth> getTeachersMonth(DateTime month) async
+  {
+    final response = await _dio.get(_teacherMonthPath(month));
+
+    return TeacherMonth.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  String _teacherMonthPath(DateTime month) => '/accounting/teacher-month/${month.year}/${month.month}';
+
+  // The accounting statistics: the last months up to this one, or a calendar year.
+  Future<AccountingStats> getAccountingStats({int? months, int? year}) async
+  {
+    final response = await _dio.get(
+      '/accounting/statistics',
+      queryParameters: {'months': ?months, 'year': ?year},
+    );
+
+    return AccountingStats.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // The pupils' month: read only, though a month seen over fixes where they stood.
+  // Everything paid in the month by anyone, the oldest first.
+  Future<PaymentsMonth> getPaymentsMonth(DateTime month) async
+  {
+    final response = await _dio.get('/accounting/payments/${month.year}/${month.month}');
+
+    return PaymentsMonth.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // Whoever owes something today: hours to settle and annual fees.
+  Future<ToSettle> getToSettle() async
+  {
+    final response = await _dio.get('/accounting/to-settle/');
+
+    return ToSettle.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<StudentMonth> getStudentsMonth(DateTime month) async
+  {
+    final response = await _dio.get('/accounting/student-month/${month.year}/${month.month}');
+
+    return StudentMonth.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // How that teacher's unpaid hour counts for that month alone.
+  Future<TeacherMonth> setMonthVolunteering(DateTime month, String taxCode, VolunteeringRule rule) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '${_teacherMonthPath(month)}/$taxCode/volunteering',
+        data: {'rule': rule.name},
+      );
+
+      return TeacherMonth.fromJson(response.data as Map<String, dynamic>);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio delle ore. Riprova più tardi.');
+    }
+  }
+
+  String _receiptPath(DateTime month, String taxCode) => '${_teacherMonthPath(month)}/$taxCode/receipt';
+
+  // The bank transfer receipt of that teacher's month; a new one takes its place.
+  Future<TeacherMonth> uploadPaymentReceipt(DateTime month, String taxCode, ApiFile file) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        _receiptPath(month, taxCode),
+        data: FormData()..files.add(MapEntry('file', MultipartFile.fromBytes(file.bytes, filename: file.fileName))),
+        options: Options(sendTimeout: _uploadTimeout, receiveTimeout: _uploadTimeout),
+      );
+
+      return TeacherMonth.fromJson(response.data as Map<String, dynamic>);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il caricamento della ricevuta. Riprova più tardi.');
+    }
+  }
+
+  Future<Uint8List> getPaymentReceipt(DateTime month, String taxCode) async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        _receiptPath(month, taxCode),
+        options: Options(responseType: ResponseType.bytes, receiveTimeout: _uploadTimeout),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile aprire la ricevuta.');
+    }
+  }
+
+  Future<TeacherMonth> deletePaymentReceipt(DateTime month, String taxCode) async
+  {
+    try
+    {
+      final response = await _dio.delete(_receiptPath(month, taxCode));
+
+      return TeacherMonth.fromJson(response.data as Map<String, dynamic>);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Errore durante l'eliminazione della ricevuta. Riprova più tardi.");
+    }
+  }
+
+  // What the weekly hour would give a teacher in person, for the dialog that adds one.
+  Future<HoursSpan?> getVolunteerProposal(DateTime day, TimeBucket band, String taxCode, HoursSpan work) async
+  {
+    final response = await _dio.get(
+      '${_teacherHoursPath(day, band)}/volunteering',
+      queryParameters: {'tax_code': taxCode, 'start_time': clockOf(work.start), 'end_time': clockOf(work.end)},
+    );
+
+    final Object? volunteer = (response.data as Map<String, dynamic>)['volunteer'];
+
+    return volunteer == null ? null : HoursSpan.fromJson(volunteer as Map<String, dynamic>);
+  }
+
   // The "still at school" flag is set from the register, not here.
   Future<void> updateTeacherEducation({
     required String taxCode,
@@ -3271,11 +3829,13 @@ class ApiService
     }
   }
 
+  // Owed fees or unpaid hours to lose are refused with WriteWouldTakeAway until confirmed.
   Future<void> updatePersonMemberships(
     String fiscalCode,
     List<Map<String, dynamic>> memberships,
-    DateTime? expectedUpdatedAt,
-  ) async
+    DateTime? expectedUpdatedAt, {
+    bool confirm = false,
+  }) async
   {
     try
     {
@@ -3284,12 +3844,30 @@ class ApiService
         data: {
           'memberships': memberships,
           if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+          'confirm': confirm,
         },
       );
     }
     on DioException catch (e)
     {
       _refused(e, 'Errore imprevisto durante l\'aggiornamento delle iscrizioni. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetPeople();
+    }
+  }
+
+  // The year in course with its fees, method and, for a pupil, tariff: all or nothing.
+  Future<void> reEnrollPerson(String fiscalCode, Map<String, dynamic> payload) async
+  {
+    try
+    {
+      await _dio.post('/people/$fiscalCode/re-enrollment', data: payload);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore imprevisto durante il rinnovo dell\'iscrizione. Riprova più tardi.');
     }
     finally
     {
@@ -4220,23 +4798,6 @@ class ApiService
     {
       _refused(e, 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
     }
-  }
-
-  Future<BookingHistoryMonth> getBookingHistory(String taxCode, DateTime month) async
-  {
-    final response = await _dio.get(
-      '/people/$taxCode/bookings-history',
-      queryParameters: {'year': month.year, 'month': month.month},
-    );
-
-    return BookingHistoryMonth.fromJson(response.data as Map<String, dynamic>);
-  }
-
-  Future<Set<DateTime>> getBookingHistoryMonths(String taxCode) async
-  {
-    final response = await _dio.get('/people/$taxCode/bookings-history/months');
-
-    return {for (final month in response.data as List<dynamic>) DateTime.parse(month as String)};
   }
 
   Future<LessonItem> getLesson(int id) async

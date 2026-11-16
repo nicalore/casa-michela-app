@@ -84,6 +84,14 @@ abstract class CalendarLane
     return mergeSpans(spans);
   }
 
+  // Null when the lane never comes to the building in the band.
+  int? arrivalIn(int bandStart, int bandEnd)
+  {
+    final spans = spansIn(kPresenceMode, bandStart, bandEnd);
+
+    return spans.isEmpty ? null : spans.first.$1;
+  }
+
   List<(int, int)> contentSpans(int bandStart, int bandEnd)
   {
     return [
@@ -144,6 +152,20 @@ class TeacherLane extends CalendarLane
   List<(TimeOfDay, TimeOfDay)> rowsIn(String mode)
   {
     return [for (final slot in availabilitiesIn(mode)) (slot.startTime, slot.endTime)];
+  }
+
+  // Teachers come for their first lesson or activity in the building, not when their availability opens.
+  @override
+  int? arrivalIn(int bandStart, int bandEnd)
+  {
+    final starts = [
+      for (final lesson in lessons)
+        if (lesson.teacherMode == kPresenceMode) lesson.startMinutes,
+      for (final activity in activities)
+        if (activity.placement.teacherMode == kPresenceMode) activity.startMinutes,
+    ];
+
+    return starts.isEmpty ? null : starts.reduce((a, b) => a < b ? a : b);
   }
 
   List<AvailabilityItem> availabilitiesIn(String mode)
@@ -416,13 +438,6 @@ List<StudentLane> buildStudentLanes({
   return lanes..sort(_byBeingHereThenName);
 }
 
-int? laneArrival(CalendarLane lane, int bandStart, int bandEnd)
-{
-  final spans = lane.spansIn(kPresenceMode, bandStart, bandEnd);
-
-  return spans.isEmpty ? null : spans.first.$1;
-}
-
 int _byFirstName(CalendarLane a, CalendarLane b)
 {
   return compareByName(a.person, b.person);
@@ -440,8 +455,8 @@ Comparator<CalendarLane> _reversed(Comparator<CalendarLane> by)
 
 int _byArrival(CalendarLane a, CalendarLane b, int bandStart, int bandEnd)
 {
-  final first = laneArrival(a, bandStart, bandEnd);
-  final second = laneArrival(b, bandStart, bandEnd);
+  final first = a.arrivalIn(bandStart, bandEnd);
+  final second = b.arrivalIn(bandStart, bandEnd);
 
   if (first == null || second == null)
   {

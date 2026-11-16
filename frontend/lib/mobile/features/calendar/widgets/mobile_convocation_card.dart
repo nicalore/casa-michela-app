@@ -88,7 +88,7 @@ MobileBandChip _roomChip(String name, {required bool tablet})
     icon: Icons.meeting_room_outlined,
     label: name,
     accent: AppTheme.trialTealDeep,
-    surface: AppTheme.todaySurface,
+    surface: AppTheme.presenceBadge,
     tablet: tablet,
   );
 }
@@ -584,7 +584,7 @@ class MobileBandChip extends StatelessWidget
       : icon = lessonModeIcon(mode),
         label = modeLabel(mode),
         accent = lessonAccent(mode),
-        surface = lessonSurface(mode),
+        surface = lessonBadgeSurface(mode),
         filled = false;
 
   TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(

@@ -135,4 +135,8 @@ const Map<NotificationKind, (String, String)> kNotificationKindLabels = {
     'Osservazioni degli amministratori',
     'Avvisa quando un amministratore inserisce una nuova osservazione che ti riguarda.',
   ),
+  NotificationKind.volunteeringChanged: (
+    'Volontariato',
+    'Avvisa quando cambia il numero di ore di volontariato che ti sono state assegnate.',
+  ),
 };

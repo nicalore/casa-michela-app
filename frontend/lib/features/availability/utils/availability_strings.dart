@@ -14,16 +14,29 @@ const String kNextWeekUnlockNotice = 'La settimana prossima si sblocca venerdì 
 
 const String kAvailabilityDeleted = 'Disponibilità eliminata con successo!';
 
-String availabilitySummary(int givenDays, {required bool thisWeek})
+String _days(int count) => count == 1 ? '1 giorno' : '$count giorni';
+
+// Presence days apart, as the home and the weekly rule count them; a day with both counts twice.
+String availabilitySummary({required int presenceDays, required int onlineDays, required bool thisWeek})
 {
   final String week = thisWeek ? 'questa settimana' : 'la settimana prossima';
 
-  if (givenDays == 0)
+  if (presenceDays == 0 && onlineDays == 0)
   {
     return 'Non hai ancora dato disponibilità $week';
   }
 
-  return 'Hai dato disponibilità per $givenDays ${givenDays == 1 ? 'giorno' : 'giorni'} $week';
+  if (onlineDays == 0)
+  {
+    return 'Hai dato disponibilità in presenza per ${_days(presenceDays)} $week';
+  }
+
+  if (presenceDays == 0)
+  {
+    return 'Hai dato disponibilità solo online per ${_days(onlineDays)} $week';
+  }
+
+  return 'Hai dato disponibilità per ${_days(presenceDays)} in presenza e $onlineDays online $week';
 }
 
 String _ofBand(TimeBucket band)

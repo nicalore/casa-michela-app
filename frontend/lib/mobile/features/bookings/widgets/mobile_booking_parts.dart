@@ -138,16 +138,21 @@ class MobileHoursChip extends StatelessWidget
   {
     final bool online = slot.mode == kOnlineMode;
 
-    final Color surface = closed ? Colors.white : (online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface);
+    final Color surface = closed
+        ? MobilePalette.pastSurface
+        : (online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge);
     final Color ink = closed ? MobilePalette.mutedText : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);
+    final Color edge = closed
+        ? MobilePalette.pastEdge
+        : (online ? MobilePalette.onlineChipEdge : MobilePalette.presenceChipEdge);
 
     return Container(
       height: tablet ? 28 : 26,
       padding: EdgeInsets.symmetric(horizontal: tablet ? 11 : 9),
       decoration: BoxDecoration(
         color: surface,
-        borderRadius: BorderRadius.circular(14),
-        border: closed ? Border.all(color: AppTheme.closedLine, width: 1.5) : null,
+        borderRadius: BorderRadius.circular(MobilePalette.hoursChipRadius),
+        border: Border.all(color: edge),
       ),
       child: Align(
         widthFactor: 1,
@@ -248,7 +253,7 @@ class MobileBandTag extends StatelessWidget
       margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
       decoration: BoxDecoration(
-        color: online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface,
+        color: online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(

@@ -11,7 +11,7 @@ from sqlalchemy.orm import joinedload, selectinload, undefer
 from app.api.rbac import IdentityContext
 from app.core import field_lengths
 from app.core.booking_window import today_in_rome
-from app.models.notice import Notice, NoticeFile, NoticePin, NoticeRoleEnum
+from app.models.notice import Notice, NoticeFile, NoticePin
 from app.schemas.notice import (
     NoticeAttachmentResponse,
     NoticeHeadlineResponse,
@@ -22,6 +22,7 @@ from app.schemas.notice import (
     NoticeSummaryResponse,
 )
 from app.services.notice_markdown import image_keys, preview
+from app.services.notice_recipients import notices_excluding, reached_roles
 
 # Mirrored by frontend/lib/features/association/notices/notice_format.dart.
 MAX_FILES_BYTES: Final[int] = 15 * 1024 * 1024
@@ -361,16 +362,20 @@ def headline_response(notice: Notice) -> NoticeHeadlineResponse:
     )
 
 
-# Administrators read every notice; anyone else only those sent to a role they hold.
+# Administrators read every notice; anyone else only those reaching a role they hold.
 async def readable_notice(
     db: AsyncSession,
     notice_id: int,
     identity: IdentityContext,
 ) -> Notice:
     notice = await load_notice(db, notice_id)
-    held = {role for role in NoticeRoleEnum if role.value in identity.roles}
 
-    if not identity.is_admin and held.isdisjoint(notice.recipients):
+    if identity.is_admin:
+        return notice
+
+    excluded = await notices_excluding(db, identity.tax_code, [notice.id])
+
+    if not reached_roles(identity.roles, notice.recipients, excluded=bool(excluded)):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=_NOTICE_NOT_FOUND_ERROR,

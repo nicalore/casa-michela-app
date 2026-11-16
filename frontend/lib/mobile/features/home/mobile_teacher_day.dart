@@ -73,7 +73,12 @@ MobileTeacherDay teacherDayFrom({
       for (final publication in publications)
         if (isSameDate(publication.date, day)) publication.band,
     },
-    convened: convenedSlots(day: day, lessons: lessons, activities: activities),
+    convened: convenedSlots(
+      day: day,
+      lessons: lessons,
+      activities: activities,
+      teacherTaxCode: teacherTaxCode,
+    ),
   );
 
   return MobileTeacherDay(

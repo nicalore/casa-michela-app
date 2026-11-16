@@ -18,6 +18,7 @@ import '../../../features/notifications/availability_seen.dart';
 import '../../../features/notifications/week_jump.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
+import '../../shared/mobile_line_breaks.dart';
 import '../../shared/widgets/mobile_confirm_sheet.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
 import '../../shared/widgets/mobile_info_button.dart';
@@ -539,7 +540,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
         if (summary != null) ...[
           const SizedBox(height: 3),
           Text(
-            summary,
+            withoutOrphans(summary),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -593,7 +594,11 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
         children: [
           _buildWeekHead(
             days,
-            summary: availabilitySummary(days.where((day) => day.hasSlots).length, thisWeek: index == 0),
+            summary: availabilitySummary(
+              presenceDays: days.where((day) => day.hasSlotsIn(kPresenceMode)).length,
+              onlineDays: days.where((day) => day.hasSlotsIn(kOnlineMode)).length,
+              thisWeek: index == 0,
+            ),
           ),
           const SizedBox(height: 16),
           for (final (i, day) in days.indexed) ...[

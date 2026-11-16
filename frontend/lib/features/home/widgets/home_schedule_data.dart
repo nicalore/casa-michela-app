@@ -136,12 +136,16 @@ List<HomeSlot> availabilitySlots(List<AvailabilityItem> availabilities)
 }
 
 // Earliest start and latest end per band and mode, lessons and activities alike.
+// The teacher hat also reads lessons the reader booked for a pupil, so others' are dropped.
 List<HomeSlot> convenedSlots({
   required DateTime day,
   required List<LessonItem> lessons,
   required List<ActivityItem> activities,
+  required String? teacherTaxCode,
 })
 {
+  bool isMine(String? taxCode) => teacherTaxCode == null || taxCode == teacherTaxCode;
+
   final Map<(TimeBucket, String), (int, int)> spans = {};
 
   void widen(TimeBucket band, String mode, int start, int end)
@@ -158,7 +162,7 @@ List<HomeSlot> convenedSlots({
 
   for (final lesson in lessons)
   {
-    if (isSameDate(lesson.date, day))
+    if (isSameDate(lesson.date, day) && isMine(lesson.teacherTaxCode))
     {
       widen(lesson.band, lesson.teacherMode, lesson.startMinutes, lesson.endMinutes);
     }
@@ -168,7 +172,7 @@ List<HomeSlot> convenedSlots({
   {
     final placement = activity.placement;
 
-    if (placement != null && isSameDate(activity.date, day))
+    if (placement != null && isSameDate(activity.date, day) && isMine(placement.teacherTaxCode))
     {
       widen(activity.band, placement.teacherMode, placement.startMinutes, placement.endMinutes);
     }

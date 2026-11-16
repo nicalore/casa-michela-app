@@ -11,6 +11,8 @@ import '../../association/models/association_subject_item.dart';
 import '../../association/models/course_item.dart';
 import '../../association/models/school_item.dart';
 import '../../association/models/service_item.dart';
+import '../../association/models/standard_tariffs_item.dart';
+import '../models/student_payments_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../models/early_exit_schedule_item.dart';
 import '../models/parental_relationship_draft.dart';
@@ -45,6 +47,8 @@ const Map<String, String> kCollaborationTypes = {
   'FSL (Ex PCTO)': 'PCTO',
   'Non pagato': 'UNPAID',
 };
+
+const List<String> kCollaborationChoices = ['Volontario', 'Retribuito', 'FSL (Ex PCTO)'];
 
 const Map<String, String> kAdminRoles = {
   'Presidente': 'PRESIDENT',
@@ -181,6 +185,11 @@ class PersonEditForm
 
   bool get isCreation => person == null;
 
+  // An existing teacher's subjects change only in the «Discipline» tab.
+  bool get asksSubjects =>
+      selectedRoles.contains('DOCENTE') &&
+      !(person?.roles.any((role) => role.toUpperCase() == 'DOCENTE') ?? false);
+
   bool isTaxCodeTaken(String taxCode)
   {
     return reservedTaxCodes.contains(taxCode) ||
@@ -215,7 +224,7 @@ class PersonEditForm
   {
     final PersonItem? person = this.person;
 
-    return person != null && !person.isEnrolled;
+    return person != null && !person.isEnrolled && !reEnrolling;
   }
 
   // Only a paid collaboration has an hourly rate; the wizard neither asks nor sends one otherwise.
@@ -225,9 +234,137 @@ class PersonEditForm
   // Payment is asked only of someone actually enrolled, and what is not asked cannot be required.
   bool get asksPayment => !isOnlyParentNotMember && !isPersonalDataOnly;
 
+  // A member on file has the payment method in the «Pagamenti» tab, and a pupil the tariff too, not the record.
+  bool get paymentsInTab =>
+      person?.roles.any((role) => const {'STUDENTE', 'ASSOCIATO'}.contains(role.toUpperCase())) ?? false;
+
+  bool get asksPaymentStep => asksPayment && (!paymentsInTab || reEnrolling);
+
+  // A re-enrolling pupil's tariff change already waiting to start: it stays, and none is asked.
+  StudentPaymentsItem? paymentsOnFile;
+
+  StudentTariffItem? get keptTariff =>
+      reEnrolling && paymentsOnFile?.queued == QueuedPayment.change ? paymentsOnFile?.queuedTariff : null;
+
+  // A member on file taking the pupil's role: the tariff is asked there and then, the rest lives in «Pagamenti».
+  bool get becomesPupil =>
+      !reEnrolling &&
+      asksPayment &&
+      activeRoles.contains('STUDENTE') &&
+      (person?.roles.every((role) => role.toUpperCase() != 'STUDENTE') ?? false);
+
+  // Asked once a school year says the level, only of someone becoming a pupil enrolled this year.
+  bool get asksTariff =>
+      (asksPaymentStep || becomesPupil) &&
+      activeRoles.contains('STUDENTE') &&
+      isEnrolledByRows &&
+      levelTariffs != null &&
+      keptTariff == null;
+
+  // The payment step also shows for the tariff alone.
+  bool get showsPaymentStep => asksPaymentStep || asksTariff;
+
+  // Paid at creation: a package or this month's fee; an hourly tariff has nothing to pay first.
+  bool get asksFirstPayment =>
+      (isCreation || reEnrolling) &&
+      asksTariff &&
+      tariffKindValue != null &&
+      tariffKindValue != kHourlyTariff;
+
+  // A new member enrolled this year owes the year's membership and insurance fees.
+  bool get asksFees =>
+      (isCreation || reEnrolling) && asksPaymentStep && isEnrolledByRows && standardTariffs != null;
+
+  // The newest typed year, the one the fees are for.
+  int? get feesYear
+  {
+    if (reEnrolling)
+    {
+      return int.tryParse(reEnrollYearCtrl.text);
+    }
+
+    final Iterable<int> years = membershipRows
+        .map((row) => int.tryParse(row.yearCtrl.text.trim()))
+        .whereType<int>();
+
+    return years.isEmpty ? null : years.reduce((a, b) => a > b ? a : b);
+  }
+
+  // Null when no fee is asked, or one of the amounts is not a number yet.
+  Map<String, dynamic>? get feesPayload
+  {
+    if (!asksFees)
+    {
+      return null;
+    }
+
+    final int? membership = parseAmountCents(membershipFeeCtrl.text);
+    final int? insurance = parseAmountCents(insuranceFeeCtrl.text);
+
+    if (membership == null || insurance == null)
+    {
+      return null;
+    }
+
+    return {
+      'membership': {'amount_cents': membership, 'paid': membershipFeePaid},
+      'insurance': {'amount_cents': insurance, 'paid': insuranceFeePaid},
+    };
+  }
+
+  // The standard fees are written in once, when the card first shows them.
+  void syncFeeDefaults()
+  {
+    final AnnualFeesItem? fees = standardTariffs?.fees;
+
+    if (fees == null || _feeDefaultsSet)
+    {
+      return;
+    }
+
+    _feeDefaultsSet = true;
+    membershipFeeCtrl.text = formatAmount(fees.membershipCents);
+    insuranceFeeCtrl.text = formatAmount(fees.insuranceCents);
+  }
+
+  // Null while the figures are the standard ones of the level, or not numbers yet.
+  ({int cents, int? hours})? get tariffStandardFigures
+  {
+    final StandardTariffItem? standard = levelTariffs;
+    final String? kind = kTariffKinds[tariffKindValue];
+
+    if (standard == null || kind == null)
+    {
+      return null;
+    }
+
+    final int? cents = parseAmountCents(tariffAmountCtrl(tariffKindValue!).text);
+    final int? hours = int.tryParse(tariffPackageHoursCtrl.text.trim());
+    final int? standardCents = standard.centsOf(kind);
+
+    if (cents == null || standardCents == null)
+    {
+      return null;
+    }
+
+    final bool same = cents == standardCents && (kind != 'PACKAGE' || hours == standard.packageHours);
+
+    return same ? null : (cents: standardCents, hours: kind == 'PACKAGE' ? standard.packageHours : null);
+  }
+
+  // The association's tariffs: null until loaded, or when they could not be.
+  StandardTariffsItem? standardTariffs;
+
+  StandardTariffItem? get levelTariffs => standardTariffs?.of(currentSchoolLevel);
+
   // Same rule as the register, on the typed rows: newest unrevoked one inside its renewal window.
   bool get isEnrolledByRows
   {
+    if (reEnrolling)
+    {
+      return true;
+    }
+
     MembershipRowData? latest;
     int? latestYear;
 
@@ -256,19 +393,75 @@ class PersonEditForm
     );
   }
 
-  // Only a pupil has a rate; with no level to read, what is on file stands rather than being wiped.
-  String? get homeworkTariffCode
+  // Null when no tariff is asked, or one of its figures is not a number yet.
+  Map<String, dynamic>? get tariffPayload
   {
-    if (!activeRoles.contains('STUDENTE'))
+    final String? kind = kTariffKinds[tariffKindValue];
+
+    if (!asksTariff || kind == null)
     {
       return null;
     }
 
-    return homeworkTariffCodeOf(
-          level: currentSchoolLevel,
-          choice: homeworkTariffValue,
-        ) ??
-        person?.homeworkTariff;
+    final int? cents = parseAmountCents(tariffAmountCtrl(tariffKindValue!).text);
+    final int? hours = int.tryParse(tariffPackageHoursCtrl.text.trim());
+
+    if (cents == null || (kind == 'PACKAGE' && hours == null))
+    {
+      return null;
+    }
+
+    return {
+      'kind': kind,
+      'amount_cents': cents,
+      'package_hours': kind == 'PACKAGE' ? hours : null,
+      if (asksFirstPayment) 'paid': firstPaymentPaid,
+    };
+  }
+
+  TextEditingController tariffAmountCtrl(String choice)
+  {
+    return switch (choice)
+    {
+      kHourlyTariff => tariffHourlyCtrl,
+      kPackageTariff => tariffPackageCostCtrl,
+      _ => tariffMonthlyCtrl,
+    };
+  }
+
+  // Writes the level's figures in whenever the level changes; a kind turned off cannot stay chosen.
+  void syncTariffDefaults()
+  {
+    final String? level = currentSchoolLevel;
+    final StandardTariffItem? defaults = levelTariffs;
+
+    if (defaults == null || level == _tariffDefaultsLevel)
+    {
+      return;
+    }
+
+    _tariffDefaultsLevel = level;
+
+    String text(int? cents) => cents == null ? '' : formatAmount(cents);
+
+    tariffHourlyCtrl.text = text(defaults.hourlyCents);
+    tariffPackageHoursCtrl.text = defaults.packageHours?.toString() ?? '';
+    tariffPackageCostCtrl.text = text(defaults.packageCents);
+    tariffMonthlyCtrl.text = text(defaults.monthlyCents);
+
+    final List<String> enabled = [
+      for (final String choice in kTariffChoices)
+        if (defaults.enabled(kTariffKinds[choice]!)) choice,
+    ];
+
+    if (enabled.length == 1)
+    {
+      tariffKindValue = enabled.single;
+    }
+    else if (!enabled.contains(tariffKindValue))
+    {
+      tariffKindValue = null;
+    }
   }
 
   // Drives the "Aiuto Compiti" rate: this year's level if recorded, else the latest earlier one.
@@ -369,8 +562,21 @@ class PersonEditForm
 
   String? paymentMethodValue;
 
-  // Shown to whoever fills the form in, and deliberately not sent anywhere.
-  String? homeworkTariffValue;
+  String? tariffKindValue;
+  final TextEditingController tariffHourlyCtrl = TextEditingController();
+  final TextEditingController tariffPackageHoursCtrl = TextEditingController();
+  final TextEditingController tariffPackageCostCtrl = TextEditingController();
+  final TextEditingController tariffMonthlyCtrl = TextEditingController();
+  String? _tariffDefaultsLevel;
+  // The first package or month, paid with the enrolment.
+  bool firstPaymentPaid = true;
+
+  bool membershipFeePaid = true;
+  bool insuranceFeePaid = true;
+  final TextEditingController membershipFeeCtrl = TextEditingController();
+  final TextEditingController insuranceFeeCtrl = TextEditingController();
+  bool _feeDefaultsSet = false;
+
   final TextEditingController otherPaymentMethodCtrl = TextEditingController();
 
   // Certification labels, asked on creation only; empty means none held.
@@ -430,6 +636,58 @@ class PersonEditForm
 
     return form;
   }
+
+  // The year in course for someone on file: asked like at creation, method included.
+  factory PersonEditForm.reEnrollment(PersonItem person)
+  {
+    final PersonEditForm form = PersonEditForm._(person);
+    form._loadExisting();
+    form.reEnrolling = true;
+    form.paymentMethodValue = null;
+    form.otherPaymentMethodCtrl.clear();
+    form.reEnrollYearCtrl.text = romeNow().year.toString();
+    form.reEnrollStartCtrl.text = DateFormat('dd/MM').format(romeNow());
+
+    return form;
+  }
+
+  // Set by PersonEditForm.reEnrollment.
+  bool reEnrolling = false;
+
+  final TextEditingController reEnrollYearCtrl = TextEditingController();
+  final TextEditingController reEnrollStartCtrl = TextEditingController();
+
+  // A pupil without the school year in course on file adds it first: the tariff
+  // follows its level. Read on the record, so the step stays once it is added.
+  bool get asksSchoolYear =>
+      reEnrolling &&
+      activeRoles.contains('STUDENTE') &&
+      !(person?.schoolEnrollments?.any((row) => row.startYear == currentSchoolYearStart()) ?? false);
+
+  Map<String, dynamic> get reEnrollmentPayload
+  {
+    final List<String> parts = reEnrollStartCtrl.text.trim().split('/');
+    final String? method = kPaymentMethods[paymentMethodValue];
+
+    return {
+      'start_date': '${reEnrollYearCtrl.text}-${parts[1]}-${parts[0]}',
+      'payment_method': method,
+      'payment_method_other': method == 'OTHER' ? otherPaymentMethodCtrl.text.trim() : null,
+      'fees': feesPayload,
+      if (activeRoles.contains('STUDENTE')) 'tariff': tariffPayload,
+      if (asksSchoolYear) 'school_enrollments': schoolEnrollmentsPayload,
+    };
+  }
+
+  List<Map<String, dynamic>> get schoolEnrollmentsPayload => schoolRows
+      .map((row) => {
+            'start_year': int.parse(row.yearCtrl.text.trim()),
+            'school_id': row.school?.id,
+            'homeschooling': row.homeschooling,
+            'study_program_id': row.program!.id,
+            'grade': romanToNumeric(row.grade!),
+          })
+      .toList();
 
   factory PersonEditForm.blank({
     Set<String> roles = const {},
@@ -505,6 +763,8 @@ class PersonEditForm
         year: membership.year.toString(),
         date: DateFormat('dd/MM').format(membership.startDate),
         revocation: membership.revocation,
+        locked: membership.locked,
+        latestStart: membership.latestStart,
       ));
     }
 
@@ -573,7 +833,6 @@ class PersonEditForm
       otherPaymentMethodCtrl.text = person.paymentMethodOther ?? '';
     }
 
-    homeworkTariffValue = homeworkTariffChoiceOf(person.homeworkTariff);
     specialCategoryDataConsentValue = person.specialCategoryDataConsent ?? false;
     newsletterConsentValue = person.newsletterConsent ?? false;
 
@@ -765,6 +1024,35 @@ class PersonEditForm
       activeRoles.contains('GENITORE') &&
       parentIsMember != true;
 
+  static const Set<String> _collaboratingRoles = {'DOCENTE', 'AMMINISTRATORE', 'PSICOLOGO'};
+
+  // A role with a history stays (the server refuses otherwise); with receipts,
+  // the last collaborating role too.
+  bool isRoleKept(String roleId)
+  {
+    final PersonItem? person = this.person;
+
+    if (person == null || !selectedRoles.contains(roleId))
+    {
+      return false;
+    }
+
+    if (person.keptRoles.contains(roleId))
+    {
+      return true;
+    }
+
+    return person.keepsStaff &&
+        _collaboratingRoles.contains(roleId) &&
+        selectedRoles.where(_collaboratingRoles.contains).length == 1;
+  }
+
+  // «Solo socio» would take every role away.
+  bool get keepsSomeRole => (person?.keptRoles.isNotEmpty ?? false) || (person?.keepsStaff ?? false);
+
+  // Paid periods keep the person a member: a parent cannot stop being one.
+  bool get keepsMembership => person?.memberships?.any((membership) => membership.locked) ?? false;
+
   // President, vice president and treasurer cannot be paid.
   bool get collaborationForcedUnpaid
   {
@@ -772,6 +1060,32 @@ class PersonEditForm
         (adminRoleValue == 'Presidente' ||
             adminRoleValue == 'Vicepresidente' ||
             adminRoleValue == 'Tesoriere');
+  }
+
+  String? get _savedCollaboration => labelForServerValue(kCollaborationTypes, person?.collaborationType);
+
+  static bool _hasCompensi(String role) => const {'AMMINISTRATORE', 'DOCENTE'}.contains(role.toUpperCase());
+
+  // Saved with the Compensi tab and keeping it: their IBAN changes there.
+  bool get ibanInCompensi
+  {
+    final PersonItem? person = this.person;
+
+    return person != null && selectedRoles.any(_hasCompensi) && person.roles.any(_hasCompensi);
+  }
+
+  // So do type and rate, month by month. Asked here only when the record has to settle them:
+  // someone without the tab yet, or someone a role makes or stops making unpaid.
+  bool get collaborationInCompensi
+  {
+    if (!ibanInCompensi || collaborationForcedUnpaid)
+    {
+      return false;
+    }
+
+    final String? saved = _savedCollaboration;
+
+    return saved != null && saved != 'Non pagato';
   }
 
   void syncCollaborationWithAdminRole()
@@ -782,7 +1096,7 @@ class PersonEditForm
     }
     else if (collaborationTypeValue == 'Non pagato')
     {
-      collaborationTypeValue = null;
+      collaborationTypeValue = collaborationInCompensi ? _savedCollaboration : null;
     }
   }
 
@@ -1027,9 +1341,12 @@ class PersonEditForm
 
       memberData = {
         'memberships': membershipsData,
-        'payment_method': paymentMethod,
-        'payment_method_other':
-            paymentMethod == 'OTHER' ? otherPaymentMethodCtrl.text.trim() : null,
+        // Absent keys keep what is on file: a member's method is in «Pagamenti».
+        if (!paymentsInTab) ...{
+          'payment_method': paymentMethod,
+          'payment_method_other':
+              paymentMethod == 'OTHER' ? otherPaymentMethodCtrl.text.trim() : null,
+        },
         'emergency_contact_name': minor && emergencyContactNameCtrl.text.isNotEmpty
             ? emergencyContactNameCtrl.text.trim()
             : null,
@@ -1060,8 +1377,10 @@ class PersonEditForm
     if (isStaff)
     {
       staffData = {
-        'collaboration_type': kCollaborationTypes[collaborationTypeValue] ?? 'VOLUNTEER',
-        'iban': ibanCtrl.text.isNotEmpty ? ibanCtrl.text.trim().toUpperCase() : null,
+        'collaboration_type':
+            collaborationInCompensi ? null : kCollaborationTypes[collaborationTypeValue] ?? 'VOLUNTEER',
+        if (!ibanInCompensi)
+          'iban': ibanCtrl.text.isNotEmpty ? ibanCtrl.text.trim().toUpperCase() : null,
         'gross_compensation':
             isPaidCollaboration ? amountPayloadOf(grossCompensationCtrl.text) : null,
       };
@@ -1087,14 +1406,17 @@ class PersonEditForm
         'university_education': !isHighSchoolStudent && studiUniversitariCtrl.text.isNotEmpty
             ? studiUniversitariCtrl.text.trim()
             : null,
-        'competences': subjectToggles.entries
-            .where((entry) => entry.value)
-            .map((entry) => {
-                  'subject_id': entry.key,
-                  'study_program_ids': selectedProgramsForSubject[entry.key]?.toList() ?? [],
-                })
-            .toList(),
-        'service_names': selectedServices.toList(),
+        // Left out, the server keeps the subjects and services as they are.
+        if (asksSubjects) ...{
+          'competences': subjectToggles.entries
+              .where((entry) => entry.value)
+              .map((entry) => {
+                    'subject_id': entry.key,
+                    'study_program_ids': selectedProgramsForSubject[entry.key]?.toList() ?? [],
+                  })
+              .toList(),
+          'service_names': selectedServices.toList(),
+        },
         if (person?.teacherUpdatedAt != null)
           'expected_updated_at': person!.teacherUpdatedAt!.toIso8601String(),
       };
@@ -1120,16 +1442,9 @@ class PersonEditForm
       studentData = {
         'authorized_early_exit': earlyExitAuthorized,
         ...earlyExitPayload(authorized: earlyExitAuthorized),
-        'homework_tariff': homeworkTariffCode,
-        'school_enrollments': schoolRows
-            .map((row) => {
-                  'start_year': int.parse(row.yearCtrl.text.trim()),
-                  'school_id': row.school?.id,
-                  'homeschooling': row.homeschooling,
-                  'study_program_id': row.program!.id,
-                  'grade': romanToNumeric(row.grade!),
-                })
-            .toList(),
+        // Read by the server only for someone becoming a pupil.
+        'tariff': tariffPayload,
+        'school_enrollments': schoolEnrollmentsPayload,
         if (person?.studentUpdatedAt != null)
           'expected_updated_at': person!.studentUpdatedAt!.toIso8601String(),
       };
@@ -1217,6 +1532,7 @@ class PersonEditForm
 
       memberData = {
         'memberships': membershipsData,
+        'fees': feesPayload,
         'payment_method': paymentMethod,
         'payment_method_other':
             paymentMethod == 'OTHER' ? otherPaymentMethodCtrl.text.trim() : null,
@@ -1251,8 +1567,10 @@ class PersonEditForm
     if (isStaff)
     {
       staffData = {
-        'collaboration_type': kCollaborationTypes[collaborationTypeValue] ?? 'VOLUNTEER',
-        'iban': ibanCtrl.text.isNotEmpty ? ibanCtrl.text.trim().toUpperCase() : null,
+        'collaboration_type':
+            collaborationInCompensi ? null : kCollaborationTypes[collaborationTypeValue] ?? 'VOLUNTEER',
+        if (!ibanInCompensi)
+          'iban': ibanCtrl.text.isNotEmpty ? ibanCtrl.text.trim().toUpperCase() : null,
         'gross_compensation':
             isPaidCollaboration ? amountPayloadOf(grossCompensationCtrl.text) : null,
       };
@@ -1330,7 +1648,7 @@ class PersonEditForm
             : null,
         'mandatory_psych_meetings_acknowledged':
             certificationTypes.isNotEmpty ? psychMeetingsAcknowledgedValue : false,
-        'homework_tariff': homeworkTariffCode,
+        'tariff': tariffPayload,
         'school_enrollments': schoolRows
             .map((row) => {
                   'start_year': int.parse(row.yearCtrl.text.trim()),
@@ -1492,6 +1810,8 @@ class PersonEditForm
 
   void dispose()
   {
+    reEnrollYearCtrl.dispose();
+    reEnrollStartCtrl.dispose();
     firstNameCtrl.dispose();
     lastNameCtrl.dispose();
     cfCtrl.dispose();
@@ -1514,6 +1834,12 @@ class PersonEditForm
     studiScolasticiCtrl.dispose();
     studiUniversitariCtrl.dispose();
     otherPaymentMethodCtrl.dispose();
+    tariffHourlyCtrl.dispose();
+    tariffPackageHoursCtrl.dispose();
+    tariffPackageCostCtrl.dispose();
+    tariffMonthlyCtrl.dispose();
+    membershipFeeCtrl.dispose();
+    insuranceFeeCtrl.dispose();
     otherCertificationCtrl.dispose();
     dsaCertificationCtrl.dispose();
     psychologicalSupportStartDateCtrl.dispose();

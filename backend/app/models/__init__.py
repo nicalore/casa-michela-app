@@ -11,7 +11,14 @@ from app.models.calendar_band_lock import CalendarBandLock
 from app.models.calendar_publication import CalendarPublication
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
 from app.models.collaboration_change import CollaborationChange
+from app.models.compensation_term import CompensationTerm
 from app.models.competence_waiver import CompetenceWaiver
+from app.models.confirmed_hours import (
+    ConfirmedBand,
+    ConfirmedHours,
+    ConfirmedVolunteering,
+    HoursCorrection,
+)
 from app.models.course import Course
 from app.models.course_participant import CourseParticipant
 from app.models.early_exit_schedule import EarlyExitSchedule
@@ -21,15 +28,17 @@ from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
 from app.models.member import Member
 from app.models.membership import Membership
+from app.models.membership_fee import MembershipFee
 from app.models.methodological_note import MethodologicalNote
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
 from app.models.muted_notification_kind import MutedNotificationKind
-from app.models.notice import Notice, NoticeFile, NoticePin
+from app.models.notice import Notice, NoticeExclusion, NoticeFile, NoticePin
 from app.models.notification import Notification
 from app.models.opening_day import OpeningDay
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
+from app.models.payment_receipt import PaymentReceipt
 from app.models.person import Person
 from app.models.presence import Presence
 from app.models.psychological_support import PsychologicalSupport
@@ -45,9 +54,17 @@ from app.models.school_study_program import SchoolStudyProgram
 from app.models.seen_tour import SeenTour
 from app.models.service import Service
 from app.models.staff import Staff
+from app.models.standard_tariff import AnnualFees, StandardTariff
 from app.models.student import Student
+from app.models.student_hours import (
+    StudentConfirmedBand,
+    StudentConfirmedHours,
+    StudentHoursCorrection,
+)
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.models.student_note_image import StudentNoteImage
+from app.models.student_payment import StudentPayment, StudentPaymentBand
+from app.models.student_tariff import StudentTariff
 from app.models.study_program import StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
@@ -58,12 +75,18 @@ from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.models.technical_note import TechnicalNote
 from app.models.terms import TermsAcceptance, TermsRequest
+from app.models.volunteering import (
+    VolunteeringMonth,
+    VolunteeringRule,
+    VolunteeringRuleChange,
+)
 from app.models.weekly_template import WeeklyTemplate
 
 __all__ = [
     "Account",
     "Administrator",
     "AdministratorNote",
+    "AnnualFees",
     "AppUpdate",
     "AppUpdateImage",
     "AppUpdateRead",
@@ -76,27 +99,35 @@ __all__ = [
     "CalendarPublication",
     "CalendarTeacherExclusion",
     "CollaborationChange",
+    "CompensationTerm",
     "CompetenceWaiver",
+    "ConfirmedBand",
+    "ConfirmedHours",
+    "ConfirmedVolunteering",
     "Course",
     "CourseParticipant",
     "EarlyExitSchedule",
+    "HoursCorrection",
     "Lesson",
     "LessonBooking",
     "LessonDiscipline",
     "Member",
     "Membership",
+    "MembershipFee",
     "MethodologicalNote",
     "MinistryAssociationSubject",
     "MinistrySubject",
     "KnownDevice",
     "MutedNotificationKind",
     "Notice",
+    "NoticeExclusion",
     "NoticeFile",
     "NoticePin",
     "Notification",
     "OpeningDay",
     "Parent",
     "ParentalResponsibility",
+    "PaymentReceipt",
     "Person",
     "Presence",
     "PsychologicalSupport",
@@ -113,9 +144,16 @@ __all__ = [
     "SeenTour",
     "Service",
     "Staff",
+    "StandardTariff",
     "Student",
+    "StudentConfirmedBand",
+    "StudentConfirmedHours",
+    "StudentHoursCorrection",
     "StudentNotPreferredTeacher",
     "StudentNoteImage",
+    "StudentPayment",
+    "StudentPaymentBand",
+    "StudentTariff",
     "StudyProgram",
     "StudyProgramSubject",
     "SubjectRequested",
@@ -127,5 +165,8 @@ __all__ = [
     "TechnicalNote",
     "TermsAcceptance",
     "TermsRequest",
+    "VolunteeringMonth",
+    "VolunteeringRule",
+    "VolunteeringRuleChange",
     "WeeklyTemplate",
 ]

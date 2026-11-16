@@ -78,6 +78,9 @@ class SubjectRequestList extends StatelessWidget
 
   final void Function(int index)? onEdit;
 
+  // Rows shown without their actions, as a subject whose lesson has begun.
+  final bool Function(int index)? isLocked;
+
   const SubjectRequestList({
     super.key,
     required this.requests,
@@ -88,6 +91,7 @@ class SubjectRequestList extends StatelessWidget
     this.emptyLabel = 'Nessuna materia richiesta.',
     this.onAdd,
     this.onEdit,
+    this.isLocked,
   });
 
   @override
@@ -118,8 +122,8 @@ class SubjectRequestList extends StatelessWidget
             ministrySubjects: ministrySubjects,
             offeredSubjects: offeredSubjects,
             teachers: teachers,
-            onDelete: onRemove == null ? null : () => onRemove!(index),
-            onEdit: onEdit == null ? null : () => onEdit!(index),
+            onDelete: onRemove == null || (isLocked?.call(index) ?? false) ? null : () => onRemove!(index),
+            onEdit: onEdit == null || (isLocked?.call(index) ?? false) ? null : () => onEdit!(index),
           ),
         if (onAdd != null) ...[
           const SizedBox(height: 4),

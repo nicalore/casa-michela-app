@@ -1,7 +1,4 @@
-import 'dart:math' as math;
-
 import 'package:flutter/animation.dart';
-import 'package:flutter/foundation.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/utils/money.dart' show formatAmount;
@@ -85,36 +82,4 @@ class TrendScale
   static const TrendScale count = TrendScale(top: chartMaxValue, axis: _plainCount, point: _plainCount);
   static const TrendScale minutes = TrendScale(top: _hoursTop, axis: _hoursAxis, point: formatMinutes);
   static const TrendScale cents = TrendScale(top: _centsTop, axis: _euroAxis, point: formatAmount);
-}
-
-// How far each bar's hover highlight has risen, 0 to 1.
-class ChartFillLevels extends ChangeNotifier
-{
-  List<double> levels = const [];
-
-  void reset(int count)
-  {
-    levels = List.filled(count, 0.0);
-    notifyListeners();
-  }
-
-  // Toward 1 for the hovered bar and 0 for the others; true once every level is there.
-  bool advance(int? hovered, double step)
-  {
-    var settled = true;
-
-    for (var i = 0; i < levels.length; i++)
-    {
-      final double target = i == hovered ? 1 : 0;
-
-      levels[i] = target > levels[i] ? math.min(target, levels[i] + step) : math.max(target, levels[i] - step);
-      settled = settled && levels[i] == target;
-    }
-
-    notifyListeners();
-
-    return settled;
-  }
-
-  double eased(int index) => index < levels.length ? Curves.easeOut.transform(levels[index]) : 0;
 }

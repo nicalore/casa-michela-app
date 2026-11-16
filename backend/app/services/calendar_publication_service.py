@@ -37,6 +37,11 @@ from app.repositories.teacher_room_assignment_repository import (
     TeacherRoomAssignmentRepository,
 )
 from app.schemas.calendar_publication import CalendarPublicationCreate
+from app.services.calendar_freeze import (
+    assert_not_confirmed,
+    assert_started_unchanged,
+    started_rows,
+)
 from app.services.calendar_snapshot import differs, restore, snapshot_of
 from app.services.lesson_guard import assert_band_claimed
 from app.services.room_occupancy import (
@@ -49,6 +54,10 @@ from app.services.room_occupancy import (
 _NOT_FOUND_ERROR: Final[str] = "Questo calendario non è pubblicato."
 _NOT_IN_DRAFT_ERROR: Final[str] = "Questo calendario non è in bozza."
 _ALREADY_IN_DRAFT_ERROR: Final[str] = "Questo calendario è già in bozza."
+_STARTED_UNPUBLISH_ERROR: Final[str] = (
+    "Le lezioni di questa fascia sono già cominciate: "
+    "il calendario non si può più ritirare."
+)
 _PUBLISH_ERROR: Final[str] = "Errore durante la pubblicazione."
 _DISCARD_ERROR: Final[str] = "Errore durante l'uscita dalla bozza."
 
@@ -384,6 +393,7 @@ class CalendarPublicationService:
                 detail=_ALREADY_IN_DRAFT_ERROR,
             )
 
+        await assert_not_confirmed(self.session, day, band)
         await assert_band_claimed(self.session, identity, day, band)
 
         publication.draft_snapshot = await self.picture_of(day, band)
@@ -558,7 +568,12 @@ class CalendarPublicationService:
         await assert_band_claimed(self.session, identity, day, band)
         await self._assert_theirs_to_discard(publication, identity)
 
+        # Back to how it went out, but never over what has begun since.
+        begun = await started_rows(self.session, day, band)
         lost = await restore(self.session, day, band, snapshot)
+
+        await self.session.flush()
+        await assert_started_unchanged(self.session, day, band, begun)
 
         publication.draft_snapshot = None
         publication.draft_opened_by = None
@@ -578,6 +593,15 @@ class CalendarPublicationService:
         band: str,
     ) -> None:
         publication = await self._published_or_404(day, band)
+
+        # Withdrawn, the band would leave the plan, and its hours the pay.
+        await assert_not_confirmed(self.session, day, band)
+
+        if await started_rows(self.session, day, band):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=_STARTED_UNPUBLISH_ERROR,
+            )
 
         await assert_band_claimed(self.session, identity, day, band)
 

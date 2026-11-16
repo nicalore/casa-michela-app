@@ -138,6 +138,24 @@ class NoticeFile(CreatedAtMixin, Base):
     notice: Mapped[Notice] = relationship(back_populates="files")
 
 
+# A teacher or student not collaborating at the notice's last sending: it never
+# reached them as such, by email or in the app.
+class NoticeExclusion(Base):
+    __tablename__ = "notice_exclusions"
+
+    notice_id: Mapped[int] = mapped_column(
+        ForeignKey("notices.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    tax_code: Mapped[str] = mapped_column(
+        # tax_code is a mutable natural key, so onupdate is required here.
+        ForeignKey("people.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+
+
 # Any administrator pins; its own table, so the author's edit token stays put.
 class NoticePin(Base):
     __tablename__ = "notice_pins"

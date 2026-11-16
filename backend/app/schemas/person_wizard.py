@@ -5,6 +5,7 @@ from typing import Final, Self
 from pydantic import BaseModel, Field, model_validator
 
 from app.core import field_lengths
+from app.schemas.membership_fees import WizardFeesData
 from app.schemas.person import (
     HEALTH_DATA_WITHOUT_CONSENT_ERROR,
     BirthPlaceData,
@@ -12,9 +13,10 @@ from app.schemas.person import (
     SchoolOrHomeschooling,
     StudentCertificationData,
     StudentEarlyExitData,
-    StudentHomeworkTariffData,
+    StudentTariffChoice,
     TeacherEducationData,
 )
+from app.schemas.student_payments import WizardTariffData
 from app.schemas.validators import (
     OptionalOpeningCapitalStr,
     OptionalSentenceCaseStr,
@@ -84,6 +86,8 @@ class WizardMembershipData(BaseModel):
 
 class WizardMemberDataBase(BaseModel):
     memberships: list[WizardMembershipData] = Field(default_factory=list)
+    # Only for someone enrolled in the current year.
+    fees: WizardFeesData | None = None
     payment_method: str | None = None
     payment_method_other: OptionalSentenceCaseStr = Field(
         None,
@@ -132,6 +136,10 @@ class WizardMemberData(WizardMemberDataBase):
         if self.payment_method is None:
             raise ValueError(_MISSING_PAYMENT_METHOD_ERROR)
 
+        # A payment recorded with the enrolment needs the method whole.
+        if self.payment_method == "OTHER" and not self.payment_method_other:
+            raise ValueError(_MISSING_PAYMENT_METHOD_ERROR)
+
         return self
 
 
@@ -178,8 +186,9 @@ class WizardSchoolEnrollmentData(SchoolOrHomeschooling):
 class WizardStudentData(
     StudentCertificationData,
     StudentEarlyExitData,
-    StudentHomeworkTariffData,
+    StudentTariffChoice,
 ):
+    tariff: WizardTariffData | None = None
     mandatory_psych_meetings_acknowledged: bool
     school_enrollments: list[WizardSchoolEnrollmentData] = Field(default_factory=list)
 

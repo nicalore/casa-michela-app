@@ -14,9 +14,10 @@ from app.core import field_lengths
 from app.core.time_band import EVENING_START
 from app.models.early_exit_schedule import MAXIMUM_SCHEDULES, WEEKDAYS
 from app.models.person import BORN_ABROAD_PROVINCE
-from app.models.student import CertificationTypeEnum, HomeworkTariffEnum
+from app.models.student import CertificationTypeEnum
 from app.models.study_program import EducationLevelEnum, HighSchoolTrackEnum
 from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
+from app.schemas.student_payments import StudentTariffData
 from app.schemas.validators import (
     OpeningCapitalStr,
     OptionalOpeningCapitalStr,
@@ -104,6 +105,10 @@ class MembershipResponse(BaseModel):
     end_date: date
     renewal_period_days: int
     revocation: str
+
+    # Administrators only: money holds the year, and its start no later than this.
+    locked: bool = False
+    latest_start: date | None = None
 
 
 class SchoolEnrollmentResponse(BaseModel):
@@ -204,7 +209,8 @@ class GeneralDataUpdate(BirthPlaceData):
 
 
 class StaffUpdateData(BaseModel):
-    collaboration_type: str
+    # Null keeps it, rate included: they change in the Compensi tab.
+    collaboration_type: str | None = None
     iban: str | None = Field(None, max_length=field_lengths.IBAN)
 
     # Null when nobody said, which is not the same as nothing being paid.
@@ -290,9 +296,9 @@ class SchoolEnrollmentUpdateItem(SchoolOrHomeschooling):
     grade: int
 
 
-class StudentHomeworkTariffData(BaseModel):
-    # Null for anyone never asked, and for primary school, which has no choice.
-    homework_tariff: HomeworkTariffEnum | None = None
+class StudentTariffChoice(BaseModel):
+    # Null when no school year says the level yet.
+    tariff: StudentTariffData | None = None
 
 
 class StudentCertificationData(BaseModel):
@@ -406,8 +412,8 @@ class StudentEarlyExitData(BaseModel):
         return self
 
 
-# No certifications: they have their own route.
-class StudentUpdateData(StudentEarlyExitData, StudentHomeworkTariffData):
+# No certifications: they have their own route. The tariff only for a new pupil.
+class StudentUpdateData(StudentEarlyExitData, StudentTariffChoice):
     school_enrollments: list[SchoolEnrollmentUpdateItem]
     expected_updated_at: datetime | None = None
 
@@ -464,7 +470,14 @@ class PersonMembershipsUpdate(BaseModel):
     expected_updated_at: datetime | None = None
 
 
+# True once the admin agreed to what the save deletes (write_losses.Losses).
+class PersonMembershipsEdit(PersonMembershipsUpdate):
+    confirm: bool = False
+
+
 class PersonUpdatePayload(BaseModel):
+    # As in PersonMembershipsEdit: enrollment and roles taken away alike.
+    confirm: bool = False
     general_data: GeneralDataUpdate
     roles: list[str]
     member_data: PersonMembershipsUpdate | None = None
@@ -591,7 +604,6 @@ class PersonResponse(BaseModel):
     certification_other_detail: str | None = None
     certification_dsa_detail: str | None = None
     mandatory_psych_meetings_acknowledged: bool | None = None
-    homework_tariff: HomeworkTariffEnum | None = None
     gross_compensation: Decimal | None = None
 
     payment_method: str | None = None
@@ -624,6 +636,11 @@ class PersonResponse(BaseModel):
     teacher_updated_at: datetime | None = None
 
     memberships: list[MembershipResponse] | None = None
+
+    # Administrators only: roles the edit wizard cannot take away (role_removal).
+    kept_roles: list[str] | None = None
+    keeps_staff: bool | None = None
+
     school_enrollments: list[SchoolEnrollmentResponse] | None = None
     parents: list[ParentInfoResponse] | None = None
     children: list[ChildInfoResponse] | None = None

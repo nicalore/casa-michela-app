@@ -1,10 +1,14 @@
+from collections.abc import Sequence
+from datetime import date, datetime
 from typing import Final
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.booking_window import now_in_rome
 from app.core.labels import GRADE_BY_ROMAN_NUMERAL
+from app.core.school_year import school_year_start
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.course import Course
 from app.models.course_participant import CourseParticipant
@@ -20,11 +24,20 @@ from app.models.school_enrollment import SchoolEnrollment
 from app.models.service import Service
 from app.models.staff import CollaborationTypeEnum, Staff
 from app.models.student import CertificationTypeEnum, Student
+from app.models.study_program import StudyProgram
 from app.models.teacher import Teacher
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
-from app.schemas.person_wizard import PersonWizardPayload
+from app.schemas.person import SchoolEnrollmentUpdateItem
+from app.schemas.person_wizard import (
+    PersonWizardPayload,
+    WizardSchoolEnrollmentData,
+)
+from app.schemas.student_payments import PaymentData, RenewalData, WizardTariffData
+from app.services.membership_fees import enrolled_year, first_fees
 from app.services.role_service import RoleService
+from app.services.standard_tariffs import standard_tariff
+from app.services.student_payments import first_tariffs, renew
 
 _ROLE_PARENT: Final[str] = "GENITORE"
 _ROLE_MEMBER: Final[str] = "ASSOCIATO"
@@ -65,7 +78,46 @@ _UNKNOWN_SERVICES_ERROR: Final[str] = "Alcuni servizi indicati non esistono: {na
 
 _UNKNOWN_COURSE_ERROR: Final[str] = 'Il corso "{name}" non esiste.'
 
+_NOT_ENROLLED_PAYMENT_ERROR: Final[str] = (
+    "Quote e primo pagamento si indicano solo per chi è iscritto quest’anno."
+)
+
+_NO_PAYMENT_METHOD_ERROR: Final[str] = "Manca la modalità di pagamento."
+
+_NO_FEES_ERROR: Final[str] = "Mancano le quote."
+
+_NO_TARIFF_ERROR: Final[str] = "Manca la tariffa."
+
 _DEFAULT_GRADE: Final[int] = 1
+
+
+# The latest school year says the level the tariff is for.
+def _current_program(enrollments: list[WizardSchoolEnrollmentData]) -> int | None:
+    if not enrollments:
+        return None
+
+    return max(enrollments, key=lambda row: row.start_year).study_program_id
+
+
+# As the wizard asks it: a school year begun says the level, the level has tariffs.
+async def level_has_tariffs(
+    db: AsyncSession,
+    enrollments: Sequence[WizardSchoolEnrollmentData | SchoolEnrollmentUpdateItem],
+    today: date,
+) -> bool:
+    begun = [
+        row for row in enrollments if row.start_year <= school_year_start(today)
+    ]
+
+    if not begun:
+        return False
+
+    latest = max(begun, key=lambda row: row.start_year)
+    level = await db.scalar(
+        select(StudyProgram.level).where(StudyProgram.id == latest.study_program_id),
+    )
+
+    return await standard_tariff(db, level) is not None
 
 
 # Existence is checked so a wrong name yields a message, not an FK 500.
@@ -105,6 +157,41 @@ async def _add_teacher_services(
 
     for name in unique_names:
         db.add(TeacherService(teacher_tax_code=tax_code, service_name=name))
+
+
+def _bad_request(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
+# The first package or month bought at enrolment, today and the member's way.
+async def _pay_first(
+    db: AsyncSession,
+    member: Member,
+    tariff: WizardTariffData,
+    enrolled: bool,
+    now: datetime,
+) -> None:
+    if not enrolled:
+        raise _bad_request(_NOT_ENROLLED_PAYMENT_ERROR)
+
+    if member.payment_method is None:
+        raise _bad_request(_NO_PAYMENT_METHOD_ERROR)
+
+    await db.flush()
+    await renew(
+        db,
+        member.tax_code,
+        RenewalData(
+            amount_cents=tariff.amount_cents,
+            package_hours=tariff.package_hours,
+            payment=PaymentData(
+                paid_on=now.date(),
+                payment_method=member.payment_method,
+                payment_method_other=member.payment_method_other,
+            ),
+        ),
+        now,
+    )
 
 
 async def create_person_from_wizard(
@@ -154,6 +241,14 @@ async def create_person_from_wizard(
         db.add(Parent(tax_code=person.tax_code))
 
     needs_member = any(role in roles for role in _MEMBER_ROLES)
+    now = now_in_rome()
+    today = now.date()
+    member_data = payload.member_data
+    year = (
+        enrolled_year(member_data.memberships, today)
+        if member_data is not None
+        else None
+    )
 
     if needs_member:
         member = Member(tax_code=person.tax_code)
@@ -199,8 +294,40 @@ async def create_person_from_wizard(
                     )
                 )
 
+            # Whoever is enrolled this year owes its fees, paid or not.
+            if member_data.fees is None and year is not None:
+                raise _bad_request(_NO_FEES_ERROR)
+
+            if member_data.fees is not None:
+                if year is None:
+                    raise _bad_request(_NOT_ENROLLED_PAYMENT_ERROR)
+
+                if payment_method is None:
+                    raise _bad_request(_NO_PAYMENT_METHOD_ERROR)
+
+                # No relationship orders the member first.
+                await db.flush()
+                db.add_all(
+                    first_fees(
+                        person.tax_code,
+                        year,
+                        member_data.fees,
+                        payment_method,
+                        member.payment_method_other,
+                        today,
+                    )
+                )
+
         if _ROLE_STUDENT in roles and payload.student_data:
             student_data = payload.student_data
+
+            if (
+                student_data.tariff is None
+                and year is not None
+                and await level_has_tariffs(db, student_data.school_enrollments, today)
+            ):
+                raise _bad_request(_NO_TARIFF_ERROR)
+
             certification_types = [
                 CertificationTypeEnum(kind)
                 for kind in student_data.certification_types
@@ -226,9 +353,17 @@ async def create_person_from_wizard(
                     mandatory_psych_meetings_acknowledged=(
                         student_data.mandatory_psych_meetings_acknowledged
                     ),
-                    homework_tariff=student_data.homework_tariff,
+                    tariffs=await first_tariffs(
+                        db,
+                        student_data.tariff,
+                        _current_program(student_data.school_enrollments),
+                        today,
+                    ),
                 )
             )
+
+            if student_data.tariff is not None and student_data.tariff.paid:
+                await _pay_first(db, member, student_data.tariff, year is not None, now)
 
             for enrollment_data in student_data.school_enrollments:
                 db.add(

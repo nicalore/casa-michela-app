@@ -63,6 +63,9 @@ void followNotification(NotificationItem item)
       unawaited(_openObservations(item));
     case NotificationKind.administratorNoteAdded:
       _openOwnObservations();
+    // The teacher's Compensi are not there yet: the home shows the month's pay.
+    case NotificationKind.volunteeringChanged:
+      unawaited(_openAs(const [_teacherRole], jump: (_) {}, route: homeForRole));
     case NotificationKind.test:
     case NotificationKind.arrivalReminder:
     case NotificationKind.unknown:

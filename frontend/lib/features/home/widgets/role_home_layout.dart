@@ -430,7 +430,12 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
             if (isSameDate(publication.date, today)) publication.band,
         },
         convened: teacher
-            ? convenedSlots(day: today, lessons: lessons, activities: activities)
+            ? convenedSlots(
+                day: today,
+                lessons: lessons,
+                activities: activities,
+                teacherTaxCode: taxCode,
+              )
             : null,
         names: named ? children : const [],
       );

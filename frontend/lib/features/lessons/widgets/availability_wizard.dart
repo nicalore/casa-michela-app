@@ -13,7 +13,7 @@ import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../availability/availability_tour.dart';
 import '../../availability/utils/availability_strings.dart';
-import '../utils/booking_wizard_strings.dart' show hoursOverlap;
+import '../utils/booking_wizard_strings.dart' show hoursOverlap, kBandBegun;
 import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
 import '../models/availability_group.dart';
@@ -156,7 +156,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     {
       for (final bucket in TimeBucket.values)
       {
-        final window = _isClosed(day, bucket) ? null : openingWindowFor(widget.openingDays, day, mode, bucket);
+        final window = _isClosed(day, bucket) ? null : openingWindowFor(widget.openingDays, day, mode, bucket, from: _now);
 
         parts.add(window == null ? '-' : '${window.startMinutes}-${window.endMinutes}');
       }
@@ -249,12 +249,18 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       return null;
     }
 
-    return _sharedWindow(group, mode, bucket);
+    return sharedOpeningWindow(widget.openingDays, group.days, mode, bucket, from: _now);
   }
 
   String _shutLabelFor(_DayGroup group, String mode, TimeBucket bucket)
   {
-    return _sharedWindow(group, mode, bucket) == null ? kAssociationShut : kAvailabilityShut;
+    if (_sharedWindow(group, mode, bucket) == null)
+    {
+      return kAssociationShut;
+    }
+
+    // Past its close for its own teacher; otherwise only time has closed it.
+    return group.days.any((day) => _isOwn && haveBookingsClosed(day, bucket, _now)) ? kAvailabilityShut : kBandBegun;
   }
 
   bool _hasFrozen(String mode) => _frozen[mode]!.values.any((held) => held.isNotEmpty);
@@ -264,7 +270,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     return _modes
         .where((mode) => TimeBucket.values.any((bucket) =>
             !_isClosed(day, bucket) &&
-            openingWindowFor(widget.openingDays, day, mode, bucket) != null))
+            openingWindowFor(widget.openingDays, day, mode, bucket, from: _now) != null))
         .toList();
   }
 
@@ -341,6 +347,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
           startTime: slot.startTime,
           endTime: slot.endTime,
           existing: slot,
+          locked: hasBegun(group.date, slot.startTime, _now),
         );
 
         if (_isClosed(group.date, bucket))
@@ -710,6 +717,16 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
             }
 
             final existing = draft.existing;
+
+            // Begun and left as it was: nothing to write.
+            if (draft.locked &&
+                existing != null &&
+                minutesOfTimeOfDay(existing.startTime) == draft.startMinutes &&
+                minutesOfTimeOfDay(existing.endTime) == draft.endMinutes)
+            {
+              continue;
+            }
+
             final isMove = existing != null && isSameDate(day, existing.date);
 
             final success = isMove
@@ -819,7 +836,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       schedule: _bandsOf(group)[mode]!,
       windowFor: (bucket) => _windowFor(group, mode, bucket),
       offLabel: kNotAvailable,
-      disabledLabelFor: _isOwn ? (bucket) => _shutLabelFor(group, mode, bucket) : null,
+      disabledLabelFor: (bucket) => _shutLabelFor(group, mode, bucket),
       frozen: _isEditing ? _frozen[mode]! : const {},
       onChanged: ()
       {

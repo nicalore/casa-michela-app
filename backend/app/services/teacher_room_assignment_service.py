@@ -22,6 +22,7 @@ from app.schemas.teacher_room_assignment import (
     RoomStretch,
     TeacherRoomAssignmentCreate,
 )
+from app.services.calendar_freeze import has_begun, refuse_begun_hours
 from app.services.lesson_guard import (
     assert_bands_claimed,
     assert_bands_editable,
@@ -114,6 +115,35 @@ def _shift_key(
     shift: RoomSupervision | RoomPlanShift,
 ) -> tuple[str, int, time, time]:
     return (shift.teacher_tax_code, shift.room_id, shift.start_time, shift.end_time)
+
+
+# What has begun keeps its room: lessons in the building and shifts alike.
+def _assert_begun_kept(
+    day: date,
+    lessons: Sequence[Lesson],
+    stored: dict[str, list[TeacherRoomAssignment]],
+    wanted: dict[str, list[_Stretch]],
+    stored_shifts: Sequence[RoomSupervision | RoomPlanShift],
+    shifts: Sequence[RoomSupervision | RoomPlanShift],
+) -> None:
+    if any(
+        has_begun(day, lesson.start_time)
+        and teacher_of(lesson) in wanted
+        and lesson.teacher_mode == "presence"
+        and _rooms_differ(
+            stored.get(teacher_of(lesson), []),
+            wanted[teacher_of(lesson)],
+            lesson,
+        )
+        for lesson in lessons
+    ):
+        raise refuse_begun_hours()
+
+    def begun(rows: Sequence[RoomSupervision | RoomPlanShift]) -> set[tuple]:
+        return {_shift_key(row) for row in rows if has_begun(day, row.start_time)}
+
+    if begun(stored_shifts) != begun(shifts):
+        raise refuse_begun_hours()
 
 
 class TeacherRoomAssignmentService:
@@ -221,6 +251,15 @@ class TeacherRoomAssignmentService:
         await self._assert_convened(payload.date, payload.teacher_tax_code)
         await self._rooms_or_404({payload.room_id})
 
+        _assert_begun_kept(
+            payload.date,
+            await self.lessons.list_for_day(payload.date),
+            {},
+            {payload.teacher_tax_code: [_Stretch(MIDNIGHT, payload.room_id)]},
+            [],
+            [],
+        )
+
         assignment = TeacherRoomAssignment(
             date=payload.date,
             teacher_tax_code=payload.teacher_tax_code,
@@ -244,6 +283,21 @@ class TeacherRoomAssignmentService:
         teacher_tax_code: str,
     ) -> int:
         rows = await self._rows_or_404(day, teacher_tax_code)
+
+        _assert_begun_kept(
+            day,
+            await self.lessons.list_for_day(day),
+            {teacher_tax_code: list(rows)},
+            {teacher_tax_code: []},
+            [
+                shift
+                for shift in await RoomSupervisionRepository(self.session).list_for_day(
+                    day,
+                )
+                if shift.teacher_tax_code == teacher_tax_code
+            ],
+            [],
+        )
 
         settled = await find_settled_bands(self.session, day)
         with_lessons = await find_bands_with_lessons(self.session, day)
@@ -395,6 +449,15 @@ class TeacherRoomAssignmentService:
             for shift in await shifts.list_for_day(day)
             if shift.teacher_tax_code in wanted
         ]
+
+        _assert_begun_kept(
+            day,
+            lessons,
+            stored,
+            wanted,
+            stored_shifts,
+            payload.supervisions,
+        )
 
         moved, watched = self._touched_bands(
             lessons,

@@ -45,6 +45,19 @@ abstract final class AppTheme
 
   static const Color todaySurface = Color(0xFFEAF7F5);
 
+  // In-person badges (hours, mode, room), desktop and mobile: todaySurface read as grey.
+  static const Color presenceBadge = Color(0xFFC2DCD3);
+
+  // Something paid that starts later: a renewal waiting for the running package or month.
+  static const Color laterBlue = Color(0xFF1D5592);
+  static const Color laterBlueSurface = Color(0xFFE2ECF8);
+
+  // A month paid, a renewal starting at once.
+  static const Color paidSurface = Color(0xFFE3F4F1);
+
+  // Facts and the current tariff inside a dialog.
+  static const Color quietSurface = Color(0xFFF5F8F8);
+
   // Statistics charts: the greeting's ocean and violet, never presence teal or online gold.
   static const Color chartOcean = Color(0xFF4077B3);
   static const Color chartViolet = trialViolet;
@@ -103,6 +116,13 @@ abstract final class AppTheme
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [trialTealDeep, trialTurquoise],
+  );
+
+  // Something still to do, as a payment owed.
+  static const LinearGradient goldGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF0BE5E), Color(0xFFC98A1E)],
   );
 
   static const LinearGradient greetingGradient = LinearGradient(

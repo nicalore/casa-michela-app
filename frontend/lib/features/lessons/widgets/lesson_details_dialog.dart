@@ -10,6 +10,7 @@ import '../../calendar/widgets/own_lesson_dialog.dart' show LessonDialogSection,
 import '../models/booking_summary_item.dart';
 import '../models/calendar_day.dart';
 import '../models/lesson_item.dart';
+import '../models/person_option_item.dart';
 import '../utils/opening_window.dart';
 import 'booking_fields_section.dart' show bookingTagLabels;
 import 'calendar_lesson_block.dart' show lessonAbout, lessonTitle;
@@ -24,6 +25,7 @@ Future<void> showLessonDetailsDialog({
   required LessonItem lesson,
   required List<MinistrySubjectItem> ministrySubjects,
   CalendarView view = CalendarView.byTeacher,
+  ValueChanged<PersonOptionItem>? onOpenPerson,
 })
 {
   return showBlurredDialog<void>(
@@ -33,6 +35,7 @@ Future<void> showLessonDetailsDialog({
       lesson: lesson,
       ministrySubjects: ministrySubjects,
       view: view,
+      onOpenPerson: onOpenPerson,
     ),
   );
 }
@@ -44,10 +47,14 @@ class _LessonDetailsDialog extends StatelessWidget
 
   final CalendarView view;
 
+  // The name beside the face leads to that person's record.
+  final ValueChanged<PersonOptionItem>? onOpenPerson;
+
   const _LessonDetailsDialog({
     required this.lesson,
     required this.ministrySubjects,
     required this.view,
+    this.onOpenPerson,
   });
 
   bool get _byStudent => view == CalendarView.byStudent;
@@ -117,7 +124,7 @@ class _LessonDetailsDialog extends StatelessWidget
       ),
       LessonVoice(label: _theOther.label, value: _theOther.value),
       LessonVoice(label: 'Luogo', value: _where),
-      LessonVoice(label: 'Materia', value: _perBooking((booking) => bookingTitle(booking, ministrySubjects))),
+      LessonVoice(label: 'Materia', value: _perBooking((booking) => bookingSubject(booking, ministrySubjects))),
       if (disciplines != null)
         LessonVoice(label: disciplines.contains(', ') ? 'Discipline' : 'Disciplina', value: disciplines),
       LessonVoice(
@@ -134,11 +141,19 @@ class _LessonDetailsDialog extends StatelessWidget
   {
     final only = lesson.bookings.length == 1 ? lesson.bookings.single.presence.student : null;
     final face = _byStudent ? lesson.teacher : only;
+    final open = onOpenPerson;
 
     return AppDialogStack(
       eyebrow: 'Lezione',
       title: lessonTitle(lesson, view: view),
       leading: face == null ? null : PersonAvatar(person: face, size: PersonAvatar.titleSize),
+      onTitleTap: face == null || open == null
+          ? null
+          : ()
+            {
+              Navigator.of(context).pop();
+              open(face);
+            },
       subtitle: Text(
         formatWeekdayColumnLabel(lesson.date),
         style: GoogleFonts.plusJakartaSans(

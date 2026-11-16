@@ -36,6 +36,22 @@ def is_collaborating(member: Member | None) -> bool:
     )
 
 
+async def collaborating_tax_codes(
+    session: AsyncSession,
+    tax_codes: Collection[str],
+) -> set[str]:
+    if not tax_codes:
+        return set()
+
+    members = await session.scalars(
+        select(Member)
+        .options(selectinload(Member.memberships))
+        .where(Member.tax_code.in_(tax_codes)),
+    )
+
+    return {member.tax_code for member in members if is_collaborating(member)}
+
+
 # Binds only admins acting for others; people and parents book regardless.
 async def assert_admin_may_name(
     session: AsyncSession,
@@ -186,36 +202,81 @@ async def _drop_idle_rooms(
     await session.flush()
 
 
+# teaching: the person's availabilities; learning: their presences as a pupil.
 async def _hours_ahead(
     session: AsyncSession,
     tax_code: str,
+    *,
+    teaching: bool = True,
+    learning: bool = True,
 ) -> tuple[Sequence[Availability], Sequence[Presence]]:
     now = now_in_rome()
     today, clock = now.date(), now.time()
 
     availabilities = (
-        await session.scalars(
-            select(Availability).where(
-                Availability.teacher_tax_code == tax_code,
-                _ahead(Availability, today, clock),
-            ),
-        )
-    ).all()
+        (
+            await session.scalars(
+                select(Availability).where(
+                    Availability.teacher_tax_code == tax_code,
+                    _ahead(Availability, today, clock),
+                ),
+            )
+        ).all()
+        if teaching
+        else []
+    )
     presences = (
-        await session.scalars(
-            select(Presence).where(
-                Presence.student_tax_code == tax_code,
-                _ahead(Presence, today, clock),
-            ),
-        )
-    ).all()
+        (
+            await session.scalars(
+                select(Presence).where(
+                    Presence.student_tax_code == tax_code,
+                    _ahead(Presence, today, clock),
+                ),
+            )
+        ).all()
+        if learning
+        else []
+    )
 
     return availabilities, presences
 
 
+# Hours already begun: what a role's history is made of.
+async def has_begun_hours(
+    session: AsyncSession,
+    tax_code: str,
+    *,
+    teaching: bool,
+) -> bool:
+    now = now_in_rome()
+    model = Availability if teaching else Presence
+    owner = (
+        Availability.teacher_tax_code if teaching else Presence.student_tax_code
+    )
+
+    found = await session.scalar(
+        select(model.id)
+        .where(owner == tax_code, ~_ahead(model, now.date(), now.time()))
+        .limit(1),
+    )
+
+    return found is not None
+
+
 # What switching the collaboration off would drop.
-async def count_hours_ahead(session: AsyncSession, tax_code: str) -> PurgedHours:
-    availabilities, presences = await _hours_ahead(session, tax_code)
+async def count_hours_ahead(
+    session: AsyncSession,
+    tax_code: str,
+    *,
+    teaching: bool = True,
+    learning: bool = True,
+) -> PurgedHours:
+    availabilities, presences = await _hours_ahead(
+        session,
+        tax_code,
+        teaching=teaching,
+        learning=learning,
+    )
     lessons = await lessons_standing_on(
         session,
         {availability.id for availability in availabilities},
@@ -226,10 +287,21 @@ async def count_hours_ahead(session: AsyncSession, tax_code: str) -> PurgedHours
 
 
 # Drops presences and availabilities ahead, with their lessons; the caller commits.
-async def drop_hours_ahead(session: AsyncSession, tax_code: str) -> None:
+async def drop_hours_ahead(
+    session: AsyncSession,
+    tax_code: str,
+    *,
+    teaching: bool = True,
+    learning: bool = True,
+) -> None:
     await lock_pupil(session, tax_code)
 
-    availabilities, presences = await _hours_ahead(session, tax_code)
+    availabilities, presences = await _hours_ahead(
+        session,
+        tax_code,
+        teaching=teaching,
+        learning=learning,
+    )
 
     if not availabilities and not presences:
         return

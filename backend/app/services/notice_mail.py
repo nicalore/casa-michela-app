@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 import resend
 import resend.exceptions
 
+from app.core.labels import MONTH_NAMES
 from app.models.notice import Notice, NoticeFile
 from app.services import email_service
 from app.services.notice_markdown import email_html
@@ -18,21 +19,6 @@ from app.services.notice_markdown import email_html
 logger = logging.getLogger("notices")
 
 _ROME: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
-
-_MONTHS: Final[tuple[str, ...]] = (
-    "gennaio",
-    "febbraio",
-    "marzo",
-    "aprile",
-    "maggio",
-    "giugno",
-    "luglio",
-    "agosto",
-    "settembre",
-    "ottobre",
-    "novembre",
-    "dicembre",
-)
 
 _EDITED_SUBJECT: Final[str] = "Modifica comunicazione - {title}"
 
@@ -80,7 +66,7 @@ def image_content_id(key: str) -> str:
 def day_and_time(instant: datetime) -> tuple[str, str]:
     local = instant.astimezone(_ROME)
 
-    return f"{local.day} {_MONTHS[local.month - 1]} {local.year}", f"{local:%H:%M}"
+    return f"{local.day} {MONTH_NAMES[local.month - 1]} {local.year}", f"{local:%H:%M}"
 
 
 def _attachment(file: NoticeFile) -> resend.Attachment:

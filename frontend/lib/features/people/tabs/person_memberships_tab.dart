@@ -21,9 +21,12 @@ import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/card_scroll_area.dart';
 import '../../../shared/widgets/whole_words.dart';
 import '../../association/tabs/opening_hours/hours_grid.dart' show TodayFrame;
+import '../../association/tabs/opening_hours/lost_calendars.dart';
 import '../models/membership_item.dart';
 import '../models/person_item.dart';
+import '../edit/person_edit_dialog.dart';
 import '../widgets/collaboration_badge.dart';
+import 'person_account_shared.dart';
 import '../widgets/membership_edit_row.dart';
 import '../widgets/person_detail_widgets.dart';
 
@@ -135,6 +138,20 @@ class PersonMembershipsTab extends StatelessWidget
     );
   }
 
+  Future<void> _showReEnrollDialog(BuildContext context) async
+  {
+    final String? saved = await showBlurredDialog<String>(
+      context: context,
+      barrierLabel: 'ReEnrollPerson',
+      builder: (context) => PersonEditDialog.reEnroll(person: person),
+    );
+
+    if (saved != null)
+    {
+      onUpdate!();
+    }
+  }
+
   void _showRevokeDialog(BuildContext context)
   {
     showBlurredDialog(
@@ -158,8 +175,15 @@ class PersonMembershipsTab extends StatelessWidget
       onPressed: () => _showEditDialog(context),
     );
 
+    // The year in course is missing: lapsed, or still in January's renewal window.
+    final int year = romeNow().year;
+    final bool renewable = !(person.memberships ?? const <MembershipItem>[])
+        .any((membership) => membership.year >= year);
+
     // Only a running membership can be revoked.
-    if (isOwnProfile || !person.isEnrolled)
+    final bool revocable = !isOwnProfile && person.isEnrolled;
+
+    if (!renewable && !revocable)
     {
       return edit;
     }
@@ -169,14 +193,21 @@ class PersonMembershipsTab extends StatelessWidget
       runSpacing: 12,
       alignment: WrapAlignment.center,
       children: [
+        if (renewable)
+          AppGradientButton(
+            label: 'RINNOVA ISCRIZIONE',
+            icon: Icons.autorenew_rounded,
+            onPressed: () => _showReEnrollDialog(context),
+          ),
         edit,
-        AppGradientButton(
-          label: 'REVOCA ISCRIZIONE',
-          icon: Icons.gavel_rounded,
-          gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
-          onPressed: () => _showRevokeDialog(context),
-        ),
+        if (revocable)
+          AppGradientButton(
+            label: 'REVOCA ISCRIZIONE',
+            icon: Icons.gavel_rounded,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
+            onPressed: () => _showRevokeDialog(context),
+          ),
       ],
     );
   }
@@ -741,11 +772,17 @@ class _MembershipRowData
   // Preserved so saving does not silently reset it.
   final int renewalPeriodDays;
 
+  // Held by payments: see MembershipItem.
+  final bool locked;
+  final DateTime? latestStart;
+
   _MembershipRowData({
     required this.yearController,
     required this.dayMonthController,
     required this.revocation,
     required this.renewalPeriodDays,
+    this.locked = false,
+    this.latestStart,
   });
 
   void dispose()
@@ -774,6 +811,9 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
 
   bool _isSaving = false;
 
+  // A newer year comes only through «RINNOVA ISCRIZIONE».
+  int? get _newestSaved => newestMembershipYear(widget.person);
+
   @override
   void initState()
   {
@@ -787,6 +827,8 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
             TextEditingController(text: _dayMonthFormat.format(membership.startDate)),
         revocation: membership.revocation,
         renewalPeriodDays: membership.renewalPeriodDays,
+        locked: membership.locked,
+        latestStart: membership.latestStart,
       ));
     }
   }
@@ -883,6 +925,10 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       {
         _errors['year_$i'] = 'Anno già inserito';
       }
+      else if (_newestSaved != null && int.parse(yearText) > _newestSaved!)
+      {
+        _errors['year_$i'] = kNewYearError;
+      }
       else
       {
         isYearValid = true;
@@ -899,6 +945,16 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       else if (!isYearValid && !RegExp(r'^\d{2}/\d{2}$').hasMatch(dayMonthText))
       {
         _errors['start_$i'] = 'Formato gg/mm';
+      }
+      else if (isYearValid)
+      {
+        final String? pastPayments =
+            MembershipEditRow.startPastPayments(row.latestStart, dayMonthText, yearText);
+
+        if (pastPayments != null)
+        {
+          _errors['start_$i'] = pastPayments;
+        }
       }
     }
 
@@ -958,11 +1014,38 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
 
     try
     {
-      await _apiService.updatePersonMemberships(
-        widget.person.fiscalCode,
-        payload,
-        widget.person.memberUpdatedAt,
-      );
+      try
+      {
+        await _apiService.updatePersonMemberships(
+          widget.person.fiscalCode,
+          payload,
+          widget.person.memberUpdatedAt,
+        );
+      }
+      on WriteWouldTakeAway catch (refusal)
+      {
+        if (!mounted)
+        {
+          return;
+        }
+
+        // No spinner behind the question: nothing is being saved meanwhile.
+        setState(() => _isSaving = false);
+
+        if (!await confirmPersonLosses(context, refusal, eyebrow: 'Iscrizioni') || !mounted)
+        {
+          return;
+        }
+
+        setState(() => _isSaving = true);
+
+        await _apiService.updatePersonMemberships(
+          widget.person.fiscalCode,
+          payload,
+          widget.person.memberUpdatedAt,
+          confirm: true,
+        );
+      }
 
       if (mounted)
       {
@@ -1033,6 +1116,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                         onDayMonthChanged: (_) =>
                             setState(() => _errors.remove('start_$i')),
                         onRemove: () => _removeRow(i),
+                        locked: _rows[i].locked,
                       ),
                   ],
                 ),

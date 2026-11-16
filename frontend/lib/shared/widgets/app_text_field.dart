@@ -57,6 +57,12 @@ class AppTextField extends StatefulWidget
 
   static double boxHeightOf(BuildContext context) => AppDialogDensity.of(context) ? denseBoxHeight : boxHeight;
 
+  // For a control beside a field that lines its own label up with the field's.
+  static double labelTopGapOf(BuildContext context) => AppDialogDensity.of(context) ? _denseLabelTopGap : _labelTopGap;
+
+  static double labelBottomGapOf(BuildContext context) =>
+      AppDialogDensity.of(context) ? _denseLabelBottomGap : _labelBottomGap;
+
   final TextEditingController controller;
   final String label;
 

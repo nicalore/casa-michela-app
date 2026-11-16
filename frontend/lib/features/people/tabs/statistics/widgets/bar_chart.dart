@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
@@ -12,7 +11,9 @@ import 'chart_value_popup.dart';
 
 const LinearGradient _barGradient = AppTheme.chartBarGradient;
 
-const Color _hoveredBarColor = AppTheme.chartLilac;
+// The hovered column lights up behind its bar, as in the accounting charts.
+const Color _hoverColumnColor = Color(0x0F4077B3);
+const double _hoverColumnRadius = 8;
 
 // The column holding what does not fit, in the charts' grey for "other".
 const LinearGradient _othersGradient = LinearGradient(
@@ -21,15 +22,10 @@ const LinearGradient _othersGradient = LinearGradient(
   colors: [AppTheme.chartGrayLight, AppTheme.chartGray],
 );
 
-const Color _hoveredOthersColor = AppTheme.chartGray;
-
 // The popup's lift, arrow and padding above a bar's top.
 const double _popupChrome = 31;
 
 const double _othersColumnGap = 18;
-
-// The highlight rises inside the bar: a lerp between two hues passes through a dull mix.
-const Duration _hoverFill = Duration(milliseconds: 200);
 
 const double _yAxisWidth = 45.0;
 
@@ -50,6 +46,9 @@ const double _acrossNamesMax = 200;
 const double _acrossRowGap = 10;
 const double _acrossBarHeight = 14;
 
+// Round a hovered row, inside the room between rows.
+const double _acrossHoverInset = 3;
+
 int _maxValueOf(List<ChartDatum> data) => chartMaxValue(data.map((item) => item.count).reduce(math.max));
 
 class BarChart extends StatefulWidget
@@ -65,29 +64,14 @@ class BarChart extends StatefulWidget
   State<BarChart> createState() => _BarChartState();
 }
 
-class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
+class _BarChartState extends State<BarChart>
 {
-  final ChartFillLevels _fills = ChartFillLevels();
-
-  // Runs only while some bar is still filling or draining.
-  late final Ticker _ticker;
-
-  Duration _lastTick = Duration.zero;
-
   int? _hoveredIndex;
 
   // Survives pointer exit, so the popup fades out in place.
   int? _popupIndex;
 
   int get _total => widget.data.fold(0, (sum, item) => sum + item.count);
-
-  @override
-  void initState()
-  {
-    super.initState();
-    _ticker = createTicker(_tick);
-    _fills.reset(widget.data.length);
-  }
 
   @override
   void didUpdateWidget(covariant BarChart oldWidget)
@@ -98,28 +82,6 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
     {
       _hoveredIndex = null;
       _popupIndex = null;
-      _ticker.stop();
-      _fills.reset(widget.data.length);
-    }
-  }
-
-  @override
-  void dispose()
-  {
-    _ticker.dispose();
-    _fills.dispose();
-    super.dispose();
-  }
-
-  void _tick(Duration elapsed)
-  {
-    final step = (elapsed - _lastTick).inMicroseconds / _hoverFill.inMicroseconds;
-
-    _lastTick = elapsed;
-
-    if (_fills.advance(_hoveredIndex, step))
-    {
-      _ticker.stop();
     }
   }
 
@@ -179,12 +141,6 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
         _popupIndex = index;
       }
     });
-
-    if (!_ticker.isActive)
-    {
-      _lastTick = Duration.zero;
-      _ticker.start();
-    }
   }
 
   String _popupText(ChartDatum datum)
@@ -285,7 +241,6 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
                             barRects: barRects,
                             hoveredIndex: _hoveredIndex,
                             othersIndex: othersIndex,
-                            fills: _fills,
                           ),
                         ),
                       ),
@@ -343,27 +298,34 @@ class _BarsAcrossState extends State<_BarsAcross>
       onEnter: (_) => setState(() => _hoveredIndex = index),
       onExit: (_) => setState(() => _hoveredIndex = _hoveredIndex == index ? null : _hoveredIndex),
       child: Padding(
-        padding: EdgeInsets.only(bottom: index < widget.data.length - 1 ? _acrossRowGap : 0),
-        child: Row(
-          children: [
-            SizedBox(
-              width: namesWidth,
-              child: OverflowTooltipText(text: datum.label, maxLines: 2, style: style),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _AcrossBar(fraction: widget.maxValue == 0 ? 0 : datum.count / widget.maxValue, lit: hovered),
-            ),
-            const SizedBox(width: 10),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 24),
-              child: Text(
-                '${datum.count}',
-                textAlign: TextAlign.right,
-                style: style.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+        padding: EdgeInsets.only(bottom: index < widget.data.length - 1 ? _acrossRowGap - 2 * _acrossHoverInset : 0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: _acrossHoverInset),
+          decoration: BoxDecoration(
+            color: hovered ? _hoverColumnColor : null,
+            borderRadius: BorderRadius.circular(_hoverColumnRadius),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: namesWidth,
+                child: OverflowTooltipText(text: datum.label, maxLines: 2, style: style),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AcrossBar(fraction: widget.maxValue == 0 ? 0 : datum.count / widget.maxValue),
+              ),
+              const SizedBox(width: 10),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 24),
+                child: Text(
+                  '${datum.count}',
+                  textAlign: TextAlign.right,
+                  style: style.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -388,13 +350,11 @@ class _BarsAcrossState extends State<_BarsAcross>
   }
 }
 
-// The hovered bar fills with the accent from its start, as an upright one does from its foot.
 class _AcrossBar extends StatelessWidget
 {
   final double fraction;
-  final bool lit;
 
-  const _AcrossBar({required this.fraction, required this.lit});
+  const _AcrossBar({required this.fraction});
 
   @override
   Widget build(BuildContext context)
@@ -408,23 +368,10 @@ class _AcrossBar extends StatelessWidget
       child: FractionallySizedBox(
         widthFactor: fraction.clamp(0, 1),
         heightFactor: 1,
-        child: ClipRRect(
-          borderRadius: radius,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [AppTheme.chartNavy, AppTheme.chartViolet]),
-            ),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(end: lit ? 1 : 0),
-              duration: _hoverFill,
-              curve: Curves.easeOut,
-              builder: (context, level, _) => FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: level,
-                heightFactor: 1,
-                child: const ColoredBox(color: _hoveredBarColor),
-              ),
-            ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            gradient: const LinearGradient(colors: [AppTheme.chartNavy, AppTheme.chartViolet]),
           ),
         ),
       ),
@@ -469,22 +416,19 @@ class _YAxisPainter extends CustomPainter
   bool shouldRepaint(covariant _YAxisPainter oldDelegate) => oldDelegate.maxValue != maxValue;
 }
 
-// Gold level per bar, 0 to 1; each moves on its own, so a quick sweep never makes one jump.
 class _BarChartPainter extends CustomPainter
 {
   final List<ChartDatum> data;
   final List<Rect> barRects;
   final int? hoveredIndex;
   final int? othersIndex;
-  final ChartFillLevels fills;
 
   _BarChartPainter({
     required this.data,
     required this.barRects,
     required this.hoveredIndex,
     required this.othersIndex,
-    required this.fills,
-  }) : super(repaint: fills);
+  });
 
   @override
   void paint(Canvas canvas, Size size)
@@ -505,9 +449,21 @@ class _BarChartPainter extends CustomPainter
 
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
+    final int? lit = hoveredIndex;
+
+    if (lit != null && lit < barRects.length)
+    {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(lit * slotWidth, 0, (lit + 1) * slotWidth, chartHeight),
+          const Radius.circular(_hoverColumnRadius),
+        ),
+        Paint()..color = _hoverColumnColor,
+      );
+    }
+
     for (var i = 0; i < barRects.length; i++)
     {
-      final highlight = fills.eased(i);
       final bool hovered = i == hoveredIndex;
       final bool others = i == othersIndex;
 
@@ -516,17 +472,6 @@ class _BarChartPainter extends CustomPainter
 
       // Per bar: a shader spans the rect it fills; a plot-wide one gives each bar a ramp slice.
       canvas.drawRRect(bar, Paint()..shader = (others ? _othersGradient : _barGradient).createShader(rect));
-
-      if (highlight > 0)
-      {
-        canvas.save();
-        canvas.clipRRect(bar);
-        canvas.drawRect(
-          Rect.fromLTRB(rect.left, rect.bottom - rect.height * highlight, rect.right, rect.bottom),
-          Paint()..color = others ? _hoveredOthersColor : _hoveredBarColor,
-        );
-        canvas.restore();
-      }
 
       textPainter.text = TextSpan(
         text: data[i].label,

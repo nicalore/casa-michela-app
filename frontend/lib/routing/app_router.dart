@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/accounting/accounting_page.dart';
 import '../features/association/association_page.dart';
 import '../features/association/role_association_page.dart';
 import '../features/availability/availability_page.dart';
@@ -323,6 +324,7 @@ final appRouter = GoRouter(
       branches: [
         _destination(adminHome, const DashboardPage(), routes: _screenRoutes()),
         _destination('/association', const AssociationPage()),
+        _destination(kAccountingRoute, const AccountingPage()),
         _destination(
           kLessonsRoute,
           const LessonsPage(),
@@ -356,6 +358,8 @@ final appRouter = GoRouter(
                   child: PersonDetailPage(
                     fiscalCode: fiscalCode,
                     origin: state.uri.queryParameters['from'],
+                    section: state.uri.queryParameters['section'],
+                    month: DateTime.tryParse('${state.uri.queryParameters['month'] ?? ''}-01'),
                   ),
                 );
               },

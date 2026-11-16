@@ -103,6 +103,8 @@ String bookingDaysSummary(int count, {required bool split})
 const String kNotPresent = 'Non presente';
 const String kAssociationShutBand = 'Associazione chiusa';
 const String kBookingsShutBand = 'Prenotazioni chiuse';
+const String kBandBegun = 'Già passata';
+const String kSubjectLessonBegun = 'La lezione di questa materia è già cominciata.';
 
 String takenByOtherMode(String other) => 'Già prenotata ${other == kOnlineMode ? kOnScreen : kInBuilding}';
 
@@ -228,7 +230,7 @@ enum SubjectRequestStep
     return switch (this)
     {
       SubjectRequestStep.band => 'La lezione sarà pianificata solo negli orari della fascia che scegli.',
-      SubjectRequestStep.what => 'Almeno una tipologia. Queste informazioni aiuteranno il docente a rendere '
+      SubjectRequestStep.what => 'Almeno una tipologia. Queste informazioni saranno lette dal docente e lo aiuteranno a rendere '
           'la lezione più adatta alle ${isSelf ? 'tue esigenze' : 'esigenze $whose'}.',
       SubjectRequestStep.duration => kBookingLengthLimits,
       SubjectRequestStep.teachers => 'Se vuoi, puoi indicare fino a tre docenti '

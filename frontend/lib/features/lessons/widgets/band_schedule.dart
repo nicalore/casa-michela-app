@@ -16,7 +16,10 @@ class BandStretch<T>
   // The stored row backing this stretch; null when never saved.
   T? existing;
 
-  BandStretch({required this.startTime, required this.endTime, this.existing});
+  // Begun: shown and written back, never moved or dropped (calendar_freeze.has_begun).
+  final bool locked;
+
+  BandStretch({required this.startTime, required this.endTime, this.existing, this.locked = false});
 
   int get startMinutes => minutesOfTimeOfDay(startTime);
 
@@ -97,7 +100,7 @@ class BandSchedule<T>
     {
       copy.of(bucket).addAll([
         for (final stretch in of(bucket))
-          BandStretch<T>(startTime: stretch.startTime, endTime: stretch.endTime, existing: stretch.existing),
+          BandStretch<T>(startTime: stretch.startTime, endTime: stretch.endTime, existing: stretch.existing, locked: stretch.locked),
       ]);
     }
 
@@ -152,10 +155,13 @@ class BandSchedule<T>
     {
       for (final stretch in stretches)
       {
-        _drop(stretch);
+        if (!stretch.locked)
+        {
+          _drop(stretch);
+        }
       }
 
-      stretches.clear();
+      stretches.removeWhere((stretch) => !stretch.locked);
 
       return;
     }
@@ -271,10 +277,13 @@ class BandSchedule<T>
       {
         for (final stretch in stretches)
         {
-          _drop(stretch);
+          if (!stretch.locked)
+          {
+            _drop(stretch);
+          }
         }
 
-        stretches.clear();
+        stretches.removeWhere((stretch) => !stretch.locked);
 
         continue;
       }
@@ -284,6 +293,14 @@ class BandSchedule<T>
 
       for (final stretch in _inTimeOrder(bucket))
       {
+        // Begun hours stay as they are; what follows goes after them.
+        if (stretch.locked)
+        {
+          cursor = stretch.endMinutes > cursor ? stretch.endMinutes : cursor;
+
+          continue;
+        }
+
         final start = stretch.startMinutes.clamp(cursor, window.endMinutes);
         final end = stretch.endMinutes.clamp(start, window.endMinutes);
 
@@ -456,7 +473,7 @@ class BandScheduleField<T> extends StatelessWidget
 
   Widget _buildShut(TimeBucket bucket)
   {
-    final held = frozen[bucket] ?? const [];
+    final held = [...?frozen[bucket], ...schedule.of(bucket).where((stretch) => stretch.locked)];
 
     if (held.isEmpty)
     {
@@ -499,6 +516,11 @@ class BandScheduleField<T> extends StatelessWidget
   })
   {
     final stretches = schedule.of(bucket);
+
+    if (stretches.isNotEmpty && stretches[index].locked)
+    {
+      return _buildHeld(bucket, stretches[index], index);
+    }
 
     if (stretches.isEmpty)
     {

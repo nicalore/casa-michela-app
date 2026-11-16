@@ -45,7 +45,7 @@ const double _stackGap = 4;
 const double _chipPadding = 9;
 const double _chipIconGap = 4;
 const double _chipGap = 5;
-const double _chipRadius = 8;
+const double _chipRadius = MobilePalette.hoursChipRadius;
 
 const double _wideColumnGap = 18;
 
@@ -503,14 +503,14 @@ class _SlotChip extends StatelessWidget
 
     // Locked: neutral chip, the mode kept in the icon.
     final Color surface = locked
-        ? Colors.white.withValues(alpha: 0.5)
-        : (online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface);
+        ? MobilePalette.pastSurface
+        : (online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge);
     final Color ink = locked
         ? MobilePalette.mutedText
         : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);
     final Color edge = locked
-        ? AppTheme.trialInk.withValues(alpha: 0.1)
-        : (online ? AppTheme.trialGold.withValues(alpha: 0.45) : AppTheme.trialTealDeep.withValues(alpha: 0.2));
+        ? MobilePalette.pastEdge
+        :(online ? MobilePalette.onlineChipEdge : MobilePalette.presenceChipEdge);
 
     return Container(
       height: sizes.chipHeight,

@@ -19,6 +19,7 @@ from app.repositories.calendar_band_lock_repository import (
     CalendarBandLockRepository,
 )
 from app.repositories.person_repository import PersonRepository
+from app.services.calendar_freeze import assert_not_confirmed
 
 _PUBLISHED_BAND_ERROR: Final[str] = (
     "Il calendario del {day} ({band}) è pubblicato: riportalo in bozza prima di "
@@ -66,6 +67,8 @@ async def assert_band_editable(
     day: date,
     band: str | TimeBandEnum,
 ) -> None:
+    await assert_not_confirmed(session, day, str(band))
+
     settled = await session.scalar(
         select(CalendarPublication.date).where(
             CalendarPublication.date == day,

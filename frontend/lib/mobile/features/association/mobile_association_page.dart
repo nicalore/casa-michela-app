@@ -121,10 +121,6 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
   late final List<_Tab> _tabs =
       widget.role == _teacherRole ? const [_Tab.hours, _Tab.notices] : _Tab.values;
 
-  late final List<String> _comingSoon = [
-    if (widget.role == _parentRole) kAssociationMeetingsLabel,
-  ];
-
   late final bool _canReport = widget.role != _teacherRole && canSpeakFor(widget.role);
 
   late final bool _isParent = widget.role == _parentRole;
@@ -853,7 +849,6 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
         // Edge to edge: the row scrolls past the margin.
         MobilePageStrip(
           labels: [for (final tab in _tabs) tab.label],
-          comingSoon: _comingSoon,
           controller: _pages,
           scrollMargin: margin,
           tourTargets: [for (var i = 0; i < _tabs.length; i++) associationTourTab(i)],

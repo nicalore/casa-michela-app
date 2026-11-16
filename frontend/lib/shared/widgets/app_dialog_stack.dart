@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
+import 'app_text_link.dart';
 import 'carousel_arrow_button.dart';
 import 'dialog_density.dart';
 import 'overflow_tooltip_text.dart';
@@ -73,6 +74,9 @@ class AppDialogStack extends StatelessWidget
   // A title too long for the pill shrinks to fit instead of trailing off.
   final bool shrinkTitle;
 
+  // Makes the title a link: a person's name leading to their record.
+  final VoidCallback? onTitleTap;
+
   const AppDialogStack({
     super.key,
     this.eyebrow = '',
@@ -88,6 +92,7 @@ class AppDialogStack extends StatelessWidget
     this.onClose,
     this.fillLast = false,
     this.shrinkTitle = false,
+    this.onTitleTap,
   });
 
   Widget _buildTitle(bool dense)
@@ -99,16 +104,28 @@ class AppDialogStack extends StatelessWidget
       color: AppTheme.trialOcean,
     );
 
-    if (shrinkTitle)
+    Widget write(TextStyle style)
     {
-      return FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Text(title, maxLines: 1, softWrap: false, style: style),
-      );
+      if (shrinkTitle)
+      {
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(title, maxLines: 1, softWrap: false, style: style),
+        );
+      }
+
+      return OverflowTooltipText(text: title, maxLines: 1, style: style);
     }
 
-    return OverflowTooltipText(text: title, maxLines: 1, style: style);
+    final VoidCallback? onTap = onTitleTap;
+
+    if (onTap == null)
+    {
+      return write(style);
+    }
+
+    return AppTextLink(text: title, style: style, onTap: onTap, write: write);
   }
 
   Widget _buildTitleRow(BuildContext context, bool dense)

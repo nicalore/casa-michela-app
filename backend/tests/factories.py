@@ -1,7 +1,8 @@
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from itertools import count
 from string import ascii_uppercase
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.administrator import Administrator, AdministratorRoleEnum
@@ -9,6 +10,7 @@ from app.models.association_subject import AssociationSubject, SubjectAreaEnum
 from app.models.availability import Availability
 from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
+from app.models.calendar_publication import CalendarPublication
 from app.models.member import Member
 from app.models.membership import Membership, MembershipRevocationEnum
 from app.models.ministry_association_subject import MinistryAssociationSubject
@@ -42,6 +44,7 @@ from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
+from app.services import student_hours, teacher_hours
 from tests.conftest import ADMIN_TAX_CODE
 
 _counter = count(1)
@@ -627,3 +630,30 @@ async def make_ministry_request(
     ]
 
     return await _persist(db, booking), ministry
+
+
+# Pay reads confirmed bands only: each published band already over, confirmed as
+# the calendar has it, as an admin who finds nothing to correct.
+async def confirm_bands_over(db: AsyncSession, now: datetime) -> None:
+    publications = (await db.scalars(select(CalendarPublication))).all()
+
+    for publication in publications:
+        day, band = publication.date, publication.band
+        summary = await teacher_hours.band_summary(db, day, band, now)
+
+        if summary.status == teacher_hours.BandStatus.READY:
+            await teacher_hours.confirm(db, day, band, now, None)
+
+
+# Payments read confirmed bands only: each published band already over, its
+# pupils confirmed as the calendar has them.
+async def confirm_pupil_bands_over(db: AsyncSession, now: datetime) -> None:
+    publications = (await db.scalars(select(CalendarPublication))).all()
+
+    for publication in publications:
+        day, band = publication.date, publication.band
+        summary = await student_hours.band_summary(db, day, band, now)
+
+        if summary.status == teacher_hours.BandStatus.READY:
+            await student_hours.confirm(db, day, band, now, None)
+

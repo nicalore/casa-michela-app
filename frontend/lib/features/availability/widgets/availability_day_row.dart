@@ -918,7 +918,7 @@ class _HoursChipState extends State<_HoursChip>
 
     final Color surface = widget.locked
         ? AppTheme.trialPaper
-        : (online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface);
+        : (online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge);
     final Color ink = widget.locked
         ? AppTheme.trialMutedText
         : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);

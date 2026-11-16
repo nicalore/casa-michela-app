@@ -1,7 +1,9 @@
+from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Any, Final
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
@@ -17,14 +19,18 @@ from app.core.storage import (
     ENROLLMENT_FORM_TEMPLATE,
 )
 from app.models.member import PaymentMethodEnum
+from app.models.membership_fee import MembershipFee, MembershipFeeKindEnum
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import GenderEnum, Person
 from app.models.staff import CollaborationTypeEnum
-from app.models.student import CertificationTypeEnum, HomeworkTariffEnum
+from app.models.student import CertificationTypeEnum
+from app.models.student_tariff import TariffKindEnum
+from app.models.study_program import EducationLevelEnum, StudyProgram
 from app.repositories.course_repository import CourseRepository
 from app.repositories.school_repository import SchoolRepository
 from app.schemas.enrollment_form import EnrollmentFormParent, EnrollmentFormRequest
 from app.schemas.person_wizard import PersonWizardPayloadBase
+from app.services.enrollment_form_space import AGREED_FEES_FIELD, with_agreed_fees_line
 
 # Fixed signing place: the association's seat.
 _PLACE: Final[str] = "Thiene"
@@ -62,14 +68,53 @@ _PAYMENT_FIELDS: Final[dict[str, str]] = {
     PaymentMethodEnum.OTHER: "pagamento_altro",
 }
 
-# One box per cell of the rate table in section 4.
-_HOMEWORK_TARIFF_FIELDS: Final[dict[str, str]] = {
-    HomeworkTariffEnum.PRIMARY_MONTHLY: "tariffa_elementare_retta_mensile",
-    HomeworkTariffEnum.MIDDLE_HOURLY: "tariffa_media_oraria",
-    HomeworkTariffEnum.MIDDLE_PACKAGE: "tariffa_media_pacchetto",
-    HomeworkTariffEnum.HIGH_HOURLY: "tariffa_superiore_oraria",
-    HomeworkTariffEnum.HIGH_PACKAGE: "tariffa_superiore_pacchetto",
+# One box per cell of the rate table in section 4: level, kind, cents, hours.
+_FORM_TARIFF_FIELDS: Final[
+    dict[tuple[EducationLevelEnum, TariffKindEnum, int, int | None], str]
+] = {
+    (
+        EducationLevelEnum.PRIMARY_SCHOOL,
+        TariffKindEnum.MONTHLY,
+        17000,
+        None,
+    ): "tariffa_elementare_retta_mensile",
+    (
+        EducationLevelEnum.MIDDLE_SCHOOL,
+        TariffKindEnum.HOURLY,
+        1300,
+        None,
+    ): "tariffa_media_oraria",
+    (
+        EducationLevelEnum.MIDDLE_SCHOOL,
+        TariffKindEnum.PACKAGE,
+        21500,
+        18,
+    ): "tariffa_media_pacchetto",
+    (
+        EducationLevelEnum.HIGH_SCHOOL,
+        TariffKindEnum.HOURLY,
+        1400,
+        None,
+    ): "tariffa_superiore_oraria",
+    (
+        EducationLevelEnum.HIGH_SCHOOL,
+        TariffKindEnum.PACKAGE,
+        26000,
+        20,
+    ): "tariffa_superiore_pacchetto",
 }
+
+# Anything the table has no cell for is written under it.
+_AGREED_TARIFF_FIELD: Final[str] = "tariffa_concordata"
+
+_AGREED_TARIFF: Final[str] = "Tariffa concordata: {terms}"
+
+# Section 8 prints these; other amounts go on a line under it, made room for then.
+_PRINTED_FEES_CENTS: Final[tuple[int, int]] = (1500, 2000)
+
+_AGREED_FEES: Final[str] = (
+    "Quote concordate: quota associativa {membership} e quota assicurativa {insurance}"
+)
 
 
 # Must match the wizard's role codes.
@@ -80,7 +125,10 @@ _ROLE_PSYCHOLOGIST: Final[str] = "PSICOLOGO"
 _ROLE_COURSE_PARTICIPANT: Final[str] = "CORSISTA"
 
 
-def request_for_person(person: Person) -> EnrollmentFormRequest:
+def request_for_person(
+    person: Person,
+    fees: Sequence[MembershipFee] = (),
+) -> EnrollmentFormRequest:
     """Rebuild the wizard's payload for someone already in the register."""
     member = person.member_profile
     student = member.student_profile if member else None
@@ -108,6 +156,7 @@ def request_for_person(person: Person) -> EnrollmentFormRequest:
             "emergency_contact_phone": member.emergency_contact_phone,
             "allergies_notes": member.allergies_notes if consented else None,
             "medications_notes": member.medications_notes if consented else None,
+            "fees": _fees_of(fees),
         }
 
         if consented and member.psychological_support_profile is not None:
@@ -148,7 +197,15 @@ def request_for_person(person: Person) -> EnrollmentFormRequest:
             "certification_dsa_detail": (
                 student.certification_dsa_detail if consented else None
             ),
-            "homework_tariff": student.homework_tariff,
+            "tariff": (
+                {
+                    "kind": student.tariffs[-1].kind,
+                    "amount_cents": student.tariffs[-1].amount_cents,
+                    "package_hours": student.tariffs[-1].package_hours,
+                }
+                if student.tariffs
+                else None
+            ),
             "mandatory_psych_meetings_acknowledged": (
                 consented and student.mandatory_psych_meetings_acknowledged
             ),
@@ -173,6 +230,28 @@ def request_for_person(person: Person) -> EnrollmentFormRequest:
             for relationship in person.parental_relationships[:2]
         ],
     )
+
+
+# The newest year's, when both fees are on record.
+def _fees_of(fees: Sequence[MembershipFee]) -> dict[str, Any] | None:
+    latest = max((fee.year for fee in fees), default=None)
+    found = {fee.kind: fee for fee in fees if fee.year == latest}
+    membership = found.get(MembershipFeeKindEnum.MEMBERSHIP)
+    insurance = found.get(MembershipFeeKindEnum.INSURANCE)
+
+    if membership is None or insurance is None:
+        return None
+
+    return {
+        "membership": {
+            "amount_cents": membership.amount_cents,
+            "paid": membership.paid_on is not None,
+        },
+        "insurance": {
+            "amount_cents": insurance.amount_cents,
+            "paid": insurance.paid_on is not None,
+        },
+    }
 
 
 def _general_data_of(person: Person) -> dict[str, Any]:
@@ -239,6 +318,8 @@ def _roles_of(person: Person) -> list[str]:
 async def build_enrollment_form(
     db: AsyncSession,
     request: EnrollmentFormRequest,
+    *,
+    signed_on: date | None = None,
 ) -> bytes:
     """Fill a copy of the template with the wizard's data. Nothing is stored."""
     field_map = form_field_map(ENROLLMENT_FORM_FIELD_MAP)
@@ -246,16 +327,26 @@ async def build_enrollment_form(
     values = enrollment_form_values(
         request,
         school_name=await _school_name(db, request.person),
+        school_level=await _school_level(db, request.person),
         course_cost=await _course_cost(db, request.person),
-        today=_today(),
+        today=signed_on or _today(),
         checked=field_map.checked,
     )
 
     # Roughly a quarter second of CPU per form, so keep it off the event loop.
-    return await run_in_threadpool(
-        fill_acroform,
-        asset_bytes(ENROLLMENT_FORM_TEMPLATE),
-        field_map.group_by_page(values),
+    return await run_in_threadpool(_filled, field_map.group_by_page(values))
+
+
+# The line of agreed fees, and the room for it, only when there is one.
+def _filled(values_by_page: dict[int, dict[str, str]]) -> bytes:
+    template = asset_bytes(ENROLLMENT_FORM_TEMPLATE)
+
+    if any(AGREED_FEES_FIELD in values for values in values_by_page.values()):
+        template = with_agreed_fees_line(template)
+
+    return fill_acroform(
+        template,
+        values_by_page,
         font=asset_bytes(ENROLLMENT_FORM_FONT),
     )
 
@@ -284,6 +375,7 @@ def enrollment_form_values(
     request: EnrollmentFormRequest,
     *,
     school_name: str | None,
+    school_level: EducationLevelEnum | None = None,
     course_cost: str | None = None,
     today: date,
     checked: str,
@@ -302,7 +394,7 @@ def enrollment_form_values(
     _diagnosis(values, person, checked=checked)
     _services(values, person, course_cost=course_cost, checked=checked)
     _member(values, person, checked=checked)
-    _homework_tariff(values, person, checked=checked)
+    _homework_tariff(values, person, level=school_level, checked=checked)
 
     _text(values, "luogo_data", f"{_PLACE}, {today:%d/%m/%Y}")
 
@@ -342,6 +434,22 @@ async def _school_name(
         return HOMESCHOOLING_LABEL
 
     return await SchoolRepository(db).get_name(enrollment.school_id)
+
+
+async def _school_level(
+    db: AsyncSession,
+    person: PersonWizardPayloadBase,
+) -> EducationLevelEnum | None:
+    enrollment = _latest_enrollment(person)
+
+    if enrollment is None:
+        return None
+
+    return await db.scalar(
+        select(StudyProgram.level).where(
+            StudyProgram.id == enrollment.study_program_id,
+        ),
+    )
 
 
 def _latest_enrollment(person: PersonWizardPayloadBase) -> Any | None:
@@ -505,17 +613,62 @@ def _homework_tariff(
     values: dict[str, str],
     person: PersonWizardPayloadBase,
     *,
+    level: EducationLevelEnum | None,
     checked: str,
 ) -> None:
     student = person.student_data
 
-    if student is None or student.homework_tariff is None:
+    if student is None or student.tariff is None:
         return
 
-    field = _HOMEWORK_TARIFF_FIELDS.get(student.homework_tariff)
+    tariff = student.tariff
+    field = (
+        _FORM_TARIFF_FIELDS.get(
+            (level, tariff.kind, tariff.amount_cents, tariff.package_hours),
+        )
+        if level is not None
+        else None
+    )
 
     if field is not None:
         _tick(values, field, True, checked=checked)
+        return
+
+    _text(
+        values,
+        _AGREED_TARIFF_FIELD,
+        _AGREED_TARIFF.format(
+            terms=_tariff_terms(
+                tariff.kind,
+                tariff.amount_cents,
+                tariff.package_hours,
+            ),
+        ),
+    )
+
+
+def _tariff_terms(
+    kind: TariffKindEnum,
+    amount_cents: int,
+    package_hours: int | None,
+) -> str:
+    amount = _euro(amount_cents)
+
+    if kind == TariffKindEnum.HOURLY:
+        return f"{amount} l’ora"
+
+    if kind == TariffKindEnum.PACKAGE:
+        hours = "1 ora" if package_hours == 1 else f"{package_hours} ore"
+
+        return f"pacchetto di {hours} a {amount}"
+
+    return f"quota fissa mensile di {amount}"
+
+
+def _euro(cents: int) -> str:
+    units, fraction = divmod(cents, 100)
+
+    return f"€ {units:,}".replace(",", ".") + f",{fraction:02d}"
 
 
 def _member(
@@ -550,6 +703,21 @@ def _member(
         checked=checked,
     )
     _tick(values, "consenso_notiziari", member.newsletter_consent, checked=checked)
+
+    fees = member.fees
+
+    if fees is not None:
+        agreed = (fees.membership.amount_cents, fees.insurance.amount_cents)
+
+        if agreed != _PRINTED_FEES_CENTS:
+            _text(
+                values,
+                AGREED_FEES_FIELD,
+                _AGREED_FEES.format(
+                    membership=_euro(fees.membership.amount_cents),
+                    insurance=_euro(fees.insurance.amount_cents),
+                ),
+            )
 
     _text(values, "emergenza_contatto", member.emergency_contact_name)
     _text(values, "emergenza_telefono", member.emergency_contact_phone)

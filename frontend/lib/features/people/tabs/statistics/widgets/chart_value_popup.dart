@@ -6,6 +6,18 @@ import '../../../../../core/theme/app_theme.dart';
 
 enum _PopupPart { balloon, arrow }
 
+// Past the chart's sides, into the card's padding, the balloon may reach this far.
+const double _overhang = 12;
+
+// The balloon's corner, as AppTheme.tooltipDecoration rounds it: the arrow stays off it.
+const double _balloonRadius = 12;
+
+// Where the arrow's tip sits from the middle of its base: set by the layout, read by the painter.
+class _ArrowLean
+{
+  double dx = 0;
+}
+
 // Always built, even with nothing hovered: animating only opacity lets it fade out in place.
 class ChartValuePopup extends StatelessWidget
 {
@@ -31,6 +43,7 @@ class ChartValuePopup extends StatelessWidget
   Widget build(BuildContext context)
   {
     final Offset tip = Offset(target.dx, target.dy - verticalOffset);
+    final _ArrowLean lean = _ArrowLean();
 
     return Positioned.fill(
       child: IgnorePointer(
@@ -55,7 +68,7 @@ class ChartValuePopup extends StatelessWidget
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOut,
                 child: CustomMultiChildLayout(
-                  delegate: _PopupLayout(tip),
+                  delegate: _PopupLayout(tip, lean),
                   children: [
                     LayoutId(
                       id: _PopupPart.balloon,
@@ -69,7 +82,7 @@ class ChartValuePopup extends StatelessWidget
                       id: _PopupPart.arrow,
                       child: CustomPaint(
                         size: const Size(10, 5),
-                        painter: _TriangleArrowPainter(),
+                        painter: _TriangleArrowPainter(lean),
                       ),
                     ),
                   ],
@@ -83,32 +96,48 @@ class ChartValuePopup extends StatelessWidget
   }
 }
 
-// The arrow stays on the point; the balloon slides sideways to stay inside the chart.
+// The balloon slides sideways to stay inside the chart, a little past its sides at most; the
+// arrow's base stays on the balloon's straight edge and its tip on the point.
 class _PopupLayout extends MultiChildLayoutDelegate
 {
   final Offset tip;
+  final _ArrowLean lean;
 
-  _PopupLayout(this.tip);
+  _PopupLayout(this.tip, this.lean);
 
   @override
   void performLayout(Size size)
   {
     final Size arrow = layoutChild(_PopupPart.arrow, BoxConstraints.loose(size));
-    final Size balloon = layoutChild(_PopupPart.balloon, BoxConstraints.loose(size));
+    final Size balloon = layoutChild(
+      _PopupPart.balloon,
+      BoxConstraints.loose(Size(size.width + 2 * _overhang, size.height)),
+    );
 
     final double arrowTop = tip.dy - arrow.height;
-    final double left = (tip.dx - balloon.width / 2).clamp(0.0, math.max(0.0, size.width - balloon.width));
+    final double left = (tip.dx - balloon.width / 2).clamp(
+      -_overhang,
+      math.max(-_overhang, size.width + _overhang - balloon.width),
+    );
+    final double inset = _balloonRadius + arrow.width / 2;
+    final double base = tip.dx.clamp(left + inset, math.max(left + inset, left + balloon.width - inset));
 
-    positionChild(_PopupPart.arrow, Offset(tip.dx - arrow.width / 2, arrowTop));
+    lean.dx = tip.dx - base;
+
+    positionChild(_PopupPart.arrow, Offset(base - arrow.width / 2, arrowTop));
     positionChild(_PopupPart.balloon, Offset(left, arrowTop - balloon.height));
   }
 
   @override
-  bool shouldRelayout(_PopupLayout oldDelegate) => oldDelegate.tip != tip;
+  bool shouldRelayout(_PopupLayout oldDelegate) => oldDelegate.tip != tip || oldDelegate.lean != lean;
 }
 
 class _TriangleArrowPainter extends CustomPainter
 {
+  final _ArrowLean lean;
+
+  _TriangleArrowPainter(this.lean);
+
   @override
   void paint(Canvas canvas, Size size)
   {
@@ -116,7 +145,7 @@ class _TriangleArrowPainter extends CustomPainter
       Path()
         ..moveTo(0, 0)
         ..lineTo(size.width, 0)
-        ..lineTo(size.width / 2, size.height)
+        ..lineTo(size.width / 2 + lean.dx, size.height)
         ..close(),
       Paint()
         // Must match the balloon's surface, alpha included.
@@ -126,5 +155,5 @@ class _TriangleArrowPainter extends CustomPainter
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _TriangleArrowPainter oldDelegate) => oldDelegate.lean != lean;
 }

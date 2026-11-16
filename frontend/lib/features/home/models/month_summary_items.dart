@@ -102,8 +102,8 @@ class PupilMonthFiguresItem
 
   final int lessonMinutes;
 
-  // Package balance is not tracked yet.
-  final String? homeworkTariff;
+  // HOURLY, PACKAGE or MONTHLY; null when there is none or a parent pays it.
+  final String? tariffKind;
 
   const PupilMonthFiguresItem({
     required this.student,
@@ -111,14 +111,14 @@ class PupilMonthFiguresItem
     required this.weeklyPresences,
     required this.bookedPresences,
     required this.lessonMinutes,
-    this.homeworkTariff,
+    this.tariffKind,
   });
 
-  bool get hasPackage => homeworkTariff?.endsWith('_PACKAGE') ?? false;
+  bool get hasPackage => tariffKind == 'PACKAGE';
 
-  bool get isHourly => homeworkTariff?.endsWith('_HOURLY') ?? false;
+  bool get isHourly => tariffKind == 'HOURLY';
 
-  bool get isMonthly => homeworkTariff == 'PRIMARY_MONTHLY';
+  bool get isMonthly => tariffKind == 'MONTHLY';
 
   factory PupilMonthFiguresItem.fromJson(Map<String, dynamic> json)
   {
@@ -128,7 +128,7 @@ class PupilMonthFiguresItem
       weeklyPresences: parseDouble(json['weekly_presences']),
       bookedPresences: json['booked_presences'] as int,
       lessonMinutes: json['lesson_minutes'] as int,
-      homeworkTariff: json['homework_tariff'] as String?,
+      tariffKind: json['tariff_kind'] as String?,
     );
   }
 }

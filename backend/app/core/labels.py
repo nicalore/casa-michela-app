@@ -1,5 +1,20 @@
 from typing import Final
 
+MONTH_NAMES: Final[tuple[str, ...]] = (
+    "gennaio",
+    "febbraio",
+    "marzo",
+    "aprile",
+    "maggio",
+    "giugno",
+    "luglio",
+    "agosto",
+    "settembre",
+    "ottobre",
+    "novembre",
+    "dicembre",
+)
+
 COLLABORATION_TYPE_LABELS: Final[dict[str, str]] = {
     "VOLUNTEER": "Volontario",
     "PAID": "Retribuito",

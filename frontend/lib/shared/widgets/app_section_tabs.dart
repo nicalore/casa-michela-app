@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -315,14 +317,26 @@ class _AppSectionTabsState extends State<AppSectionTabs>
 
         final Widget words = Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: titleStyle);
 
-        // Beside the tabs it has the room it was measured for; alone on its line the name gives way.
+        // Alone on its line the name gives way, down to half: what it leaves goes to the trailing.
+        final double nameRoom = width - widget.leadingWidth - button;
+        final double nameWidth = math.min(
+          _textWidth(widget.title, titleStyle).ceilToDouble() + 1,
+          math.max(nameRoom / 2, nameRoom - trailingWidth),
+        );
+
+        // Beside the tabs it has the room it was measured for.
         final Widget named = widget.leading == null && widget.titleTrailing == null
             ? words
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ?widget.leading,
-                  if (beside) words else Flexible(child: words),
+                  if (beside)
+                    words
+                  else if (widget.titleTrailing == null)
+                    Flexible(child: words)
+                  else
+                    SizedBox(width: nameWidth, child: words),
                   if (widget.titleTrailing case final Widget trailing)
                     beside
                         ? SizedBox(width: trailingWidth, child: trailing)

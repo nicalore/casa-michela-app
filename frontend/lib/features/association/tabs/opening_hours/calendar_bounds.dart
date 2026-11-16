@@ -4,7 +4,7 @@ import '../../../../core/utils/week_range.dart';
 // The founding date; nothing in the calendar predates it.
 final DateTime kAssociationFoundedOn = DateTime(2023, 1, 9);
 
-// Older days are deleted, so no calendar reaches back further than a year.
+// No calendar reaches back further than a year; accounting does, the days stay.
 DateTime oldestKeptDay([DateTime? now])
 {
   final today = now ?? romeNow();

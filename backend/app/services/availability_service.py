@@ -18,6 +18,12 @@ from app.repositories.calendar_activity_repository import (
     CalendarActivityRepository,
 )
 from app.schemas.availability import AvailabilityCreate, AvailabilityUpdate
+from app.services.calendar_freeze import (
+    assert_hours_not_begun,
+    assert_only_ahead_moves,
+    has_begun,
+    refuse_begun_hours,
+)
 from app.services.collaboration import assert_admin_may_name, settle_collaboration
 from app.services.lesson_guard import (
     find_availability_lessons,
@@ -240,6 +246,7 @@ class AvailabilityService:
             payload.start_time,
             payload.end_time,
         )
+        assert_hours_not_begun(payload.date, payload.start_time)
 
         teacher_tax_code = self._resolve_teacher_tax_code_for_create(
             identity,
@@ -332,6 +339,18 @@ class AvailabilityService:
             payload.end_time,
         )
 
+        # Begun, it stays the same teacher's and mode's.
+        if has_begun(availability.date, availability.start_time) and (
+            availability.teacher_tax_code != before[0]
+            or payload.mode.value != availability.mode
+        ):
+            raise refuse_begun_hours()
+
+        assert_only_ahead_moves(
+            (availability.date, availability.start_time, availability.end_time),
+            (payload.date, payload.start_time, payload.end_time),
+        )
+
         await self._unschedule_what_no_longer_fits(availability, payload)
         await self._unassign_what_no_longer_fits(availability, payload)
 
@@ -384,6 +403,7 @@ class AvailabilityService:
             availability.start_time,
             availability.end_time,
         )
+        assert_hours_not_begun(availability.date, availability.start_time)
 
         await unschedule(
             self.repository.session,

@@ -19,6 +19,15 @@ abstract final class MobilePalette
   static const Color presenceOnSea = Color(0xFF5FD3C4);
   static const Color onlineOnSea = Color(0xFFF2BB5C);
 
+  // Edges of the hours chips; their in-person fill is AppTheme.presenceBadge.
+  static const Color presenceChipEdge = Color(0x400B6478);
+  static const Color onlineChipEdge = Color(0x73E3A83C);
+  static const double hoursChipRadius = 8;
+
+  // Hours chips and lesson rows past or past the deadline: an opaque grey, never see-through on the glass.
+  static const Color pastSurface = Color(0xFFD5DBDD);
+  static const Color pastEdge = Color(0x1F122438);
+
   // A chart's months outside the chosen period; never see-through on the glass.
   static const Color chartFaded = Color(0xFF7F92A3);
 }

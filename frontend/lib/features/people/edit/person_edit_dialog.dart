@@ -19,10 +19,14 @@ import '../../association/models/association_subject_item.dart';
 import '../../association/models/course_item.dart';
 import '../../association/models/school_item.dart';
 import '../../association/models/service_item.dart';
+import '../../association/models/standard_tariffs_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../notifications/notification_board.dart';
 import '../models/person_item.dart';
+import '../models/student_payments_item.dart';
+import '../../association/tabs/opening_hours/lost_calendars.dart';
 import '../widgets/competence_picker.dart';
+import '../tabs/person_account_shared.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/school_enrollment_edit_row.dart' show kSchoolYearsDialogWidth;
@@ -81,6 +85,12 @@ class PersonEditDialog extends StatefulWidget
         purpose = PersonEditPurpose.createMinor,
         startCard = null;
 
+  const PersonEditDialog.reEnroll({super.key, required PersonItem this.person})
+      : purpose = PersonEditPurpose.reEnroll,
+        offeredResidence = null,
+        reservedTaxCodes = const {},
+        startCard = null;
+
   bool get isCreation => person == null;
 
   bool get handsBackPayload =>
@@ -127,7 +137,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             involvement: widget.handsBackPayload ? 0 : -1,
             reservedTaxCodes: widget.reservedTaxCodes,
           )
-        : PersonEditForm.fromPerson(widget.person!);
+        : widget.purpose == PersonEditPurpose.reEnroll
+            ? PersonEditForm.reEnrollment(widget.person!)
+            : PersonEditForm.fromPerson(widget.person!);
+
+    if (widget.purpose == PersonEditPurpose.reEnroll)
+    {
+      _stepId = PersonEditStepId.reEnrollment;
+    }
 
     final PersonEditCardId? startCard = widget.startCard;
     final PersonEditStep? start = startCard == null ? null : _stepHolding(startCard);
@@ -150,6 +167,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   Future<void> _loadCatalogues() async
   {
+    Object? tariffsError;
+
     try
     {
       final results = await Future.wait([
@@ -159,10 +178,49 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         ApiService().getPeople(),
         ApiService().getServices(),
         ApiService().getCourses(),
+        ApiService().getStandardTariffs().then<StandardTariffsItem?>(
+          (tariffs) => tariffs,
+          onError: (Object error)
+          {
+            tariffsError = error;
+
+            return null;
+          },
+        ),
       ]);
 
       if (!mounted)
       {
+        return;
+      }
+
+      // A pupil re-enrolling with a tariff change already waiting keeps it: none is asked.
+      final PersonItem? onFile = widget.person;
+      StudentPaymentsItem? payments;
+
+      if (widget.purpose == PersonEditPurpose.reEnroll &&
+          onFile != null &&
+          onFile.roles.any((role) => role.toUpperCase() == 'STUDENTE'))
+      {
+        // Not read: a tariff is asked, and the server still keeps the one waiting.
+        payments = await ApiService()
+            .getStudentPayments(onFile.fiscalCode)
+            .then<StudentPaymentsItem?>((read) => read, onError: (_) => null);
+
+        if (!mounted)
+        {
+          return;
+        }
+      }
+
+      // A new member or year is asked fees and tariff: without the standard ones the server refuses the save.
+      final Object? missing = tariffsError;
+
+      if (missing != null && widget.purpose != PersonEditPurpose.edit)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(missing), isError: true);
+        Navigator.of(context).pop();
+
         return;
       }
 
@@ -176,6 +234,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           services: results[4] as List<ServiceItem>,
           courses: results[5] as List<CourseItem>,
         );
+        _form.standardTariffs = results[6] as StandardTariffsItem?;
+        _form.paymentsOnFile = payments;
         _isLoading = false;
       });
     }
@@ -429,6 +489,13 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       return;
     }
 
+    if (widget.purpose == PersonEditPurpose.reEnroll)
+    {
+      await _reEnroll();
+
+      return;
+    }
+
     if (widget.handsBackPayload)
     {
       Navigator.of(context).pop({
@@ -504,11 +571,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         return;
       }
 
-      final String newFiscalCode = await ApiService().updatePerson(
-        widget.person!.fiscalCode,
-        _form.buildPayload(),
-        imageBytes: _form.fotoProfilo,
-      );
+      final String? newFiscalCode = await _update();
+
+      if (newFiscalCode == null)
+      {
+        return;
+      }
 
       // A teacher no more: the server took the reminder to rate them away.
       if (!_form.activeRoles.contains('DOCENTE'))
@@ -541,6 +609,120 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       {
         setState(() => _isSaving = false);
       }
+    }
+  }
+
+  // Tabs open on the click, the year is saved, then the forms are made from the
+  // record: dated at the new start, with the new tariff, fees and method.
+  Future<void> _reEnroll() async
+  {
+    final PersonItem person = widget.person!;
+    final String name = '${person.firstName} ${person.lastName}';
+    final bool alsoEarlyExit = person.getsEarlyExitForm;
+    final String day = DateFormat('dd-MM-yyyy').format(romeNow());
+    final PdfTab? enrollmentTab = openPdfTab(title: 'Modulo di iscrizione · $name');
+    final PdfTab? earlyExitTab =
+        alsoEarlyExit ? openPdfTab(title: 'Modulo uscita anticipata · $name') : null;
+
+    setState(() => _isSaving = true);
+
+    try
+    {
+      await ApiService().reEnrollPerson(person.fiscalCode, _form.reEnrollmentPayload);
+    }
+    catch (e)
+    {
+      enrollmentTab?.close();
+      earlyExitTab?.close();
+
+      if (mounted)
+      {
+        setState(() => _isSaving = false);
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+
+      return;
+    }
+
+    String message = 'Iscrizione rinnovata con successo!';
+
+    try
+    {
+      final bool downloaded = await presentPdfs([
+        (
+          tab: enrollmentTab,
+          label: 'Modulo di iscrizione',
+          fileName: 'Modulo di iscrizione $name $day.pdf',
+          bytes: () => ApiService().fetchEnrollmentForm(person.fiscalCode),
+        ),
+        if (alsoEarlyExit)
+          (
+            tab: earlyExitTab,
+            label: 'Modulo uscita anticipata',
+            fileName: 'Modulo uscita anticipata $name $day.pdf',
+            bytes: () => ApiService().fetchEarlyExitForm(person.fiscalCode),
+          ),
+      ]);
+
+      if (downloaded)
+      {
+        message = alsoEarlyExit
+            ? '$message Il browser ha bloccato le schede: i moduli sono stati scaricati.'
+            : '$message Il browser ha bloccato la scheda: il modulo è stato scaricato.';
+      }
+    }
+    catch (e)
+    {
+      enrollmentTab?.fail('Non è stato possibile generare il modulo.');
+      earlyExitTab?.fail('Non è stato possibile generare il modulo.');
+      message = '$message I moduli non sono stati generati: usa GENERA DOCUMENTI DI ISCRIZIONE.';
+    }
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    CustomSnackBar.show(context: context, message: message, isError: false);
+    Navigator.of(context).pop(person.fiscalCode);
+  }
+
+  // Null when the admin would not lose the owed fees or unpaid hours of the
+  // enrolled days taken away.
+  Future<String?> _update() async
+  {
+    final Map<String, dynamic> payload = _form.buildPayload();
+
+    try
+    {
+      return await ApiService().updatePerson(
+        widget.person!.fiscalCode,
+        payload,
+        imageBytes: _form.fotoProfilo,
+      );
+    }
+    on WriteWouldTakeAway catch (refusal)
+    {
+      if (!mounted)
+      {
+        return null;
+      }
+
+      // No spinner behind the question: nothing is being saved meanwhile.
+      setState(() => _isSaving = false);
+
+      if (!await confirmPersonLosses(context, refusal, eyebrow: 'Anagrafica') || !mounted)
+      {
+        return null;
+      }
+
+      setState(() => _isSaving = true);
+
+      return ApiService().updatePerson(
+        widget.person!.fiscalCode,
+        {...payload, 'confirm': true},
+        imageBytes: _form.fotoProfilo,
+      );
     }
   }
 
@@ -801,7 +983,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   {
     return AppDialogFooter.single(
       _submitButton(),
-      maxWidth: _printsEnrollmentForms ? _enrollmentFooterWidth : _submitFooterWidth,
+      maxWidth: _printsEnrollmentForms || widget.purpose == PersonEditPurpose.reEnroll
+          ? _enrollmentFooterWidth
+          : _submitFooterWidth,
     );
   }
 
@@ -816,6 +1000,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             : 'CREA PERSONA',
         PersonEditPurpose.createParent => 'AGGIUNGI GENITORE',
         PersonEditPurpose.createMinor => 'AGGIUNGI MINORE',
+        PersonEditPurpose.reEnroll => 'GENERA DOCUMENTI DI ISCRIZIONE E RINNOVA',
       },
       icon: Icons.check_rounded,
       busy: _isSaving,
@@ -829,6 +1014,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   {
     return switch (id)
     {
+      PersonEditCardId.reEnrollment => ReEnrollmentCard(ctx: _ctx),
       PersonEditCardId.involvement => InvolvementCard(ctx: _ctx),
       PersonEditCardId.roleChoice => RolesCard(
           ctx: _ctx,
@@ -966,6 +1152,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         PersonEditPurpose.create => 'Nuova persona',
         PersonEditPurpose.createParent => 'Nuovo genitore',
         PersonEditPurpose.createMinor => 'Nuovo minore',
+        PersonEditPurpose.reEnroll => 'Rinnova iscrizione',
       },
       onClose: _confirmDiscard,
       maxWidth: _stackMaxWidth,

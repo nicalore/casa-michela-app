@@ -81,8 +81,9 @@ from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
 from app.models.service import Service
 from app.models.staff import CollaborationTypeEnum, Staff
-from app.models.student import CertificationTypeEnum, HomeworkTariffEnum, Student
+from app.models.student import CertificationTypeEnum, Student
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
+from app.models.student_tariff import StudentTariff, TariffKindEnum
 from app.models.study_program import (
     EducationLevelEnum,
     HighSchoolTrackEnum,
@@ -2244,21 +2245,33 @@ class Seeder:
         town: str,
     ) -> None:
         await self.member(person, returning=child.returning)
+        # The enrolment form's rates: kind, cents, package hours.
         tariffs = {
-            _PRIMARY: [HomeworkTariffEnum.PRIMARY_MONTHLY],
+            _PRIMARY: [(TariffKindEnum.MONTHLY, 17000, None)],
             _MIDDLE: [
-                HomeworkTariffEnum.MIDDLE_HOURLY,
-                HomeworkTariffEnum.MIDDLE_PACKAGE,
+                (TariffKindEnum.HOURLY, 1300, None),
+                (TariffKindEnum.PACKAGE, 21500, 18),
             ],
-            _HIGH: [HomeworkTariffEnum.HIGH_HOURLY, HomeworkTariffEnum.HIGH_PACKAGE],
+            _HIGH: [
+                (TariffKindEnum.HOURLY, 1400, None),
+                (TariffKindEnum.PACKAGE, 26000, 20),
+            ],
         }
+        kind, cents, hours = self.rng.choice(tariffs[level])
         early_exit = child.early_exit
         self.session.add(
             Student(
                 tax_code=person.tax_code,
                 certification_types=list(child.certifications),
                 certification_dsa_detail=child.dsa,
-                homework_tariff=self.rng.choice(tariffs[level]),
+                tariffs=[
+                    StudentTariff(
+                        kind=kind,
+                        starts_on=self.season_start,
+                        amount_cents=cents,
+                        package_hours=hours,
+                    ),
+                ],
                 mandatory_psych_meetings_acknowledged=True,
                 authorized_early_exit=early_exit is not None,
             ),

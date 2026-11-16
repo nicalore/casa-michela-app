@@ -14,12 +14,19 @@ class MembershipItem
   final int renewalPeriodDays;
   final String revocation;
 
+  // Administrators only: payments hold the year (no removal, no other year
+  // number), and its start may not pass latestStart.
+  final bool locked;
+  final DateTime? latestStart;
+
   const MembershipItem({
     required this.year,
     required this.startDate,
     required this.endDate,
     required this.renewalPeriodDays,
     required this.revocation,
+    this.locked = false,
+    this.latestStart,
   });
 
   bool get isRevoked => revocation != revocationNone;
@@ -43,6 +50,10 @@ class MembershipItem
       endDate: DateTime.parse(json['end_date'] as String),
       renewalPeriodDays: json['renewal_period_days'] as int,
       revocation: json['revocation'] as String,
+      locked: json['locked'] as bool? ?? false,
+      latestStart: json['latest_start'] == null
+          ? null
+          : DateTime.parse(json['latest_start'] as String),
     );
   }
 }

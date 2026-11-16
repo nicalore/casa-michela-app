@@ -1,41 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/rome_clock.dart';
 import '../../core/utils/week_range.dart';
 import '../utils/day_marks.dart';
-import 'app_tooltip.dart';
+import 'calendar_anchor.dart';
 import 'carousel_arrow_button.dart';
-import 'close_on_resize.dart';
 import 'desktop_tour.dart';
-
-const double _popoverWidth = 336;
-const double _popoverGap = 8;
 
 const double _cellHeight = 44;
 const double _dayDiameter = 36;
 const double _dotSize = 5;
 
-const double _monthArrowSize = 32;
-const double _monthArrowIconSize = 18;
-
-const Color _disabledDay = Color(0xFFB4C0C7);
-
 // Fading from Colors.transparent (black) would pass through grey.
 final Color _goldSurfaceClear = AppTheme.trialGoldSurface.withValues(alpha: 0);
-
-const Duration _revealIn = Duration(milliseconds: 200);
-const Duration _revealOut = Duration(milliseconds: 120);
-
-// No scaling: text scaled per frame shimmers and the shadows redraw every frame.
-const double _revealRise = 6;
-
-// Lowest drawn alpha: at 0 the first paint (blurs, glyphs) would stall the motion's first frame.
-const double _primeOpacity = 1 / 255;
 
 class AppCalendarButton extends StatefulWidget
 {
@@ -76,44 +56,15 @@ class AppCalendarButton extends StatefulWidget
   State<AppCalendarButton> createState() => _AppCalendarButtonState();
 }
 
-class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTickerProviderStateMixin, CloseOnResize
+class _AppCalendarButtonState extends State<AppCalendarButton>
 {
-  final OverlayPortalController _portal = OverlayPortalController();
-  final LayerLink _link = LayerLink();
-
-  // Built in initState: a late controller first touched in dispose() would be created there.
-  late final AnimationController _reveal;
-  late final Animation<double> _curve;
-  late final Animation<double> _opacity;
-
-  bool _isHovered = false;
-
   // Read on hover, dropped on close so the next opening shows fresh closures.
   final ValueNotifier<Map<DateTime, DayMarks>> _marks = ValueNotifier(const {});
   final Set<DateTime> _reading = {};
 
-  bool get _isOpen => _portal.isShowing && _reveal.status != AnimationStatus.reverse;
-
-  @override
-  bool get menuShown => _isOpen;
-
-  @override
-  void closeMenuForResize() => _close();
-
-  @override
-  void initState()
-  {
-    super.initState();
-
-    _reveal = AnimationController(vsync: this, duration: _revealIn, reverseDuration: _revealOut);
-    _curve = CurvedAnimation(parent: _reveal, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
-    _opacity = Tween<double>(begin: _primeOpacity, end: 1).animate(_curve);
-  }
-
   @override
   void dispose()
   {
-    _reveal.dispose();
     _marks.dispose();
     super.dispose();
   }
@@ -137,178 +88,29 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
     }
   }
 
-  void _toggle()
-  {
-    if (_isOpen)
-    {
-      _close();
-
-      return;
-    }
-
-    _read(DateTime(widget.selected.year, widget.selected.month));
-    setState(_portal.show);
-
-    WidgetsBinding.instance.addPostFrameCallback((_)
-    {
-      if (mounted && _isOpen)
-      {
-        widget.onOpen?.call(context, true);
-      }
-    });
-
-    if (!VisualEffects.on)
-    {
-      _reveal.value = 1;
-
-      return;
-    }
-
-    // After the month's costly first frame, so the motion does not start with a stall.
-    WidgetsBinding.instance.addPostFrameCallback((_)
-    {
-      if (mounted && _portal.isShowing)
-      {
-        _reveal.forward();
-      }
-    });
-  }
-
-  Future<void> _close() async
-  {
-    if (!_isOpen)
-    {
-      return;
-    }
-
-    widget.onOpen?.call(context, false);
-    setState(() {});
-
-    if (VisualEffects.on)
-    {
-      await _reveal.reverse();
-    }
-    else
-    {
-      _reveal.value = 0;
-    }
-
-    // Reopened while leaving: it stays.
-    if (mounted && _reveal.isDismissed)
-    {
-      setState(_portal.hide);
-      _marks.value = const {};
-    }
-  }
-
-  void _pick(DateTime day)
-  {
-    _close();
-    widget.onPicked(day);
-  }
-
-  Widget _buildPopover(BuildContext context)
-  {
-    return Positioned(
-      width: _popoverWidth,
-      child: CompositedTransformFollower(
-        link: _link,
-        targetAnchor: Alignment.bottomCenter,
-        followerAnchor: Alignment.topCenter,
-        offset: const Offset(0, _popoverGap),
-        child: TapRegion(
-          groupId: _link,
-          // A tour over the popover takes the clicks around it.
-          onTapOutside: (_)
-          {
-            if (!isDesktopTourShown)
-            {
-              _close();
-            }
-          },
-          child: CallbackShortcuts(
-            bindings: {const SingleActivator(LogicalKeyboardKey.escape): _close},
-            child: Focus(
-              autofocus: true,
-              child: FadeTransition(
-                opacity: _opacity,
-                child: AnimatedBuilder(
-                  animation: _curve,
-                  builder: (context, child) => Transform.translate(
-                    offset: Offset(0, -_revealRise * (1 - _curve.value)),
-                    child: child,
-                  ),
-                  // Painted once; the frames of the motion only move it.
-                  child: RepaintBoundary(
-                    child: _MonthPopover(
-                      selected: widget.selected,
-                      selectedEnd: widget.selectedEnd ?? widget.selected,
-                      first: widget.first,
-                      last: widget.last,
-                      today: _dateOnly(widget.today ?? romeNow()),
-                      marks: _marks,
-                      tourDays: widget.tourDays,
-                      onMonth: _read,
-                      onPicked: _pick,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
-    final bool lit = _isHovered || _isOpen;
-
-    return CompositedTransformTarget(
-      link: _link,
-      child: OverlayPortal(
-        controller: _portal,
-        overlayChildBuilder: _buildPopover,
-        child: TapRegion(
-          groupId: _link,
-          child: AppTooltip(
-            message: kPickDayLabel,
-            waitDuration: const Duration(milliseconds: 400),
-            decoration: AppTheme.tooltipDecoration,
-            textStyle: AppTheme.tooltipTextStyle,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_)
-              {
-                setState(() => _isHovered = true);
-                _read(DateTime(widget.selected.year, widget.selected.month));
-              },
-              onExit: (_) => setState(() => _isHovered = false),
-              child: GestureDetector(
-                onTap: _toggle,
-                // Sized outside the animation: only the colours fade, a new size never animates.
-                child: SizedBox.square(
-                  dimension: widget.size,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: lit ? AppTheme.trialTealDeep : Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: AppTheme.cardShadow,
-                    ),
-                    child: Icon(
-                      Icons.calendar_month_rounded,
-                      size: widget.size * 21 / CarouselArrowButton.defaultSize,
-                      color: lit ? Colors.white : AppTheme.trialTealDeep,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+    return CalendarAnchor(
+      size: widget.size,
+      tooltip: kPickDayLabel,
+      onPrefetch: () => _read(DateTime(widget.selected.year, widget.selected.month)),
+      onOpen: widget.onOpen,
+      onClosed: () => _marks.value = const {},
+      popover: (context, close) => _MonthPopover(
+        selected: widget.selected,
+        selectedEnd: widget.selectedEnd ?? widget.selected,
+        first: widget.first,
+        last: widget.last,
+        today: _dateOnly(widget.today ?? romeNow()),
+        marks: _marks,
+        tourDays: widget.tourDays,
+        onMonth: _read,
+        onPicked: (day)
+        {
+          close();
+          widget.onPicked(day);
+        },
       ),
     );
   }
@@ -385,14 +187,7 @@ class _MonthPopoverState extends State<_MonthPopover>
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          ...AppTheme.overlayShadow,
-          BoxShadow(color: Color(0x29081E2C), offset: Offset(0, 18), blurRadius: 40),
-        ],
-      ),
+      decoration: kCalendarPopoverDecoration,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -409,23 +204,23 @@ class _MonthPopoverState extends State<_MonthPopover>
                   ),
                 ),
               ),
-              _TodayButton(
+              CalendarTodayButton(
                 enabled: _hasToday,
                 onTap: () => widget.onPicked(widget.today),
               ),
               const SizedBox(width: 8),
               CarouselArrowButton(
                 icon: Icons.chevron_left_rounded,
-                size: _monthArrowSize,
-                iconSize: _monthArrowIconSize,
+                size: kCalendarArrowSize,
+                iconSize: kCalendarArrowIconSize,
                 isDisabled: !_hasPrevious,
                 onTap: () => _turn(-1),
               ),
               const SizedBox(width: 6),
               CarouselArrowButton(
                 icon: Icons.chevron_right_rounded,
-                size: _monthArrowSize,
-                iconSize: _monthArrowIconSize,
+                size: kCalendarArrowSize,
+                iconSize: kCalendarArrowIconSize,
                 isDisabled: !_hasNext,
                 onTap: () => _turn(1),
               ),
@@ -484,61 +279,6 @@ class _MonthPopoverState extends State<_MonthPopover>
 
 DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
 
-class _TodayButton extends StatefulWidget
-{
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _TodayButton({required this.enabled, required this.onTap});
-
-  @override
-  State<_TodayButton> createState() => _TodayButtonState();
-}
-
-class _TodayButtonState extends State<_TodayButton>
-{
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final bool lit = _isHovered && widget.enabled;
-
-    return MouseRegion(
-      cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.enabled ? widget.onTap : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: _monthArrowSize,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: !widget.enabled
-                ? AppTheme.arrowDisabledSurface
-                : (lit ? AppTheme.trialTealDeep : Colors.white),
-            borderRadius: BorderRadius.circular(_monthArrowSize / 2),
-            boxShadow: widget.enabled ? AppTheme.cardShadow : null,
-          ),
-          child: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: !widget.enabled
-                  ? AppTheme.trialMutedText.withValues(alpha: 0.5)
-                  : (lit ? Colors.white : AppTheme.trialTealDeep),
-            ),
-            child: const Text(kTodayLabel, maxLines: 1),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 List<List<DateTime?>> _weeks(List<DateTime?> days)
 {
   return [for (var i = 0; i < days.length; i += 7) days.sublist(i, i + 7)];
@@ -593,7 +333,7 @@ class _DayCellState extends State<_DayCell>
     final Color number = solid
         ? Colors.white
         : !widget.enabled
-            ? _disabledDay
+            ? kCalendarDisabled
             : widget.closed
                 ? AppTheme.trialMutedText
                 : (tinted ? AppTheme.trialTealDeep : AppTheme.trialInk);

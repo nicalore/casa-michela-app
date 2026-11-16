@@ -61,20 +61,28 @@ Widget tabActionButton({
   IconData icon = Icons.add_rounded,
   LinearGradient gradient = AppTheme.brandGradient,
   Color accent = AppTheme.trialTealDeep,
+  double? width,
+  String? iconOnlyTooltip,
+  // Set: off, this said on hover.
+  String? disabledReason,
 })
 {
   return Builder(
     builder: (context)
     {
       final bool dense = AppBreakpoints.of(context).isDense;
+      final double height = dense ? _denseActionHeight : _actionHeight;
 
       return AppGradientButton(
         label: label,
         icon: icon,
         gradient: gradient,
         accent: accent,
-        height: dense ? _denseActionHeight : _actionHeight,
-        radius: (dense ? _denseActionHeight : _actionHeight) / 2,
+        width: iconOnlyTooltip == null ? width : height,
+        iconOnlyTooltip: iconOnlyTooltip,
+        disabledReason: disabledReason,
+        height: height,
+        radius: height / 2,
         fontSize: dense ? _denseActionFontSize : _actionFontSize,
         onPressed: onPressed,
       );

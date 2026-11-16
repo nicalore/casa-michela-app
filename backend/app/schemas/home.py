@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from app.models.student import HomeworkTariffEnum
+from app.models.student_tariff import TariffKindEnum
 from app.schemas.person import PersonOption
 
 
@@ -52,7 +52,7 @@ class PupilMonthFigures(BaseModel):
     lesson_minutes: int
 
     # How the hours are paid for; a package's balance is not tracked yet.
-    homework_tariff: HomeworkTariffEnum | None
+    tariff_kind: TariffKindEnum | None
 
 
 class StudentMonthSummaryResponse(BaseModel):

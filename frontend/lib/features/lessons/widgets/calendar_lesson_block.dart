@@ -124,6 +124,8 @@ Color lessonAccent(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccent
 
 Color lessonSurface(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface;
 
+Color lessonBadgeSurface(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge;
+
 IconData lessonModeIcon(String mode) =>
     mode == kOnlineMode ? Icons.videocam_outlined : Icons.house_outlined;
 
@@ -155,11 +157,16 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
 )
 {
   final subjects = <String>{
-    for (final entry in lesson.bookings) bookingTitle(entry.booking, ministrySubjects),
+    for (final entry in lesson.bookings) bookingSubject(entry.booking, ministrySubjects),
+  }..remove('');
+
+  final lone = <String>{
+    for (final entry in lesson.bookings)
+      if (entry.booking.kind == BookingRequestKind.associationSubject) ?entry.booking.associationSubject?.name,
   };
 
   // Named even when the subject is undivided or bears the same name.
-  final disciplines = lesson.disciplineNames;
+  final disciplines = {...lesson.disciplineNames, ...lone};
 
   return (
     subject: subjects.isEmpty ? 'Lezione' : subjects.join(' · '),

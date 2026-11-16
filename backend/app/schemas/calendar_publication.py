@@ -49,4 +49,7 @@ class CalendarPublicationResponse(BaseModel):
 
     has_changes: bool = False
 
+    # The daily summary confirmed it: the calendar no longer changes.
+    hours_confirmed: bool = False
+
     warnings: list[str] = Field(default_factory=list)

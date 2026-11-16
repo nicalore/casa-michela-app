@@ -14,12 +14,9 @@ import '../utils/opening_window.dart';
 import 'calendar_export_data.dart';
 import 'calendar_pdf_fonts.dart';
 import 'calendar_pdf_palette.dart';
+import 'pdf_parts.dart';
 
-const String _association = 'ASSOCIAZIONE CASA MICHELA';
-
-const double _typeScale = 1.25;
-
-const double _logoSize = 66 * _typeScale;
+const double _typeScale = kPdfTypeScale;
 
 final PdfPageFormat _listFormat = PdfPageFormat.a4.copyWith(
   marginLeft: 28,
@@ -75,8 +72,8 @@ Future<Uint8List> buildCalendarPdf(CalendarExportData data) async
   final document = pw.Document(
     theme: styles.fonts.theme,
     title: calendarPdfTitle(data),
-    author: 'Associazione Casa Michela',
-    creator: 'Associazione Casa Michela',
+    author: kPdfAuthor,
+    creator: kPdfAuthor,
   );
 
   if (data.lanes.isEmpty)
@@ -136,10 +133,7 @@ pw.Widget _titleBlock(CalendarExportData data, _Styles styles)
     children: [
       pw.Expanded(child: _titleWords(data, styles)),
       pw.SizedBox(width: 16),
-      pw.Padding(
-        padding: const pw.EdgeInsets.only(top: 2),
-        child: pw.Image(styles.fonts.logo, width: _logoSize, height: _logoSize),
-      ),
+      pdfLogo(styles.fonts.logo),
     ],
   );
 }
@@ -151,15 +145,15 @@ pw.Widget _titleWords(CalendarExportData data, _Styles styles)
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
-      pw.Text(_association, style: styles.eyebrow),
+      pw.Text(kPdfAssociation, style: styles.eyebrow),
       pw.SizedBox(height: 3),
-      _gradientTitle('Calendario di ${_dayInSentence(data.day)}', styles),
+      pdfGradientTitle('Calendario di ${_dayInSentence(data.day)}', styles.title),
       pw.SizedBox(height: 5),
       pw.Row(
         children: [
-          _pill(bandLabel(data.band), styles),
+          pdfPill(bandLabel(data.band), styles.metaStrong),
           pw.SizedBox(width: 6),
-          _pill(calendarPdfViewLabel(data), styles),
+          pdfPill(calendarPdfViewLabel(data), styles.metaStrong),
         ],
       ),
       pw.SizedBox(height: 5),
@@ -176,61 +170,6 @@ pw.Widget _titleWords(CalendarExportData data, _Styles styles)
       ),
       pw.SizedBox(height: 6),
     ],
-  );
-}
-
-pw.Widget _gradientTitle(String text, _Styles styles)
-{
-  final letters = text.split('');
-
-  return pw.RichText(
-    text: pw.TextSpan(
-      children: [
-        for (var i = 0; i < letters.length; i++)
-          pw.TextSpan(
-            text: letters[i],
-            style: styles.title.copyWith(
-              color: _rampAt(letters.length == 1 ? 1 : i / (letters.length - 1)),
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
-PdfColor _rampAt(double t)
-{
-  const begin = 0.15;
-  const end = 0.95;
-
-  if (t <= begin)
-  {
-    return kPdfInk;
-  }
-
-  if (t >= end)
-  {
-    return kPdfViolet;
-  }
-
-  final travelled = (t - begin) / (end - begin);
-
-  return PdfColor(
-    kPdfInk.red + (kPdfViolet.red - kPdfInk.red) * travelled,
-    kPdfInk.green + (kPdfViolet.green - kPdfInk.green) * travelled,
-    kPdfInk.blue + (kPdfViolet.blue - kPdfInk.blue) * travelled,
-  );
-}
-
-pw.Widget _pill(String label, _Styles styles)
-{
-  return pw.Container(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: pw.BoxDecoration(
-      color: kPdfHeaderGround,
-      borderRadius: pw.BorderRadius.circular(3),
-    ),
-    child: pw.Text(label, style: styles.metaStrong),
   );
 }
 
@@ -266,12 +205,12 @@ pw.Widget _legend(_Styles styles, {required bool withTogether, required bool wit
   return pw.Row(
     mainAxisSize: pw.MainAxisSize.min,
     children: [
-      _swatch(modeLabel(kPresenceMode), kPdfPresence, kPdfPresenceSurface, styles),
+      pdfSwatch(modeLabel(kPresenceMode), kPdfPresence, kPdfPresenceSurface, styles.caption),
       pw.SizedBox(width: 12),
-      _swatch(modeLabel(kOnlineMode), kPdfOnline, kPdfOnlineSurface, styles),
+      pdfSwatch(modeLabel(kOnlineMode), kPdfOnline, kPdfOnlineSurface, styles.caption),
       if (withTogether) ...[
         pw.SizedBox(width: 12),
-        _legendEntry(
+        pdfLegendEntry(
           pw.CustomPaint(
             size: const PdfPoint(4, 8),
             painter: (canvas, size) => _strokeBracket(canvas, [
@@ -282,19 +221,19 @@ pw.Widget _legend(_Styles styles, {required bool withTogether, required bool wit
             ]),
           ),
           _togetherLegend,
-          styles,
+          styles.caption,
         ),
       ],
       if (withSupervisor) ...[
         pw.SizedBox(width: 12),
-        _legendEntry(
+        pdfLegendEntry(
           pw.Container(
             padding: const pw.EdgeInsets.all(1),
             decoration: pw.BoxDecoration(color: kPdfPresence, borderRadius: pw.BorderRadius.circular(1.5)),
             child: pw.SvgImage(svg: _shieldIn(kPdfWhite), width: 6, height: 6),
           ),
           _supervisorLegend,
-          styles,
+          styles.caption,
         ),
       ],
     ],
@@ -303,51 +242,12 @@ pw.Widget _legend(_Styles styles, {required bool withTogether, required bool wit
 
 bool _supervising(CalendarExportData data) => data.roomByTeacher.values.any((room) => room.isSupervisor);
 
-pw.Widget _swatch(String label, PdfColor accent, PdfColor surface, _Styles styles)
-{
-  return _legendEntry(
-    pw.Container(
-      width: 7,
-      height: 7,
-      decoration: pw.BoxDecoration(
-        color: surface,
-        border: pw.Border.all(color: accent, width: 0.6),
-        borderRadius: pw.BorderRadius.circular(1.5),
-      ),
-    ),
-    label,
-    styles,
-  );
-}
-
-pw.Widget _legendEntry(pw.Widget mark, String label, _Styles styles)
-{
-  return pw.Row(
-    children: [
-      mark,
-      pw.SizedBox(width: 3),
-      pw.Text(label, style: styles.caption),
-    ],
-  );
-}
-
 pw.Widget _footer(pw.Context context, CalendarExportData data, _Styles styles)
 {
-  return pw.Container(
-    decoration: pw.BoxDecoration(
-      border: pw.Border(top: pw.BorderSide(color: kPdfLine, width: 0.4)),
-    ),
-    padding: const pw.EdgeInsets.only(top: 4),
-    child: pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Text(
-          '${calendarPdfViewLabel(data)} · ${bandLabel(data.band)} · ${_dayOnItsOwn(data.day)}',
-          style: styles.caption,
-        ),
-        pw.Text('Pagina ${context.pageNumber} di ${context.pagesCount}', style: styles.caption),
-      ],
-    ),
+  return pdfFooter(
+    context,
+    '${calendarPdfViewLabel(data)} · ${bandLabel(data.band)} · ${_dayOnItsOwn(data.day)}',
+    styles.caption,
   );
 }
 

@@ -362,6 +362,9 @@ class AppCountFilterPill extends StatefulWidget
   final VoidCallback onOpen;
   final VoidCallback onClear;
 
+  // Said after the label instead of a count: «Importo: € 20,00 – € 150,00».
+  final String? value;
+
   final double maxLabelWidth;
 
   const AppCountFilterPill({
@@ -372,7 +375,18 @@ class AppCountFilterPill extends StatefulWidget
     required this.onOpen,
     required this.onClear,
     this.maxLabelWidth = kFilterPillLabelMaxWidth,
-  });
+  }) : value = null;
+
+  // A filter set in its window as words, not as picks to count.
+  const AppCountFilterPill.value({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.onOpen,
+    required this.onClear,
+    this.maxLabelWidth = kFilterPillLabelMaxWidth,
+  }) : count = 0;
 
   @override
   State<AppCountFilterPill> createState() => _AppCountFilterPillState();
@@ -382,7 +396,7 @@ class _AppCountFilterPillState extends State<AppCountFilterPill>
 {
   bool _hover = false;
 
-  bool get _isFilled => widget.count > 0;
+  bool get _isFilled => widget.value != null || widget.count > 0;
 
   @override
   Widget build(BuildContext context)
@@ -424,7 +438,7 @@ class _AppCountFilterPillState extends State<AppCountFilterPill>
                 TextSpan(text: widget.label),
                 if (_isFilled)
                   TextSpan(
-                    text: ': ${widget.count}',
+                    text: ': ${widget.value ?? widget.count}',
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                   ),
               ],

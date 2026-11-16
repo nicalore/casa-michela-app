@@ -251,9 +251,140 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Enrollment revocation",
         path_params=("tax_code",),
     ),
+    ("POST", "/people/{tax_code}/re-enrollment"): AuditRule(
+        "Re-enrollment",
+        path_params=("tax_code",),
+        body_fields=("start_date", "payment_method"),
+    ),
     ("PUT", "/people/{tax_code}/collaboration"): AuditRule(
         "Collaboration change",
         path_params=("tax_code",),
+    ),
+    ("PUT", "/people/{tax_code}/compensation/iban"): AuditRule(
+        "Bank account change",
+        path_params=("tax_code",),
+    ),
+    ("PUT", "/people/{tax_code}/compensation"): AuditRule(
+        "Compensation change",
+        path_params=("tax_code",),
+        body_fields=("year", "month", "collaboration_type"),
+    ),
+    ("POST", "/people/{tax_code}/payments/renewal"): AuditRule(
+        "Student renewal",
+        path_params=("tax_code",),
+        body_fields=("amount_cents", "package_hours"),
+    ),
+    ("POST", "/people/{tax_code}/payments/tariff"): AuditRule(
+        "Student tariff change",
+        path_params=("tax_code",),
+        body_fields=("kind", "amount_cents", "package_hours"),
+    ),
+    ("POST", "/people/{tax_code}/payments/ahead"): AuditRule(
+        "Student hours paid ahead",
+        path_params=("tax_code",),
+        body_fields=("minutes", "cents_per_hour"),
+    ),
+    ("POST", "/people/{tax_code}/payments/settlement"): AuditRule(
+        "Student hours settlement",
+        path_params=("tax_code",),
+        body_fields=("hours_kind", "cents_per_hour"),
+    ),
+    ("POST", "/people/{tax_code}/payments/fees/{fee_id}/settlement"): AuditRule(
+        "Membership fee settlement",
+        path_params=("tax_code", "fee_id"),
+        body_fields=("paid_on", "payment_method"),
+    ),
+    ("DELETE", "/people/{tax_code}/payments/{payment_id}"): AuditRule(
+        "Student payment cancellation",
+        path_params=("tax_code", "payment_id"),
+    ),
+    ("DELETE", "/people/{tax_code}/payments/fees/{fee_id}/settlement"): AuditRule(
+        "Membership fee payment cancellation",
+        path_params=("tax_code", "fee_id"),
+    ),
+    ("PUT", "/standard-tariffs/levels/{level}"): AuditRule(
+        "Standard tariffs change",
+        path_params=("level",),
+        body_fields=(
+            "hourly_enabled",
+            "hourly_cents",
+            "package_enabled",
+            "package_cents",
+            "package_hours",
+            "monthly_enabled",
+            "monthly_cents",
+            "weekend_online_cents",
+        ),
+    ),
+    ("PUT", "/standard-tariffs/fees"): AuditRule(
+        "Annual fees change",
+        body_fields=("membership_cents", "insurance_cents"),
+    ),
+    ("PUT", "/people/{tax_code}/compensation/volunteering"): AuditRule(
+        "Volunteering rule change",
+        path_params=("tax_code",),
+        body_fields=("year", "month", "rule"),
+    ),
+    ("PUT", "/accounting/teacher-hours/{day}/{band}/{tax_code}"): AuditRule(
+        "Teacher hours correction",
+        path_params=("day", "band", "tax_code"),
+    ),
+    ("POST", "/accounting/teacher-hours/{day}/{band}"): AuditRule(
+        "Teacher added to the hours",
+        path_params=("day", "band"),
+        body_fields=("tax_code",),
+    ),
+    ("DELETE", "/accounting/teacher-hours/{day}/{band}/{tax_code}"): AuditRule(
+        "Teacher hours back to the calendar",
+        path_params=("day", "band", "tax_code"),
+    ),
+    ("POST", "/accounting/teacher-hours/{day}/{band}/confirm"): AuditRule(
+        "Teacher hours confirmation",
+        path_params=("day", "band"),
+    ),
+    ("POST", "/accounting/teacher-hours/{day}/{band}/reopen"): AuditRule(
+        "Teacher hours reopened",
+        path_params=("day", "band"),
+    ),
+    ("PUT", "/accounting/student-hours/{day}/{band}/{tax_code}"): AuditRule(
+        "Student hours correction",
+        path_params=("day", "band", "tax_code"),
+    ),
+    ("POST", "/accounting/student-hours/{day}/{band}"): AuditRule(
+        "Student added to the hours",
+        path_params=("day", "band"),
+        body_fields=("tax_code",),
+    ),
+    ("DELETE", "/accounting/student-hours/{day}/{band}/{tax_code}"): AuditRule(
+        "Student hours back to the calendar",
+        path_params=("day", "band", "tax_code"),
+    ),
+    ("POST", "/accounting/student-hours/{day}/{band}/confirm"): AuditRule(
+        "Student hours confirmation",
+        path_params=("day", "band"),
+    ),
+    ("POST", "/accounting/student-hours/{day}/{band}/reopen"): AuditRule(
+        "Student hours reopened",
+        path_params=("day", "band"),
+    ),
+    ("PUT", "/accounting/teacher-month/{year}/{month}/{tax_code}/volunteering"): (
+        AuditRule(
+            "Volunteering rule change",
+            path_params=("year", "month", "tax_code"),
+            body_fields=("rule",),
+        )
+    ),
+    ("PUT", "/accounting/teacher-month/{year}/{month}/{tax_code}/receipt"): (
+        AuditRule(
+            "Payment receipt upload",
+            path_params=("year", "month", "tax_code"),
+        )
+    ),
+    ("DELETE", "/accounting/teacher-month/{year}/{month}/{tax_code}/receipt"): (
+        AuditRule(
+            "Payment receipt deletion",
+            path_params=("year", "month", "tax_code"),
+        )
     ),
     ("PUT", "/people/{tax_code}/teacher-competences"): AuditRule(
         "Teacher competences modification",
@@ -418,6 +549,7 @@ IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
         ("PUT", "/notifications/availabilities/seen"),
         ("PUT", "/notifications/teacher-notes/{pupil_tax_code}/seen"),
         ("PUT", "/notifications/administrator-notes/seen"),
+        ("PUT", "/notifications/compensation/seen"),
         ("PUT", "/push/devices"),
         ("DELETE", "/push/devices"),
     }

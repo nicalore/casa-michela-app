@@ -31,17 +31,21 @@ import 'tabs/person_account_shared.dart';
 import 'tabs/person_account_tab.dart';
 import 'tabs/person_booking_history_tab.dart';
 import 'tabs/person_children_tab.dart';
+import 'tabs/person_compensation_tab.dart';
 import 'tabs/person_devices_tab.dart';
 import 'tabs/person_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
 import 'tabs/person_not_preferred_teachers_tab.dart';
 import 'tabs/person_observations_tab.dart';
 import 'tabs/person_parents_tab.dart';
+import 'tabs/person_payments_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
 import 'tabs/person_subjects_tab.dart';
 import 'tabs/person_teacher_parent_tab.dart';
 import 'utils/booking_history_strings.dart' show kBookingHistorySection;
+import 'utils/compensation_strings.dart';
+import 'utils/payments_strings.dart' show kPaymentsSection;
 import 'widgets/create_account_dialog.dart';
 import 'widgets/person_detail_header.dart';
 
@@ -54,7 +58,11 @@ class PersonDetailPage extends StatefulWidget
   // Route the back button returns to; a record can be opened from several pages.
   final String? origin;
 
-  const PersonDetailPage({super.key, required this.fiscalCode, this.origin});
+  // The section shown first, by its label, and the month a dated one opens on.
+  final String? section;
+  final DateTime? month;
+
+  const PersonDetailPage({super.key, required this.fiscalCode, this.origin, this.section, this.month});
 
   @override
   State<PersonDetailPage> createState() => _PersonDetailPageState();
@@ -77,6 +85,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
   // Asked by a notification: the Osservazioni, once the record is read.
   bool _observationsAsked = false;
+
+  // Asked by the page that opened the record; turned to once, when it first shows.
+  late String? _sectionAsked = widget.section;
 
   @override
   void initState()
@@ -192,6 +203,17 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           {
             _selectedSection = 0;
           }
+
+          final String? asked = _sectionAsked;
+          _sectionAsked = null;
+
+          final int index = asked == null ? -1 : _sections.indexWhere((section) => section.label == asked);
+
+          if (index >= 0)
+          {
+            _selectedSection = index;
+            visitedSections.add(index);
+          }
         });
 
         if (_observationsAsked)
@@ -253,9 +275,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         view: PersonInfoTab(
           person: person,
           onEdit: _openEditDialog,
-          // A lapsed or revoked membership has no enrolment papers to print.
+          // Whoever is no longer enrolled gets the form of their last enrolment, dated then.
           onGenerateForm:
-              roles.contains('ASSOCIATO') && person.isEnrolled ? _generateEnrollmentForm : null,
+              roles.contains('ASSOCIATO') && person.latestMembership != null ? _generateEnrollmentForm : null,
           isGeneratingForm: _isGeneratingForm,
         ),
       ),
@@ -353,12 +375,38 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       ));
     }
 
-    // Past bookings stay readable whatever became of the membership.
+    // Past pay stays readable whatever became of the membership.
+    if (roles.contains('DOCENTE') || roles.contains('AMMINISTRATORE'))
+    {
+      sections.add(PersonSection(
+        label: kCompensationSection,
+        view: PersonCompensationTab(
+          person: person,
+          month: widget.month,
+          onUpdate: () => _fetchPersonData(quiet: true),
+        ),
+      ));
+    }
+
+    // Every member pays the annual fees; a pupil's tab, below, adds the tariff.
+    if (roles.contains('ASSOCIATO') && !roles.contains('STUDENTE'))
+    {
+      sections.add(PersonSection(
+        label: kPaymentsSection,
+        view: PersonPaymentsTab(person: person),
+      ));
+    }
+
+    // Past bookings and what is owed stay readable whatever became of the membership.
     if (roles.contains('STUDENTE'))
     {
       sections.add(PersonSection(
         label: kBookingHistorySection,
         view: PersonBookingHistoryTab(person: person),
+      ));
+      sections.add(PersonSection(
+        label: kPaymentsSection,
+        view: PersonPaymentsTab(person: person),
       ));
     }
 
@@ -436,7 +484,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
 
     final String name = '${person.firstName} ${person.lastName}';
-    final bool alsoEarlyExit = _needsEarlyExitForm(person);
+    final bool alsoEarlyExit = person.getsEarlyExitForm;
     final String day = DateFormat('dd-MM-yyyy').format(romeNow());
     final String enrollmentTitle = 'Modulo di iscrizione · $name';
     final String earlyExitTitle = 'Modulo uscita anticipata · $name';
@@ -495,14 +543,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
   }
 
-  // The early exit form belongs to a minor whose leave has been granted.
-  bool _needsEarlyExitForm(PersonItem person)
-  {
-    return person.roles.any((role) => role.toUpperCase() == 'STUDENTE') &&
-        !person.isAdult &&
-        (person.earlyExit ?? false);
-  }
-
   void _openEditDialog() async
   {
     if (_person == null)
@@ -520,7 +560,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     {
       if (newFiscalCode != _currentFiscalCode)
       {
-        context.go('/people/$newFiscalCode?from=$_origin');
+        context.go(Uri(path: '/people/$newFiscalCode', queryParameters: {'from': _origin}).toString());
       }
       else
       {
@@ -535,6 +575,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     final String? origin = widget.origin;
 
     return origin != null && origin.startsWith('/') ? origin : '/people';
+  }
+
+  // Opened from another page (the calendar, the accounting), the way back is not the list.
+  String get _backTooltip
+  {
+    return Uri.parse(_origin).path == '/people' ? 'Torna alle anagrafiche' : 'Torna indietro';
   }
 
   // The relative inherits this record's way back: one tap leaves the whole chain.
@@ -570,7 +616,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     final PersonHeading heading = PersonHeading(
       person: _person!,
       imageVersion: '${ApiService().profileImageVersion}',
-      backTooltip: 'Torna alle anagrafiche',
+      backTooltip: _backTooltip,
       onBack: () => context.go(_origin),
     );
 
@@ -691,7 +737,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                           PersonDetailHeader(
                             person: size.isDense ? null : _person,
                             imageVersion: '${ApiService().profileImageVersion}',
-                            backTooltip: 'Torna alle anagrafiche',
+                            backTooltip: _backTooltip,
                             onBack: () => context.go(_origin),
                           ),
                           SizedBox(height: size.isDense ? 16 : 24),

@@ -39,6 +39,7 @@ class NotificationLook
       NotificationKind.ratingReminder => const NotificationLook(Icons.rate_review_rounded, AppTheme.trialTealDeep),
       NotificationKind.teacherNoteAdded => const NotificationLook(Icons.speaker_notes_rounded, AppTheme.trialOcean),
       NotificationKind.administratorNoteAdded => const NotificationLook(Icons.speaker_notes_rounded, AppTheme.trialOcean),
+      NotificationKind.volunteeringChanged => const NotificationLook(Icons.volunteer_activism_rounded, AppTheme.trialTealDeep),
       NotificationKind.unknown => const NotificationLook(Icons.notifications_rounded, AppTheme.trialOcean),
     };
   }

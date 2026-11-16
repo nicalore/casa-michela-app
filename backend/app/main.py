@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api import (
+    accounting_stats,
     administrator_notes,
     app_updates,
     association_subjects,
@@ -19,6 +20,7 @@ from app.api import (
     calendar_locks,
     calendar_publications,
     calendar_teacher_exclusions,
+    compensation,
     courses,
     documents,
     home,
@@ -29,9 +31,11 @@ from app.api import (
     notices,
     notifications,
     opening_days,
+    payments_month,
     people,
     person_accounts,
     person_collaboration,
+    person_re_enrollment,
     presences,
     profile_images,
     push,
@@ -40,13 +44,20 @@ from app.api import (
     rooms,
     schools,
     services,
+    standard_tariffs,
     statistics,
+    student_hours,
+    student_month,
+    student_payments,
     study_programs,
     support,
     teacher_evaluation,
+    teacher_hours,
+    teacher_month,
     teacher_notes,
     teacher_room_assignments,
     technical_notes,
+    to_settle,
     tours,
     weekly_templates,
 )
@@ -125,6 +136,7 @@ app.include_router(people.router)
 app.include_router(profile_images.router)
 app.include_router(person_accounts.router)
 app.include_router(person_collaboration.router)
+app.include_router(person_re_enrollment.router)
 app.include_router(methodological_notes.router)
 app.include_router(technical_notes.router)
 app.include_router(administrator_notes.router)
@@ -135,7 +147,17 @@ app.include_router(support.router)
 app.include_router(statistics.router)
 app.include_router(statistics.personal_router)
 app.include_router(home.router)
+app.include_router(compensation.router)
+app.include_router(accounting_stats.router)
+app.include_router(student_hours.router)
+app.include_router(student_month.router)
+app.include_router(to_settle.router)
+app.include_router(payments_month.router)
+app.include_router(student_payments.router)
+app.include_router(standard_tariffs.router)
 app.include_router(booking_history.router)
+app.include_router(teacher_hours.router)
+app.include_router(teacher_month.router)
 app.include_router(availabilities.router)
 app.include_router(presences.router)
 app.include_router(bookings.router)

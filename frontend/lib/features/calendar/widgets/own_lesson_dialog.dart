@@ -247,7 +247,7 @@ List<LessonVoice> lessonVoicesOf(LessonItem lesson, List<MinistrySubjectItem> mi
     if (where) LessonVoice(label: 'Stanza', value: lessonWhere(lesson).label),
     LessonVoice(
       label: 'Materia',
-      value: perBooking((booking) => bookingTitle(booking, ministrySubjects)),
+      value: perBooking((booking) => bookingSubject(booking, ministrySubjects)),
     ),
     if (disciplines != null) LessonVoice(label: disciplines.contains(', ') ? 'Discipline' : 'Disciplina', value: disciplines),
     LessonVoice(

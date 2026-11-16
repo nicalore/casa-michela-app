@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../association/tabs/opening_hours/lost_calendars.dart';
 import '../../settings/utils/settings_strings.dart';
 import '../models/person_account_item.dart';
 import '../models/person_item.dart';
@@ -228,4 +229,21 @@ Future<bool> askPersonConfirmation(
   );
 
   return confirmed == true;
+}
+
+// The server's word on what a save of the record would also delete.
+Future<bool> confirmPersonLosses(
+  BuildContext context,
+  WriteWouldTakeAway refusal, {
+  required String eyebrow,
+})
+{
+  return askPersonConfirmation(
+    context,
+    eyebrow: eyebrow,
+    message: [TextSpan(text: refusal.message)],
+    confirmLabel: 'SALVA',
+    confirmIcon: Icons.check_rounded,
+    danger: true,
+  );
 }

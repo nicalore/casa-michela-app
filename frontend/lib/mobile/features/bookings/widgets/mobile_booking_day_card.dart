@@ -385,9 +385,9 @@ class _LessonRow extends StatelessWidget
         child: Container(
           padding: EdgeInsets.fromLTRB(tablet ? 16 : 13, 12, 6, 12),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.72),
+            color: muted ? MobilePalette.pastSurface : Colors.white.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.trialInk.withValues(alpha: 0.05)),
+            border: Border.all(color: muted ? MobilePalette.pastEdge : AppTheme.trialInk.withValues(alpha: 0.05)),
           ),
           child: Row(
             children: [

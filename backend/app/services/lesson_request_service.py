@@ -29,8 +29,17 @@ from app.schemas.lesson_request import (
 )
 from app.schemas.presence import PresenceCreate
 from app.services.booking_service import BookingService
+from app.services.calendar_freeze import (
+    assert_hours_not_begun,
+    assert_only_ahead_moves,
+    has_begun,
+    refuse_begun_hours,
+)
 from app.services.collaboration import assert_admin_may_name, settle_collaboration
-from app.services.lesson_guard import find_student_day_lessons
+from app.services.lesson_guard import (
+    find_booking_lessons,
+    find_student_day_lessons,
+)
 from app.services.presence_service import PresenceService
 from app.services.pupil_lock import lock_pupil
 from app.services.schedule_cascade import unschedule
@@ -197,6 +206,9 @@ class _ModePlan:
 
     # Open subjects stored under these hours; any block may claim them.
     held: dict[int, Booking] = field(default_factory=dict)
+
+    # Bands whose stored hours are all over: their subjects stay as they are.
+    over: set[TimeBandEnum] = field(default_factory=set)
 
     bookings: dict[int, Booking] = field(default_factory=dict)
     gone: list[Booking] = field(default_factory=list)
@@ -393,6 +405,15 @@ class LessonRequestService:
                 for presence in open_rows
                 for booking in presence.bookings
             },
+            over={
+                band
+                for band in {_band(presence) for presence in rows}
+                if all(
+                    has_begun(payload.date, presence.end_time)
+                    for presence in rows
+                    if _band(presence) == band
+                )
+            },
         )
 
         editable = {presence.id: presence for presence in open_rows}
@@ -417,6 +438,10 @@ class LessonRequestService:
             plan.kept[presence.id] = presence
 
         plan.dropped = list(editable.values())
+
+        # What has begun stays: it can be named unchanged, never left out.
+        if any(has_begun(payload.date, row.start_time) for row in plan.dropped):
+            raise refuse_begun_hours()
 
         return plan
 
@@ -452,9 +477,21 @@ class LessonRequestService:
                     subject.expected_updated_at,
                     entity_label="la prenotazione",
                 )
+
+                # Over, it stays where it is and as it is.
+                if _band(booking.presence) in owner.over and (
+                    owner is not plan
+                    or subject.band != _band(booking.presence)
+                    or _shape_of(booking) != _asked_shape(subject)
+                ):
+                    raise refuse_begun_hours()
+
                 plan.bookings[booking.id] = booking
 
         for booking_id, owner in owners.items():
+            if _band(owner.held[booking_id].presence) in owner.over:
+                raise refuse_begun_hours()
+
             owner.gone.append(owner.held[booking_id])
 
     async def _check_hours(
@@ -463,6 +500,16 @@ class LessonRequestService:
         plans: list[_ModePlan],
         stored: list[Presence],
     ) -> None:
+        # A new subject needs hours of its band still to come (an end not yet reached).
+        for plan in plans:
+            for subject in plan.block.subjects:
+                if subject.booking_id is None and all(
+                    has_begun(payload.date, slot.end_time)
+                    for slot in plan.block.slots
+                    if slot.band == subject.band
+                ):
+                    raise refuse_begun_hours()
+
         replaced = {plan.mode for plan in plans}
         others = [
             (presence.mode, presence.start_time, presence.end_time)
@@ -478,9 +525,16 @@ class LessonRequestService:
 
                 if kept is None:
                     assert_within_booking_window(payload.date)
+                    assert_hours_not_begun(payload.date, slot.start_time)
 
                 elif (kept.start_time, kept.end_time) == hours:
                     continue
+
+                else:
+                    assert_only_ahead_moves(
+                        (payload.date, kept.start_time, kept.end_time),
+                        (payload.date, slot.start_time, slot.end_time),
+                    )
 
                 row = (plan.mode, slot.start_time, slot.end_time)
                 rest = list(everything)
@@ -614,7 +668,13 @@ class LessonRequestService:
 
                 continue
 
-            await self.booking_service.fill(booking, subject)
+            # Over, it was checked unchanged; its lesson begun, a change of shape
+            # is refused with the lesson: either way nothing of it is written again.
+            if _band(booking.presence) not in plan.over and not any(
+                has_begun(lesson.date, lesson.start_time)
+                for lesson in await find_booking_lessons(self.session, booking.id)
+            ):
+                await self.booking_service.fill(booking, subject)
 
             if booking.presence not in final or _band(booking.presence) != subject.band:
                 booking.presence = next(

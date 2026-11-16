@@ -497,9 +497,14 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
 
   String get _summary
   {
-    final int given = _shownDays.where((day) => _slotsOn(day).isNotEmpty).length;
+    int daysIn(String mode) =>
+        _shownDays.where((day) => _slotsOn(day).any((slot) => slot.mode == mode)).length;
 
-    return availabilitySummary(given, thisWeek: _weekIndex == 0);
+    return availabilitySummary(
+      presenceDays: daysIn(kPresenceMode),
+      onlineDays: daysIn(kOnlineMode),
+      thisWeek: _weekIndex == 0,
+    );
   }
 
   String get _summaryLine

@@ -87,6 +87,9 @@ class PresenceCard extends StatefulWidget
   // A day that can no longer change: the details open without their actions.
   final bool readOnly;
 
+  // Subjects whose lesson has begun: shown without their actions.
+  final Set<int> begunBookingIds;
+
   const PresenceCard({
     super.key,
     required this.group,
@@ -102,6 +105,7 @@ class PresenceCard extends StatefulWidget
     required this.onEditSubject,
     required this.onDeleteSubject,
     this.readOnly = false,
+    this.begunBookingIds = const {},
   });
 
   @override
@@ -131,6 +135,7 @@ class _PresenceCardState extends State<PresenceCard>
         onEditSubject: widget.onEditSubject,
         onDeleteSubject: widget.onDeleteSubject,
         readOnly: widget.readOnly,
+        begunBookingIds: widget.begunBookingIds,
       ),
     );
   }
@@ -429,7 +434,7 @@ class _TimeSlotLabel extends StatelessWidget
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface,
+        color: online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -470,6 +475,8 @@ class _RequestDetailsDialogContent extends StatefulWidget
 
   final bool readOnly;
 
+  final Set<int> begunBookingIds;
+
   const _RequestDetailsDialogContent({
     required this.group,
     required this.ministrySubjects,
@@ -484,6 +491,7 @@ class _RequestDetailsDialogContent extends StatefulWidget
     required this.onEditSubject,
     required this.onDeleteSubject,
     this.readOnly = false,
+    this.begunBookingIds = const {},
   });
 
   @override
@@ -853,6 +861,10 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     final slots = group.slotsFor(mode, band: band);
     final stored = group.requestsFor(mode, band: band);
 
+    // Hours all over (their end come): the band's subjects stay as they are, as the server holds them.
+    final DateTime now = romeNow();
+    final bool locked = widget.readOnly || slots.every((slot) => hasBegun(group.date, slot.endTime, now));
+
     return [
       if (!first)
         Container(height: 1, margin: const EdgeInsets.symmetric(vertical: 18), color: AppTheme.trialLine),
@@ -890,9 +902,10 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         requests: [for (final booking in stored) _draftOf(booking)],
         ministrySubjects: widget.ministrySubjects,
         teachers: widget.teachers,
-        onEdit: widget.readOnly ? null : (index) => _showSubjectWizard(context, mode, existing: stored[index]),
-        onRemove: widget.readOnly ? null : (index) => _showSubjectDeletion(stored[index]),
-        onAdd: widget.readOnly ? null : () => widget.onEditMode(mode, subjectsOf: band),
+        onEdit: locked ? null : (index) => _showSubjectWizard(context, mode, existing: stored[index]),
+        onRemove: locked ? null : (index) => _showSubjectDeletion(stored[index]),
+        isLocked: (index) => widget.begunBookingIds.contains(stored[index].id),
+        onAdd: locked ? null : () => widget.onEditMode(mode, subjectsOf: band),
       ),
     ];
   }

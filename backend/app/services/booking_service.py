@@ -18,7 +18,11 @@ from app.models.subject_requested import SubjectRequested
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.booking import BookingBase, BookingCreate, BookingUpdate
-from app.services.collaboration import assert_admin_may_name
+from app.services.calendar_freeze import has_begun, refuse_begun_hours
+from app.services.collaboration import (
+    assert_admin_may_name,
+    collaborating_tax_codes,
+)
 from app.services.lesson_guard import (
     find_booking_lessons,
     find_scheduled_booking_ids,
@@ -164,6 +168,15 @@ class BookingService:
                 detail=_UNKNOWN_TEACHERS_ERROR.format(codes=", ".join(missing)),
             )
 
+        # Off every picker too, so dropped: requests still naming them keep saving.
+        collaborating = await collaborating_tax_codes(
+            self.repository.session,
+            preferred_tax_codes,
+        )
+        preferred_tax_codes = [
+            code for code in preferred_tax_codes if code in collaborating
+        ]
+
         avoided = await self.repository.find_avoided_teacher_tax_codes(
             student_tax_code,
             preferred_tax_codes,
@@ -295,7 +308,7 @@ class BookingService:
 
         return booking
 
-    def _assert_still_theirs(
+    async def _assert_still_theirs(
         self,
         identity: IdentityContext,
         presence: Presence,
@@ -305,6 +318,21 @@ class BookingService:
             bands_of(presence.start_time, presence.end_time),
             is_admin=identity.overrides_closures,
         )
+
+        # A band whose hours are all over keeps its subjects as they are.
+        day = await self.presence_repository.list(
+            student_tax_code=presence.student_tax_code,
+            booker_tax_code=None,
+            date_from=presence.date,
+            date_to=presence.date,
+        )
+
+        if all(
+            has_begun(row.date, row.end_time)
+            for row in day
+            if _same_band(row, presence)
+        ):
+            raise refuse_begun_hours()
 
     # A band's last lesson leaves with its hours: only a stale writer gets here.
     async def _assert_band_keeps_a_lesson(self, booking: Booking) -> None:
@@ -337,7 +365,7 @@ class BookingService:
             presence.student_tax_code,
         )
 
-        self._assert_still_theirs(identity, presence)
+        await self._assert_still_theirs(identity, presence)
 
         booking = await self.build_for_presence(presence, payload)
 
@@ -423,7 +451,14 @@ class BookingService:
             entity_label=_ENTITY_LABEL,
         )
 
-        self._assert_still_theirs(identity, booking.presence)
+        await self._assert_still_theirs(identity, booking.presence)
+
+        # Its lesson begun, the subject is what the lesson was given for: kept whole.
+        if any(
+            has_begun(lesson.date, lesson.start_time)
+            for lesson in await find_booking_lessons(session, booking.id)
+        ):
+            raise refuse_begun_hours()
 
         await self._unschedule_if_reshaped(booking, payload)
 
@@ -441,7 +476,7 @@ class BookingService:
                 new_presence.student_tax_code,
             )
 
-            self._assert_still_theirs(identity, new_presence)
+            await self._assert_still_theirs(identity, new_presence)
 
             if not _same_band(new_presence, booking.presence):
                 await self._assert_band_keeps_a_lesson(booking)
@@ -461,7 +496,7 @@ class BookingService:
         booking = await self.get_owned_or_404(identity, booking_id)
         assert_may_book_for(identity, booking.presence.student_tax_code)
 
-        self._assert_still_theirs(identity, booking.presence)
+        await self._assert_still_theirs(identity, booking.presence)
         await self._assert_band_keeps_a_lesson(booking)
 
         await unschedule(

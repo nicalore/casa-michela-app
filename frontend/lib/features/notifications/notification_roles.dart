@@ -34,6 +34,7 @@ const Map<NotificationKind, List<String>> _homeRoles = {
   NotificationKind.availabilityChanged: ['TEACHER'],
   NotificationKind.availabilityCancelled: ['TEACHER'],
   NotificationKind.administratorNoteAdded: ['TEACHER'],
+  NotificationKind.volunteeringChanged: ['TEACHER'],
   NotificationKind.openingHoursChanged: kHoursRoles,
 };
 

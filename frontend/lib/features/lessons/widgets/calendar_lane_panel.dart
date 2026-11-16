@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_text_link.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../models/calendar_day.dart';
@@ -36,6 +37,9 @@ class CalendarLanePanel extends StatelessWidget
   // Whoever is found by name wears the gold ring.
   final ValueListenable<CalendarSearch?>? search;
 
+  // The name leads to the record; the face keeps the exclusion.
+  final VoidCallback? onOpenPerson;
+
   final Widget child;
 
   const CalendarLanePanel({
@@ -49,6 +53,7 @@ class CalendarLanePanel extends StatelessWidget
     this.isExcluded = false,
     this.onToggleExcluded,
     this.search,
+    this.onOpenPerson,
   });
 
   Widget _buildFace()
@@ -133,6 +138,25 @@ class CalendarLanePanel extends StatelessWidget
     );
   }
 
+  Widget _buildName()
+  {
+    final TextStyle style = GoogleFonts.plusJakartaSans(
+      fontSize: 14,
+      fontWeight: FontWeight.w700,
+      height: 1.2,
+      color: AppTheme.trialOcean,
+    );
+
+    final String name = lane.person.fullName;
+    final VoidCallback? open = onOpenPerson;
+
+    Widget write(TextStyle style) => DescenderRoom(
+      child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+    );
+
+    return open == null ? write(style) : AppTextLink(text: name, style: style, onTap: open, write: write);
+  }
+
   Widget _buildHeader()
   {
     return Row(
@@ -170,21 +194,7 @@ class CalendarLanePanel extends StatelessWidget
               children: [
                 Row(
                   children: [
-                    Flexible(
-                      child: DescenderRoom(
-                        child: Text(
-                          lane.person.fullName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                            color: AppTheme.trialOcean,
-                          ),
-                        ),
-                      ),
-                    ),
+                    Flexible(child: _buildName()),
                   ],
                 ),
                 const SizedBox(height: 2),

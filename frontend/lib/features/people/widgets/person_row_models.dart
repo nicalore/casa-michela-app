@@ -15,11 +15,17 @@ class MembershipRowData
   // Keep the stored revocation: writing 'NO' on save would readmit expelled people.
   final String revocation;
 
+  // Held by payments: see MembershipItem.
+  final bool locked;
+  final DateTime? latestStart;
+
   MembershipRowData({
     this.id,
     required this.yearCtrl,
     required this.dateCtrl,
     this.revocation = MembershipItem.revocationNone,
+    this.locked = false,
+    this.latestStart,
   });
 
   factory MembershipRowData.empty({
@@ -27,6 +33,8 @@ class MembershipRowData
     String year = '',
     String date = '',
     String revocation = MembershipItem.revocationNone,
+    bool locked = false,
+    DateTime? latestStart,
   })
   {
     return MembershipRowData(
@@ -34,6 +42,8 @@ class MembershipRowData
       yearCtrl: TextEditingController(text: year),
       dateCtrl: TextEditingController(text: date),
       revocation: revocation,
+      locked: locked,
+      latestStart: latestStart,
     );
   }
 

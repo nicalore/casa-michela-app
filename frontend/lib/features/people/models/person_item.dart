@@ -83,7 +83,6 @@ class PersonItem implements PersonFace
   final String? certificationDsaDetail;
   final bool? mandatoryPsychMeetingsAcknowledged;
 
-  final String? homeworkTariff;
 
   final String? paymentMethod;
   final String? paymentMethodOther;
@@ -121,6 +120,12 @@ class PersonItem implements PersonFace
   final DateTime? teacherUpdatedAt;
 
   final List<MembershipItem>? memberships;
+
+  // Administrators only: role codes a history keeps, and receipts keeping one
+  // collaborating role at least (the edit wizard locks them).
+  final List<String> keptRoles;
+  final bool keepsStaff;
+
   final List<SchoolEnrollmentItem>? schoolEnrollments;
   final List<ParentItem>? parents;
   final List<ChildItem>? children;
@@ -188,7 +193,6 @@ class PersonItem implements PersonFace
     this.certificationOtherDetail,
     this.certificationDsaDetail,
     this.mandatoryPsychMeetingsAcknowledged,
-    this.homeworkTariff,
     this.paymentMethod,
     this.paymentMethodOther,
     this.emergencyContactName,
@@ -212,6 +216,8 @@ class PersonItem implements PersonFace
     this.studentUpdatedAt,
     this.teacherUpdatedAt,
     this.memberships,
+    this.keptRoles = const [],
+    this.keepsStaff = false,
     this.schoolEnrollments,
     this.parents,
     this.children,
@@ -280,7 +286,6 @@ class PersonItem implements PersonFace
       certificationOtherDetail: json['certification_other_detail'],
       certificationDsaDetail: json['certification_dsa_detail'],
       mandatoryPsychMeetingsAcknowledged: json['mandatory_psych_meetings_acknowledged'],
-      homeworkTariff: json['homework_tariff'] as String?,
       paymentMethod: json['payment_method'],
       paymentMethodOther: json['payment_method_other'],
       emergencyContactName: json['emergency_contact_name'],
@@ -304,6 +309,8 @@ class PersonItem implements PersonFace
       studentUpdatedAt: parseInstant(json['student_updated_at']),
       teacherUpdatedAt: parseInstant(json['teacher_updated_at']),
       memberships: parseOptionalList(json['memberships'], MembershipItem.fromJson),
+      keptRoles: parseStringList(json['kept_roles']),
+      keepsStaff: json['keeps_staff'] as bool? ?? false,
       schoolEnrollments: parseOptionalList(json['school_enrollments'], SchoolEnrollmentItem.fromJson),
       parents: parseOptionalList(json['parents'], ParentItem.fromJson),
       children: parseOptionalList(json['children'], ChildItem.fromJson),
@@ -362,6 +369,9 @@ class PersonItem implements PersonFace
 
   // An unknown birth date reads as a minor: the safer of the two.
   bool get isAdult => (age ?? 0) >= adultAge;
+
+  // The early exit form belongs to a minor pupil whose leave has been granted.
+  bool get getsEarlyExitForm => _hasRole('STUDENTE') && !isAdult && (earlyExit ?? false);
 
   bool _hasRole(String role) => roles.any((label) => label.toUpperCase() == role);
 

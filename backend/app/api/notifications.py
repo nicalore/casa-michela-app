@@ -24,10 +24,11 @@ from app.services.administrator_note_notifications import administrator_notes_se
 from app.services.availability_notifications import availabilities_seen
 from app.services.booking_notifications import bookings_seen
 from app.services.new_devices import about_session
-from app.services.notice_notifications import reached_roles
+from app.services.notice_recipients import notices_excluding, reached_roles
 from app.services.notification_kinds import choices_of, choose
 from app.services.notifications import dismissals, withdraw
 from app.services.teacher_note_notifications import teacher_notes_seen
+from app.services.volunteering_notifications import compensation_seen
 
 _NOTIFICATION_NOT_FOUND_ERROR: Final[str] = "Notifica non trovata."
 
@@ -38,6 +39,7 @@ _GONE_ONCE_READ: Final[frozenset[NotificationKindEnum]] = frozenset(
         NotificationKindEnum.RATING_REMINDER,
         NotificationKindEnum.TEACHER_NOTE_ADDED,
         NotificationKindEnum.ADMINISTRATOR_NOTE_ADDED,
+        NotificationKindEnum.VOLUNTEERING_CHANGED,
     },
 )
 
@@ -83,6 +85,7 @@ async def my_notifications(
         row for row in notifications if not about_session(row, current_session_id)
     ]
     recipients = await _notice_recipients(db, rows)
+    excluding = await notices_excluding(db, identity.tax_code, recipients)
 
     return [
         NotificationResponse.model_validate(row).model_copy(
@@ -90,6 +93,7 @@ async def my_notifications(
                 "notice_roles": reached_roles(
                     identity.roles,
                     recipients.get(row.notice_id or 0, ()),
+                    excluded=row.notice_id in excluding,
                 ),
             },
         )
@@ -316,6 +320,23 @@ async def pupil_teacher_notes_seen(
         current_account.tax_code,
         pupil_tax_code.upper(),
     )
+    await db.commit()
+    background.add_task(push.deliver, batch)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# One's own pay on screen: what told of a changed unpaid hour is done.
+@router.put(
+    "/compensation/seen",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def own_compensation_seen(
+    current_account: CurrentAccount,
+    db: DbSession,
+    background: BackgroundTasks,
+) -> Response:
+    batch = await compensation_seen(db, current_account.tax_code)
     await db.commit()
     background.add_task(push.deliver, batch)
 

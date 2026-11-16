@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 
@@ -33,6 +33,7 @@ from app.services.calendar_published import (
     announce_changes,
     announce_publication,
 )
+from app.services.confirmed_hours import confirmed_bands
 from app.services.notifications import withdraw
 
 # Readable by the published-to roles: tells "not yet published" from "nothing for you".
@@ -56,6 +57,7 @@ def _to_response(
     warnings: list[str],
     *,
     has_changes: bool = False,
+    hours_confirmed: bool = False,
 ) -> CalendarPublicationResponse:
     publisher = (
         people.get(publication.published_by)
@@ -83,6 +85,7 @@ def _to_response(
             PersonOption.model_validate(opener) if opener is not None else None
         ),
         has_changes=has_changes,
+        hours_confirmed=hours_confirmed,
         warnings=warnings,
     )
 
@@ -104,12 +107,16 @@ async def _to_responses(
         if tax_code is not None
     )
 
+    days = [publication.date for publication in publications]
+    confirmed = await confirmed_bands(db, min(days), max(days) + timedelta(days=1))
+
     return [
         _to_response(
             publication,
             people,
             warnings or [],
             has_changes=(publication.date, publication.band) in (changed or set()),
+            hours_confirmed=(publication.date, publication.band) in confirmed,
         )
         for publication in publications
     ]

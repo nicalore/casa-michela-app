@@ -1,11 +1,12 @@
-from collections.abc import Collection, Iterable
+from collections.abc import Collection
 from typing import Final
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.notice import Notice, NoticeRoleEnum
+from app.models.notice import Notice
 from app.models.notification import Notification, NotificationKindEnum
+from app.services.notice_recipients import excluded_from, reached_roles
 from app.services.notification_kinds import holds_kind
 from app.services.notifications import dismissals, notify, reachable_identities
 from app.services.push import PushBatch, joined
@@ -16,14 +17,6 @@ _KIND: Final[NotificationKindEnum] = NotificationKindEnum.NOTICE_RECEIVED
 _TITLE: Final[str] = "C'è una nuova comunicazione per te"
 _BODY: Final[str] = "Tocca per leggerla"
 _WEB_BODY: Final[str] = "Clicca per leggerla"
-
-def reached_roles(
-    roles: Iterable[str],
-    recipients: Iterable[NoticeRoleEnum],
-) -> list[str]:
-    sent = {role.value for role in recipients}
-
-    return sorted(role for role in roles if role in sent)
 
 
 async def _forget(
@@ -54,6 +47,7 @@ async def _forget(
 # Everyone it reaches in the app but its author; an edit tells only whom it newly
 # reaches, and those it no longer reaches lose theirs.
 async def announce_notice(db: AsyncSession, notice: Notice) -> PushBatch:
+    excluded = await excluded_from(db, notice.id)
     readers = {
         account.tax_code
         for account in await reachable_identities(db)
@@ -62,6 +56,7 @@ async def announce_notice(db: AsyncSession, notice: Notice) -> PushBatch:
         and reached_roles(
             RoleService.get_available_roles(account.person),
             notice.recipients,
+            excluded=account.tax_code in excluded,
         )
     }
     told = set(

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -14,6 +13,7 @@ from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.collaboration_type import CollaborationTypeEnum
 from app.models.constraints import (
     no_surrounding_whitespace_constraints,
     not_blank_when_present_constraints,
@@ -24,13 +24,6 @@ if TYPE_CHECKING:
     from app.models.member import Member
     from app.models.psychologist import Psychologist
     from app.models.teacher import Teacher
-
-
-class CollaborationTypeEnum(StrEnum):
-    VOLUNTEER = "VOLUNTEER"
-    PAID = "PAID"
-    PCTO = "PCTO"
-    UNPAID = "UNPAID"
 
 
 class Staff(Base):

@@ -101,6 +101,11 @@ class CalendarLessonBoard extends StatelessWidget
 
   final ValueListenable<CalendarSearch?>? search;
 
+  // A lane's name leads to that person's record.
+  final void Function(CalendarLane lane)? onOpenPerson;
+
+  final ScrollController? scrollController;
+
   const CalendarLessonBoard({
     super.key,
     required this.lanes,
@@ -117,6 +122,8 @@ class CalendarLessonBoard extends StatelessWidget
     this.onLessonTap,
     this.onActivityTap,
     this.search,
+    this.onOpenPerson,
+    this.scrollController,
   });
 
   bool _showsRoom(CalendarLane lane)
@@ -407,6 +414,7 @@ class CalendarLessonBoard extends StatelessWidget
           search: search,
           child: ScrollEdgeFade(
             child: SingleChildScrollView(
+              controller: scrollController,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -422,6 +430,7 @@ class CalendarLessonBoard extends StatelessWidget
                         bandEnd: bandEnd,
                         room: roomByTeacher[lane.personTaxCode],
                         search: search,
+                        onOpenPerson: onOpenPerson == null ? null : () => onOpenPerson!(lane),
                         child: _buildLane(context, lane, cardWidth, available, dense),
                       ),
                     ),

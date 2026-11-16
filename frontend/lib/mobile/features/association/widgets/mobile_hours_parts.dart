@@ -110,7 +110,7 @@ class MobileHoursChip extends StatelessWidget
       height: tablet ? 30 : 26,
       padding: EdgeInsets.symmetric(horizontal: tablet ? 10 : 9),
       decoration: BoxDecoration(
-        color: online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface,
+        color: online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: online ? AppTheme.trialGold.withValues(alpha: 0.45) : AppTheme.trialTealDeep.withValues(alpha: 0.2),

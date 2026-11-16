@@ -9,6 +9,9 @@ abstract interface class PdfTab
 {
   void present(Uint8List bytes, {required String fileName});
 
+  // A photo instead of a PDF, with the same link to save it.
+  void presentImage(Uint8List bytes, {required String fileName, required String mimeType});
+
   // Several documents in this one tab, a switch on top choosing which shows; no title keeps the tab's.
   void presentTogether(List<PdfTabDocument> documents, {String? title});
 
@@ -17,7 +20,8 @@ abstract interface class PdfTab
   void close();
 }
 
-PdfTab? openPdfTab({required String title}) => openPdfTabImpl(title: title);
+// [waiting] is what the tab says until the document arrives.
+PdfTab? openPdfTab({required String title, String? waiting}) => openPdfTabImpl(title: title, waiting: waiting);
 
 bool downloadPdf(Uint8List bytes, {required String fileName}) =>
     downloadPdfImpl(bytes, fileName: fileName);

@@ -35,12 +35,14 @@ class OpeningWindow
 }
 
 // Null where shut; rows with no hours are closures, and a row belongs to the band its start is in.
+// [from]: only hours not yet begun, as nothing begun may be written (calendar_freeze.has_begun).
 OpeningWindow? openingWindowFor(
   List<OpeningDayItem> openingDays,
   DateTime day,
   String mode,
-  TimeBucket bucket,
-)
+  TimeBucket bucket, {
+  DateTime? from,
+})
 {
   int? start;
   int? end;
@@ -73,7 +75,39 @@ OpeningWindow? openingWindowFor(
     return null;
   }
 
-  return OpeningWindow(startMinutes: start, endMinutes: end);
+  return _notBegun(OpeningWindow(startMinutes: start, endMinutes: end), day, from);
+}
+
+// Nothing on days gone; today from the first quarter hour after [now].
+OpeningWindow? _notBegun(OpeningWindow window, DateTime day, DateTime? now)
+{
+  if (now == null)
+  {
+    return window;
+  }
+
+  final DateTime today = DateTime(now.year, now.month, now.day);
+  final DateTime date = DateTime(day.year, day.month, day.day);
+
+  if (date.isAfter(today))
+  {
+    return window;
+  }
+
+  if (date.isBefore(today))
+  {
+    return null;
+  }
+
+  final int next = ((now.hour * 60 + now.minute) ~/ kQuarterHour + 1) * kQuarterHour;
+  final int start = max(window.startMinutes, next);
+
+  if (window.endMinutes - start < kMinimumBandMinutes)
+  {
+    return null;
+  }
+
+  return OpeningWindow(startMinutes: start, endMinutes: window.endMinutes);
 }
 
 // Intersection across days; null if any day is shut or the openings do not overlap.
@@ -81,15 +115,16 @@ OpeningWindow? sharedOpeningWindow(
   List<OpeningDayItem> openingDays,
   Iterable<DateTime> days,
   String mode,
-  TimeBucket bucket,
-)
+  TimeBucket bucket, {
+  DateTime? from,
+})
 {
   int? start;
   int? end;
 
   for (final day in days)
   {
-    final window = openingWindowFor(openingDays, day, mode, bucket);
+    final window = openingWindowFor(openingDays, day, mode, bucket, from: from);
 
     if (window == null)
     {

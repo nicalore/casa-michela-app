@@ -370,14 +370,14 @@ class _BandButtonState extends State<_BandButton>
       LessonsBandState.empty => Text(_nobodyBooked, maxLines: 1, style: _mutedStyle),
       LessonsBandState.open when entry.toPlan == 0 => null,
       LessonsBandState.open when tight => _CountBadge(count: entry.toPlan),
-      LessonsBandState.open => _StatePill(
+      LessonsBandState.open => BandStatePill(
           label: 'DA PIANIFICARE',
           accent: AppTheme.modifiedAccent,
           surface: AppTheme.trialGoldSurface,
           count: entry.toPlan,
         ),
       LessonsBandState.draft when tight => const Icon(Icons.edit_outlined, size: 18, color: AppTheme.modifiedAccent),
-      LessonsBandState.draft => const _StatePill(
+      LessonsBandState.draft => const BandStatePill(
           label: 'IN BOZZA',
           icon: Icons.edit_outlined,
           accent: AppTheme.modifiedAccent,
@@ -385,7 +385,7 @@ class _BandButtonState extends State<_BandButton>
         ),
       LessonsBandState.published when tight =>
         const Icon(Icons.check_circle_outline_rounded, size: 18, color: AppTheme.trialTealDeep),
-      LessonsBandState.published => const _StatePill(
+      LessonsBandState.published => const BandStatePill(
           label: 'PUBBLICATO',
           icon: Icons.check_circle_outline_rounded,
           accent: AppTheme.trialTealDeep,
@@ -502,7 +502,8 @@ class _CountBadge extends StatelessWidget
   }
 }
 
-class _StatePill extends StatelessWidget
+// A band's state in a small tinted pill, with a count or an icon.
+class BandStatePill extends StatelessWidget
 {
   final String label;
   final IconData? icon;
@@ -510,7 +511,7 @@ class _StatePill extends StatelessWidget
   final Color surface;
   final int? count;
 
-  const _StatePill({required this.label, required this.accent, required this.surface, this.icon, this.count});
+  const BandStatePill({super.key, required this.label, required this.accent, required this.surface, this.icon, this.count});
 
   @override
   Widget build(BuildContext context)

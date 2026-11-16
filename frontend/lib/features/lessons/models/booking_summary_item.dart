@@ -21,6 +21,12 @@ String bookingTitle(BookingSummaryItem booking, List<MinistrySubjectItem> minist
   };
 }
 
+// A discipline booked on its own, outside the pupil's subjects, has no subject: empty.
+String bookingSubject(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects)
+{
+  return booking.kind == BookingRequestKind.associationSubject ? '' : bookingTitle(booking, ministrySubjects);
+}
+
 // The discipline a subject is booked for, even its only one; null when it just repeats the subject's name.
 String? subjectDisciplineName(List<MinistrySubjectItem> subjects, int? ministrySubjectId, Iterable<int> disciplineIds)
 {

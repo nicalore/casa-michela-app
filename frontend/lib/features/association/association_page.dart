@@ -32,6 +32,8 @@ import 'tabs/rooms_tab.dart';
 import 'tabs/schools_tab.dart';
 import 'tabs/services_tab.dart';
 import 'tabs/study_programs_tab.dart';
+import 'tabs/tariffs/tariffs_strings.dart';
+import 'tabs/tariffs/tariffs_tab.dart';
 
 const int _servicesContentIndex = 0;
 const int _associationSubjectsContentIndex = 1;
@@ -40,35 +42,24 @@ const int _studyProgramsContentIndex = 3;
 const int _schoolsContentIndex = 4;
 const int _coursesContentIndex = 5;
 const int _roomsContentIndex = 6;
-
-// Past the notices; a board member's meetings push the hours one further.
-const int _hoursAfterRooms = 2;
-
-const String _meetings = 'Colloqui';
-const String _notices = 'Comunicazioni e avvisi';
-
-const RailGroup _teaching = RailGroup(
-  title: 'Didattica',
-  entries: [
-    'Servizi',
-    'Discipline interne',
-    'Materie ministeriali',
-    'Percorsi di studio',
-    'Scuole',
-  ],
-);
+const int _noticesContentIndex = 7;
+const int _hoursContentIndex = 8;
+const int _tariffsContentIndex = 9;
 
 // Order matches the PageSections below; the constants above index both.
-List<RailGroup> _sectionsFor({required bool onBoard})
-{
-  return [
-    _teaching,
-    RailGroup(
-      entries: ['Corsi', 'Stanze', if (onBoard) _meetings, _notices, 'Orari'],
-      unavailable: {_meetings},
-    ),
-  ];
-}
+const List<RailGroup> _sections = [
+  RailGroup(
+    title: 'Didattica',
+    entries: [
+      'Servizi',
+      'Discipline interne',
+      'Materie ministeriali',
+      'Percorsi di studio',
+      'Scuole',
+    ],
+  ),
+  RailGroup(entries: ['Corsi', 'Stanze', 'Comunicazioni e avvisi', 'Orari', kTariffsSection]),
+];
 
 class AssociationPage extends StatefulWidget
 {
@@ -84,14 +75,6 @@ class _AssociationPageState extends State<AssociationPage>
   final ApiService _apiService = ApiService();
 
   int _selectedSection = _servicesContentIndex;
-
-  late final bool _onBoard = _apiService.lastKnownIdentity?.boardRole != null;
-
-  late final List<RailGroup> _sections = _sectionsFor(onBoard: _onBoard);
-
-  int get _noticesContentIndex => _roomsContentIndex + 1 + (_onBoard ? 1 : 0);
-
-  int get _hoursContentIndex => _roomsContentIndex + _hoursAfterRooms + (_onBoard ? 1 : 0);
 
   // Shared entities; setState here reaches mounted tabs via didUpdateWidget.
   bool _isLoading = true;
@@ -568,8 +551,6 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteRoom,
               )
             : const SizedBox.shrink(),
-        // Not built yet: named on the rail, never opened.
-        if (_onBoard) const SizedBox.shrink(),
         visitedSections.contains(_noticesContentIndex) ? const NoticesTab() : const SizedBox.shrink(),
         visitedSections.contains(_hoursContentIndex)
             ? CombinedHoursView(
@@ -578,6 +559,7 @@ class _AssociationPageState extends State<AssociationPage>
                 role: 'ADMIN',
               )
             : const SizedBox.shrink(),
+        visitedSections.contains(_tariffsContentIndex) ? const TariffsTab() : const SizedBox.shrink(),
       ],
     );
   }

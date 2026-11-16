@@ -24,6 +24,9 @@ class CalendarPublicationItem
 
   final bool hasChanges;
 
+  // The daily summary confirmed its hours: the band no longer changes.
+  final bool hoursConfirmed;
+
   final List<String> warnings;
 
   const CalendarPublicationItem({
@@ -36,6 +39,7 @@ class CalendarPublicationItem
     this.draftOpenedBy,
     this.draftOpener,
     this.hasChanges = false,
+    this.hoursConfirmed = false,
     this.warnings = const [],
   });
 
@@ -55,6 +59,7 @@ class CalendarPublicationItem
           ? null
           : PersonOptionItem.fromJson(opener as Map<String, dynamic>),
       hasChanges: json['has_changes'] as bool? ?? false,
+      hoursConfirmed: json['hours_confirmed'] as bool? ?? false,
       publisher: publisher == null
           ? null
           : PersonOptionItem.fromJson(publisher as Map<String, dynamic>),

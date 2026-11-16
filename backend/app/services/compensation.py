@@ -2,7 +2,7 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date, time, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from typing import Final
 
 from sqlalchemy import select
@@ -27,6 +27,7 @@ from app.services.worked_hours import (
     month_after,
     span_minutes,
     teacher_rows,
+    time_of,
 )
 
 WEEKLY_VOLUNTEER_MINUTES: Final[int] = MINUTES_PER_HOUR
@@ -156,10 +157,12 @@ def monday_of(day: date) -> date:
     return day - timedelta(days=day.weekday())
 
 
+# One band's pay: a fraction of a cent goes up, never against the teacher. Days
+# and months add their bands up, so every figure shown adds up to its total.
 def amount(minutes: int, rate: Decimal) -> Decimal:
-    return (Decimal(minutes) / MINUTES_PER_HOUR * rate).quantize(
+    return (Decimal(minutes) * rate / MINUTES_PER_HOUR).quantize(
         _CENTS,
-        rounding=ROUND_HALF_UP,
+        rounding=ROUND_CEILING,
     )
 
 
@@ -381,16 +384,15 @@ async def set_terms(
     await db.flush()
 
 
-# Each day takes what the running total grew by, so the days add up to the month
-# whatever the rate, and the month is the paid hours times the rate.
+# Each day is paid the sum of its bands; the net is a fifth off the running
+# total, so the days' nets add up to the month's.
 def _priced_days(
     days: Mapping[date, list[Span]],
     volunteer: Mapping[date, list[Span]],
-    rate: Decimal | None,
+    gross_by_day: Mapping[date, Decimal] | None,
     online: Mapping[date, list[Span]],
 ) -> tuple[list[CompensationDay], Decimal | None, Decimal | None]:
     rows: list[CompensationDay] = []
-    paid = 0
     gross_total = _ZERO
     net_total = _ZERO
 
@@ -399,20 +401,18 @@ def _priced_days(
         given = volunteer.get(day, [])
         gross = net = None
 
-        if rate is not None:
-            paid += span_minutes(worked) - span_minutes(given)
-            gross_now = amount(paid, rate)
-            net_now = net_of(gross_now)
-            gross = gross_now - gross_total
+        if gross_by_day is not None:
+            gross = gross_by_day.get(day, _ZERO)
+            gross_total += gross
+            net_now = net_of(gross_total)
             net = net_now - net_total
-            gross_total = gross_now
             net_total = net_now
 
         rows.append(
             CompensationDay(day, worked, given, gross, net, online.get(day, [])),
         )
 
-    if rate is None:
+    if gross_by_day is None:
         return rows, None, None
 
     return rows, gross_total, net_total
@@ -425,8 +425,11 @@ async def worked_bands(
     start: date,
     end: date,
     is_over: Callable[[date, time], bool],
+    confirmed: set[tuple[date, str]] | None = None,
 ) -> list[BandWork]:
-    confirmed = await confirmed_bands(db, start, end)
+    if confirmed is None:
+        confirmed = await confirmed_bands(db, start, end)
+
     calendar = band_work(
         row
         for row in await teacher_rows(db, tax_code, start, end, is_over)
@@ -439,6 +442,45 @@ async def worked_bands(
     )
 
 
+# Pay shows confirmed bands alone. The others still say, from the calendar, which
+# band gave the week's hour, as the monthly summary counts it.
+@dataclass(frozen=True)
+class PaidBands:
+    bands: list[BandWork]
+    confirmed: set[tuple[date, str]]
+    # Last month on the home is read up to today's hour.
+    is_over: Callable[[date, time], bool]
+
+    def _paid(self, work: BandWork) -> bool:
+        if (work.day, work.band) not in self.confirmed:
+            return False
+
+        end = max((last for _, last in work.spans), default=0)
+
+        return self.is_over(work.day, time_of(end))
+
+    @property
+    def shown(self) -> list[BandWork]:
+        return [work for work in self.bands if self._paid(work)]
+
+    @property
+    def keys(self) -> set[tuple[date, str]]:
+        return {(work.day, work.band) for work in self.shown}
+
+
+async def paid_bands(
+    db: AsyncSession,
+    tax_code: str,
+    start: date,
+    end: date,
+    is_over: Callable[[date, time], bool],
+) -> PaidBands:
+    confirmed = await confirmed_bands(db, start, end)
+    bands = await worked_bands(db, tax_code, start, end, is_over, confirmed)
+
+    return PaidBands(bands=bands, confirmed=confirmed, is_over=is_over)
+
+
 async def worked_days(
     db: AsyncSession,
     tax_code: str,
@@ -446,7 +488,9 @@ async def worked_days(
     end: date,
     is_over: Callable[[date, time], bool],
 ) -> dict[date, list[Span]]:
-    return days_of(await worked_bands(db, tax_code, start, end, is_over))
+    paid = await paid_bands(db, tax_code, start, end, is_over)
+
+    return days_of(paid.shown)
 
 
 def _online_by_day(bands: Sequence[BandWork]) -> dict[date, list[Span]]:
@@ -483,7 +527,7 @@ async def months_compensation(
         return []
 
     # A week begun in the month before may have given its hour there.
-    bands = await worked_bands(
+    paid = await paid_bands(
         db,
         tax_code,
         monday_of(min(months)),
@@ -491,7 +535,7 @@ async def months_compensation(
         is_over,
     )
 
-    return _priced_months(bands, months, timeline)
+    return _priced_months(paid, months, timeline)
 
 
 # The month under each rule, were it the teacher's from this month on.
@@ -502,7 +546,7 @@ async def rule_previews(
     is_over: Callable[[date, time], bool],
     timeline: TermsTimeline,
 ) -> dict[VolunteeringRule, CompensationMonth]:
-    bands = await worked_bands(
+    paid = await paid_bands(
         db,
         tax_code,
         monday_of(month),
@@ -512,7 +556,7 @@ async def rule_previews(
 
     return {
         choice: _priced_months(
-            bands,
+            paid,
             [month],
             replace(timeline, month_rules={**timeline.month_rules, month: choice}),
         )[0]
@@ -521,14 +565,17 @@ async def rule_previews(
 
 
 def _priced_months(
-    bands: Sequence[BandWork],
+    bands: PaidBands,
     months: Sequence[date],
     timeline: TermsTimeline,
 ) -> list[CompensationMonth]:
-    days = days_of(bands)
-    online = _online_by_day(bands)
+    priced = bands.shown
+    keys = bands.keys
+    days = days_of(priced)
+    online = _online_by_day(priced)
+    allotted = allot_volunteering(bands.bands, timeline.counts, timeline.rule)
     volunteer = volunteer_by_day(
-        allot_volunteering(bands, timeline.counts, timeline.rule),
+        {key: spans for key, spans in allotted.items() if key in keys},
     )
     paid: list[CompensationMonth] = []
 
@@ -536,10 +583,26 @@ def _priced_months(
         terms = timeline.of_month(month)
         end = month_after(month)
         shown = {day: spans for day, spans in days.items() if month <= day < end}
+        gross_by_day: dict[date, Decimal] | None = None
+
+        if terms.rate is not None:
+            gross_by_day = defaultdict(lambda: _ZERO)
+
+            for work in priced:
+                if not month <= work.day < end:
+                    continue
+
+                key = (work.day, work.band)
+                given = span_minutes(allotted.get(key, [])) if terms.is_paid else 0
+                gross_by_day[work.day] += amount(
+                    span_minutes(work.spans) - given,
+                    terms.rate,
+                )
+
         rows, gross, net = _priced_days(
             shown,
             volunteer if terms.is_paid else {},
-            terms.rate,
+            gross_by_day,
             online,
         )
         paid.append(CompensationMonth(terms=terms, days=rows, gross=gross, net=net))

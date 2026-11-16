@@ -181,7 +181,7 @@ class _PresenceBand extends StatelessWidget
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: lessonSurface(presence.mode),
+        color: lessonBadgeSurface(presence.mode),
         borderRadius: BorderRadius.circular(9),
         border: Border.all(color: accent.withValues(alpha: 0.28)),
       ),

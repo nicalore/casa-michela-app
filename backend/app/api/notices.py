@@ -37,7 +37,13 @@ from app.services.notice_notifications import (
     notice_deleted,
     notice_read,
 )
-from app.services.notice_recipients import recipients_of, unique_addresses
+from app.services.notice_recipients import (
+    COLLABORATOR_ROLES,
+    exclude,
+    not_excluding,
+    notice_reach,
+    unique_addresses,
+)
 from app.services.notices import (
     HOME_LIMIT,
     attachments_of,
@@ -106,7 +112,8 @@ async def count_recipients(
     db: DbSession,
     recipients: Annotated[list[NoticeRoleEnum] | None, Query()] = None,
 ) -> NoticeRecipientsResponse:
-    people = await recipients_of(db, recipients or (), excluding=identity.tax_code)
+    reach = await notice_reach(db, recipients or (), excluding=identity.tax_code)
+    people = reach.reached
 
     return NoticeRecipientsResponse(
         people=len(people),
@@ -116,8 +123,7 @@ async def count_recipients(
 
 def _sent_to(role: NoticeRoleEnum, identity: IdentityContext) -> Select[tuple[Notice]]:
     require_role(role.value)(identity)
-
-    return (
+    statement = (
         select(Notice)
         .options(
             joinedload(Notice.author),
@@ -126,6 +132,11 @@ def _sent_to(role: NoticeRoleEnum, identity: IdentityContext) -> Select[tuple[No
         )
         .where(Notice.recipients.contains([role]))
     )
+
+    if role in COLLABORATOR_ROLES:
+        return statement.where(not_excluding(identity.tax_code))
+
+    return statement
 
 
 # The home of the role worn: pinned first, then the newest, all sent to that role.
@@ -208,19 +219,20 @@ async def _send(
     background: BackgroundTasks,
     notice: Notice,
 ) -> None:
-    people = await recipients_of(
+    reach = await notice_reach(
         db,
         notice.recipients,
         excluding=notice.author_tax_code,
     )
-    notice.recipient_count = len(people)
+    notice.recipient_count = len(reach.reached)
+    await exclude(db, notice.id, reach.excluded)
     told = await announce_notice(db, notice)
     await db.commit()
 
     sent = await load_notice(db, notice.id, with_content=True)
     background.add_task(
         notice_mail.deliver,
-        notice_mail.compose(sent, sent.files, unique_addresses(people)),
+        notice_mail.compose(sent, sent.files, unique_addresses(reach.reached)),
     )
     background.add_task(push.deliver, told)
 

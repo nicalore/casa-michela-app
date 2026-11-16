@@ -1474,7 +1474,7 @@ class _HoursChip extends StatelessWidget
 
     final Color surface = locked
         ? Colors.white
-        : (online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface);
+        : (online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge);
     final Color ink = locked
         ? AppTheme.trialMutedText
         : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);

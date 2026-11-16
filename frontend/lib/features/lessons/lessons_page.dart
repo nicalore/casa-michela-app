@@ -471,10 +471,13 @@ class _LessonsPageState extends State<LessonsPage>
   {
     final removed = slots.map((slot) => slot.id).toSet();
 
+    // Earliest first: a stretch begun is refused before any other goes.
+    final ordered = [...slots]..sort((a, b) => minutesOfTimeOfDay(a.startTime).compareTo(minutesOfTimeOfDay(b.startTime)));
+
     await erase(
       call: () async
       {
-        for (final slot in slots)
+        for (final slot in ordered)
         {
           await _apiService.deleteAvailability(slot.id);
         }
@@ -894,6 +897,19 @@ class _LessonsPageState extends State<LessonsPage>
 
     return lock != null && lock.holderTaxCode != _meTaxCode;
   }
+
+  // Its hours confirmed in the daily summary: nobody changes the band any more.
+  bool get _isShownBandConfirmed
+  {
+    final day = _shownDay;
+    final band = _shownBand;
+
+    return day != null &&
+        band != null &&
+        _publications.any((item) => isSameDate(item.date, day) && item.band == band && item.hoursConfirmed);
+  }
+
+  bool get _isCalendarShut => _isCalendarReadOnly || _isShownBandConfirmed;
 
   bool get _holdsTheShownBand
   {
@@ -1987,6 +2003,7 @@ class _LessonsPageState extends State<LessonsPage>
           selectedDay: _selectedDay,
           openingDays: _openingDays,
           readOnly: readOnly,
+          begunBookingIds: _begunBookingIds,
           onViewSelected: _selectView,
           onCreateLessonRequest: _executeCreateLessonRequest,
           onReplaceLessonRequest: _executeReplaceLessonRequest,
@@ -1996,6 +2013,18 @@ class _LessonsPageState extends State<LessonsPage>
         ),
       ],
     );
+  }
+
+  // Subjects whose lesson has begun: kept whole, as the server holds them.
+  Set<int> get _begunBookingIds
+  {
+    final DateTime now = romeNow();
+
+    return {
+      for (final lesson in _lessons)
+        if (hasBegun(lesson.date, lesson.startTime, now))
+          for (final row in lesson.bookings) row.booking.id,
+    };
   }
 
   // The band's requests, planned or not, each pupil's stretches cut to the band.
@@ -2176,24 +2205,36 @@ class _LessonsPageState extends State<LessonsPage>
       rooms: _rooms,
       publications: _publications,
       lock: _shownLock,
-      isReadOnly: _isCalendarReadOnly,
+      isReadOnly: _isCalendarShut,
       onViewChanged: _onCalendarViewChanged,
       onLoadRoomPlan: _executeLoadRoomPlan,
-      onPublishBand: _isCalendarReadOnly ? null : _executePublishBand,
-      onReopenBand: _isCalendarReadOnly ? null : _executeReopenBand,
-      onCloseDraft: _isCalendarReadOnly ? null : _executeCloseDraft,
-      onDiscardDraft: _isCalendarReadOnly ? null : _executeDiscardDraft,
-      onSaveRoomPlan: _isCalendarReadOnly ? null : _executeSaveRoomPlan,
+      onPublishBand: _isCalendarShut ? null : _executePublishBand,
+      onReopenBand: _isCalendarShut ? null : _executeReopenBand,
+      onCloseDraft: _isCalendarShut ? null : _executeCloseDraft,
+      onDiscardDraft: _isCalendarShut ? null : _executeDiscardDraft,
+      onSaveRoomPlan: _isCalendarShut ? null : _executeSaveRoomPlan,
       excludedTeachers: _excludedTeachers,
-      onExcludeTeacher: _isCalendarReadOnly ? null : _executeExcludeTeacher,
-      onReadmitTeacher: _isCalendarReadOnly ? null : _executeReadmitTeacher,
-      onCreateLesson: _isCalendarReadOnly ? null : _executeCreateLesson,
-      onUpdateLesson: _isCalendarReadOnly ? null : _executeUpdateLesson,
-      onDeleteLesson: _isCalendarReadOnly ? null : _executeDeleteLesson,
-      onSplitLesson: _isCalendarReadOnly ? null : _executeSplitLesson,
-      onCreateActivity: _isCalendarReadOnly ? null : _executeCreateActivity,
-      onUpdateActivity: _isCalendarReadOnly ? null : _executeUpdateActivity,
-      onDeleteActivity: _isCalendarReadOnly ? null : _executeDeleteActivity,
+      onExcludeTeacher: _isCalendarShut ? null : _executeExcludeTeacher,
+      onReadmitTeacher: _isCalendarShut ? null : _executeReadmitTeacher,
+      onOpenPerson: (taxCode) => _openRecord(taxCode, target),
+      onCreateLesson: _isCalendarShut ? null : _executeCreateLesson,
+      onUpdateLesson: _isCalendarShut ? null : _executeUpdateLesson,
+      onDeleteLesson: _isCalendarShut ? null : _executeDeleteLesson,
+      onSplitLesson: _isCalendarShut ? null : _executeSplitLesson,
+      onCreateActivity: _isCalendarShut ? null : _executeCreateActivity,
+      onUpdateActivity: _isCalendarShut ? null : _executeUpdateActivity,
+      onDeleteActivity: _isCalendarShut ? null : _executeDeleteActivity,
+    );
+  }
+
+  // Its way back leads to this calendar, day and band.
+  void _openRecord(String taxCode, LessonsCalendarTarget target)
+  {
+    context.go(
+      Uri(
+        path: '/people/$taxCode',
+        queryParameters: {'from': lessonsCalendarLocation(target.day, target.band)},
+      ).toString(),
     );
   }
 

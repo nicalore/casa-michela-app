@@ -224,7 +224,7 @@ class DashboardStatsSection extends StatelessWidget
           ? const Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
               child: Center(
-                child: CircularProgressIndicator(color: Color.fromARGB(255, 36, 43, 42)),
+                child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
               ),
             )
           : _grid(context),

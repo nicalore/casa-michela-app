@@ -149,6 +149,18 @@ List<DateTime?> monthGridDays(DateTime month)
 // Days read with a leading vowel in Italian (1, 8, 11) take the elided article.
 bool _elides(int day) => day == 1 || day == 8 || day == 11;
 
+// "dal 20 agosto", "dall'1 agosto", inside a sentence.
+String fromDayInSentence(DateTime day) => '${_elides(day.day) ? "dall'" : 'dal '}${formatDayMonthFull(day)}';
+
+// "al 20 agosto", "all'8 agosto".
+String toDayInSentence(DateTime day) => '${_elides(day.day) ? "all'" : 'al '}${formatDayMonthFull(day)}';
+
+// "dal 12", "dall'11": a day of a month already named.
+String fromDayNumberInSentence(int day) => '${_elides(day) ? "dall'" : 'dal '}$day';
+
+// "al 18", "all'11".
+String toDayNumberInSentence(int day) => '${_elides(day) ? "all'" : 'al '}$day';
+
 // "Dal 20 al 22 agosto", "Dall'1 all'8 agosto", collapsing the repeated month.
 String formatDateSpan(DateTime start, DateTime end)
 {

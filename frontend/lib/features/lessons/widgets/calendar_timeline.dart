@@ -9,6 +9,7 @@ import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_text_link.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/whole_words.dart';
@@ -868,6 +869,9 @@ class _LaneHeader extends StatelessWidget
 
   final ValueListenable<CalendarSearch?>? search;
 
+  // The name leads to the record; the face keeps the exclusion.
+  final VoidCallback? onOpenPerson;
+
   const _LaneHeader({
     required this.lane,
     required this.bandStart,
@@ -879,6 +883,7 @@ class _LaneHeader extends StatelessWidget
     this.onToggleExcluded,
     this.showsOnlineOnlyBand = true,
     this.search,
+    this.onOpenPerson,
   });
 
   ({bool preferred, bool avoided}) _standingFor(CalendarDragPayload? payload)
@@ -1030,6 +1035,18 @@ class _LaneHeader extends StatelessWidget
     ];
   }
 
+  Widget _buildName(bool dense)
+  {
+    final TextStyle style = dense ? _denseLaneNameStyle : _laneNameStyle;
+    final String name = lane.person.fullName;
+    final VoidCallback? open = onOpenPerson;
+
+    // Right around the Text: the link's boxes in between would hide the paragraph from them.
+    Widget write(TextStyle style) => WholeWords(child: DescenderRoom(child: Text(name, style: style)));
+
+    return open == null ? write(style) : AppTextLink(text: name, style: style, onTap: open, write: write);
+  }
+
   Widget _buildHeader(({bool preferred, bool avoided}) standing, bool dense)
   {
     final double gap = dense ? _denseHeaderGap : _headerGap;
@@ -1059,14 +1076,7 @@ class _LaneHeader extends StatelessWidget
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              WholeWords(
-                child: DescenderRoom(
-                  child: Text(
-                    lane.person.fullName,
-                    style: dense ? _denseLaneNameStyle : _laneNameStyle,
-                  ),
-                ),
-              ),
+              _buildName(dense),
               const SizedBox(height: 3),
               if (room != null)
                 ..._buildWhere(room!)
@@ -1392,6 +1402,9 @@ class CalendarTimeline extends StatefulWidget
   // What the search finds lights up, the rest steps back.
   final ValueListenable<CalendarSearch?>? search;
 
+  // A row's name leads to that person's record.
+  final void Function(CalendarLane lane)? onOpenPerson;
+
   const CalendarTimeline({
     super.key,
     required this.lanes,
@@ -1429,6 +1442,7 @@ class CalendarTimeline extends StatefulWidget
     this.viewportKey,
     this.captions = const {},
     this.search,
+    this.onOpenPerson,
   });
 
   @override
@@ -2396,6 +2410,13 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     ];
   }
 
+  VoidCallback? _openPerson(CalendarLane lane)
+  {
+    final open = widget.onOpenPerson;
+
+    return open == null ? null : () => open(lane);
+  }
+
   VoidCallback? _toggleExcluded(CalendarLane lane)
   {
     final say = widget.onExcludedChanged;
@@ -2512,6 +2533,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                         onToggleExcluded: _toggleExcluded(lanes[index]),
                         showsOnlineOnlyBand: widget.isComposing,
                         search: widget.search,
+                        onOpenPerson: _openPerson(lanes[index]),
                       ),
                     ),
                   ),

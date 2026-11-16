@@ -63,6 +63,8 @@ class MobileAvailabilityDay
 
   bool get hasSlots => bands.any((band) => band.slots.isNotEmpty);
 
+  bool hasSlotsIn(String mode) => bands.any((band) => band.slots.any((slot) => slot.mode == mode));
+
   bool get isEditable => bands.any((band) => band.isOpen && !band.hasClosed);
 
   bool get canDelete => hasSlots && bands.every((band) => band.slots.isEmpty || band.canDelete);

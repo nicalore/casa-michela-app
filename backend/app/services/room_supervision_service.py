@@ -20,6 +20,7 @@ from app.schemas.room_supervision import (
     RoomSupervisionCreate,
     RoomSupervisionUpdate,
 )
+from app.services.calendar_freeze import assert_not_confirmed, assert_not_started
 from app.services.lesson_guard import assert_bands_claimed
 from app.services.room_occupancy import stretch_at
 
@@ -102,6 +103,11 @@ class RoomSupervisionService:
         start_time: time,
         end_time: time,
     ) -> None:
+        for band in bands_of(start_time, end_time):
+            await assert_not_confirmed(self.session, day, str(band))
+
+        assert_not_started(day, start_time)
+
         await assert_bands_claimed(
             self.session,
             identity,

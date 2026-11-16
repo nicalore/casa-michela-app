@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from app.models.presence import Presence
     from app.models.school_enrollment import SchoolEnrollment
     from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
+    from app.models.student_tariff import StudentTariff
     from app.models.teacher_note import TeacherNote
     from app.models.technical_note import TechnicalNote
 
@@ -38,15 +39,6 @@ class CertificationTypeEnum(StrEnum):
     BES = "BES"
     ADHD = "ADHD"
     OTHER = "OTHER"
-
-
-# One per tickable cell of the enrolment form's rate table; primary school has none.
-class HomeworkTariffEnum(StrEnum):
-    PRIMARY_MONTHLY = "PRIMARY_MONTHLY"
-    MIDDLE_HOURLY = "MIDDLE_HOURLY"
-    MIDDLE_PACKAGE = "MIDDLE_PACKAGE"
-    HIGH_HOURLY = "HIGH_HOURLY"
-    HIGH_PACKAGE = "HIGH_PACKAGE"
 
 
 class Student(UpdatedAtMixin, Base):
@@ -126,12 +118,6 @@ class Student(UpdatedAtMixin, Base):
         nullable=True,
     )
 
-    # Null until the pupil is asked, which the creation wizard does once.
-    homework_tariff: Mapped[HomeworkTariffEnum | None] = mapped_column(
-        SqlEnum(HomeworkTariffEnum, name="homework_tariff_enum"),
-        nullable=True,
-    )
-
     mandatory_psych_meetings_acknowledged: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -147,6 +133,11 @@ class Student(UpdatedAtMixin, Base):
     school_enrollments: Mapped[list[SchoolEnrollment]] = relationship(
         back_populates="student",
         cascade="all, delete-orphan",
+    )
+
+    tariffs: Mapped[list[StudentTariff]] = relationship(
+        cascade="all, delete-orphan",
+        order_by="StudentTariff.starts_on",
     )
 
     early_exit_schedules: Mapped[list[EarlyExitSchedule]] = relationship(

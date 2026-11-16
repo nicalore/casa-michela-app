@@ -189,7 +189,10 @@ class RoleChipsRow extends StatelessWidget
               chips.add(SizedBox(width: spacing));
             }
 
-            chips.add(_buildChip(labels[i], chipStyle));
+            // Kept even without the room for it: it gives way, not the counter.
+            final Widget chip = _buildChip(labels[i], chipStyle);
+
+            chips.add(i == 0 && !scrollable && constraints.hasBoundedWidth ? Flexible(child: chip) : chip);
           }
 
           if (withCounter && hiddenCount > 0)
@@ -255,7 +258,7 @@ class RoleChipsRow extends StatelessWidget
         color: roleChipBackground,
         borderRadius: BorderRadius.circular(borderRadius),
       ),
-      child: Text(label, style: style),
+      child: Text(label, style: style, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis),
     );
 
     if (hiddenRoles == null || hiddenRoles.isEmpty)

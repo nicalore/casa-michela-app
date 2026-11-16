@@ -19,7 +19,7 @@ from app.models.administrator import Administrator
 from app.models.member import Member
 from app.models.person import Person
 from app.models.staff import Staff
-from app.services import reports, started_hours
+from app.services import calendar_freeze, reports, started_hours
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -97,6 +97,17 @@ def audit_log(tmp_path: Path) -> Path:
 def report_mails_unspaced(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(reports, "SPACING_SECONDS", 0)
     monkeypatch.setattr(reports, "BACKOFF_SECONDS", 0)
+
+
+# The calendar never changes what has begun, and tests plan lessons on fixed dates
+# now gone by: its clock stands before them all. Tests of that rule set their own.
+@pytest.fixture(autouse=True)
+def calendar_before_every_lesson(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        calendar_freeze,
+        "now_in_rome",
+        lambda: datetime(2000, 1, 1, tzinfo=ZoneInfo("Europe/Rome")),
+    )
 
 
 # Begun hours cannot change: tests writing hours on fixed dates run before them.

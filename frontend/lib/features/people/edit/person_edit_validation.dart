@@ -1,9 +1,13 @@
+import 'package:flutter/widgets.dart';
+
+import '../../../core/utils/iban.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/text_case.dart';
 import '../models/person_item.dart';
 import '../utils/student_notes_strings.dart' show kHealthDataWithoutConsent;
+import '../widgets/membership_edit_row.dart';
 import '../widgets/person_row_models.dart';
 import 'homework_tariffs.dart';
 import 'person_edit_form.dart';
@@ -81,7 +85,7 @@ void tidyForm(PersonEditForm form)
   form.phoneCtrl.text = formatPhoneNumber(form.phoneCtrl.text);
 
   form.certificateExpirationCtrl.text = form.certificateExpirationCtrl.text.trim();
-  form.ibanCtrl.text = form.ibanCtrl.text.replaceAll(' ', '').toUpperCase();
+  form.ibanCtrl.text = normalizedIban(form.ibanCtrl.text);
   form.otherAdminRoleCtrl.text = openingCapital(form.otherAdminRoleCtrl.text.trim());
   form.studiScolasticiCtrl.text = openingCapital(form.studiScolasticiCtrl.text.trim());
   form.studiUniversitariCtrl.text = openingCapital(form.studiUniversitariCtrl.text.trim());
@@ -102,6 +106,11 @@ void tidyForm(PersonEditForm form)
 PersonEditValidation validatePersonEdit(PersonEditForm form)
 {
   tidyForm(form);
+
+  if (form.reEnrolling)
+  {
+    return _validateReEnrollment(form);
+  }
 
   final _Collector collector = _Collector();
   final List<String> activeRoles = form.activeRoles;
@@ -343,6 +352,10 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       {
         collector.add('enrollmentYear_$i', 'Anno non futuro', PersonEditCardId.memberships);
       }
+      else if ((newestMembershipYear(form.person) ?? 9999) < int.parse(year))
+      {
+        collector.add('enrollmentYear_$i', kNewYearError, PersonEditCardId.memberships);
+      }
       else
       {
         yearValid = true;
@@ -360,35 +373,19 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       {
         collector.add('enrollmentDate_$i', 'Formato gg/mm', PersonEditCardId.memberships);
       }
+      else if (yearValid)
+      {
+        final String? pastPayments = MembershipEditRow.startPastPayments(row.latestStart, date, year);
+
+        if (pastPayments != null)
+        {
+          collector.add('enrollmentDate_$i', pastPayments, PersonEditCardId.memberships);
+        }
+      }
     }
   }
 
-  final bool asksPayment = form.asksPayment;
-
-  if (asksPayment && form.paymentMethodValue == null)
-  {
-    collector.add('modalitaPagamento', 'Obbligatorio', PersonEditCardId.payment);
-  }
-
-  // Primary school pays one flat fee, so only middle and high school choose.
-  if (asksPayment &&
-      isStudent &&
-      kHomeworkTariffs.containsKey(form.currentSchoolLevel) &&
-      form.homeworkTariffValue == null)
-  {
-    collector.add('tariffaAiutoCompiti', 'Obbligatoria', PersonEditCardId.payment);
-  }
-
-  if (asksPayment &&
-      form.paymentMethodValue == 'Altro' &&
-      form.otherPaymentMethodCtrl.text.isEmpty)
-  {
-    collector.add(
-      'altraModalitaPagamento',
-      'Specificare la modalità',
-      PersonEditCardId.payment,
-    );
-  }
+  _checkPayment(form, collector);
 
   if (activeRoles.contains('AMMINISTRATORE'))
   {
@@ -440,64 +437,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       _checkEarlyExit(form, collector);
     }
 
-    if (form.schoolRows.isEmpty)
-    {
-      collector.add(
-        'schoolGeneral',
-        'Aggiungi almeno un anno scolastico',
-        PersonEditCardId.schoolEnrollments,
-      );
-    }
-
-    final Set<int> seenYears = {};
-
-    for (var i = 0; i < form.schoolRows.length; i++)
-    {
-      final row = form.schoolRows[i];
-      final String year = row.yearCtrl.text.trim();
-
-      if (year.isEmpty)
-      {
-        collector.add('schoolYear_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
-      }
-      else if (!RegExp(r'^\d{4}$').hasMatch(year))
-      {
-        collector.add('schoolYear_$i', 'Anno non valido', PersonEditCardId.schoolEnrollments);
-      }
-      else
-      {
-        final int parsed = int.parse(year);
-
-        if (parsed > currentSchoolYearStart())
-        {
-          futureSchoolYear = true;
-          collector.add(
-            'schoolYear_$i',
-            'Anno futuro non permesso',
-            PersonEditCardId.schoolEnrollments,
-          );
-        }
-        else if (!seenYears.add(parsed))
-        {
-          collector.add('schoolYear_$i', 'Duplicato', PersonEditCardId.schoolEnrollments);
-        }
-      }
-
-      if (!row.hasSchool)
-      {
-        collector.add('school_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
-      }
-
-      if (row.program == null)
-      {
-        collector.add('program_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
-      }
-
-      if (row.grade == null)
-      {
-        collector.add('grade_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
-      }
-    }
+    futureSchoolYear = _checkSchoolRows(form, collector);
   }
 
   if (form.isCreation && !onlyParent)
@@ -550,13 +490,12 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
   if (isStaff)
   {
-    if (form.ibanCtrl.text.isNotEmpty &&
-        !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(form.ibanCtrl.text))
+    if (!form.ibanInCompensi && form.ibanCtrl.text.isNotEmpty && !isItalianIban(form.ibanCtrl.text))
     {
-      collector.add('iban', 'Formato IBAN italiano non valido', PersonEditCardId.staff);
+      collector.add('iban', kInvalidIban, PersonEditCardId.staff);
     }
 
-    if (form.collaborationTypeValue == null)
+    if (form.collaborationTypeValue == null && !form.collaborationInCompensi)
     {
       collector.add('tipoCollaborazione', 'Campo obbligatorio', PersonEditCardId.staff);
     }
@@ -564,6 +503,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     final String compensation = form.grossCompensationCtrl.text.trim();
 
     if (form.isPaidCollaboration &&
+        !form.collaborationInCompensi &&
         compensation.isNotEmpty &&
         parseAmountCents(compensation) == null)
     {
@@ -580,7 +520,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     );
   }
 
-  if (form.selectedRoles.contains('DOCENTE') &&
+  if (form.asksSubjects &&
       !form.subjectToggles.values.any((selected) => selected))
   {
     collector.add(
@@ -608,6 +548,145 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
 // No field shows it: the refusal reads only as the snackbar.
 const String _healthWithoutConsent = 'datiSanitariSenzaConsenso';
+
+// True when a year after the one in course was typed.
+bool _checkSchoolRows(PersonEditForm form, _Collector collector)
+{
+  bool future = false;
+
+  if (form.schoolRows.isEmpty)
+  {
+    collector.add(
+      'schoolGeneral',
+      'Aggiungi almeno un anno scolastico',
+      PersonEditCardId.schoolEnrollments,
+    );
+  }
+
+  final Set<int> seenYears = {};
+
+  for (var i = 0; i < form.schoolRows.length; i++)
+  {
+    final row = form.schoolRows[i];
+    final String year = row.yearCtrl.text.trim();
+
+    if (year.isEmpty)
+    {
+      collector.add('schoolYear_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
+    }
+    else if (!RegExp(r'^\d{4}$').hasMatch(year))
+    {
+      collector.add('schoolYear_$i', 'Anno non valido', PersonEditCardId.schoolEnrollments);
+    }
+    else
+    {
+      final int parsed = int.parse(year);
+
+      if (parsed > currentSchoolYearStart())
+      {
+        future = true;
+        collector.add(
+          'schoolYear_$i',
+          'Anno futuro non permesso',
+          PersonEditCardId.schoolEnrollments,
+        );
+      }
+      else if (!seenYears.add(parsed))
+      {
+        collector.add('schoolYear_$i', 'Duplicato', PersonEditCardId.schoolEnrollments);
+      }
+    }
+
+    if (!row.hasSchool)
+    {
+      collector.add('school_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
+    }
+
+    if (row.program == null)
+    {
+      collector.add('program_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
+    }
+
+    if (row.grade == null)
+    {
+      collector.add('grade_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
+    }
+  }
+
+  return future;
+}
+
+void _checkPayment(PersonEditForm form, _Collector collector)
+{
+  final bool asksPayment = form.asksPaymentStep;
+
+  if (asksPayment && form.paymentMethodValue == null)
+  {
+    collector.add('modalitaPagamento', 'Obbligatorio', PersonEditCardId.payment);
+  }
+
+  if (form.asksTariff)
+  {
+    _validateTariff(form, collector);
+  }
+
+  if (form.asksFees)
+  {
+    _validateFee(form.membershipFeeCtrl, 'quotaIscrizione', collector);
+    _validateFee(form.insuranceFeeCtrl, 'quotaAssicurazione', collector);
+  }
+
+  if (asksPayment &&
+      form.paymentMethodValue == 'Altro' &&
+      form.otherPaymentMethodCtrl.text.isEmpty)
+  {
+    collector.add(
+      'altraModalitaPagamento',
+      'Specificare la modalità',
+      PersonEditCardId.payment,
+    );
+  }
+}
+
+// The re-enrollment asks only its own steps: what else is on file is not its business.
+PersonEditValidation _validateReEnrollment(PersonEditForm form)
+{
+  final _Collector collector = _Collector();
+  final String start = form.reEnrollStartCtrl.text.trim();
+
+  if (start.isEmpty)
+  {
+    collector.add('reEnrollStart', 'Campo obbligatorio', PersonEditCardId.reEnrollment);
+  }
+  else if (!PersonEditForm.isValidDayMonthYear(start, form.reEnrollYearCtrl.text))
+  {
+    collector.add('reEnrollStart', 'Data non valida', PersonEditCardId.reEnrollment);
+  }
+
+  bool futureSchoolYear = false;
+
+  if (form.asksSchoolYear)
+  {
+    futureSchoolYear = _checkSchoolRows(form, collector);
+
+    final bool hasCurrent = form.schoolRows.any(
+      (row) => int.tryParse(row.yearCtrl.text.trim()) == currentSchoolYearStart(),
+    );
+
+    if (!hasCurrent && form.schoolRows.isNotEmpty)
+    {
+      collector.add(
+        'schoolGeneral',
+        'Aggiungi l\'anno scolastico in corso',
+        PersonEditCardId.schoolEnrollments,
+      );
+    }
+  }
+
+  _checkPayment(form, collector);
+
+  return _resultOf(collector, futureSchoolYear: futureSchoolYear);
+}
 
 PersonEditValidation _resultOf(
   _Collector collector, {
@@ -837,5 +916,60 @@ void _checkEarlyExit(PersonEditForm form, _Collector collector)
     {
       collector.add('earlyExitReason_$i', 'Campo obbligatorio', PersonEditCardId.earlyExit);
     }
+  }
+}
+
+void _validateFee(TextEditingController controller, String key, _Collector collector)
+{
+  final String amount = controller.text.trim();
+  final int? cents = parseAmountCents(amount);
+
+  if (amount.isEmpty)
+  {
+    collector.add(key, 'Campo obbligatorio', PersonEditCardId.payment);
+  }
+  else if (cents == null || cents == 0)
+  {
+    collector.add(key, 'Importo non valido', PersonEditCardId.payment);
+  }
+}
+
+void _validateTariff(PersonEditForm form, _Collector collector)
+{
+  final String? choice = form.tariffKindValue;
+
+  if (choice == null)
+  {
+    collector.add('tariffaAiutoCompiti', 'Obbligatoria', PersonEditCardId.payment);
+
+    return;
+  }
+
+  final String amount = form.tariffAmountCtrl(choice).text.trim();
+  final int? cents = parseAmountCents(amount);
+
+  if (amount.isEmpty)
+  {
+    collector.add('tariffaCosto', 'Campo obbligatorio', PersonEditCardId.payment);
+  }
+  else if (cents == null || cents == 0)
+  {
+    collector.add('tariffaCosto', 'Importo non valido', PersonEditCardId.payment);
+  }
+
+  if (choice != kPackageTariff)
+  {
+    return;
+  }
+
+  final String hours = form.tariffPackageHoursCtrl.text.trim();
+
+  if (hours.isEmpty)
+  {
+    collector.add('tariffaOre', 'Campo obbligatorio', PersonEditCardId.payment);
+  }
+  else if ((int.tryParse(hours) ?? 0) == 0)
+  {
+    collector.add('tariffaOre', 'Numero non valido', PersonEditCardId.payment);
   }
 }

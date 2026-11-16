@@ -1,16 +1,24 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
+from typing import Final
 
-from sqlalchemy import or_, select
+from sqlalchemy import ColumnElement, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.models.member import Member
-from app.models.notice import NoticeRoleEnum
+from app.models.notice import Notice, NoticeExclusion, NoticeRoleEnum
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import Person
 from app.models.staff import Staff
+from app.services.collaboration import is_collaborating
 from app.services.role_service import RoleService
+
+# Reached as such only by active collaborators.
+COLLABORATOR_ROLES: Final[frozenset[NoticeRoleEnum]] = frozenset(
+    {NoticeRoleEnum.TEACHER, NoticeRoleEnum.STUDENT}
+)
 
 
 # The roles a notice can reach this person by, under the rules of access.
@@ -24,18 +32,33 @@ def notice_roles_of(person: Person) -> frozenset[NoticeRoleEnum]:
     return frozenset(roles)
 
 
-# Everyone holding one of the roles today, each person once.
-async def recipients_of(
-    db: AsyncSession,
-    roles: Iterable[NoticeRoleEnum],
+# The roles held that a notice was sent to; one that left this person out
+# reaches them neither as teacher nor as student.
+def reached_roles(
+    roles: Iterable[str],
+    recipients: Iterable[NoticeRoleEnum],
     *,
-    excluding: str | None = None,
-) -> list[Person]:
-    wanted = frozenset(roles)
+    excluded: bool = False,
+) -> list[str]:
+    sent = {role.value for role in recipients}
 
-    if not wanted:
-        return []
+    if excluded:
+        sent -= {role.value for role in COLLABORATOR_ROLES}
 
+    return sorted(role for role in roles if role in sent)
+
+
+# Teachers and students it reaches as such only while active collaborators.
+def _reaching_roles_of(person: Person) -> frozenset[NoticeRoleEnum]:
+    roles = notice_roles_of(person)
+
+    if is_collaborating(person.member_profile):
+        return roles
+
+    return roles - COLLABORATOR_ROLES
+
+
+async def _candidates(db: AsyncSession) -> list[Person]:
     member = joinedload(Person.member_profile)
     staff = member.joinedload(Member.staff_profile)
     child_member = (
@@ -61,12 +84,117 @@ async def recipients_of(
         .order_by(Person.tax_code)
     )
 
+    return list(people.unique())
+
+
+def _holding(
+    people: Iterable[Person],
+    wanted: frozenset[NoticeRoleEnum],
+    roles_of: Callable[[Person], frozenset[NoticeRoleEnum]],
+    excluding: str | None,
+) -> list[Person]:
     return [
         person
-        for person in people.unique()
-        if person.tax_code != excluding
-        and not wanted.isdisjoint(notice_roles_of(person))
+        for person in people
+        if person.tax_code != excluding and not wanted.isdisjoint(roles_of(person))
     ]
+
+
+# Everyone holding one of the roles today, each person once.
+async def recipients_of(
+    db: AsyncSession,
+    roles: Iterable[NoticeRoleEnum],
+    *,
+    excluding: str | None = None,
+) -> list[Person]:
+    wanted = frozenset(roles)
+
+    if not wanted:
+        return []
+
+    return _holding(await _candidates(db), wanted, notice_roles_of, excluding)
+
+
+@dataclass(frozen=True)
+class NoticeReach:
+    # Each person once, mailed and told in the app.
+    reached: list[Person]
+    # Teachers and students it is sent to as such while not collaborating.
+    excluded: list[str]
+
+
+async def notice_reach(
+    db: AsyncSession,
+    roles: Iterable[NoticeRoleEnum],
+    *,
+    excluding: str | None = None,
+) -> NoticeReach:
+    wanted = frozenset(roles)
+
+    if not wanted:
+        return NoticeReach(reached=[], excluded=[])
+
+    people = await _candidates(db)
+    left_out = wanted & COLLABORATOR_ROLES
+
+    return NoticeReach(
+        reached=_holding(people, wanted, _reaching_roles_of, excluding),
+        excluded=[
+            person.tax_code
+            for person in people
+            if not is_collaborating(person.member_profile)
+            and not left_out.isdisjoint(notice_roles_of(person))
+        ],
+    )
+
+
+# The last sending decides: an edit sets them again.
+async def exclude(db: AsyncSession, notice_id: int, tax_codes: list[str]) -> None:
+    await db.execute(
+        delete(NoticeExclusion).where(NoticeExclusion.notice_id == notice_id)
+    )
+    db.add_all(
+        NoticeExclusion(notice_id=notice_id, tax_code=tax_code)
+        for tax_code in tax_codes
+    )
+    await db.flush()
+
+
+async def excluded_from(db: AsyncSession, notice_id: int) -> frozenset[str]:
+    return frozenset(
+        await db.scalars(
+            select(NoticeExclusion.tax_code).where(
+                NoticeExclusion.notice_id == notice_id
+            )
+        )
+    )
+
+
+# The notices among these that left this person out as teacher or student.
+async def notices_excluding(
+    db: AsyncSession,
+    tax_code: str,
+    notice_ids: Iterable[int],
+) -> frozenset[int]:
+    ids = list(notice_ids)
+
+    if not ids:
+        return frozenset()
+
+    return frozenset(
+        await db.scalars(
+            select(NoticeExclusion.notice_id).where(
+                NoticeExclusion.tax_code == tax_code,
+                NoticeExclusion.notice_id.in_(ids),
+            )
+        )
+    )
+
+
+def not_excluding(tax_code: str) -> ColumnElement[bool]:
+    return Notice.id.not_in(
+        select(NoticeExclusion.notice_id).where(NoticeExclusion.tax_code == tax_code)
+    )
 
 
 # One address per mailbox: relatives often share one, in any capitalisation.

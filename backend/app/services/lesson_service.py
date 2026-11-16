@@ -35,6 +35,7 @@ from app.repositories.calendar_activity_repository import (
 from app.repositories.lesson_repository import LessonRepository, LessonVisibility
 from app.repositories.person_repository import PersonRepository
 from app.schemas.lesson import LessonCreate, LessonUpdate
+from app.services.calendar_freeze import assert_not_started
 from app.services.lesson_guard import (
     assert_band_claimed,
     assert_band_editable,
@@ -792,6 +793,8 @@ class LessonService:
     ) -> tuple[Lesson, list[str]]:
         validated = await self._validate(identity, payload, exclude_id=None)
 
+        assert_not_started(validated.availability.date, payload.start_time)
+
         lesson = Lesson(
             availability=validated.availability,
             mode=validated.mode,
@@ -841,6 +844,10 @@ class LessonService:
 
         validated = await self._validate(identity, payload, exclude_id=lesson.id)
 
+        # Begun, it stays as it went; nor can it be moved back before now.
+        assert_not_started(lesson.date, lesson.start_time)
+        assert_not_started(validated.availability.date, payload.start_time)
+
         left = (lesson.availability.teacher_tax_code, lesson.date, lesson.band)
 
         lesson.availability = validated.availability
@@ -872,6 +879,7 @@ class LessonService:
 
         await assert_band_editable(self.session, lesson.date, lesson.band)
         await assert_band_claimed(self.session, identity, lesson.date, lesson.band)
+        assert_not_started(lesson.date, lesson.start_time)
 
         teacher_tax_code = lesson.availability.teacher_tax_code
         day = lesson.date

@@ -17,7 +17,12 @@ from pydantic import StringConstraints
 from sqlalchemy import and_, delete, exists, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased, joinedload, selectinload
+from sqlalchemy.orm import (
+    InstrumentedAttribute,
+    aliased,
+    joinedload,
+    selectinload,
+)
 from sqlalchemy.sql.base import ExecutableOption
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -42,7 +47,6 @@ from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.course_participant import CourseParticipant
 from app.models.early_exit_schedule import EarlyExitSchedule
-from app.models.lesson_booking import LessonBooking
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership, MembershipRevocationEnum
 from app.models.methodological_note import MethodologicalNote
@@ -81,6 +85,7 @@ from app.schemas.person import (
     OwnEducationData,
     ParentInfoResponse,
     ParentUpdatePayload,
+    PersonMembershipsEdit,
     PersonMembershipsUpdate,
     PersonNotPreferredTeachersUpdate,
     PersonOption,
@@ -92,6 +97,7 @@ from app.schemas.person import (
     RelationshipsUpdate,
     RevokeMembershipPayload,
     SchoolEnrollmentResponse,
+    SchoolEnrollmentUpdateItem,
     StaffUpdateData,
     StudentCertificationsUpdate,
     StudentUpdateData,
@@ -116,10 +122,13 @@ from app.services.enrollment_form import (
     request_for_person,
 )
 from app.services.health_data import erase_health_data
+from app.services.membership_fees import enrolled_year, member_fees
+from app.services.membership_locks import guard_lost_enrollment, year_locks
 from app.services.methodological_notes import followed_student
 from app.services.person_wizard_service import (
     assert_course_exists,
     create_person_from_wizard,
+    level_has_tariffs,
 )
 from app.services.president import president_tax_code
 from app.services.pupil_lock import lock_pupil
@@ -130,8 +139,15 @@ from app.services.reports import (
     record_report,
     send_to_readers,
 )
+from app.services.role_removal import (
+    end_learning,
+    end_staff,
+    end_teaching,
+    kept_roles,
+)
 from app.services.role_service import RoleService
 from app.services.student_notes import is_followed, note_response
+from app.services.student_payments import first_tariffs
 from app.services.teacher_evaluation import ordered_criteria
 from app.services.teacher_evaluation import teacher_rating as teacher_rating_of
 from app.services.teacher_notes import teacher_note_response
@@ -139,6 +155,7 @@ from app.services.teaching_competence import (
     replace_competences,
     replace_services,
 )
+from app.services.write_losses import Losses
 
 router = APIRouter(prefix="/people", tags=["people"])
 
@@ -276,6 +293,7 @@ _EMPTY_SCHOOL_HISTORY_ERROR: Final[str] = (
     "Impossibile salvare lo storico scolastico vuoto. "
     "È necessaria almeno un'iscrizione."
 )
+_NO_TARIFF_ERROR: Final[str] = "Manca la tariffa."
 _DUPLICATE_ENROLLMENT_YEAR_ERROR: Final[str] = (
     "Non è possibile registrare più di un'iscrizione scolastica per lo stesso anno."
 )
@@ -294,11 +312,8 @@ _MAX_PARENTS: Final[int] = 2
 _ADULT_AGE: Final[int] = 18
 
 _NO_STUDENT_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da studente."
-_STUDENT_HAS_LESSONS_ERROR: Final[str] = (
-    "Impossibile rimuovere il profilo studente: ha prenotazioni già abbinate "
-    "a lezioni in calendario."
-)
 _NO_MEMBER_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da associato."
+_NEW_YEAR_ERROR: Final[str] = "Per un anno nuovo usa RINNOVA ISCRIZIONE."
 _NO_TEACHER_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da docente."
 _NO_PARENT_PROFILE_ERROR: Final[str] = (
     "Il soggetto selezionato non ha un profilo genitore."
@@ -435,6 +450,14 @@ def _latest_enrollment(enrollments: list[SchoolEnrollment]) -> SchoolEnrollment 
         return None
 
     return max(enrollments, key=lambda enrollment: enrollment.start_year)
+
+
+# The latest school year says the level a new pupil's tariff is for.
+def _current_program(enrollments: Sequence[SchoolEnrollmentUpdateItem]) -> int | None:
+    if not enrollments:
+        return None
+
+    return max(enrollments, key=lambda row: row.start_year).study_program_id
 
 
 # A teacher who is not also a pupil: the parents are on record for paperwork only.
@@ -652,7 +675,6 @@ def _map_person_to_response(
     certification_other_detail = None
     certification_dsa_detail = None
     mandatory_psych_meetings_acknowledged = None
-    homework_tariff = None
 
     payment_method = None
     payment_method_other = None
@@ -774,7 +796,6 @@ def _map_person_to_response(
             mandatory_psych_meetings_acknowledged = (
                 student.mandatory_psych_meetings_acknowledged
             )
-            homework_tariff = student.homework_tariff
 
             for enrollment in student.school_enrollments:
                 link = enrollment.school_study_program
@@ -923,7 +944,6 @@ def _map_person_to_response(
         certification_other_detail=certification_other_detail,
         certification_dsa_detail=certification_dsa_detail,
         mandatory_psych_meetings_acknowledged=mandatory_psych_meetings_acknowledged,
-        homework_tariff=homework_tariff,
         payment_method=payment_method,
         payment_method_other=payment_method_other,
         statute_acknowledged=statute_acknowledged,
@@ -997,6 +1017,7 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         ),
         own_enrollments.joinedload(SchoolEnrollment.study_program),
         student.selectinload(Student.early_exit_schedules),
+        student.selectinload(Student.tariffs),
         student.selectinload(Student.methodological_notes).joinedload(
             MethodologicalNote.author
         ),
@@ -1256,14 +1277,34 @@ async def _rewrite_memberships(
     db: AsyncSession,
     tax_code: str,
     incoming: Sequence[MembershipUpdateItem],
+    *,
+    losses: Losses,
 ) -> None:
-    revoked_years = set(
+    before = list(
         await db.scalars(
-            select(Membership.year).where(
-                Membership.member_tax_code == tax_code,
-                Membership.revocation != MembershipRevocationEnum.NO,
-            ),
+            select(Membership).where(Membership.member_tax_code == tax_code),
         ),
+    )
+    revoked = [
+        row for row in before if row.revocation != MembershipRevocationEnum.NO
+    ]
+    revoked_years = {row.year for row in revoked}
+    newest = max((row.year for row in before), default=None)
+
+    # A new year comes only through the re-enrollment, which asks fees and tariff.
+    if newest is not None and any(item.year > newest for item in incoming):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=_NEW_YEAR_ERROR,
+        )
+
+    await guard_lost_enrollment(
+        db,
+        tax_code,
+        before,
+        [*revoked, *(item for item in incoming if item.year not in revoked_years)],
+        losses=losses,
+        now=now_in_rome(),
     )
 
     await db.execute(
@@ -1310,6 +1351,7 @@ async def _update_member_data(
     member_data: PersonMembershipsUpdate,
     *,
     keeps_health: bool,
+    losses: Losses,
 ) -> None:
     assert_not_stale(
         member,
@@ -1352,7 +1394,30 @@ async def _update_member_data(
 
     # A revoked person's memberships are frozen.
     if not await _revoked_for_good(db, person.tax_code):
-        await _rewrite_memberships(db, person.tax_code, member_data.memberships)
+        await _rewrite_memberships(
+            db,
+            person.tax_code,
+            member_data.memberships,
+            losses=losses,
+        )
+
+
+async def _owes_first_tariff(
+    db: AsyncSession,
+    tax_code: str,
+    school_enrollments: Sequence[SchoolEnrollmentUpdateItem],
+) -> bool:
+    today = today_in_rome()
+    memberships = (
+        await db.scalars(
+            select(Membership).where(Membership.member_tax_code == tax_code),
+        )
+    ).all()
+
+    if enrolled_year(memberships, today) is None:
+        return False
+
+    return await level_has_tariffs(db, school_enrollments, today)
 
 
 # Certifications are edited on their own route: an edit never touches them.
@@ -1393,18 +1458,33 @@ async def _sync_student_profile(
                 authorized_early_exit=student_data.authorized_early_exit,
                 early_exit_start_date=student_data.early_exit_start_date,
                 early_exit_end_date=student_data.early_exit_end_date,
-                homework_tariff=student_data.homework_tariff,
                 updated_at=datetime.now(UTC),
             )
         )
     else:
+        # A member enrolled this year becoming a pupil takes a tariff, as a new one.
+        if student_data.tariff is None and await _owes_first_tariff(
+            db,
+            person.tax_code,
+            student_data.school_enrollments,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_NO_TARIFF_ERROR,
+            )
+
         db.add(
             Student(
                 tax_code=person.tax_code,
                 authorized_early_exit=student_data.authorized_early_exit,
                 early_exit_start_date=student_data.early_exit_start_date,
                 early_exit_end_date=student_data.early_exit_end_date,
-                homework_tariff=student_data.homework_tariff,
+                tariffs=await first_tariffs(
+                    db,
+                    student_data.tariff,
+                    _current_program(student_data.school_enrollments),
+                    today_in_rome(),
+                ),
             )
         )
         await db.flush()
@@ -1445,25 +1525,14 @@ async def _sync_student_profile(
         )
 
 
-# A booked lesson is DB-protected: the profile cannot go until the calendar lets it.
-async def _assert_student_has_no_lessons(db: AsyncSession, person: Person) -> None:
-    scheduled = await db.scalar(
-        select(func.count())
-        .select_from(LessonBooking)
-        .join(Booking, Booking.id == LessonBooking.booking_id)
-        .join(Presence, Presence.id == Booking.presence_id)
-        .where(Presence.student_tax_code == person.tax_code)
-    )
+async def _delete_student_profile(
+    db: AsyncSession,
+    person: Person,
+    losses: Losses,
+) -> None:
+    if await _holds(db, Student.tax_code, person.tax_code):
+        await end_learning(db, person.tax_code, losses)
 
-    if scheduled:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_STUDENT_HAS_LESSONS_ERROR,
-        )
-
-
-async def _delete_student_profile(db: AsyncSession, person: Person) -> None:
-    await _assert_student_has_no_lessons(db, person)
     await db.execute(
         delete(EarlyExitSchedule).where(
             EarlyExitSchedule.student_tax_code == person.tax_code
@@ -1667,8 +1736,23 @@ async def _replace_teacher_services(
     await replace_services(db, tax_code, unique_names)
 
 
-# History goes with the profile: there is no teacher left to have had it.
-async def _delete_teacher_profile(db: AsyncSession, person: Person) -> None:
+async def _holds(
+    db: AsyncSession,
+    column: InstrumentedAttribute[str],
+    tax_code: str,
+) -> bool:
+    return (await db.scalar(select(column).where(column == tax_code))) is not None
+
+
+# Only without a history (end_teaching): settings go with the profile.
+async def _delete_teacher_profile(
+    db: AsyncSession,
+    person: Person,
+    losses: Losses,
+) -> None:
+    if await _holds(db, Teacher.tax_code, person.tax_code):
+        await end_teaching(db, person.tax_code, losses)
+
     await db.execute(
         delete(TeachingCompetence).where(
             TeachingCompetence.teacher_tax_code == person.tax_code
@@ -1686,6 +1770,7 @@ async def _sync_staff_profiles(
     roles: list[str],
     payload: PersonUpdatePayload,
     staff_data: StaffUpdateData,
+    losses: Losses,
 ) -> None:
     iban = staff_data.iban or None
 
@@ -1748,7 +1833,7 @@ async def _sync_staff_profiles(
     if _ROLE_CODE_TEACHER in roles and payload.teacher_data:
         await _sync_teacher_profile(db, person, payload.teacher_data)
     else:
-        await _delete_teacher_profile(db, person)
+        await _delete_teacher_profile(db, person, losses)
 
     if _ROLE_CODE_PSYCHOLOGIST in roles:
         existing_psychologist = await db.scalar(
@@ -1763,19 +1848,45 @@ async def _sync_staff_profiles(
         )
 
 
-async def _delete_staff_profiles(db: AsyncSession, person: Person) -> None:
+async def _delete_staff_profiles(
+    db: AsyncSession,
+    person: Person,
+    losses: Losses,
+) -> None:
+    if await _holds(db, Staff.tax_code, person.tax_code):
+        if await _holds(db, Teacher.tax_code, person.tax_code):
+            role = "Docente"
+        elif await _holds(db, Administrator.tax_code, person.tax_code):
+            role = "Amministratore"
+        else:
+            role = "Psicologo"
+
+        await _delete_teacher_profile(db, person, losses)
+        await end_staff(db, person.tax_code, role)
+
     await db.execute(
         delete(Administrator).where(Administrator.tax_code == person.tax_code)
     )
-    await _delete_teacher_profile(db, person)
     await db.execute(
         delete(Psychologist).where(Psychologist.tax_code == person.tax_code)
     )
     await db.execute(delete(Staff).where(Staff.tax_code == person.tax_code))
 
 
-async def _delete_all_member_profiles(db: AsyncSession, person: Person) -> None:
-    await _delete_student_profile(db, person)
+async def _delete_all_member_profiles(
+    db: AsyncSession,
+    person: Person,
+    *,
+    losses: Losses,
+) -> None:
+    memberships = list(
+        await db.scalars(
+            select(Membership).where(Membership.member_tax_code == person.tax_code),
+        ),
+    )
+
+    # Roles first: their history blocks before the enrollment's rules delete hours.
+    await _delete_student_profile(db, person, losses)
     await db.execute(
         delete(CourseParticipant).where(CourseParticipant.tax_code == person.tax_code)
     )
@@ -1784,7 +1895,19 @@ async def _delete_all_member_profiles(db: AsyncSession, person: Person) -> None:
             PsychologicalSupport.tax_code == person.tax_code
         )
     )
-    await _delete_staff_profiles(db, person)
+    await _delete_staff_profiles(db, person, losses)
+
+    # Fees go with the member row: the same rules as taking every year away.
+    if memberships:
+        await guard_lost_enrollment(
+            db,
+            person.tax_code,
+            memberships,
+            [],
+            losses=losses,
+            now=now_in_rome(),
+        )
+
     await db.execute(
         delete(Membership).where(Membership.member_tax_code == person.tax_code)
     )
@@ -1842,6 +1965,35 @@ async def get_people(
         _map_person_to_response(person, show_teacher_rating=identity.is_admin)
         for person in people
     ]
+
+
+# For the edit windows: the years and roles a history holds.
+async def _with_edit_locks(
+    db: AsyncSession,
+    person: Person,
+    full: PersonResponse,
+) -> PersonResponse:
+    member = person.member_profile
+
+    if member is None:
+        return full
+
+    kept = await kept_roles(db, person.tax_code)
+    update: dict[str, Any] = {"kept_roles": kept.roles, "keeps_staff": kept.staff}
+
+    if full.memberships:
+        locks = await year_locks(db, person.tax_code, member.memberships, now_in_rome())
+        update["memberships"] = [
+            row.model_copy(
+                update={
+                    "locked": locks[row.year].locked,
+                    "latest_start": locks[row.year].latest_start,
+                }
+            )
+            for row in full.memberships
+        ]
+
+    return full.model_copy(update=update)
 
 
 def _view(full: PersonResponse, fields: frozenset[str]) -> PersonResponse:
@@ -1973,7 +2125,7 @@ async def get_person(
     full = _map_person_to_response(person, show_teacher_rating=identity.is_admin)
 
     if identity.is_admin:
-        return full
+        return await _with_edit_locks(db, person, full)
 
     follows ="PSYCHOLOGIST" in identity.roles and is_followed(person.member_profile)
 
@@ -2003,9 +2155,6 @@ async def get_person(
             "certification_dsa_detail": None,
             "mandatory_psych_meetings_acknowledged": None,
         }
-
-        if RoleService.is_answered_for(person):
-            hidden["homework_tariff"] = None
 
         own = household.model_copy(update=hidden)
 
@@ -2084,6 +2233,9 @@ async def update_person(
             detail=_OWN_ADMIN_ROLE_ERROR,
         )
 
+    losses = Losses(db, confirm=payload.confirm)
+    await losses.open()
+
     await _update_general_data(db, person, payload.general_data)
 
     if _ROLE_CODE_PSYCHOLOGIST in roles and payload.psychological_support_data:
@@ -2156,12 +2308,13 @@ async def update_person(
                 member,
                 payload.member_data,
                 keeps_health=not consented,
+                losses=losses,
             )
 
         if _ROLE_CODE_STUDENT in roles and payload.student_data:
             await _sync_student_profile(db, person, payload.student_data)
         else:
-            await _delete_student_profile(db, person)
+            await _delete_student_profile(db, person, losses)
 
         if _ROLE_CODE_COURSE_PARTICIPANT in roles and payload.course_participant_data:
             await _sync_course_participant(
@@ -2202,11 +2355,12 @@ async def update_person(
                 roles,
                 payload,
                 payload.staff_data,
+                losses,
             )
         else:
-            await _delete_staff_profiles(db, person)
+            await _delete_staff_profiles(db, person, losses)
     else:
-        await _delete_all_member_profiles(db, person)
+        await _delete_all_member_profiles(db, person, losses=losses)
 
     # One no longer a teacher: the reminder to rate them goes.
     batch = (
@@ -2215,6 +2369,7 @@ async def update_person(
         else push.joined([])
     )
 
+    await losses.settle()
     await _commit_person_update(db)
     background.add_task(push.deliver, batch)
 
@@ -2790,10 +2945,20 @@ async def person_enrollment_form(
             detail=_PERSON_NOT_FOUND_ERROR,
         )
 
-    payload = request_for_person(person)
+    payload = request_for_person(person, await member_fees(db, person.tax_code))
+    member = person.member_profile
+    signed_on: date | None = None
+
+    # No longer enrolled: dated as signed at the last enrolment.
+    if (
+        member is not None
+        and member.memberships
+        and not RoleService.is_enrolled(member)
+    ):
+        signed_on = max(member.memberships, key=lambda row: row.year).start_date
 
     try:
-        pdf = await build_enrollment_form(db, payload)
+        pdf = await build_enrollment_form(db, payload, signed_on=signed_on)
 
     except Exception as err:
         raise HTTPException(
@@ -2806,7 +2971,7 @@ async def person_enrollment_form(
         media_type="application/pdf",
         headers={
             "Content-Disposition": inline_disposition(
-                enrollment_form_file_name(payload)
+                enrollment_form_file_name(payload, today=signed_on)
             )
         },
     )
@@ -2872,7 +3037,7 @@ async def upload_profile_image(
 )
 async def update_person_memberships(
     tax_code: str,
-    payload: PersonMembershipsUpdate,
+    payload: PersonMembershipsEdit,
     db: DbSession,
 ) -> dict[str, str]:
     if not payload.memberships:
@@ -2912,10 +3077,19 @@ async def update_person_memberships(
             detail=_MEMBERSHIP_ALREADY_REVOKED_ERROR,
         )
 
+    losses = Losses(db, confirm=payload.confirm)
+    await losses.open()
+
     member.updated_at = datetime.now(UTC)
 
-    await _rewrite_memberships(db, person.tax_code, payload.memberships)
+    await _rewrite_memberships(
+        db,
+        person.tax_code,
+        payload.memberships,
+        losses=losses,
+    )
 
+    await losses.settle()
     await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
 
     return {"message": _MEMBERSHIPS_UPDATED_MESSAGE}

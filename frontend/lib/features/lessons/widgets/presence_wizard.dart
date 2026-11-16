@@ -119,6 +119,9 @@ class PresenceWizardDialog extends StatefulWidget
   final TimeBucket? band;
   final bool onlyFreeBands;
 
+  // Subjects whose lesson has begun: sent back as they are, never edited.
+  final Set<int> begunBookingIds;
+
   final Future<bool> Function(String studentTaxCode, DateTime date, List<Map<String, dynamic>> modes, Function(String) onError) onCreateLessonRequest;
 
   final Future<bool> Function(String studentTaxCode, DateTime date, List<Map<String, dynamic>> modes, Function(String) onError) onReplaceLessonRequest;
@@ -144,6 +147,7 @@ class PresenceWizardDialog extends StatefulWidget
     required this.openingDays,
     this.band,
     this.onlyFreeBands = false,
+    this.begunBookingIds = const {},
     required this.onCreateLessonRequest,
     required this.onReplaceLessonRequest,
   });
@@ -235,7 +239,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     return {
       for (final band in TimeBucket.values)
         if (!_isClosed(day, band) &&
-            openingWindowFor(widget.openingDays, day, mode, band) != null &&
+            openingWindowFor(widget.openingDays, day, mode, band, from: _now) != null &&
             !_seenRows.any((presence) =>
                 presence.studentTaxCode == _selectedStudentTaxCode &&
                 isSameDate(presence.date, day) &&
@@ -347,7 +351,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
       for (final bucket in TimeBucket.values)
       {
-        final window = _isClosed(day, bucket) ? null : openingWindowFor(widget.openingDays, day, mode, bucket);
+        final window = _isClosed(day, bucket) ? null : openingWindowFor(widget.openingDays, day, mode, bucket, from: _now);
 
         parts.add(window == null ? '-' : (taken.contains(bucket) ? 'x' : '${window.startMinutes}-${window.endMinutes}'));
       }
@@ -388,7 +392,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       return null;
     }
 
-    return _sharedWindow(group, mode, bucket);
+    return sharedOpeningWindow(widget.openingDays, group.days, mode, bucket, from: _now);
   }
 
   OpeningWindow? _windowFor(_DayGroup group, String mode, TimeBucket bucket)
@@ -451,7 +455,13 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       return takenByOtherMode(_otherMode(mode));
     }
 
-    return _sharedWindow(group, mode, bucket) == null ? kAssociationShutBand : kBookingsShutBand;
+    if (_sharedWindow(group, mode, bucket) == null)
+    {
+      return kAssociationShutBand;
+    }
+
+    // Past its close for its own family; otherwise only time has closed it.
+    return group.days.any((day) => _isOwn && haveBookingsClosed(day, bucket, _now)) ? kBookingsShutBand : kBandBegun;
   }
 
   List<String> _openModesOn(DateTime day)
@@ -461,7 +471,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         .where((mode) => TimeBucket.values.any((bucket) =>
             !_isClosed(day, bucket) &&
             !_takenOn(day, mode).contains(bucket) &&
-            openingWindowFor(widget.openingDays, day, mode, bucket) != null))
+            openingWindowFor(widget.openingDays, day, mode, bucket, from: _now) != null))
         .toList();
   }
 
@@ -543,7 +553,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       final bool takenAway = TimeBucket.values.any((bucket) =>
           !_isClosed(day, bucket) &&
           _takenOn(day, mode).contains(bucket) &&
-          openingWindowFor(widget.openingDays, day, mode, bucket) != null);
+          openingWindowFor(widget.openingDays, day, mode, bucket, from: _now) != null);
 
       if ((widget.onlyMode == null || widget.onlyMode == mode) && takenAway)
       {
@@ -658,6 +668,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           startTime: presence.startTime,
           endTime: presence.endTime,
           existing: presence,
+          locked: hasBegun(existing.date, presence.startTime, _now),
         );
 
         if (frozen)
@@ -1110,7 +1121,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   bool get _isUntouched
   {
-    if (!_isOwn || !_isEditing || !_hasAnyFrozen)
+    if (!_isEditing || !_hasAnyFrozen)
     {
       return false;
     }
@@ -1615,6 +1626,13 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   void _editRequest(_DayGroup group, String mode, TimeBucket band, SubjectRequestDraft request)
   {
+    if (widget.begunBookingIds.contains(request.existing?.id))
+    {
+      CustomSnackBar.show(context: context, message: kSubjectLessonBegun, isError: true);
+
+      return;
+    }
+
     _openRequestWizard(
       group,
       mode,
@@ -2004,6 +2022,19 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     _notesControllers.remove(request)?.dispose();
   }
 
+  // Stored hours all over: the band's subjects go back as they are (lesson_request_service.over).
+  bool _isOver(_DayGroup group, String mode, TimeBucket band)
+  {
+    final rows = _seenRows.where((presence) =>
+        _isEditing &&
+        presence.studentTaxCode == _selectedStudentTaxCode &&
+        presence.mode == mode &&
+        bucketFor(presence.startTime) == band &&
+        group.days.any((day) => isSameDate(day, presence.date)));
+
+    return rows.isNotEmpty && rows.every((presence) => hasBegun(presence.date, presence.endTime, _now));
+  }
+
   List<_Card> get _cards
   {
     final List<_Card> asked = [
@@ -2014,7 +2045,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
             if (!widget.openOnSubjects) (step: _Step.hours, group: group, mode: mode, band: null),
             if (!widget.hoursOnly)
               for (final band in _answersOf(group).hours[mode]!.bands)
-                (step: _Step.subjects, group: group, mode: mode, band: band),
+                if (!_isOver(group, mode, band)) (step: _Step.subjects, group: group, mode: mode, band: band),
           ],
       ],
     ];

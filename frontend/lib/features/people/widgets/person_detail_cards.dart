@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/week_range.dart';
-import '../edit/homework_tariffs.dart';
 import '../models/early_exit_schedule_item.dart';
 import '../models/person_item.dart';
 import 'person_detail_widgets.dart';
@@ -255,15 +254,14 @@ List<PersonDetailCard> personalDetailCards(PersonItem person)
   ];
 }
 
-// Null for a parent who did not join; shown even once the membership lapsed.
+// Null for a parent who did not join, and for a pupil, whose «Pagamenti» tab says it;
+// shown even once the membership lapsed.
 PersonDetailCard? paymentsCard(PersonItem person)
 {
-  if (!_wasEverAskedToPay(person))
+  if (!_wasEverAskedToPay(person) || _upperCaseRoles(person).contains('STUDENTE'))
   {
     return null;
   }
-
-  final String? tariff = homeworkTariffLabel(person.homeworkTariff);
 
   return PersonDetailCard(
     title: 'Pagamenti',
@@ -271,8 +269,6 @@ PersonDetailCard? paymentsCard(PersonItem person)
     labelWidth: kPersonWideCardLabelWidth,
     rows: [
       DetailRowData('Modalità', _paymentMethodText(person)),
-      if (_upperCaseRoles(person).contains('STUDENTE'))
-        DetailRowData('Tariffa', tariff ?? missingValue),
     ],
   );
 }
@@ -331,17 +327,21 @@ PersonDetailCard teacherDetailsCard(PersonItem person, {bool forOwner = false})
 }
 
 // [withCertifications]: false for the administrators, who have them in «Osservazioni».
+// [inCompensi]: true where the Compensi tab, which a psychologist alone has not, says the collaboration.
+// [withPayments]: false for the administrators, who have the way of paying in «Pagamenti».
 List<PersonDetailCard> roleDetailCards(
   PersonItem person, {
   bool includeTeacherDetails = true,
   bool forOwner = false,
   bool withCertifications = true,
+  bool inCompensi = false,
+  bool withPayments = true,
 })
 {
   final roles = _upperCaseRoles(person);
   final cards = <PersonDetailCard>[];
 
-  if (paymentsCard(person) case final PersonDetailCard payments)
+  if (paymentsCard(person) case final PersonDetailCard payments when withPayments)
   {
     cards.add(payments);
   }
@@ -350,7 +350,7 @@ List<PersonDetailCard> roleDetailCards(
       roles.contains('DOCENTE') ||
       roles.contains('PSICOLOGO');
 
-  if (isStaff)
+  if (isStaff && !(inCompensi && (roles.contains('AMMINISTRATORE') || roles.contains('DOCENTE'))))
   {
     cards.add(collaborationCard(person));
   }

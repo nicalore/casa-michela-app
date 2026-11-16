@@ -110,10 +110,14 @@ class CalendarRequestDetails extends StatelessWidget
       for (final code in booking.preferredTeacherTaxCodes) ?teacherNames[code],
     ].join(', ');
 
-    final String subject = booking.serviceName ?? ministrySubjectName(ministrySubjects, booking.ministrySubjectId);
-    final String? discipline = booking.serviceName == null
-        ? subjectDisciplineName(ministrySubjects, booking.ministrySubjectId, booking.associationSubjects.map((option) => option.id))
-        : null;
+    final String? lone = booking.kind == BookingRequestKind.associationSubject ? booking.associationSubject?.name : null;
+    final String subject = lone != null
+        ? _empty
+        : booking.serviceName ?? ministrySubjectName(ministrySubjects, booking.ministrySubjectId);
+    final String? discipline = lone ??
+        (booking.serviceName == null
+            ? subjectDisciplineName(ministrySubjects, booking.ministrySubjectId, booking.associationSubjects.map((option) => option.id))
+            : null);
 
     return Container(
       width: _width,
@@ -148,7 +152,7 @@ class CalendarRequestDetails extends StatelessWidget
               ),
             ),
             const SizedBox(height: 14),
-            // As the day page: the subject said apart when a discipline is named.
+            // As the day page: the subject said apart when a discipline is named, a dash when there is none.
             if (discipline != null) ...[
               _buildVoice('Materia', subject),
               const SizedBox(height: 14),

@@ -18,6 +18,7 @@ from app.repositories.room_supervision_repository import RoomSupervisionReposito
 from app.repositories.teacher_room_assignment_repository import (
     TeacherRoomAssignmentRepository,
 )
+from app.services.calendar_freeze import assert_untouched
 from app.services.calendar_snapshot import snapshot_of
 
 
@@ -75,6 +76,8 @@ async def unassign(
     if not activities:
         return 0
 
+    await assert_untouched(session, activities)
+
     bands = {(activity.date, activity.band) for activity in activities}
     pictures = await _settled_pictures(session, bands)
 
@@ -93,6 +96,8 @@ async def unassign(
 async def unschedule(session: AsyncSession, lessons: Sequence[Lesson]) -> int:
     if not lessons:
         return 0
+
+    await assert_untouched(session, lessons)
 
     # Snapshot before the lessons go: the reopened draft is compared against it.
     bands = {(lesson.date, lesson.band) for lesson in lessons}

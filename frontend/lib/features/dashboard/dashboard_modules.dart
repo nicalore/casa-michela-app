@@ -35,6 +35,7 @@ const List<DashboardModule> dashboardModules = [
     title: 'Contabilità',
     subtitle: 'Monitora pagamenti e ore lavorate',
     icon: Icons.account_balance_wallet_outlined,
+    route: '/accounting',
   ),
   DashboardModule(
     title: 'Associazione',

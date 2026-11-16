@@ -2,7 +2,7 @@
 
 const int _centsPerUnit = 100;
 
-// Accepts '1200', '1200,50', '1200.50', '1.200,50'; null when not an amount, empty text included.
+// Accepts '1200', '1200,50', '1200.50', '1.200', '1.200,50'; null when not an amount, empty text included.
 int? parseAmountCents(String text)
 {
   final String cleaned = text.trim().replaceAll(' ', '').replaceAll('€', '');
@@ -20,10 +20,10 @@ int? parseAmountCents(String text)
     return null;
   }
 
-  // The last separator is the decimal one; anything before it groups thousands.
+  // Grouped figures keep their dots for thousands: only a comma is their decimal mark.
   final int comma = cleaned.lastIndexOf(',');
   final int dot = cleaned.lastIndexOf('.');
-  final int decimal = comma > dot ? comma : dot;
+  final int decimal = grouped || comma > dot ? comma : dot;
 
   final String units =
       (decimal < 0 ? cleaned : cleaned.substring(0, decimal)).replaceAll(RegExp(r'[.,]'), '');
@@ -33,6 +33,9 @@ int? parseAmountCents(String text)
 }
 
 int netOfCents(int gross) => (gross * 4 / 5).round();
+
+// The withholding tax: what the gross loses to become the net.
+int? withholdingOf(int? gross, int? net) => gross == null || net == null ? null : gross - net;
 
 String formatAmount(int cents)
 {
@@ -53,6 +56,9 @@ String formatAmount(int cents)
 
   return '€ $grouped,$fraction';
 }
+
+// "−€ 139,00" below zero, as a balance can be.
+String formatSignedAmount(int cents) => cents < 0 ? '\u2212${formatAmount(-cents)}' : formatAmount(cents);
 
 String? formatAmountText(String? raw)
 {

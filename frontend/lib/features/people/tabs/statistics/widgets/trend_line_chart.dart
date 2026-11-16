@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui' show ClipOp;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
@@ -33,8 +32,8 @@ const double _labelGap = 8;
 const double _barWidthRatio = 0.6;
 const double _barRadius = 8;
 
-// The highlight rises inside the bar: a lerp between two hues passes through a dull mix.
-const Duration _hoverFill = Duration(milliseconds: 200);
+// The hovered month lights up behind its bar, as in the accounting charts.
+const double _hoverColumnAlpha = 0.06;
 
 TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(
       color: AppTheme.trialMutedText,
@@ -111,16 +110,9 @@ class TrendLineChart extends StatefulWidget
   State<TrendLineChart> createState() => _TrendLineChartState();
 }
 
-class _TrendLineChartState extends State<TrendLineChart> with SingleTickerProviderStateMixin
+class _TrendLineChartState extends State<TrendLineChart>
 {
   static const double _hoverRadius = 16.0;
-
-  final ChartFillLevels _fills = ChartFillLevels();
-
-  // Runs only while some bar is still filling or draining.
-  late final Ticker _ticker;
-
-  Duration _lastTick = Duration.zero;
 
   int? _hoveredIndex;
   Offset? _popupTargetPosition;
@@ -129,45 +121,6 @@ class _TrendLineChartState extends State<TrendLineChart> with SingleTickerProvid
   double get _left => widget.leftPadding ?? _chartPaddingLeft;
 
   int get _maxValue => widget.scale.top(widget.data.map((item) => item.totalMembers).reduce(math.max));
-
-  @override
-  void initState()
-  {
-    super.initState();
-    _ticker = createTicker(_tick);
-    _fills.reset(widget.data.length);
-  }
-
-  @override
-  void didUpdateWidget(covariant TrendLineChart oldWidget)
-  {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.data.length != widget.data.length)
-    {
-      _fills.reset(widget.data.length);
-    }
-  }
-
-  @override
-  void dispose()
-  {
-    _ticker.dispose();
-    _fills.dispose();
-    super.dispose();
-  }
-
-  void _tick(Duration elapsed)
-  {
-    final step = (elapsed - _lastTick).inMicroseconds / _hoverFill.inMicroseconds;
-
-    _lastTick = elapsed;
-
-    if (_fills.advance(_hoveredIndex, step))
-    {
-      _ticker.stop();
-    }
-  }
 
   _Columns _columnsOf(BoxConstraints constraints)
   {
@@ -237,12 +190,6 @@ class _TrendLineChartState extends State<TrendLineChart> with SingleTickerProvid
         _cachedMembersValue = widget.data[foundIndex].totalMembers;
       }
     });
-
-    if (widget.bars && !_ticker.isActive)
-    {
-      _lastTick = Duration.zero;
-      _ticker.start();
-    }
   }
 
   @override
@@ -276,7 +223,7 @@ class _TrendLineChartState extends State<TrendLineChart> with SingleTickerProvid
                       left: _left,
                       scale: widget.scale,
                       bars: widget.bars,
-                      fills: _fills,
+                      hovered: widget.bars ? _hoveredIndex : null,
                     ),
                   ),
                 ),
@@ -304,7 +251,9 @@ class _TrendLineChartPainter extends CustomPainter
   final double left;
   final TrendScale scale;
   final bool bars;
-  final ChartFillLevels fills;
+
+  // The bar month under the pointer.
+  final int? hovered;
 
   _TrendLineChartPainter({
     required this.data,
@@ -314,8 +263,8 @@ class _TrendLineChartPainter extends CustomPainter
     required this.left,
     required this.scale,
     required this.bars,
-    required this.fills,
-  }) : super(repaint: fills);
+    required this.hovered,
+  });
 
   String _labelFor(MemberTrendItem item)
   {
@@ -474,6 +423,21 @@ class _TrendLineChartPainter extends CustomPainter
           ),
     ];
 
+    final int? lit = hovered;
+
+    if (lit != null && lit < data.length)
+    {
+      final double x = columns.xOf(lit.toDouble());
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(x - columns.step / 2, 0, x + columns.step / 2, chartHeight),
+          const Radius.circular(_barRadius),
+        ),
+        Paint()..color = AppTheme.chartOcean.withValues(alpha: _hoverColumnAlpha),
+      );
+    }
+
     canvas.save();
     canvas.clipRect(bandRect, clipOp: ClipOp.difference);
 
@@ -492,26 +456,6 @@ class _TrendLineChartPainter extends CustomPainter
     }
 
     canvas.restore();
-
-    for (final (index, bar) in shown)
-    {
-      final double highlight = fills.eased(index);
-
-      if (highlight <= 0)
-      {
-        continue;
-      }
-
-      final Rect rect = bar.outerRect;
-
-      canvas.save();
-      canvas.clipRRect(bar);
-      canvas.drawRect(
-        Rect.fromLTRB(rect.left, rect.bottom - rect.height * highlight, rect.right, rect.bottom),
-        Paint()..color = band.covers(index) ? AppTheme.chartLilac : AppTheme.chartGray,
-      );
-      canvas.restore();
-    }
   }
 
   @override
@@ -617,6 +561,7 @@ class _TrendLineChartPainter extends CustomPainter
         oldDelegate.maxValue != maxValue ||
         oldDelegate.left != left ||
         oldDelegate.bars != bars ||
+        oldDelegate.hovered != hovered ||
         oldDelegate.scale != scale;
   }
 }

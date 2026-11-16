@@ -11,10 +11,15 @@ enum PersonEditPurpose
   createParent,
 
   createMinor,
+
+  // The year in course for someone on file: start, school year, payments.
+  reEnroll,
 }
 
 enum PersonEditStepId
 {
+  reEnrollment,
+  schoolYear,
   type,
   roles,
   association,
@@ -28,6 +33,7 @@ enum PersonEditStepId
 
 enum PersonEditCardId
 {
+  reEnrollment,
   involvement,
   roleChoice,
   associationChoice,
@@ -127,7 +133,7 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
       roles.contains('DOCENTE') ||
       roles.contains('PSICOLOGO');
 
-  if (isStaff)
+  if (isStaff && !form.collaborationInCompensi)
   {
     cards.add(const PersonEditCard(PersonEditCardId.staff, label: 'Collaborazione'));
   }
@@ -173,11 +179,42 @@ PersonEditStep _personalInfoStep(PersonEditForm form, {required bool revoked})
   );
 }
 
+// Drafts, not his: the questions of the re-enrollment steps.
+List<PersonEditStep> _reEnrollmentSteps(PersonEditForm form)
+{
+  return [
+    PersonEditStep(
+      id: PersonEditStepId.reEnrollment,
+      question: 'Da quando vale la nuova iscrizione?',
+      hint: 'È l\'iscrizione del ${form.reEnrollYearCtrl.text}: indica il giorno da cui parte.',
+      cards: const [PersonEditCard(PersonEditCardId.reEnrollment)],
+    ),
+    if (form.asksSchoolYear)
+      const PersonEditStep(
+        id: PersonEditStepId.schoolYear,
+        question: 'Che classe frequenta quest\'anno?',
+        hint: 'Aggiungi l\'anno scolastico in corso: la tariffa dipende dal livello.',
+        cards: [PersonEditCard(PersonEditCardId.schoolEnrollments)],
+      ),
+    PersonEditStep(
+      id: PersonEditStepId.payment,
+      question: 'Come avvengono i pagamenti?',
+      hint: _paymentHint(form),
+      cards: const [PersonEditCard(PersonEditCardId.payment)],
+    ),
+  ];
+}
+
 List<PersonEditStep> buildEditSteps(
   PersonEditForm form, {
   PersonEditPurpose purpose = PersonEditPurpose.edit,
 })
 {
+  if (purpose == PersonEditPurpose.reEnroll)
+  {
+    return _reEnrollmentSteps(form);
+  }
+
   // No longer a member: only the personal details remain editable.
   if (form.isPersonalDataOnly)
   {
@@ -234,14 +271,13 @@ List<PersonEditStep> buildEditSteps(
   }
 
   // Must follow the associative step: a pupil's rate depends on the school year filled in just before.
-  if (form.asksPayment)
+  if (form.showsPaymentStep)
   {
-    steps.add(const PersonEditStep(
+    steps.add(PersonEditStep(
       id: PersonEditStepId.payment,
       question: 'Come avvengono i pagamenti?',
-      hint: 'Seleziona la modalità di pagamento preferita e, per gli studenti, '
-            'la tariffa scelta per il servizio di aiuto compiti.',
-      cards: [PersonEditCard(PersonEditCardId.payment)],
+      hint: _paymentHint(form),
+      cards: const [PersonEditCard(PersonEditCardId.payment)],
     ));
   }
 
@@ -268,7 +304,7 @@ List<PersonEditStep> buildEditSteps(
     ));
   }
 
-  if (form.selectedRoles.contains('DOCENTE'))
+  if (form.asksSubjects)
   {
     steps.add(const PersonEditStep(
       id: PersonEditStepId.subjects,
@@ -281,6 +317,29 @@ List<PersonEditStep> buildEditSteps(
   }
 
   return steps;
+}
+
+// Says only what the card asks: fees only of whoever is enrolled this year.
+String _paymentHint(PersonEditForm form)
+{
+  // A member on file becoming a pupil: the method is already in the «Pagamenti» tab.
+  if (!form.asksPaymentStep)
+  {
+    return 'Seleziona la tariffa scelta per il servizio di aiuto compiti.';
+  }
+
+  if (form.asksFees)
+  {
+    return form.asksTariff
+        ? 'Seleziona la modalità di pagamento preferita e, per gli studenti, la tariffa scelta per il '
+          'servizio di aiuto compiti, l’iscrizione e l’assicurazione.'
+        : 'Seleziona la modalità di pagamento preferita, l’iscrizione e l’assicurazione.';
+  }
+
+  return form.asksTariff
+      ? 'Seleziona la modalità di pagamento preferita e, per gli studenti, '
+        'la tariffa scelta per il servizio di aiuto compiti.'
+      : 'Seleziona la modalità di pagamento preferita.';
 }
 
 // Field steps answer true: they are validated when the forward arrow is pressed.

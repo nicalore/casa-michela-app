@@ -18,6 +18,12 @@ from app.models.presence import Presence
 from app.models.student import Student
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.presence import PresenceCreate, PresenceUpdate
+from app.services.calendar_freeze import (
+    assert_hours_not_begun,
+    assert_only_ahead_moves,
+    has_begun,
+    refuse_begun_hours,
+)
 from app.services.collaboration import assert_admin_may_name, settle_collaboration
 from app.services.lesson_guard import (
     find_presence_lessons,
@@ -334,6 +340,7 @@ class PresenceService:
             payload.start_time,
             payload.end_time,
         )
+        assert_hours_not_begun(payload.date, payload.start_time)
 
         booker_tax_code = self.resolve_booker(
             identity,
@@ -447,6 +454,16 @@ class PresenceService:
             payload.end_time,
         )
 
+        if has_begun(presence.date, presence.start_time) and (
+            payload.mode.value != presence.mode
+        ):
+            raise refuse_begun_hours()
+
+        assert_only_ahead_moves(
+            (presence.date, presence.start_time, presence.end_time),
+            (payload.date, payload.start_time, payload.end_time),
+        )
+
         if payload.date != presence.date:
             assert_within_booking_window(payload.date)
 
@@ -487,6 +504,7 @@ class PresenceService:
             presence.start_time,
             presence.end_time,
         )
+        assert_hours_not_begun(presence.date, presence.start_time)
 
         # Subjects move to a band sibling; they go only with the band's last stretch.
         sibling = await self._band_sibling(presence)
