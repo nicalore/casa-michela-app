@@ -40,6 +40,7 @@ import '../features/people/models/city_distribution_item.dart';
 import '../features/people/models/booking_history_items.dart';
 import '../features/people/models/compensation_items.dart';
 import '../features/accounting/models/accounting_stats_items.dart';
+import '../features/accounting/models/opening_items.dart';
 import '../features/accounting/models/student_hours_items.dart';
 import '../features/accounting/models/payments_month_items.dart';
 import '../features/accounting/models/student_month_items.dart';
@@ -2774,6 +2775,41 @@ class ApiService
     final response = await _dio.get('/accounting/to-settle/');
 
     return ToSettle.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<AccountingOpening> getAccountingOpening() async
+  {
+    final response = await _dio.get('/accounting/opening/');
+
+    return AccountingOpening.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<OpeningPupil> getOpeningPupil(String taxCode) async
+  {
+    final response = await _dio.get('/accounting/opening/pupils/$taxCode');
+
+    return OpeningPupil.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<OpeningTeacher> confirmOpeningTeacher(String taxCode, Map<String, dynamic> data) async
+  {
+    final response = await _dio.put('/accounting/opening/teachers/$taxCode', data: data);
+
+    return OpeningTeacher.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<OpeningPupil> confirmOpeningPupil(String taxCode, Map<String, dynamic> data) async
+  {
+    final response = await _dio.put('/accounting/opening/pupils/$taxCode', data: data);
+
+    return OpeningPupil.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<AccountingOpening> closeAccountingOpening() async
+  {
+    final response = await _dio.post('/accounting/opening/close');
+
+    return AccountingOpening.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<StudentMonth> getStudentsMonth(DateTime month) async

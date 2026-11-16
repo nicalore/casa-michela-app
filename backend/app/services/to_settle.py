@@ -25,7 +25,8 @@ _FEE_KINDS: Final[dict[MembershipFeeKindEnum, str]] = {
 @dataclass(frozen=True)
 class OwedItem:
     kind: str
-    cents: int
+    # None while the pupil's initial set-up is still to do.
+    cents: int | None
     minutes: int | None = None
     year: int | None = None
 
@@ -40,10 +41,11 @@ class Debtor:
     roles: tuple[str, ...] = ()
     since: date = date.max
     items: list[OwedItem] = field(default_factory=list)
+    opening_pending: bool = False
 
     @property
     def total_cents(self) -> int:
-        return sum(item.cents for item in self.items)
+        return sum(item.cents or 0 for item in self.items)
 
 
 async def debtors(db: AsyncSession, now: datetime) -> list[Debtor]:
@@ -67,7 +69,14 @@ async def debtors(db: AsyncSession, now: datetime) -> list[Debtor]:
                 continue
 
             owing = debtor(tax_code)
-            owing.items.append(OwedItem(line.kind, line.cents, minutes=line.minutes))
+            owing.opening_pending = book.pending
+            owing.items.append(
+                OwedItem(
+                    line.kind,
+                    None if book.pending else line.cents,
+                    minutes=line.minutes,
+                ),
+            )
             owing.since = min(owing.since, *(part.day for part in line.parts))
 
     fees = await db.scalars(

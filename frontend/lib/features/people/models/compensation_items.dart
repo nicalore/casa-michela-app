@@ -92,6 +92,16 @@ class CompensationMonth
   // The month under each rule, were it the teacher's from here: null unless paid.
   final Map<VolunteeringRule, RuleFigures>? volunteeringPreviews;
 
+  // The first day the app works pay out; the initial set-up says the pay before it.
+  final DateTime? moneyFrom;
+
+  // That pay, when it falls in this month: inside gross and net.
+  final int? openingGross;
+  final int? openingNet;
+
+  // The month's set-up is still to do: no money yet.
+  final bool openingPending;
+
   const CompensationMonth({
     required this.collaborationType,
     required this.grossRate,
@@ -107,9 +117,16 @@ class CompensationMonth
     this.volunteeringMonthOnly = false,
     this.volunteeringReplaced = const [],
     this.volunteeringPreviews,
+    this.moneyFrom,
+    this.openingGross,
+    this.openingNet,
+    this.openingPending = false,
   });
 
   bool get isPaid => collaborationType == 'PAID';
+
+  // The day the initial set-up describes.
+  DateTime? get openingDay => moneyFrom?.subtract(const Duration(days: 1));
 
   factory CompensationMonth.fromJson(Map<String, dynamic> json)
   {
@@ -133,6 +150,10 @@ class CompensationMonth
         for (final month in json['volunteering_replaced'] as List<dynamic>) DateTime.parse(month as String),
       ],
       volunteeringPreviews: ruleFiguresOf(json['volunteering_previews']),
+      moneyFrom: json['money_from'] == null ? null : DateTime.parse(json['money_from'] as String),
+      openingGross: _cents(json['opening_gross']),
+      openingNet: _cents(json['opening_net']),
+      openingPending: json['opening_pending'] as bool? ?? false,
     );
   }
 }

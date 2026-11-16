@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.accounting_opening import TeacherOpening
 from app.models.confirmed_hours import ConfirmedBand, ConfirmedHours
 from app.models.membership_fee import MembershipFee
 from app.models.staff import CollaborationTypeEnum
@@ -19,6 +20,7 @@ from app.models.student_payment import (
     StudentPaymentKindEnum,
 )
 from app.services.compensation import load_terms, months_compensation
+from app.services.opening_state import money_from
 from app.services.worked_hours import minutes_of, month_after
 
 # How the money came in, as the statistics group it; FEES: the annual membership
@@ -217,12 +219,19 @@ async def accounting_stats(
     for day, begin, finish in hours.tuples():
         figures_of(day).pupil_minutes += minutes_of(finish) - minutes_of(begin)
 
-    teachers = await db.scalars(
-        select(distinct(ConfirmedHours.teacher_tax_code)).where(
-            ConfirmedHours.date >= start,
-            ConfirmedHours.date < end,
-        ),
+    listed = select(distinct(ConfirmedHours.teacher_tax_code)).where(
+        ConfirmedHours.date >= start,
+        ConfirmedHours.date < end,
     )
+    first = await money_from(db)
+
+    # Paid only by the initial set-up in its month: no confirmed hours to list them.
+    if first is not None and start <= first < end:
+        listed = listed.union(
+            select(TeacherOpening.tax_code).where(TeacherOpening.gross > 0),
+        )
+
+    teachers = await db.scalars(listed)
     volunteers: set[str] = set()
 
     for tax_code in list(teachers):
@@ -244,12 +253,17 @@ async def accounting_stats(
             if given and in_period(month):
                 volunteers.add(tax_code)
 
-            if not terms.is_paid or pay.gross is None:
+            if not terms.is_paid:
+                continue
+
+            figures.paid_minutes += pay.paid_minutes
+
+            # Before the app's accounts, or while the set-up waits: hours, no money.
+            if pay.gross is None:
                 continue
 
             figures.gross_cents += _cents(pay.gross)
             figures.net_cents += _cents(pay.net)
-            figures.paid_minutes += pay.paid_minutes
 
             if terms.rate is not None:
                 figures.volunteer_value_cents += round(

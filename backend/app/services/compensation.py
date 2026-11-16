@@ -16,6 +16,7 @@ from app.models.volunteering import (
     VolunteeringRuleChange,
 )
 from app.services.confirmed_hours import confirmed_bands, confirmed_work
+from app.services.opening_state import TeacherStart, teacher_start
 from app.services.worked_hours import (
     BEGINNING,
     MINUTES_PER_HOUR,
@@ -60,6 +61,36 @@ class TermsTimeline:
     rules: Sequence[tuple[date, VolunteeringRule]] = ()
     # Months counted otherwise, chosen in the monthly summary for that month alone.
     month_rules: Mapping[date, VolunteeringRule] = field(default_factory=dict)
+    start: TeacherStart = field(default_factory=TeacherStart)
+
+    # Days before money_from earn nothing here: the initial set-up says their pay.
+    def counted(self, day: date) -> bool:
+        first = self.start.money_from
+
+        return first is None or day >= first
+
+    def _holds_start(self, month: date) -> bool:
+        first = self.start.money_from
+
+        return first is not None and month < first < month_after(month)
+
+    # A month with money: not wholly before money_from, nor waiting for its set-up.
+    def prices(self, month: date) -> bool:
+        first = self.start.money_from
+
+        if first is None:
+            return True
+
+        if month_after(month) <= first:
+            return False
+
+        return not (self._holds_start(month) and self.start.pending)
+
+    def opening_in(self, month: date) -> Decimal | None:
+        return self.start.gross if self._holds_start(month) else None
+
+    def pending_in(self, month: date) -> bool:
+        return self._holds_start(month) and self.start.pending
 
     def of_month(self, month: date) -> Terms:
         latest = None
@@ -139,6 +170,11 @@ class CompensationMonth:
     days: list[CompensationDay]
     gross: Decimal | None
     net: Decimal | None
+    # The set-up's pay of the days before money_from, inside gross and net.
+    opening_gross: Decimal | None = None
+    opening_net: Decimal | None = None
+    # Its set-up is still to do: no money shown.
+    pending: bool = False
 
     @property
     def worked_minutes(self) -> int:
@@ -270,6 +306,7 @@ async def load_terms(db: AsyncSession, tax_code: str) -> TermsTimeline:
         changes.all(),
         [(starts_on, VolunteeringRule(rule)) for starts_on, rule in rules.tuples()],
         {month: VolunteeringRule(rule) for month, rule in months.tuples()},
+        await teacher_start(db, tax_code),
     )
 
 
@@ -385,23 +422,25 @@ async def set_terms(
 
 
 # Each day is paid the sum of its bands; the net is a fifth off the running
-# total, so the days' nets add up to the month's.
+# total, so the days' nets add up to the month's. The opening comes first.
 def _priced_days(
     days: Mapping[date, list[Span]],
     volunteer: Mapping[date, list[Span]],
     gross_by_day: Mapping[date, Decimal] | None,
     online: Mapping[date, list[Span]],
+    opening: Decimal | None = None,
+    counted: Callable[[date], bool] = lambda _: True,
 ) -> tuple[list[CompensationDay], Decimal | None, Decimal | None]:
     rows: list[CompensationDay] = []
-    gross_total = _ZERO
-    net_total = _ZERO
+    gross_total = opening or _ZERO
+    net_total = net_of(gross_total)
 
     for day in sorted(days):
         worked = days[day]
         given = volunteer.get(day, [])
         gross = net = None
 
-        if gross_by_day is not None:
+        if gross_by_day is not None and counted(day):
             gross = gross_by_day.get(day, _ZERO)
             gross_total += gross
             net_now = net_of(gross_total)
@@ -584,12 +623,13 @@ def _priced_months(
         end = month_after(month)
         shown = {day: spans for day, spans in days.items() if month <= day < end}
         gross_by_day: dict[date, Decimal] | None = None
+        opening = timeline.opening_in(month) if terms.rate is not None else None
 
-        if terms.rate is not None:
+        if terms.rate is not None and timeline.prices(month):
             gross_by_day = defaultdict(lambda: _ZERO)
 
             for work in priced:
-                if not month <= work.day < end:
+                if not month <= work.day < end or not timeline.counted(work.day):
                     continue
 
                 key = (work.day, work.band)
@@ -604,7 +644,20 @@ def _priced_months(
             volunteer if terms.is_paid else {},
             gross_by_day,
             online,
+            opening,
+            timeline.counted,
         )
-        paid.append(CompensationMonth(terms=terms, days=rows, gross=gross, net=net))
+        shown_opening = opening if gross_by_day is not None else None
+        paid.append(
+            CompensationMonth(
+                terms=terms,
+                days=rows,
+                gross=gross,
+                net=net,
+                opening_gross=shown_opening,
+                opening_net=None if shown_opening is None else net_of(shown_opening),
+                pending=terms.rate is not None and timeline.pending_in(month),
+            ),
+        )
 
     return paid

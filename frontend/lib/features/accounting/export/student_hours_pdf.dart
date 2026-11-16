@@ -14,6 +14,7 @@ import '../models/student_hours_items.dart';
 import '../models/teacher_hours_items.dart';
 import '../utils/accounting_strings.dart';
 import 'accounting_pdf_look.dart';
+import '../utils/opening_strings.dart' show kOpeningPending;
 
 typedef StudentHoursPdfBand = ({TimeBucket band, StudentHoursBand data});
 
@@ -179,6 +180,7 @@ pw.Widget _situation(AccountingPdfStyles styles, StudentSituation situation, Dat
         badge: null,
         ahead: false,
       ),
+    StudentSituationKind.pending => (text: kOpeningPending, below: null, badge: null, ahead: false),
     StudentSituationKind.none => null,
   };
 

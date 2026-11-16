@@ -117,7 +117,10 @@ class LessonPartItem
   // Under the tariff running now.
   final bool current;
 
-  const LessonPartItem({required this.day, required this.minutes, required this.current});
+  // Owed before the app kept the accounts, as the initial set-up says.
+  final bool opening;
+
+  const LessonPartItem({required this.day, required this.minutes, required this.current, this.opening = false});
 
   factory LessonPartItem.fromJson(Map<String, dynamic> json)
   {
@@ -125,6 +128,7 @@ class LessonPartItem
       day: DateTime.parse(json['day'] as String),
       minutes: json['minutes'] as int,
       current: json['current'] as bool? ?? false,
+      opening: json['opening'] as bool? ?? false,
     );
   }
 }
@@ -190,6 +194,9 @@ class PaymentHistoryLesson
   // Before it was paid: taken at the package's renewal, or with the hours paid ahead.
   final bool beforePayment;
 
+  // Taken or owed before the app kept the accounts, as the initial set-up says.
+  final bool opening;
+
   const PaymentHistoryLesson({
     required this.day,
     required this.minutes,
@@ -198,6 +205,7 @@ class PaymentHistoryLesson
     this.cents,
     this.exhausted = false,
     this.beforePayment = false,
+    this.opening = false,
   });
 
   bool get isPart => lessonMinutes > minutes;
@@ -212,6 +220,7 @@ class PaymentHistoryLesson
       cents: json['cents'] as int?,
       exhausted: json['exhausted'] as bool? ?? false,
       beforePayment: json['before_payment'] as bool? ?? false,
+      opening: json['opening'] as bool? ?? false,
     );
   }
 }
@@ -368,6 +377,12 @@ class StudentPaymentsItem
   // Every payment, those still to pay first, then the newest.
   final List<PaymentHistoryRow> history;
 
+  // Listed in the initial set-up: PENDING or DONE; null otherwise.
+  final String? opening;
+
+  // The day the set-up describes, while listed.
+  final DateTime? openingDay;
+
   const StudentPaymentsItem({
     this.student = true,
     this.readOnly = false,
@@ -385,7 +400,12 @@ class StudentPaymentsItem
     this.queuedStartsOn,
     this.queuedTariff,
     this.history = const [],
+    this.opening,
+    this.openingDay,
   });
+
+  // Until the set-up says how the pupil stood, nothing but the fees is paid here.
+  bool get openingPending => opening == 'PENDING';
 
   HoursLineItem? line(String kind)
   {
@@ -468,6 +488,8 @@ class StudentPaymentsItem
       history: (json['history'] as List<dynamic>? ?? const [])
           .map((row) => PaymentHistoryRow.fromJson(row as Map<String, dynamic>))
           .toList(),
+      opening: json['opening'] as String?,
+      openingDay: json['opening_day'] == null ? null : DateTime.parse(json['opening_day'] as String),
     );
   }
 }

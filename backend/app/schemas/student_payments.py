@@ -132,6 +132,8 @@ class LessonPartResponse(BaseModel):
     minutes: int
     # Under the tariff running now.
     current: bool
+    # Owed before money_from, as the initial set-up says.
+    opening: bool = False
 
 
 class HoursLineResponse(BaseModel):
@@ -173,6 +175,8 @@ class HistoryLessonResponse(BaseModel):
     exhausted: bool
     # Before it was paid: taken at the package's renewal or with the hours paid ahead.
     before_payment: bool
+    # Taken or owed before money_from, as the initial set-up says.
+    opening: bool = False
 
 
 class HistoryRowResponse(BaseModel):
@@ -211,6 +215,10 @@ class HistoryRowResponse(BaseModel):
 class StudentPaymentsResponse(BaseModel):
     # Members who are not pupils have only their annual fees.
     student: bool
+    # Listed in the initial set-up: PENDING blocks every payment but the fees'.
+    opening: Literal["PENDING", "DONE"] | None = None
+    # The day the set-up describes, while listed.
+    opening_day: date | None = None
     # Not enrolled: nothing new to buy, only what is owed to settle.
     read_only: bool
     tariff: StudentTariffResponse | None

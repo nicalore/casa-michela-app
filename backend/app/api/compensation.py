@@ -178,6 +178,10 @@ async def get_compensation(
             )
             for day in pay.days
         ],
+        money_from=timeline.start.money_from,
+        opening_gross=pay.opening_gross,
+        opening_net=pay.opening_net,
+        opening_pending=pay.pending,
         can_edit=admin_role not in RoleService.ADMIN_ROLES_REQUIRING_UNPAID,
         volunteering=rule.value,
         volunteering_month_only=rule != timeline.standing_rule(first),

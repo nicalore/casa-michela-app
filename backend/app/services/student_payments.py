@@ -28,6 +28,13 @@ from app.schemas.student_payments import (
     TariffChangeData,
 )
 from app.services.enrollment_spans import EnrolledSpan, enrolled_days, enrolled_spans
+from app.services.opening_state import (
+    PupilStart,
+    day_before,
+    money_from,
+    pupil_start,
+    pupil_starts,
+)
 from app.services.standard_tariffs import (
     PaymentRates,
     enabled_kinds,
@@ -72,6 +79,9 @@ _AHEAD_HOURLY_ONLY_ERROR: Final[str] = (
 _PAYMENT_NOT_FOUND_ERROR: Final[str] = "Pagamento non trovato."
 _DAY_IN_FUTURE_ERROR: Final[str] = "Il giorno è nel futuro."
 _DAY_TOO_FAR_ERROR: Final[str] = "Il giorno è troppo lontano."
+_BEFORE_ACCOUNTS_ERROR: Final[str] = (
+    "Il giorno è prima dell'inizio della contabilità."
+)
 
 # A change waiting to start cannot be taken back: a mistyped year would hold the
 # pupil's tariff for good.
@@ -109,6 +119,12 @@ _LINE_ORDER: Final[tuple[HoursKindEnum, ...]] = (
 
 _BANDS: Final[tuple[str, ...]] = tuple(BAND_ORDER)
 
+# The bands of the day before money_from that carry the initial set-up's minutes.
+_OPENING_PRESENCE: Final[str] = "MORNING"
+_OPENING_ONLINE: Final[str] = "AFTERNOON"
+
+OpeningState = Literal["PENDING", "DONE"]
+
 
 # A pupil's confirmed band, as payments count it: one id per day and band.
 @dataclass(frozen=True)
@@ -120,6 +136,8 @@ class PupilLesson:
     online: bool
     # Several stretches with gaps between them: their sum, not end minus start.
     length: int | None = None
+    # Minutes the initial set-up says were taken or owed before money_from.
+    opening: bool = False
 
     @property
     def minutes(self) -> int:
@@ -132,7 +150,7 @@ class PupilLesson:
 
     @property
     def weekend_online(self) -> bool:
-        return self.online and self.day.weekday() >= _SATURDAY
+        return self.online and (self.opening or self.day.weekday() >= _SATURDAY)
 
 
 @dataclass(frozen=True)
@@ -144,6 +162,7 @@ class LessonPart:
     # The whole lesson, when another payment has the rest.
     lesson_minutes: int = 0
     cents: int = 0
+    opening: bool = False
 
 
 # A lesson, or the part of it, that one payment covers.
@@ -159,6 +178,7 @@ class HistoryLesson:
     exhausted: bool = False
     # Before it was paid: taken when the package was renewed, or the hours paid ahead.
     before_payment: bool = False
+    opening: bool = False
 
 
 @dataclass
@@ -368,7 +388,15 @@ class _Walk:
         line.cents_per_hour = cents_per_hour
         cents = _cents(minutes, cents_per_hour)
         line.parts.append(
-            LessonPart(lesson.id, lesson.day, minutes, tariff_id, lesson.minutes, cents)
+            LessonPart(
+                lesson.id,
+                lesson.day,
+                minutes,
+                tariff_id,
+                lesson.minutes,
+                cents,
+                opening=lesson.opening,
+            )
         )
         line.cents += cents
 
@@ -411,7 +439,12 @@ class _Walk:
                     )
                 else:
                     self.covered[paid].append(
-                        HistoryLesson(lesson.day, minutes, lesson.minutes)
+                        HistoryLesson(
+                            lesson.day,
+                            minutes,
+                            lesson.minutes,
+                            opening=lesson.opening,
+                        )
                     )
 
                 return
@@ -462,6 +495,7 @@ class _Walk:
                     left_minutes=left - used,
                     exhausted=left == used,
                     before_payment=lesson.day < package.paid_on,
+                    opening=lesson.opening,
                 )
             )
 
@@ -492,6 +526,7 @@ class _Walk:
                     left_minutes=left - used,
                     exhausted=left == used,
                     before_payment=lesson.day < payment.paid_on,
+                    opening=lesson.opening,
                 )
             )
 
@@ -745,6 +780,7 @@ def payment_history(
                     item.minutes,
                     item.lesson.minutes,
                     cents=_cents(item.minutes, rate),
+                    opening=item.lesson.opening,
                 )
                 for item in settled
                 if item.payment_id == payment.id
@@ -770,6 +806,7 @@ def payment_history(
                         part.minutes,
                         part.lesson_minutes,
                         cents=part.cents,
+                        opening=part.opening,
                     )
                     for part in line.parts
                 ]
@@ -890,6 +927,64 @@ def _status(
     )
 
 
+def _opening_lesson(day: date, band: str, minutes: int, online: bool) -> PupilLesson:
+    return PupilLesson(
+        id=band_unit(day, band),
+        day=day,
+        start=time(0),
+        end=time(0),
+        online=online,
+        length=minutes,
+        opening=True,
+    )
+
+
+def opening_lessons(start: PupilStart) -> list[PupilLesson]:
+    """The set-up's minutes, walked as lessons of the day before money_from."""
+    opening = start.opening
+
+    if start.money_from is None or opening is None or opening.confirmed_at is None:
+        return []
+
+    day = day_before(start.money_from)
+    lessons: list[PupilLesson] = []
+    presence = opening.used_minutes + opening.due_minutes
+
+    if presence:
+        lessons.append(_opening_lesson(day, _OPENING_PRESENCE, presence, False))
+
+    if opening.weekend_minutes:
+        lessons.append(
+            _opening_lesson(day, _OPENING_ONLINE, opening.weekend_minutes, True),
+        )
+
+    return lessons
+
+
+# Money is worked out from money_from on: before it, the set-up speaks.
+def counted_lessons(
+    lessons: Sequence[PupilLesson],
+    start: PupilStart,
+) -> list[PupilLesson]:
+    first = start.money_from
+    kept = [lesson for lesson in lessons if first is None or lesson.day >= first]
+
+    return sorted([*opening_lessons(start), *kept], key=lambda row: (row.day, row.id))
+
+
+def opening_state(start: PupilStart) -> OpeningState | None:
+    opening = start.opening
+
+    if opening is None or start.money_from is None:
+        return None
+
+    if opening.confirmed_at is not None:
+        return "DONE"
+
+    # Left the lists by not collaborating: nothing to wait for.
+    return "PENDING" if start.pending else None
+
+
 # Confirmed bands only: hours count once an admin has checked them.
 async def pupil_lessons(
     db: AsyncSession,
@@ -898,6 +993,18 @@ async def pupil_lessons(
     now: datetime,
 ) -> list[PupilLesson]:
     """The pupil's confirmed bands, one each, from since up to today."""
+    start = await pupil_start(db, tax_code)
+
+    return await _pupil_lessons(db, tax_code, since, now, start)
+
+
+async def _pupil_lessons(
+    db: AsyncSession,
+    tax_code: str,
+    since: date,
+    now: datetime,
+    account_start: PupilStart,
+) -> list[PupilLesson]:
     rows = await db.execute(
         select(
             StudentConfirmedHours.date,
@@ -917,10 +1024,13 @@ async def pupil_lessons(
     for day, band, start, end, mode in rows.tuples():
         stretches[(day, band)].append((start, end, mode))
 
-    return [
-        unit_lesson(day, band, listed)
-        for (day, band), listed in sorted(stretches.items())
-    ]
+    return counted_lessons(
+        [
+            unit_lesson(day, band, listed)
+            for (day, band), listed in sorted(stretches.items())
+        ],
+        account_start,
+    )
 
 
 def unit_lesson(
@@ -997,6 +1107,9 @@ class StudentPayments:
     last_payment: StudentPayment | None
     rates: PaymentRates
     history: list[HistoryRow] = field(default_factory=list)
+    opening: OpeningState | None = None
+    # The day the initial set-up describes.
+    opening_day: date | None = None
 
 
 async def student_payment_status(
@@ -1018,12 +1131,27 @@ async def student_payment_status(
     rates = await payment_rates(db, level)
     last = max(payments, key=lambda row: (row.paid_on, row.id), default=None)
     today = now.date()
+    start = await pupil_start(db, tax_code)
+
+    opening = opening_state(start)
+    opening_day = (
+        None
+        if opening is None or start.money_from is None
+        else day_before(start.money_from)
+    )
 
     if not tariffs:
-        return StudentPayments(None, level, last, rates)
+        return StudentPayments(
+            None,
+            level,
+            last,
+            rates,
+            opening=opening,
+            opening_day=opening_day,
+        )
 
     since = min(row.starts_on for row in tariffs)
-    lessons = await pupil_lessons(db, tax_code, since, now)
+    lessons = await _pupil_lessons(db, tax_code, since, now, start)
     spans = (await enrolled_spans(db, [tax_code])).get(tax_code, [])
     settled = await settled_lessons(db, tax_code, lessons)
     minutes: dict[int, int] = defaultdict(int)
@@ -1037,6 +1165,8 @@ async def student_payment_status(
         last,
         rates,
         payment_history(tariffs, payments, settled, lessons, today, rates),
+        opening,
+        opening_day,
     )
 
 
@@ -1049,6 +1179,9 @@ class PupilBooks:
     settled: list[SettledLesson]
     rates: PaymentRates
     spans: list[EnrolledSpan]
+    # The initial set-up is still to do: its money is not known yet.
+    pending: bool = False
+    money_from: date | None = None
 
     @property
     def settled_minutes(self) -> dict[int, int]:
@@ -1151,11 +1284,13 @@ async def pupil_books(
         settled_bands[tax_code].append((payment_id, day, band, minutes))
 
     spans = await enrolled_spans(db, codes)
+    starts = await pupil_starts(db, codes)
     books: dict[str, PupilBooks] = {}
 
     for tax_code in codes:
         own = tariffs.get(tax_code, [])
         rates = rates_of(standard.get(levels.get(tax_code)))
+        start = starts[tax_code]
 
         if not own:
             books[tax_code] = PupilBooks(
@@ -1165,15 +1300,20 @@ async def pupil_books(
                 [],
                 rates,
                 [],
+                start.pending,
+                start.money_from,
             )
             continue
 
         since = min(row.starts_on for row in own)
-        lessons = [
-            unit_lesson(day, band, listed)
-            for (day, band), listed in sorted(stretches[tax_code].items())
-            if day >= since
-        ]
+        lessons = counted_lessons(
+            [
+                unit_lesson(day, band, listed)
+                for (day, band), listed in sorted(stretches[tax_code].items())
+                if day >= since
+            ],
+            start,
+        )
         by_unit = {lesson.id: lesson for lesson in lessons}
         settled = [
             SettledLesson(
@@ -1190,6 +1330,8 @@ async def pupil_books(
             settled,
             rates,
             spans.get(tax_code, []),
+            start.pending,
+            start.money_from,
         )
 
     return books
@@ -1204,6 +1346,7 @@ SituationKind = Literal[
     "SETTLE",
     "AHEAD_LEFT",
     "AHEAD_ENDED",
+    "PENDING",
 ]
 
 
@@ -1215,6 +1358,7 @@ class PupilAccount:
     lessons: list[PupilLesson]
     settled: dict[int, int]
     rates: PaymentRates
+    start: PupilStart = field(default_factory=PupilStart)
 
 
 # Where a pupil stands right after one band, with that band's hours.
@@ -1250,18 +1394,19 @@ async def pupil_account(
         )
     )
     rates = await payment_rates(db, await school_level(db, tax_code))
+    start = await pupil_start(db, tax_code)
 
     if not tariffs:
-        return PupilAccount(tariffs, payments, [], {}, rates)
+        return PupilAccount(tariffs, payments, [], {}, rates, start)
 
     since = min(row.starts_on for row in tariffs)
-    lessons = await pupil_lessons(db, tax_code, since, now)
+    lessons = await _pupil_lessons(db, tax_code, since, now, start)
     settled: dict[int, int] = defaultdict(int)
 
     for item in await settled_lessons(db, tax_code, lessons):
         settled[item.lesson.id] += item.minutes
 
-    return PupilAccount(tariffs, payments, lessons, dict(settled), rates)
+    return PupilAccount(tariffs, payments, lessons, dict(settled), rates, start)
 
 
 def _running_package(walk: _Walk, row: StudentTariff) -> StudentPayment | None:
@@ -1278,6 +1423,14 @@ def band_situation(
     stretches: Sequence[tuple[time, time]],
     online: bool,
 ) -> BandSituation:
+    first = account.start.money_from
+
+    if first is not None and day < first:
+        return BandSituation("NONE")
+
+    if account.start.pending:
+        return BandSituation("PENDING")
+
     if not account.tariffs:
         return BandSituation("NONE")
 
@@ -1496,6 +1649,7 @@ def _starts_on(
     current: PaymentStatus,
     data: TariffChangeData,
     today: date,
+    accounts_from: date | None = None,
 ) -> tuple[date, date | None]:
     """The new row's day and, for a fee, the month paid; null: at the package's end."""
     row = current.tariff
@@ -1523,6 +1677,9 @@ def _starts_on(
 
     if data.starts_on < current.started_on:
         raise _bad_request(_DAY_TOO_EARLY_ERROR)
+
+    if accounts_from is not None and data.starts_on < accounts_from:
+        raise _bad_request(_BEFORE_ACCOUNTS_ERROR)
 
     if data.starts_on > today + _LONGEST_WAIT:
         raise _bad_request(_DAY_TOO_FAR_ERROR)
@@ -1585,7 +1742,7 @@ async def change_tariff(
     if data.kind == row.kind and data.kind != TariffKindEnum.HOURLY:
         raise _bad_request(_SAME_KIND_ERROR)
 
-    starts_on, month = _starts_on(current, data, today)
+    starts_on, month = _starts_on(current, data, today, await money_from(db))
     paid = data.kind != TariffKindEnum.HOURLY
 
     if paid and data.payment is None:

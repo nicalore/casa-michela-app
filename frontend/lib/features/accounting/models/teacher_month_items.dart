@@ -68,6 +68,9 @@ class TeacherMonthRow implements PersonFace
 
   final PaymentReceipt? receipt;
 
+  // Its initial set-up is still to do: no money yet.
+  final bool openingPending;
+
   const TeacherMonthRow({
     required this.taxCode,
     required this.firstName,
@@ -88,6 +91,7 @@ class TeacherMonthRow implements PersonFace
     required this.standingVolunteering,
     required this.ruleFigures,
     this.receipt,
+    this.openingPending = false,
   });
 
   factory TeacherMonthRow.fromJson(Map<String, dynamic> json)
@@ -112,6 +116,7 @@ class TeacherMonthRow implements PersonFace
       standingVolunteering: VolunteeringRule.fromJson(json['standing_volunteering']),
       ruleFigures: ruleFiguresOf(json['rule_figures']),
       receipt: json['receipt'] == null ? null : PaymentReceipt.fromJson(json['receipt'] as Map<String, dynamic>),
+      openingPending: json['opening_pending'] as bool? ?? false,
     );
   }
 

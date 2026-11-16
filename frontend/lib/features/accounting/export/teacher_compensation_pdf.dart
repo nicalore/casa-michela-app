@@ -9,6 +9,7 @@ import '../../lessons/export/calendar_pdf_palette.dart';
 import '../../people/models/compensation_items.dart';
 import '../../people/utils/compensation_strings.dart' as compensation;
 import '../utils/accounting_strings.dart';
+import '../utils/opening_strings.dart' show openingRowLabel;
 import 'accounting_pdf_look.dart';
 
 const AccountingGroup _day = AccountingGroup(
@@ -87,6 +88,7 @@ Future<Uint8List> buildTeacherCompensationPdf({
         pw.SizedBox(height: 6),
         accountingTable(groups, [
           accountingHeadRow(styles, groups),
+          ?_openingRow(styles, shown),
           for (final (index, day) in shown.days.indexed)
             _row(styles, shown, day, before: index == 0 ? null : shown.days[index - 1]),
           _totals(styles, shown),
@@ -231,6 +233,31 @@ pw.TableRow _row(AccountingPdfStyles styles, CompensationMonth shown, Compensati
     cells,
     rule: newWeek ? AccountingRule.week : AccountingRule.row,
   );
+}
+
+// The initial set-up's pay of the days before the app's accounts, above them.
+pw.TableRow? _openingRow(AccountingPdfStyles styles, CompensationMonth shown)
+{
+  final int? gross = shown.openingGross;
+  final DateTime? lastDay = shown.openingDay;
+
+  if (!shown.isPaid || gross == null || lastDay == null)
+  {
+    return null;
+  }
+
+  final List<List<pw.Widget>> cells = [
+    [pw.Text(openingRowLabel(lastDay), style: styles.name)],
+    [accountingText(styles, null), accountingText(styles, null), accountingText(styles, null)],
+    [accountingText(styles, null), accountingText(styles, null), accountingText(styles, null)],
+    [
+      accountingText(styles, _amount(gross)),
+      accountingText(styles, _amount(withholdingOf(gross, shown.openingNet))),
+      accountingText(styles, _amount(shown.openingNet)),
+    ],
+  ];
+
+  return accountingRow(_paidGroups, cells, rule: AccountingRule.row);
 }
 
 pw.TableRow _totals(AccountingPdfStyles styles, CompensationMonth shown)

@@ -36,6 +36,7 @@ from app.services.membership_fees import (
     member_fees,
     settle_fee,
 )
+from app.services.opening_state import refuse_pending_pupil
 from app.services.role_service import RoleService
 from app.services.student_payments import HistoryRow, student_payment_status
 
@@ -154,6 +155,7 @@ def _history_row(row: HistoryRow) -> HistoryRowResponse:
                 cents=lesson.cents,
                 exhausted=lesson.exhausted,
                 before_payment=lesson.before_payment,
+                opening=lesson.opening,
             )
             for lesson in row.lessons
         ],
@@ -201,10 +203,14 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
     )
     read_only = not RoleService.is_enrolled(member)
     level = found.level if found is not None else None
+    opening = found.opening if found is not None else None
+    opening_day = found.opening_day if found is not None else None
 
     if payment is None:
         return StudentPaymentsResponse(
             student=student,
+            opening=opening,
+            opening_day=opening_day,
             read_only=read_only,
             tariff=None,
             school_level=level,
@@ -225,6 +231,8 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
 
     return StudentPaymentsResponse(
         student=student,
+        opening=opening,
+        opening_day=opening_day,
         read_only=read_only,
         tariff=StudentTariffResponse(
             kind=payment.tariff.kind,
@@ -273,6 +281,7 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
                         day=part.day,
                         minutes=part.minutes,
                         current=part.tariff_id == current_id,
+                        opening=part.opening,
                     )
                     for part in line.parts
                 ],
@@ -320,6 +329,7 @@ async def renew(
     await lock_account(db, tax_code.upper())
     member = await _member_or_404(db, tax_code.upper(), student=True)
     _writable(member)
+    await refuse_pending_pupil(db, member.tax_code)
     await payments_service.renew(db, member.tax_code, payload, now_in_rome())
     await db.commit()
 
@@ -339,6 +349,7 @@ async def change_tariff(
     await lock_account(db, tax_code.upper())
     member = await _member_or_404(db, tax_code.upper(), student=True)
     _writable(member)
+    await refuse_pending_pupil(db, member.tax_code)
     await payments_service.change_tariff(db, member.tax_code, payload, now_in_rome())
     await db.commit()
 
@@ -359,6 +370,7 @@ async def pay_ahead(
     await lock_account(db, tax_code.upper())
     member = await _member_or_404(db, tax_code.upper(), student=True)
     _writable(member)
+    await refuse_pending_pupil(db, member.tax_code)
     await payments_service.pay_ahead(db, member.tax_code, payload, now_in_rome())
     await db.commit()
 
@@ -377,6 +389,7 @@ async def settle(
 ) -> StudentPaymentsResponse:
     await lock_account(db, tax_code.upper())
     member = await _member_or_404(db, tax_code.upper(), student=True)
+    await refuse_pending_pupil(db, member.tax_code)
     await payments_service.settle(db, member.tax_code, payload, now_in_rome())
     await db.commit()
 
@@ -416,6 +429,7 @@ async def cancel_payment(
 ) -> StudentPaymentsResponse:
     await lock_account(db, tax_code.upper())
     member = await _member_or_404(db, tax_code.upper(), student=True)
+    await refuse_pending_pupil(db, member.tax_code)
     await payments_service.cancel_payment(db, member.tax_code, payment_id)
     await db.commit()
 

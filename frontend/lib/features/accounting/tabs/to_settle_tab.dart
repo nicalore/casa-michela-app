@@ -20,6 +20,7 @@ import '../accounting_page.dart';
 import '../models/to_settle_items.dart';
 import '../utils/accounting_strings.dart';
 import '../widgets/hours_table_parts.dart';
+import '../widgets/opening_pending_pill.dart';
 import '../widgets/people_filters.dart';
 
 const double _radius = 24;
@@ -364,6 +365,10 @@ class _ToSettleTable extends StatelessWidget
             ),
           ),
         ],
+        if (row.openingPending) ...[
+          const SizedBox(height: 5),
+          OpeningPendingPill(fontSize: _font - 2),
+        ],
       ],
     );
   }
@@ -381,7 +386,7 @@ class _ToSettleTable extends StatelessWidget
               Expanded(child: Text(_itemLabel(item), style: hoursCellStyle().copyWith(fontSize: _font))),
               const SizedBox(width: _itemAmountGap),
               Text(
-                formatAmount(item.cents),
+                item.cents == null ? '—' : formatAmount(item.cents!),
                 style: hoursCellStyle(color: AppTheme.trialMutedText).copyWith(
                   fontSize: _font - 0.5,
                   fontFeatures: const [FontFeature.tabularFigures()],

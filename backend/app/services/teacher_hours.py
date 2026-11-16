@@ -329,7 +329,10 @@ async def _row(
     given = (0 if volunteer is None else span_minutes([volunteer])) + rest
     paid = span_minutes(work) - given
     rate = terms.rate
-    gross = None if rate is None else amount(paid, rate)
+    month = day.replace(day=1)
+    waiting = timeline.pending_in(month)
+    priced = rate is not None and timeline.counted(day) and not waiting
+    gross = amount(paid, rate) if priced and rate is not None else None
 
     return HoursRow(
         tax_code=tax_code,

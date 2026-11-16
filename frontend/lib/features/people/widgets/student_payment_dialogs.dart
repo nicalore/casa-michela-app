@@ -4,21 +4,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
-import '../../../core/utils/json_parsing.dart';
 import '../../../core/utils/money.dart';
-import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
-import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
-import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_field_label.dart';
-import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/date_input_formatters.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
-import '../../association/tabs/opening_hours/calendar_bounds.dart' show kAssociationFoundedOn;
 import '../../association/tabs/opening_hours/hours_date_field.dart';
 import '../../association/models/standard_tariffs_item.dart';
 import '../../association/tabs/tariffs/tariffs_strings.dart' show tariffOffFor;
@@ -28,20 +22,14 @@ import '../models/person_item.dart';
 import '../models/student_payments_item.dart';
 import '../tabs/person_account_shared.dart' show askPersonConfirmation;
 import '../utils/payments_strings.dart';
+import 'payment_dialog_parts.dart';
 
-const double _dialogWidth = 600;
-const double _gap = 18;
-const double _blockGap = 24;
-const double _fieldGap = 16;
-const double _boxRadius = 18;
-const int _packageHoursDigits = 3;
+const double _dialogWidth = kPaymentDialogWidth;
+const double _gap = kPaymentDialogGap;
+const double _fieldGap = kPaymentFieldGap;
+const int _packageHoursDigits = kPackageHoursDigits;
 
-DateTime _today()
-{
-  final DateTime now = romeNow();
-
-  return DateTime(now.year, now.month, now.day);
-}
+DateTime _today() => paymentToday();
 
 DateTime _monthOf(DateTime day) => DateTime(day.year, day.month);
 
@@ -49,125 +37,21 @@ DateTime _nextMonth(DateTime month) => DateTime(month.year, month.month + 1);
 
 bool _sameMonth(DateTime a, DateTime b) => a.year == b.year && a.month == b.month;
 
-const Map<String, String> _methodChoices = {
-  'CASH': kCashChoice,
-  'BANK_TRANSFER': kBankTransferChoice,
-  'OTHER': kOtherChoice,
-};
-
-// No payment is older than the association: the server refuses it, and a mistyped year lands before it.
-final DateTime _firstPaymentDay = DateTime(kAssociationFoundedOn.year);
-
 // A change waiting to start cannot be taken back: the server takes no day further than this.
 const int _longestWaitDays = 366;
 
 bool _tooFar(DateTime day) => day.difference(_today()).inDays > _longestWaitDays;
 
-// The date and the way of a payment, as every window that takes money asks them.
-class _PaymentInput
+class _PaymentInput extends PaymentInput
 {
-  final TextEditingController date = TextEditingController(text: formatDateString(_today()));
-  final TextEditingController other = TextEditingController();
-  String? method;
-
-  String? dateError;
-  String? methodError;
-  String? otherError;
-
   _PaymentInput(StudentPaymentsItem payments)
-  {
-    method = _methodChoices[payments.paymentMethod];
-    other.text = payments.paymentMethod == 'OTHER' ? payments.paymentMethodOther ?? '' : '';
-  }
-
-  // Null, with the errors set, when something is missing.
-  Map<String, dynamic>? read()
-  {
-    final String text = date.text.trim();
-    final String? server = _methodChoices.entries
-        .where((entry) => entry.value == method)
-        .map((entry) => entry.key)
-        .firstOrNull;
-    final DateTime? day = isValidDateString(text) ? parseDateString(text) : null;
-    final bool valid = day != null && !day.isAfter(_today()) && !day.isBefore(_firstPaymentDay);
-
-    dateError = text.isEmpty ? kRequiredField : (valid ? null : kInvalidDate);
-    methodError = server == null ? kRequiredField : null;
-    otherError = server == 'OTHER' && other.text.trim().isEmpty ? kRequiredField : null;
-
-    if (dateError != null || methodError != null || otherError != null)
-    {
-      return null;
-    }
-
-    return {
-      'paid_on': formatDateOnly(parseDateString(text)),
-      'payment_method': server,
-      'payment_method_other': server == 'OTHER' ? other.text.trim() : null,
-    };
-  }
-
-  void dispose()
-  {
-    date.dispose();
-    other.dispose();
-  }
+      : super(method: payments.paymentMethod, otherMethod: payments.paymentMethodOther);
 }
 
-TextStyle _noteStyle()
-{
-  return GoogleFonts.plusJakartaSans(
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
-    height: 1.45,
-    color: AppTheme.trialMutedText,
-  );
-}
-
-class _Note extends StatelessWidget
-{
-  final String text;
-
-  const _Note(this.text);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Text(text, style: _noteStyle()),
-    );
-  }
-}
-
-class _BlockTitle extends StatelessWidget
-{
-  final String text;
-
-  const _BlockTitle(this.text);
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: _blockGap),
-        const Divider(height: 1, thickness: 1, color: Color(0xFFEDF2F1)),
-        const SizedBox(height: _gap),
-        Text(
-          text.toUpperCase(),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.6,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
-      ],
-    );
-  }
-}
+typedef _Note = PaymentNote;
+typedef _PaymentFields = PaymentFields;
+typedef _Conditions = TariffConditions;
+typedef _ConditionFields = TariffConditionFields;
 
 // «TARIFFA ATTUALE» over the kind and its cost.
 class _CurrentTariffBox extends StatelessWidget
@@ -181,32 +65,9 @@ class _CurrentTariffBox extends StatelessWidget
   {
     final StudentTariffItem tariff = payments.tariff!;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-      decoration: BoxDecoration(color: AppTheme.quietSurface, borderRadius: BorderRadius.circular(_boxRadius)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            kCurrentTariffLabel.toUpperCase(),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.6,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            currentTariff(tariff.kind, tariff.amountCents, tariff.packageHours),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.trialOcean,
-            ),
-          ),
-        ],
-      ),
+    return PaymentFactBox(
+      eyebrow: kCurrentTariffLabel,
+      text: currentTariff(tariff.kind, tariff.amountCents, tariff.packageHours),
     );
   }
 }
@@ -271,184 +132,8 @@ class _WhenBox extends StatelessWidget
   }
 }
 
-class _PaymentFields extends StatelessWidget
-{
-  final _PaymentInput input;
-  final String? title;
-  final VoidCallback onChanged;
-
-  const _PaymentFields({required this.input, this.title, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final String? title = this.title;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (title != null) _BlockTitle(title),
-        AppTextField(
-          controller: input.date,
-          label: kPaidOnLabel,
-          hintText: kDateHint,
-          keyboardType: TextInputType.number,
-          inputFormatters: [DateInputFormatter()],
-          errorText: input.dateError,
-          onChanged: (_)
-          {
-            input.dateError = null;
-            onChanged();
-          },
-        ),
-        const SizedBox(height: _fieldGap),
-        PersonChipGroupField(
-          label: kPaymentMethodLabel,
-          options: kPaymentMethodChoices,
-          value: input.method,
-          errorText: input.methodError,
-          onChanged: (value)
-          {
-            input.method = value;
-            input.methodError = null;
-            onChanged();
-          },
-        ),
-        if (input.method == kOtherChoice)
-          AppTextField(
-            controller: input.other,
-            label: kOtherMethodLabel,
-            hintText: kOtherMethodHint,
-            maxLength: 255,
-            errorText: input.otherError,
-            onChanged: (_)
-            {
-              input.otherError = null;
-              onChanged();
-            },
-          ),
-      ],
-    );
-  }
-}
-
-// The fields of a package or a fee; one of the two is null.
-class _Conditions
-{
-  final TextEditingController hours;
-  final TextEditingController amount;
-
-  String? hoursError;
-  String? amountError;
-
-  _Conditions({String hours = '', String amount = ''})
-      : hours = TextEditingController(text: hours),
-        amount = TextEditingController(text: amount);
-
-  // Null with the errors set when not valid.
-  (int, int?)? read({required bool package})
-  {
-    final int? cents = parseAmountCents(amount.text);
-    final int? count = int.tryParse(hours.text.trim());
-
-    amountError = amount.text.trim().isEmpty
-        ? kRequiredField
-        : (cents == null || cents <= 0 ? kInvalidAmountMessage : null);
-    hoursError = !package
-        ? null
-        : (hours.text.trim().isEmpty ? kRequiredField : (count == null || count <= 0 ? kInvalidNumber : null));
-
-    if (amountError != null || hoursError != null)
-    {
-      return null;
-    }
-
-    return (cents!, package ? count : null);
-  }
-
-  void dispose()
-  {
-    hours.dispose();
-    amount.dispose();
-  }
-}
-
-class _ConditionFields extends StatelessWidget
-{
-  final _Conditions conditions;
-  final String kind;
-  final VoidCallback onChanged;
-
-  const _ConditionFields({required this.conditions, required this.kind, required this.onChanged});
-
-  Widget _amount(String label)
-  {
-    return AppTextField(
-      controller: conditions.amount,
-      label: label,
-      hintText: 'Es. 10,00',
-      keyboardType: TextInputType.number,
-      errorText: conditions.amountError,
-      onChanged: (_)
-      {
-        conditions.amountError = null;
-        onChanged();
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    if (kind == 'HOURLY')
-    {
-      return _amount(kHourlyCostLabel);
-    }
-
-    if (kind == 'MONTHLY')
-    {
-      return _amount(kMonthlyCostLabel);
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: AppTextField(
-            controller: conditions.hours,
-            label: kPackageHoursLabel,
-            hintText: 'Es. 18',
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            maxLength: _packageHoursDigits,
-            errorText: conditions.hoursError,
-            onChanged: (_)
-            {
-              conditions.hoursError = null;
-              onChanged();
-            },
-          ),
-        ),
-        const SizedBox(width: _fieldGap),
-        Expanded(child: _amount(kPackageCostLabel)),
-      ],
-    );
-  }
-}
-
-Widget _footer(String label, IconData icon, bool busy, VoidCallback onPressed)
-{
-  return AppDialogFooter.single(
-    AppGradientButton(
-      label: label,
-      icon: icon,
-      height: 52,
-      fontSize: 14,
-      busy: busy,
-      onPressed: onPressed,
-    ),
-  );
-}
+Widget _footer(String label, IconData icon, bool busy, VoidCallback onPressed) =>
+    paymentDialogFooter(label, icon, busy, onPressed);
 
 Future<StudentPaymentsItem?> _show(BuildContext context, String label, Widget dialog)
 {
@@ -1661,69 +1346,7 @@ Future<StudentPaymentsItem?> showPayAheadDialog({
   return _show(context, 'Hours paid ahead', _PayAheadDialog(person: person, payments: payments));
 }
 
-// «Minuti» beside «Ore», as tall as a text field: an invisible twin field sets the height, since
-// the web lays a field out shorter than AppTextField.boxHeight says.
-class _MinutesField extends StatefulWidget
-{
-  final int value;
-  final ValueChanged<int> onChanged;
-
-  const _MinutesField({required this.value, required this.onChanged});
-
-  @override
-  State<_MinutesField> createState() => _MinutesFieldState();
-}
-
-class _MinutesFieldState extends State<_MinutesField>
-{
-  final TextEditingController _twin = TextEditingController();
-
-  @override
-  void dispose()
-  {
-    _twin.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(
-            top: AppTextField.labelTopGapOf(context),
-            bottom: AppTextField.labelBottomGapOf(context),
-          ),
-          child: AppFieldLabel(kAheadMinutesLabel),
-        ),
-        Stack(
-          children: [
-            ExcludeSemantics(
-              child: IgnorePointer(
-                child: Opacity(
-                  opacity: 0,
-                  child: AppTextField(controller: _twin, label: '', hintText: '', showLabel: false, enabled: false),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: AppDropdownField<int>(
-                hint: '${widget.value}',
-                value: widget.value,
-                options: [
-                  for (final int minutes in kAheadMinuteChoices) AppDropdownOption(value: minutes, label: '$minutes'),
-                ],
-                onChanged: (minutes) => widget.onChanged(minutes ?? 0),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
+typedef _MinutesField = QuarterMinutesField;
 
 class _PayAheadDialog extends StatefulWidget
 {

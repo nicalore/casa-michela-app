@@ -7,7 +7,7 @@ from app.schemas.teacher_month import PendingBandResponse
 
 class StudentStandingResponse(BaseModel):
     # PACKAGE_LEFT, PACKAGE_ENDED, MONTH_PAID, MONTH_UNPAID, SETTLE, SETTLED,
-    # AHEAD_LEFT, AHEAD_ENDED or NONE.
+    # AHEAD_LEFT, AHEAD_ENDED, PENDING (initial set-up to do) or NONE.
     kind: str
     minutes: int
     due_cents: int

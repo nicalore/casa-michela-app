@@ -320,6 +320,25 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Annual fees change",
         body_fields=("membership_cents", "insurance_cents"),
     ),
+    ("PUT", "/accounting/opening/teachers/{tax_code}"): AuditRule(
+        "Initial set-up of a teacher",
+        path_params=("tax_code",),
+        body_fields=("collaboration_type", "gross_compensation", "gross"),
+    ),
+    ("PUT", "/accounting/opening/pupils/{tax_code}"): AuditRule(
+        "Initial set-up of a pupil",
+        path_params=("tax_code",),
+        body_fields=(
+            "kind",
+            "amount_cents",
+            "package_hours",
+            "package_ended",
+            "left_minutes",
+            "due_minutes",
+            "weekend_minutes",
+        ),
+    ),
+    ("POST", "/accounting/opening/close"): AuditRule("Initial set-up closed"),
     ("PUT", "/people/{tax_code}/compensation/volunteering"): AuditRule(
         "Volunteering rule change",
         path_params=("tax_code",),

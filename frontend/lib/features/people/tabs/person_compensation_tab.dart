@@ -33,6 +33,8 @@ import '../../association/tabs/opening_hours/calendar_bounds.dart';
 import '../edit/person_edit_form.dart';
 import '../models/compensation_items.dart';
 import '../models/person_item.dart';
+import '../../accounting/utils/opening_strings.dart' show openingRowLabel;
+import '../../accounting/widgets/opening_pending_pill.dart';
 import '../utils/compensation_strings.dart';
 import '../widgets/card_eye.dart';
 import '../widgets/compensation_dialog.dart';
@@ -483,7 +485,7 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
 
   Widget _buildMonth(CompensationMonth shown, _Metrics metrics, double gap)
   {
-    if (shown.days.isEmpty)
+    if (shown.days.isEmpty && shown.openingGross == null && !shown.openingPending)
     {
       // Only teaching leaves hours here: for the others a month is what they were in it.
       return _teaches
@@ -538,6 +540,10 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (shown.openingPending) ...[
+          const Align(alignment: Alignment.centerLeft, child: OpeningPendingPill(fontSize: 14)),
+          SizedBox(height: gap / 2),
+        ],
         if (shown.isPaid)
           _PayCard(shown: shown, metrics: metrics)
         else
@@ -1459,6 +1465,37 @@ class _DayTable extends StatelessWidget
         : Text(formatAmount(cents), style: _cellStyle(strong: strong));
   }
 
+  // The pay the initial set-up gave for the days before the app's accounts, above them.
+  Widget _buildOpeningRow(DateTime lastDay, int gross, int? net)
+  {
+    final _Columns c = _columns;
+    final Widget dash = Text('—', style: _dashStyle);
+
+    return Container(
+      constraints: BoxConstraints(minHeight: metrics.rowHeight),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _dayCell(Text(openingRowLabel(lastDay), style: _cellStyle(strong: true))),
+            const _Rule(),
+            _centred(c.time, dash),
+            _centred(c.time, dash),
+            _centred(c.time, dash),
+            const _Rule(),
+            _centred(c.time, dash),
+            _centred(c.time, dash),
+            _centred(c.time, dash),
+            const _Rule(),
+            _centred(c.money, _money(gross, strong: true)),
+            _centred(c.money, _money(withholdingOf(gross, net))),
+            _centred(c.money, _money(net)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPlainHead()
   {
     final TextStyle style = GoogleFonts.plusJakartaSans(
@@ -1528,6 +1565,8 @@ class _DayTable extends StatelessWidget
   {
     final List<CompensationDay> days = shown.days;
     final bool paid = shown.isPaid;
+    final int? opening = shown.openingGross;
+    final DateTime? openingDay = shown.openingDay;
 
     return _Card(
       metrics: metrics,
@@ -1535,12 +1574,18 @@ class _DayTable extends StatelessWidget
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (paid) _buildHead() else _buildPlainHead(),
+          if (paid && opening != null && openingDay != null)
+            HoverGoldFrame(
+              cardRadius: metrics.radius,
+              atBottom: days.isEmpty,
+              child: _buildOpeningRow(openingDay, opening, shown.openingNet),
+            ),
           for (var index = 0; index < days.length; index++)
             HoverGoldFrame(
               cardRadius: metrics.radius,
               atBottom: index == days.length - 1,
               child: paid
-                  ? _buildRow(days[index], index == 0 ? null : days[index - 1])
+                  ? _buildRow(days[index], index == 0 ? (opening != null ? days[index] : null) : days[index - 1])
                   : _buildPlainRow(days[index], index == 0 ? null : days[index - 1]),
             ),
         ],
@@ -1627,19 +1672,52 @@ class _DayList extends StatelessWidget
     );
   }
 
+  // The initial set-up's pay of the days before the app's accounts, first.
+  Widget _buildOpening(DateTime lastDay, int gross, int? net)
+  {
+    final int? withholding = withholdingOf(gross, net);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _line(openingRowLabel(lastDay), formatAmount(gross), size: 13, strong: true),
+          const SizedBox(height: 3),
+          _line('', withholding == null ? null : '\u2212 ${formatAmount(withholding)}', size: 11.5, strong: false),
+          if (net != null) ...[
+            const SizedBox(height: 3),
+            _line('', formatAmount(net), size: 11.5, strong: false),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
+    final int? opening = shown.isPaid ? shown.openingGross : null;
+    final DateTime? openingDay = shown.openingDay;
+    final bool first = opening != null && openingDay != null;
+
     return _Card(
       metrics: metrics,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var index = 0; index < shown.days.length; index++) ...[
-            if (index > 0) const Divider(height: 1, thickness: 1, color: _rowRule),
+          if (first)
             HoverGoldFrame(
               cardRadius: metrics.radius,
-              atTop: index == 0,
+              atTop: true,
+              atBottom: shown.days.isEmpty,
+              child: _buildOpening(openingDay, opening, shown.openingNet),
+            ),
+          for (var index = 0; index < shown.days.length; index++) ...[
+            if (index > 0 || first) const Divider(height: 1, thickness: 1, color: _rowRule),
+            HoverGoldFrame(
+              cardRadius: metrics.radius,
+              atTop: index == 0 && !first,
               atBottom: index == shown.days.length - 1,
               child: _buildDay(shown.days[index]),
             ),

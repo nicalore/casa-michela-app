@@ -24,6 +24,9 @@ _NOT_PAID_ERROR: Final[str] = (
 _NO_HOURS_ERROR: Final[str] = (
     "La ricevuta può essere caricata solo a chi ha ore lavorate."
 )
+_OPENING_PENDING_ERROR: Final[str] = (
+    "Prima configura il docente in Contabilità › Configurazione iniziale."
+)
 _TOO_LARGE_ERROR: Final[str] = "La ricevuta supera i 15 MB."
 _WRONG_KIND_ERROR: Final[str] = (
     "La ricevuta deve essere un PDF o una foto JPG o PNG."
@@ -131,10 +134,19 @@ async def store_receipt(
             detail=_TEACHER_NOT_FOUND_ERROR,
         )
 
-    if not (await load_terms(db, tax_code)).of_month(month).is_paid:
+    timeline = await load_terms(db, tax_code)
+
+    if not timeline.of_month(month).is_paid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_NOT_PAID_ERROR,
+        )
+
+    # The month's pay is not known while its initial set-up waits.
+    if timeline.pending_in(month):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=_OPENING_PENDING_ERROR,
         )
 
     content, kind = await _readable(file)
@@ -150,7 +162,7 @@ async def store_receipt(
         .limit(1),
     )
 
-    if worked is None:
+    if worked is None and not timeline.opening_in(month):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_NO_HOURS_ERROR,

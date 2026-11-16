@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api import (
+    accounting_opening,
     accounting_stats,
     administrator_notes,
     app_updates,
@@ -152,6 +153,7 @@ app.include_router(accounting_stats.router)
 app.include_router(student_hours.router)
 app.include_router(student_month.router)
 app.include_router(to_settle.router)
+app.include_router(accounting_opening.router)
 app.include_router(payments_month.router)
 app.include_router(student_payments.router)
 app.include_router(standard_tariffs.router)

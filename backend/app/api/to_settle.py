@@ -30,6 +30,7 @@ async def to_settle(db: DbSession, _: Admin) -> ToSettleResponse:
                 roles=list(row.roles),
                 since=row.since,
                 total_cents=row.total_cents,
+                opening_pending=row.opening_pending,
                 items=[
                     OwedItemResponse.model_validate(
                         {

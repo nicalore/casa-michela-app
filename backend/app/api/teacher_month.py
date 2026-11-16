@@ -105,6 +105,7 @@ def _row(row: MonthRow) -> TeacherMonthRowResponse:
                 uploaded_at=row.receipt.uploaded_at,
             )
         ),
+        opening_pending=row.opening_pending,
     )
 
 

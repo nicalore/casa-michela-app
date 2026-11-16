@@ -31,7 +31,10 @@ class RailGroup
   // Listed but not built yet: muted and unclickable.
   final Set<String> unavailable;
 
-  const RailGroup({this.title, required this.entries, this.unavailable = const {}});
+  // Beside an entry, at the right: a count, a mark.
+  final Map<String, Widget> trailing;
+
+  const RailGroup({this.title, required this.entries, this.unavailable = const {}, this.trailing = const {}});
 
   bool isAvailable(String entry) => !unavailable.contains(entry);
 }
@@ -117,6 +120,7 @@ class AppSectionRail extends StatelessWidget
             nested: groupTitle != null,
             selected: index == selectedIndex,
             enabled: group.isAvailable(entry),
+            trailing: group.trailing[entry],
             onTap: () => onSelected(index),
           ),
         ));
@@ -189,6 +193,8 @@ class AppRailEntry extends StatefulWidget
   // False for an entry not built yet: paler, no mark, deaf to the pointer.
   final bool enabled;
 
+  final Widget? trailing;
+
   final VoidCallback onTap;
 
   const AppRailEntry({
@@ -197,6 +203,7 @@ class AppRailEntry extends StatefulWidget
     required this.nested,
     required this.selected,
     this.enabled = true,
+    this.trailing,
     required this.onTap,
   });
 
@@ -259,14 +266,21 @@ class _AppRailEntryState extends State<AppRailEntry>
             ),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: OverflowTooltipText(
-                text: widget.label,
-                maxLines: 1,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: widget.selected ? FontWeight.w700 : FontWeight.w500,
-                  color: _labelColor,
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OverflowTooltipText(
+                      text: widget.label,
+                      maxLines: 1,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: widget.selected ? FontWeight.w700 : FontWeight.w500,
+                        color: _labelColor,
+                      ),
+                    ),
+                  ),
+                  ?widget.trailing,
+                ],
               ),
             ),
           ),

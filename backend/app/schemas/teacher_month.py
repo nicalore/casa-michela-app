@@ -37,6 +37,8 @@ class TeacherMonthRowResponse(BaseModel):
     rule_figures: dict[VolunteeringRuleName, RuleFiguresResponse] | None
     # The bank transfer receipt of the month, without its bytes.
     receipt: PaymentReceiptResponse | None
+    # Its initial set-up is still to do: no money yet.
+    opening_pending: bool = False
 
 
 class PendingBandResponse(BaseModel):

@@ -18,6 +18,8 @@ import '../../../shared/widgets/page_density.dart';
 import '../models/teacher_month_items.dart';
 import '../utils/accounting_strings.dart';
 import 'receipt_cell.dart';
+import '../utils/opening_strings.dart' show kOpeningPending;
+import 'opening_pending_pill.dart';
 
 const double _nameInset = 20;
 const double _rowHeight = 50;
@@ -509,6 +511,12 @@ List<double> _needs(BuildContext context, List<TeacherMonthRow> rows, _Fit fit)
   for (final row in rows)
   {
     name = math.max(name, _widthOf(row.fullName, strong, scaler));
+
+    // The pill under the name: its icon, gap and padding around the words.
+    if (row.openingPending)
+    {
+      name = math.max(name, _widthOf(kOpeningPending, strong, scaler) + strong.fontSize! * 2.6);
+    }
   }
 
   cells[0] = math.min(name, _nameMost) + _nameInset + 8 + 2;
@@ -990,10 +998,20 @@ class _Row extends StatelessWidget
         width: c.name,
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: _nameInset, right: 8),
-        child: AppTextLink(
-          text: row.fullName,
-          style: GoogleFonts.plusJakartaSans(fontSize: c.cellFont, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
-          onTap: () => onOpen(row),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppTextLink(
+              text: row.fullName,
+              style: GoogleFonts.plusJakartaSans(fontSize: c.cellFont, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+              onTap: () => onOpen(row),
+            ),
+            if (row.openingPending) ...[
+              const SizedBox(height: 4),
+              OpeningPendingPill(fontSize: c.cellFont - 2.5),
+            ],
+          ],
         ),
       ),
       _Cell(width: c.at(1), opensGroup: !c.scrolls, child: _value(c, _countOf(row.days), strong: true)),

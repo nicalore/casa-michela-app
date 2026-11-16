@@ -11,6 +11,7 @@ import '../models/student_hours_items.dart';
 import '../models/teacher_hours_items.dart';
 import '../utils/accounting_strings.dart';
 import 'hours_table_parts.dart';
+import '../utils/opening_strings.dart' show kOpeningPending;
 
 // Shares of the width left once the action column is taken.
 const double _nameShare = 21;
@@ -427,6 +428,7 @@ class _Situation extends StatelessWidget
           badge: null,
           ahead: false,
         ),
+      StudentSituationKind.pending => (text: kOpeningPending, below: null, badge: null, ahead: false),
       StudentSituationKind.none => null,
     };
   }

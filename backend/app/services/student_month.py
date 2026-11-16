@@ -46,6 +46,7 @@ StandingKind = Literal[
     "SETTLED",
     "AHEAD_LEFT",
     "AHEAD_ENDED",
+    "PENDING",
 ]
 
 
@@ -117,6 +118,8 @@ class _Ledger:
     settled: list[SettledLesson]
     rates: PaymentRates
     spans: list[EnrolledSpan]
+    pending: bool = False
+    money_from: date | None = None
 
 
 def _arrived(day: date, end: time, now: datetime) -> bool:
@@ -268,6 +271,12 @@ def standing_of(
 
 # The account as it stood at the end of a day: lessons and payments up to it only.
 def _standing(ledger: _Ledger, day: date) -> Standing:
+    if ledger.money_from is not None and day < ledger.money_from:
+        return Standing("NONE")
+
+    if ledger.pending:
+        return Standing("PENDING")
+
     if not ledger.tariffs:
         return Standing("NONE")
 
@@ -476,6 +485,8 @@ async def _ledgers(
             book.settled,
             book.rates,
             book.spans,
+            book.pending,
+            book.money_from,
         )
         for tax_code, book in (await pupil_books(db, tax_codes, now)).items()
     }

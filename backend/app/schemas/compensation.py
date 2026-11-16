@@ -44,6 +44,13 @@ class CompensationMonthResponse(BaseModel):
     volunteer_minutes: int
     paid_minutes: int
     days: list[CompensationDayResponse]
+    # First day worked out here; the initial set-up says the pay of the days before.
+    money_from: date | None = None
+    # That pay, when it falls in this month: inside gross and net.
+    opening_gross: Decimal | None = None
+    opening_net: Decimal | None = None
+    # The set-up of this month is still to do: no money yet.
+    opening_pending: bool = False
 
     # Not for those whose admin role forbids being paid.
     can_edit: bool

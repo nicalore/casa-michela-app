@@ -1,7 +1,7 @@
 import '../../people/models/person_face.dart';
 import 'teacher_hours_items.dart';
 
-enum StudentSituationKind { none, packageLeft, packageEnded, monthPaid, monthUnpaid, settle, aheadLeft, aheadEnded }
+enum StudentSituationKind { none, packageLeft, packageEnded, monthPaid, monthUnpaid, settle, aheadLeft, aheadEnded, pending }
 
 StudentSituationKind _situationKind(String text)
 {
@@ -14,6 +14,7 @@ StudentSituationKind _situationKind(String text)
     'SETTLE' => StudentSituationKind.settle,
     'AHEAD_LEFT' => StudentSituationKind.aheadLeft,
     'AHEAD_ENDED' => StudentSituationKind.aheadEnded,
+    'PENDING' => StudentSituationKind.pending,
     _ => StudentSituationKind.none,
   };
 }

@@ -4,7 +4,9 @@ class OwedItem
 {
   // HOURLY, OVER_PACKAGE, OVER_FEE, WEEKEND_ONLINE, or MEMBERSHIP_FEE, INSURANCE_FEE.
   final String kind;
-  final int cents;
+
+  // Null while the pupil's initial set-up is still to do.
+  final int? cents;
 
   // Hours only.
   final int? minutes;
@@ -20,7 +22,7 @@ class OwedItem
   {
     return OwedItem(
       kind: json['kind'] as String,
-      cents: json['cents'] as int,
+      cents: json['cents'] as int?,
       minutes: json['minutes'] as int?,
       year: json['year'] as int?,
     );
@@ -44,6 +46,9 @@ class Debtor
   final int totalCents;
   final List<OwedItem> items;
 
+  // The pupil's initial set-up is still to do: their hours have no amount yet.
+  final bool openingPending;
+
   const Debtor({
     required this.taxCode,
     required this.firstName,
@@ -54,6 +59,7 @@ class Debtor
     required this.since,
     required this.totalCents,
     required this.items,
+    this.openingPending = false,
   });
 
   String get fullName => '$firstName $lastName';
@@ -72,6 +78,7 @@ class Debtor
       items: [
         for (final item in json['items'] as List<dynamic>) OwedItem.fromJson(item as Map<String, dynamic>),
       ],
+      openingPending: json['opening_pending'] as bool? ?? false,
     );
   }
 }

@@ -397,11 +397,19 @@ String historyTitle(PaymentHistoryRow row)
   return kHoursTitles[row.kind] ?? '';
 }
 
+// Minutes the initial set-up carries, in place of a lesson's day: «Al 15 novembre».
+String atOpeningDay(DateTime day) => 'Al ${formatDayMonthFull(day)}';
+
 // The days of its lessons: a package running says since when, one paid ahead when it starts.
 String? historyLine(PaymentHistoryRow row)
 {
   final DateTime? first = row.firstDay;
   final DateTime? last = row.lastDay;
+
+  if (first != null && row.lessons.isNotEmpty && row.lessons.every((lesson) => lesson.opening))
+  {
+    return atOpeningDay(first);
+  }
 
   if (row.state == PaymentHistoryState.waiting)
   {

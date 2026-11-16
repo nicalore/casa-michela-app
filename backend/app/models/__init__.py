@@ -1,4 +1,9 @@
 from app.models.account import Account
+from app.models.accounting_opening import (
+    AccountingOpening,
+    PupilOpening,
+    TeacherOpening,
+)
 from app.models.administrator import Administrator
 from app.models.administrator_note import AdministratorNote
 from app.models.app_update import AppUpdate, AppUpdateImage, AppUpdateRead
@@ -84,6 +89,7 @@ from app.models.weekly_template import WeeklyTemplate
 
 __all__ = [
     "Account",
+    "AccountingOpening",
     "Administrator",
     "AdministratorNote",
     "AnnualFees",
@@ -132,6 +138,7 @@ __all__ = [
     "Presence",
     "PsychologicalSupport",
     "Psychologist",
+    "PupilOpening",
     "PushDevice",
     "RefreshToken",
     "Report",
@@ -159,6 +166,7 @@ __all__ = [
     "SubjectRequested",
     "Teacher",
     "TeacherNote",
+    "TeacherOpening",
     "TeacherRoomAssignment",
     "TeacherService",
     "TeachingCompetence",

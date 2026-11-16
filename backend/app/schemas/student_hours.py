@@ -16,6 +16,7 @@ class StudentSituationResponse(BaseModel):
         "SETTLE",
         "AHEAD_LEFT",
         "AHEAD_ENDED",
+        "PENDING",
     ]
     tariff_kind: Literal["HOURLY", "PACKAGE", "MONTHLY"] | None
     # By the hour, the package or the month, as the tariff is paid.

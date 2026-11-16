@@ -3,6 +3,7 @@ import '../../people/utils/payments_strings.dart'
     show hoursLineUnit, hoursText, kAheadExhaustedBadge, kExhaustedBadge, leftLabel;
 import '../utils/accounting_strings.dart';
 import 'teacher_month_items.dart';
+import '../utils/opening_strings.dart' show kOpeningPending;
 
 export 'teacher_month_items.dart' show PendingBand;
 
@@ -19,6 +20,7 @@ enum StudentStandingKind
   settled,
   aheadLeft,
   aheadEnded,
+  pending,
 }
 
 StudentStandingKind _standingKind(String text)
@@ -33,6 +35,7 @@ StudentStandingKind _standingKind(String text)
     'SETTLED' => StudentStandingKind.settled,
     'AHEAD_LEFT' => StudentStandingKind.aheadLeft,
     'AHEAD_ENDED' => StudentStandingKind.aheadEnded,
+    'PENDING' => StudentStandingKind.pending,
     _ => StudentStandingKind.none,
   };
 }
@@ -100,6 +103,7 @@ class StudentStanding
           ahead: false,
           due: true,
         ),
+      StudentStandingKind.pending => (text: kOpeningPending, below: null, badge: null, ahead: false, due: false),
       StudentStandingKind.none => null,
     };
 

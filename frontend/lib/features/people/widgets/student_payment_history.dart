@@ -18,6 +18,8 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/hover_gold_frame.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../accounting/export/accounting_pdf_export.dart';
+import '../../accounting/utils/opening_strings.dart' show kPendingReason;
+import '../../accounting/widgets/opening_pending_pill.dart';
 import '../../association/tabs/opening_hours/hours_date_field.dart'
     show formatDateString, isValidDateString, parseDateString;
 import '../export/student_payments_pdf.dart';
@@ -171,6 +173,9 @@ class PaymentHistoryTable extends StatelessWidget
   // Without hours for a member who is not a pupil: fees have none.
   final bool showHours;
 
+  // The pupil's initial set-up is still to do: hours to settle have no amount yet.
+  final bool openingPending;
+
   const PaymentHistoryTable({
     super.key,
     required this.rows,
@@ -178,7 +183,10 @@ class PaymentHistoryTable extends StatelessWidget
     required this.onOpen,
     required this.onSettle,
     this.showHours = true,
+    this.openingPending = false,
   });
+
+  bool _waiting(PaymentHistoryRow row) => openingPending && !row.isPaid && !row.isFee;
 
   TextStyle _cell({Color color = AppTheme.trialOcean, FontWeight weight = FontWeight.w500}) => GoogleFonts.plusJakartaSans(
         fontSize: metrics.cell,
@@ -300,6 +308,7 @@ class PaymentHistoryTable extends StatelessWidget
   {
     final bool paid = row.isPaid;
     final DateTime? paidOn = row.paidOn;
+    final bool waiting = _waiting(row);
 
     final Widget cells = Container(
       padding: EdgeInsets.symmetric(vertical: metrics.rowPadding),
@@ -314,16 +323,20 @@ class PaymentHistoryTable extends StatelessWidget
           _centred(
             _amountShare,
             Text(
-              formatAmount(row.amountCents),
+              waiting ? '—' : formatAmount(row.amountCents),
               style: _cell(
-                color: paid ? AppTheme.trialTealDeep : AppTheme.modifiedAccent,
+                color: waiting
+                    ? AppTheme.trialMutedText
+                    : (paid ? AppTheme.trialTealDeep : AppTheme.modifiedAccent),
                 weight: FontWeight.w800,
               ),
             ),
           ),
           _left(
             _paidShare,
-            paidOn == null
+            waiting
+                ? FittedBox(fit: BoxFit.scaleDown, child: OpeningPendingPill(fontSize: metrics.cell - 2))
+                : paidOn == null
                 ? FittedBox(
                     fit: BoxFit.scaleDown,
                     child: PaymentDueFlag(height: metrics.flagHeight, fontSize: metrics.cell - 2),
@@ -332,7 +345,9 @@ class PaymentHistoryTable extends StatelessWidget
           ),
           _left(
             _methodShare,
-            paid ? Text(_method(row), style: _cell(color: const Color(0xFF33495A))) : FittedBox(fit: BoxFit.scaleDown, child: _settle(row)),
+            paid
+                ? Text(_method(row), style: _cell(color: const Color(0xFF33495A)))
+                : (waiting ? const SizedBox.shrink() : FittedBox(fit: BoxFit.scaleDown, child: _settle(row))),
           ),
           const SizedBox(
             width: _chevron,
@@ -342,7 +357,7 @@ class PaymentHistoryTable extends StatelessWidget
       ),
     );
 
-    if (paid)
+    if (paid || waiting)
     {
       return cells;
     }
@@ -380,7 +395,7 @@ class PaymentHistoryTable extends StatelessWidget
               cardRadius: metrics.radius,
               atBottom: index == rows.length - 1,
               onTap: () => onOpen(row),
-              leadingInset: row.isPaid ? 0 : _stripe,
+              leadingInset: row.isPaid || _waiting(row) ? 0 : _stripe,
               child: _row(row, first: index == 0),
             ),
         ],
@@ -483,6 +498,9 @@ class _PaymentDetailsState extends State<_PaymentDetails>
 
   Widget? _footer(BuildContext context)
   {
+    // Fees are paid whatever the set-up; the rest waits for it.
+    final String? blocked = widget.payments.openingPending && !row.isFee ? kPendingReason : null;
+
     if (!row.isPaid)
     {
       return AppDialogFooter.single(
@@ -491,6 +509,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
           icon: Icons.payments_outlined,
           height: 52,
           fontSize: 14,
+          disabledReason: blocked,
           onPressed: () => unawaited(_settle(context)),
         ),
       );
@@ -511,6 +530,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
         height: 52,
         fontSize: 14,
         busy: _cancelling,
+        disabledReason: widget.payments.openingPending && !row.isFee ? kPendingReason : null,
         onPressed: () => unawaited(_cancel()),
       ),
     );
@@ -648,7 +668,10 @@ class _PaymentDetailsState extends State<_PaymentDetails>
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(formatWeekdayColumnLabel(lesson.day), style: cell.copyWith(fontWeight: FontWeight.w600)),
+                      Text(
+                        lesson.opening ? atOpeningDay(lesson.day) : formatWeekdayColumnLabel(lesson.day),
+                        style: cell.copyWith(fontWeight: FontWeight.w600),
+                      ),
                       if (lesson.exhausted) _Badge(exhaustedBadge(row)),
                       if (lesson.beforePayment) _Badge(takenBadge(row), blue: true),
                     ],

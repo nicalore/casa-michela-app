@@ -16,7 +16,8 @@ class OwedItemResponse(BaseModel):
         "MEMBERSHIP_FEE",
         "INSURANCE_FEE",
     ]
-    cents: int
+    # Null while the pupil's initial set-up is still to do.
+    cents: int | None
     # Hours only.
     minutes: int | None
     # Fees only: the membership year.
@@ -35,6 +36,8 @@ class DebtorResponse(BaseModel):
     since: date
     total_cents: int
     items: list[OwedItemResponse]
+    # The pupil's initial set-up is still to do: hours have no amount yet.
+    opening_pending: bool = False
 
 
 class ToSettleResponse(BaseModel):

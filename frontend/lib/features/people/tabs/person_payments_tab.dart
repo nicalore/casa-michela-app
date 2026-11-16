@@ -17,7 +17,10 @@ import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
+import '../../accounting/models/opening_items.dart';
 import '../../accounting/utils/accounting_strings.dart' show kExportPdf;
+import '../../accounting/utils/opening_strings.dart';
+import '../../accounting/widgets/opening_dialogs.dart';
 import '../../association/models/standard_tariffs_item.dart';
 import '../models/person_item.dart';
 import '../models/student_payments_item.dart';
@@ -225,6 +228,44 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     showPaymentsExport(context: context, person: widget.person, payments: payments);
   }
 
+  // The same window as Contabilità › Configurazione iniziale.
+  Future<void> _configure(StudentPaymentsItem payments) async
+  {
+    final DateTime? lastDay = payments.openingDay;
+
+    if (lastDay == null)
+    {
+      return;
+    }
+
+    try
+    {
+      final OpeningPupil pupil = await ApiService().getOpeningPupil(widget.person.fiscalCode);
+
+      if (!mounted)
+      {
+        return;
+      }
+
+      final OpeningPupil? saved = await showPupilOpeningDialog(context: context, pupil: pupil, lastDay: lastDay);
+
+      if (saved == null || !mounted)
+      {
+        return;
+      }
+
+      CustomSnackBar.show(context: context, message: kPupilConfirmed);
+      await _refresh();
+    }
+    catch (error)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(error), isError: true);
+      }
+    }
+  }
+
   // «Pagato quest'anno € 865,00» beside the year's heading.
   Widget _paid(String label, int cents, bool dense)
   {
@@ -279,6 +320,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           rows: rows,
           metrics: PaymentHistoryMetrics.of(dense: dense),
           showHours: payments.student,
+          openingPending: payments.openingPending,
           onOpen: (row) => _openRow(payments, row),
           onSettle: (row) => _settleRow(payments, row),
         ),
@@ -304,6 +346,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
       child: tabActionButton(
         label: kGiveTariffLabel,
         icon: Icons.add_rounded,
+        disabledReason: payments.openingPending ? kPendingReason : null,
         onPressed: () => _giveTariff(payments),
       ),
     );
@@ -318,14 +361,16 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     final bool changeable = standard == null ||
         ['HOURLY', 'PACKAGE', 'MONTHLY'].any((kind) => kind != tariff.kind && standard.enabled(kind));
 
-    // One paid ahead at a time: the buttons wait for it to start.
-    final String? off = switch (payments.queued)
-    {
-      QueuedPayment.package => kPackageQueuedReason,
-      QueuedPayment.month => kMonthQueuedReason,
-      QueuedPayment.change => changeQueuedReason(payments.queuedStartsOn, ahead: tariff.isHourly),
-      null => null,
-    };
+    // One paid ahead at a time: the buttons wait for it to start. Nothing before the set-up.
+    final String? off = payments.openingPending
+        ? kPendingReason
+        : switch (payments.queued)
+        {
+          QueuedPayment.package => kPackageQueuedReason,
+          QueuedPayment.month => kMonthQueuedReason,
+          QueuedPayment.change => changeQueuedReason(payments.queuedStartsOn, ahead: tariff.isHourly),
+          null => null,
+        };
 
     final Widget change = tabActionButton(
       label: kChangeTariffLabel,
@@ -438,7 +483,16 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
                   SizedBox(height: gap),
                   Align(alignment: Alignment.centerLeft, child: _exportButton(payments)),
                 ],
-                if (payments.state != null) ...[
+                if (payments.openingPending) ...[
+                  SizedBox(height: gap),
+                  _PendingCard(
+                    lastDay: payments.openingDay,
+                    metrics: metrics,
+                    onConfigure: () => unawaited(_configure(payments)),
+                  ),
+                  ..._history(payments, gap),
+                ]
+                else if (payments.state != null) ...[
                   SizedBox(height: gap),
                   _StatusCard(payments: payments, metrics: metrics),
                   ..._history(payments, gap),
@@ -768,6 +822,73 @@ class _StatusCard extends StatelessWidget
         children: [
           _header(),
           ..._details(),
+        ],
+      ),
+    );
+  }
+}
+
+// In place of the state while the initial set-up waits: what is missing, and the way to it.
+class _PendingCard extends StatelessWidget
+{
+  final DateTime? lastDay;
+  final _Metrics metrics;
+  final VoidCallback onConfigure;
+
+  const _PendingCard({required this.lastDay, required this.metrics, required this.onConfigure});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final DateTime? lastDay = this.lastDay;
+
+    return _Card(
+      metrics: metrics,
+      child: Row(
+        children: [
+          Container(
+            width: metrics.badge,
+            height: metrics.badge,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppTheme.trialOcean, AppTheme.trialDeepWater],
+              ),
+            ),
+            child: Icon(Icons.pending_actions_rounded, size: metrics.badgeIcon, color: Colors.white),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  kOpeningPending,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: metrics.titleText,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.trialOcean,
+                  ),
+                ),
+                if (lastDay != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    pendingPaymentsNote(lastDay),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: metrics.subtitleText,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.trialMutedText,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 18),
+          tabActionButton(label: kConfigureLabel, icon: Icons.tune_rounded, onPressed: onConfigure),
         ],
       ),
     );

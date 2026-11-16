@@ -19,7 +19,7 @@ from app.models.administrator import Administrator
 from app.models.member import Member
 from app.models.person import Person
 from app.models.staff import Staff
-from app.services import calendar_freeze, reports, started_hours
+from app.services import calendar_freeze, opening_state, reports, started_hours
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -108,6 +108,12 @@ def calendar_before_every_lesson(monkeypatch: pytest.MonkeyPatch) -> None:
         "now_in_rome",
         lambda: datetime(2000, 1, 1, tzinfo=ZoneInfo("Europe/Rome")),
     )
+
+
+# Money from the initial set-up's day on: tests on fixed dates run without it.
+@pytest.fixture(autouse=True)
+def accounting_without_opening(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(opening_state, "ACTIVE", False)
 
 
 # Begun hours cannot change: tests writing hours on fixed dates run before them.

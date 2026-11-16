@@ -5,13 +5,14 @@ from decimal import Decimal
 from typing import Final
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.alphabetical_order import alphabetical_key
 from app.core.availability_thresholds import LOW_AVAILABILITY_MONTHLY_THRESHOLD
 from app.core.booking_close import has_closed
 from app.core.time_band import TimeBandEnum, band_bounds, band_of
+from app.models.accounting_opening import TeacherOpening
 from app.models.availability import Availability
 from app.models.confirmed_hours import (
     ConfirmedBand,
@@ -39,6 +40,7 @@ from app.services.enrollment_spans import (
     hours_spans,
     is_enrolled_on,
 )
+from app.services.opening_state import collaborating, money_from
 from app.services.payment_receipts import ReceiptInfo, receipts_of_month
 from app.services.worked_hours import (
     BAND_ORDER,
@@ -87,6 +89,8 @@ class MonthRow:
     # Under each rule for this month alone, shown while one is picked and not saved.
     rule_figures: dict[VolunteeringRule, RuleFigures] | None
     receipt: ReceiptInfo | None
+    # Its initial set-up is still to do: no money yet.
+    opening_pending: bool = False
 
 
 @dataclass(frozen=True)
@@ -324,7 +328,7 @@ async def _row(
         # Band by band, as Compensi and the daily summary price them.
         gross = (
             None
-            if rate is None
+            if rate is None or not timeline.prices(month)
             else sum(
                 (
                     amount(
@@ -333,8 +337,9 @@ async def _row(
                         rate,
                     )
                     for work in mine
+                    if timeline.counted(work.day)
                 ),
-                Decimal(0),
+                timeline.opening_in(month) or Decimal(0),
             )
         )
 
@@ -391,6 +396,7 @@ async def _row(
         standing_volunteering=timeline.standing_rule(month),
         rule_figures=each,
         receipt=receipt,
+        opening_pending=terms.is_paid and timeline.pending_in(month),
     )
 
 
@@ -404,14 +410,33 @@ async def month_summary(
     end = month_after(month)
     confirmed = set(await _confirmations(db, month, end))
 
+    listed = select(ConfirmedHours.teacher_tax_code).where(
+        ConfirmedHours.date >= month,
+        ConfirmedHours.date < end,
+    )
+    first = await money_from(db)
+
+    # The set-up's month also lists who was paid before money_from, or waits for it.
+    if first is not None and month < first < end:
+        waiting = await collaborating(
+            db,
+            list(
+                await db.scalars(
+                    select(TeacherOpening.tax_code).where(
+                        TeacherOpening.confirmed_at.is_(None),
+                    ),
+                )
+            ),
+        )
+        listed = listed.union(
+            select(TeacherOpening.tax_code).where(
+                or_(TeacherOpening.gross > 0, TeacherOpening.tax_code.in_(waiting)),
+            ),
+        )
+
     people = await db.execute(
         select(Person.tax_code, Person.first_name, Person.last_name).where(
-            Person.tax_code.in_(
-                select(ConfirmedHours.teacher_tax_code).where(
-                    ConfirmedHours.date >= month,
-                    ConfirmedHours.date < end,
-                ),
-            ),
+            Person.tax_code.in_(listed),
         ),
     )
     names = {
