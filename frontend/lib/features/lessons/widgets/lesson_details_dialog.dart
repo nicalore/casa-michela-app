@@ -124,9 +124,9 @@ class _LessonDetailsDialog extends StatelessWidget
       ),
       LessonVoice(label: _theOther.label, value: _theOther.value),
       LessonVoice(label: 'Luogo', value: _where),
-      LessonVoice(label: 'Materia', value: _perBooking((booking) => bookingSubject(booking, ministrySubjects))),
       if (disciplines != null)
         LessonVoice(label: disciplines.contains(', ') ? 'Discipline' : 'Disciplina', value: disciplines),
+      LessonVoice(label: 'Materia', value: _perBooking((booking) => bookingSubject(booking, ministrySubjects))),
       LessonVoice(
         label: 'Tipo di lezione',
         value: _perBooking((booking) => bookingTagLabels(booking.tags).join(', ')),

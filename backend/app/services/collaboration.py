@@ -11,7 +11,8 @@ from app.api.rbac import IdentityContext
 from app.core.booking_close import first_close
 from app.core.booking_window import now_in_rome
 from app.models.availability import Availability
-from app.models.booking import mark_swept
+from app.models.booking import Booking, mark_swept
+from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.lesson import Lesson
 from app.models.member import Member
 from app.models.presence import Presence
@@ -335,9 +336,31 @@ async def drop_hours_ahead(
     )
 
 
+# Bookings not begun yet stop asking for the teacher; begun ones keep the record.
+async def _drop_preferences_ahead(
+    session: AsyncSession,
+    teacher_tax_code: str,
+) -> None:
+    now = now_in_rome()
+
+    for preference in await session.scalars(
+        select(BookingPreferredTeacher)
+        .join(Booking, Booking.id == BookingPreferredTeacher.booking_id)
+        .join(Presence, Presence.id == Booking.presence_id)
+        .where(
+            BookingPreferredTeacher.teacher_tax_code == teacher_tax_code,
+            _ahead(Presence, now.date(), now.time()),
+        ),
+    ):
+        await session.delete(preference)
+
+    await session.flush()
+
+
 # Only hours entered from now on can bring the person back; the caller commits.
 async def stop_collaboration(session: AsyncSession, member: Member) -> None:
     member.collaborating_active = False
     member.collaboration_paused_at = func.now()
 
     await drop_hours_ahead(session, member.tax_code)
+    await _drop_preferences_ahead(session, member.tax_code)

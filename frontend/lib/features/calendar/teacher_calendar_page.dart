@@ -417,7 +417,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     );
   }
 
-  (int, int)? _windowFor(TeacherBandCall call, List<AvailabilityItem> offered)
+  (int, int)? _windowFor(TeacherBandCall call)
   {
     final opening = unionOpeningWindow(_openingDays, _day, _band);
 
@@ -425,10 +425,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       bandStartMinutes: bandStartMinutes(_band),
       bandEndMinutes: bandEndMinutes(_band),
       opening: opening == null ? null : (opening.startMinutes, opening.endMinutes),
-      content: [
-        ...call.spans,
-        for (final slot in offered) (minutesOfTimeOfDay(slot.startTime), minutesOfTimeOfDay(slot.endTime)),
-      ],
+      content: call.spans,
     );
   }
 
@@ -555,7 +552,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
     final call = _call;
     final offered = _offered;
-    final window = _windowFor(call, offered);
+    final window = _windowFor(call);
 
     if (call.isEmpty || window == null)
     {
@@ -581,20 +578,8 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
             )
           : OwnDayTimeline(
               window: window,
-              lanes: [
-                (
-                  name: null,
-                  stretches: [
-                    for (final slot in offered)
-                      (
-                        mode: slot.mode,
-                        startMinutes: minutesOfTimeOfDay(slot.startTime),
-                        endMinutes: minutesOfTimeOfDay(slot.endTime),
-                      ),
-                  ],
-                  entries: _entriesOf(call, onTimeline: true),
-                ),
-              ],
+              // Only the cards: the hours offered stay off the timeline.
+              lanes: [(name: null, stretches: const [], entries: _entriesOf(call, onTimeline: true))],
               nowMinutes: _nowMinutes,
             ),
     );

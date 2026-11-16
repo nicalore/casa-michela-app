@@ -30,6 +30,7 @@ from app.schemas.calendar_publication import CalendarPublicationCreate
 from app.schemas.lesson import LessonCreate
 from app.schemas.room_supervision import RoomSupervisionCreate
 from app.schemas.teacher_room_assignment import TeacherRoomAssignmentCreate
+from app.services import calendar_freeze
 from app.services.booking_service import BookingService
 from app.services.calendar_publication_service import CalendarPublicationService
 from app.services.room_supervision_service import RoomSupervisionService
@@ -988,3 +989,91 @@ async def test_a_published_band_is_never_unbooked(db: AsyncSession) -> None:
 
     assert bands == [(DAY, TimeBandEnum.MORNING), (DAY, TimeBandEnum.EVENING)]
 
+
+
+async def _shift_hours(db: AsyncSession) -> list[tuple[time, time]]:
+    rows = await RoomSupervisionRepository(db).list_for_day(DAY)
+
+    return [(row.start_time, row.end_time) for row in rows]
+
+
+async def test_publishing_fits_the_shift_to_the_supervisors_lessons(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db, duration=45)
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(15, 45), end=time(16, 30)),
+    )
+    await give_a_room(db, built, start=time(15), end=time(16, 30))
+
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+
+    assert await _shift_hours(db) == [(time(15, 45), time(16, 30))]
+
+
+async def test_a_lesson_moved_in_the_bozza_moves_the_shift(db: AsyncSession) -> None:
+    await _settled_afternoon(db)
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+    await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    lesson = (await db.execute(select(Lesson))).scalars().one()
+    lesson.start_time, lesson.end_time = time(15, 45), time(16, 45)
+    await db.flush()
+
+    await publications(db).settle(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    assert await _shift_hours(db) == [(time(15, 45), time(16, 45))]
+
+
+async def test_a_shift_follows_new_lessons_across_a_gap(db: AsyncSession) -> None:
+    built = await scene(db, duration=120)
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(15), end=time(16)),
+    )
+    await give_a_room(db, built, start=time(15), end=time(16))
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(17), end=time(18)),
+    )
+
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+
+    assert await _shift_hours(db) == [(time(15), time(18))]
+
+
+async def test_realigned_shifts_alone_send_nothing_again(db: AsyncSession) -> None:
+    built = await scene(db)
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
+    await give_a_room(db, built)
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+
+    shift = (await RoomSupervisionRepository(db).list_for_day(DAY))[0]
+    shift.start_time = time(14, 30)
+    await db.flush()
+
+    await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
+    _, _, resent = await publications(db).settle(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    assert resent is False
+    assert await _shift_hours(db) == [(time(15), time(16))]
+
+
+async def test_a_begun_shift_keeps_its_hours(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    built = await scene(db, duration=45)
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(15, 45), end=time(16, 30)),
+    )
+    await give_a_room(db, built, start=time(15), end=time(16, 30))
+
+    now = datetime(2026, 9, 15, 15, 30, tzinfo=ZoneInfo("Europe/Rome"))
+    monkeypatch.setattr(calendar_freeze, "now_in_rome", lambda: now)
+
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+
+    assert await _shift_hours(db) == [(time(15), time(16, 30))]

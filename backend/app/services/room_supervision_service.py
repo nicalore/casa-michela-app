@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date, time
 from typing import Final
@@ -10,7 +11,9 @@ from app.api.rbac import IdentityContext
 from app.core.booking_close import bands_of
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale
+from app.core.time_band import band_of
 from app.models.availability import Availability
+from app.models.lesson import Lesson
 from app.models.room_supervision import RoomSupervision
 from app.repositories.room_supervision_repository import RoomSupervisionRepository
 from app.repositories.teacher_room_assignment_repository import (
@@ -20,9 +23,13 @@ from app.schemas.room_supervision import (
     RoomSupervisionCreate,
     RoomSupervisionUpdate,
 )
-from app.services.calendar_freeze import assert_not_confirmed, assert_not_started
+from app.services.calendar_freeze import (
+    assert_not_confirmed,
+    assert_not_started,
+    has_begun,
+)
 from app.services.lesson_guard import assert_bands_claimed
-from app.services.room_occupancy import stretch_at
+from app.services.room_occupancy import StayKey, stretch_at, watched_stays
 
 _ENTITY_LABEL: Final[str] = "il turno"
 _NOT_FOUND_ERROR: Final[str] = "Turno da responsabile non trovato"
@@ -80,6 +87,70 @@ async def assert_within_presence(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=_OUTSIDE_AVAILABILITY_ERROR,
     )
+
+
+# Shifts follow the band's lessons as they are now, as the wizard writes them:
+# moved lessons would otherwise leave the old hours on convocations and pay.
+# A group with a begun shift keeps its hours.
+async def realign_shifts(
+    session: AsyncSession,
+    day: date,
+    band: str,
+    lessons: Sequence[Lesson],
+) -> None:
+    assignments = await TeacherRoomAssignmentRepository(session).list_for_day(day)
+    shifts = await RoomSupervisionRepository(session).list_for_day(day)
+
+    watching = {(shift.room_id, shift.teacher_tax_code) for shift in shifts}
+    wanted = {
+        key: spans
+        for key, spans in watched_stays(lessons, assignments, watching).items()
+        if key[3] == band
+    }
+
+    held: dict[StayKey, list[RoomSupervision]] = defaultdict(list)
+
+    for shift in shifts:
+        if str(band_of(shift.start_time)) == band:
+            key = (
+                shift.room_id,
+                shift.teacher_tax_code,
+                shift.assignment_start,
+                band,
+            )
+            held[key].append(shift)
+
+    for key in held.keys() | wanted.keys():
+        rows = sorted(held.get(key, []), key=lambda row: row.start_time)
+        spans = wanted.get(key, [])
+
+        if [(row.start_time, row.end_time) for row in rows] == spans:
+            continue
+
+        if any(has_begun(day, row.start_time) for row in rows):
+            continue
+
+        for row in rows:
+            await session.delete(row)
+
+        # Before the new rows: same slot, same unique key.
+        await session.flush()
+
+        room_id, teacher_tax_code, assignment_start, _ = key
+
+        for start_time, end_time in spans:
+            session.add(
+                RoomSupervision(
+                    date=day,
+                    teacher_tax_code=teacher_tax_code,
+                    room_id=room_id,
+                    assignment_start=assignment_start,
+                    start_time=start_time,
+                    end_time=end_time,
+                ),
+            )
+
+    await session.flush()
 
 
 class RoomSupervisionService:

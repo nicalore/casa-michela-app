@@ -40,6 +40,9 @@ class Texts:
     web_body_one: str
     body_many: str
     web_body_many: str
+    # For anyone but the owner, where one and many say "tua".
+    others_one: str | None = None
+    others_many: str | None = None
 
 
 # What someone else wrote for another: the kinds its news is told in, and the words.
@@ -76,7 +79,12 @@ def _word(
     owner: Person,
 ) -> None:
     many = len(row.item_ids or ()) > 1
-    title = (texts.many if many else texts.one).format(author=_full_name(author))
+    template = texts.many if many else texts.one
+
+    if owner.tax_code != row.account_tax_code:
+        template = (texts.others_many if many else texts.others_one) or template
+
+    title = template.format(author=_full_name(author))
 
     if owner.tax_code not in (row.account_tax_code, author.tax_code):
         title = _FOR.format(title=title, owner=owner.first_name)

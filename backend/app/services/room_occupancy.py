@@ -242,21 +242,19 @@ def _bridged(spans: Iterable[_Span], presence: Iterable[_Span]) -> list[_Span]:
     return joined
 
 
-# A room is uncovered only where a non-supervisor teaches and no supervisor is
-# there; attività never count. Mirrors isRoomPlanSettled in
-# frontend/lib/features/lessons/widgets/room_assignment_wizard.dart.
-def rooms_left_open(
+# Room, teacher, assignment row start, band.
+StayKey = tuple[int, str, time, str]
+
+
+# What each supervisor covers: their own lessons in the room, gaps bridged,
+# whatever hours their shifts were written with.
+def watched_stays(
     lessons: Sequence[Lesson],
     assignments: Sequence[TeacherRoomAssignment],
-    supervisions: Sequence[RoomSupervision],
-) -> set[int]:
+    watching: set[tuple[int, str]],
+) -> dict[StayKey, list[_Span]]:
     stretches = stretches_by_teacher(assignments)
-    watching = {
-        (shift.room_id, shift.teacher_tax_code) for shift in supervisions
-    }
-
-    occupied: dict[int, list[_Span]] = defaultdict(list)
-    stays: dict[tuple[int, str, time, str], list[_Span]] = defaultdict(list)
+    stays: dict[StayKey, list[_Span]] = defaultdict(list)
     presence: dict[str, list[_Span]] = defaultdict(list)
 
     for lesson in lessons:
@@ -273,21 +271,53 @@ def rooms_left_open(
 
         presence[teacher].append((availability.start_time, availability.end_time))
 
-        if stretch is None:
+        if stretch is None or (stretch.room_id, teacher) not in watching:
             continue
 
-        hours = (lesson.start_time, lesson.end_time)
+        key = (stretch.room_id, teacher, stretch.start_time, str(lesson.band))
+        stays[key].append((lesson.start_time, lesson.end_time))
 
-        occupied[stretch.room_id].append(hours)
+    return {
+        key: _bridged(hours, presence[key[1]]) for key, hours in stays.items()
+    }
 
-        if (stretch.room_id, teacher) in watching:
-            key = (stretch.room_id, teacher, stretch.start_time, str(lesson.band))
-            stays[key].append(hours)
+
+# A room is uncovered only where a non-supervisor teaches and no supervisor is
+# there; attività never count. Mirrors isRoomPlanSettled in
+# frontend/lib/features/lessons/widgets/room_assignment_wizard.dart.
+def rooms_left_open(
+    lessons: Sequence[Lesson],
+    assignments: Sequence[TeacherRoomAssignment],
+    supervisions: Sequence[RoomSupervision],
+) -> set[int]:
+    stretches = stretches_by_teacher(assignments)
+    watching = {
+        (shift.room_id, shift.teacher_tax_code) for shift in supervisions
+    }
+
+    occupied: dict[int, list[_Span]] = defaultdict(list)
+
+    for lesson in lessons:
+        if lesson.teacher_mode != "presence":
+            continue
+
+        stretch = stretch_at(
+            stretches.get(teacher_of(lesson), []),
+            lesson.start_time,
+            lesson.end_time,
+        )
+
+        if stretch is not None:
+            occupied[stretch.room_id].append((lesson.start_time, lesson.end_time))
 
     covered: dict[int, list[_Span]] = defaultdict(list)
 
-    for (room_id, teacher, _, _), hours in stays.items():
-        covered[room_id].extend(_bridged(hours, presence[teacher]))
+    for (room_id, _, _, _), spans in watched_stays(
+        lessons,
+        assignments,
+        watching,
+    ).items():
+        covered[room_id].extend(spans)
 
     return {
         room_id

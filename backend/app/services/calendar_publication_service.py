@@ -50,6 +50,7 @@ from app.services.room_occupancy import (
     teachers_adrift,
     teachers_in_building,
 )
+from app.services.room_supervision_service import realign_shifts
 
 _NOT_FOUND_ERROR: Final[str] = "Questo calendario non è pubblicato."
 _NOT_IN_DRAFT_ERROR: Final[str] = "Questo calendario non è in bozza."
@@ -429,6 +430,9 @@ class CalendarPublicationService:
 
         changed = await self.has_changes(publication)
 
+        # After the comparison: realigned shifts alone send nothing out again.
+        await realign_shifts(self.session, day, band, lessons)
+
         publication.draft_snapshot = None
         publication.draft_opened_by = None
 
@@ -530,6 +534,7 @@ class CalendarPublicationService:
         await self._assert_requests_covered(payload.date, band, lessons)
         await self._assert_activities_assigned(payload.date, band)
         await self._assert_rooms_settled(payload.date, lessons)
+        await realign_shifts(self.session, payload.date, band, lessons)
 
         warnings = await self._capacity_warnings(payload.date, lessons)
 
