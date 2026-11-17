@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'page_transition.dart';
+import 'pixel_snap.dart';
 import 'role_switch_dialog.dart';
 import 'snackbar.dart';
 import 'user_menu.dart';
@@ -508,34 +509,36 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
         shape: BoxShape.circle,
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
       ),
-      // Keyed on the URL: an image swap alone would not rebuild on a new picture.
-      child: DecoratedBox(
-        key: ValueKey(photo),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          image: photo == null
-              ? null
-              : DecorationImage(
-                  image: photo,
-                  fit: BoxFit.cover,
-                  filterQuality: ProfilePhotoImage.filterQuality,
-                ),
-        ),
-        child: photo == null
-            ? Center(
-                child: WholeWords(
-                  child: Text(
-                    _initials(_user!.fullName),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: diameter * 0.37,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.trialTealDeep,
+      child: PixelSnap(
+        // Keyed on the URL: an image swap alone would not rebuild on a new picture.
+        child: DecoratedBox(
+          key: ValueKey(photo),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            image: photo == null
+                ? null
+                : DecorationImage(
+                    image: photo,
+                    fit: BoxFit.cover,
+                    filterQuality: ProfilePhotoImage.filterQuality,
+                  ),
+          ),
+          child: photo == null
+              ? Center(
+                  child: WholeWords(
+                    child: Text(
+                      _initials(_user!.fullName),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: diameter * 0.37,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.trialTealDeep,
+                      ),
                     ),
                   ),
-                ),
-              )
-            : null,
+                )
+              : null,
+        ),
       ),
     );
   }

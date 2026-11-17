@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../mobile_palette.dart';
+import '../navigation/mobile_back_tabs.dart';
 import 'mobile_pill.dart';
 import 'mobile_tour.dart';
 
@@ -63,10 +64,12 @@ class MobilePageStrip extends StatefulWidget
   State<MobilePageStrip> createState() => _MobilePageStripState();
 }
 
-class _MobilePageStripState extends State<MobilePageStrip>
+class _MobilePageStripState extends State<MobilePageStrip> implements MobileBackTab
 {
   // Set while a tap animates; null during a swipe.
   (int, int)? _jump;
+
+  MobileBackTabs? _back;
 
   // Bumped per tap, so a jump cut short by the next one does not clear it.
   int _jumpToken = 0;
@@ -83,7 +86,23 @@ class _MobilePageStripState extends State<MobilePageStrip>
     super.initState();
 
     widget.controller.addListener(_follow);
+    widget.controller.addListener(_report);
     WidgetsBinding.instance.addPostFrameCallback((_) => _follow());
+  }
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    final MobileBackTabs? back = MobileBackTabsScope.maybeOf(context);
+
+    if (back != _back)
+    {
+      _back?.remove(this);
+      _back = back;
+      back?.add(this);
+    }
   }
 
   @override
@@ -94,7 +113,10 @@ class _MobilePageStripState extends State<MobilePageStrip>
     if (oldWidget.controller != widget.controller)
     {
       oldWidget.controller.removeListener(_follow);
+      oldWidget.controller.removeListener(_report);
       widget.controller.addListener(_follow);
+      widget.controller.addListener(_report);
+      _report();
     }
   }
 
@@ -102,9 +124,28 @@ class _MobilePageStripState extends State<MobilePageStrip>
   void dispose()
   {
     widget.controller.removeListener(_follow);
+    widget.controller.removeListener(_report);
+    _back?.remove(this);
     _scroll.dispose();
 
     super.dispose();
+  }
+
+  void _report()
+  {
+    _back?.changed();
+  }
+
+  @override
+  bool get onFirst => !widget.controller.hasClients || _page.round() == 0;
+
+  @override
+  void goFirst()
+  {
+    if (widget.controller.hasClients)
+    {
+      _go(0);
+    }
   }
 
   void _follow()

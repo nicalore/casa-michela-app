@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_back_button.dart';
 import '../../../shared/widgets/app_section_rail.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/pixel_snap.dart';
 import '../../../shared/widgets/whole_words.dart';
 import '../models/person_item.dart';
 import '../own_tour.dart';
@@ -78,15 +79,17 @@ Widget _staticFace(BuildContext context, PersonItem person, double size)
       shape: BoxShape.circle,
       border: Border.all(color: AppTheme.trialTurquoise, width: 2),
     ),
-    child: ClipOval(
-      child: photo != null
-          ? Image(
-              image: photo,
-              fit: BoxFit.cover,
-              filterQuality: ProfilePhotoImage.filterQuality,
-              errorBuilder: (context, error, stackTrace) => fallback,
-            )
-          : fallback,
+    child: PixelSnap(
+      child: ClipOval(
+        child: photo != null
+            ? Image(
+                image: photo,
+                fit: BoxFit.cover,
+                filterQuality: ProfilePhotoImage.filterQuality,
+                errorBuilder: (context, error, stackTrace) => fallback,
+              )
+            : fallback,
+      ),
     ),
   );
 }

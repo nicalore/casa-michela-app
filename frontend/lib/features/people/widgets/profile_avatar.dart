@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/pixel_snap.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/whole_words.dart';
 
@@ -212,32 +213,34 @@ class ProfileAvatarState extends State<ProfileAvatar>
               gradient: AppTheme.brandGradient,
               shape:    BoxShape.circle,
             ),
-            child: DecoratedBox(
-              key:        ValueKey(photo),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                image: photo == null
-                    ? null
-                    : DecorationImage(
-                        image:         photo,
-                        fit:           BoxFit.cover,
-                        filterQuality: ProfilePhotoImage.filterQuality,
-                      ),
-              ),
-              child: !hasImage
-                  ? Center(
-                      child: WholeWords(
-                        child: Text(
-                          _initials,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize:   widget.size * 32 / _defaultSize,
-                            fontWeight: FontWeight.w700,
-                            color:      Colors.white,
+            child: PixelSnap(
+              child: DecoratedBox(
+                key:        ValueKey(photo),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  image: photo == null
+                      ? null
+                      : DecorationImage(
+                          image:         photo,
+                          fit:           BoxFit.cover,
+                          filterQuality: ProfilePhotoImage.filterQuality,
+                        ),
+                ),
+                child: !hasImage
+                    ? Center(
+                        child: WholeWords(
+                          child: Text(
+                            _initials,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize:   widget.size * 32 / _defaultSize,
+                              fontWeight: FontWeight.w700,
+                              color:      Colors.white,
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                  : null,
+                      )
+                    : null,
+              ),
             ),
           ),
           if (isBusy)

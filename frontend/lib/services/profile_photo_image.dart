@@ -15,10 +15,11 @@ class ProfilePhotoImage extends ImageProvider<ProfilePhotoImage>
   final String path;
 
   // Physical pixels the shorter side reaches, so wide photos still cover a circle; smaller ones keep their size.
+  // The web keeps only the centre square, that many pixels a side.
   final int? cacheWidth;
 
-  // The web shrinks faces to the drawn pixels: nearest keeps them sharp at fractional positions.
-  static const FilterQuality filterQuality = kIsWeb ? FilterQuality.none : FilterQuality.medium;
+  // Linear: exact on whole pixels (see PixelSnap), only softer where a zoom or an animation moves the face.
+  static const FilterQuality filterQuality = FilterQuality.medium;
 
   const ProfilePhotoImage._(this.path, this.cacheWidth);
 

@@ -6,6 +6,7 @@ import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/profile_photo_image.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/pixel_snap.dart';
 import '../../../shared/widgets/whole_words.dart';
 import '../../people/widgets/person_card.dart';
 
@@ -75,15 +76,17 @@ class _OpeningPersonCardState extends State<OpeningPersonCard>
         shape: BoxShape.circle,
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
       ),
-      child: ClipOval(
-        child: photo != null
-            ? Image(
-                image: photo,
-                fit: BoxFit.cover,
-                filterQuality: ProfilePhotoImage.filterQuality,
-                errorBuilder: (context, error, stackTrace) => fallback,
-              )
-            : fallback,
+      child: PixelSnap(
+        child: ClipOval(
+          child: photo != null
+              ? Image(
+                  image: photo,
+                  fit: BoxFit.cover,
+                  filterQuality: ProfilePhotoImage.filterQuality,
+                  errorBuilder: (context, error, stackTrace) => fallback,
+                )
+              : fallback,
+        ),
       ),
     );
   }

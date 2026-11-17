@@ -12,7 +12,7 @@ class MobileAvailabilityBand
   // One per mode the Association opens, presence first.
   final List<(String, OpeningWindow)> openings;
 
-  // Day-ordered.
+  // Presence first, then online; each by start time.
   final List<AvailabilityItem> slots;
 
   final bool hasClosed;
@@ -70,6 +70,8 @@ class MobileAvailabilityDay
   bool get canDelete => hasSlots && bands.every((band) => band.slots.isEmpty || band.canDelete);
 }
 
+int _modeRank(String mode) => mode == kOnlineMode ? 1 : 0;
+
 List<MobileAvailabilityDay> availabilityWeek({
   required DateTime monday,
   required DateTime now,
@@ -83,7 +85,17 @@ List<MobileAvailabilityDay> availabilityWeek({
   final List<AvailabilityItem> own = [
     for (final slot in availabilities)
       if (teacherTaxCode == null || slot.teacherTaxCode == teacherTaxCode) slot,
-  ]..sort((a, b) => minutesOfTimeOfDay(a.startTime).compareTo(minutesOfTimeOfDay(b.startTime)));
+  ]..sort((a, b)
+  {
+    final int byMode = _modeRank(a.mode).compareTo(_modeRank(b.mode));
+
+    if (byMode != 0)
+    {
+      return byMode;
+    }
+
+    return minutesOfTimeOfDay(a.startTime).compareTo(minutesOfTimeOfDay(b.startTime));
+  });
 
   return [
     for (final day in daysOfWeek(monday))

@@ -10,6 +10,7 @@ import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/home/home_link.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
+import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_opening_hours.dart';
@@ -36,6 +37,14 @@ const EdgeInsets _tilePadding = EdgeInsets.symmetric(horizontal: 12);
 const EdgeInsets _tileBleed = EdgeInsets.fromLTRB(0, 10, 0, 12);
 
 const double _endStopHeight = _stopRadius * 2 + _stopStroke;
+
+// Mode icon before a line, level with its first row of text.
+const double _iconSize = 17;
+const double _iconTop = 2;
+const double _iconGap = 7;
+
+const double _sameModeGap = 4;
+const double _modeChangeGap = 12;
 
 class MobileDayTimeline extends StatefulWidget
 {
@@ -388,12 +397,61 @@ class _BandBody extends StatelessWidget
           ],
         ),
         const SizedBox(height: 4),
-        for (final entry in band.entries) ...[
-          _StateLine(entry),
-          if (entry.detail case final String detail) _Detail(detail),
+        // Lines of one mode sit close; a change of mode opens a gap.
+        for (final (i, entry) in band.entries.indexed) ...[
+          if (i > 0) SizedBox(height: entry.mode == band.entries[i - 1].mode ? _sameModeGap : _modeChangeGap),
+          _Entry(entry),
         ],
         const SizedBox(height: 8),
         _Openings(openings: band.openings),
+      ],
+    );
+  }
+}
+
+Color _modeColor(String? mode) => switch (mode)
+{
+  null => Colors.white.withValues(alpha: 0.6),
+  kOnlineMode => MobilePalette.onlineOnSea,
+  _ => MobilePalette.presenceOnSea,
+};
+
+// A line with a mode wears its icon, the detail under the text, not the icon.
+class _Entry extends StatelessWidget
+{
+  final MobileLineEntry entry;
+
+  const _Entry(this.entry);
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final Widget text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StateLine(entry),
+        if (entry.detail case final String detail) _Detail(detail),
+      ],
+    );
+
+    final String? mode = entry.mode;
+
+    if (mode == null)
+    {
+      return text;
+    }
+
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: scaler.scale(_iconTop)),
+          child: Icon(lessonModeIcon(mode), size: scaler.scale(_iconSize), color: _modeColor(mode)),
+        ),
+        const SizedBox(width: _iconGap),
+        Expanded(child: text),
       ],
     );
   }
@@ -408,8 +466,7 @@ class _StateLine extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final String? mode = entry.mode;
-    final bool muted = mode == null;
+    final bool muted = entry.mode == null;
 
     return Text(
       withoutOrphans(entry.text),
@@ -417,12 +474,7 @@ class _StateLine extends StatelessWidget
         fontSize: muted ? 15 : 15.5,
         fontWeight: muted ? FontWeight.w600 : FontWeight.w800,
         height: 1.25,
-        color: switch (mode)
-        {
-          null => Colors.white.withValues(alpha: 0.6),
-          kOnlineMode => MobilePalette.onlineOnSea,
-          _ => MobilePalette.presenceOnSea,
-        },
+        color: _modeColor(entry.mode),
       ),
     );
   }
@@ -438,7 +490,7 @@ class _Detail extends StatelessWidget
   Widget build(BuildContext context)
   {
     return Padding(
-      padding: const EdgeInsets.only(top: 3),
+      padding: const EdgeInsets.only(top: 2),
       child: Text(
         text,
         style: GoogleFonts.plusJakartaSans(

@@ -1,25 +1,33 @@
+import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/utils/day_marks.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../home/widgets/home_schedule_data.dart';
+import '../../lessons/models/activity_item.dart';
 import '../../lessons/models/calendar_publication_item.dart';
+import '../../lessons/models/lesson_item.dart';
 import '../../lessons/utils/opening_window.dart';
 
-// A published band is the reader's only where their own hours touch it.
-Set<DateTime> ownPublishedDays(List<CalendarPublicationItem> publications, List<HomeSlot> own)
+// Whether the reader has something of their own in a band.
+typedef OwnBand = bool Function(DateTime day, TimeBucket band);
+
+DateTime _dayOf(DateTime date) => DateTime(date.year, date.month, date.day);
+
+// A published band is the reader's only where [isOwn] says so.
+Set<DateTime> ownPublishedDays(List<CalendarPublicationItem> publications, OwnBand isOwn)
 {
   return {
     for (final row in publications)
-      if (slotsInBand(own, row.date, row.band).isNotEmpty) DateTime(row.date.year, row.date.month, row.date.day),
+      if (isOwn(row.date, row.band)) _dayOf(row.date),
   };
 }
 
-// [own]: the reader's hours, to dot their published days; a failed read leaves the days unmarked.
+// [own]: the reader's bands, to dot their published days; a failed read leaves the days unmarked.
 Future<DayMarks> loadDayMarks(
   DateTime from,
   DateTime to, {
-  Future<List<HomeSlot>>? own,
+  Future<OwnBand>? own,
 }) async
 {
   final api = ApiService();
@@ -45,7 +53,7 @@ Future<DayMarks> loadDayMarks(
       },
       busy: own == null
           ? const {}
-          : ownPublishedDays(results[2] as List<CalendarPublicationItem>, results[3] as List<HomeSlot>),
+          : ownPublishedDays(results[2] as List<CalendarPublicationItem>, results[3] as OwnBand),
     );
   }
   catch (_)
@@ -54,21 +62,42 @@ Future<DayMarks> loadDayMarks(
   }
 }
 
-// Both lists hold everybody's rows for an administrator, hence the filter.
+// Convened only: availability alone dots nothing. Activities come unfiltered for an administrator.
 Future<DayMarks> teacherDayMarks(DateTime from, DateTime to, String? taxCode)
 {
-  final Future<List<HomeSlot>> own = ApiService()
-      .getAvailabilities(dateFrom: from, dateTo: to)
-      .then((rows) => availabilitySlots(rows.where((row) => row.teacherTaxCode == taxCode).toList()));
+  final api = ApiService();
+
+  final Future<OwnBand> own = Future.wait([
+    api.getLessons(dateFrom: from, dateTo: to, teacherTaxCode: taxCode),
+    api.getCalendarActivities(dateFrom: from, dateTo: to),
+  ]).then((results)
+  {
+    final Set<(DateTime, TimeBucket)> called = {
+      for (final lesson in results[0] as List<LessonItem>)
+        if (lesson.teacherTaxCode == taxCode) (_dayOf(lesson.date), lesson.band),
+      for (final activity in results[1] as List<ActivityItem>)
+        if (activity.isAssigned && activity.teacherTaxCode == taxCode) (_dayOf(activity.date), activity.band),
+    };
+
+    return (DateTime day, TimeBucket band) => called.contains((_dayOf(day), band));
+  });
 
   return loadDayMarks(from, to, own: own);
 }
 
 Future<DayMarks> pupilDayMarks(DateTime from, DateTime to, Set<String> pupils)
 {
-  final Future<List<HomeSlot>> own = ApiService()
+  final Future<OwnBand> own = ApiService()
       .getPresences(dateFrom: from, dateTo: to)
-      .then((rows) => presenceSlots(rows.where((row) => pupils.contains(row.studentTaxCode)).toList(), named: false));
+      .then((rows)
+      {
+        final List<HomeSlot> slots = presenceSlots(
+          rows.where((row) => pupils.contains(row.studentTaxCode)).toList(),
+          named: false,
+        );
+
+        return (DateTime day, TimeBucket band) => slotsInBand(slots, day, band).isNotEmpty;
+      });
 
   return loadDayMarks(from, to, own: own);
 }

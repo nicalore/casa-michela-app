@@ -214,10 +214,11 @@ MobileLineBand _lineBand(
         ? [MobileLineEntry(emptyBandLabelFor(_pupilRole))]
         : [
             for (final stay in stays)
+              // The line's icon names the mode.
               MobileLineEntry(
                 '$kBookedLead ${homeLineRange(stay.startMinutes, stay.endMinutes)}',
                 mode: stay.mode,
-                detail: stay.detail,
+                detail: stay.subjects > 0 ? homeSubjectsLabel(stay.subjects) : null,
               ),
           ],
     openings: [

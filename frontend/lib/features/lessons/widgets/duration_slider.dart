@@ -7,6 +7,9 @@ import '../../../shared/widgets/app_range_slider.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../utils/booking_wizard_strings.dart';
 
+String durationText(int minutes) => minutes == 0 ? '0' : formatMinutes(minutes);
+
+// Starts at 0, which the wizard refuses: a length is always picked by hand.
 class DurationSlider extends StatelessWidget
 {
   // May lie past [longest], on a lesson already booked: the thumb waits at the end.
@@ -33,8 +36,6 @@ class DurationSlider extends StatelessWidget
     this.countTour,
   });
 
-  bool get _canMove => longest > kQuarterHour;
-
   Widget _buildHeader()
   {
     final String? count = this.count;
@@ -48,7 +49,7 @@ class DurationSlider extends StatelessWidget
         const SizedBox(width: 16),
         Expanded(
           child: Text(
-            formatMinutes(minutes),
+            durationText(minutes),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(color: AppTheme.trialTealDeep, fontWeight: FontWeight.w700, fontSize: 18),
@@ -72,16 +73,15 @@ class DurationSlider extends StatelessWidget
 
   Widget _buildTrack()
   {
-    final int shown = minutes.clamp(kQuarterHour, longest);
+    final int shown = minutes.clamp(0, longest);
 
     return AppSlider(
-      dimsWhenDisabled: true,
       value: shown.toDouble(),
-      min: kQuarterHour.toDouble(),
+      min: 0,
       max: longest.toDouble(),
-      divisions: _canMove ? (longest - kQuarterHour) ~/ kQuarterHour : null,
-      label: formatMinutes(shown),
-      onChanged: _canMove ? (value) => onChanged(value.round()) : null,
+      divisions: longest ~/ kQuarterHour,
+      label: durationText(shown),
+      onChanged: (value) => onChanged(value.round()),
     );
   }
 
@@ -94,8 +94,8 @@ class DurationSlider extends StatelessWidget
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(formatMinutes(kQuarterHour), style: style),
-          if (_canMove) Text(formatMinutes(longest), style: style),
+          Text(durationText(0), style: style),
+          Text(formatMinutes(longest), style: style),
         ],
       ),
     );

@@ -3,12 +3,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../../features/reports/reports_board.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
+import '../../shared/navigation/mobile_back_tabs.dart';
 import '../../shared/navigation/mobile_destinations.dart';
 import '../../shared/widgets/mobile_birthday_confetti.dart';
 import '../../shared/widgets/mobile_halloween_bats.dart';
@@ -100,6 +102,8 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
 
   bool _menuSeen = false;
 
+  final MobileBackTabs _backTabs = MobileBackTabs();
+
   @override
   void initState()
   {
@@ -126,6 +130,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
     _holds.dispose();
     _turn.dispose();
     _fall.dispose();
+    _backTabs.dispose();
     MobileNavSheet.openness.removeListener(_onCurtainMoved);
     MobileShellRequests.section.removeListener(_onRequest);
     MobileShellRequests.report.removeListener(_onReportRequest);
@@ -202,7 +207,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
     });
   }
 
-  // A section goes back to the home; the home lets the app close. The menu answers for itself while open.
+  // First page of the strip, then the home, then out of the app. The menu answers for itself while open.
   void _onSystemBack(bool didPop)
   {
     final bool changing = _switchingTo != null || _arrivingSlug != null || _leavingRole != null;
@@ -212,9 +217,19 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
       return;
     }
 
+    if (_backTabs.goFirst())
+    {
+      return;
+    }
+
     if (_destination != kMobileHomeSlug)
     {
       unawaited(_dropInto(kMobileHomeSlug));
+    }
+    else
+    {
+      // canPop lagged a strip that had just reached its first page.
+      unawaited(SystemNavigator.pop());
     }
   }
 
@@ -604,9 +619,13 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
         final String? arrivingRole = _arrivingRole;
         final String? arrivingSlug = _arrivingSlug;
 
-        return PopScope(
-          canPop: _destination == kMobileHomeSlug,
-          onPopInvokedWithResult: (didPop, _) => _onSystemBack(didPop),
+        return ListenableBuilder(
+          listenable: _backTabs,
+          builder: (context, shell) => PopScope(
+            canPop: _destination == kMobileHomeSlug && _backTabs.allFirst,
+            onPopInvokedWithResult: (didPop, _) => _onSystemBack(didPop),
+            child: shell!,
+          ),
           child: Scaffold(
             // Fields live in sheets above the keyboard; resizing would lay out the page every frame.
             resizeToAvoidBottomInset: false,
@@ -625,14 +644,17 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
                     ),
                     child: IgnorePointer(
                       ignoring: leavingRole != null,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (leavingRole != null && leavingSlug != null) section(leavingRole, leavingSlug),
-                          section(role, _destination),
-                          if (arrivingRole != null && arrivingSlug != null)
-                            section(arrivingRole, arrivingSlug, arriving: true),
-                        ],
+                      child: MobileBackTabsScope(
+                        tabs: _backTabs,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (leavingRole != null && leavingSlug != null) section(leavingRole, leavingSlug),
+                            section(role, _destination),
+                            if (arrivingRole != null && arrivingSlug != null)
+                              section(arrivingRole, arrivingSlug, arriving: true),
+                          ],
+                        ),
                       ),
                     ),
                   ),

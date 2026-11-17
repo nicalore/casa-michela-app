@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/week_range.dart' show formatMinutes, formatMonthYear;
 import '../../../shared/widgets/scroll_edge_fade.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../home_link.dart';
 import '../models/month_summary_items.dart';
@@ -163,7 +164,7 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
 
   return [
     HomeFigure(
-      label: 'Disponibilità',
+      label: 'Disponibilità in presenza',
       value: '${month.totalAvailabilities}',
       unit: _days(month.totalAvailabilities),
       warning: month.isBelowMonthlyThreshold ? 'Meno di 9' : null,
@@ -175,7 +176,7 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
       link: const HomeStatsLink(),
     ),
     HomeFigure(
-      label: 'A settimana',
+      label: 'A settimana in presenza',
       value: month.weeklyAvailabilities.toStringAsFixed(1),
       unit: _days(month.weeklyAvailabilities),
       warning: _weeklyWarning(month),
@@ -188,7 +189,7 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
       link: const HomeWeekLink(),
     ),
     HomeFigure.time(
-      label: 'Lezioni',
+      label: 'Lezioni totali',
       minutes: month.workedMinutes,
       delta: _delta(
         month.workedMinutes - last.workedMinutes,
@@ -652,45 +653,65 @@ class HomeMonthSection extends StatelessWidget
     );
   }
 
-  // A partial last row is not stretched; a warned figure makes its whole row keep the aside line.
+  // A partial last row is not stretched; a warned figure makes its whole row keep the aside line,
+  // and a label too long for its tile makes the whole row keep two label lines, so values stay level.
   Widget _grid(List<HomeFigure> figures, _TileScale scale)
   {
-    final List<Widget> rows = [];
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final double tile = (constraints.maxWidth - (columns - 1) * scale.gap) / columns;
+        final double room = tile - 2 * (scale.side + _TileScale.border);
+        final TextStyle labelStyle = _FigureTile.labelStyleOf(scale);
 
-    for (var start = 0; start < figures.length; start += columns)
-    {
-      final List<HomeFigure> row = figures.sublist(
-        start,
-        (start + columns).clamp(0, figures.length),
-      );
-      final bool aside = row.any((figure) => figure.hasAside);
+        bool wraps(HomeFigure figure) =>
+            _textWidth(context, TextSpan(text: figure.label.toUpperCase(), style: labelStyle)) > room;
 
-      rows.add(IntrinsicHeight(
-        child: Row(
+        final List<Widget> rows = [];
+
+        for (var start = 0; start < figures.length; start += columns)
+        {
+          final List<HomeFigure> row = figures.sublist(
+            start,
+            (start + columns).clamp(0, figures.length),
+          );
+          final bool aside = row.any((figure) => figure.hasAside);
+          final int labelLines = row.any(wraps) ? 2 : 1;
+
+          rows.add(IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < columns; i++) ...[
+                  if (i > 0) SizedBox(width: scale.gap),
+                  Expanded(
+                    child: i < row.length
+                        ? _FigureTile(
+                            figure: row[i],
+                            scale: scale,
+                            keepsAsideLine: aside,
+                            labelLines: labelLines,
+                            onLink: onLink,
+                          )
+                        : const SizedBox(),
+                  ),
+                ],
+              ],
+            ),
+          ));
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (var i = 0; i < columns; i++) ...[
-              if (i > 0) SizedBox(width: scale.gap),
-              Expanded(
-                child: i < row.length
-                    ? _FigureTile(figure: row[i], scale: scale, keepsAsideLine: aside, onLink: onLink)
-                    : const SizedBox(),
-              ),
+            for (var i = 0; i < rows.length; i++) ...[
+              if (i > 0) SizedBox(height: scale.gap),
+              rows[i],
             ],
           ],
-        ),
-      ));
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) SizedBox(height: scale.gap),
-          rows[i],
-        ],
-      ],
+        );
+      },
     );
   }
 }
@@ -884,14 +905,29 @@ class _FigureTile extends StatelessWidget
 
   final bool keepsAsideLine;
 
+  // Two when some label of the row does not fit one line: each label then keeps two.
+  final int labelLines;
+
   final ValueChanged<HomeLink>? onLink;
 
   const _FigureTile({
     required this.figure,
     required this.scale,
     required this.keepsAsideLine,
+    this.labelLines = 1,
     this.onLink,
   });
+
+  static TextStyle labelStyleOf(_TileScale scale)
+  {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: scale.label,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 1.1,
+      height: _TileScale.lineHeight,
+      color: AppTheme.trialMutedText,
+    );
+  }
 
   @override
   Widget build(BuildContext context)
@@ -910,17 +946,20 @@ class _FigureTile extends StatelessWidget
           child: FittedBox(fit: BoxFit.scaleDown, child: text),
         );
 
-    final Widget label = line(Text(
-      figure.label.toUpperCase(),
-      maxLines: 1,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: scale.label,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.1,
-        height: _TileScale.lineHeight,
-        color: AppTheme.trialMutedText,
-      ),
-    ));
+    final String labelText = figure.label.toUpperCase();
+    final TextStyle labelStyle = labelStyleOf(scale);
+
+    // Full size on two lines rather than shrunk on one.
+    final Widget label = labelLines == 1
+        ? line(Text(labelText, maxLines: 1, style: labelStyle))
+        : SizedBox(
+            height: (MediaQuery.textScalerOf(context).scale(scale.label) * _TileScale.lineHeight * labelLines)
+                .ceilToDouble(),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: WholeWords(child: Text(labelText, maxLines: labelLines, style: labelStyle)),
+            ),
+          );
 
     final TextStyle numberStyle = GoogleFonts.plusJakartaSans(
       fontSize: figure.isWord ? scale.value * 0.7 : scale.value,

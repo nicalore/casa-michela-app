@@ -47,7 +47,6 @@ class _MobileSystemCardState extends State<MobileSystemCard>
     super.initState();
 
     DeviceNotifications.refresh();
-    NotificationKinds.instance.load();
   }
 
   Future<void> _chooseNotifications(NotificationSwitch state) async

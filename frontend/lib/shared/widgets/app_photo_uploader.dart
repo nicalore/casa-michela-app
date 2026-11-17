@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../services/profile_photo_image.dart';
 import 'app_badged_face.dart';
 import 'app_check_mark.dart';
+import 'pixel_snap.dart';
 import 'snackbar.dart';
 
 const double _size = 110;
@@ -103,29 +104,31 @@ class _AppPhotoUploaderState
 
     final bool hasImage = imageProvider != null;
 
-    final Widget face = Container(
-      width: _size,
-      height: _size,
-      decoration: BoxDecoration(
-        color: kPickedSurface,
-        shape: BoxShape.circle,
-        image: hasImage
-            ? DecorationImage(
-                image: imageProvider,
-                fit: BoxFit.cover,
-                filterQuality: imageProvider is ProfilePhotoImage
-                    ? ProfilePhotoImage.filterQuality
-                    : FilterQuality.low,
+    final Widget face = PixelSnap(
+      child: Container(
+        width: _size,
+        height: _size,
+        decoration: BoxDecoration(
+          color: kPickedSurface,
+          shape: BoxShape.circle,
+          image: hasImage
+              ? DecorationImage(
+                  image: imageProvider,
+                  fit: BoxFit.cover,
+                  filterQuality: imageProvider is ProfilePhotoImage
+                      ? ProfilePhotoImage.filterQuality
+                      : FilterQuality.low,
+                )
+              : null,
+        ),
+        child: !hasImage
+            ? const Icon(
+                Icons.person_outline,
+                size: 48,
+                color: AppTheme.trialTealDeep,
               )
             : null,
       ),
-      child: !hasImage
-          ? const Icon(
-              Icons.person_outline,
-              size: 48,
-              color: AppTheme.trialTealDeep,
-            )
-          : null,
     );
 
     return AppBadgedFace(

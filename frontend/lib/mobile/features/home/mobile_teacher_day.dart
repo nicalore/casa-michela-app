@@ -162,12 +162,14 @@ MobileDayBand _bandFrom(
   );
 }
 
+// The line's icon names one mode; only a call in both still spells them out.
 MobileLineEntry _convenedEntry(TeacherBandCall call, {required bool feminine})
 {
   final List<String> modes = [for (final span in call.byMode) span.mode];
 
   final String detail = [
-    for (final mode in modes) modeLabel(mode),
+    if (modes.length > 1)
+      for (final mode in modes) modeLabel(mode),
     convocationSummary(call),
   ].join(' · ');
 
@@ -190,14 +192,16 @@ List<MobileLineEntry> _teacherEntries(MobileDayBand band, {required bool feminin
         MobileLineEntry(unconvenedLabelFor(kTeacherRole, feminine: feminine)!),
       ];
 
+    // In person first, then online; the icon on each line says which.
     case MobileBandState.available:
       return [
-        for (final span in band.availabilities)
-          MobileLineEntry(
-            '$kAvailableLead ${homeLineRange(span.startMinutes, span.endMinutes)}',
-            mode: span.mode,
-            detail: modeLabel(span.mode),
-          ),
+        for (final mode in const [kPresenceMode, kOnlineMode])
+          for (final span in band.availabilities)
+            if (span.mode == mode)
+              MobileLineEntry(
+                '$kAvailableLead ${homeLineRange(span.startMinutes, span.endMinutes)}',
+                mode: span.mode,
+              ),
       ];
 
     case MobileBandState.none:

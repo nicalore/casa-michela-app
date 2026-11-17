@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
+import '../../../features/notifications/notification_kinds.dart';
 import '../../../features/people/widgets/person_detail_widgets.dart';
 import '../../../features/settings/models/session_item.dart';
 import '../../../features/settings/settings_jump.dart';
@@ -100,9 +101,22 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
     // Opened from a notification: on the devices, where a sign-in not one's own is ended.
     _pages = PageController(initialPage: SettingsJumps.takeDevices() ? _devicesPage : 0);
     _loadSessions();
+    _loadKinds();
     mobileTourChanges.addListener(_tourLater);
     MobileNavSheet.hidden.addListener(_tourLater);
     SettingsJumps.asked.addListener(_showDevices);
+  }
+
+  // Read on every visit; the first time the page waits, or the Sistema kinds row pops in late.
+  void _loadKinds()
+  {
+    final bool unread = NotificationKinds.instance.choices == null;
+    final Future<void> loading = NotificationKinds.instance.load();
+
+    if (unread)
+    {
+      loading.whenComplete(MobileHoldScope.hold(context));
+    }
   }
 
   // Already open: the devices, read again in full.

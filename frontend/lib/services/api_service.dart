@@ -4883,13 +4883,14 @@ class ApiService
     return LessonItem.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<List<LessonItem>> getLessons({DateTime? dateFrom, DateTime? dateTo}) async
+  Future<List<LessonItem>> getLessons({DateTime? dateFrom, DateTime? dateTo, String? teacherTaxCode}) async
   {
     final response = await _dio.get(
       '/lessons/',
       queryParameters: {
         'date_from': ?dateFrom.let(formatDateOnly),
         'date_to': ?dateTo.let(formatDateOnly),
+        'teacher_tax_code': ?teacherTaxCode,
       },
     );
 

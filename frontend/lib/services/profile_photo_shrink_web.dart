@@ -6,30 +6,69 @@ import 'dart:ui_web' as ui_web;
 
 import 'package:web/web.dart' as web;
 
-// The engine's own resize samples without filtering; the browser's 'high' one averages like the phones.
+// The engine's own resize samples without filtering, so the browser shrinks faces.
 Future<ui.Image> shrinkProfilePhotoImpl(Uint8List bytes, int? side) async
 {
   final web.Blob blob = web.Blob(<JSAny>[bytes.toJS].toJS);
-  final web.ImageBitmap full = await web.window.createImageBitmap(blob).toDart;
+  web.ImageBitmap bitmap = await web.window.createImageBitmap(blob).toDart;
 
-  // Enlarged too when smaller, so it is always drawn one to one (see ProfilePhotoImage.filterQuality).
-  final double scale = side == null ? 1 : side / math.min(full.width, full.height);
-
-  if (scale == 1)
+  if (side == null || side < 1)
   {
-    return ui_web.createImageFromImageBitmap(full);
+    return ui_web.createImageFromImageBitmap(bitmap);
   }
 
-  final web.ImageBitmap small = await web.window.createImageBitmap(
-    full,
-    web.ImageBitmapOptions(
-      resizeWidth: math.max(1, (full.width * scale).round()),
-      resizeHeight: math.max(1, (full.height * scale).round()),
-      resizeQuality: 'high',
+  // The centre square BoxFit.cover shows, so the face is drawn one to one with no half-pixel crop.
+  final int square = math.min(bitmap.width, bitmap.height);
+
+  bitmap = await _replace(
+    bitmap,
+    web.window.createImageBitmap(
+      bitmap,
+      ((bitmap.width - square) ~/ 2).toJS,
+      (bitmap.height - square) ~/ 2,
+      square,
+      square,
     ),
-  ).toDart;
+  );
 
-  full.close();
+  // One resize to side x 2^n (enlarged when smaller: always drawn one to one), then halvings
+  // that average exact 2x2 blocks; one long step samples too few pixels and leaves grain.
+  int target = side;
 
-  return ui_web.createImageFromImageBitmap(small);
+  while (target * 2 <= bitmap.width)
+  {
+    target *= 2;
+  }
+
+  if (bitmap.width != target)
+  {
+    bitmap = await _resize(bitmap, target, 'high');
+  }
+
+  while (bitmap.width > side)
+  {
+    bitmap = await _resize(bitmap, bitmap.width ~/ 2, 'low');
+  }
+
+  return ui_web.createImageFromImageBitmap(bitmap);
+}
+
+Future<web.ImageBitmap> _resize(web.ImageBitmap bitmap, int side, String quality)
+{
+  return _replace(
+    bitmap,
+    web.window.createImageBitmap(
+      bitmap,
+      web.ImageBitmapOptions(resizeWidth: side, resizeHeight: side, resizeQuality: quality),
+    ),
+  );
+}
+
+Future<web.ImageBitmap> _replace(web.ImageBitmap old, JSPromise<web.ImageBitmap> next) async
+{
+  final web.ImageBitmap result = await next.toDart;
+
+  old.close();
+
+  return result;
 }

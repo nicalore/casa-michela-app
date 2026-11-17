@@ -175,6 +175,7 @@ String bandsLeftLabel(List<BandOffer> offers)
 }
 
 const String kPickBandToGoOn = 'Scegli la fascia per andare avanti.';
+const String kPickDurationToGoOn = 'Scegli la durata per andare avanti.';
 
 String stayExceeded(String days, {required bool isSelf, required String whose})
 {

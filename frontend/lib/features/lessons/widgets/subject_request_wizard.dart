@@ -118,8 +118,6 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
   {
     super.initState();
 
-    _draft.duration ??= kQuarterHour;
-
     if (widget.bands.length == 1)
     {
       _draft.band = widget.bands.single.band;
@@ -261,6 +259,11 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     if (step == _Step.what && _draft.tags.isEmpty)
     {
       return kPickKindToGoOn;
+    }
+
+    if (step == _Step.duration && (_draft.duration ?? 0) == 0)
+    {
+      return kPickDurationToGoOn;
     }
 
     if (step == _Step.duration && _exceeds)
@@ -427,9 +430,9 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     final int? available = _minutesAvailable;
 
     return DurationSlider(
-      minutes: _draft.duration ?? kQuarterHour,
+      minutes: _draft.duration ?? 0,
       longest: _longestDuration,
-      count: available == null ? null : '${formatMinutes(_minutesTaken)} di ${formatMinutes(available)}',
+      count: available == null ? null : '${durationText(_minutesTaken)} di ${formatMinutes(available)}',
       over: _exceeds,
       onChanged: (minutes) => setState(() => _draft.duration = minutes),
       trackTour: _tour(kTourBookingsSubjectDurations),

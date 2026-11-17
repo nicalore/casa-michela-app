@@ -15,8 +15,8 @@ abstract final class MobilePalette
   // Struck labels: the font's own line-through vanishes on a phone.
   static const double strikeThickness = 2.5;
 
-  // The two modes' colours lightened to read on the dark sea.
-  static const Color presenceOnSea = Color(0xFF5FD3C4);
+  // The two modes' colours lightened to read on the dark sea; in person, the badges' green.
+  static const Color presenceOnSea = Color(0xFF92D3BF);
   static const Color onlineOnSea = Color(0xFFF2BB5C);
 
   // Edges of the hours chips; their in-person fill is AppTheme.presenceBadge.
