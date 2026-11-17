@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +14,7 @@ import 'desktop_tour.dart';
 
 const double _popoverWidth = 336;
 const double _popoverGap = 8;
+const double _windowMargin = 8;
 
 const double kCalendarArrowSize = 32;
 const double kCalendarArrowIconSize = 18;
@@ -83,6 +86,9 @@ class _CalendarAnchorState extends State<CalendarAnchor> with SingleTickerProvid
 
   bool _isHovered = false;
 
+  // Sideways move that keeps the popover inside the window, set as it opens.
+  double _shift = 0;
+
   bool get _isOpen => _portal.isShowing && _reveal.status != AnimationStatus.reverse;
 
   @override
@@ -118,6 +124,7 @@ class _CalendarAnchorState extends State<CalendarAnchor> with SingleTickerProvid
     }
 
     widget.onPrefetch?.call();
+    _shift = _shiftInside();
     setState(_portal.show);
 
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -172,6 +179,32 @@ class _CalendarAnchorState extends State<CalendarAnchor> with SingleTickerProvid
     }
   }
 
+  // Where the window cuts it: lined up with the button's nearer edge, else against the margin.
+  double _shiftInside()
+  {
+    final RenderObject? anchor = context.findRenderObject();
+    final RenderObject? overlay = Overlay.maybeOf(context)?.context.findRenderObject();
+
+    if (anchor is! RenderBox || overlay is! RenderBox || !anchor.hasSize || !overlay.hasSize)
+    {
+      return 0;
+    }
+
+    final Rect button = anchor.localToGlobal(Offset.zero, ancestor: overlay) & anchor.size;
+    final double right = overlay.size.width - _windowMargin;
+    final double left = widget.startAligned ? button.left : button.center.dx - _popoverWidth / 2;
+
+    if (left >= _windowMargin && left + _popoverWidth <= right)
+    {
+      return 0;
+    }
+
+    final double lined = left < _windowMargin ? button.left : button.right - _popoverWidth;
+    final double inside = lined.clamp(_windowMargin, math.max(_windowMargin, right - _popoverWidth));
+
+    return inside - left;
+  }
+
   Widget _buildPopover(BuildContext context)
   {
     return Positioned(
@@ -180,7 +213,7 @@ class _CalendarAnchorState extends State<CalendarAnchor> with SingleTickerProvid
         link: _link,
         targetAnchor: widget.startAligned ? Alignment.bottomLeft : Alignment.bottomCenter,
         followerAnchor: widget.startAligned ? Alignment.topLeft : Alignment.topCenter,
-        offset: const Offset(0, _popoverGap),
+        offset: Offset(_shift, _popoverGap),
         child: TapRegion(
           groupId: _link,
           // A tour over the popover takes the clicks around it.

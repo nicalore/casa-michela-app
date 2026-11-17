@@ -22,6 +22,9 @@ const double _situationShare = 27;
 const double _costShare = 9;
 const double _shares = _nameShare + 2 * _timeShare + _hoursShare + _tariffShare + _situationShare + _costShare;
 
+// Room for a tariff's cost and a situation whole: narrower, the table keeps it and scrolls under its names.
+const double _leastWidth = 1090;
+
 // The second line of a situation starts under its text, past the icon.
 const double _situationIcon = 17;
 const double _situationGap = 6;
@@ -66,9 +69,26 @@ class StudentHoursTable extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final _Columns columns = _Columns(constraints.maxWidth);
+        final _Columns columns = _Columns.of(context, constraints.maxWidth);
         final List<StudentHoursRow> rows = band.rows;
         final int? lastEnd = band.lastEnd;
+
+        Widget line(StudentHoursRow row, int index, HoursPart part)
+        {
+          return _Row(
+            row: row,
+            day: band.date,
+            columns: columns,
+            part: part,
+            first: index == 0,
+            editable: editable,
+            firstMinute: firstMinute,
+            lastMinute: lastMinute,
+            onWork: onWork,
+            onAction: onAction,
+            onOpen: onOpenStudent,
+          );
+        }
 
         return Container(
           clipBehavior: Clip.antiAlias,
@@ -80,21 +100,25 @@ class StudentHoursTable extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Head(columns: columns),
-              for (final (index, row) in rows.indexed)
-                _Row(
-                  row: row,
-                  day: band.date,
-                  columns: columns,
-                  first: index == 0,
-                  editable: editable,
-                  firstMinute: firstMinute,
-                  lastMinute: lastMinute,
-                  onWork: onWork,
-                  onAction: onAction,
-                  onOpen: onOpenStudent,
-                ),
-              _Totals(rows: rows, columns: columns),
+              if (columns.scrolls)
+                HoursSideScroll(
+                  nameWidth: columns.name,
+                  width: columns.width,
+                  part: (part) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _Head(columns: columns, part: part),
+                      for (final (index, row) in rows.indexed) line(row, index, part),
+                      _Totals(rows: rows, columns: columns, part: part),
+                      const SizedBox(height: kHoursScrollBarRoom),
+                    ],
+                  ),
+                )
+              else ...[
+                _Head(columns: columns),
+                for (final (index, row) in rows.indexed) line(row, index, HoursPart.whole),
+                _Totals(rows: rows, columns: columns),
+              ],
               if (band.waiting.isNotEmpty && lastEnd != null) HoursNote(text: stillToCome(band.waiting, lastEnd)),
               if (editable) HoursAddRow(label: kAddStudent, onTap: onAddStudent),
             ],
@@ -107,6 +131,7 @@ class StudentHoursTable extends StatelessWidget
 
 class _Columns
 {
+  final double width;
   final double name;
   final double time;
   final double hours;
@@ -114,7 +139,17 @@ class _Columns
   final double situation;
   final double cost;
 
-  _Columns(double width)
+  // Too narrow for its least width: it keeps that and scrolls.
+  final bool scrolls;
+
+  factory _Columns.of(BuildContext context, double width)
+  {
+    final double least = hoursLeastWidth(context, _leastWidth);
+
+    return width < least ? _Columns(least, scrolls: true) : _Columns(width);
+  }
+
+  _Columns(this.width, {this.scrolls = false})
       : name = (width - kHoursActionWidth) * _nameShare / _shares,
         time = (width - kHoursActionWidth) * _timeShare / _shares,
         hours = (width - kHoursActionWidth) * _hoursShare / _shares,
@@ -128,8 +163,9 @@ const EdgeInsets _leftPadding = EdgeInsets.only(left: 14, right: 8);
 class _Head extends StatelessWidget
 {
   final _Columns columns;
+  final HoursPart part;
 
-  const _Head({required this.columns});
+  const _Head({required this.columns, this.part = HoursPart.whole});
 
   Widget _group(String label, double width)
   {
@@ -163,37 +199,31 @@ class _Head extends StatelessWidget
         children: [
           SizedBox(
             height: 28,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(width: c.name),
-                _group(kLessonsGroup, 2 * c.time + c.hours),
-                _group(kPaymentGroup, c.tariff + c.situation + c.cost),
-                const SizedBox(width: kHoursActionWidth),
-              ],
-            ),
+            child: hoursCellsOf([
+              SizedBox(width: c.name),
+              _group(kLessonsGroup, 2 * c.time + c.hours),
+              _group(kPaymentGroup, c.tariff + c.situation + c.cost),
+              const SizedBox(width: kHoursActionWidth),
+            ], part),
           ),
           Container(
             height: 28,
             decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                HoursCell(
-                  width: c.name,
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: kHoursNameInset),
-                  child: Text(kStudentColumn, maxLines: 1, style: hoursHeadStyle),
-                ),
-                _head(kStartColumn, c.time, opens: true),
-                _head(kEndColumn, c.time),
-                _head(kHoursColumn, c.hours),
-                _head(kTariffColumn, c.tariff, opens: true, left: true),
-                _head(kSituationColumn, c.situation, left: true),
-                _head(kCostColumn, c.cost),
-                const SizedBox(width: kHoursActionWidth),
-              ],
-            ),
+            child: hoursCellsOf([
+              HoursCell(
+                width: c.name,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.only(left: kHoursNameInset),
+                child: Text(kStudentColumn, maxLines: 1, style: hoursHeadStyle),
+              ),
+              _head(kStartColumn, c.time, opens: true),
+              _head(kEndColumn, c.time),
+              _head(kHoursColumn, c.hours),
+              _head(kTariffColumn, c.tariff, opens: true, left: true),
+              _head(kSituationColumn, c.situation, left: true),
+              _head(kCostColumn, c.cost),
+              const SizedBox(width: kHoursActionWidth),
+            ], part),
           ),
         ],
       ),
@@ -206,6 +236,7 @@ class _Row extends StatelessWidget
   final StudentHoursRow row;
   final DateTime day;
   final _Columns columns;
+  final HoursPart part;
   final bool first;
   final bool editable;
   final int firstMinute;
@@ -218,6 +249,7 @@ class _Row extends StatelessWidget
     required this.row,
     required this.day,
     required this.columns,
+    required this.part,
     required this.first,
     required this.editable,
     required this.firstMinute,
@@ -302,50 +334,47 @@ class _Row extends StatelessWidget
     return Container(
       height: hoursRowHeight(_shownWork.length, first: first),
       decoration: first ? null : const BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          HoursCell(
-            width: c.name,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.only(left: kHoursNameInset, right: 8),
-            child: _name(),
+      child: hoursCellsOf([
+        HoursCell(
+          width: c.name,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: kHoursNameInset, right: 8),
+          child: _name(),
+        ),
+        HoursCell(width: c.time, opensGroup: true, child: _times(end: false)),
+        HoursCell(width: c.time, child: _times(end: true)),
+        HoursCell(
+          width: c.hours,
+          child: Text(hours, style: hoursCellStyle(strong: hours != '—', color: hours == '—' ? kHoursDashInk : null)),
+        ),
+        HoursCell(
+          width: c.tariff,
+          opensGroup: true,
+          alignment: Alignment.centerLeft,
+          padding: _leftPadding,
+          child: _Tariff(situation: row.situation),
+        ),
+        HoursCell(
+          width: c.situation,
+          alignment: Alignment.centerLeft,
+          padding: _leftPadding,
+          // Absent, the band changes nothing: a dash, as in the cost.
+          child: row.absent
+              ? Text('—', style: hoursCellStyle(color: kHoursDashInk))
+              : _Situation(situation: row.situation, day: day),
+        ),
+        HoursCell(
+          width: c.cost,
+          child: Text(
+            cost == 0 ? '—' : formatAmount(cost),
+            style: hoursCellStyle(strong: cost != 0, color: cost == 0 ? kHoursDashInk : null),
           ),
-          HoursCell(width: c.time, opensGroup: true, child: _times(end: false)),
-          HoursCell(width: c.time, child: _times(end: true)),
-          HoursCell(
-            width: c.hours,
-            child: Text(hours, style: hoursCellStyle(strong: hours != '—', color: hours == '—' ? kHoursDashInk : null)),
-          ),
-          HoursCell(
-            width: c.tariff,
-            opensGroup: true,
-            alignment: Alignment.centerLeft,
-            padding: _leftPadding,
-            child: _Tariff(situation: row.situation),
-          ),
-          HoursCell(
-            width: c.situation,
-            alignment: Alignment.centerLeft,
-            padding: _leftPadding,
-            // Absent, the band changes nothing: a dash, as in the cost.
-            child: row.absent
-                ? Text('—', style: hoursCellStyle(color: kHoursDashInk))
-                : _Situation(situation: row.situation, day: day),
-          ),
-          HoursCell(
-            width: c.cost,
-            child: Text(
-              cost == 0 ? '—' : formatAmount(cost),
-              style: hoursCellStyle(strong: cost != 0, color: cost == 0 ? kHoursDashInk : null),
-            ),
-          ),
-          SizedBox(
-            width: kHoursActionWidth,
-            child: Center(child: editable ? _RowMenu(row: row, onAction: onAction) : null),
-          ),
-        ],
-      ),
+        ),
+        SizedBox(
+          width: kHoursActionWidth,
+          child: Center(child: editable ? _RowMenu(row: row, onAction: onAction) : null),
+        ),
+      ], part),
     );
   }
 }
@@ -525,8 +554,9 @@ class _Totals extends StatelessWidget
 {
   final List<StudentHoursRow> rows;
   final _Columns columns;
+  final HoursPart part;
 
-  const _Totals({required this.rows, required this.columns});
+  const _Totals({required this.rows, required this.columns, this.part = HoursPart.whole});
 
   @override
   Widget build(BuildContext context)
@@ -542,24 +572,21 @@ class _Totals extends StatelessWidget
         color: kHoursHeadSurface,
         border: Border(top: BorderSide(color: AppTheme.trialLine)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          HoursCell(
-            width: c.name,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.only(left: kHoursNameInset),
-            child: Text(kTotalRow.toUpperCase(), style: hoursGroupStyle.copyWith(fontSize: 12)),
-          ),
-          HoursCell(width: c.time, opensGroup: true, child: const SizedBox.shrink()),
-          SizedBox(width: c.time),
-          HoursCell(width: c.hours, child: Text(formatMinutes(minutes), style: strong)),
-          HoursCell(width: c.tariff, opensGroup: true, child: const SizedBox.shrink()),
-          SizedBox(width: c.situation),
-          HoursCell(width: c.cost, child: Text(formatAmount(cost), style: strong)),
-          const SizedBox(width: kHoursActionWidth),
-        ],
-      ),
+      child: hoursCellsOf([
+        HoursCell(
+          width: c.name,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: kHoursNameInset),
+          child: Text(kTotalRow.toUpperCase(), style: hoursGroupStyle.copyWith(fontSize: 12)),
+        ),
+        HoursCell(width: c.time, opensGroup: true, child: const SizedBox.shrink()),
+        SizedBox(width: c.time),
+        HoursCell(width: c.hours, child: Text(formatMinutes(minutes), style: strong)),
+        HoursCell(width: c.tariff, opensGroup: true, child: const SizedBox.shrink()),
+        SizedBox(width: c.situation),
+        HoursCell(width: c.cost, child: Text(formatAmount(cost), style: strong)),
+        const SizedBox(width: kHoursActionWidth),
+      ], part),
     );
   }
 }

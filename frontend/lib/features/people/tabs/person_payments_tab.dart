@@ -14,6 +14,7 @@ import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/page_heading.dart';
+import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -43,6 +44,9 @@ const double _monthWordMinWidth = 64;
 const double _monthGap = 8;
 
 const double _actionGap = 12;
+
+// Inside a button beside its label: the gap after the icon, the border and a little slack.
+const double _buttonInner = 8 + 4 + 4;
 
 // ESPORTA PDF floats at the foot as NUOVA COMUNICAZIONE does; the last table scrolls clear of it.
 const double _exportWidth = 330;
@@ -325,6 +329,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           metrics: PaymentHistoryMetrics.of(dense: dense),
           showHours: payments.student,
           openingPending: payments.openingPending,
+          stacked: AppBreakpoints.of(context).isMinimal,
           onOpen: (row) => _openRow(payments, row),
           onSettle: (row) => _settleRow(payments, row),
         ),
@@ -333,11 +338,12 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
   }
 
   // Below the wide window the PDF does not float: it leads the row of buttons, or stands alone.
-  Widget _exportButton(StudentPaymentsItem payments)
+  Widget _exportButton(StudentPaymentsItem payments, {double? width})
   {
     return tabActionButton(
       label: kExportPdf,
       icon: Icons.picture_as_pdf_outlined,
+      width: width,
       onPressed: () => _export(payments),
     );
   }
@@ -356,7 +362,70 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     );
   }
 
-  Widget _actions(StudentPaymentsItem payments)
+  // A button's natural width: its label, the icon before it and its sides (the page's denser sizes).
+  double _buttonNeed(String label)
+  {
+    final bool page = AppPageDensity.of(context);
+    final double font = page ? 12.5 : 13;
+
+    final TextPainter painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: DefaultTextStyle.of(context).style.merge(
+          GoogleFonts.plusJakartaSans(fontSize: font, fontWeight: FontWeight.w700, letterSpacing: 1.2),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+
+    final double width = painter.width;
+    painter.dispose();
+
+    return width + MediaQuery.textScalerOf(context).scale(font + 1) + _buttonInner + 2 * (page ? 14 : 20);
+  }
+
+  // Two to a line: as wide as each other while both labels fit half, else shared by what they need,
+  // else each on its own line.
+  List<double> _pairedWidths(List<String> labels, double room)
+  {
+    final double half = (room - _actionGap) / 2;
+    final List<double> widths = [];
+
+    for (var index = 0; index < labels.length; index += 2)
+    {
+      if (index + 1 == labels.length)
+      {
+        widths.add(_buttonNeed(labels[index]) <= half ? half : room);
+        continue;
+      }
+
+      final double first = _buttonNeed(labels[index]);
+      final double second = _buttonNeed(labels[index + 1]);
+
+      if (first <= half && second <= half)
+      {
+        widths.addAll([half, half]);
+      }
+      else if (first + second + _actionGap <= room)
+      {
+        // A hair short of the line, so rounding never sends the second below.
+        final double shared = room - _actionGap - 1;
+
+        widths.addAll([shared * first / (first + second), shared * second / (first + second)]);
+      }
+      else
+      {
+        widths.addAll([room, room]);
+      }
+    }
+
+    return widths;
+  }
+
+  // [room] set: minimal windows, the buttons two to a line rather than steps down the right.
+  Widget _actions(StudentPaymentsItem payments, {double? room})
   {
     final StudentTariffItem tariff = payments.tariff!;
     final StandardTariffItem? standard = _standard?.of(payments.schoolLevel);
@@ -376,12 +445,41 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           null => null,
         };
 
-    final Widget change = tabActionButton(
-      label: kChangeTariffLabel,
-      icon: Icons.swap_horiz_rounded,
-      disabledReason: off,
-      onPressed: () => _changeTariff(payments),
-    );
+    final List<(String, IconData, VoidCallback)> tariffSpecs = tariff.isHourly
+        ? [
+            if (changeable) (kChangeTariffLabel, Icons.swap_horiz_rounded, () => _changeTariff(payments)),
+            (kChangeRateLabel, Icons.edit_rounded, () => _changeRate(payments)),
+            (kPayAheadLabel, Icons.more_time_rounded, () => _payAhead(payments)),
+          ]
+        : [
+            if (changeable) (kChangeTariffLabel, Icons.swap_horiz_rounded, () => _changeTariff(payments)),
+            (kRenewLabel, Icons.autorenew_rounded, () => _renew(payments)),
+          ];
+
+    Widget button((String, IconData, VoidCallback) spec, {double? width})
+    {
+      final (label, icon, onPressed) = spec;
+
+      return tabActionButton(label: label, icon: icon, width: width, disabledReason: off, onPressed: onPressed);
+    }
+
+    // Nothing to export without a payment.
+    final bool exports = payments.history.isNotEmpty && AppBreakpoints.of(context).isDense;
+
+    if (room != null)
+    {
+      final List<String> labels = [if (exports) kExportPdf, for (final (label, _, _) in tariffSpecs) label];
+      final List<double> widths = _pairedWidths(labels, room);
+
+      return Wrap(
+        spacing: _actionGap,
+        runSpacing: _actionGap,
+        children: [
+          if (exports) _exportButton(payments, width: widths.first),
+          for (final (index, spec) in tariffSpecs.indexed) button(spec, width: widths[index + (exports ? 1 : 0)]),
+        ],
+      );
+    }
 
     final Widget export = _exportButton(payments);
 
@@ -389,35 +487,10 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
       alignment: WrapAlignment.end,
       spacing: _actionGap,
       runSpacing: _actionGap,
-      children: tariff.isHourly
-          ? [
-              if (changeable) change,
-              tabActionButton(
-                label: kChangeRateLabel,
-                icon: Icons.edit_rounded,
-                disabledReason: off,
-                onPressed: () => _changeRate(payments),
-              ),
-              tabActionButton(
-                label: kPayAheadLabel,
-                icon: Icons.more_time_rounded,
-                disabledReason: off,
-                onPressed: () => _payAhead(payments),
-              ),
-            ]
-          : [
-              if (changeable) change,
-              tabActionButton(
-                label: kRenewLabel,
-                icon: Icons.autorenew_rounded,
-                disabledReason: off,
-                onPressed: () => _renew(payments),
-              ),
-            ],
+      children: [for (final spec in tariffSpecs) button(spec)],
     );
 
-    // Nothing to export without a payment.
-    if (payments.history.isEmpty || !AppBreakpoints.of(context).isDense)
+    if (!exports)
     {
       return tariffButtons;
     }
@@ -477,7 +550,13 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
                 _SummaryCard(payments: payments, metrics: metrics),
                 if (tariffActions) ...[
                   SizedBox(height: gap),
-                  _actions(payments),
+                  // Minimal windows: two to a line, all as wide, rather than steps down the right.
+                  if (AppBreakpoints.of(context).isMinimal)
+                    LayoutBuilder(
+                      builder: (context, constraints) => _actions(payments, room: constraints.maxWidth),
+                    )
+                  else
+                    _actions(payments),
                 ],
                 if (payments.student && payments.tariff == null && !payments.readOnly) ...[
                   SizedBox(height: gap),

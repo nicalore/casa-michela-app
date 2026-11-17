@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
@@ -21,6 +22,9 @@ const double kHoursRowHeight = 54;
 const double kHoursStackGap = 6;
 
 const double _menuWidth = 140;
+
+// Under the scrolling part, room for its bar.
+const double kHoursScrollBarRoom = 12;
 
 const Color kHoursHeadSurface = Color(0xFFF5F8F8);
 const Color kHoursRowLine = Color(0xFFEDF2F1);
@@ -110,6 +114,104 @@ class HoursCell extends StatelessWidget
       padding: padding,
       decoration: opensGroup ? const BoxDecoration(border: Border(left: _groupSide)) : null,
       child: child,
+    );
+  }
+}
+
+// A table's least width below the wide window, grown with larger text so the times and the words keep their room.
+// The wide window keeps its table as it was: none.
+double hoursLeastWidth(BuildContext context, double least)
+{
+  return AppBreakpoints.of(context).isDense ? MediaQuery.textScalerOf(context).scale(least) : 0;
+}
+
+// The day over the table: at least [least] wide so the arrows hold still, wider rather than cut.
+double hoursDayLabelWidth(BuildContext context, String text, TextStyle style, double least)
+{
+  final TextPainter painter = TextPainter(
+    text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+
+  final double width = painter.width.ceilToDouble() + 2;
+  painter.dispose();
+
+  return math.max(least, width);
+}
+
+// What a line of the table shows: all its cells, or the name alone, or the rest that scrolls beside it.
+enum HoursPart { whole, pinned, scrolled }
+
+// A line's cells, the name always first.
+Widget hoursCellsOf(List<Widget> cells, HoursPart part)
+{
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: switch (part)
+    {
+      HoursPart.whole => cells,
+      HoursPart.pinned => [cells.first],
+      HoursPart.scrolled => cells.sublist(1),
+    },
+  );
+}
+
+// The names stay while the rest of the table, [width] in all, scrolls beside them.
+class HoursSideScroll extends StatefulWidget
+{
+  final double nameWidth;
+  final double width;
+  final Widget Function(HoursPart part) part;
+
+  const HoursSideScroll({super.key, required this.nameWidth, required this.width, required this.part});
+
+  @override
+  State<HoursSideScroll> createState() => _HoursSideScrollState();
+}
+
+class _HoursSideScrollState extends State<HoursSideScroll>
+{
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose()
+  {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // A rule on the names' edge once the rest has moved: at rest the first group draws its own.
+        ListenableBuilder(
+          listenable: _controller,
+          builder: (context, child) => Container(
+            width: widget.nameWidth,
+            foregroundDecoration: _controller.hasClients && _controller.offset > 0
+                ? const BoxDecoration(border: Border(right: _groupSide))
+                : null,
+            child: child,
+          ),
+          child: widget.part(HoursPart.pinned),
+        ),
+        Expanded(
+          child: Scrollbar(
+            controller: _controller,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _controller,
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(width: widget.width - widget.nameWidth, child: widget.part(HoursPart.scrolled)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

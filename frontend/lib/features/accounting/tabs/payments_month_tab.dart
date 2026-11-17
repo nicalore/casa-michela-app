@@ -43,6 +43,11 @@ const double _headHeight = 46;
 // Below this the fixed columns narrow and the flexible ones keep the room.
 const double _narrowTable = 900;
 
+// Minimal windows: a row on floors (payer and amount, what, day and method).
+const double _stackedInset = 16;
+const double _stackedChevron = 30;
+const double _stackedGap = 3;
+
 // Accounting reaches back to the association's first month.
 final DateTime _firstMonth = DateTime(2023, 1);
 
@@ -283,50 +288,65 @@ class _PaymentsMonthTabState extends State<PaymentsMonthTab> with DestinationRef
       ),
     );
 
+    final Widget filters = Wrap(
+      spacing: kFilterGap,
+      runSpacing: kFilterGap,
+      children: [
+        RoleFilterPill(value: _role, onPicked: _pickRole),
+        _tariffFilter(),
+        AmountFilterPill(least: _least, most: _most, onApply: _pickAmount),
+      ],
+    );
+
+    final Widget month = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppMonthButton(
+          selected: _month,
+          first: _firstMonth,
+          last: _thisMonth,
+          size: button,
+          onPicked: _showMonth,
+        ),
+        SizedBox(width: dense ? 8 : 12),
+        CarouselArrowButton(
+          icon: Icons.chevron_left_rounded,
+          isDisabled: !_month.isAfter(_firstMonth),
+          size: button,
+          onTap: () => _showMonth(DateTime(_month.year, _month.month - 1)),
+        ),
+        SizedBox(width: dense ? 6 : 8),
+        SizedBox(width: dense ? _denseMonthLabelWidth : _monthLabelWidth, child: Center(child: label)),
+        SizedBox(width: dense ? 6 : 8),
+        CarouselArrowButton(
+          icon: Icons.chevron_right_rounded,
+          isDisabled: !_month.isBefore(_thisMonth),
+          size: button,
+          onTap: () => _showMonth(DateTime(_month.year, _month.month + 1)),
+        ),
+      ],
+    );
+
+    // Minimal windows: the month alone at the right, the filters under it.
+    if (AppBreakpoints.of(context).isMinimal)
+    {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(alignment: Alignment.centerRight, child: month),
+          const SizedBox(height: kFilterGap + 2),
+          filters,
+        ],
+      );
+    }
+
     // The filters wrap on a second line before they crowd the month.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Wrap(
-            spacing: kFilterGap,
-            runSpacing: kFilterGap,
-            children: [
-              RoleFilterPill(value: _role, onPicked: _pickRole),
-              _tariffFilter(),
-              AmountFilterPill(least: _least, most: _most, onApply: _pickAmount),
-            ],
-          ),
-        ),
+        Expanded(child: filters),
         SizedBox(width: dense ? 12 : 16),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppMonthButton(
-              selected: _month,
-              first: _firstMonth,
-              last: _thisMonth,
-              size: button,
-              onPicked: _showMonth,
-            ),
-            SizedBox(width: dense ? 8 : 12),
-            CarouselArrowButton(
-              icon: Icons.chevron_left_rounded,
-              isDisabled: !_month.isAfter(_firstMonth),
-              size: button,
-              onTap: () => _showMonth(DateTime(_month.year, _month.month - 1)),
-            ),
-            SizedBox(width: dense ? 6 : 8),
-            SizedBox(width: dense ? _denseMonthLabelWidth : _monthLabelWidth, child: Center(child: label)),
-            SizedBox(width: dense ? 6 : 8),
-            CarouselArrowButton(
-              icon: Icons.chevron_right_rounded,
-              isDisabled: !_month.isBefore(_thisMonth),
-              size: button,
-              onTap: () => _showMonth(DateTime(_month.year, _month.month + 1)),
-            ),
-          ],
-        ),
+        month,
       ],
     );
   }
@@ -391,7 +411,12 @@ class _PaymentsMonthTabState extends State<PaymentsMonthTab> with DestinationRef
                 children: [
                   PageTransitionItem(
                     slot: PageTransitionItem.list,
-                    child: _PaymentsTable(rows: rows, dense: dense, onOpen: _open),
+                    child: _PaymentsTable(
+                      rows: rows,
+                      dense: dense,
+                      onOpen: _open,
+                      stacked: AppBreakpoints.of(context).isMinimal,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   PageTransitionItem(
@@ -453,7 +478,10 @@ class _PaymentsTable extends StatelessWidget
   final bool dense;
   final ValueChanged<MonthPayment> onOpen;
 
-  const _PaymentsTable({required this.rows, required this.dense, required this.onOpen});
+  // Minimal windows: rows on floors, no columns.
+  final bool stacked;
+
+  const _PaymentsTable({required this.rows, required this.dense, required this.onOpen, this.stacked = false});
 
   double get _font => dense ? 13.5 : 14.5;
 
@@ -487,6 +515,70 @@ class _PaymentsTable extends StatelessWidget
             child: Text(kOwedAmountColumn, textAlign: TextAlign.right, style: hoursHeadStyle),
           ),
           SizedBox(width: c.chevron),
+        ],
+      ),
+    );
+  }
+
+  Widget _amount(MonthPayment row)
+  {
+    return Text(
+      formatAmount(row.amountCents),
+      textAlign: TextAlign.right,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: _font + 0.5,
+        fontWeight: FontWeight.w800,
+        color: AppTheme.trialTealDeep,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+  }
+
+  Widget _stackedRow(MonthPayment row, {required bool first})
+  {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(_stackedInset, 12, 8, 12),
+      decoration: BoxDecoration(
+        border: first ? null : const Border(top: BorderSide(color: kHoursRowLine)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  row.fullName,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: _font + 1,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.trialOcean,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _amount(row),
+              const SizedBox(
+                width: _stackedChevron,
+                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeep),
+              ),
+            ],
+          ),
+          const SizedBox(height: _stackedGap),
+          Padding(
+            padding: const EdgeInsets.only(right: _stackedChevron),
+            child: Text(paymentWhat(row), style: hoursCellStyle().copyWith(fontSize: _font)),
+          ),
+          const SizedBox(height: _stackedGap),
+          Text(
+            '${formatWeekdayColumnLabel(row.paidOn)} · ${paymentMethodWords(row)}',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: _font - 1.5,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
         ],
       ),
     );
@@ -531,19 +623,7 @@ class _PaymentsTable extends StatelessWidget
             width: c.method,
             child: Text(paymentMethodWords(row), style: hoursCellStyle(color: AppTheme.trialMutedText).copyWith(fontSize: _font)),
           ),
-          SizedBox(
-            width: c.amount,
-            child: Text(
-              formatAmount(row.amountCents),
-              textAlign: TextAlign.right,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: _font + 0.5,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.trialTealDeep,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
+          SizedBox(width: c.amount, child: _amount(row)),
           SizedBox(
             width: c.chevron,
             child: const Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeep),
@@ -571,13 +651,14 @@ class _PaymentsTable extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _head(narrow),
+              if (!stacked) _head(narrow),
               for (final (index, row) in rows.indexed)
                 HoverGoldFrame(
                   cardRadius: _radius,
+                  atTop: stacked && index == 0,
                   atBottom: index == rows.length - 1,
                   onTap: () => onOpen(row),
-                  child: _row(row, first: index == 0, narrow: narrow),
+                  child: stacked ? _stackedRow(row, first: index == 0) : _row(row, first: index == 0, narrow: narrow),
                 ),
             ],
           ),

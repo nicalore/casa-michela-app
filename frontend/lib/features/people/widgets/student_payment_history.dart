@@ -176,6 +176,9 @@ class PaymentHistoryTable extends StatelessWidget
   // The pupil's initial set-up is still to do: hours to settle have no amount yet.
   final bool openingPending;
 
+  // Minimal windows: rows on floors, no columns.
+  final bool stacked;
+
   const PaymentHistoryTable({
     super.key,
     required this.rows,
@@ -184,6 +187,7 @@ class PaymentHistoryTable extends StatelessWidget
     required this.onSettle,
     this.showHours = true,
     this.openingPending = false,
+    this.stacked = false,
   });
 
   bool _waiting(PaymentHistoryRow row) => openingPending && !row.isPaid && !row.isFee;
@@ -304,6 +308,104 @@ class PaymentHistoryTable extends StatelessWidget
     );
   }
 
+  Widget _amount(PaymentHistoryRow row)
+  {
+    final bool waiting = _waiting(row);
+
+    return Text(
+      waiting ? '—' : formatAmount(row.amountCents),
+      style: _cell(
+        color: waiting ? AppTheme.trialMutedText : (row.isPaid ? AppTheme.trialTealDeep : AppTheme.modifiedAccent),
+        weight: FontWeight.w800,
+      ),
+    );
+  }
+
+  // Payment and amount, then its period and hours, then when and how it was paid (or what is still to do).
+  Widget _stackedRow(PaymentHistoryRow row, {required bool first})
+  {
+    final DateTime? paidOn = row.paidOn;
+    final bool waiting = _waiting(row);
+    final String? line = historyLine(row);
+    final String hours = showHours ? _hours(row) : '';
+    final String period = [?line, if (hours.isNotEmpty && hours != '—') hours].join(' · ');
+    final TextStyle small = GoogleFonts.plusJakartaSans(
+      fontSize: metrics.line,
+      fontWeight: FontWeight.w600,
+      color: AppTheme.trialMutedText,
+    );
+
+    final Widget state = waiting
+        ? OpeningPendingPill(fontSize: metrics.cell - 2)
+        : paidOn == null
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PaymentDueFlag(height: metrics.flagHeight, fontSize: metrics.cell - 2),
+              const SizedBox(width: 10),
+              _settle(row),
+            ],
+          )
+        : Text(paidOnLine(formatWeekdayColumnLabel(paidOn), _method(row)), style: small);
+
+    final Widget cells = Container(
+      padding: EdgeInsets.fromLTRB(metrics.sidePadding, 12, 8, 12),
+      decoration: BoxDecoration(
+        border: first ? null : const Border(top: BorderSide(color: _rowRule)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  historyTitle(row),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: metrics.title,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.trialOcean,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _amount(row),
+              const SizedBox(
+                width: 30,
+                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeep),
+              ),
+            ],
+          ),
+          if (period.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(period, style: small.copyWith(fontWeight: FontWeight.w500, color: const Color(0xFF33495A))),
+          ],
+          const SizedBox(height: 5),
+          Align(alignment: Alignment.centerLeft, child: state),
+        ],
+      ),
+    );
+
+    if (row.isPaid || waiting)
+    {
+      return cells;
+    }
+
+    return Stack(
+      children: [
+        cells,
+        const Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: _stripe,
+          child: ColoredBox(color: AppTheme.trialGold),
+        ),
+      ],
+    );
+  }
+
   Widget _row(PaymentHistoryRow row, {required bool first})
   {
     final bool paid = row.isPaid;
@@ -389,14 +491,15 @@ class PaymentHistoryTable extends StatelessWidget
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _head(),
+          if (!stacked) _head(),
           for (final (index, row) in rows.indexed)
             HoverGoldFrame(
               cardRadius: metrics.radius,
+              atTop: stacked && index == 0,
               atBottom: index == rows.length - 1,
               onTap: () => onOpen(row),
               leadingInset: row.isPaid || _waiting(row) ? 0 : _stripe,
-              child: _row(row, first: index == 0),
+              child: stacked ? _stackedRow(row, first: index == 0) : _row(row, first: index == 0),
             ),
         ],
       ),

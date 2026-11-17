@@ -307,6 +307,9 @@ const String kPaymentColumn = 'Pagamento';
 const String kHoursColumn = 'Ore';
 const String kAmountColumn = 'Importo';
 const String kPaidOnColumn = 'Pagato il';
+
+// Minimal windows: «Pagato lunedì 2 novembre · Contanti» under the payment.
+String paidOnLine(String day, String method) => 'Pagato ${day[0].toLowerCase()}${day.substring(1)} · $method';
 const String kMethodColumn = 'Modalità';
 const String kDayColumn = 'Giorno';
 const String kLeftColumn = 'Rimaste';

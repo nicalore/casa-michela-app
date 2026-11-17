@@ -18,6 +18,9 @@ const double _hoursShare = 8.2;
 const double _moneyShare = 8.8;
 const double _shares = _nameShare + 4 * _timeShare + 2 * _hoursShare + 2 * _moneyShare;
 
+// As on the narrowest wide window: narrower, the table keeps this width and scrolls under its names.
+const double _leastWidth = 930;
+
 enum TeacherHoursAction { addStretch, dropLastStretch, markAbsent, markPresent, align, takeOut }
 
 typedef WorkEdit = void Function(TeacherHoursRow row, int index, HoursSpan span);
@@ -61,9 +64,26 @@ class TeacherHoursTable extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final _Columns columns = _Columns(constraints.maxWidth);
+        final _Columns columns = _Columns.of(context, constraints.maxWidth);
         final List<TeacherHoursRow> rows = band.rows;
         final int? lastEnd = band.lastEnd;
+
+        Widget line(TeacherHoursRow row, int index, HoursPart part)
+        {
+          return _Row(
+            row: row,
+            columns: columns,
+            part: part,
+            first: index == 0,
+            editable: editable,
+            firstMinute: firstMinute,
+            lastMinute: lastMinute,
+            onWork: onWork,
+            onVolunteer: onVolunteer,
+            onAction: onAction,
+            onOpen: onOpenTeacher,
+          );
+        }
 
         return Container(
           clipBehavior: Clip.antiAlias,
@@ -75,21 +95,25 @@ class TeacherHoursTable extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Head(columns: columns),
-              for (final (index, row) in rows.indexed)
-                _Row(
-                  row: row,
-                  columns: columns,
-                  first: index == 0,
-                  editable: editable,
-                  firstMinute: firstMinute,
-                  lastMinute: lastMinute,
-                  onWork: onWork,
-                  onVolunteer: onVolunteer,
-                  onAction: onAction,
-                  onOpen: onOpenTeacher,
-                ),
-              _Totals(rows: rows, columns: columns),
+              if (columns.scrolls)
+                HoursSideScroll(
+                  nameWidth: columns.name,
+                  width: columns.width,
+                  part: (part) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _Head(columns: columns, part: part),
+                      for (final (index, row) in rows.indexed) line(row, index, part),
+                      _Totals(rows: rows, columns: columns, part: part),
+                      const SizedBox(height: kHoursScrollBarRoom),
+                    ],
+                  ),
+                )
+              else ...[
+                _Head(columns: columns),
+                for (final (index, row) in rows.indexed) line(row, index, HoursPart.whole),
+                _Totals(rows: rows, columns: columns),
+              ],
               if (band.waiting.isNotEmpty && lastEnd != null) HoursNote(text: stillToCome(band.waiting, lastEnd)),
               if (editable) HoursAddRow(label: kAddTeacher, onTap: onAddTeacher),
             ],
@@ -102,12 +126,23 @@ class TeacherHoursTable extends StatelessWidget
 
 class _Columns
 {
+  final double width;
   final double name;
   final double time;
   final double hours;
   final double money;
 
-  _Columns(double width)
+  // Too narrow for its least width: it keeps that and scrolls.
+  final bool scrolls;
+
+  factory _Columns.of(BuildContext context, double width)
+  {
+    final double least = hoursLeastWidth(context, _leastWidth);
+
+    return width < least ? _Columns(least, scrolls: true) : _Columns(width);
+  }
+
+  _Columns(this.width, {this.scrolls = false})
       : name = (width - kHoursActionWidth) * _nameShare / _shares,
         time = (width - kHoursActionWidth) * _timeShare / _shares,
         hours = (width - kHoursActionWidth) * _hoursShare / _shares,
@@ -117,8 +152,9 @@ class _Columns
 class _Head extends StatelessWidget
 {
   final _Columns columns;
+  final HoursPart part;
 
-  const _Head({required this.columns});
+  const _Head({required this.columns, this.part = HoursPart.whole});
 
   Widget _group(String label, double width, {bool opens = true})
   {
@@ -146,40 +182,34 @@ class _Head extends StatelessWidget
         children: [
           SizedBox(
             height: 28,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(width: c.name),
-                _group(kWorkGroup, 2 * c.time + c.hours),
-                _group(kVolunteerGroup, 2 * c.time + c.hours),
-                _group(kPayGroup, 2 * c.money),
-                const SizedBox(width: kHoursActionWidth),
-              ],
-            ),
+            child: hoursCellsOf([
+              SizedBox(width: c.name),
+              _group(kWorkGroup, 2 * c.time + c.hours),
+              _group(kVolunteerGroup, 2 * c.time + c.hours),
+              _group(kPayGroup, 2 * c.money),
+              const SizedBox(width: kHoursActionWidth),
+            ], part),
           ),
           Container(
             height: 28,
             decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                HoursCell(
-                  width: c.name,
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: kHoursNameInset),
-                  child: Text(kTeacherColumn, maxLines: 1, style: hoursHeadStyle),
-                ),
-                _head(kStartColumn, c.time, opens: true),
-                _head(kEndColumn, c.time),
-                _head(kHoursColumn, c.hours),
-                _head(kStartColumn, c.time, opens: true),
-                _head(kEndColumn, c.time),
-                _head(kHoursColumn, c.hours),
-                _head(kGrossColumn, c.money, opens: true),
-                _head(kNetColumn, c.money),
-                const SizedBox(width: kHoursActionWidth),
-              ],
-            ),
+            child: hoursCellsOf([
+              HoursCell(
+                width: c.name,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.only(left: kHoursNameInset),
+                child: Text(kTeacherColumn, maxLines: 1, style: hoursHeadStyle),
+              ),
+              _head(kStartColumn, c.time, opens: true),
+              _head(kEndColumn, c.time),
+              _head(kHoursColumn, c.hours),
+              _head(kStartColumn, c.time, opens: true),
+              _head(kEndColumn, c.time),
+              _head(kHoursColumn, c.hours),
+              _head(kGrossColumn, c.money, opens: true),
+              _head(kNetColumn, c.money),
+              const SizedBox(width: kHoursActionWidth),
+            ], part),
           ),
         ],
       ),
@@ -191,6 +221,7 @@ class _Row extends StatelessWidget
 {
   final TeacherHoursRow row;
   final _Columns columns;
+  final HoursPart part;
   final bool first;
   final bool editable;
   final int firstMinute;
@@ -203,6 +234,7 @@ class _Row extends StatelessWidget
   const _Row({
     required this.row,
     required this.columns,
+    required this.part,
     required this.first,
     required this.editable,
     required this.firstMinute,
@@ -388,24 +420,21 @@ class _Row extends StatelessWidget
     return Container(
       height: height,
       decoration: first ? null : const BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          HoursCell(
-            width: c.name,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.only(left: kHoursNameInset, right: 8),
-            child: _name(),
-          ),
-          ..._workCells(asVolunteering: false),
-          if (row.isVolunteer) ..._workCells(asVolunteering: true) else ..._volunteerCells(),
-          ..._moneyCells(),
-          SizedBox(
-            width: kHoursActionWidth,
-            child: Center(child: editable ? _RowMenu(row: row, onAction: onAction) : null),
-          ),
-        ],
-      ),
+      child: hoursCellsOf([
+        HoursCell(
+          width: c.name,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: kHoursNameInset, right: 8),
+          child: _name(),
+        ),
+        ..._workCells(asVolunteering: false),
+        if (row.isVolunteer) ..._workCells(asVolunteering: true) else ..._volunteerCells(),
+        ..._moneyCells(),
+        SizedBox(
+          width: kHoursActionWidth,
+          child: Center(child: editable ? _RowMenu(row: row, onAction: onAction) : null),
+        ),
+      ], part),
     );
   }
 }
@@ -414,8 +443,9 @@ class _Totals extends StatelessWidget
 {
   final List<TeacherHoursRow> rows;
   final _Columns columns;
+  final HoursPart part;
 
-  const _Totals({required this.rows, required this.columns});
+  const _Totals({required this.rows, required this.columns, this.part = HoursPart.whole});
 
   @override
   Widget build(BuildContext context)
@@ -454,26 +484,23 @@ class _Totals extends StatelessWidget
         color: kHoursHeadSurface,
         border: Border(top: BorderSide(color: AppTheme.trialLine)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          HoursCell(
-            width: c.name,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.only(left: kHoursNameInset),
-            child: Text(kTotalRow.toUpperCase(), style: hoursGroupStyle.copyWith(fontSize: 12)),
-          ),
-          HoursCell(width: c.time, opensGroup: true, child: const SizedBox.shrink()),
-          SizedBox(width: c.time),
-          HoursCell(width: c.hours, child: Text(formatMinutes(worked), style: strong)),
-          HoursCell(width: c.time, opensGroup: true, child: const SizedBox.shrink()),
-          SizedBox(width: c.time),
-          HoursCell(width: c.hours, child: Text(formatMinutes(given), style: strong)),
-          HoursCell(width: c.money, opensGroup: true, child: Text(formatAmount(gross), style: strong)),
-          HoursCell(width: c.money, child: Text(formatAmount(net), style: strong)),
-          const SizedBox(width: kHoursActionWidth),
-        ],
-      ),
+      child: hoursCellsOf([
+        HoursCell(
+          width: c.name,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: kHoursNameInset),
+          child: Text(kTotalRow.toUpperCase(), style: hoursGroupStyle.copyWith(fontSize: 12)),
+        ),
+        HoursCell(width: c.time, opensGroup: true, child: const SizedBox.shrink()),
+        SizedBox(width: c.time),
+        HoursCell(width: c.hours, child: Text(formatMinutes(worked), style: strong)),
+        HoursCell(width: c.time, opensGroup: true, child: const SizedBox.shrink()),
+        SizedBox(width: c.time),
+        HoursCell(width: c.hours, child: Text(formatMinutes(given), style: strong)),
+        HoursCell(width: c.money, opensGroup: true, child: Text(formatAmount(gross), style: strong)),
+        HoursCell(width: c.money, child: Text(formatAmount(net), style: strong)),
+        const SizedBox(width: kHoursActionWidth),
+      ], part),
     );
   }
 }

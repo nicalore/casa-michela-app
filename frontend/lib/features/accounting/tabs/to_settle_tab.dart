@@ -39,6 +39,11 @@ const double _narrowChevronWidth = 36;
 const double _itemGap = 4;
 const double _itemAmountGap = 12;
 
+// Minimal windows: a row on floors (name and total, what is owed, since when).
+const double _stackedInset = 16;
+const double _stackedChevron = 30;
+const double _stackedGap = 4;
+
 // What is owed, one line each: «Ore oltre il pacchetto · 1h 30m», «Assicurazione 2026».
 String _itemLabel(OwedItem item)
 {
@@ -260,7 +265,12 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
               padding: const EdgeInsets.only(bottom: 24),
               child: PageTransitionItem(
                 slot: PageTransitionItem.list,
-                child: _ToSettleTable(rows: rows, dense: dense, onOpen: _open),
+                child: _ToSettleTable(
+                  rows: rows,
+                  dense: dense,
+                  onOpen: _open,
+                  stacked: AppBreakpoints.of(context).isMinimal,
+                ),
               ),
             ),
           ),
@@ -305,7 +315,10 @@ class _ToSettleTable extends StatelessWidget
   final bool dense;
   final ValueChanged<Debtor> onOpen;
 
-  const _ToSettleTable({required this.rows, required this.dense, required this.onOpen});
+  // Minimal windows: rows on floors, no columns.
+  final bool stacked;
+
+  const _ToSettleTable({required this.rows, required this.dense, required this.onOpen, this.stacked = false});
 
   double get _font => dense ? 13.5 : 14.5;
 
@@ -376,6 +389,61 @@ class _ToSettleTable extends StatelessWidget
     );
   }
 
+  Widget _total(Debtor row)
+  {
+    return Text(
+      formatAmount(row.totalCents),
+      textAlign: TextAlign.right,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: _font + 0.5,
+        fontWeight: FontWeight.w800,
+        color: AppTheme.modifiedAccent,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+  }
+
+  Widget _stackedRow(Debtor row, int thisYear, {required bool first})
+  {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(_stackedInset, 12, 8, 12),
+      decoration: BoxDecoration(
+        border: first ? null : const Border(top: BorderSide(color: kHoursRowLine)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _name(row)),
+              const SizedBox(width: _itemAmountGap),
+              _total(row),
+              const SizedBox(
+                width: _stackedChevron,
+                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeep),
+              ),
+            ],
+          ),
+          const SizedBox(height: _stackedGap),
+          Padding(
+            padding: const EdgeInsets.only(right: _stackedChevron - _itemAmountGap),
+            child: _items(row, true),
+          ),
+          const SizedBox(height: _stackedGap),
+          Text(
+            '$kSinceColumn ${owedSince(row.since, thisYear)}',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: _font - 1.5,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _items(Debtor row, bool narrow)
   {
     return Column(
@@ -420,19 +488,7 @@ class _ToSettleTable extends StatelessWidget
             width: c.since,
             child: Text(owedSince(row.since, thisYear), style: hoursCellStyle().copyWith(fontSize: _font)),
           ),
-          SizedBox(
-            width: c.amount,
-            child: Text(
-              formatAmount(row.totalCents),
-              textAlign: TextAlign.right,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: _font + 0.5,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.modifiedAccent,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
+          SizedBox(width: c.amount, child: _total(row)),
           SizedBox(
             width: c.chevron,
             child: const Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeep),
@@ -462,13 +518,16 @@ class _ToSettleTable extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _head(narrow),
+              if (!stacked) _head(narrow),
               for (final (index, row) in rows.indexed)
                 HoverGoldFrame(
                   cardRadius: _radius,
+                  atTop: stacked && index == 0,
                   atBottom: index == rows.length - 1,
                   onTap: () => onOpen(row),
-                  child: _row(row, thisYear, first: index == 0, narrow: narrow),
+                  child: stacked
+                      ? _stackedRow(row, thisYear, first: index == 0)
+                      : _row(row, thisYear, first: index == 0, narrow: narrow),
                 ),
             ],
           ),

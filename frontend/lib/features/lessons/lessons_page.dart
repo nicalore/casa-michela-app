@@ -2282,28 +2282,37 @@ class _LessonsPageState extends State<LessonsPage>
   // One paragraph: two would each be rounded to the pixel on their own and miss each other's baseline.
   Widget _buildCalendarLeading(BuildContext context, AppWindowSize size, LessonsCalendarTarget target)
   {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppBackButton(tooltip: 'Torna indietro', onTap: () => context.go(kLessonsRoute), dense: size.isDense),
-        SizedBox(width: _calendarTitleGap(size)),
-        Flexible(
-          child: Text.rich(
+    final String shown = '${formatWeekdayColumnLabel(target.day)} ${target.day.year} · ${bandLabel(target.band)}';
+
+    // Minimal windows: the day and the band under the name, whole.
+    final Widget title = size.isMinimal
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Calendario', maxLines: 1, style: lessonsHeadingStyle),
+              Text(shown, maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: lessonsHeadingNoteStyle),
+            ],
+          )
+        : Text.rich(
             TextSpan(
               children: [
                 TextSpan(text: 'Calendario', style: lessonsHeadingStyle),
                 const WidgetSpan(alignment: PlaceholderAlignment.middle, child: SizedBox(width: 16)),
-                TextSpan(
-                  text: '${formatWeekdayColumnLabel(target.day)} ${target.day.year} · ${bandLabel(target.band)}',
-                  style: lessonsHeadingNoteStyle,
-                ),
+                TextSpan(text: shown, style: lessonsHeadingNoteStyle),
               ],
             ),
             maxLines: 1,
             softWrap: false,
             overflow: TextOverflow.fade,
-          ),
-        ),
+          );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppBackButton(tooltip: 'Torna indietro', onTap: () => context.go(kLessonsRoute), dense: size.isDense),
+        SizedBox(width: _calendarTitleGap(size)),
+        Flexible(child: title),
       ],
     );
   }

@@ -36,6 +36,7 @@ import '../models/teacher_hours_items.dart';
 import '../utils/accounting_jump.dart';
 import '../utils/accounting_strings.dart';
 import '../widgets/add_student_dialog.dart';
+import '../widgets/hours_table_parts.dart' show hoursDayLabelWidth;
 import '../widgets/student_hours_table.dart';
 
 const double _dayLabelWidth = 250;
@@ -423,47 +424,58 @@ class _StudentHoursTabState extends State<StudentHoursTab> with DestinationRefre
   {
     final double button = dense ? 36 : CarouselArrowButton.defaultSize;
 
+    final String day = '${formatWeekdayColumnLabel(_day)} ${_day.year}';
+    final TextStyle style = GoogleFonts.plusJakartaSans(
+      fontSize: dense ? 14 : 15,
+      fontWeight: FontWeight.w600,
+      color: AppTheme.trialInk,
+    );
+
     final Widget label = Text(
-      '${formatWeekdayColumnLabel(_day)} ${_day.year}',
+      day,
       maxLines: 1,
       softWrap: false,
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: dense ? 14 : 15,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.trialInk,
-      ),
+      style: style,
     );
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppCalendarButton(
-          selected: _day,
-          today: _today,
-          first: _firstDay,
-          last: calendarHorizon(_today),
-          onPicked: _showDay,
-          size: button,
-        ),
-        SizedBox(width: dense ? 8 : 12),
-        CarouselArrowButton(
-          icon: Icons.chevron_left_rounded,
-          isDisabled: !_day.isAfter(_firstDay),
-          size: button,
-          onTap: () => _showDay(addDays(_day, -1)),
-        ),
-        SizedBox(width: dense ? 6 : 8),
-        SizedBox(width: dense ? _denseDayLabelWidth : _dayLabelWidth, child: Center(child: label)),
-        SizedBox(width: dense ? 6 : 8),
-        CarouselArrowButton(
-          icon: Icons.chevron_right_rounded,
-          isDisabled: !_day.isBefore(calendarHorizon(_today)),
-          size: button,
-          onTap: () => _showDay(addDays(_day, 1)),
-        ),
-      ],
+    // On the narrowest windows the whole line shrinks a little rather than cut the day.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppCalendarButton(
+            selected: _day,
+            today: _today,
+            first: _firstDay,
+            last: calendarHorizon(_today),
+            onPicked: _showDay,
+            size: button,
+          ),
+          SizedBox(width: dense ? 8 : 12),
+          CarouselArrowButton(
+            icon: Icons.chevron_left_rounded,
+            isDisabled: !_day.isAfter(_firstDay),
+            size: button,
+            onTap: () => _showDay(addDays(_day, -1)),
+          ),
+          SizedBox(width: dense ? 6 : 8),
+          // Below the wide window the text is larger: the day takes the room it needs.
+          SizedBox(
+            width: dense ? hoursDayLabelWidth(context, day, style, _denseDayLabelWidth) : _dayLabelWidth,
+            child: Center(child: label),
+          ),
+          SizedBox(width: dense ? 6 : 8),
+          CarouselArrowButton(
+            icon: Icons.chevron_right_rounded,
+            isDisabled: !_day.isBefore(calendarHorizon(_today)),
+            size: button,
+            onTap: () => _showDay(addDays(_day, 1)),
+          ),
+        ],
+      ),
     );
   }
 
