@@ -105,6 +105,7 @@ from app.services.availability_weeks import (
 )
 from app.services.compensation import (
     CompensationMonth,
+    done_bands,
     load_terms,
     months_compensation,
 )
@@ -114,6 +115,7 @@ from app.services.enrollment_spans import (
     enrolled_throughout,
 )
 from app.services.teaching_competence import lacks_competence
+from app.services.worked_hours import days_of, span_minutes
 
 # Admin-only figures about everybody; a person's own month is served by api/home.py.
 router = APIRouter(
@@ -1874,11 +1876,7 @@ async def get_teacher_personal_statistics(
         mode.value,
     )
     lesson_minutes, monthly_lesson_minutes = _minutes_summary(
-        await _lesson_minutes_by_day(
-            db,
-            Availability.teacher_tax_code == tax_code,
-            Lesson.teacher_mode == mode.value,
-        ),
+        await _done_minutes_by_day(db, tax_code, mode),
         start,
         end,
     )
@@ -2391,6 +2389,30 @@ async def _lesson_minutes_by_day(
         spans[row.date].add((row.start_time, row.end_time))
 
     return {day: _union_minutes(day_spans) for day, day_spans in spans.items()}
+
+
+# A teacher's hours done in the chart's twelve months, as the home counts them
+# but one mode at a time.
+async def _done_minutes_by_day(
+    db: AsyncSession,
+    tax_code: str,
+    mode: OpeningModeEnum,
+) -> dict[date, int]:
+    now = now_in_rome()
+    bands = await done_bands(
+        db,
+        tax_code,
+        *_elapsed_window(_stats_window(None, None, None)),
+        lambda day, end_time: _is_over(day, end_time, now),
+    )
+    presence = mode is OpeningModeEnum.PRESENCE
+
+    return {
+        day: span_minutes(spans)
+        for day, spans in days_of(
+            work for work in bands if work.presence == presence
+        ).items()
+    }
 
 
 # The period's total and the twelve months of the chart.

@@ -481,6 +481,23 @@ async def worked_bands(
     )
 
 
+# Hours done, not paid: the home and the personal statistics read these.
+async def done_bands(
+    db: AsyncSession,
+    tax_code: str,
+    start: date,
+    end: date,
+    is_over: Callable[[date, time], bool],
+) -> list[BandWork]:
+    bands = await worked_bands(db, tax_code, start, end, is_over)
+
+    return [
+        work
+        for work in bands
+        if is_over(work.day, time_of(max((last for _, last in work.spans), default=0)))
+    ]
+
+
 # Pay shows confirmed bands alone. The others still say, from the calendar, which
 # band gave the week's hour, as the monthly summary counts it.
 @dataclass(frozen=True)

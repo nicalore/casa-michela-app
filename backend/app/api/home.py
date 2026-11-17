@@ -38,6 +38,7 @@ from app.services.availability_weeks import (
 )
 from app.services.compensation import (
     TermsTimeline,
+    done_bands,
     load_terms,
     month_compensation,
 )
@@ -48,7 +49,12 @@ from app.services.enrollment_spans import (
     enrolled_throughout,
 )
 from app.services.student_payments import current_tariff_kinds
-from app.services.worked_hours import minutes_of, published_pairs
+from app.services.worked_hours import (
+    days_of,
+    minutes_of,
+    published_pairs,
+    span_minutes,
+)
 
 router = APIRouter(prefix="/home", tags=["home"])
 
@@ -208,6 +214,13 @@ async def _teacher_weeks(
     )
 
 
+# Confirmed where the band is, the calendar elsewhere; both modes together.
+async def _worked_minutes(db: AsyncSession, tax_code: str, month: _Month) -> int:
+    done = await done_bands(db, tax_code, month.start, month.end, month.is_over)
+
+    return sum(span_minutes(spans) for spans in days_of(done).values())
+
+
 async def _teacher_figures(
     db: AsyncSession,
     tax_code: str,
@@ -238,7 +251,7 @@ async def _teacher_figures(
     return TeacherMonthFigures(
         total_availabilities=total,
         weekly_availabilities=round(weekly_average(weeks), 1),
-        worked_minutes=pay.worked_minutes,
+        worked_minutes=await _worked_minutes(db, tax_code, month),
         gross_compensation=pay.gross,
     )
 
