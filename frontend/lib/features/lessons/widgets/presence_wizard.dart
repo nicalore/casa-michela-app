@@ -1541,12 +1541,10 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   String _summaryOf(SubjectRequestDraft request) => request.duration == null ? '' : formatMinutes(request.duration!);
 
-  String _sayBoth(String? asked, String? description)
+  // Once chosen, a row says only the time booked, like the disciplines of a subject.
+  String _pickSubtitle(SubjectRequestDraft? chosen, String? description)
   {
-    return [
-      if (asked != null && asked.isNotEmpty) asked,
-      ?descriptionOrNull(description),
-    ].join(' · ');
+    return chosen == null ? descriptionOrNull(description) ?? '' : _summaryOf(chosen);
   }
 
   Widget _buildEmptyCategory(String message) => Padding(
@@ -1591,7 +1589,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     // A subject already chosen opens to be changed or removed, never dropped by a stray click.
     return SubjectPickRow(
       name: name,
-      subtitle: _sayBoth(chosen == null ? null : _summaryOf(chosen), description),
+      subtitle: _pickSubtitle(chosen, description),
       discipline: discipline,
       selected: chosen != null,
       hasChoice: false,

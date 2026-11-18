@@ -1,3 +1,5 @@
+import '../../../core/utils/json_parsing.dart';
+import '../../lessons/models/person_option_item.dart';
 import '../../people/tabs/statistics/widgets/trend_band.dart';
 
 // The annual membership and insurance fees, of every member, as one kind.
@@ -63,10 +65,84 @@ class AccountingMonth
 
   int get balanceCents => totalIncomeCents - grossCents;
 
-  // What the lessons brought in: the fees are not paid by the hour.
-  int get lessonIncomeCents => totalIncomeCents - kind(kFeesIncome);
-
   int kind(String kind) => incomeByKind[kind] ?? 0;
+}
+
+class PayerItem
+{
+  final PersonOptionItem person;
+  final int cents;
+
+  const PayerItem({required this.person, required this.cents});
+
+  factory PayerItem.fromJson(Map<String, dynamic> json)
+  {
+    return PayerItem(
+      person: PersonOptionItem.fromJson(json['person'] as Map<String, dynamic>),
+      cents: json['cents'] as int,
+    );
+  }
+}
+
+// A pupil's monthly fees in the period against their hours at the cost per hour.
+class FeePupilItem
+{
+  final PersonOptionItem person;
+
+  // The latest month's fee.
+  final int feeCents;
+  final int months;
+  final int paidCents;
+
+  // Weekend online hours left out: they are paid apart.
+  final int minutes;
+  final int costCents;
+
+  // Hours a month the fee pays for, in whole quarters.
+  final int? evenMinutes;
+
+  const FeePupilItem({
+    required this.person,
+    required this.feeCents,
+    required this.months,
+    required this.paidCents,
+    required this.minutes,
+    required this.costCents,
+    required this.evenMinutes,
+  });
+
+  factory FeePupilItem.fromJson(Map<String, dynamic> json)
+  {
+    return FeePupilItem(
+      person: PersonOptionItem.fromJson(json['person'] as Map<String, dynamic>),
+      feeCents: json['fee_cents'] as int,
+      months: json['months'] as int,
+      paidCents: json['paid_cents'] as int,
+      minutes: json['minutes'] as int,
+      costCents: json['cost_cents'] as int,
+      evenMinutes: json['even_minutes'] as int?,
+    );
+  }
+
+  int get marginCents => paidCents - costCents;
+}
+
+class FeeBreakEvenItem
+{
+  final String level;
+  final int feeCents;
+  final int minutes;
+
+  const FeeBreakEvenItem({required this.level, required this.feeCents, required this.minutes});
+
+  factory FeeBreakEvenItem.fromJson(Map<String, dynamic> json)
+  {
+    return FeeBreakEvenItem(
+      level: json['level'] as String,
+      feeCents: json['fee_cents'] as int,
+      minutes: json['minutes'] as int,
+    );
+  }
 }
 
 class AccountingStats
@@ -82,6 +158,19 @@ class AccountingStats
   final int volunteers;
   final int firstYear;
 
+  // Per hour from the start of the app's accounts, the set-up's pay left out; null without hours.
+  // Lesson income per pupil hour, gross pay per teacher's paid hour, gross pay per pupil hour.
+  final int? incomePerHourCents;
+  final int? payPerHourCents;
+  final int? lessonCostCents;
+  final List<PayerItem> topPayers;
+
+  // Lowest margin first.
+  final List<FeePupilItem> feePupils;
+
+  // The standard monthly fee of each level.
+  final List<FeeBreakEvenItem> breakEven;
+
   const AccountingStats({
     required this.months,
     required this.periodStart,
@@ -89,6 +178,12 @@ class AccountingStats
     required this.payers,
     required this.volunteers,
     required this.firstYear,
+    required this.incomePerHourCents,
+    required this.payPerHourCents,
+    required this.lessonCostCents,
+    required this.topPayers,
+    required this.feePupils,
+    required this.breakEven,
   });
 
   factory AccountingStats.fromJson(Map<String, dynamic> json)
@@ -102,6 +197,12 @@ class AccountingStats
       payers: json['payers'] as int,
       volunteers: json['volunteers'] as int,
       firstYear: json['first_year'] as int,
+      incomePerHourCents: json['income_per_hour_cents'] as int?,
+      payPerHourCents: json['pay_per_hour_cents'] as int?,
+      lessonCostCents: json['lesson_cost_cents'] as int?,
+      topPayers: parseList(json['top_payers'], PayerItem.fromJson),
+      feePupils: parseList(json['fee_pupils'], FeePupilItem.fromJson),
+      breakEven: parseList(json['break_even'], FeeBreakEvenItem.fromJson),
     );
   }
 

@@ -65,7 +65,9 @@ class TeacherSubjectsStatisticsItem
   final int uncoveredSubjects;
   final List<TeacherCompetenceRankItem> top10Teachers;
   final List<SubjectDistributionItem> top10Subjects;
-  final List<SubjectDistributionItem> bottom10Subjects;
+
+  // All of them, by name.
+  final List<SubjectDistributionItem> subjectsWithoutTeachers;
   final List<AreaDistributionItem> areaDistribution;
 
   const TeacherSubjectsStatisticsItem({
@@ -74,7 +76,7 @@ class TeacherSubjectsStatisticsItem
     required this.uncoveredSubjects,
     required this.top10Teachers,
     required this.top10Subjects,
-    required this.bottom10Subjects,
+    required this.subjectsWithoutTeachers,
     required this.areaDistribution,
   });
 
@@ -86,7 +88,7 @@ class TeacherSubjectsStatisticsItem
       uncoveredSubjects: json['uncovered_subjects'],
       top10Teachers: parseList(json['top_10_teachers'], TeacherCompetenceRankItem.fromJson),
       top10Subjects: parseList(json['top_10_subjects'], SubjectDistributionItem.fromJson),
-      bottom10Subjects: parseList(json['bottom_10_subjects'], SubjectDistributionItem.fromJson),
+      subjectsWithoutTeachers: parseList(json['subjects_without_teachers'], SubjectDistributionItem.fromJson),
       areaDistribution: parseList(json['area_distribution'], AreaDistributionItem.fromJson),
     );
   }

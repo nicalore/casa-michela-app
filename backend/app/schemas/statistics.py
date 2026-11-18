@@ -75,7 +75,12 @@ class TeacherSubjectsStatisticsResponse(BaseModel):
     uncovered_subjects: int
     top_10_teachers: list[TeacherCompetenceRankItem]
     top_10_subjects: list[SubjectDistributionItem]
+
+    # Older app builds still show it.
     bottom_10_subjects: list[SubjectDistributionItem]
+
+    # Every subject, or subject and programme, nobody teaches, by name.
+    subjects_without_teachers: list[SubjectDistributionItem]
     area_distribution: list[AreaDistributionItem]
 
 
@@ -98,6 +103,14 @@ class TeacherAppreciationRankingResponse(BaseModel):
     ranking: list[TeacherAppreciationItem]
 
 
+class PersonHoursItem(BaseModel):
+    person: PersonOption
+    minutes: int
+
+    # Share of every entry of the ranking in the period, not only the ten shown.
+    percentage: float
+
+
 class TeacherAvailabilityRankItem(BaseModel):
     teacher: PersonOption
     availability_count: int
@@ -118,6 +131,7 @@ class TeacherAvailabilityStatisticsResponse(BaseModel):
     weekly_average: float
     total_availabilities: int
     top_teachers: list[TeacherAvailabilityRankItem]
+    top_teachers_by_hours: list[PersonHoursItem]
     low_availability_teachers: list[LowAvailabilityTeacherItem]
 
     # Under nine days in the month; only answerable for a single-month period.
@@ -151,6 +165,7 @@ class StudentPresenceStatisticsResponse(BaseModel):
     # Students with at least one presence in the period.
     student_count: int
     top_students: list[StudentPresenceRankItem]
+    top_students_by_hours: list[PersonHoursItem]
     requested: RequestedSubjectRankings
 
 
@@ -202,14 +217,6 @@ class SubjectHoursRankings(BaseModel):
     ministry_subjects: list[SubjectHoursItem]
     disciplines: list[SubjectHoursItem]
     services: list[SubjectHoursItem]
-
-
-class PersonHoursItem(BaseModel):
-    person: PersonOption
-    minutes: int
-
-    # Share of every entry of the ranking in the period, not only the ten shown.
-    percentage: float
 
 
 class TeacherPersonalStatisticsResponse(BaseModel):

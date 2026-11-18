@@ -12,6 +12,8 @@ const double _overhang = 12;
 // The balloon's corner, as AppTheme.tooltipDecoration rounds it: the arrow stays off it.
 const double _balloonRadius = 12;
 
+const EdgeInsets _balloonPadding = EdgeInsets.symmetric(horizontal: 14, vertical: 8);
+
 // Where the arrow's tip sits from the middle of its base: set by the layout, read by the painter.
 class _ArrowLean
 {
@@ -38,6 +40,9 @@ class ChartValuePopup extends StatelessWidget
     required this.isVisible,
     this.verticalOffset = 10,
   }) : assert((text == null) != (content == null));
+
+  // The widest content a balloon can hold over an area this wide.
+  static double maxContentWidth(double areaWidth) => areaWidth + 2 * _overhang - _balloonPadding.horizontal;
 
   @override
   Widget build(BuildContext context)
@@ -73,7 +78,7 @@ class ChartValuePopup extends StatelessWidget
                     LayoutId(
                       id: _PopupPart.balloon,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: _balloonPadding,
                         decoration: AppTheme.tooltipDecoration,
                         child: content ?? Text(text!, style: AppTheme.tooltipTextStyle),
                       ),
@@ -109,9 +114,10 @@ class _PopupLayout extends MultiChildLayoutDelegate
   void performLayout(Size size)
   {
     final Size arrow = layoutChild(_PopupPart.arrow, BoxConstraints.loose(size));
+    // As tall as its lines: over a short area it rises past the top.
     final Size balloon = layoutChild(
       _PopupPart.balloon,
-      BoxConstraints.loose(Size(size.width + 2 * _overhang, size.height)),
+      BoxConstraints(maxWidth: size.width + 2 * _overhang),
     );
 
     final double arrowTop = tip.dy - arrow.height;

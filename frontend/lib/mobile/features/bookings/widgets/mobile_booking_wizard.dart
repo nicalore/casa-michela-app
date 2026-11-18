@@ -540,17 +540,17 @@ class _WizardState extends State<_Wizard>
     return _catalogue.associationSubjects.where((discipline) => !covered.contains(discipline.id)).toList();
   }
 
+  // Once chosen, a row says only the time booked, like the disciplines of a subject.
   String? _subtitle(SubjectRequestDraft? chosen, String? description)
   {
-    final int? duration = chosen?.duration;
-    final String summary = duration == null ? '' : formatMinutes(duration);
+    if (chosen == null)
+    {
+      return descriptionOrNull(description);
+    }
 
-    final String said = [
-      if (summary.isNotEmpty) summary,
-      ?descriptionOrNull(description),
-    ].join(' · ');
+    final int? duration = chosen.duration;
 
-    return said.isEmpty ? null : said;
+    return duration == null ? null : formatMinutes(duration);
   }
 
   Future<void> _openFlow(MobileBookingGroup group, TimeBucket band, SubjectRequestDraft request, {required bool editing})

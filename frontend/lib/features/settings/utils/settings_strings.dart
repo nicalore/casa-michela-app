@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/password_policy_checklist.dart';
 import '../models/session_item.dart';
 
@@ -46,7 +47,10 @@ class AppearanceOption
   // A language's two letters, drawn beside its name.
   final String? code;
 
-  const AppearanceOption(this.label, {this.available = true, this.colors = const [], this.code});
+  // A palette's theme; the one in force is ticked.
+  final ColourTheme? colourTheme;
+
+  const AppearanceOption(this.label, {this.available = true, this.colors = const [], this.code, this.colourTheme});
 }
 
 class AppearanceSetting
@@ -54,7 +58,7 @@ class AppearanceSetting
   final String title;
   final IconData icon;
 
-  // The first is the one in force.
+  // The first is the one in force, but for palettes, which name their theme.
   final List<AppearanceOption> options;
 
   const AppearanceSetting(this.title, this.icon, this.options);
@@ -65,14 +69,31 @@ const AppearanceSetting kThemeSetting = AppearanceSetting('Tema', Icons.brightne
   AppearanceOption('Scuro', available: false),
 ]);
 
-const AppearanceSetting kColorsSetting = AppearanceSetting('Colori', Icons.palette_rounded, [
-  AppearanceOption('Casa Michela', colors: [
-    AppTheme.trialDeepWater,
-    AppTheme.trialTealDeep,
-    AppTheme.trialSeaGreen,
-    AppTheme.trialGold,
-    AppTheme.trialViolet,
-  ]),
+String colourThemeLabel(ColourTheme theme)
+{
+  return switch (theme)
+  {
+    ColourTheme.casaMichela => 'Casa Michela',
+    ColourTheme.cobalto => 'Cobalto',
+    ColourTheme.ardesia => 'Ardesia',
+    ColourTheme.lavanda => 'Lavanda',
+    ColourTheme.confetto => 'Confetto',
+    ColourTheme.terracotta => 'Terracotta',
+  };
+}
+
+// Each theme's own sea top, main colours, gold and violet, whatever the theme in force.
+List<Color> _swatch(ColourTheme theme) => ThemeColours.painted(theme, () => [
+  ThemeColours.seaTop,
+  AppTheme.trialTealDeep,
+  AppTheme.trialSeaGreen,
+  AppTheme.trialGold,
+  AppTheme.trialViolet,
+]);
+
+AppearanceSetting get kColorsSetting => AppearanceSetting('Colori', Icons.palette_rounded, [
+  for (final ColourTheme theme in ColourTheme.values)
+    AppearanceOption(colourThemeLabel(theme), colors: _swatch(theme), colourTheme: theme),
 ]);
 
 const AppearanceSetting kLanguageSetting = AppearanceSetting('Lingua', Icons.translate_rounded, [
@@ -80,7 +101,7 @@ const AppearanceSetting kLanguageSetting = AppearanceSetting('Lingua', Icons.tra
   AppearanceOption('Inglese', available: false, code: 'EN'),
 ]);
 
-const List<AppearanceSetting> kAppearanceSettings = [kThemeSetting, kColorsSetting, kLanguageSetting];
+List<AppearanceSetting> get kAppearanceSettings => [kThemeSetting, kColorsSetting, kLanguageSetting];
 
 const String kEffectsTitle = 'Effetti visivi';
 const String kEffectsOn = 'Attivi';
@@ -213,7 +234,7 @@ const String kCookieTitle = 'Cookie policy';
 
 const String kDocumentOpenFailed = 'Non è stato possibile aprire il documento.';
 
-const String kAppVersion = '0.6.2 - Alpha';
+const String kAppVersion = '0.6.3 - Alpha';
 
 const String kDevelopmentWarning =
     'ATTENZIONE: Applicazione attualmente in sviluppo. '

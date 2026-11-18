@@ -4,6 +4,7 @@ from typing import Any
 from app.core.audit.rules import AuditRule
 
 _TARGET_SEPARATOR = "/"
+_LIST_SEPARATOR = ","
 
 
 def _nested(payload: dict[str, Any], dotted: str) -> Any:
@@ -20,6 +21,14 @@ def _nested(payload: dict[str, Any], dotted: str) -> Any:
 
 def _joined(values: list[str]) -> str:
     return _TARGET_SEPARATOR.join(values) if values else ""
+
+
+# A list field is one value, not a composite key: no "/" and no blanks.
+def _text(value: Any) -> str:
+    if isinstance(value, list):
+        return _LIST_SEPARATOR.join(str(item) for item in value)
+
+    return str(value)
 
 
 def decode_payload(body: bytes) -> dict[str, Any]:
@@ -54,9 +63,9 @@ def resolve_target(
 
     # Last resort, and the only one a failed creation has: what was attempted.
     from_body = [
-        str(value)
+        _text(value)
         for value in (_nested(payload, name) for name in rule.body_fields)
-        if value not in (None, "")
+        if value not in (None, "", [])
     ]
 
     return _joined(from_body)

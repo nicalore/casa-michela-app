@@ -61,6 +61,8 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     **_crud("/notices", "Notice", "notice_id"),
     **_crud("/app-updates", "App update", "update_id"),
     ("POST", "/app-updates/terms-requests"): AuditRule("Terms acceptance request"),
+    # Sent on closing the message, with every update it showed.
+    ("PUT", "/app-updates/seen"): AuditRule("App update read", body_fields=("ids",)),
     ("PUT", "/notices/{notice_id}/pin"): AuditRule(
         "Notice pin",
         path_params=("notice_id",),
@@ -561,8 +563,8 @@ IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
         ("PUT", "/notifications/{notification_id}/read"),
         ("PUT", "/notifications/{notification_id}/unread"),
         ("DELETE", "/notifications/{notification_id}"),
-        ("PUT", "/app-updates/seen"),
         ("PUT", "/notifications/kinds"),
+        ("PUT", "/auth/colour-theme"),
         ("PUT", "/notifications/calendar/{calendar_date}/{band}/seen"),
         ("PUT", "/notifications/bookings/{pupil_tax_code}/seen"),
         ("PUT", "/notifications/availabilities/seen"),

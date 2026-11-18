@@ -1,5 +1,6 @@
 import '../../../core/utils/json_parsing.dart';
 import '../../lessons/models/person_option_item.dart';
+import 'personal_statistics_items.dart';
 
 class StudentPresenceRankItem
 {
@@ -97,12 +98,14 @@ class StudentPresenceStatisticsItem
   // Students with at least one presence in the period.
   final int studentCount;
   final List<StudentPresenceRankItem> topStudents;
+  final List<PersonHoursItem> topStudentsByHours;
   final RequestedSubjectRankings requested;
 
   const StudentPresenceStatisticsItem({
     required this.dailyAverage,
     required this.studentCount,
     required this.topStudents,
+    required this.topStudentsByHours,
     required this.requested,
   });
 
@@ -112,6 +115,7 @@ class StudentPresenceStatisticsItem
       dailyAverage: parseDouble(json['daily_average']),
       studentCount: json['student_count'] as int,
       topStudents: parseList(json['top_students'], StudentPresenceRankItem.fromJson),
+      topStudentsByHours: parseList(json['top_students_by_hours'], PersonHoursItem.fromJson),
       requested: RequestedSubjectRankings.fromJson(json['requested'] as Map<String, dynamic>),
     );
   }

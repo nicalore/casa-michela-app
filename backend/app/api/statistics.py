@@ -34,6 +34,7 @@ from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_publication import CalendarPublication
 from app.models.collaboration_change import CollaborationChange
+from app.models.confirmed_hours import ConfirmedHours
 from app.models.course_participant import CourseParticipant
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
@@ -46,6 +47,7 @@ from app.models.opening_day import OpeningDay
 from app.models.person import Person
 from app.models.presence import Presence
 from app.models.psychologist import Psychologist
+from app.models.room_supervision import RoomSupervision
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.staff import Staff
@@ -109,6 +111,7 @@ from app.services.compensation import (
     load_terms,
     months_compensation,
 )
+from app.services.confirmed_hours import confirmed_bands
 from app.services.enrollment_spans import (
     enrolled_days,
     enrolled_spans,
@@ -1144,9 +1147,28 @@ async def get_student_education_distribution(
     db: DbSession,
     distribution_type: Annotated[str, Query()] = "school",
 ) -> list[EducationDistributionItem]:
-    query = select(
-        func.count(func.distinct(Student.tax_code)).label("student_count")
-    ).join(SchoolEnrollment, Student.tax_code == SchoolEnrollment.student_tax_code)
+    # Each pupil counts once, by the latest school year on record.
+    latest = (
+        select(
+            SchoolEnrollment.student_tax_code.label("tax_code"),
+            func.max(SchoolEnrollment.start_year).label("start_year"),
+        )
+        .group_by(SchoolEnrollment.student_tax_code)
+        .subquery()
+    )
+    query = (
+        select(func.count(func.distinct(Student.tax_code)).label("student_count"))
+        .join(
+            SchoolEnrollment, Student.tax_code == SchoolEnrollment.student_tax_code
+        )
+        .join(
+            latest,
+            and_(
+                latest.c.tax_code == SchoolEnrollment.student_tax_code,
+                latest.c.start_year == SchoolEnrollment.start_year,
+            ),
+        )
+    )
 
     label_column = None
 
@@ -1394,6 +1416,11 @@ async def get_teacher_subjects_statistics(
         ),
     )[:_TOP_SUBJECTS_LIMIT]
 
+    subjects_without_teachers = sorted(
+        (item for item in subject_counts if item.count == 0),
+        key=lambda item: alphabetical_key(item.name, item.program_name or ""),
+    )
+
     top_teachers = sorted(
         (
             TeacherCompetenceRankItem(teacher=people[tax_code], count=len(groups))
@@ -1425,6 +1452,7 @@ async def get_teacher_subjects_statistics(
         top_10_teachers=top_teachers,
         top_10_subjects=top_subjects,
         bottom_10_subjects=bottom_subjects,
+        subjects_without_teachers=subjects_without_teachers,
         area_distribution=area_distribution,
     )
 
@@ -1468,6 +1496,31 @@ def _availability_counts_stmt(
         )
         .group_by(Availability.teacher_tax_code)
     )
+
+
+# Minutes given per teacher, today's included as in the days.
+async def _availability_minutes(
+    db: AsyncSession,
+    window: tuple[date, date],
+    mode: str,
+) -> dict[str, int]:
+    start, end = _elapsed_window(window)
+    minutes: Counter[str] = Counter()
+
+    for teacher, start_time, end_time in await db.execute(
+        select(
+            Availability.teacher_tax_code,
+            Availability.start_time,
+            Availability.end_time,
+        ).where(
+            Availability.mode == mode,
+            Availability.date >= start,
+            Availability.date < end,
+        ),
+    ):
+        minutes[teacher] += minutes_between(start_time, end_time)
+
+    return minutes
 
 
 # Active collaborators, fewest days first; the outer join keeps those with none.
@@ -1568,6 +1621,10 @@ async def get_teacher_availability_statistics(
         for row in top_result.all()
     ]
     weekly = round(given_in_weeks / len(frames), 1) if frames else 0.0
+    top_by_hours = await _ranked_people(
+        db,
+        await _availability_minutes(db, window, mode.value),
+    )
 
     # Who falls short matters only in presence.
     if mode is not OpeningModeEnum.PRESENCE:
@@ -1575,6 +1632,7 @@ async def get_teacher_availability_statistics(
             weekly_average=weekly,
             total_availabilities=total_availabilities,
             top_teachers=top_teachers,
+            top_teachers_by_hours=top_by_hours,
             low_availability_teachers=[],
             is_single_month=is_single_month,
             low_monthly_teachers=[],
@@ -1605,6 +1663,7 @@ async def get_teacher_availability_statistics(
         weekly_average=weekly,
         total_availabilities=total_availabilities,
         top_teachers=top_teachers,
+        top_teachers_by_hours=top_by_hours,
         low_availability_teachers=sorted(
             (item for item in collaborators if item.short_week_count > 0),
             key=lambda item: -item.short_week_count,
@@ -2415,6 +2474,45 @@ async def _done_minutes_by_day(
     }
 
 
+# Lessons over per pupil; per day, the pupil's overlapping lessons are one stretch.
+async def _lesson_minutes_by_student(
+    db: AsyncSession,
+    window: tuple[date, date],
+    mode: str,
+) -> dict[str, int]:
+    rows = await _lessons_over(db, _lesson_rows().where(Lesson.mode == mode), window)
+    spans: dict[tuple[str, date], set[tuple[time, time]]] = defaultdict(set)
+
+    for row in rows:
+        spans[(row.student_tax_code, row.date)].add((row.start_time, row.end_time))
+
+    minutes: Counter[str] = Counter()
+
+    for (student, _day), day_spans in spans.items():
+        minutes[student] += _union_minutes(day_spans)
+
+    return minutes
+
+
+# Everyone who may have done hours in [start, end): lessons and activities hang
+# on availabilities, shifts and hours written by hand do not.
+async def _teachers_at_work(db: AsyncSession, start: date, end: date) -> set[str]:
+    found: set[str] = set()
+
+    for column, day in (
+        (Availability.teacher_tax_code, Availability.date),
+        (RoomSupervision.teacher_tax_code, RoomSupervision.date),
+        (ConfirmedHours.teacher_tax_code, ConfirmedHours.date),
+    ):
+        found.update(
+            await db.scalars(
+                select(column).where(day >= start, day < end).distinct(),
+            ),
+        )
+
+    return found
+
+
 # The period's total and the twelve months of the chart.
 def _minutes_summary(
     by_day: Mapping[date, int],
@@ -2451,6 +2549,39 @@ async def _monthly_pay(
     )
 
     return list(zip(months, priced, strict=True))
+
+
+# Hours done per teacher, as each one's home and personal statistics count them.
+@router.get("/teachers/lesson-hours", response_model=list[PersonHoursItem])
+async def get_teacher_lesson_hours(
+    db: DbSession,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+    mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
+) -> list[PersonHoursItem]:
+    start, end = _elapsed_window(_stats_window(months, year, month))
+    now = now_in_rome()
+    presence = mode is OpeningModeEnum.PRESENCE
+    confirmed = await confirmed_bands(db, start, end)
+    minutes: dict[str, int] = {}
+
+    for tax_code in await _teachers_at_work(db, start, end):
+        bands = await done_bands(
+            db,
+            tax_code,
+            start,
+            end,
+            lambda day, end_time: _is_over(day, end_time, now),
+            confirmed,
+        )
+        days = days_of(work for work in bands if work.presence == presence)
+        done = sum(span_minutes(spans) for spans in days.values())
+
+        if done > 0:
+            minutes[tax_code] = done
+
+    return await _ranked_people(db, minutes)
 
 
 @router.get(
@@ -2514,6 +2645,10 @@ async def get_student_presence_statistics(
             )
             for row in top_result.all()
         ],
+        top_students_by_hours=await _ranked_people(
+            db,
+            await _lesson_minutes_by_student(db, window, mode.value),
+        ),
         requested=await _requested_subjects(
             db,
             window,

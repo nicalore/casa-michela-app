@@ -3,14 +3,20 @@ from datetime import date, time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 
 from app.api.dependencies import DbSession
 from app.api.rbac import IdentityContext, require_role
 from app.core.booking_window import now_in_rome
+from app.models.person import Person
 from app.schemas.accounting_stats import (
     AccountingMonthResponse,
     AccountingStatsResponse,
+    FeeBreakEvenItem,
+    FeePupilItem,
+    PayerItem,
 )
+from app.schemas.person import PersonOption
 from app.services.accounting_stats import WINDOW_MONTHS, accounting_stats
 
 router = APIRouter(prefix="/accounting/statistics", tags=["accounting"])
@@ -27,6 +33,30 @@ def _is_over() -> Callable[[date, time], bool]:
     return over
 
 
+async def _people(db: DbSession, tax_codes: set[str]) -> dict[str, PersonOption]:
+    if not tax_codes:
+        return {}
+
+    rows = await db.execute(
+        select(
+            Person.tax_code,
+            Person.first_name,
+            Person.last_name,
+            Person.profile_image_url,
+        ).where(Person.tax_code.in_(tax_codes)),
+    )
+
+    return {
+        tax_code: PersonOption(
+            tax_code=tax_code,
+            first_name=first,
+            last_name=last,
+            profile_image_url=image,
+        )
+        for tax_code, first, last, image in rows.tuples()
+    }
+
+
 # The last months up to this one, or a calendar year; never both.
 @router.get("", response_model=AccountingStatsResponse)
 async def get_statistics(
@@ -41,6 +71,11 @@ async def get_statistics(
         _is_over(),
         months=None if year is not None else months,
         year=year,
+    )
+    people = await _people(
+        db,
+        {tax_code for tax_code, _ in stats.top_payers}
+        | {pupil.tax_code for pupil in stats.fee_pupils},
     )
 
     return AccountingStatsResponse(
@@ -64,4 +99,33 @@ async def get_statistics(
         payers=stats.payers,
         volunteers=stats.volunteers,
         first_year=stats.first_year,
+        income_per_hour_cents=stats.income_per_hour_cents,
+        pay_per_hour_cents=stats.pay_per_hour_cents,
+        lesson_cost_cents=stats.lesson_cost_cents,
+        top_payers=[
+            PayerItem(person=people[tax_code], cents=cents)
+            for tax_code, cents in stats.top_payers
+            if tax_code in people
+        ],
+        fee_pupils=[
+            FeePupilItem(
+                person=people[pupil.tax_code],
+                fee_cents=pupil.fee_cents,
+                months=pupil.months,
+                paid_cents=pupil.paid_cents,
+                minutes=pupil.minutes,
+                cost_cents=pupil.cost_cents,
+                even_minutes=pupil.even_minutes,
+            )
+            for pupil in stats.fee_pupils
+            if pupil.tax_code in people
+        ],
+        break_even=[
+            FeeBreakEvenItem(
+                level=item.level.value,
+                fee_cents=item.fee_cents,
+                minutes=item.minutes,
+            )
+            for item in stats.break_even
+        ],
     )

@@ -488,8 +488,9 @@ async def done_bands(
     start: date,
     end: date,
     is_over: Callable[[date, time], bool],
+    confirmed: set[tuple[date, str]] | None = None,
 ) -> list[BandWork]:
-    bands = await worked_bands(db, tax_code, start, end, is_over)
+    bands = await worked_bands(db, tax_code, start, end, is_over, confirmed)
 
     return [
         work

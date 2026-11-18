@@ -361,8 +361,40 @@ const String kBalanceSeries = 'Saldo';
 const String kBalanceChart = 'Saldo per mese';
 
 const String kPerHourTitle = 'Costo e ricavo per ora';
-const String kIncomePerHour = 'Incasso per ora di lezione';
-const String kPayPerHour = 'Compenso lordo per ora di lezione';
+const String kIncomePerHour = 'Incasso per ora di studente';
+const String kPayPerHour = 'Compenso lordo per ora di docente';
+const String kPayPerHourInfo = 'Compensi lordi divisi per le ore pagate ai docenti nel periodo.';
+const String kCostPerHour = 'Costo per ora di studente';
+const String kCostPerHourInfo = 'Compensi lordi divisi per le ore di lezione fatte dagli studenti nel periodo.';
+
+const String kPayersTitle = '10 studenti che hanno pagato di più';
+
+const String kFeesTitle = 'Quote mensili';
+const String kFeesPaidFigure = 'Quote incassate';
+const String kFeesCostFigure = 'Costo delle ore con quota mensile';
+const String kFeesMarginFigure = 'Margine';
+const String kFeesLosingFigure = 'Studenti in perdita';
+const String kBreakEvenTitle = 'Pareggio per quota';
+const String kMarginChart = 'Margine per studente: quote pagate meno il costo delle ore';
+const String kNoFeePupils = 'Nessuno studente con quota mensile nel periodo.';
+const String kNoLessonCost = 'Mancano ore di lezione confermate nel periodo per calcolare il costo.';
+
+String losingOf(int losing, int all) => '$losing su $all';
+
+String breakEvenLabel(String fee, String level) => 'In pari con $fee ($level)';
+
+String perMonth(String hours) => '$hours al mese';
+
+// The tooltip of a pupil's margin bar: a figure, then what it is.
+const String kFeeRow = 'Quota al mese';
+const String kPaidMonthsRow = 'Mesi pagati';
+const String kPaidMonthRow = 'Mese pagato';
+const String kLessonHoursRow = 'Ore di lezione';
+const String kHoursPerMonthRow = 'Ore al mese';
+const String kFeesPaidRow = 'Quote pagate';
+const String kHoursCostRow = 'Costo delle ore';
+const String kMarginRow = 'Margine';
+const String kEvenRow = 'Pareggio al mese';
 
 const String kPayTitle = 'Compensi ai docenti';
 const String kGrossFigure = 'Lordo nel periodo';

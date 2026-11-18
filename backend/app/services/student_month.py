@@ -21,6 +21,7 @@ from app.models.student_payment import (
 )
 from app.models.student_tariff import StudentTariff, TariffKindEnum
 from app.services.enrollment_spans import EnrolledSpan, hours_spans, is_enrolled_on
+from app.services.opening_state import money_from
 from app.services.standard_tariffs import PaymentRates
 from app.services.student_hours import pupil_band_ends
 from app.services.student_payments import (
@@ -188,11 +189,16 @@ async def _month_state(
     ends = await pupil_band_ends(db, month, end)
     added = await _added_bands(db, month, end)
     confirmations = await _confirmations(db, month, end)
+    first = await money_from(db)
 
     pending: set[tuple[date, str]] = set()
     coming = False
 
     for key in {*ends, *added, *confirmations}:
+        # The set-up covers the bands before the accounting start.
+        if first is not None and key[0] < first:
+            continue
+
         reopened = confirmations.get(key)
 
         if reopened is False:

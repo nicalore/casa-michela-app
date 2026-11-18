@@ -1,5 +1,6 @@
 import '../../../core/utils/json_parsing.dart';
 import '../../lessons/models/person_option_item.dart';
+import 'personal_statistics_items.dart';
 
 class TeacherAvailabilityRankItem
 {
@@ -53,6 +54,7 @@ class TeacherAvailabilityStatisticsItem
   final double weeklyAverage;
   final int totalAvailabilities;
   final List<TeacherAvailabilityRankItem> topTeachers;
+  final List<PersonHoursItem> topTeachersByHours;
   final List<LowAvailabilityTeacherItem> lowAvailabilityTeachers;
 
   // lowMonthlyTeachers is empty on periods wider than a month; the card hides
@@ -64,6 +66,7 @@ class TeacherAvailabilityStatisticsItem
     required this.weeklyAverage,
     required this.totalAvailabilities,
     required this.topTeachers,
+    required this.topTeachersByHours,
     required this.lowAvailabilityTeachers,
     required this.isSingleMonth,
     required this.lowMonthlyTeachers,
@@ -75,6 +78,7 @@ class TeacherAvailabilityStatisticsItem
       weeklyAverage: parseDouble(json['weekly_average']),
       totalAvailabilities: json['total_availabilities'] as int,
       topTeachers: parseList(json['top_teachers'], TeacherAvailabilityRankItem.fromJson),
+      topTeachersByHours: parseList(json['top_teachers_by_hours'], PersonHoursItem.fromJson),
       lowAvailabilityTeachers:
           parseList(json['low_availability_teachers'], LowAvailabilityTeacherItem.fromJson),
       isSingleMonth: json['is_single_month'] as bool,

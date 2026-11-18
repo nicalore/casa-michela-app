@@ -215,11 +215,16 @@ async def _month_state(
     ends = await band_last_ends(db, month, end)
     added = await _added_bands(db, month, end)
     confirmations = await _confirmations(db, month, end)
+    first = await money_from(db)
 
     pending: set[tuple[date, str]] = set()
     coming = False
 
     for key in {*ends, *added, *confirmations}:
+        # The set-up covers the bands before the accounting start.
+        if first is not None and key[0] < first:
+            continue
+
         reopened = confirmations.get(key)
 
         if reopened is False:
