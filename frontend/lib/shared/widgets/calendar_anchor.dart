@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_colours.dart';
 import '../utils/day_marks.dart';
 import 'app_tooltip.dart';
 import 'carousel_arrow_button.dart';
@@ -19,10 +20,10 @@ const double _windowMargin = 8;
 const double kCalendarArrowSize = 32;
 const double kCalendarArrowIconSize = 18;
 
-const Color kCalendarDisabled = Color(0xFFB4C0C7);
+Color get kCalendarDisabled =>  ThemeColours.fixed(0xFFB4C0C7);
 
-const BoxDecoration kCalendarPopoverDecoration = BoxDecoration(
-  color: Colors.white,
+BoxDecoration get kCalendarPopoverDecoration => BoxDecoration(
+  color: AppTheme.surface,
   borderRadius: BorderRadius.all(Radius.circular(16)),
   boxShadow: [
     ...AppTheme.overlayShadow,
@@ -280,14 +281,14 @@ class _CalendarAnchorState extends State<CalendarAnchor> with SingleTickerProvid
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
-                      color: lit ? AppTheme.trialTealDeep : Colors.white,
+                      color: lit ? AppTheme.trialTealDeep : AppTheme.surface,
                       shape: BoxShape.circle,
                       boxShadow: AppTheme.cardShadow,
                     ),
                     child: Icon(
                       Icons.calendar_month_rounded,
                       size: widget.size * 21 / CarouselArrowButton.defaultSize,
-                      color: lit ? Colors.white : AppTheme.trialTealDeep,
+                      color: lit ? Colors.white : AppTheme.trialTealDeepText,
                     ),
                   ),
                 ),
@@ -334,7 +335,7 @@ class _CalendarTodayButtonState extends State<CalendarTodayButton>
           decoration: BoxDecoration(
             color: !widget.enabled
                 ? AppTheme.arrowDisabledSurface
-                : (lit ? AppTheme.trialTealDeep : Colors.white),
+                : (lit ? AppTheme.trialTealDeep : AppTheme.surface),
             borderRadius: BorderRadius.circular(kCalendarArrowSize / 2),
             boxShadow: widget.enabled ? AppTheme.cardShadow : null,
           ),
@@ -345,7 +346,7 @@ class _CalendarTodayButtonState extends State<CalendarTodayButton>
               fontWeight: FontWeight.w700,
               color: !widget.enabled
                   ? AppTheme.trialMutedText.withValues(alpha: 0.5)
-                  : (lit ? Colors.white : AppTheme.trialTealDeep),
+                  : (lit ? Colors.white : AppTheme.trialTealDeepText),
             ),
             child: const Text(kTodayLabel, maxLines: 1),
           ),

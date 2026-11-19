@@ -32,9 +32,9 @@ class MobileDocumentsCard extends StatelessWidget
       dimension: 26,
       child: Center(
         child: busy
-            ? const SizedBox.square(
+            ? SizedBox.square(
                 dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeep),
+                child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeepText),
               )
             : Icon(Icons.download_rounded, size: 23, color: AppTheme.trialInk.withValues(alpha: 0.36)),
       ),

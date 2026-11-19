@@ -7,8 +7,8 @@ import '../../features/association/models/ministry_subject_item.dart';
 import '../../features/association/models/study_program_item.dart';
 import 'app_tooltip.dart';
 
-const Color _tooltipLabel = AppTheme.slate400;
-const Color _tooltipBullet = AppTheme.slate500;
+Color get _tooltipLabel => AppTheme.slate400;
+Color get _tooltipBullet => AppTheme.slate500;
 
 class MinistrySubjectChip extends StatelessWidget
 {

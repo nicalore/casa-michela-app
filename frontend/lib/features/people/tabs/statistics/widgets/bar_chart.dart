@@ -4,19 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/theme/theme_colours.dart';
 import '../../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../../shared/widgets/page_density.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
+import 'stat_widgets.dart';
 
-const LinearGradient _barGradient = AppTheme.chartBarGradient;
+LinearGradient get _barGradient => AppTheme.chartBarGradient;
 
 // The hovered column lights up behind its bar, as in the accounting charts.
-const Color _hoverColumnColor = Color(0x0F4077B3);
+Color get _hoverColumnColor => ThemeColours.of(0x0F4077B3);
 const double _hoverColumnRadius = 8;
 
 // The column holding what does not fit, in the charts' grey for "other".
-const LinearGradient _othersGradient = LinearGradient(
+LinearGradient get _othersGradient => LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
   colors: [AppTheme.chartGrayLight, AppTheme.chartGray],
@@ -46,10 +48,33 @@ const double _acrossNamesMax = 200;
 const double _acrossRowGap = 10;
 const double _acrossBarHeight = 14;
 
+// Bars laid across in two halves: each half's names column.
+const double _splitNamesShare = 0.55;
+const double _splitNamesMax = 400;
+
 // Round a hovered row, inside the room between rows.
 const double _acrossHoverInset = 3;
 
 int _maxValueOf(List<ChartDatum> data) => chartMaxValue(data.map((item) => item.count).reduce(math.max));
+
+// In order, into [count] runs whose lengths differ by one at most: the last is never a lone name.
+List<List<T>> _balanced<T>(List<T> items, int count)
+{
+  final int base = items.length ~/ count;
+  final int extra = items.length % count;
+  final List<List<T>> runs = [];
+  var start = 0;
+
+  for (var i = 0; i < count; i++)
+  {
+    final int length = base + (i < extra ? 1 : 0);
+
+    runs.add(items.sublist(start, start + length));
+    start += length;
+  }
+
+  return runs;
+}
 
 class BarChart extends StatefulWidget
 {
@@ -58,7 +83,10 @@ class BarChart extends StatefulWidget
   // Names the last column, which holds the bars that do not fit upright; without it they are laid across.
   final String Function(int count)? othersLabel;
 
-  const BarChart({super.key, required this.data, this.othersLabel});
+  // Names too long for an upright column: always laid across, in two halves in a wide window.
+  final bool longNames;
+
+  const BarChart({super.key, required this.data, this.othersLabel, this.longNames = false});
 
   @override
   State<BarChart> createState() => _BarChartState();
@@ -150,39 +178,72 @@ class _BarChartState extends State<BarChart>
     return '${datum.label}: ${datum.count} (${share.toStringAsFixed(1)}%)';
   }
 
-  // One name per line, in more columns once a single one would rise out of the chart.
-  Widget _othersPopup(List<ChartDatum> rest, double room)
+  // One name per line, in more columns once a single one would rise out of the chart, but never
+  // wider than the chart: what still does not fit above the bar moves its arrow down the column.
+  Widget _othersPopup(List<ChartDatum> rest, Rect bar, double width, double height)
   {
     final TextStyle style = AppTheme.tooltipTextStyle;
-    final TextPainter line = TextPainter(
-      text: TextSpan(text: 'Ag', style: style),
-      textScaler: MediaQuery.textScalerOf(context),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    final int fitting = math.max(3, (room / line.height).floor());
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+    final List<String> lines = [for (final datum in rest) '${datum.label}: ${datum.count}'];
+    final List<double> widths = [];
+    double lineHeight = 0;
 
-    // Balanced, so the last column is never a lone name.
-    final int perColumn = (rest.length / (rest.length / fitting).ceil()).ceil();
+    for (final String line in lines)
+    {
+      final TextPainter painter = TextPainter(
+        text: TextSpan(text: line, style: style),
+        textScaler: scaler,
+        textDirection: TextDirection.ltr,
+      )..layout();
 
-    line.dispose();
+      widths.add(painter.width);
+      lineHeight = painter.height;
+      painter.dispose();
+    }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var start = 0; start < rest.length; start += perColumn)
-          Padding(
-            padding: EdgeInsets.only(left: start == 0 ? 0 : _othersColumnGap),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final datum in rest.skip(start).take(perColumn))
-                  Text('${datum.label}: ${datum.count}', style: style),
-              ],
+    final double maxWidth = ChartValuePopup.maxContentWidth(width);
+    final int fitting = math.max(3, ((bar.top - _popupChrome) / lineHeight).floor());
+    var count = (lines.length / fitting).ceil();
+
+    double widthOf(List<List<double>> columns)
+    {
+      final double names = columns.fold(0, (sum, column) => sum + column.reduce(math.max).ceilToDouble());
+
+      return names + _othersColumnGap * (columns.length - 1);
+    }
+
+    while (count > 1 && widthOf(_balanced(widths, count)) > maxWidth)
+    {
+      count--;
+    }
+
+    final List<List<String>> columns = _balanced(lines, count);
+    final double contentHeight = columns.first.length * lineHeight;
+
+    return ChartValuePopup(
+      target: Offset(
+        _yAxisWidth + bar.center.dx,
+        math.max(bar.top, math.min(contentHeight + _popupChrome, height)),
+      ),
+      content: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < columns.length; i++)
+            Padding(
+              padding: EdgeInsets.only(left: i == 0 ? 0 : _othersColumnGap),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [for (final line in columns[i]) Text(line, style: style)],
+                ),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
+      isVisible: _hoveredIndex != null,
     );
   }
 
@@ -198,9 +259,14 @@ class _BarChartState extends State<BarChart>
         final int fitting = (innerWidth / _minBarSlotWidth).floor();
 
         // Nothing scrolls sideways; dense windows fit too few columns for an «others» one to say much.
-        if (widget.data.length > fitting && (dense || widget.othersLabel == null || fitting < 2))
+        if (widget.longNames ||
+            (widget.data.length > fitting && (dense || widget.othersLabel == null || fitting < 2)))
         {
-          return _BarsAcross(data: widget.data, maxValue: _maxValueOf(widget.data));
+          return _BarsAcross(
+            data: widget.data,
+            maxValue: _maxValueOf(widget.data),
+            split: widget.longNames && !dense && widget.data.length > 1,
+          );
         }
 
         final List<ChartDatum> columns = _columns(fitting);
@@ -249,17 +315,16 @@ class _BarChartState extends State<BarChart>
                 ],
               ),
               if (popupIndex != null && popupIndex < barRects.length)
-                ChartValuePopup(
-                  target: Offset(
-                    _yAxisWidth + barRects[popupIndex].center.dx,
-                    barRects[popupIndex].top,
-                  ),
-                  text: popupOnOthers ? null : _popupText(columns[popupIndex]),
-                  content: popupOnOthers
-                      ? _othersPopup(widget.data.sublist(othersIndex), barRects[popupIndex].top - _popupChrome)
-                      : null,
-                  isVisible: _hoveredIndex != null,
-                ),
+                popupOnOthers
+                    ? _othersPopup(widget.data.sublist(othersIndex), barRects[popupIndex], constraints.maxWidth, height)
+                    : ChartValuePopup(
+                        target: Offset(
+                          _yAxisWidth + barRects[popupIndex].center.dx,
+                          barRects[popupIndex].top,
+                        ),
+                        text: _popupText(columns[popupIndex]),
+                        isVisible: _hoveredIndex != null,
+                      ),
             ],
           ),
         );
@@ -274,7 +339,10 @@ class _BarsAcross extends StatefulWidget
   final List<ChartDatum> data;
   final int maxValue;
 
-  const _BarsAcross({required this.data, required this.maxValue});
+  // Two halves side by side on one scale, the first one longer by one at most.
+  final bool split;
+
+  const _BarsAcross({required this.data, required this.maxValue, this.split = false});
 
   @override
   State<_BarsAcross> createState() => _BarsAcrossState();
@@ -284,21 +352,21 @@ class _BarsAcrossState extends State<_BarsAcross>
 {
   int? _hoveredIndex;
 
-  Widget _row(int index, double namesWidth)
+  Widget _row(int index, double namesWidth, {required bool last})
   {
     final ChartDatum datum = widget.data[index];
     final bool hovered = index == _hoveredIndex;
     final TextStyle style = GoogleFonts.plusJakartaSans(
       fontSize: 12.5,
       fontWeight: hovered ? FontWeight.w700 : FontWeight.w600,
-      color: hovered ? AppTheme.trialOcean : AppTheme.trialInk,
+      color: hovered ? AppTheme.trialOceanText : AppTheme.trialInk,
     );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = index),
       onExit: (_) => setState(() => _hoveredIndex = _hoveredIndex == index ? null : _hoveredIndex),
       child: Padding(
-        padding: EdgeInsets.only(bottom: index < widget.data.length - 1 ? _acrossRowGap - 2 * _acrossHoverInset : 0),
+        padding: EdgeInsets.only(bottom: last ? 0 : _acrossRowGap - 2 * _acrossHoverInset),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: _acrossHoverInset),
           decoration: BoxDecoration(
@@ -321,7 +389,7 @@ class _BarsAcrossState extends State<_BarsAcross>
                 child: Text(
                   '${datum.count}',
                   textAlign: TextAlign.right,
-                  style: style.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+                  style: style.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
                 ),
               ),
             ],
@@ -334,16 +402,38 @@ class _BarsAcrossState extends State<_BarsAcross>
   @override
   Widget build(BuildContext context)
   {
+    Widget rows(int start, int end, double namesWidth)
+    {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = start; i < end; i++) _row(i, namesWidth, last: i == end - 1),
+        ],
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final double namesWidth = math.min(constraints.maxWidth * _acrossNamesShare, _acrossNamesMax);
+        final int count = widget.data.length;
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < widget.data.length; i++) _row(i, namesWidth),
-          ],
+        if (!widget.split)
+        {
+          return rows(0, count, math.min(constraints.maxWidth * _acrossNamesShare, _acrossNamesMax));
+        }
+
+        final double namesWidth = math.min(constraints.maxWidth / 2 * _splitNamesShare, _splitNamesMax);
+        final int half = (count + 1) ~/ 2;
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: Align(alignment: Alignment.topCenter, child: rows(0, half, namesWidth))),
+              const StatColumnDivider(),
+              Expanded(child: Align(alignment: Alignment.topCenter, child: rows(half, count, namesWidth))),
+            ],
+          ),
         );
       },
     );
@@ -371,7 +461,7 @@ class _AcrossBar extends StatelessWidget
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: radius,
-            gradient: const LinearGradient(colors: [AppTheme.chartNavy, AppTheme.chartViolet]),
+            gradient: LinearGradient(colors: [AppTheme.chartNavy, AppTheme.chartViolet]),
           ),
         ),
       ),
@@ -476,7 +566,7 @@ class _BarChartPainter extends CustomPainter
       textPainter.text = TextSpan(
         text: data[i].label,
         style: GoogleFonts.plusJakartaSans(
-          color: hovered ? AppTheme.trialOcean : AppTheme.trialMutedText,
+          color: hovered ? AppTheme.trialOceanText : AppTheme.trialMutedText,
           fontSize: _labelFontSize,
           fontWeight: hovered ? FontWeight.w700 : FontWeight.w600,
         ),

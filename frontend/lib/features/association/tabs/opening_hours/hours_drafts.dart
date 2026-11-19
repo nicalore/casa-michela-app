@@ -109,7 +109,7 @@ class BandSliders extends StatelessWidget
             },
           ),
           if (bucket != TimeBucket.values.last)
-            const Divider(height: 33, thickness: 1, color: AppTheme.trialLine),
+            Divider(height: 33, thickness: 1, color: AppTheme.trialLine),
         ],
       ],
     );

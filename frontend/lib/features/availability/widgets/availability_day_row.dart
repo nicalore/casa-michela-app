@@ -260,7 +260,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     height: 1.15,
-                    color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+                    color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOceanText,
                   ),
                 ),
               ),
@@ -334,7 +334,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
           fontSize: 16,
           fontWeight: FontWeight.w700,
           height: 1.15,
-          color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+          color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOceanText,
         ),
       ),
     );
@@ -408,7 +408,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
       children: [
         Flexible(child: _buildDenseDateLine()),
         const SizedBox(width: 16),
-        const Icon(Icons.event_busy_rounded, size: 17, color: AppTheme.trialMutedText),
+        Icon(Icons.event_busy_rounded, size: 17, color: AppTheme.trialMutedText),
         const SizedBox(width: 8),
         const Expanded(child: _Muted("L'Associazione è chiusa", dense: true)),
       ],
@@ -481,7 +481,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
 
     return [
       for (final bucket in TimeBucket.values) ...[
-        if (bucket != TimeBucket.values.first) const _Divider(),
+        if (bucket != TimeBucket.values.first) _Divider(),
         Expanded(child: _buildBand(bucket)),
       ],
     ];
@@ -541,7 +541,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
   {
     return Row(
       children: [
-        const Icon(Icons.event_busy_rounded, size: 20, color: AppTheme.trialMutedText),
+        Icon(Icons.event_busy_rounded, size: 20, color: AppTheme.trialMutedText),
         const SizedBox(width: 10),
         const Expanded(child: _Muted("L'Associazione è chiusa")),
       ],
@@ -629,7 +629,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
     final Widget card = Container(
       padding: dense ? (shut ? _densePadding.copyWith(top: 10, bottom: 10) : _densePadding) : _padding,
       decoration: BoxDecoration(
-        color: shut ? AppTheme.closedSurface : Colors.white,
+        color: shut ? AppTheme.closedSurface : AppTheme.surface,
         borderRadius: BorderRadius.circular(radius - rim),
       ),
       child: content,
@@ -658,7 +658,7 @@ class _Divider extends StatelessWidget
 {
   final Color color;
 
-  const _Divider({this.color = AppTheme.trialLine});
+  _Divider({Color? color}) : color = color ?? AppTheme.trialLine;
 
   @override
   Widget build(BuildContext context)
@@ -743,7 +743,7 @@ class _BandCellState extends State<_BandCell>
                       fontSize: widget.dense ? 13 : 15,
                       fontWeight: FontWeight.w700,
                       height: 1.25,
-                      color: AppTheme.trialOcean,
+                      color: AppTheme.trialOceanText,
                     ),
                   ),
                 ),
@@ -921,7 +921,7 @@ class _HoursChipState extends State<_HoursChip>
         : (online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge);
     final Color ink = widget.locked
         ? AppTheme.trialMutedText
-        : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);
+        : (online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText);
 
     final bool dense = widget.dense;
     final double height = dense ? _denseChipHeight : _chipHeight;
@@ -1035,12 +1035,12 @@ class _BinBadgeState extends State<_BinBadge>
               width: widget.size,
               height: widget.size,
               decoration: BoxDecoration(
-                color: _hover ? AppTheme.trialGoldSurface : Colors.white,
+                color: _hover ? AppTheme.trialGoldSurface : AppTheme.surface,
                 shape: BoxShape.circle,
                 border: Border.all(color: _hover ? AppTheme.trialGold : AppTheme.trialLine, width: 1.5),
                 boxShadow: AppTheme.cardShadow,
               ),
-              child: Icon(Icons.delete_outline_rounded, size: widget.size * 2 / 3, color: AppTheme.trialDanger),
+              child: Icon(Icons.delete_outline_rounded, size: widget.size * 2 / 3, color: AppTheme.trialDangerText),
             ),
           ),
         ),
@@ -1083,7 +1083,7 @@ class _BinState extends State<_Bin>
             color: _hover ? AppTheme.trialGoldSurface : AppTheme.trialGoldSurface.withValues(alpha: 0),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.trialDanger),
+          child: Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.trialDangerText),
         ),
       ),
     );
@@ -1143,7 +1143,7 @@ class _TodayPill extends StatelessWidget
       decoration: BoxDecoration(
         color: AppTheme.todaySurface,
         borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: AppTheme.trialTealDeep.withValues(alpha: 0.28)),
+        border: Border.all(color: AppTheme.trialTealDeepText.withValues(alpha: 0.28)),
       ),
       child: Text(
         'OGGI',
@@ -1152,7 +1152,7 @@ class _TodayPill extends StatelessWidget
           fontWeight: FontWeight.w700,
           height: 1.2,
           letterSpacing: 1.1,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     );

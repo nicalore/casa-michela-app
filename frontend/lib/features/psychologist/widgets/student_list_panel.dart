@@ -75,7 +75,7 @@ class StudentListPanel extends StatelessWidget
     final Widget panel = Container(
       padding: EdgeInsets.fromLTRB(padding, padding, padding, 0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(inMenu ? _menuRadius : (dense ? _densePanelRadius : _panelRadius)),
         boxShadow: inMenu ? AppTheme.overlayShadow : AppTheme.cardShadow,
       ),
@@ -227,7 +227,7 @@ class _StudentRowState extends State<_StudentRow>
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: dense ? 14.5 : 16,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.trialOcean,
+                        color: AppTheme.trialOceanText,
                       ),
                     ),
                     if (labels.isNotEmpty) ...[

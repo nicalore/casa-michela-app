@@ -1,4 +1,3 @@
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -49,7 +48,7 @@ const double _denseButtonGap = 12;
 const EdgeInsets _denseCardPadding = EdgeInsets.fromLTRB(24, 22, 24, 24);
 
 // Stops at the line's ends so both colours show even on short lines.
-const LinearGradient _titleGradient = LinearGradient(
+LinearGradient get _titleGradient => LinearGradient(
   colors: [AppTheme.trialOcean, AppTheme.trialViolet],
   stops: [0.15, 0.95],
 );
@@ -195,7 +194,7 @@ class _LoginLayoutState extends State<LoginLayout>
       style: GoogleFonts.plusJakartaSans(
         fontSize: above ? _denseLabelSize : 16,
         fontWeight: FontWeight.w700,
-        color: AppTheme.trialOcean,
+        color: AppTheme.trialOceanText,
       ),
     );
 
@@ -234,7 +233,7 @@ class _LoginLayoutState extends State<LoginLayout>
       label: 'PASSWORD DIMENTICATA?',
       icon: Icons.lock_reset_rounded,
       gradient: AppTheme.dismissGradient,
-      accent: AppTheme.trialViolet,
+      accent: AppTheme.trialVioletText,
       height: _authButtonHeight,
       fontSize: _authButtonFontSize,
       horizontalPadding: _secondaryButtonPadding,
@@ -381,7 +380,7 @@ class _LoginLayoutState extends State<LoginLayout>
       label: 'PASSWORD DIMENTICATA?',
       icon: Icons.lock_reset_rounded,
       gradient: AppTheme.dismissGradient,
-      accent: AppTheme.trialViolet,
+      accent: AppTheme.trialVioletText,
       height: _denseButtonHeight,
       fontSize: _denseButtonFontSize,
       horizontalPadding: _secondaryButtonPadding,

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -82,8 +83,8 @@ const double _labelGap = 16;
 // A day's stretches stacked in a cell keep off the row's rules.
 const double _stackedLinesPadding = 7;
 
-const Color _headSurface = Color(0xFFF5F8F8);
-const Color _rowRule = Color(0xFFEDF2F1);
+Color get _headSurface => ThemeColours.of(0xFFF5F8F8);
+Color get _rowRule => ThemeColours.of(0xFFEDF2F1);
 
 String _missing(int? cents) => cents == null ? '—' : formatAmount(cents);
 
@@ -354,7 +355,7 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
       style: GoogleFonts.plusJakartaSans(
         fontSize: dense ? 13.5 : 17,
         fontWeight: FontWeight.w700,
-        color: AppTheme.trialOcean,
+        color: AppTheme.trialOceanText,
       ),
     );
 
@@ -601,7 +602,7 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
                     _buildHeader(width, dense, metrics),
                     SizedBox(height: gap),
                     if (shown == null && _fetching)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(top: 60),
                         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
                       )
@@ -760,7 +761,7 @@ class _Card extends StatelessWidget
       padding: padding,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(metrics.radius),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -803,7 +804,7 @@ class _IbanCard extends StatelessWidget
             label: kDeleteIbanLabel,
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             width: m.isList ? null : buttonWidth,
             iconOnlyTooltip: m.isList ? kDeleteIbanLabel : null,
             onPressed: onDelete,
@@ -882,7 +883,8 @@ class _Figure extends StatelessWidget
   final double line;
   final double labelSize;
   final FontWeight weight;
-  final Color color;
+  // Null: the ocean of the text.
+  final Color? color;
 
   const _Figure({
     required this.label,
@@ -891,7 +893,7 @@ class _Figure extends StatelessWidget
     required this.line,
     required this.labelSize,
     this.weight = FontWeight.w800,
-    this.color = AppTheme.trialOcean,
+    this.color,
   });
 
   @override
@@ -916,7 +918,7 @@ class _Figure extends StatelessWidget
               style: GoogleFonts.plusJakartaSans(
                 fontSize: size,
                 fontWeight: weight,
-                color: color,
+                color: color ?? AppTheme.trialOceanText,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -985,7 +987,7 @@ class _FigureColumns extends StatelessWidget
             child: index == split && rule
                 ? Container(
                     padding: EdgeInsets.only(left: metrics.figureRulePadding),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border: Border(left: BorderSide(color: AppTheme.trialLine, width: _ruleWidth)),
                     ),
                     child: cell,
@@ -1024,7 +1026,7 @@ class _Total extends StatelessWidget
               style: GoogleFonts.plusJakartaSans(
                 fontSize: size,
                 fontWeight: FontWeight.w800,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
             TextSpan(text: ' $text'),
@@ -1111,7 +1113,7 @@ class _PayCard extends StatelessWidget
           ],
         ),
         SizedBox(height: m.totalsGap),
-        const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+        Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
         SizedBox(height: m.totalsGap),
         _FigureColumns(
           metrics: m,
@@ -1168,7 +1170,7 @@ class _CollaborationCard extends StatelessWidget
         Container(
           width: m.badge,
           height: m.badge,
-          decoration: const BoxDecoration(shape: BoxShape.circle, gradient: AppTheme.brandGradient),
+          decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppTheme.brandGradient),
           child: Icon(
             _collaborationIcons[shown.collaborationType] ?? Icons.handshake_rounded,
             size: m.badge * 0.45,
@@ -1200,13 +1202,13 @@ class _CollaborationCard extends StatelessWidget
 
     final List<Widget> figures = shown.days.isNotEmpty
         ? [
-            figure(kWorkedDaysLabel, '${shown.days.length}', AppTheme.trialOcean),
-            figure(kWorkedHoursLabel, formatMinutes(shown.workedMinutes), AppTheme.trialOcean),
+            figure(kWorkedDaysLabel, '${shown.days.length}', AppTheme.trialOceanText),
+            figure(kWorkedHoursLabel, formatMinutes(shown.workedMinutes), AppTheme.trialOceanText),
           ]
         : [
             if (shown.isPaid) ...[
-              figure(kGrossRateLabel, _missing(shown.grossRate), AppTheme.trialOcean),
-              figure(kNetRateLabel, _missing(shown.netRate), AppTheme.trialTealDeep),
+              figure(kGrossRateLabel, _missing(shown.grossRate), AppTheme.trialOceanText),
+              figure(kNetRateLabel, _missing(shown.netRate), AppTheme.trialTealDeepText),
             ],
           ];
 
@@ -1247,7 +1249,7 @@ class _CollaborationCard extends StatelessWidget
           Expanded(
             child: Container(
               padding: EdgeInsets.only(left: m.figureRulePadding),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(left: BorderSide(color: AppTheme.trialLine, width: _ruleWidth)),
               ),
               child: figures[0],
@@ -1265,7 +1267,7 @@ class _Rule extends StatelessWidget
   const _Rule();
 
   @override
-  Widget build(BuildContext context) => const ColoredBox(color: AppTheme.closedLine, child: SizedBox(width: _ruleWidth));
+  Widget build(BuildContext context) => ColoredBox(color: AppTheme.closedLine, child: SizedBox(width: _ruleWidth));
 }
 
 // Shares of the width: the columns of a group are equal, so its title sits over their middle.
@@ -1295,11 +1297,11 @@ class _DayTable extends StatelessWidget
         fontSize: metrics.cell,
         fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
         height: 1.45,
-        color: strong ? AppTheme.trialOcean : AppTheme.trialInk,
+        color: strong ? AppTheme.trialOceanText : AppTheme.trialInk,
         fontFeatures: const [FontFeature.tabularFigures()],
       );
 
-  TextStyle get _dashStyle => _cellStyle().copyWith(color: const Color(0xFFA9B7BF));
+  TextStyle get _dashStyle => _cellStyle().copyWith(color: ThemeColours.fixed(0xFFA9B7BF));
 
   Widget _centred(int flex, Widget child)
   {
@@ -1383,7 +1385,7 @@ class _DayTable extends StatelessWidget
     );
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _headSurface,
         border: Border(bottom: BorderSide(color: AppTheme.trialLine)),
       ),
@@ -1520,7 +1522,7 @@ class _DayTable extends StatelessWidget
 
     return Container(
       constraints: BoxConstraints(minHeight: metrics.rowHeight * 0.72),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _headSurface,
         border: Border(bottom: BorderSide(color: AppTheme.trialLine)),
       ),
@@ -1622,7 +1624,7 @@ class _DayList extends StatelessWidget
     final TextStyle style = GoogleFonts.plusJakartaSans(
       fontSize: size,
       fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
-      color: strong ? AppTheme.trialOcean : AppTheme.trialMutedText,
+      color: strong ? AppTheme.trialOceanText : AppTheme.trialMutedText,
     );
 
     return Row(
@@ -1728,7 +1730,7 @@ class _DayList extends StatelessWidget
               child: _buildOpening(openingDay, opening, shown.openingNet),
             ),
           for (var index = 0; index < shown.days.length; index++) ...[
-            if (index > 0 || first) const Divider(height: 1, thickness: 1, color: _rowRule),
+            if (index > 0 || first) Divider(height: 1, thickness: 1, color: _rowRule),
             HoverGoldFrame(
               cardRadius: metrics.radius,
               atTop: index == 0 && !first,

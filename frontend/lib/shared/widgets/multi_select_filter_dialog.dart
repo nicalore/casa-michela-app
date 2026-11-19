@@ -41,9 +41,9 @@ const double _deleteButtonSize = 24;
 const Duration _deleteHoverFade = Duration(milliseconds: 150);
 
 // Opaque, so the delete button's hover fill lerps to it without a dark flash.
-final Color _deletableChipFill = Color.alphaBlend(
+Color get _deletableChipFill => Color.alphaBlend(
   AppTheme.trialTurquoise.withValues(alpha: 0.12),
-  Colors.white,
+  AppTheme.surface,
 );
 
 TextStyle _subtitleTextStyle()
@@ -190,7 +190,7 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
           label: 'AZZERA',
           icon: Icons.refresh_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: _reset,
@@ -387,12 +387,12 @@ class _FilterAutocompleteFieldState<T extends Object> extends State<_FilterAutoc
                         textEditingController.clear();
                         setState(() {});
                       },
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.fromLTRB(4, 4, 16, 4),
                         child: Icon(
                           Icons.close_rounded,
                           size: 24,
-                          color: AppTheme.trialTealDeep,
+                          color: AppTheme.trialTealDeepText,
                         ),
                       ),
                     ),
@@ -543,7 +543,7 @@ class _AutocompleteOptionsListState<T extends Object> extends State<Autocomplete
           constraints: BoxConstraints(maxHeight: _listHeight),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: AppTheme.overlayShadow,
           ),
@@ -684,7 +684,7 @@ class _AutocompleteItemState extends State<_AutocompleteItem>
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                          color: isActive ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                          color: isActive ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
                         ),
                       ),
                       if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.below)
@@ -745,7 +745,7 @@ class _AppDeletableChipState extends State<AppDeletableChip>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               ),
             ),
           ),
@@ -764,10 +764,10 @@ class _AppDeletableChipState extends State<AppDeletableChip>
                   color: _isDeleteHovered ? AppTheme.trialGoldSurface : _deletableChipFill,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.close_rounded,
                   size: 16,
-                  color: AppTheme.trialTealDeep,
+                  color: AppTheme.trialTealDeepText,
                 ),
               ),
             ),

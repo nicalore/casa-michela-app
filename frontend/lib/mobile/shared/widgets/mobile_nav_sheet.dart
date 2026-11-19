@@ -6,6 +6,7 @@ import 'package:flutter/physics.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../layout/mobile_breakpoints.dart';
@@ -39,7 +40,7 @@ const Duration _rollDuration = Duration(milliseconds: 260);
 const double _rowHeight = 52;
 
 // A row with something waiting, tinted in a pale gold.
-const Color _litRow = Color(0xFFFBF1DE);
+Color get _litRow => ThemeColours.of(0xFFFBF1DE);
 const double _litRowRadius = 14;
 const double _separatorHeight = 17;
 const double _identityHeight = 70;
@@ -86,9 +87,9 @@ class MobileNavSheet extends StatefulWidget
   );
 
   // The login card turns into this glass on sign-in.
-  static final BoxDecoration glass = BoxDecoration(
+  static BoxDecoration get glass => BoxDecoration(
     color: MobileGlassPanel.sheetTint.withValues(alpha: MobileGlassPanel.sheetAlpha),
-    border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.7))),
+    border: Border(top: BorderSide(color: AppTheme.surfaceEdge.withValues(alpha: 0.7))),
     borderRadius: const BorderRadius.vertical(top: Radius.circular(_radius)),
     boxShadow: MobileGlassPanel.sheetShadow,
   );
@@ -631,7 +632,7 @@ class MobileNavHead extends StatelessWidget
                       child: Row(
                         key: ValueKey(destination.slug),
                         children: [
-                          Icon(destination.icon, size: 24, color: AppTheme.trialTealDeep),
+                          Icon(destination.icon, size: 24, color: AppTheme.trialTealDeepText),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -641,7 +642,7 @@ class MobileNavHead extends StatelessWidget
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
-                                color: AppTheme.trialDeepWater,
+                                color: AppTheme.trialDeepWaterText,
                               ),
                             ),
                           ),
@@ -698,9 +699,9 @@ class _RowSpinner extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return const SizedBox.square(
+    return SizedBox.square(
       dimension: 20,
-      child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeep),
+      child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeepText),
     );
   }
 }
@@ -733,16 +734,16 @@ class _SheetRow extends StatelessWidget
   Widget build(BuildContext context)
   {
     final Color text = danger
-        ? AppTheme.trialDanger
+        ? AppTheme.trialDangerText
         : muted
             ? AppTheme.trialInk.withValues(alpha: 0.45)
             : AppTheme.trialInk;
 
     final Color glyph = danger
-        ? AppTheme.trialDanger
+        ? AppTheme.trialDangerText
         : muted
-            ? AppTheme.trialTealDeep.withValues(alpha: 0.45)
-            : AppTheme.trialTealDeep;
+            ? AppTheme.trialTealDeepText.withValues(alpha: 0.45)
+            : AppTheme.trialTealDeepText;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: _sidePadding),

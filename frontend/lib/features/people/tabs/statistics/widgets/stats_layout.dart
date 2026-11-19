@@ -135,7 +135,7 @@ class RankingPair extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               first,
-              const StatPartDivider(lists: true),
+              StatPartDivider(lists: true),
               second,
             ],
           );
@@ -148,6 +148,84 @@ class RankingPair extends StatelessWidget
               Expanded(child: first),
               const StatColumnDivider(),
               Expanded(child: second),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Three lists inside one card: side by side, the third under the first two, or all stacked.
+class RankingTriple extends StatelessWidget
+{
+  final Widget first;
+  final Widget second;
+  final Widget third;
+
+  // The third when it lies across the card under the other two.
+  final Widget? thirdAcross;
+
+  const RankingTriple({
+    required this.first,
+    required this.second,
+    required this.third,
+    this.thirdAcross,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final StatMetrics metrics = StatMetrics.of(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        if (constraints.maxWidth < metrics.listsFrom)
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              first,
+              StatPartDivider(lists: true),
+              second,
+              StatPartDivider(lists: true),
+              third,
+            ],
+          );
+        }
+
+        if (constraints.maxWidth < metrics.threeRankingsFrom)
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: first),
+                    const StatColumnDivider(),
+                    Expanded(child: second),
+                  ],
+                ),
+              ),
+              StatPartDivider(lists: true),
+              thirdAcross ?? third,
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: first),
+              const StatColumnDivider(),
+              Expanded(child: second),
+              const StatColumnDivider(),
+              Expanded(child: third),
             ],
           ),
         );

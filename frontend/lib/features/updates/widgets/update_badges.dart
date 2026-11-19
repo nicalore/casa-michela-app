@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/page_density.dart';
 import '../update_item.dart';
 import '../update_strings.dart';
@@ -72,7 +73,7 @@ class UpdateRoleBadges extends StatelessWidget
 
     if (roles.length == UpdateRole.values.length)
     {
-      return _badge(kUpdateAllRoles, background: const Color(0xFFF4EEF9), color: AppTheme.trialViolet, dense: dense);
+      return _badge(kUpdateAllRoles, background: ThemeColours.of(0xFFF4EEF9), color: AppTheme.trialVioletText, dense: dense);
     }
 
     return Wrap(
@@ -81,7 +82,7 @@ class UpdateRoleBadges extends StatelessWidget
       runSpacing: dense ? 5 : 6,
       children: [
         for (final role in roles)
-          _badge(role.plural, background: AppTheme.todaySurface, color: AppTheme.trialTealDeep, dense: dense),
+          _badge(role.plural, background: AppTheme.todaySurface, color: AppTheme.trialTealDeepText, dense: dense),
       ],
     );
   }

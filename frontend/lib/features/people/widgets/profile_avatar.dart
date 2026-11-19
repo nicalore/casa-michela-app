@@ -125,7 +125,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
             label:     'ANNULLA',
             icon:      Icons.close_rounded,
             gradient:  AppTheme.dismissGradient,
-            accent:    AppTheme.trialViolet,
+            accent:    AppTheme.trialVioletText,
             height:    52,
             fontSize:  14,
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -134,7 +134,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
             label:     'RIMUOVI',
             icon:      Icons.delete_outline_rounded,
             gradient:  AppTheme.dangerGradient,
-            accent:    AppTheme.trialDanger,
+            accent:    AppTheme.trialDangerText,
             height:    52,
             fontSize:  14,
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -209,7 +209,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
         fit:      StackFit.expand,
         children: [
           DecoratedBox(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: AppTheme.brandGradient,
               shape:    BoxShape.circle,
             ),

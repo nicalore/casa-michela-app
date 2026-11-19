@@ -95,7 +95,7 @@ class CalendarRequestDetails extends StatelessWidget
       _buildVoice('Classe', _said(student.schoolClass)),
       const SizedBox(height: 14),
       _buildVoice('Certificazioni', studentCertificationsOf(student)),
-      const Padding(
+      Padding(
         padding: EdgeInsets.symmetric(vertical: 18),
         child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
       ),
@@ -123,7 +123,7 @@ class CalendarRequestDetails extends StatelessWidget
       width: _width,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(color: Color(0x3D0B3350), blurRadius: 48, offset: Offset(0, 18)),
@@ -148,7 +148,7 @@ class CalendarRequestDetails extends StatelessWidget
                 fontSize: 19,
                 fontWeight: FontWeight.w800,
                 height: 1.3,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
             const SizedBox(height: 14),

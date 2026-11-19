@@ -345,7 +345,7 @@ class _AddTeacherDialogState extends State<_AddTeacherDialog>
           onChanged: (start, end) => _setStretch(index, start, end),
           trailing: FadeHoverIconButton(
             icon: Icons.delete_outline_rounded,
-            color: AppTheme.trialDanger,
+            color: AppTheme.trialDangerText,
             hoverColor: AppTheme.trialGoldSurface,
             onTap: () => _removeStretch(index),
           ),
@@ -412,7 +412,7 @@ class _AddTeacherDialogState extends State<_AddTeacherDialog>
                 ),
               ],
               if (_mayVolunteer && work != null) ...[
-                const Divider(height: 30, thickness: 1, color: AppTheme.trialLine),
+                Divider(height: 30, thickness: 1, color: AppTheme.trialLine),
                 _slider(
                   name: kVolunteerGroup,
                   span: _volunteer,

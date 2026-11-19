@@ -223,7 +223,7 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
             curve: kSegmentedSlideCurve,
             style: _labelStyle.copyWith(
               color: active
-                  ? AppTheme.trialTealDeep
+                  ? AppTheme.trialTealDeepText
                   : AppTheme.trialMutedText.withValues(alpha: off ? _offAlpha : 1),
             ),
             child: DescenderRoom(
@@ -276,7 +276,7 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
       height: rowHeight,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(rowHeight / 2),
           boxShadow: AppTheme.cardShadow,
         ),

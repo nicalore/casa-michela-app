@@ -56,8 +56,8 @@ class _AppSelectableChipState extends State<AppSelectableChip>
       begin: AppTheme.brandGradient.begin,
       end: AppTheme.brandGradient.end,
       colors: [
-        Color.lerp(Colors.white, AppTheme.trialTealDeep, t)!,
-        Color.lerp(Colors.white, AppTheme.trialTurquoise, t)!,
+        Color.lerp(AppTheme.surface, AppTheme.trialTealDeep, t)!,
+        Color.lerp(AppTheme.surface, AppTheme.trialTurquoise, t)!,
       ],
     );
   }
@@ -117,8 +117,8 @@ class _AppSelectableChipState extends State<AppSelectableChip>
   Widget _buildChip(double t, double h)
   {
     final Color contentColor = Color.lerp(
-      Color.lerp(AppTheme.trialMutedText, AppTheme.trialTealDeep, h)!,
-      Colors.white,
+      Color.lerp(AppTheme.trialMutedText, AppTheme.trialTealDeepText, h)!,
+      AppTheme.surface,
       t,
     )!;
 

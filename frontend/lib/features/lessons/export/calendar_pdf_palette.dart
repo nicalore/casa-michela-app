@@ -2,11 +2,15 @@ import 'package:flutter/material.dart' show Color;
 import 'package:pdf/pdf.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../utils/opening_window.dart';
 import '../widgets/calendar_activity_block.dart';
 
-PdfColor _pdf(Color colour)
+// PDFs keep Casa Michela's colours whatever the reader's theme.
+PdfColor _pdf(Color Function() read)
 {
+  final Color colour = ThemeColours.inCasaMichela(read);
+
   return PdfColor(
     (colour.r * 255).round() / 255,
     (colour.g * 255).round() / 255,
@@ -14,26 +18,26 @@ PdfColor _pdf(Color colour)
   );
 }
 
-final PdfColor kPdfInk = _pdf(AppTheme.trialOcean);
+final PdfColor kPdfInk = _pdf(() => AppTheme.trialOceanText);
 
-final PdfColor kPdfViolet = _pdf(AppTheme.trialViolet);
+final PdfColor kPdfViolet = _pdf(() => AppTheme.trialVioletText);
 
-final PdfColor kPdfBody = _pdf(AppTheme.trialInk);
+final PdfColor kPdfBody = _pdf(() => AppTheme.trialInk);
 
-final PdfColor kPdfMuted = _pdf(AppTheme.trialMutedText);
+final PdfColor kPdfMuted = _pdf(() => AppTheme.trialMutedText);
 
-final PdfColor kPdfPresence = _pdf(AppTheme.trialTealDeep);
-final PdfColor kPdfPresenceSurface = _pdf(AppTheme.todaySurface);
+final PdfColor kPdfPresence = _pdf(() => AppTheme.trialTealDeepText);
+final PdfColor kPdfPresenceSurface = _pdf(() => AppTheme.todaySurface);
 
-final PdfColor kPdfOnline = _pdf(AppTheme.modifiedAccent);
-final PdfColor kPdfOnlineSurface = _pdf(AppTheme.modifiedAccentSurface);
+final PdfColor kPdfOnline = _pdf(() => AppTheme.modifiedAccent);
+final PdfColor kPdfOnlineSurface = _pdf(() => AppTheme.modifiedAccentSurface);
 
-final PdfColor kPdfActivity = _pdf(kActivityAccent);
-final PdfColor kPdfActivitySurface = _pdf(kActivitySurface);
+final PdfColor kPdfActivity = _pdf(() => kActivityAccent);
+final PdfColor kPdfActivitySurface = _pdf(() => kActivitySurface);
 
-final PdfColor kPdfLine = _pdf(AppTheme.trialLine);
+final PdfColor kPdfLine = _pdf(() => AppTheme.trialLine);
 
-final PdfColor kPdfHeaderGround = _pdf(AppTheme.trialPaper);
+final PdfColor kPdfHeaderGround = _pdf(() => AppTheme.trialPaper);
 
 const PdfColor kPdfWhite = PdfColors.white;
 

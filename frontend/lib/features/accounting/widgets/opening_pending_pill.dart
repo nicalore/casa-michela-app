@@ -23,14 +23,14 @@ class OpeningPendingPill extends StatelessWidget
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.pending_actions_rounded, size: fontSize + 2, color: AppTheme.trialOcean),
+          Icon(Icons.pending_actions_rounded, size: fontSize + 2, color: AppTheme.trialOceanText),
           SizedBox(width: fontSize * 0.4),
           Text(
             kOpeningPending,
             style: GoogleFonts.plusJakartaSans(
               fontSize: fontSize,
               fontWeight: FontWeight.w700,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
         ],

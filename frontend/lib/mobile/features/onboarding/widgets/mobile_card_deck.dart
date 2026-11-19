@@ -196,7 +196,7 @@ class _DeckDots extends StatelessWidget
       width: ui.lerpDouble(_dotSize, _dotCurrentWidth, near),
       height: _dotSize,
       decoration: BoxDecoration(
-        color: Color.lerp(Colors.white.withValues(alpha: 0.4), AppTheme.trialGold, near),
+        color: Color.lerp(AppTheme.surface.withValues(alpha: 0.4), AppTheme.trialGold, near),
         borderRadius: BorderRadius.circular(_dotSize / 2),
       ),
     );

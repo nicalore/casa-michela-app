@@ -62,7 +62,7 @@ class DashboardSectionCard extends StatelessWidget
       constraints: BoxConstraints(minHeight: minHeight),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(dense ? _denseRadius : radius),
           boxShadow: AppTheme.cardShadow,
         ),
@@ -103,7 +103,7 @@ class DashboardSectionCard extends StatelessWidget
                 fontSize: dense ? 15.5 : 18,
                 fontWeight: FontWeight.w700,
                 height: 1.2,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
           ),
@@ -143,7 +143,7 @@ class DashboardSectionCard extends StatelessWidget
                   fontSize: compact ? 18 : 21,
                   fontWeight: FontWeight.w700,
                   height: 1.2,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                 ),
               ),
             ],

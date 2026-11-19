@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
 import '../../../shared/widgets/app_dropdown_field.dart';
@@ -26,14 +27,14 @@ const double _menuWidth = 140;
 // Under the scrolling part, room for its bar.
 const double kHoursScrollBarRoom = 12;
 
-const Color kHoursHeadSurface = Color(0xFFF5F8F8);
-const Color kHoursRowLine = Color(0xFFEDF2F1);
-const Color kHoursDashInk = Color(0xFFA9B7BF);
+Color get kHoursHeadSurface => ThemeColours.of(0xFFF5F8F8);
+Color get kHoursRowLine => ThemeColours.of(0xFFEDF2F1);
+Color get kHoursDashInk => ThemeColours.fixed(0xFFA9B7BF);
 
-const Color _groupLine = Color(0xFFDDE3EA);
-const Color _cellInk = Color(0xFF33495A);
-const Color _offSurface = Color(0xFFFAFBFB);
-const Color _menuRest = Color(0xFFF0F5F5);
+Color get _groupLine => ThemeColours.fixed(0xFFDDE3EA);
+Color get _cellInk => ThemeColours.fixed(0xFF33495A);
+Color get _offSurface => ThemeColours.fixed(0xFFFAFBFB);
+Color get _menuRest => ThemeColours.of(0xFFF0F5F5);
 
 // A time field's «—»: no time at all.
 const int kNoTime = -1;
@@ -41,7 +42,7 @@ const int kNoTime = -1;
 TextStyle hoursCellStyle({bool strong = false, Color? color}) => GoogleFonts.plusJakartaSans(
   fontSize: 14.5,
   fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
-  color: color ?? (strong ? AppTheme.trialOcean : _cellInk),
+  color: color ?? (strong ? AppTheme.trialOceanText : _cellInk),
 );
 
 TextStyle get hoursHeadStyle => GoogleFonts.plusJakartaSans(
@@ -57,7 +58,7 @@ TextStyle get hoursGroupStyle => GoogleFonts.plusJakartaSans(
   color: AppTheme.trialMutedText,
 );
 
-const BorderSide _groupSide = BorderSide(color: _groupLine, width: 1.5);
+BorderSide get _groupSide => BorderSide(color: _groupLine, width: 1.5);
 
 // Several stretches stand one under the other.
 Widget hoursStack(List<Widget> fields)
@@ -112,7 +113,7 @@ class HoursCell extends StatelessWidget
       width: width,
       alignment: alignment,
       padding: padding,
-      decoration: opensGroup ? const BoxDecoration(border: Border(left: _groupSide)) : null,
+      decoration: opensGroup ? BoxDecoration(border: Border(left: _groupSide)) : null,
       child: child,
     );
   }
@@ -194,7 +195,7 @@ class _HoursSideScrollState extends State<HoursSideScroll>
           builder: (context, child) => Container(
             width: widget.nameWidth,
             foregroundDecoration: _controller.hasClients && _controller.offset > 0
-                ? const BoxDecoration(border: Border(right: _groupSide))
+                ? BoxDecoration(border: Border(right: _groupSide))
                 : null,
             child: child,
           ),
@@ -227,10 +228,10 @@ class HoursNote extends StatelessWidget
   {
     return Container(
       padding: const EdgeInsets.fromLTRB(kHoursNameInset, 13, kHoursNameInset, 13),
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
       child: Row(
         children: [
-          const Icon(Icons.schedule_rounded, size: 17, color: AppTheme.trialTurquoise),
+          Icon(Icons.schedule_rounded, size: 17, color: AppTheme.trialTurquoise),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -256,7 +257,7 @@ class HoursAddRow extends StatelessWidget
   {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
       child: AppAddRowButton(label: label, dense: true, alignment: Alignment.center, onTap: onTap),
     );
   }
@@ -277,7 +278,7 @@ class HoursBadge extends StatelessWidget
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       decoration: BoxDecoration(
-        color: online ? AppTheme.modifiedAccentSurface : const Color(0xFFEEF2F4),
+        color: online ? AppTheme.modifiedAccentSurface : ThemeColours.fixed(0xFFEEF2F4),
         borderRadius: BorderRadius.circular(9),
       ),
       child: Row(
@@ -518,7 +519,7 @@ class _MenuButtonState extends State<_MenuButton>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              const DecoratedBox(
+              DecoratedBox(
                 decoration: BoxDecoration(shape: BoxShape.circle, color: _menuRest),
                 child: SizedBox.expand(),
               ),
@@ -535,7 +536,7 @@ class _MenuButtonState extends State<_MenuButton>
                   child: const SizedBox.expand(),
                 ),
               ),
-              const Icon(Icons.more_horiz_rounded, size: 20, color: AppTheme.trialTealDeep),
+              Icon(Icons.more_horiz_rounded, size: 20, color: AppTheme.trialTealDeepText),
             ],
           ),
         ),

@@ -40,7 +40,7 @@ String _details(SessionItem session)
 BoxDecoration _cardDecoration(double radius)
 {
   return BoxDecoration(
-    color: Colors.white,
+    color: AppTheme.surface,
     borderRadius: BorderRadius.circular(radius),
     boxShadow: AppTheme.cardShadow,
   );
@@ -77,7 +77,7 @@ class CurrentSessionCard extends StatelessWidget
                   color: AppTheme.trialTealDeep.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(dense ? 12 : 22),
                 ),
-                child: Icon(sessionDeviceIcon(session.deviceType), size: dense ? 22 : 40, color: AppTheme.trialTealDeep),
+                child: Icon(sessionDeviceIcon(session.deviceType), size: dense ? 22 : 40, color: AppTheme.trialTealDeepText),
               ),
               SizedBox(width: dense ? 12 : 22),
               Expanded(
@@ -90,7 +90,7 @@ class CurrentSessionCard extends StatelessWidget
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: dense ? 16 : 22,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.trialOcean,
+                        color: AppTheme.trialOceanText,
                       ),
                     ),
                     SizedBox(height: dense ? 2 : 4),

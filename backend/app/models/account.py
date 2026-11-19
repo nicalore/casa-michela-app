@@ -35,6 +35,23 @@ class AccountStatusEnum(StrEnum):
     REVOKED = "REVOKED"
 
 
+# The app's colours for this account; pages before sign-in are always CASA_MICHELA.
+class ColourThemeEnum(StrEnum):
+    CASA_MICHELA = "CASA_MICHELA"
+    COBALTO = "COBALTO"
+    ARDESIA = "ARDESIA"
+    LAVANDA = "LAVANDA"
+    CONFETTO = "CONFETTO"
+    TERRACOTTA = "TERRACOTTA"
+
+
+# Light or dark for this account, or SYSTEM to follow the device; pages before sign-in are always LIGHT.
+class ThemeModeEnum(StrEnum):
+    LIGHT = "LIGHT"
+    DARK = "DARK"
+    SYSTEM = "SYSTEM"
+
+
 # Why an ACTIVE account is suspended all the same. Never stored: re-enrolling lifts it.
 class AccessLapseEnum(StrEnum):
     MEMBERSHIP = "MEMBERSHIP"
@@ -127,6 +144,20 @@ class Account(CreatedAtMixin, UpdatedAtMixin, Base):
         nullable=False,
         default=False,
         server_default="false",
+    )
+
+    colour_theme: Mapped[ColourThemeEnum] = mapped_column(
+        SqlEnum(ColourThemeEnum, name="colour_theme_enum"),
+        nullable=False,
+        default=ColourThemeEnum.CASA_MICHELA,
+        server_default=ColourThemeEnum.CASA_MICHELA.value,
+    )
+
+    theme_mode: Mapped[ThemeModeEnum] = mapped_column(
+        SqlEnum(ThemeModeEnum, name="theme_mode_enum"),
+        nullable=False,
+        default=ThemeModeEnum.LIGHT,
+        server_default=ThemeModeEnum.LIGHT.value,
     )
 
     # Null until a role is used; the API then falls back to the first usable one.

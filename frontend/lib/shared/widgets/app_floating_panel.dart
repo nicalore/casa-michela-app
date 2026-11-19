@@ -646,7 +646,7 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
             decoration: BoxDecoration(
               color: AppTheme.trialTealDeep.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(_radius),
-              border: Border.all(color: AppTheme.trialTealDeep, width: 3),
+              border: Border.all(color: AppTheme.trialTealDeepText, width: 3),
             ),
           ),
         ),
@@ -662,7 +662,7 @@ class _AppFloatingPanelState extends State<AppFloatingPanel> with SingleTickerPr
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(_radius),
         boxShadow: const [
           BoxShadow(color: Color(0x3D0B3350), blurRadius: 48, offset: Offset(0, 18)),

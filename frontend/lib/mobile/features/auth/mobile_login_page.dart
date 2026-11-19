@@ -228,7 +228,7 @@ class _MobileLoginPageState extends State<MobileLoginPage>
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.trialTealDeep,
+                      color: AppTheme.trialTealDeepText,
                     ),
                   ),
                 ),

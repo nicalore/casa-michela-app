@@ -104,7 +104,7 @@ class AppBadgedFace extends StatelessWidget
             _Badge(
               size: badgeSize,
               icon: Icons.edit_outlined,
-              color: AppTheme.trialTealDeep,
+              color: AppTheme.trialTealDeepText,
               tooltip: hasImage ? 'Cambia la foto' : 'Carica una foto',
               onTap: onPick,
             ),
@@ -115,7 +115,7 @@ class AppBadgedFace extends StatelessWidget
               _Badge(
                 size: badgeSize,
                 icon: Icons.delete_outline_rounded,
-                color: AppTheme.trialDanger,
+                color: AppTheme.trialDangerText,
                 tooltip: 'Rimuovi la foto',
                 onTap: onRemove,
               ),
@@ -169,7 +169,7 @@ class _BadgeState extends State<_Badge>
             width: widget.size,
             height: widget.size,
             decoration: BoxDecoration(
-              color: _hover && enabled ? AppTheme.trialGoldSurface : Colors.white,
+              color: _hover && enabled ? AppTheme.trialGoldSurface : AppTheme.surface,
               shape: BoxShape.circle,
               border: Border.all(
                 color: _hover && enabled ? AppTheme.trialGold : AppTheme.trialLine,

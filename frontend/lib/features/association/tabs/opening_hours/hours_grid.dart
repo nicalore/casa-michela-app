@@ -52,13 +52,13 @@ class HoursGrid extends StatelessWidget
   static const double _tightTextScale = 13.5 / 15;
   static const double _tightSlack = 2;
 
-  static final TextStyle _titleStyle = GoogleFonts.plusJakartaSans(
+  static TextStyle get _titleStyle => GoogleFonts.plusJakartaSans(
     fontSize: 15,
     fontWeight: FontWeight.w700,
     color: AppTheme.trialInk,
   );
 
-  static final TextStyle _subtitleStyle = GoogleFonts.plusJakartaSans(
+  static TextStyle get _subtitleStyle => GoogleFonts.plusJakartaSans(
     fontSize: 13,
     fontWeight: FontWeight.w500,
     color: AppTheme.trialMutedText,
@@ -173,7 +173,7 @@ class HoursGrid extends StatelessWidget
           padding: EdgeInsets.symmetric(horizontal: padding - inset, vertical: padding),
           alignment: day == null ? Alignment.topLeft : Alignment.topCenter,
           decoration: row < lastRow
-              ? const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine)))
+              ? BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine)))
               : null,
           child: content,
         ),
@@ -297,7 +297,7 @@ class HoursGrid extends StatelessWidget
       children: [
         Container(
           padding: const EdgeInsets.fromLTRB(padding, 0, padding, padding),
-          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
           child: line(
             [
               const SizedBox.shrink(),
@@ -317,7 +317,7 @@ class HoursGrid extends StatelessWidget
             DecoratedBox(
               decoration: BoxDecoration(
                 border: i < days.length - 1 && !days[i + 1].isToday
-                    ? const Border(bottom: BorderSide(color: AppTheme.trialLine))
+                    ? Border(bottom: BorderSide(color: AppTheme.trialLine))
                     : null,
               ),
               child: dayLine(day, inset: 0),
@@ -381,7 +381,7 @@ class HoursGrid extends StatelessWidget
     return Container(
       padding: const EdgeInsets.all(_tilePadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         border: Border.all(color: AppTheme.trialLine),
         borderRadius: BorderRadius.circular(16),
       ),
@@ -457,7 +457,7 @@ class TodayFrame extends StatelessWidget
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(radius - rim),
         ),
         child: child,

@@ -35,7 +35,7 @@ class MobileSessionList extends StatelessWidget
             padding: const EdgeInsets.fromLTRB(_rowLeft, 10, 10, 10),
             gap: _rowGap,
             minHeight: 68,
-            leading: Icon(sessionDeviceIcon(session.deviceType), size: _iconSize, color: AppTheme.trialTealDeep),
+            leading: Icon(sessionDeviceIcon(session.deviceType), size: _iconSize, color: AppTheme.trialTealDeepText),
             title: sessionDeviceName(session),
             titleStyle: GoogleFonts.plusJakartaSans(
               fontSize: 16,
@@ -117,7 +117,7 @@ class _DeviceBadge extends StatelessWidget
         shape: BoxShape.circle,
         color: AppTheme.trialTealDeep.withValues(alpha: 0.13),
       ),
-      child: Icon(sessionDeviceIcon(type), size: 30, color: AppTheme.trialTealDeep),
+      child: Icon(sessionDeviceIcon(type), size: 30, color: AppTheme.trialTealDeepText),
     );
   }
 }

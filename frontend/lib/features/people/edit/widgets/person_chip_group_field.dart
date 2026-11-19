@@ -138,7 +138,7 @@ class PersonChipGroupField extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: AppTheme.trialDanger,
+              color: AppTheme.trialDangerText,
             ),
           ),
         ],

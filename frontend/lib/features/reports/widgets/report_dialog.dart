@@ -131,7 +131,7 @@ class _ReportDetailsState extends State<_ReportDetails>
     return Container(
       padding: EdgeInsets.only(top: first ? 0 : 10, bottom: 10),
       decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: AppTheme.trialLine)),
+        border: first ? null : Border(top: BorderSide(color: AppTheme.trialLine)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -143,7 +143,7 @@ class _ReportDetailsState extends State<_ReportDetails>
     );
   }
 
-  Widget _divider() => const Padding(
+  Widget _divider() => Padding(
         padding: EdgeInsets.only(bottom: 16),
         child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
       );
@@ -185,7 +185,7 @@ class _ReportDetailsState extends State<_ReportDetails>
       padding: const EdgeInsets.only(top: 20),
       child: Row(
         children: [
-          const Icon(Icons.mail_rounded, size: 20, color: AppTheme.trialTealDeep),
+          Icon(Icons.mail_rounded, size: 20, color: AppTheme.trialTealDeepText),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

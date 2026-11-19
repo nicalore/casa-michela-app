@@ -457,9 +457,9 @@ class _StatsBlockState<T> extends State<_StatsBlock<T>>
 
     // Old figures stay while the next period loads: glass cannot be faded.
     final Widget? spinner = loading
-        ? const SizedBox.square(
+        ? SizedBox.square(
             dimension: 20,
-            child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeep),
+            child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeepText),
           )
         : null;
 
@@ -699,7 +699,7 @@ class _RankRow extends StatelessWidget
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.trialTealDeep,
+                  color: AppTheme.trialTealDeepText,
                 ),
               ),
             ),
@@ -749,7 +749,7 @@ class _RankRow extends StatelessWidget
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: AppTheme.trialTealDeep,
+                      color: AppTheme.trialTealDeepText,
                     ),
                   ),
                 ),
@@ -812,7 +812,7 @@ class _Figure extends StatelessWidget
         fontWeight: FontWeight.w800,
         letterSpacing: -0.5,
         height: 1.1,
-        color: AppTheme.trialTealDeep,
+        color: AppTheme.trialTealDeepText,
       ),
     );
 
@@ -892,7 +892,7 @@ class _Shortfall extends StatelessWidget
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded, size: 19, color: AppTheme.modifiedAccent),
+          Icon(Icons.warning_amber_rounded, size: 19, color: AppTheme.modifiedAccent),
           const SizedBox(width: 9),
           Expanded(
             child: Text(

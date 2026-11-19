@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../features/lessons/utils/booking_window.dart';
 import '../../../shared/widgets/whole_words.dart';
 import '../mobile_line_breaks.dart';
@@ -36,7 +37,7 @@ class MobileWizardDots extends StatelessWidget
     required this.fallback,
   });
 
-  static const Color _ahead = Color(0x29122438);
+  static Color get _ahead =>  ThemeColours.fixed(0x29122438);
 
   @override
   Widget build(BuildContext context)
@@ -198,9 +199,11 @@ class MobileDaysTag extends StatelessWidget
     return Container(
       margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+      // In the dark todaySurface sinks into the card: a tint of the label's own teal instead, with an edge.
       decoration: BoxDecoration(
-        color: AppTheme.todaySurface,
+        color: ThemeColours.isDark ? AppTheme.trialTealDeepText.withValues(alpha: 0.14) : AppTheme.todaySurface,
         borderRadius: BorderRadius.circular(14),
+        border: ThemeColours.isDark ? Border.all(color: AppTheme.trialTealDeepText.withValues(alpha: 0.3)) : null,
       ),
       child: Text.rich(
         TextSpan(
@@ -211,7 +214,7 @@ class MobileDaysTag extends StatelessWidget
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               ),
             ),
             TextSpan(text: days.map(formatAvailableDayLabel).join(', ')),

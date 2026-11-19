@@ -154,7 +154,7 @@ class _AboutCard extends StatelessWidget
           ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16)
           : const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(dense ? _denseCardRadius : _cardRadius),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -183,7 +183,7 @@ class _AboutCard extends StatelessWidget
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: dense ? 11.5 : 13,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.trialTealDeep,
+                        color: AppTheme.trialTealDeepText,
                       ),
                     ),
                   ),
@@ -196,7 +196,7 @@ class _AboutCard extends StatelessWidget
                 label: kReportProblemLabel.toUpperCase(),
                 icon: Icons.flag_rounded,
                 gradient: AppTheme.dismissGradient,
-                accent: AppTheme.trialViolet,
+                accent: AppTheme.trialVioletText,
                 height: _reportHeight,
                 radius: _reportRadius,
                 fontSize: _reportFontSize,
@@ -216,7 +216,7 @@ class _AboutCard extends StatelessWidget
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: dense ? 17 : 23,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.trialOcean,
+                            color: AppTheme.trialOceanText,
                           ),
                         ),
                         SizedBox(height: dense ? 5 : 8),
@@ -308,7 +308,7 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(dense ? _denseDocumentRadius : _documentRadius),
             border: Border.all(
               color: _isHovering
@@ -330,7 +330,7 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
                 const SizedBox(width: 12),
                 Icon(
                   Icons.open_in_new_rounded,
-                  color: _isHovering ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                  color: _isHovering ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
                   size: dense ? 18 : 22,
                 ),
               ],

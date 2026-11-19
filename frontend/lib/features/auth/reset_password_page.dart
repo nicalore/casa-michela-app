@@ -168,9 +168,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     if (_isValidating)
     {
       return Scaffold(
-        backgroundColor: AppTheme.trialPaper,
+        backgroundColor: AppTheme.pagePaper,
         body: _validationFailure == null
-            ? const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))
+            ? Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))
             : AppLoadFailedRoom(error: _validationFailure, message: _invalidLink, onRetry: _validateToken),
       );
     }
@@ -183,7 +183,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
           label: 'TORNA AL LOGIN',
           icon: Icons.arrow_back_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: _buttonHeight,
           fontSize: _buttonFontSize,
           onPressed: () => context.go('/login'),

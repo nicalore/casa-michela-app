@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import 'mobile_button_label.dart';
 
 const double _height = 58;
@@ -9,16 +10,16 @@ const double _radius = 18;
 const double _pressedScale = 0.98;
 const Duration _pressDuration = Duration(milliseconds: 110);
 
-const Color _goldLight = Color(0xFFF3C766);
+Color get _goldLight => ThemeColours.of(0xFFF3C766);
 
-const LinearGradient _gradient = LinearGradient(
+LinearGradient get _gradient => LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
   colors: [AppTheme.trialGold, _goldLight],
 );
 
-const List<BoxShadow> _shadow = [
-  BoxShadow(color: Color(0x52E3A83C), offset: Offset(0, 10), blurRadius: 22),
+List<BoxShadow> get _shadow => [
+  BoxShadow(color: ThemeColours.keep(0x52E3A83C), offset: Offset(0, 10), blurRadius: 22),
 ];
 
 class MobileGoldButton extends StatefulWidget

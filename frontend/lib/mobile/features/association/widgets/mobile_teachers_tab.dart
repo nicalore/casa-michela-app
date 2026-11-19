@@ -357,7 +357,7 @@ class _TeacherRow extends StatelessWidget
             ),
             if (disliked) ...[
               const SizedBox(width: 8),
-              const Icon(Icons.thumb_down_rounded, size: 20, color: AppTheme.trialDanger),
+              Icon(Icons.thumb_down_rounded, size: 20, color: AppTheme.trialDangerText),
             ],
             const SizedBox(width: 2),
             Icon(

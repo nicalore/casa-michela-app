@@ -19,17 +19,17 @@ class CarouselArrowButton extends StatefulWidget
   final double size;
   final double iconSize;
 
-  const CarouselArrowButton({
+  CarouselArrowButton({
     super.key,
     required this.icon,
     required this.onTap,
     this.isDisabled = false,
-    this.hoverColor = AppTheme.trialTealDeep,
+    Color? hoverColor,
     this.hoverIconColor = Colors.white,
     this.hoverBorderColor,
     this.size = defaultSize,
     this.iconSize = defaultIconSize,
-  });
+  })  : hoverColor = hoverColor ?? AppTheme.trialTealDeep;
 
   @override
   State<CarouselArrowButton> createState() => _CarouselArrowButtonState();
@@ -68,7 +68,7 @@ class _CarouselArrowButtonState extends State<CarouselArrowButton>
             decoration: BoxDecoration(
               color: widget.isDisabled
                   ? AppTheme.arrowDisabledSurface
-                  : (_isHovered ? widget.hoverColor : Colors.white),
+                  : (_isHovered ? widget.hoverColor : AppTheme.surface),
               shape: BoxShape.circle,
               border: _border,
               boxShadow: widget.isDisabled ? null : AppTheme.cardShadow,
@@ -78,7 +78,7 @@ class _CarouselArrowButtonState extends State<CarouselArrowButton>
               size: widget.iconSize,
               color: widget.isDisabled
                   ? AppTheme.trialMutedText.withValues(alpha: 0.5)
-                  : (_isHovered ? widget.hoverIconColor : AppTheme.trialTealDeep),
+                  : (_isHovered ? widget.hoverIconColor : AppTheme.trialTealDeepText),
             ),
           ),
         ),

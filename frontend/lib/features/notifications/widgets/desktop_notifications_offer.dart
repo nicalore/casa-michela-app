@@ -96,7 +96,7 @@ Future<void> showNotificationsOffer(BuildContext context)
           label: kNotificationsNotNow.toUpperCase(),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: _buttonHeight,
           fontSize: _buttonFontSize,
           onPressed: () => Navigator.pop(dialogContext),

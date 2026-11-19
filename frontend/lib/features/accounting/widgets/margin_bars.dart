@@ -47,13 +47,13 @@ class _MarginBarsState extends State<MarginBars>
   TextStyle _nameStyle(bool hovered) => GoogleFonts.plusJakartaSans(
         fontSize: _fontSize,
         fontWeight: hovered ? FontWeight.w700 : FontWeight.w600,
-        color: hovered ? AppTheme.trialOcean : AppTheme.trialInk,
+        color: hovered ? AppTheme.trialOceanText : AppTheme.trialInk,
       );
 
   TextStyle _amountStyle(int cents) => GoogleFonts.plusJakartaSans(
         fontSize: _fontSize,
         fontWeight: FontWeight.w700,
-        color: cents < 0 ? AppTheme.chartViolet : AppTheme.trialOcean,
+        color: cents < 0 ? AppTheme.chartViolet : AppTheme.trialOceanText,
       );
 
   double _labelRoom(BuildContext context)

@@ -92,7 +92,7 @@ class StudentNotesCard extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: dense ? 11.5 : 12.5,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     );
@@ -117,7 +117,7 @@ class StudentNotesCard extends StatelessWidget
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: dense ? 13.5 : 15,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                 ),
               ),
             ),
@@ -149,7 +149,7 @@ class StudentNotesCard extends StatelessWidget
                           if (onEdit case final ValueChanged<StudentNoteItem> edit) ...[
                             FadeHoverIconButton(
                               icon: Icons.edit_outlined,
-                              color: AppTheme.trialTealDeep,
+                              color: AppTheme.trialTealDeepText,
                               hoverColor: AppTheme.trialGoldSurface,
                               iconSize: dense ? 18 : 24,
                               padding: dense ? 7 : 6,
@@ -159,7 +159,7 @@ class StudentNotesCard extends StatelessWidget
                           ],
                           FadeHoverIconButton(
                             icon: Icons.delete_outline_rounded,
-                            color: AppTheme.trialDanger,
+                            color: AppTheme.trialDangerText,
                             hoverColor: AppTheme.trialGoldSurface,
                             iconSize: dense ? 18 : 24,
                             padding: dense ? 7 : 6,
@@ -196,7 +196,7 @@ class StudentNotesCard extends StatelessWidget
                 if (i > 0)
                   Padding(
                     padding: EdgeInsets.symmetric(vertical: dense ? 12 : 18),
-                    child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+                    child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
                   ),
                 _buildNote(notes[i], toured: i == firstChangeable, dense: dense),
               ],

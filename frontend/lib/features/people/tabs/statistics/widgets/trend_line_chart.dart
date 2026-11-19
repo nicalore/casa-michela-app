@@ -360,7 +360,7 @@ class _TrendLineChartPainter extends CustomPainter
     final bool marked = band.marks(index);
 
     return _labelStyle.copyWith(
-      color: (marked ? AppTheme.trialOcean : AppTheme.trialMutedText).withValues(alpha: alpha),
+      color: (marked ? AppTheme.trialOceanText : AppTheme.trialMutedText).withValues(alpha: alpha),
       fontWeight: marked ? FontWeight.w800 : null,
     );
   }
@@ -547,7 +547,7 @@ class _TrendLineChartPainter extends CustomPainter
           ? chartLineColorAt((point.dx - left) / chartWidth)
           : AppTheme.chartGrayLight;
       canvas.drawCircle(point, 5, Paint()..color = color);
-      canvas.drawCircle(point, 3, Paint()..color = Colors.white);
+      canvas.drawCircle(point, 3, Paint()..color = AppTheme.surface);
     }
 
     textPainter.dispose();

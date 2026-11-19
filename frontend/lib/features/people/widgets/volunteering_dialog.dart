@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/week_range.dart';
@@ -22,7 +23,7 @@ import '../utils/student_notes_strings.dart' show kSaveLabel;
 const double _dialogWidth = 600;
 const double _fieldGap = 18;
 
-const Color _previewSurface = Color(0xFFF2F6F7);
+Color get _previewSurface => ThemeColours.of(0xFFF2F6F7);
 
 // True once saved; the rule holds from [month] until the teacher's next change.
 Future<bool> showVolunteeringDialog({
@@ -187,7 +188,7 @@ class _Preview extends StatelessWidget
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -211,7 +212,7 @@ class _Preview extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
           const SizedBox(height: 9),

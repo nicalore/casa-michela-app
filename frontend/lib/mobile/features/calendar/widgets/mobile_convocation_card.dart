@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/calendar/utils/calendar_strings.dart';
 import '../../../../features/calendar/utils/teacher_band_call.dart';
@@ -87,7 +88,7 @@ MobileBandChip _roomChip(String name, {required bool tablet})
   return MobileBandChip(
     icon: Icons.meeting_room_outlined,
     label: name,
-    accent: AppTheme.trialTealDeep,
+    accent: AppTheme.trialTealDeepText,
     surface: AppTheme.presenceBadge,
     tablet: tablet,
   );
@@ -160,7 +161,7 @@ class _RoomSections extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, stay) in rooms.indexed) ...[
-              if (i > 0) const Padding(
+              if (i > 0) Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: VerticalDivider(width: 1, thickness: 1, color: _hairline),
               ),
@@ -325,7 +326,7 @@ class _RoomSupervisors extends StatelessWidget
         heading,
         const SizedBox(height: 4),
         for (final (i, supervisor) in supervisors.indexed) ...[
-          if (i > 0) const SizedBox(height: 1, child: ColoredBox(color: _hairline)),
+          if (i > 0) SizedBox(height: 1, child: ColoredBox(color: _hairline)),
           _buildSupervisor(supervisor),
         ],
       ],
@@ -375,7 +376,7 @@ class MobileBandCard extends StatelessWidget
               fontSize: tablet ? 20 : 17,
               fontWeight: FontWeight.w800,
               height: 1.2,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
           const SizedBox(height: 6),
@@ -386,7 +387,7 @@ class MobileBandCard extends StatelessWidget
             fontSize: tablet ? 12.5 : 11.5,
             fontWeight: FontWeight.w800,
             letterSpacing: 1.6,
-            color: AppTheme.trialTealDeep,
+            color: AppTheme.trialTealDeepText,
           ),
         ),
         const SizedBox(height: 2),
@@ -422,7 +423,7 @@ class MobileBandCard extends StatelessWidget
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
               height: 1.15,
-              color: AppTheme.trialDeepWater,
+              color: AppTheme.trialDeepWaterText,
             ),
           ),
         ),
@@ -450,7 +451,7 @@ class MobileBandCard extends StatelessWidget
     {
       return DecoratedBox(
         decoration: BoxDecoration(
-          border: i == 0 ? null : const Border(left: BorderSide(color: _hairline)),
+          border: i == 0 ? null : Border(left: BorderSide(color: _hairline)),
         ),
         child: Padding(
           padding: EdgeInsets.only(left: i == 0 ? 0 : _figureGap, right: 4),
@@ -495,14 +496,14 @@ class MobileBandCard extends StatelessWidget
             children: [
               Center(child: _buildHeadline()),
               const SizedBox(width: 24),
-              const VerticalDivider(width: 1, thickness: 1, color: _hairline),
+              VerticalDivider(width: 1, thickness: 1, color: _hairline),
               const SizedBox(width: 20),
               Center(child: _buildFigures()),
               if (chips.isEmpty && footer == null)
                 const Spacer()
               else ...[
                 const SizedBox(width: 24),
-                const VerticalDivider(width: 1, thickness: 1, color: _hairline),
+                VerticalDivider(width: 1, thickness: 1, color: _hairline),
                 const SizedBox(width: 20),
                 Expanded(
                   child: Column(
@@ -545,7 +546,7 @@ class MobileBandCard extends StatelessWidget
   }
 }
 
-const Color _hairline = Color(0x1A122438);
+Color get _hairline =>  ThemeColours.fixed(0x1A122438);
 
 class _Rule extends StatelessWidget
 {
@@ -554,7 +555,7 @@ class _Rule extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.symmetric(vertical: _ruleGap),
       child: SizedBox(height: 1, child: ColoredBox(color: _hairline)),
     );

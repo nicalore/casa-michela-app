@@ -221,7 +221,7 @@ class DashboardStatsSection extends StatelessWidget
       fill: fill,
       compact: compact,
       child: isLoading
-          ? const Padding(
+          ? Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
               child: Center(
                 child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
@@ -290,7 +290,7 @@ class _StatTile extends StatelessWidget
 
     final Color deltaColor = still
         ? AppTheme.trialMutedText
-        : (up ? AppTheme.trialSeaGreen : AppTheme.trialDanger);
+        : (up ? AppTheme.trialSeaGreen : AppTheme.trialDangerText);
 
     final Widget label = Text(
       stat.label.toUpperCase(),
@@ -310,7 +310,7 @@ class _StatTile extends StatelessWidget
         fontSize: scale.value,
         fontWeight: FontWeight.w700,
         height: 1,
-        color: AppTheme.trialOcean,
+        color: AppTheme.trialOceanText,
       ),
     );
 

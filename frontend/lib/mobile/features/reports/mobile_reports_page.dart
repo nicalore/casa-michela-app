@@ -395,7 +395,7 @@ class _ReportCard extends StatelessWidget
           // Not opened yet by this reader.
           border: report.read
               ? null
-              : const Border.fromBorderSide(
+              : Border.fromBorderSide(
                   BorderSide(
                     color: AppTheme.trialGold,
                     width: MobileCurrentCard.rimWidth,
@@ -420,7 +420,7 @@ class _ReportCard extends StatelessWidget
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.8,
-                        color: AppTheme.trialOcean,
+                        color: AppTheme.trialOceanText,
                       ),
                     ),
                   ),
@@ -441,7 +441,7 @@ class _ReportCard extends StatelessWidget
                 role == null ? report.reporterName : '${report.reporterName} · $role',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep),
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.trialTealDeepText),
               ),
             ],
           ),

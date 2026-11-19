@@ -324,7 +324,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
             alignment: Alignment.centerLeft,
             child: Text(
               kUpdatesTitle,
-              style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+              style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
             ),
           ),
         ),
@@ -474,7 +474,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -483,7 +483,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,

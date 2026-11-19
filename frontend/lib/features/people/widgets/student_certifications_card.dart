@@ -41,7 +41,7 @@ class StudentCertificationsCard extends StatelessWidget
           style: GoogleFonts.plusJakartaSans(
             fontSize: dense ? 15 : 17,
             fontWeight: FontWeight.w800,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
           ),
         ),
         if (type != null && type.isNotEmpty) ...[
@@ -86,7 +86,7 @@ class StudentCertificationsCard extends StatelessWidget
           if (index > 0)
             Padding(
               padding: EdgeInsets.symmetric(vertical: dense ? 12 : 18),
-              child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+              child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             ),
           _buildRow(code, dense),
         ],

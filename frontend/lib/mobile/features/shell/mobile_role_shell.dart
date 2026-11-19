@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../../features/reports/reports_board.dart';
+import '../../../services/account_colour_theme.dart';
 import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/navigation/mobile_back_tabs.dart';
@@ -346,6 +347,8 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
         await _changeRole(user);
 
       case MobileNavAction.logout:
+        // The home fades to the sign-in look before the way to the login, not halfway through it.
+        await AccountColourTheme.fadeToSignedOut();
         await _apiService.logout();
     }
   }

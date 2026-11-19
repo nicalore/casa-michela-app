@@ -188,7 +188,7 @@ class _PersonDevicesTabState extends State<PersonDevicesTab> with PersonAccountA
           label: _revokeAllLabel.toUpperCase(),
           icon: Icons.logout_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           busy: busyAction == PersonAccountAction.revokeAll,
           onPressed: _confirmRevokeAll,
         ),

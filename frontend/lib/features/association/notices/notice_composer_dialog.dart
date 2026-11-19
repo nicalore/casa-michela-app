@@ -325,7 +325,7 @@ class _NoticeComposerState extends State<_NoticeComposer>
             label: kCancel,
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
             onPressed: () => Navigator.of(confirmContext).pop(false),
@@ -384,7 +384,7 @@ class _NoticeComposerState extends State<_NoticeComposer>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.mail_rounded, size: 16, color: AppTheme.trialMutedText),
+        Icon(Icons.mail_rounded, size: 16, color: AppTheme.trialMutedText),
         const SizedBox(width: 6),
         Text(recipientHint(count.people, count.emails), style: _hintStyle),
       ],

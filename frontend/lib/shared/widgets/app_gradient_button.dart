@@ -69,13 +69,13 @@ class AppGradientButton extends StatefulWidget
   // Filled as on hover, for a button that holds something open.
   final bool selected;
 
-  const AppGradientButton({
+  AppGradientButton({
     super.key,
     required this.label,
     required this.onPressed,
     this.icon,
-    this.gradient = AppTheme.brandGradient,
-    this.accent = AppTheme.trialTealDeep,
+    LinearGradient? gradient,
+    Color? accent,
     this.width,
     this.height,
     this.fontSize = 17,
@@ -86,7 +86,8 @@ class AppGradientButton extends StatefulWidget
     this.iconOnlyTooltip,
     this.badge,
     this.selected = false,
-  });
+  })  : gradient = gradient ?? AppTheme.brandGradient,
+        accent = accent ?? AppTheme.trialTealDeepText;
 
   @override
   State<AppGradientButton> createState() => _AppGradientButtonState();
@@ -285,7 +286,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
         horizontal: _horizontal,
         vertical: _height == null ? _vertical : _wrappedRoom,
       ),
-      child: ExcludeSemantics(child: _buildFace(Colors.white)),
+      child: ExcludeSemantics(child: _buildFace(AppTheme.surface)),
     );
 
     final double edge = t * (1 + _feather);
@@ -380,7 +381,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
                   width: widget.width,
                   constraints: _minHeight,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppTheme.surface,
                     borderRadius: BorderRadius.circular(widget.radius),
                     border: Border.all(color: widget.accent, width: _borderWidth),
                     boxShadow: [

@@ -343,12 +343,12 @@ class _ActivityDialogState extends State<ActivityDialog>
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.error_outline_rounded, size: 20, color: AppTheme.trialDanger),
+                Icon(Icons.error_outline_rounded, size: 20, color: AppTheme.trialDangerText),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     refusal,
-                    style: _noteStyle.copyWith(color: AppTheme.trialDanger),
+                    style: _noteStyle.copyWith(color: AppTheme.trialDangerText),
                   ),
                 ),
               ],
@@ -463,7 +463,7 @@ class _ActivityDialogState extends State<ActivityDialog>
           label: 'CHIUDI',
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           horizontalPadding: _dialogButtonPadding,
@@ -495,7 +495,7 @@ class _ActivityDialogState extends State<ActivityDialog>
               label: kRemoveFromCalendarLabel,
               icon: Icons.delete_outline_rounded,
               gradient: AppTheme.dangerGradient,
-              accent: AppTheme.trialDanger,
+              accent: AppTheme.trialDangerText,
               height: _dialogButtonHeight,
               fontSize: _dialogButtonFontSize,
               horizontalPadding: _dialogButtonPadding,
@@ -507,7 +507,7 @@ class _ActivityDialogState extends State<ActivityDialog>
         label: 'ELIMINA',
         icon: Icons.delete_outline_rounded,
         gradient: AppTheme.dangerGradient,
-        accent: AppTheme.trialDanger,
+        accent: AppTheme.trialDangerText,
         height: _dialogButtonHeight,
         fontSize: _dialogButtonFontSize,
         horizontalPadding: _dialogButtonPadding,

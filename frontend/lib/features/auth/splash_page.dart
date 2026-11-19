@@ -34,11 +34,11 @@ class SplashPage extends StatelessWidget
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
                 height: 1.2,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
             const SizedBox(height: 36),
-            const SizedBox(
+            SizedBox(
               width: _indicatorSize,
               height: _indicatorSize,
               child: CircularProgressIndicator(

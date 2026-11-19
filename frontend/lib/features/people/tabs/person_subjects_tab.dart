@@ -304,7 +304,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
             label: 'ANNULLA',
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: kPersonDialogButtonHeight,
             fontSize: kPersonDialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -313,7 +313,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
             label: 'RIMUOVI',
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: kPersonDialogButtonHeight,
             fontSize: kPersonDialogButtonFontSize,
             onPressed: ()
@@ -665,7 +665,7 @@ class _CompetenceCardState extends State<_CompetenceCard>
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(dense ? _denseCardRadius : _subjectCardRadius),
             border: Border.all(
               color: _isHovering
@@ -691,7 +691,7 @@ class _CompetenceCardState extends State<_CompetenceCard>
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: dense ? 15.5 : 17,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.trialOcean,
+                          color: AppTheme.trialOceanText,
                           height: _subjectCardTitleHeight,
                         ),
                       ),
@@ -717,8 +717,8 @@ class _CompetenceCardState extends State<_CompetenceCard>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (widget.onEdit case final VoidCallback edit)
-                        _tool(Icons.edit_outlined, AppTheme.trialTealDeep, edit, dense),
-                      _tool(Icons.delete_outline_rounded, AppTheme.trialDanger, widget.onRemove, dense),
+                        _tool(Icons.edit_outlined, AppTheme.trialTealDeepText, edit, dense),
+                      _tool(Icons.delete_outline_rounded, AppTheme.trialDangerText, widget.onRemove, dense),
                     ],
                   ),
                 ),

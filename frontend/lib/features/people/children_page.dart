@@ -364,7 +364,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
       label: 'SEGNALA DATO MANCANTE / ERRATO',
       icon: Icons.flag_rounded,
       gradient: AppTheme.dismissGradient,
-      accent: AppTheme.trialViolet,
+      accent: AppTheme.trialVioletText,
       onPressed: () => _report(child),
     );
   }
@@ -435,7 +435,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+      return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
     if (_failed)
@@ -508,7 +508,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -517,7 +517,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,

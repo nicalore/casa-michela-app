@@ -146,8 +146,8 @@ class _RoleRowState extends State<_RoleRow>
         onTap: widget.onTap,
         child: _buildRow(
           border: _hover ? AppTheme.trialGold : AppTheme.trialLine,
-          foreground: AppTheme.trialOcean,
-          iconColor: AppTheme.trialTealDeep,
+          foreground: AppTheme.trialOceanText,
+          iconColor: AppTheme.trialTealDeepText,
         ),
       ),
     );
@@ -165,7 +165,7 @@ class _RoleRowState extends State<_RoleRow>
       height: _rowHeight,
       padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(_rowRadius),
         border: Border.all(color: border, width: 1.5),
       ),

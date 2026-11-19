@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/platform/visual_effects.dart';
+import '../../../core/theme/theme_choice.dart';
+import '../../../core/theme/theme_colours.dart';
+import '../../../core/utils/error_message.dart';
+import '../../../services/account_colour_theme.dart';
 import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/page_density.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../utils/settings_strings.dart';
 import '../widgets/appearance_choices.dart';
 import '../widgets/settings_panel.dart';
@@ -13,42 +18,101 @@ const double _languageWidth = 260;
 const double _denseLanguageWidth = 210;
 const double _menuCode = 26;
 
-// The first option of each setting is the one in force.
+// The language's first option is the one in force; the mode (light, dark, automatic) and the colours are the account's.
 class AppearanceTab extends StatelessWidget
 {
   const AppearanceTab({super.key});
 
-  Widget _buildThemes()
+  // Chiaro, Scuro, Automatico: one row while each tile keeps a usable width, else they wrap at full size.
+  Widget _buildThemes(BuildContext context)
   {
     final List<AppearanceOption> options = kThemeSetting.options;
+
+    return ValueListenableBuilder<ThemeChoice>(
+      valueListenable: AccountColourTheme.choice,
+      builder: (context, chosen, _) => LayoutBuilder(
+        builder: (context, constraints)
+        {
+          final double shared = (constraints.maxWidth - _tileGap * (options.length - 1)) / options.length;
+
+          return Wrap(
+            spacing: _tileGap,
+            runSpacing: _tileGap,
+            children: [
+              for (var i = 0; i < options.length; i++)
+                ThemePreviewTile(
+                  label: options[i].label,
+                  dark: ThemeChoice.values[i] == ThemeChoice.dark,
+                  split: ThemeChoice.values[i] == ThemeChoice.system,
+                  chosen: ThemeChoice.values[i] == chosen,
+                  available: options[i].available,
+                  sharedWidth: shared,
+                  onTap: () => _chooseMode(context, ThemeChoice.values[i]),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPalettes(BuildContext context)
+  {
+    final ColourTheme inForce = ThemeColours.current.value;
 
     return Wrap(
       spacing: _tileGap,
       runSpacing: _tileGap,
       children: [
-        for (var i = 0; i < options.length; i++)
-          ThemePreviewTile(
-            label: options[i].label,
-            dark: i > 0,
-            chosen: i == 0,
-            available: options[i].available,
+        for (final AppearanceOption option in kColorsSetting.options)
+          PaletteTile(
+            label: option.label,
+            colors: option.colors,
+            chosen: option.colourTheme == inForce,
+            onTap: () => _choose(context, option.colourTheme!),
           ),
       ],
     );
   }
 
-  Widget _buildPalettes()
+  Future<void> _choose(BuildContext context, ColourTheme theme) async
   {
-    final List<AppearanceOption> options = kColorsSetting.options;
+    if (theme == ThemeColours.current.value)
+    {
+      return;
+    }
 
-    return Wrap(
-      spacing: _tileGap,
-      runSpacing: _tileGap,
-      children: [
-        for (var i = 0; i < options.length; i++)
-          PaletteTile(label: options[i].label, colors: options[i].colors, chosen: i == 0),
-      ],
-    );
+    try
+    {
+      await AccountColourTheme.choose(theme);
+    }
+    catch (e)
+    {
+      if (context.mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+    }
+  }
+
+  Future<void> _chooseMode(BuildContext context, ThemeChoice mode) async
+  {
+    if (mode == AccountColourTheme.choice.value)
+    {
+      return;
+    }
+
+    try
+    {
+      await AccountColourTheme.chooseMode(mode);
+    }
+    catch (e)
+    {
+      if (context.mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+    }
   }
 
   Widget _buildLanguages(bool dense)
@@ -89,8 +153,8 @@ class AppearanceTab extends StatelessWidget
       children: [
         SettingsPanel(
           rows: [
-            SettingsBand(icon: kThemeSetting.icon, title: kThemeSetting.title, child: _buildThemes()),
-            SettingsBand(icon: kColorsSetting.icon, title: kColorsSetting.title, child: _buildPalettes()),
+            SettingsBand(icon: kThemeSetting.icon, title: kThemeSetting.title, child: _buildThemes(context)),
+            SettingsBand(icon: kColorsSetting.icon, title: kColorsSetting.title, child: _buildPalettes(context)),
             SettingsRow(
               icon: kLanguageSetting.icon,
               title: kLanguageSetting.title,

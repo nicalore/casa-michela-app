@@ -12,7 +12,7 @@ class CatalogueDetail
   final String text;
   final Color color;
 
-  const CatalogueDetail(this.text, {this.color = AppTheme.trialMutedText});
+  CatalogueDetail(this.text, {Color? color}) : color = color ?? AppTheme.trialMutedText;
 }
 
 class AppCatalogueCard extends StatefulWidget
@@ -95,7 +95,7 @@ class _AppCatalogueCardState extends State<AppCatalogueCard>
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(dense ? AppCatalogueCard.denseRadius : AppCatalogueCard.radius),
               border: Border.all(
                 color: _isHovering
@@ -130,7 +130,7 @@ class _AppCatalogueCardState extends State<AppCatalogueCard>
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: dense ? 15.5 : 19,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.trialOcean,
+                      color: AppTheme.trialOceanText,
                       height: 1.15,
                     ),
                   ),

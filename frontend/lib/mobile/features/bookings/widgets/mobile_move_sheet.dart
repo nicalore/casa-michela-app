@@ -282,7 +282,7 @@ class _MoveSheetState extends State<_MoveSheet>
     final bool chosen = identical(day, _day);
     final bool off = day.refusal != null;
 
-    final Color rest = off ? AppTheme.trialInk.withValues(alpha: 0.04) : Colors.white;
+    final Color rest = off ? AppTheme.trialInk.withValues(alpha: 0.04) : AppTheme.surface;
     final Color ink = chosen ? Colors.white : (off ? AppTheme.trialInk.withValues(alpha: 0.3) : AppTheme.trialInk);
 
     return Semantics(
@@ -300,7 +300,7 @@ class _MoveSheetState extends State<_MoveSheet>
             gradient: mobileSelectFill(rest, chosen ? 1 : 0),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: chosen ? AppTheme.trialTealDeep.withValues(alpha: 0) : AppTheme.trialInk.withValues(alpha: off ? 0 : 0.12),
+              color: chosen ? AppTheme.trialTealDeepText.withValues(alpha: 0) : AppTheme.trialInk.withValues(alpha: off ? 0 : 0.12),
               width: 1.5,
             ),
           ),

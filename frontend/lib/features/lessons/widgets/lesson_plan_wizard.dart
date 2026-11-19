@@ -959,7 +959,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
               style: _valueStyle,
             )
           else if (slot == null)
-            Text(refusal ?? noTeacherReason(_index, _entry, part.disciplineIds), style: _valueStyle.copyWith(color: AppTheme.trialDanger))
+            Text(refusal ?? noTeacherReason(_index, _entry, part.disciplineIds), style: _valueStyle.copyWith(color: AppTheme.trialDangerText))
           else ...[
             AppDropdownField<int>(
               hint: 'Scegli il docente',
@@ -1024,7 +1024,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
         Icon(
           isRefusal ? Icons.error_outline_rounded : Icons.warning_amber_rounded,
           size: 20,
-          color: isRefusal ? AppTheme.trialDanger : AppTheme.modifiedAccent,
+          color: isRefusal ? AppTheme.trialDangerText : AppTheme.modifiedAccent,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -1034,7 +1034,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
               fontSize: 13,
               fontWeight: FontWeight.w600,
               height: 1.35,
-              color: isRefusal ? AppTheme.trialDanger : AppTheme.modifiedAccent,
+              color: isRefusal ? AppTheme.trialDangerText : AppTheme.modifiedAccent,
             ),
           ),
         ),
@@ -1079,8 +1079,8 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       spacing: 18,
       runSpacing: 6,
       children: [
-        if (discipline != null) fact(Icons.menu_book_rounded, AppTheme.trialTealDeep, discipline),
-        fact(Icons.schedule_rounded, AppTheme.trialTealDeep, '${formatMinutes(_booking.duration)} da pianificare'),
+        if (discipline != null) fact(Icons.menu_book_rounded, AppTheme.trialTealDeepText, discipline),
+        fact(Icons.schedule_rounded, AppTheme.trialTealDeepText, '${formatMinutes(_booking.duration)} da pianificare'),
         fact(
           lessonModeIcon(mode),
           lessonAccent(mode),
@@ -1186,7 +1186,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
                 label: kRemoveFromCalendarLabel,
                 icon: Icons.delete_outline_rounded,
                 gradient: AppTheme.dangerGradient,
-                accent: AppTheme.trialDanger,
+                accent: AppTheme.trialDangerText,
                 busy: _isRemoving,
                 height: _dialogButtonHeight,
                 fontSize: _dialogButtonFontSize,

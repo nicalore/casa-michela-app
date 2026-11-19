@@ -583,7 +583,7 @@ class _NoticeCard extends StatelessWidget
                 notice.authorName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep),
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.trialTealDeepText),
               ),
               const SizedBox(height: 6),
               Text(
@@ -612,7 +612,7 @@ class _NoticeCard extends StatelessWidget
                     const SizedBox(width: 10),
                     Transform.rotate(
                       angle: 0.785,
-                      child: const Icon(Icons.attach_file_rounded, size: 16, color: MobilePalette.mutedText),
+                      child: Icon(Icons.attach_file_rounded, size: 16, color: MobilePalette.mutedText),
                     ),
                     const SizedBox(width: 2),
                     Text(

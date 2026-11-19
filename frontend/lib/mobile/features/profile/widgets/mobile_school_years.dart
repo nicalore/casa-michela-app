@@ -52,7 +52,7 @@ class MobileSchoolYears extends StatelessWidget
 
     return DecoratedBox(
       position: DecorationPosition.foreground,
-      decoration: const MobileCurrentCard(BorderRadius.all(Radius.circular(_cardRadius))),
+      decoration: MobileCurrentCard(BorderRadius.all(Radius.circular(_cardRadius))),
       child: card,
     );
   }

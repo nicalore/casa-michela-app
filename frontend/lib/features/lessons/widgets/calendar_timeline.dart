@@ -185,11 +185,11 @@ class _TimelineDivisionsPainter extends CustomPainter
   void paint(Canvas canvas, Size size)
   {
     final hour = Paint()
-      ..color = AppTheme.trialTealDeep.withValues(alpha: 0.22)
+      ..color = AppTheme.trialTealDeepText.withValues(alpha: 0.22)
       ..strokeWidth = 1;
 
     final half = Paint()
-      ..color = AppTheme.trialTealDeep.withValues(alpha: 0.14)
+      ..color = AppTheme.trialTealDeepText.withValues(alpha: 0.14)
       ..strokeWidth = 1;
 
     for (final minute in metrics.hourTicks())
@@ -264,7 +264,7 @@ class _NowLinePainter extends CustomPainter
   void paint(Canvas canvas, Size size)
   {
     final stroke = Paint()
-      ..color = AppTheme.trialDanger
+      ..color = AppTheme.trialDangerText
       ..strokeWidth = 1.5;
 
     canvas.drawLine(Offset(x, 0), Offset(x, size.height), stroke);
@@ -635,7 +635,7 @@ class _MarkedAvatar extends StatelessWidget
                   decoration: BoxDecoration(
                     color: mark.accent,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
+                    border: Border.all(color: AppTheme.surfaceEdge, width: 1.5),
                   ),
                   child: Icon(mark.icon, size: 11, color: Colors.white),
                 ),
@@ -647,11 +647,11 @@ class _MarkedAvatar extends StatelessWidget
   }
 }
 
-final TextStyle _laneNameStyle = GoogleFonts.plusJakartaSans(
+TextStyle get _laneNameStyle => GoogleFonts.plusJakartaSans(
   fontSize: 15,
   fontWeight: FontWeight.w700,
   height: 1.2,
-  color: AppTheme.trialOcean,
+  color: AppTheme.trialOceanText,
 );
 
 final TextStyle _denseLaneNameStyle = _laneNameStyle.copyWith(fontSize: 14);
@@ -659,11 +659,11 @@ final TextStyle _denseLaneNameStyle = _laneNameStyle.copyWith(fontSize: 14);
 const double _headerGap = 12;
 const double _denseHeaderGap = 10;
 
-final TextStyle _laneRoomStyle = GoogleFonts.plusJakartaSans(
+TextStyle get _laneRoomStyle => GoogleFonts.plusJakartaSans(
   fontSize: 12,
   fontWeight: FontWeight.w600,
   height: 1.25,
-  color: AppTheme.trialTealDeep,
+  color: AppTheme.trialTealDeepText,
 );
 
 const double _laneRoomIcon = 13;
@@ -929,7 +929,7 @@ class _LaneHeader extends StatelessWidget
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: _onlineOnlyBadgePadX, vertical: _onlineOnlyBadgePadY),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: accent.withValues(alpha: 0.45), width: _onlineOnlyBadgeBorder),
       ),
@@ -984,7 +984,7 @@ class _LaneHeader extends StatelessWidget
                 padding: const EdgeInsets.only(top: 1),
                 child: stay.supervised
                     ? const _SupervisorShield()
-                    : const Icon(Icons.meeting_room_outlined, size: _laneRoomIcon, color: AppTheme.trialTealDeep),
+                    : Icon(Icons.meeting_room_outlined, size: _laneRoomIcon, color: AppTheme.trialTealDeepText),
               ),
               const SizedBox(width: _laneRoomIconGap),
               Expanded(child: Text(stay.name, style: _laneRoomStyle)),
@@ -1004,7 +1004,7 @@ class _LaneHeader extends StatelessWidget
     final name = room.roomName;
     final atHome = name == null;
 
-    final accent = atHome ? lessonAccent(kOnlineMode) : AppTheme.trialTealDeep;
+    final accent = atHome ? lessonAccent(kOnlineMode) : AppTheme.presenceAccentText;
 
     return [
       Row(
@@ -1169,7 +1169,7 @@ class _SupervisorShield extends StatelessWidget
       message: kSupervisorLabel,
       decoration: AppTheme.tooltipDecoration,
       textStyle: AppTheme.tooltipTextStyle,
-      child: const Icon(Icons.shield_rounded, size: _laneRoomIcon, color: kSupervisorColor),
+      child: Icon(Icons.shield_rounded, size: _laneRoomIcon, color: kSupervisorColor),
     );
   }
 }
@@ -2501,7 +2501,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
           _StickyHead(
             scroller: widget.scrollController,
             travel: metrics.trackHeight,
-            child: const Column(
+            child: Column(
               children: [
                 SizedBox(height: kTimelineAxisHeight),
                 Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
@@ -2558,7 +2558,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _TimelineAxis(metrics: metrics, keepsInside: true),
-              const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+              Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             ],
           ),
         ),

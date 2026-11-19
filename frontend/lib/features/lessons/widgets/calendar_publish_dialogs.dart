@@ -45,7 +45,7 @@ Widget _caution(List<String> warnings)
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded, size: 20, color: AppTheme.modifiedAccent),
+          Icon(Icons.warning_amber_rounded, size: 20, color: AppTheme.modifiedAccent),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -89,7 +89,7 @@ Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(lessonModeIcon(kOnlineMode), size: 20, color: AppTheme.trialTealDeep),
+            Icon(lessonModeIcon(kOnlineMode), size: 20, color: AppTheme.trialTealDeepText),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -98,7 +98,7 @@ Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                   height: 1.35,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                 ),
               ),
             ),
@@ -123,7 +123,7 @@ Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
             padding: const EdgeInsets.only(left: 30),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: AppTheme.trialLine)),
               ),
               child: Row(
@@ -140,7 +140,7 @@ Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.trialOcean,
+                            color: AppTheme.trialOceanText,
                           ),
                         ),
                         Text(
@@ -170,7 +170,7 @@ AppGradientButton _dismiss(BuildContext context)
     label: 'ANNULLA',
     icon: Icons.close_rounded,
     gradient: AppTheme.dismissGradient,
-    accent: AppTheme.trialViolet,
+    accent: AppTheme.trialVioletText,
     height: _dialogButtonHeight,
     fontSize: _dialogButtonFontSize,
     onPressed: () => Navigator.pop(context, false),
@@ -256,7 +256,7 @@ Future<bool?> showDiscardDraftConfirmation({required BuildContext context})
           label: 'ESCI',
           icon: Icons.undo_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: () => Navigator.pop(dialogContext, true),

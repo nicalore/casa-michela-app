@@ -79,7 +79,7 @@ class AppCard extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: dense ? _pageTitleSize : (compact ? 21 : 26),
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialOcean,
+          color: AppTheme.trialOceanText,
           height: 1.1,
         ),
       ),
@@ -150,7 +150,7 @@ class AppCard extends StatelessWidget
     final Widget card = Container(
       padding: dense ? _pageCardPadding : EdgeInsets.all(compact ? _compactCardPadding : _cardPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(dense ? _pageCardRadius : (compact ? _compactCardRadius : _cardRadius)),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -164,7 +164,7 @@ class AppCard extends StatelessWidget
               padding: EdgeInsets.symmetric(
                 vertical: dense ? _pageDividerSpace : (compact ? _compactDividerSpace : _dividerSpace),
               ),
-              child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+              child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             ),
             body,
           ],
@@ -198,7 +198,7 @@ class AppCardBadge extends StatelessWidget
       return Container(
         width: _denseBadgeSize,
         height: _denseBadgeSize,
-        decoration: const BoxDecoration(gradient: AppTheme.brandGradient, shape: BoxShape.circle),
+        decoration: BoxDecoration(gradient: AppTheme.brandGradient, shape: BoxShape.circle),
         child: Icon(icon, size: 17, color: Colors.white),
       );
     }
@@ -209,7 +209,7 @@ class AppCardBadge extends StatelessWidget
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: AppTheme.brandGradient,
         shape: BoxShape.circle,
       ),

@@ -266,7 +266,7 @@ class _AccountingPageState extends State<AccountingPage> with SectionVisits
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -275,7 +275,7 @@ class _AccountingPageState extends State<AccountingPage> with SectionVisits
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
@@ -357,8 +357,8 @@ class _LeftBadge extends StatelessWidget
       return Container(
         width: 24,
         height: 24,
-        decoration: const BoxDecoration(color: AppTheme.paidSurface, shape: BoxShape.circle),
-        child: const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialTealDeep),
+        decoration: BoxDecoration(color: AppTheme.paidSurface, shape: BoxShape.circle),
+        child: Icon(Icons.check_rounded, size: 16, color: AppTheme.trialTealDeepText),
       );
     }
 

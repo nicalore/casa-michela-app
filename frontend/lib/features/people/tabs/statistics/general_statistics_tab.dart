@@ -484,7 +484,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+      return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
     if (_loadFailure != null)

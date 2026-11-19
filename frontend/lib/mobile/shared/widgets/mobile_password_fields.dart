@@ -118,7 +118,7 @@ class MobilePasswordPolicy extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: done ? AppTheme.trialTealDeep : MobilePalette.mutedText,
+                    color: done ? AppTheme.trialTealDeepText : MobilePalette.mutedText,
                   ),
                 ),
               ),
@@ -144,7 +144,7 @@ class MobilePasswordPolicy extends StatelessWidget
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
-                        color: rule.satisfied ? AppTheme.trialTealDeep : MobilePalette.mutedText,
+                        color: rule.satisfied ? AppTheme.trialTealDeepText : MobilePalette.mutedText,
                       ),
                     ),
                   ),
@@ -174,7 +174,7 @@ class MobilePasswordMatch extends StatelessWidget
     }
 
     final bool matches = next == confirmation;
-    final Color tone = matches ? AppTheme.trialTealDeep : AppTheme.trialDanger;
+    final Color tone = matches ? AppTheme.trialTealDeepText : AppTheme.trialDangerText;
 
     return SizedBox(
       height: _hintHeight,
@@ -185,7 +185,7 @@ class MobilePasswordMatch extends StatelessWidget
             Icon(
               matches ? Icons.check_circle_rounded : Icons.error_outline_rounded,
               size: 16,
-              color: matches ? AppTheme.trialTurquoise : AppTheme.trialDanger,
+              color: matches ? AppTheme.trialTurquoise : AppTheme.trialDangerText,
             ),
             const SizedBox(width: 8),
             Text(

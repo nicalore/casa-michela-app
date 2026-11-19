@@ -87,7 +87,7 @@ class _RoomChip extends StatelessWidget
     return BandChip(
       icon: Icons.meeting_room_outlined,
       label: name,
-      accent: AppTheme.trialTealDeep,
+      accent: AppTheme.trialTealDeepText,
       surface: AppTheme.presenceBadge,
     );
   }
@@ -122,7 +122,7 @@ class _RoomSections extends StatelessWidget
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 height: 1.2,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -151,7 +151,7 @@ class _RoomSections extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final (i, stay) in rooms.indexed) ...[
-                if (i > 0) const Padding(
+                if (i > 0) Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
                 ),
@@ -166,7 +166,7 @@ class _RoomSections extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final (i, stay) in rooms.indexed) ...[
-                if (i > 0) const Padding(
+                if (i > 0) Padding(
                   padding: EdgeInsets.symmetric(horizontal: _sectionGap),
                   child: VerticalDivider(width: 1, thickness: 1, color: AppTheme.trialLine),
                 ),
@@ -208,7 +208,7 @@ class _RoomSupervisors extends StatelessWidget
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     height: 1.25,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
                 if (supervisor.isSelf) ...[
@@ -287,7 +287,7 @@ class _DenseRooms extends StatelessWidget
             fontSize: 12.5,
             fontWeight: FontWeight.w700,
             height: 1.2,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
           ),
         ),
         if (hours != null) ...[
@@ -325,7 +325,7 @@ class _DenseRooms extends StatelessWidget
             fontSize: 13,
             fontWeight: FontWeight.w800,
             height: 1.2,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
@@ -375,7 +375,7 @@ class _SelfBadge extends StatelessWidget
       decoration: BoxDecoration(
         color: AppTheme.todaySurface,
         borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: AppTheme.trialTealDeep.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.trialTealDeepText.withValues(alpha: 0.3)),
       ),
       child: Text(
         kSelfMark.toUpperCase(),
@@ -384,7 +384,7 @@ class _SelfBadge extends StatelessWidget
           fontWeight: FontWeight.w700,
           height: 1.2,
           letterSpacing: 1.1,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     );

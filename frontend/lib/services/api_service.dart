@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show AppLifecycleListener, TimeOfDay;
 
 import '../core/config/api_config.dart';
+import '../core/theme/theme_choice.dart';
+import '../core/theme/theme_colours.dart';
 import '../core/utils/alphabetical_order.dart';
 import '../core/utils/content_disposition.dart';
 import '../core/utils/error_message.dart';
@@ -2333,6 +2335,40 @@ class ApiService
     }
   }
 
+  Future<MeResponse> setColourTheme(ColourTheme theme) async
+  {
+    try
+    {
+      final response = await _dio.put('/auth/colour-theme', data: {'colour_theme': theme.key});
+      final me = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
+
+      identity.value = me;
+
+      return me;
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il cambio dei colori. Riprova più tardi.');
+    }
+  }
+
+  Future<MeResponse> setThemeMode(ThemeChoice mode) async
+  {
+    try
+    {
+      final response = await _dio.put('/auth/theme-mode', data: {'theme_mode': mode.key});
+      final me = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
+
+      identity.value = me;
+
+      return me;
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il cambio del tema. Riprova più tardi.');
+    }
+  }
+
   Future<void> updateContacts({
     required String taxCode,
     required String email,
@@ -4479,6 +4515,33 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, "Impossibile recuperare l'andamento. Riprova più tardi.");
+    }
+  }
+
+  // The ten teachers with the most hours done, as their homes count them.
+  Future<List<PersonHoursItem>> getTeacherLessonHours({
+    int? months,
+    int? year,
+    int? month,
+    String mode = 'presence',
+  }) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/teachers/lesson-hours',
+        queryParameters: {
+          'months': ?months,
+          'year': ?year,
+          'month': ?month,
+          'mode': mode,
+        },
+      );
+      return parseList(response.data, PersonHoursItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile recuperare le ore di lezione dei docenti. Riprova più tardi.');
     }
   }
 

@@ -108,7 +108,7 @@ class _AppLoadFailedPanelState extends State<AppLoadFailedPanel> with RetryRunne
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(text.icon, size: 30, color: AppTheme.trialTealDeep),
+          Icon(text.icon, size: 30, color: AppTheme.trialTealDeepText),
           const SizedBox(height: 10),
           Text(
             emptyCardText(text.message),
@@ -116,7 +116,7 @@ class _AppLoadFailedPanelState extends State<AppLoadFailedPanel> with RetryRunne
             style: GoogleFonts.plusJakartaSans(
               fontSize: 17,
               fontWeight: FontWeight.w700,
-              color: AppTheme.trialTealDeep,
+              color: AppTheme.trialTealDeepText,
             ),
           ),
           if (detail != null) ...[

@@ -322,7 +322,7 @@ TextStyle _navStyle(double fontSize, {required bool enabled})
   return GoogleFonts.plusJakartaSans(
     fontSize: fontSize,
     fontWeight: FontWeight.w600,
-    color: enabled ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+    color: enabled ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
   );
 }
 
@@ -414,10 +414,10 @@ class _MoreEntryState extends State<_MoreEntry>
                   turns: open ? 0.5 : 0,
                   duration: VisualEffects.of(context) ? const Duration(milliseconds: 200) : Duration.zero,
                   curve: Curves.easeInOut,
-                  child: const Icon(
+                  child: Icon(
                     Icons.keyboard_arrow_down_rounded,
                     size: _chevronSize,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                   ),
                 ),
               ],
@@ -499,7 +499,7 @@ class AppNavSwitch extends StatelessWidget
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.menu_rounded, size: _chevronSize, color: AppTheme.trialTealDeep),
+                Icon(Icons.menu_rounded, size: _chevronSize, color: AppTheme.trialTealDeepText),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -509,7 +509,7 @@ class AppNavSwitch extends StatelessWidget
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: _denseFontSize,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.trialTealDeep,
+                      color: AppTheme.trialTealDeepText,
                     ),
                   ),
                 ),
@@ -518,10 +518,10 @@ class AppNavSwitch extends StatelessWidget
                   turns: open ? 0.5 : 0,
                   duration: VisualEffects.of(context) ? const Duration(milliseconds: 200) : Duration.zero,
                   curve: Curves.easeInOut,
-                  child: const Icon(
+                  child: Icon(
                     Icons.keyboard_arrow_down_rounded,
                     size: _chevronSize,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                   ),
                 ),
               ],

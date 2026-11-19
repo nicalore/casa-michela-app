@@ -547,22 +547,22 @@ class _OutlinedActionButtonState extends State<OutlinedActionButton>
             curve: Curves.easeOutQuint,
             height: 56,
             decoration: BoxDecoration(
-              color: _isHovered ? AppTheme.surfaceHover : Colors.white,
+              color: _isHovered ? AppTheme.surfaceHover : AppTheme.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.primary, width: 1.5),
+              border: Border.all(color: AppTheme.primaryText, width: 1.5),
             ),
             alignment: Alignment.center,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(widget.icon, color: AppTheme.primary, size: 20),
+                Icon(widget.icon, color: AppTheme.primaryText, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   widget.text,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.primary,
+                    color: AppTheme.primaryText,
                     letterSpacing: 1.2,
                   ),
                 ),

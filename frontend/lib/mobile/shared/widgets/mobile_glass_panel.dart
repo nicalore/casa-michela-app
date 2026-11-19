@@ -2,6 +2,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/dark_colours.dart';
+import '../../../core/theme/theme_colours.dart';
+
 const double _blurSigma = 10;
 
 class MobileGlassPanel extends StatelessWidget
@@ -9,18 +13,22 @@ class MobileGlassPanel extends StatelessWidget
   final Widget child;
   final EdgeInsetsGeometry padding;
   final BorderRadius borderRadius;
-  final double whiteAlpha;
+  // Null: the card glass of the mode in force.
+  final double? whiteAlpha;
   final List<BoxShadow> shadow;
   // Never on a moving sheet: the per-frame screen readback stutters.
   final bool blur;
 
-  final Color tint;
+  // Null: white, a dark card in the dark mode.
+  final Color? tint;
 
-  static const double cardAlpha = 0.65;
+  // Denser in the dark, so the sea does not show through the dark glass.
+  static double get cardAlpha => ThemeColours.isDark ? darkGlassAlpha : 0.65;
 
   // Public for the sign-in handover, which must start from exactly this glass.
   static const double edgeAlpha = 0.62;
-  static const double highlightAlpha = 0.85;
+  // The light streak along the top edge; the dark glass keeps one even edge all round.
+  static double get highlightAlpha => ThemeColours.isDark ? 0 : 0.85;
   static const BorderRadius cardRadius = BorderRadius.all(Radius.circular(28));
 
   static const List<BoxShadow> cardShadow = [
@@ -31,22 +39,22 @@ class MobileGlassPanel extends StatelessWidget
     BoxShadow(color: Color(0x40000000), offset: Offset(0, -16), blurRadius: 36),
   ];
 
-  // The nav bar's glass; near-opaque so the dimmed page and gold button don't show through.
-  static const Color sheetTint = Color(0xFFF0F6F7);
-  static const double sheetAlpha = 0.94;
+  // The nav bar's glass; opaque, nothing behind shows through.
+  static Color get sheetTint => ThemeColours.of(0xFFF0F6F7);
+  static const double sheetAlpha = 1;
 
   const MobileGlassPanel({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.fromLTRB(22, 24, 22, 22),
     this.borderRadius = cardRadius,
-    this.whiteAlpha = cardAlpha,
+    this.whiteAlpha,
     this.shadow = cardShadow,
     this.blur = false,
-    this.tint = Colors.white,
+    this.tint,
   });
 
-  const MobileGlassPanel.sheet({
+  MobileGlassPanel.sheet({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.fromLTRB(24, 14, 24, 24),
@@ -67,29 +75,30 @@ class MobileGlassPanel extends StatelessWidget
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            color: tint.withValues(alpha: whiteAlpha),
+            color: (tint ?? AppTheme.surface).withValues(alpha: whiteAlpha ?? cardAlpha),
             borderRadius: borderRadius,
-            border: Border.all(color: Colors.white.withValues(alpha: edgeAlpha)),
+            border: Border.all(color: AppTheme.surfaceEdge.withValues(alpha: edgeAlpha)),
           ),
           child: Padding(padding: padding, child: child),
         ),
-        Positioned(
-          top: 0,
-          left: inset,
-          right: inset,
-          height: 1,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white.withValues(alpha: 0),
-                  Colors.white.withValues(alpha: highlightAlpha),
-                  Colors.white.withValues(alpha: 0),
-                ],
+        if (highlightAlpha > 0)
+          Positioned(
+            top: 0,
+            left: inset,
+            right: inset,
+            height: 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0),
+                    AppTheme.surface.withValues(alpha: highlightAlpha),
+                    Colors.white.withValues(alpha: 0),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
 

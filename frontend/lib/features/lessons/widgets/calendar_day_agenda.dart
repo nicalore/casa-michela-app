@@ -224,7 +224,7 @@ class _AgendaRowState extends State<_AgendaRow>
   {
     final where = lessonWhere(_lesson);
     final accent = where.icon == Icons.meeting_room_outlined
-        ? AppTheme.trialTealDeep
+        ? AppTheme.trialTealDeepText
         : lessonAccent(_lesson.mode);
 
     return Row(
@@ -289,21 +289,21 @@ class _AgendaRowState extends State<_AgendaRow>
         ),
         if (widget.isPreferred) ...[
           const SizedBox(width: 6),
-          const AppTooltip(
+          AppTooltip(
             message: 'Docente richiesto dall\'alunno',
             child: Icon(Icons.star_rounded, size: 14, color: kPreferredTeacherColor),
           ),
         ],
         if (widget.hasWarning) ...[
           const SizedBox(width: 6),
-          const AppTooltip(
+          AppTooltip(
             message: 'Docente che l\'alunno preferirebbe evitare',
             child: Icon(Icons.circle, size: 9, color: kAvoidedTeacherColor),
           ),
         ],
         if (widget.isPast) ...[
           const SizedBox(width: 6),
-          const AppTooltip(
+          AppTooltip(
             message: kLessonDoneLabel,
             child: Icon(Icons.check_rounded, size: 14, color: AppTheme.trialMutedText),
           ),
@@ -325,7 +325,7 @@ class _AgendaRowState extends State<_AgendaRow>
         onTap: onTap,
         child: CardGround(
           elapsed: widget.elapsed,
-          surface: Colors.white,
+          surface: AppTheme.surface,
           radius: 14,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -367,7 +367,7 @@ class _AgendaRowState extends State<_AgendaRow>
                                     fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                     height: 1.2,
-                                    color: AppTheme.trialOcean,
+                                    color: AppTheme.trialOceanText,
                                   ),
                                 ),
                                 if (_topic.subject case final subject?) ...[
@@ -399,7 +399,7 @@ class _AgendaRowState extends State<_AgendaRow>
                           ),
                           if (onTap != null) ...[
                             const SizedBox(width: 6),
-                            const Icon(Icons.chevron_right_rounded, size: 20, color: AppTheme.trialMutedText),
+                            Icon(Icons.chevron_right_rounded, size: 20, color: AppTheme.trialMutedText),
                           ],
                         ],
                       ),
@@ -485,7 +485,7 @@ class _ActivityAgendaRowState extends State<_ActivityAgendaRow>
                   children: [
                     Row(
                       children: [
-                        const Icon(kActivityIcon, size: 13, color: kActivityAccent),
+                        Icon(kActivityIcon, size: 13, color: kActivityAccent),
                         const SizedBox(width: 5),
                         Text(
                           activityHours(_scheduled),
@@ -523,7 +523,7 @@ class _ActivityAgendaRowState extends State<_ActivityAgendaRow>
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                   height: 1.2,
-                                  color: AppTheme.trialOcean,
+                                  color: AppTheme.trialOceanText,
                                 ),
                               ),
                               if (description != null) ...[
@@ -543,7 +543,7 @@ class _ActivityAgendaRowState extends State<_ActivityAgendaRow>
                         ),
                         if (onTap != null) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.chevron_right_rounded, size: 20, color: AppTheme.trialMutedText),
+                          Icon(Icons.chevron_right_rounded, size: 20, color: AppTheme.trialMutedText),
                         ],
                       ],
                     ),

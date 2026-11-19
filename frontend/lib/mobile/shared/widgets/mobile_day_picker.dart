@@ -97,9 +97,9 @@ class MobileDayPicker extends StatelessWidget
     final bool offered = listed && isOffered(day);
     final bool picked = offered && isPicked(day);
 
-    final Color rest = offered ? Colors.white : AppTheme.trialInk.withValues(alpha: 0.04);
+    final Color rest = offered ? AppTheme.surface : AppTheme.trialInk.withValues(alpha: 0.04);
     final Color edge = picked
-        ? AppTheme.trialTealDeep.withValues(alpha: 0)
+        ? AppTheme.trialTealDeepText.withValues(alpha: 0)
         : (offered ? AppTheme.trialInk.withValues(alpha: 0.12) : AppTheme.trialInk.withValues(alpha: 0));
     final Color weekday = picked
         ? Colors.white.withValues(alpha: 0.8)

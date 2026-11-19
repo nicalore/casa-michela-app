@@ -32,8 +32,8 @@ class MobileWizardBackButton extends StatelessWidget
           height: size,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(_radius),
-            color: Colors.white.withValues(alpha: MobileGlassPanel.cardAlpha),
-            border: Border.all(color: AppTheme.trialOcean.withValues(alpha: 0.14)),
+            color: AppTheme.surface.withValues(alpha: MobileGlassPanel.cardAlpha),
+            border: Border.all(color: AppTheme.trialOceanText.withValues(alpha: 0.14)),
             boxShadow: _shadow,
           ),
           child: Icon(

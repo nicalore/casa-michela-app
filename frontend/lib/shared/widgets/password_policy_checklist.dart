@@ -112,7 +112,7 @@ class PasswordPolicyChecklist extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: missingCount == 0 ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+              color: missingCount == 0 ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
             ),
           ),
         ),
@@ -175,7 +175,7 @@ class _PolicyRuleRow extends StatelessWidget
                     ),
                     Opacity(
                       opacity: t,
-                      child: const Icon(
+                      child: Icon(
                         Icons.check_circle_rounded,
                         size: _ruleIconSize,
                         color: AppTheme.trialTurquoise,
@@ -226,7 +226,7 @@ class PasswordPolicyMeter extends StatelessWidget
   // Unfilled part: darker on the phone's glass.
   final Color track;
 
-  const PasswordPolicyMeter({super.key, required this.progress, this.track = AppTheme.trialLine});
+  PasswordPolicyMeter({super.key, required this.progress, Color? track}) : track = track ?? AppTheme.trialLine;
 
   @override
   Widget build(BuildContext context)
@@ -243,7 +243,7 @@ class PasswordPolicyMeter extends StatelessWidget
             alignment: Alignment.centerLeft,
             child: Container(
               height: _meterHeight,
-              decoration: const BoxDecoration(gradient: AppTheme.brandGradient),
+              decoration: BoxDecoration(gradient: AppTheme.brandGradient),
             ),
           ),
         ],

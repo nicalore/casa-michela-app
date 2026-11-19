@@ -38,7 +38,7 @@ class AppMenuCard extends StatelessWidget
       child: Container(
         width: width,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(18),
           boxShadow: AppTheme.overlayShadow,
         ),
@@ -102,19 +102,19 @@ class AppMenuItem extends StatefulWidget
 
   final bool dense;
 
-  const AppMenuItem({
+  AppMenuItem({
     super.key,
     this.icon,
     this.leading,
     required this.text,
-    this.color = AppTheme.trialTealDeep,
+    Color? color,
     required this.onTap,
     this.marked = false,
     this.current = false,
     this.enabled = true,
     this.trailing,
     this.dense = false,
-  });
+  })  : color = color ?? AppTheme.trialTealDeepText;
 
   @override
   State<AppMenuItem> createState() => _AppMenuItemState();

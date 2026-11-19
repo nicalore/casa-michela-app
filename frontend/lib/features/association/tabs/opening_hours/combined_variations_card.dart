@@ -83,12 +83,12 @@ class CombinedVariationsCard extends StatelessWidget
   {
     if (isLoading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 8.0),
         child: SizedBox(
           width: 20,
           height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.trialTealDeep),
+          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.trialTealDeepText),
         ),
       );
     }
@@ -121,7 +121,7 @@ class CombinedVariationsCard extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, run) in runs.indexed) ...[
-              if (i > 0) const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+              if (i > 0) Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
               Padding(
                 padding: EdgeInsets.only(
                   top: i == 0 ? 0 : linePadding,
@@ -207,14 +207,14 @@ class CombinedVariationsCard extends StatelessWidget
         if (onEdit case final edit?)
           FadeHoverIconButton(
             icon: Icons.edit_outlined,
-            color: AppTheme.trialTealDeep,
+            color: AppTheme.trialTealDeepText,
             hoverColor: AppTheme.trialGoldSurface,
             onTap: () => edit(run),
           ),
         if (onDelete case final delete?)
           FadeHoverIconButton(
             icon: Icons.delete_outline_rounded,
-            color: AppTheme.trialDanger,
+            color: AppTheme.trialDangerText,
             hoverColor: AppTheme.trialGoldSurface,
             onTap: () => delete(run),
           ),

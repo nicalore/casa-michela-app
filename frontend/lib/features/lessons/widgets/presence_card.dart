@@ -197,7 +197,7 @@ class _PresenceCardState extends State<PresenceCard>
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(dense ? 20 : 30),
               border: Border.all(
                 color: _isHovering
@@ -220,7 +220,7 @@ class _PresenceCardState extends State<PresenceCard>
                       fontSize: dense ? 15 : 19,
                       fontWeight: FontWeight.w700,
                       height: 1.15,
-                      color: AppTheme.trialOcean,
+                      color: AppTheme.trialOceanText,
                     ),
                   ),
                   SizedBox(height: dense ? 8 : 12),
@@ -296,7 +296,7 @@ class _ModeColumn extends StatelessWidget
   TextStyle get _hoursStyle => GoogleFonts.plusJakartaSans(
         fontSize: dense ? 14 : 15,
         fontWeight: FontWeight.w700,
-        color: mode == kOnlineMode ? AppTheme.modifiedAccent : AppTheme.trialTealDeep,
+        color: mode == kOnlineMode ? AppTheme.modifiedAccent : AppTheme.presenceAccentText,
       );
 
   TextStyle get _moreStyle => GoogleFonts.plusJakartaSans(
@@ -442,7 +442,7 @@ class _TimeSlotLabel extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep,
+          color: online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText,
         ),
       ),
     );
@@ -667,7 +667,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
             label: 'ANNULLA',
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -676,7 +676,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
             label: 'ELIMINA',
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: ()
@@ -768,12 +768,12 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     }
 
     return [
-      _buildModeAction(Icons.edit_outlined, AppTheme.trialTealDeep, 'Modifica gli orari', () => widget.onEditMode(mode)),
+      _buildModeAction(Icons.edit_outlined, AppTheme.trialTealDeepText, 'Modifica gli orari', () => widget.onEditMode(mode)),
       // With one mode alone it would do what the footer's ELIMINA does.
       if (_isBooked(_otherMode(mode)))
         _buildModeAction(
           Icons.delete_outline_rounded,
-          AppTheme.trialDanger,
+          AppTheme.trialDangerText,
           deleteModeBooking(mode),
           () => _showDeleteConfirmation(context, mode: mode),
         ),
@@ -881,7 +881,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
           ),
           if (haveBookingsClosed(group.date, band, romeNow())) ...[
             const SizedBox(width: 6),
-            const AppTooltip(
+            AppTooltip(
               message: 'Prenotazioni chiuse',
               child: Icon(Icons.lock_outline_rounded, size: 14, color: AppTheme.trialMutedText),
             ),
@@ -951,7 +951,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
           label: 'ELIMINA',
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: () => _showDeleteConfirmation(context),
@@ -1038,7 +1038,7 @@ class _ConfirmSubjectDeletion extends StatelessWidget
           label: 'ANNULLA',
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: () => Navigator.pop(context),
@@ -1047,7 +1047,7 @@ class _ConfirmSubjectDeletion extends StatelessWidget
           label: 'ELIMINA',
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: ()

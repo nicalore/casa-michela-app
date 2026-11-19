@@ -251,7 +251,7 @@ class _SectionRowState extends State<_SectionRow>
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                 ),
               ),
             ],

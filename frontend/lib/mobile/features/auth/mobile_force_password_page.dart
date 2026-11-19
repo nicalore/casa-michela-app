@@ -170,7 +170,7 @@ class _Why extends StatelessWidget
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 1),
           child: Icon(Icons.lock_reset_rounded, size: 22, color: AppTheme.trialGold),
         ),

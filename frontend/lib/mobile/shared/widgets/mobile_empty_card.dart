@@ -30,7 +30,7 @@ class MobileEmptyCard extends StatelessWidget
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 36, color: AppTheme.trialTealDeep),
+          Icon(icon, size: 36, color: AppTheme.trialTealDeepText),
           const SizedBox(height: 10),
           WholeWords(
             child: Text(
@@ -40,7 +40,7 @@ class MobileEmptyCard extends StatelessWidget
                 fontSize: tablet ? 17 : 16,
                 fontWeight: FontWeight.w700,
                 height: 1.3,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               ),
             ),
           ),

@@ -181,7 +181,7 @@ class _ReportsPageState extends State<ReportsPage>
             alignment: Alignment.centerLeft,
             child: Text(
               kReportsTitle,
-              style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+              style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
             ),
           ),
         ),
@@ -284,7 +284,7 @@ class _ReportsPageState extends State<ReportsPage>
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -293,7 +293,7 @@ class _ReportsPageState extends State<ReportsPage>
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,

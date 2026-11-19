@@ -11,7 +11,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../models/room_item.dart';
 import '../models/subject_taxonomy.dart';
 
-const Color _capacityTextColor = AppTheme.trialTealDeep;
+Color get _capacityTextColor => AppTheme.trialTealDeepText;
 
 // Null when uncounted: unmeasured is not a room with zero seats.
 String? roomCapacityLabel(int? capacity)
@@ -102,7 +102,7 @@ class _RoomDetailsDialogContent extends StatelessWidget
             label: 'ANNULLA',
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -111,7 +111,7 @@ class _RoomDetailsDialogContent extends StatelessWidget
             label: 'ELIMINA',
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: ()
@@ -191,7 +191,7 @@ class _RoomDetailsDialogContent extends StatelessWidget
           label: 'ELIMINA',
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: () => _showDeleteConfirmation(context),

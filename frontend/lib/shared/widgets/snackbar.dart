@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_colours.dart';
 
 const Duration _enterDuration = Duration(milliseconds: 450);
 const Duration _exitDuration = Duration(milliseconds: 250);
@@ -45,23 +46,23 @@ class _SnackBarStyle
     required this.icon,
   });
 
-  static const _SnackBarStyle error = _SnackBarStyle(
-    background: Color(0xFFFFEBEE),
-    border: Color(0xFFFFCDD2),
+  static _SnackBarStyle get error => _SnackBarStyle(
+    background: ThemeColours.fixed(0xFFFFEBEE),
+    border: ThemeColours.fixed(0xFFFFCDD2),
     iconColor: Color(0xFFD32F2F),
     textColor: Color(0xFFC62828),
     icon: Icons.error_rounded,
   );
 
-  static final _SnackBarStyle info = _SnackBarStyle(
-    background: const Color(0xFFE3F2FD),
-    border: AppTheme.primary.withValues(alpha: 0.2),
-    iconColor: AppTheme.primary,
-    textColor: const Color(0xFF002244),
+  static _SnackBarStyle get info => _SnackBarStyle(
+    background: ThemeColours.fixed(0xFFE3F2FD),
+    border: AppTheme.primaryText.withValues(alpha: 0.2),
+    iconColor: AppTheme.primaryText,
+    textColor: ThemeColours.fixedLit(0xFF002244),
     icon: Icons.check_circle_rounded,
   );
 
-  static final _SnackBarStyle warning = _SnackBarStyle(
+  static _SnackBarStyle get warning => _SnackBarStyle(
     background: AppTheme.modifiedAccentSurface,
     border: AppTheme.modifiedAccent.withValues(alpha: 0.25),
     iconColor: AppTheme.modifiedAccent,
@@ -383,7 +384,7 @@ class _SnackBarButtonViewState extends State<_SnackBarButtonView>
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: over(_hover ? style.iconColor.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.6)),
+            color: over(_hover ? style.iconColor.withValues(alpha: 0.1) : AppTheme.surface.withValues(alpha: 0.6)),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: over(style.iconColor.withValues(alpha: _hover ? 0.7 : 0.4)), width: 1.5),
           ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../mobile_palette.dart';
 import '../navigation/mobile_back_tabs.dart';
 import 'mobile_pill.dart';
@@ -21,8 +22,8 @@ const double _fadeWidth = 44;
 const EdgeInsets _tourInflate = EdgeInsets.symmetric(horizontal: 10, vertical: 8);
 const double _tourRadius = 12;
 
-const LinearGradient _goldRule = LinearGradient(
-  colors: [AppTheme.trialGold, Color(0xFFF3C766)],
+LinearGradient get _goldRule => LinearGradient(
+  colors: [AppTheme.trialGold, ThemeColours.of(0xFFF3C766)],
 );
 
 TextStyle _labelStyle(Color color)
@@ -324,7 +325,7 @@ class _MobilePageStripState extends State<MobilePageStrip> implements MobileBack
               left: ui.lerpDouble(lefts[from], lefts[to], t),
               width: ui.lerpDouble(widths[from], widths[to], t),
               height: _underlineHeight,
-              child: const DecoratedBox(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: _goldRule,
                   borderRadius: BorderRadius.all(Radius.circular(_underlineHeight / 2)),
@@ -410,10 +411,10 @@ class _FadingEdges extends StatelessWidget
 
             return LinearGradient(
               colors: [
-                before ? Colors.transparent : Colors.white,
-                Colors.white,
-                Colors.white,
-                after ? Colors.transparent : Colors.white,
+                before ? Colors.transparent : AppTheme.surface,
+                AppTheme.surface,
+                AppTheme.surface,
+                after ? Colors.transparent : AppTheme.surface,
               ],
               stops: [0, fade, 1 - fade, 1],
             ).createShader(bounds);
@@ -445,7 +446,7 @@ class MobilePageLabel extends StatelessWidget
           const SizedBox(height: _underlineGap),
           Container(
             height: _underlineHeight,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: _goldRule,
               borderRadius: BorderRadius.all(Radius.circular(_underlineHeight / 2)),
             ),

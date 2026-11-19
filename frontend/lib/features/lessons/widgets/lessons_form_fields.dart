@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -13,7 +14,7 @@ import '../../people/models/person_item.dart';
 import 'person_avatar.dart';
 
 // Mirrors AppTextField's surface, radius, border and height.
-const Color _fieldSurface = Color(0xFFFBFDFC);
+Color get _fieldSurface => ThemeColours.of(0xFFFBFDFC);
 const double _fieldRadius = 14;
 const double _fieldBorderWidth = 2;
 const double _fieldHeight = 50;
@@ -588,7 +589,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
                   height: 54,
                   padding: const EdgeInsets.only(left: 16, right: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFBFDFC),
+                    color: ThemeColours.of(0xFFFBFDFC),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: _isFocused ? AppTheme.trialGold : AppTheme.trialLine,
@@ -607,7 +608,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
                         child: TextField(
                           controller: textEditingController,
                           focusNode: focusNode,
-                          cursorColor: AppTheme.trialTealDeep,
+                          cursorColor: AppTheme.trialTealDeepText,
                           // The first match is the one picked: greyed-out ones come last.
                           onSubmitted: (_)
                           {

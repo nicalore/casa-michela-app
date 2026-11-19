@@ -312,7 +312,7 @@ class _ReportBlock extends StatelessWidget
           label: 'SEGNALA ERRORE',
           icon: Icons.flag_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: 50,
           fontSize: 14,
           radius: 25,
@@ -659,7 +659,7 @@ class ConsentsCard extends StatelessWidget
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.trialDanger,
+                color: AppTheme.trialDangerText,
               ),
             ),
           ],
@@ -1174,7 +1174,7 @@ class _PaymentCardState extends State<PaymentCard>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 1),
           child: Icon(Icons.info_outline_rounded, size: 17, color: AppTheme.trialTurquoise),
         ),
@@ -1266,7 +1266,7 @@ class _PaymentCardState extends State<PaymentCard>
         const SizedBox(height: 10),
         Text(
           currentTariff(tariff.kind, tariff.amountCents, tariff.packageHours),
-          style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+          style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
         ),
         const SizedBox(height: 12),
         _note(changeQueuedReason(payments?.queuedStartsOn, ahead: payments?.tariff?.isHourly ?? false)),
@@ -1409,7 +1409,7 @@ class _PaymentCardState extends State<PaymentCard>
             Expanded(child: second),
           ],
         ),
-        const Positioned.fill(
+        Positioned.fill(
           child: Center(
             child: SizedBox(
               width: 1,
@@ -1502,7 +1502,7 @@ class _PaymentCardState extends State<PaymentCard>
             // The tariff alone, for a member on file: their method lives in «Pagamenti».
             if (ctx.form.asksPaymentStep) ...[
               if (top != null)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: _paymentBlockGap),
                   child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
                 ),
@@ -1868,7 +1868,7 @@ class CertificationsCard extends StatelessWidget
               fontWeight: FontWeight.w500,
               height: 1.45,
               color: ctx.errors['presaVisioneIncontri'] != null
-                  ? AppTheme.trialDanger
+                  ? AppTheme.trialDangerText
                   : AppTheme.trialMutedText,
             ),
           ),

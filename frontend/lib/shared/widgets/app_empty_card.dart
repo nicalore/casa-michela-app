@@ -30,21 +30,21 @@ class AppEmptyCard extends StatelessWidget
       style: GoogleFonts.plusJakartaSans(
         fontSize: 19,
         fontWeight: FontWeight.w700,
-        color: AppTheme.trialTealDeep,
+        color: AppTheme.trialTealDeepText,
       ),
     );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 26),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(28),
         boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 30, color: AppTheme.trialTealDeep),
+          Icon(icon, size: 30, color: AppTheme.trialTealDeepText),
           const SizedBox(width: 16),
           Flexible(
             child: detail == null || detail.isEmpty

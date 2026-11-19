@@ -45,7 +45,7 @@ class MobileSlotButton extends StatelessWidget
               child: MobileButtonLabel(
                 label: label,
                 icon: icon,
-                color: (onLight ? AppTheme.trialTealDeep : Colors.white).withValues(alpha: alpha),
+                color: (onLight ? AppTheme.trialTealDeepText : Colors.white).withValues(alpha: alpha),
               ),
             ),
           ),
@@ -65,7 +65,7 @@ class _DashedOutline extends CustomPainter
   @override
   void paint(Canvas canvas, Size size)
   {
-    final Color ink = onLight ? AppTheme.trialTealDeep : Colors.white;
+    final Color ink = onLight ? AppTheme.trialTealDeepText : Colors.white;
 
     final RRect shape = RRect.fromRectAndRadius(
       (Offset.zero & size).deflate(_stroke / 2),

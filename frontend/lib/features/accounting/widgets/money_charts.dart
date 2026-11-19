@@ -458,7 +458,7 @@ class _MoneyPainter extends CustomPainter
       text.text = TextSpan(
         text: '${monthAbbreviations[month.month - 1]}\n${month.year}',
         style: _labelStyle.copyWith(
-          color: (marked ? AppTheme.trialOcean : AppTheme.trialMutedText).withValues(alpha: alpha),
+          color: (marked ? AppTheme.trialOceanText : AppTheme.trialMutedText).withValues(alpha: alpha),
           fontWeight: marked ? FontWeight.w800 : null,
         ),
       );
@@ -503,8 +503,8 @@ class _MoneyPainter extends CustomPainter
         final Offset point = Offset(frame.xOf(index.toDouble()), frame.yOf(series.cents[index]));
         final bool lit = index == hovered;
 
-        canvas.drawCircle(point, lit ? 7 : 5, Paint()..color = lit ? Colors.white : series.color);
-        canvas.drawCircle(point, lit ? 5 : 3, Paint()..color = lit ? series.color : Colors.white);
+        canvas.drawCircle(point, lit ? 7 : 5, Paint()..color = lit ? AppTheme.surface : series.color);
+        canvas.drawCircle(point, lit ? 5 : 3, Paint()..color = lit ? series.color : AppTheme.surface);
       }
     }
   }

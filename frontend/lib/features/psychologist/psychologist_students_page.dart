@@ -369,7 +369,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
               fontSize: kPersonHeadingNameSize,
               fontWeight: FontWeight.w700,
               height: 1.2,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
         ),
@@ -377,7 +377,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     );
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.closedLine)),
       ),
       child: Padding(
@@ -428,7 +428,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+      return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
     if (_failed)
@@ -496,7 +496,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -505,7 +505,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,

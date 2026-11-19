@@ -33,7 +33,7 @@ class PersonAvatar extends StatelessWidget
           style: GoogleFonts.plusJakartaSans(
             fontSize: size * 0.38,
             fontWeight: FontWeight.w700,
-            color: AppTheme.trialTealDeep,
+            color: AppTheme.trialTealDeepText,
           ),
         ),
       ),

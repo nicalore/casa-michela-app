@@ -297,7 +297,7 @@ class MobileAvailabilityDayCard extends StatelessWidget
   {
     return Row(
       children: [
-        const Icon(Icons.event_busy_rounded, size: 18, color: MobilePalette.mutedText),
+        Icon(Icons.event_busy_rounded, size: 18, color: MobilePalette.mutedText),
         const SizedBox(width: 8),
         Expanded(child: Text("L'Associazione è chiusa", style: sizes.noteStyle.copyWith(fontSize: 13))),
       ],
@@ -472,7 +472,7 @@ class MobileAvailabilityDayCard extends StatelessWidget
     {
       card = DecoratedBox(
         position: DecorationPosition.foreground,
-        decoration: const MobileCurrentCard(BorderRadius.all(Radius.circular(_radius))),
+        decoration: MobileCurrentCard(BorderRadius.all(Radius.circular(_radius))),
         child: card,
       );
     }
@@ -507,7 +507,7 @@ class _SlotChip extends StatelessWidget
         : (online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge);
     final Color ink = locked
         ? MobilePalette.mutedText
-        : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);
+        : (online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText);
     final Color edge = locked
         ? MobilePalette.pastEdge
         :(online ? MobilePalette.onlineChipEdge : MobilePalette.presenceChipEdge);

@@ -154,7 +154,7 @@ class _ReportSheetState extends State<_ReportSheet>
                 padding: const EdgeInsets.only(top: 2, bottom: 2),
                 child: Text(
                   kCorrectionsHeading,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.trialTealDeep),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.trialTealDeepText),
                 ),
               ),
               MobileDetailRows(
@@ -195,9 +195,9 @@ class _ReportSheetState extends State<_ReportSheet>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 1),
-            child: Icon(Icons.mail_rounded, size: 19, color: AppTheme.trialTealDeep),
+            child: Icon(Icons.mail_rounded, size: 19, color: AppTheme.trialTealDeepText),
           ),
           const SizedBox(width: 9),
           Expanded(

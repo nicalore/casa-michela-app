@@ -353,7 +353,7 @@ class PersonFactsRow extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: dense ? 15 : 18,
               fontWeight: FontWeight.w700,
-              color: fact.highlight ? AppTheme.trialDanger : AppTheme.trialInk,
+              color: fact.highlight ? AppTheme.trialDangerText : AppTheme.trialInk,
             ),
           ),
         ),
@@ -447,7 +447,7 @@ class _PersonPickerCardState extends State<PersonPickerCard>
           style: GoogleFonts.plusJakartaSans(
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: AppTheme.trialTealDeep,
+            color: AppTheme.trialTealDeepText,
           ),
         ),
       ),
@@ -502,7 +502,7 @@ class _PersonPickerCardState extends State<PersonPickerCard>
           height: PersonPickerCard.height,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           decoration: BoxDecoration(
-            color: widget.isSelected ? kPickedSurface : Colors.white,
+            color: widget.isSelected ? kPickedSurface : AppTheme.surface,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: _hover
@@ -525,7 +525,7 @@ class _PersonPickerCardState extends State<PersonPickerCard>
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.trialOcean,
+                      color: AppTheme.trialOceanText,
                       height: 1.2,
                     ),
                   ),
@@ -540,14 +540,14 @@ class _PersonPickerCardState extends State<PersonPickerCard>
                           if (widget.onEdit != null)
                             FadeHoverIconButton(
                               icon: Icons.edit_outlined,
-                              color: AppTheme.trialTealDeep,
+                              color: AppTheme.trialTealDeepText,
                               hoverColor: AppTheme.trialGoldSurface,
                               onTap: widget.onEdit!,
                             ),
                           if (widget.onRemove != null)
                             FadeHoverIconButton(
                               icon: Icons.delete_outline_rounded,
-                              color: AppTheme.trialDanger,
+                              color: AppTheme.trialDangerText,
                               hoverColor: AppTheme.trialGoldSurface,
                               onTap: widget.onRemove!,
                             ),

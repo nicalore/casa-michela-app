@@ -15,7 +15,7 @@ const double _restBorder = 1;
 const double _focusBorder = 2;
 const double _sidePadding = 18;
 
-final Color _restBorderColor = AppTheme.trialOcean.withValues(alpha: 0.14);
+Color get _restBorderColor => AppTheme.trialOceanText.withValues(alpha: 0.14);
 
 const double _restAlpha = 0.55;
 const double _focusAlpha = 0.8;
@@ -146,7 +146,7 @@ class _MobileTextFieldState extends State<MobileTextField>
         final bool full = written >= limit;
         final bool shown = _focused || written >= limit * _counterAlwaysShownFrom;
 
-        final Color color = full ? AppTheme.trialDanger : MobilePalette.mutedText;
+        final Color color = full ? AppTheme.trialDangerText : MobilePalette.mutedText;
 
         return AnimatedDefaultTextStyle(
           duration: _focusFade,
@@ -209,7 +209,7 @@ class _MobileTextFieldState extends State<MobileTextField>
                   vertical: _multiline ? _linesPadding + _restBorder - border : 0,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: _restAlpha + (_focusAlpha - _restAlpha) * focus),
+                  color: AppTheme.surface.withValues(alpha: _restAlpha + (_focusAlpha - _restAlpha) * focus),
                   borderRadius: BorderRadius.circular(_radius),
                   border: Border.all(
                     // Gold over the rest colour: a frame iOS freezes midway stays gold, not khaki.
@@ -230,7 +230,7 @@ class _MobileTextFieldState extends State<MobileTextField>
               crossAxisAlignment: _multiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
               children: [
                 if (widget.icon case final IconData icon) ...[
-                  Icon(icon, size: 22, color: AppTheme.trialTealDeep),
+                  Icon(icon, size: 22, color: AppTheme.trialTealDeepText),
                   const SizedBox(width: 12),
                 ],
                 Expanded(

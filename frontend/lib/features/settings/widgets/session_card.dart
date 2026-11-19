@@ -74,7 +74,7 @@ class _SessionCardState extends State<SessionCard>
         width: widget.width,
         height: _cardHeight,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(_cardRadius),
           boxShadow: AppTheme.cardShadow,
         ),
@@ -96,7 +96,7 @@ class _SessionCardState extends State<SessionCard>
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
-                        color: AppTheme.trialOcean,
+                        color: AppTheme.trialOceanText,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -149,7 +149,7 @@ class _DeviceBadge extends StatelessWidget
         shape: BoxShape.circle,
         color: AppTheme.trialTealDeep.withValues(alpha: 0.13),
       ),
-      child: Icon(sessionDeviceIcon(type), size: 26, color: AppTheme.trialTealDeep),
+      child: Icon(sessionDeviceIcon(type), size: 26, color: AppTheme.trialTealDeepText),
     );
   }
 }
@@ -181,14 +181,14 @@ class _SessionRevokeIconState extends State<SessionRevokeIcon>
   Widget build(BuildContext context)
   {
     final Widget face = widget.busy
-        ? const Center(
+        ? Center(
             child: SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: AppTheme.trialDanger),
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: AppTheme.trialDangerText),
             ),
           )
-        : const Icon(Icons.logout_rounded, size: 20, color: AppTheme.trialDanger);
+        : Icon(Icons.logout_rounded, size: 20, color: AppTheme.trialDangerText);
 
     return IgnorePointer(
       ignoring: !widget.visible || widget.busy,
@@ -244,7 +244,7 @@ class CurrentSessionChip extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: dense ? 11.5 : 13,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     );

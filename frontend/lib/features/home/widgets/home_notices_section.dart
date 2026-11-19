@@ -100,7 +100,7 @@ class HomeNoticesSection extends StatelessWidget
   {
     if (isLoading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 30),
         child: Center(
           child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
@@ -187,7 +187,7 @@ class _NoticeLineState extends State<_NoticeLine>
                 widget.notice.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(fontSize: scale.title, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+                style: GoogleFonts.plusJakartaSans(fontSize: scale.title, fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
               ),
             ),
             const SizedBox(width: 12),

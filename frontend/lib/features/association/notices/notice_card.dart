@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/page_density.dart';
@@ -15,7 +16,7 @@ const double _badgeHeight = 24;
 const double _authorMaxWidth = 280;
 const double _pinIconSize = 20;
 const double _pinPadding = 4;
-const Color _pinBadgeSurface = AppTheme.trialPaper;
+Color get _pinBadgeSurface => AppTheme.trialPaper;
 
 // Inside a dense page (AppPageDensity), as the other compact lists.
 const double _denseBadgeHeight = 22;
@@ -58,7 +59,7 @@ class NoticeRoleBadges extends StatelessWidget
 
     if (roles.length == NoticeRole.values.length)
     {
-      return _badge(kAllRoles, background: const Color(0xFFF4EEF9), color: AppTheme.trialViolet, dense: dense);
+      return _badge(kAllRoles, background: ThemeColours.of(0xFFF4EEF9), color: AppTheme.trialVioletText, dense: dense);
     }
 
     return Wrap(
@@ -67,7 +68,7 @@ class NoticeRoleBadges extends StatelessWidget
       runSpacing: dense ? 5 : 6,
       children: [
         for (final role in roles)
-          _badge(role.plural, background: AppTheme.todaySurface, color: AppTheme.trialTealDeep, dense: dense),
+          _badge(role.plural, background: AppTheme.todaySurface, color: AppTheme.trialTealDeepText, dense: dense),
       ],
     );
   }
@@ -180,7 +181,7 @@ class _NoticeCardState extends State<NoticeCard>
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(_radius),
             border: Border.all(color: AppTheme.trialGold.withValues(alpha: lit ? 1 : 0), width: 2),
             boxShadow: AppTheme.cardShadow,
@@ -202,7 +203,7 @@ class _NoticeCardState extends State<NoticeCard>
       notice.title,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: GoogleFonts.plusJakartaSans(fontSize: dense ? 16.5 : 19, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+      style: GoogleFonts.plusJakartaSans(fontSize: dense ? 16.5 : 19, fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
     );
 
     // In the smallest window the date goes under the title, which then keeps the whole line.
@@ -238,7 +239,7 @@ class _NoticeCardState extends State<NoticeCard>
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: dense ? 12.5 : 14,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.trialTealDeep,
+                  color: AppTheme.trialTealDeepText,
                 ),
               ),
             ),
@@ -270,7 +271,7 @@ class _NoticeCardState extends State<NoticeCard>
                   fontSize: dense ? 13.5 : 15,
                   fontWeight: FontWeight.w500,
                   height: dense ? 1.4 : 1.45,
-                  color: const Color(0xFF33495A),
+                  color: ThemeColours.fixed(0xFF33495A),
                 ),
               ),
             ),
@@ -370,7 +371,7 @@ class _PinButtonState extends State<_PinButton>
                 curve: Curves.easeOut,
                 decoration: BoxDecoration(
                   // Opaque ends: a translucent hover lerp flashes dark midway.
-                  color: _hover ? AppTheme.trialGoldSurface : (badge ? _pinBadgeSurface : Colors.white),
+                  color: _hover ? AppTheme.trialGoldSurface : (badge ? _pinBadgeSurface : AppTheme.surface),
                   borderRadius: BorderRadius.circular(badge ? (_pinIconSize + 2 * _pinPadding) / 2 : 10),
                 ),
                 child: Padding(

@@ -10,6 +10,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../features/settings/utils/settings_strings.dart';
 import '../../../services/seen_tours.dart';
 import '../../../shared/widgets/tour_cues.dart';
@@ -2254,6 +2255,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
                       touch: () => _litTouch,
                       glow: () => _breath.glow,
                       repaint: Listenable.merge([_repaint, _breath.listenable]),
+                      // A veil, not text: the deep water itself darkens the page in either mode.
                       color: AppTheme.trialDeepWater.withValues(alpha: _dimAlpha),
                     ),
                   ),
@@ -2834,7 +2836,7 @@ class _TourBanner extends StatelessWidget
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 1.4,
-                                  color: const Color(0xFFF3C766),
+                                  color: ThemeColours.of(0xFFF3C766),
                                 ),
                               ),
                             ),
@@ -2981,17 +2983,18 @@ class _NextButton extends StatelessWidget
         child: Container(
           height: _nextHeight,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [AppTheme.trialGold, Color(0xFFF3C766)],
+              colors: [AppTheme.trialGold, ThemeColours.of(0xFFF3C766)],
             ),
             borderRadius: BorderRadius.circular(12),
-            boxShadow: const [BoxShadow(color: Color(0x52E3A83C), offset: Offset(0, 4), blurRadius: 10)],
+            boxShadow: [BoxShadow(color: ThemeColours.keep(0x52E3A83C), offset: Offset(0, 4), blurRadius: 10)],
           ),
           child: MobileButtonLabel(
             label: last ? _endLabel : _nextLabel,
             icon: last ? Icons.check_rounded : Icons.arrow_forward_rounded,
+            // Dark on the gold in either mode.
             color: AppTheme.trialDeepWater,
             fontSize: 12.5,
             iconSize: 16,

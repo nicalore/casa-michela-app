@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../mobile_palette.dart';
 
 enum MobilePillTone { gold, teal, muted, sea }
@@ -17,6 +18,9 @@ class MobilePill extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    // White glass under light text reads grey in the dark: the pill takes a tint of its own text there.
+    final bool dark = ThemeColours.isDark;
+
     final (Color fill, Color edge, Color text) = switch (tone)
     {
       MobilePillTone.gold => (
@@ -25,13 +29,13 @@ class MobilePill extends StatelessWidget
           AppTheme.modifiedAccent,
         ),
       MobilePillTone.teal => (
-          Colors.white.withValues(alpha: 0.5),
-          AppTheme.trialTealDeep.withValues(alpha: 0.25),
-          AppTheme.trialTealDeep,
+          dark ? AppTheme.trialTealDeepText.withValues(alpha: 0.16) : Colors.white.withValues(alpha: 0.5),
+          AppTheme.trialTealDeepText.withValues(alpha: dark ? 0.45 : 0.25),
+          AppTheme.trialTealDeepText,
         ),
       MobilePillTone.muted => (
-          Colors.white.withValues(alpha: 0.55),
-          MobilePalette.mutedText.withValues(alpha: 0.28),
+          dark ? MobilePalette.mutedText.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.55),
+          MobilePalette.mutedText.withValues(alpha: dark ? 0.4 : 0.28),
           MobilePalette.mutedText,
         ),
       MobilePillTone.sea => (

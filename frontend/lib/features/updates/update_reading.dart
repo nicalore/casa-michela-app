@@ -47,7 +47,7 @@ Widget updatePillTitle(String text)
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.trialOcean),
+      style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.trialOceanText),
     ),
   );
 }

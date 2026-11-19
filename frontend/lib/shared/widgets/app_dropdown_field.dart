@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_colours.dart';
 import 'app_tooltip.dart';
 import 'dialog_density.dart';
 import 'close_on_resize.dart';
@@ -12,7 +13,7 @@ import 'overflow_tooltip_text.dart';
 import 'page_density.dart';
 import 'scroll_edge_fade.dart';
 
-const Color _fieldSurface = Color(0xFFFBFDFC);
+Color get _fieldSurface => ThemeColours.of(0xFFFBFDFC);
 const double _fieldRadius = 14;
 const double _fieldBorder = 2;
 const double _fieldHeight = 50;
@@ -36,17 +37,17 @@ const double _menuMargin = 8;
 const double _mutedOpacity = 0.55;
 
 // Gold with no alpha: a border fading in over a filled face never shows another hue on the way.
-final Color _clearGold = AppTheme.trialGold.withValues(alpha: 0);
+Color get _clearGold => AppTheme.trialGold.withValues(alpha: 0);
 
 TextStyle _itemStyle({required bool selected}) => GoogleFonts.plusJakartaSans(
       fontSize: 14,
       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-      color: AppTheme.trialTealDeep,
+      color: AppTheme.trialTealDeepText,
     );
 
 // The marked option: a green pill inset from the menu's left edge as from its scrollbar lane.
-const Color _markSurface = Color(0xFFE2F5EC);
-const Color _markAccent = AppTheme.trialLagoon;
+Color get _markSurface => ThemeColours.of(0xFFE2F5EC);
+Color get _markAccent => AppTheme.trialLagoon;
 const double _markInset = _scrollbarLane;
 const double _markRadius = 10;
 
@@ -309,7 +310,7 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> with CloseOnR
                     Icon(
                       isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
                       size: widget.height == null ? null : 20,
-                      color: fill == null ? AppTheme.trialTealDeep : Colors.white,
+                      color: fill == null ? AppTheme.trialTealDeepText : Colors.white,
                     ),
                   ],
                 ),
@@ -425,7 +426,7 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
         constraints: const BoxConstraints(maxHeight: 250),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color:        Colors.white,
+          color:        AppTheme.surface,
           borderRadius: BorderRadius.circular(_menuRadius),
           boxShadow: AppTheme.overlayShadow,
         ),
@@ -454,7 +455,7 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
                           {
                             if (option.isSeparator)
                             {
-                              return const Padding(
+                              return Padding(
                                 padding: EdgeInsets.symmetric(
                                   horizontal: 16.0,
                                   vertical:   4.0,

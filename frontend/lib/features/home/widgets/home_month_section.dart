@@ -433,7 +433,7 @@ class HomeMonthSection extends StatelessWidget
   {
     if (isLoading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 30),
         child: Center(
           child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
@@ -780,7 +780,7 @@ class _TableRow extends StatelessWidget
 
     return Container(
       height: height,
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppTheme.trialLine))),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: AppTheme.trialLine))),
       child: width == null
           ? Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -827,7 +827,7 @@ class _TableValue extends StatelessWidget
     final Color color = switch (figure.tone)
     {
       HomeFigureTone.absent => AppTheme.trialMutedText,
-      _ => figure.isWord ? AppTheme.trialInk : AppTheme.trialOcean,
+      _ => figure.isWord ? AppTheme.trialInk : AppTheme.trialOceanText,
     };
 
     final TextStyle number = GoogleFonts.plusJakartaSans(
@@ -938,7 +938,7 @@ class _FigureTile extends StatelessWidget
     final Color valueColor = switch (figure.tone)
     {
       HomeFigureTone.absent => AppTheme.trialMutedText,
-      _ => figure.isWord ? AppTheme.trialInk : AppTheme.trialOcean,
+      _ => figure.isWord ? AppTheme.trialInk : AppTheme.trialOceanText,
     };
 
     Widget line(Widget text) => Align(
@@ -1000,7 +1000,7 @@ class _FigureTile extends StatelessWidget
                 ? AppTheme.trialMutedText
                 : delta.direction > 0
                     ? AppTheme.trialSeaGreen
-                    : AppTheme.trialDanger,
+                    : AppTheme.trialDangerText,
             delta.text,
           );
 

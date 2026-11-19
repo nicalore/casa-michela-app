@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_check_mark.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -26,8 +27,8 @@ const EdgeInsets _cardHeadPadding = EdgeInsets.fromLTRB(10, 10, 13, 10);
 // Headings keep their check in the sector cards' column.
 const double _checkInset = 13 + _cardEdge;
 
-const Color _openCardSurface = Color(0xFFFAFCFC);
-const Color _openCardEdge = Color(0xFFCFE3E0);
+Color get _openCardSurface => ThemeColours.of(0xFFFAFCFC);
+Color get _openCardEdge => ThemeColours.of(0xFFCFE3E0);
 
 const Duration _fade = Duration(milliseconds: 180);
 const Duration _turn = Duration(milliseconds: 220);
@@ -247,7 +248,7 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               ),
             ),
           ),
@@ -515,7 +516,7 @@ class _Rail extends StatelessWidget
     return Container(
       margin: const EdgeInsets.only(left: 6),
       padding: const EdgeInsets.only(left: 16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(left: BorderSide(color: AppTheme.trialLine, width: 2)),
       ),
       child: Column(
@@ -586,7 +587,7 @@ class _GroupHeading extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: cycle ? 15 : 17,
                     fontWeight: cycle ? FontWeight.w700 : FontWeight.w800,
-                    color: cycle ? AppTheme.trialTealDeep : AppTheme.trialInk,
+                    color: cycle ? AppTheme.trialTealDeepText : AppTheme.trialInk,
                   ),
                 ),
               ),
@@ -650,7 +651,7 @@ class _SectorCardState extends State<_SectorCard>
       curve: Curves.easeOut,
       margin: EdgeInsets.only(bottom: widget.last ? 0 : 8),
       decoration: BoxDecoration(
-        color: widget.open ? _openCardSurface : Colors.white,
+        color: widget.open ? _openCardSurface : AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _hover ? AppTheme.trialGold : edge, width: _cardEdge),
       ),
@@ -672,7 +673,7 @@ class _SectorCardState extends State<_SectorCard>
                       turns: widget.open ? 0 : -0.25,
                       duration: widget.animate ? _turn : Duration.zero,
                       curve: Curves.easeOutCubic,
-                      child: const Icon(Icons.expand_more_rounded, size: 22, color: AppTheme.trialMutedText),
+                      child: Icon(Icons.expand_more_rounded, size: 22, color: AppTheme.trialMutedText),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -775,7 +776,7 @@ class _ProgramRowState extends State<_ProgramRow>
                         fontSize: 14,
                         fontWeight: widget.selected ? FontWeight.w700 : FontWeight.w500,
                         height: 1.35,
-                        color: widget.selected ? AppTheme.trialTealDeep : AppTheme.trialInk,
+                        color: widget.selected ? AppTheme.trialTealDeepText : AppTheme.trialInk,
                       ),
                     ),
                     if (years != null)

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 
 // No AppTheme equivalent: this fill is unique to the role chips.
-const Color roleChipBackground = Color(0xFFE8F7F5);
+Color get roleChipBackground => ThemeColours.of(0xFFE8F7F5);
 
 // Chips that do not fit collapse into a "+N" chip whose tooltip lists them.
 class RoleChipsRow extends StatelessWidget
@@ -101,12 +102,12 @@ class RoleChipsRow extends StatelessWidget
         final chipStyle = ambient.merge(GoogleFonts.plusJakartaSans(
           fontSize: fontSize,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ));
         final extraStyle = ambient.merge(GoogleFonts.plusJakartaSans(
           fontSize: fontSize,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ));
 
         final List<List<String>> lines = [];

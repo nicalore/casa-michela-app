@@ -371,7 +371,7 @@ class _PaymentsMonthTabState extends State<PaymentsMonthTab> with DestinationRef
                 const TextSpan(text: '$kOwedInAll  '),
                 TextSpan(
                   text: formatAmount(total),
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: AppTheme.trialTealDeep),
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: AppTheme.trialTealDeepText),
                 ),
               ],
             ),
@@ -457,7 +457,7 @@ class _PaymentsMonthTabState extends State<PaymentsMonthTab> with DestinationRef
           onRetry: _load,
         ),
       (final PaymentsMonth month, _) => _body(month, dense),
-      _ => const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+      _ => Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
     };
 
     return Column(
@@ -500,7 +500,7 @@ class _PaymentsTable extends StatelessWidget
     return Container(
       height: _headHeight,
       padding: const EdgeInsets.only(left: _sideInset),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: kHoursHeadSurface,
         border: Border(bottom: BorderSide(color: kHoursRowLine)),
       ),
@@ -528,7 +528,7 @@ class _PaymentsTable extends StatelessWidget
       style: GoogleFonts.plusJakartaSans(
         fontSize: _font + 0.5,
         fontWeight: FontWeight.w800,
-        color: AppTheme.trialTealDeep,
+        color: AppTheme.trialTealDeepText,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
@@ -539,7 +539,7 @@ class _PaymentsTable extends StatelessWidget
     return Container(
       padding: const EdgeInsets.fromLTRB(_stackedInset, 12, 8, 12),
       decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: kHoursRowLine)),
+        border: first ? null : Border(top: BorderSide(color: kHoursRowLine)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -553,15 +553,15 @@ class _PaymentsTable extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: _font + 1,
                     fontWeight: FontWeight.w800,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               _amount(row),
-              const SizedBox(
+              SizedBox(
                 width: _stackedChevron,
-                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeep),
+                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeepText),
               ),
             ],
           ),
@@ -592,7 +592,7 @@ class _PaymentsTable extends StatelessWidget
     return Container(
       padding: EdgeInsets.fromLTRB(_sideInset, dense ? 12 : 15, 0, dense ? 12 : 15),
       decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: kHoursRowLine)),
+        border: first ? null : Border(top: BorderSide(color: kHoursRowLine)),
       ),
       child: Row(
         children: [
@@ -610,7 +610,7 @@ class _PaymentsTable extends StatelessWidget
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: _font + 1,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                 ),
               ),
             ),
@@ -626,7 +626,7 @@ class _PaymentsTable extends StatelessWidget
           SizedBox(width: c.amount, child: _amount(row)),
           SizedBox(
             width: c.chevron,
-            child: const Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeep),
+            child: Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeepText),
           ),
         ],
       ),
@@ -644,7 +644,7 @@ class _PaymentsTable extends StatelessWidget
         return Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(_radius),
             boxShadow: AppTheme.cardShadow,
           ),

@@ -50,7 +50,7 @@ class MobileAvatar extends StatelessWidget
             fontSize: size * 0.33,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.5,
-            color: AppTheme.trialDeepWater,
+            color: AppTheme.trialDeepWaterText,
           ),
         ),
       ),
@@ -62,7 +62,7 @@ class MobileAvatar extends StatelessWidget
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         // Nearly opaque, or the halo underneath tints the initials.
-        color: Colors.white.withValues(alpha: 0.9),
+        color: AppTheme.surface.withValues(alpha: 0.9),
         boxShadow: [
           const BoxShadow(color: Color(0x4D000000), offset: Offset(0, 8), blurRadius: 18),
           if (gold) ...[

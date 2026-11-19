@@ -369,7 +369,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard> with Calendar
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (canDrag) ...[
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 1),
             child: Icon(Icons.drag_indicator, size: 16, color: AppTheme.trialTurquoise),
           ),
@@ -388,7 +388,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard> with Calendar
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
               ),
@@ -419,7 +419,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard> with Calendar
             fontSize: 12,
             fontWeight: FontWeight.w700,
             height: 1.2,
-            color: AppTheme.trialTealDeep,
+            color: AppTheme.trialTealDeepText,
           ),
         ),
       ],
@@ -454,7 +454,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard> with Calendar
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(_cardRadius),
               border: Border.all(
                 color: _hover || marks.found ? AppTheme.trialGold : AppTheme.trialLine,
@@ -493,7 +493,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard> with Calendar
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           height: 1.3,
-                          color: entry.isFullyCovered ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                          color: entry.isFullyCovered ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
                         ),
                       ),
                       if (preferred.isNotEmpty || notPreferred.isNotEmpty) ...[

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/calendar/utils/calendar_strings.dart';
 import '../../../../features/calendar/utils/pupil_band_presence.dart';
@@ -13,7 +14,7 @@ import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import 'mobile_convocation_card.dart';
 
-const Color _hairline = Color(0x1A122438);
+Color get _hairline =>  ThemeColours.fixed(0x1A122438);
 
 // "Presente" and the hours in the building; online only, the online hours.
 (String, String) presenceHeadline(PupilBandPresence presence)
@@ -108,14 +109,14 @@ class MobilePupilHead extends StatelessWidget
                   fontSize: tablet ? 19 : 17,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                 ),
               ),
             ),
           ),
           Padding(
             padding: EdgeInsets.symmetric(vertical: tablet ? 10 : 8),
-            child: const SizedBox(height: 1, child: ColoredBox(color: _hairline)),
+            child: SizedBox(height: 1, child: ColoredBox(color: _hairline)),
           ),
           if (empty)
             Text(
@@ -134,7 +135,7 @@ class MobilePupilHead extends StatelessWidget
                 fontSize: tablet ? 11.5 : 10.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.4,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               ),
             ),
             const SizedBox(height: 1),

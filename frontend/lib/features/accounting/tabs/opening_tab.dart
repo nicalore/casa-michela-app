@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -189,7 +190,7 @@ class _OpeningTabState extends State<OpeningTab>
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: dense ? 16 : 19,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                 ),
               ),
               const Spacer(),
@@ -203,11 +204,11 @@ class _OpeningTabState extends State<OpeningTab>
               height: 10,
               child: Stack(
                 children: [
-                  const Positioned.fill(child: ColoredBox(color: Color(0xFFE6EEEE))),
+                  Positioned.fill(child: ColoredBox(color: ThemeColours.of(0xFFE6EEEE))),
                   FractionallySizedBox(
                     widthFactor: all == 0 ? 1 : done / all,
                     heightFactor: 1,
-                    child: const DecoratedBox(decoration: BoxDecoration(gradient: AppTheme.brandGradient)),
+                    child: DecoratedBox(decoration: BoxDecoration(gradient: AppTheme.brandGradient)),
                   ),
                 ],
               ),
@@ -220,7 +221,7 @@ class _OpeningTabState extends State<OpeningTab>
     return Container(
       padding: EdgeInsets.symmetric(horizontal: dense ? 20 : 28, vertical: dense ? 14 : 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(dense ? 22 : 28),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -235,7 +236,7 @@ class _OpeningTabState extends State<OpeningTab>
                       : pupilsIntro(opening.lastDay))
                     TextSpan(
                       text: text,
-                      style: bold ? const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.trialOcean) : null,
+                      style: bold ? TextStyle(fontWeight: FontWeight.w700, color: AppTheme.trialOceanText) : null,
                     ),
                 ],
               ),

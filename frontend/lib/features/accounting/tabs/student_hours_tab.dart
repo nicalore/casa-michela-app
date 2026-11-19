@@ -509,16 +509,16 @@ class _StudentHoursTabState extends State<StudentHoursTab> with DestinationRefre
   {
     return switch (data.status)
     {
-      TeacherHoursStatus.live => const BandStatePill(label: kLiveStatus, accent: AppTheme.trialTealDeep, surface: Colors.white),
-      TeacherHoursStatus.ready => const BandStatePill(
+      TeacherHoursStatus.live => BandStatePill(label: kLiveStatus, accent: AppTheme.trialTealDeepText, surface: AppTheme.surface),
+      TeacherHoursStatus.ready => BandStatePill(
           label: kReadyStatus,
           accent: AppTheme.modifiedAccent,
           surface: AppTheme.trialGoldSurface,
         ),
-      TeacherHoursStatus.confirmed => const BandStatePill(
+      TeacherHoursStatus.confirmed => BandStatePill(
           label: kConfirmedStatus,
           icon: Icons.check_rounded,
-          accent: AppTheme.trialTealDeep,
+          accent: AppTheme.trialTealDeepText,
           surface: AppTheme.todaySurface,
         ),
       _ => null,
@@ -703,7 +703,7 @@ class _StudentHoursTabState extends State<StudentHoursTab> with DestinationRefre
           onRetry: _load,
         ),
       (final StudentHoursBand band, _) => _buildBody(band, dense),
-      _ => const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+      _ => Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
     };
 
     return Column(

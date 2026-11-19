@@ -51,7 +51,7 @@ class _AppBackButtonState extends State<AppBackButton>
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOut,
               decoration: BoxDecoration(
-                color: _hover ? AppTheme.trialGoldSurface : Colors.white,
+                color: _hover ? AppTheme.trialGoldSurface : AppTheme.surface,
                 borderRadius: BorderRadius.circular((widget.dense ? _denseHeight : _height) / 2),
                 border: Border.all(
                   color: _hover
@@ -63,7 +63,7 @@ class _AppBackButtonState extends State<AppBackButton>
               ),
               child: Icon(
                 Icons.arrow_back_rounded,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
                 size: widget.dense ? 21 : 24,
               ),
             ),

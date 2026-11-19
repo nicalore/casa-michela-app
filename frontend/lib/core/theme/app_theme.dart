@@ -1,132 +1,157 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'theme_colours.dart';
+
 abstract final class AppTheme
 {
 
-  static const Color trialTealDeep = Color(0xFF0B6478);
-  static const Color trialTurquoise = Color(0xFF17B3A3);
+  static Color get trialTealDeep => ThemeColours.of(0xFF0B6478);
+  // The deep accents as text, icons and lines: lit up in the dark to read on the dark cards.
+  static Color get trialTealDeepText => ThemeColours.lit(0xFF0B6478);
+  static Color get trialTurquoise => ThemeColours.of(0xFF17B3A3);
   static const Color trialOcean = Color(0xFF123A5E);
+  static Color get trialOceanText => ThemeColours.fixedLit(0xFF123A5E);
 
   static const Color trialDeepWater = Color(0xFF0B3350);
-  static const Color trialSeaGreen = Color(0xFF12907F);
-  static const Color trialLagoon = Color(0xFF1AA27E);
+  static Color get trialDeepWaterText => ThemeColours.fixedLit(0xFF0B3350);
+  static Color get trialSeaGreen => ThemeColours.of(0xFF12907F);
+  static Color get trialLagoon => ThemeColours.of(0xFF1AA27E);
 
-  static const Color trialViolet = Color(0xFF6C3F95);
+  static Color get trialViolet => ThemeColours.of(0xFF6C3F95);
+  static Color get trialVioletText => ThemeColours.lit(0xFF6C3F95);
 
-  static const Color trialGold = Color(0xFFE3A83C);
-  static const Color trialGoldSurface = Color(0xFFFDF3E5);
+  static Color get trialGold => ThemeColours.of(0xFFE3A83C);
+  static Color get trialGoldSurface => ThemeColours.of(0xFFFDF3E5);
 
-  static const Color trialSelection = Color(0x3317B3A3);
+  static Color get trialSelection => ThemeColours.of(0x3317B3A3);
 
   static const Color trialDanger = Color(0xFFC1503F);
+  static Color get trialDangerText => ThemeColours.fixedLit(0xFFC1503F);
 
   static const Color trialDangerLight = Color(0xFFD9705F);
 
-  static const Color trialPaper = Color(0xFFEBEFF3);
+  static Color get trialPaper => ThemeColours.fixed(0xFFEBEFF3);
 
-  static const Color trialInk = Color(0xFF122438);
-  static const Color trialLine = Color(0xFFDDE8E6);
+  // The page itself; in the dark trialPaper is the well inside a card, a step above it.
+  static Color get pagePaper => ThemeColours.isDark ? ThemeColours.darkPage : trialPaper;
 
-  static const Color trialMutedText = Color(0xFF5B7280);
+  // A white card, a dark one in the dark mode; surfaceEdge is a white rim around it.
+  static Color get surface => ThemeColours.fixed(0xFFFFFFFF);
+  static Color get surfaceEdge => ThemeColours.isDark ? trialLine : Colors.white;
 
-  static const Color closedLine = Color(0xFFCBD9D6);
+  static Color get trialInk => ThemeColours.fixed(0xFF122438);
+  static Color get trialLine => ThemeColours.of(0xFFDDE8E6);
 
-  static const Color modifiedAccent = Color(0xFF9A6B15);
+  static Color get trialMutedText => ThemeColours.fixed(0xFF5B7280);
 
-  static const Color modifiedAccentSurface = Color(0xFFF9ECD4);
+  static Color get closedLine => ThemeColours.of(0xFFCBD9D6);
 
-  static const Color closedSurface = Color(0xFFE2ECEA);
+  static Color get modifiedAccent => ThemeColours.of(0xFF9A6B15);
+
+  static Color get modifiedAccentSurface => ThemeColours.of(0xFFF9ECD4);
+
+  static Color get closedSurface => ThemeColours.of(0xFFE2ECEA);
 
   // A decided closure (holiday, works), under trialDanger text.
-  static const Color closedOverrideSurface = Color(0xFFFCEDEA);
+  static Color get closedOverrideSurface => ThemeColours.fixed(0xFFFCEDEA);
 
-  static const Color arrowDisabledSurface = Color(0xFFDDE3EA);
+  static Color get arrowDisabledSurface => ThemeColours.fixed(0xFFDDE3EA);
 
-  static const Color todaySurface = Color(0xFFEAF7F5);
+  static Color get todaySurface => ThemeColours.of(0xFFEAF7F5);
+
+  // Presence keeps its green in every theme, apart from the theme's main colour.
+  static Color get presenceAccent => ThemeColours.presenceAccent;
+  static Color get presenceAccentText => ThemeColours.presenceAccentText;
+  static Color get presenceSurface => ThemeColours.presenceSurface;
 
   // In-person badges (hours, mode, room), desktop and mobile: todaySurface read as grey.
-  static const Color presenceBadge = Color(0xFFC2DCD3);
+  static Color get presenceBadge => ThemeColours.of(0xFFC2DCD3);
 
   // Something paid that starts later: a renewal waiting for the running package or month.
   static const Color laterBlue = Color(0xFF1D5592);
-  static const Color laterBlueSurface = Color(0xFFE2ECF8);
+  static Color get laterBlueText => ThemeColours.fixedLit(0xFF1D5592);
+  static Color get laterBlueSurface => ThemeColours.fixed(0xFFE2ECF8);
 
   // A month paid, a renewal starting at once.
-  static const Color paidSurface = Color(0xFFE3F4F1);
+  static Color get paidSurface => ThemeColours.fixed(0xFFE3F4F1);
 
   // Facts and the current tariff inside a dialog.
-  static const Color quietSurface = Color(0xFFF5F8F8);
+  static Color get quietSurface => ThemeColours.of(0xFFF5F8F8);
 
   // Statistics charts: the greeting's ocean and violet, never presence teal or online gold.
-  static const Color chartOcean = Color(0xFF4077B3);
-  static const Color chartViolet = trialViolet;
+  static Color get chartOcean => ThemeColours.of(0xFF4077B3);
+  static Color get chartViolet => trialViolet;
   static const Color chartNavy = trialOcean;
-  static const Color chartLilac = Color(0xFFAE8ED0);
+  static Color get chartNavyText => trialOceanText;
+  static Color get chartLilac => ThemeColours.of(0xFFAE8ED0);
 
   // A lone series runs from ocean to violet, as the greeting does.
-  static const LinearGradient chartLineGradient = LinearGradient(colors: [chartOcean, chartViolet]);
+  static LinearGradient get chartLineGradient => LinearGradient(colors: [chartOcean, chartViolet]);
 
-  static const LinearGradient chartBarGradient = LinearGradient(
+  static LinearGradient get chartBarGradient => LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [chartViolet, chartNavy],
   );
 
   // Slices that stand for "none" or "other".
-  static const Color chartGray = slate400;
-  static const Color chartGrayLight = Color(0xFFCBD5E1);
+  static Color get chartGray => slate400;
+  static Color get chartGrayLight => ThemeColours.fixed(0xFFCBD5E1);
 
   // Ordered categories (age groups), lightest first.
-  static const List<Color> chartRamp = [
-    Color(0xFF77B5FB),
-    Color(0xFF6F9AE4),
-    Color(0xFF687FCC),
-    Color(0xFF6165B3),
-    Color(0xFF584C98),
-    Color(0xFF4E347D),
-    Color(0xFF421B62),
+  static List<Color> get chartRamp => [
+    ThemeColours.of(0xFF77B5FB),
+    ThemeColours.of(0xFF6F9AE4),
+    ThemeColours.of(0xFF687FCC),
+    ThemeColours.of(0xFF6165B3),
+    ThemeColours.of(0xFF584C98),
+    ThemeColours.of(0xFF4E347D),
+    ThemeColours.of(0xFF421B62),
   ];
 
   static const Color primary = Color(0xFF003C82);
+  static Color get primaryText => ThemeColours.fixedLit(0xFF003C82);
   static const Color primaryHover = Color(0xFF004D99);
+  static Color get primaryHoverText => ThemeColours.fixedLit(0xFF004D99);
   static const Color secondary = Color(0xFF0175C2);
 
   static const Color danger = Color(0xFFE53935);
   static const Color dangerHover = Color(0xFFEF5350);
 
-  static const Color pageBackground = Color(0xFFF4F7F9);
-  static const Color border = Color(0xFFE0E5EC);
-  static const Color divider = Color(0xFFF0F0F0);
-  static const Color surfaceHover = Color(0xFFF5F8FC);
-  static const Color iconHover = Color(0xFFE3F2FD);
+  static Color get pageBackground => ThemeColours.fixed(0xFFF4F7F9);
+  static Color get border => ThemeColours.fixed(0xFFE0E5EC);
+  static Color get divider => ThemeColours.fixed(0xFFF0F0F0);
+  static Color get surfaceHover => ThemeColours.fixed(0xFFF5F8FC);
+  static Color get iconHover => ThemeColours.fixed(0xFFE3F2FD);
 
-  static const Color slate800 = Color(0xFF1E293B);
-  static const Color slate700 = Color(0xFF334155);
-  static const Color slate500 = Color(0xFF64748B);
-  static const Color slate400 = Color(0xFF94A3B8);
-  static const Color slate200 = Color(0xFFE2E8F0);
+  static Color get slate800 => ThemeColours.fixed(0xFF1E293B);
+  static Color get slate700 => ThemeColours.fixed(0xFF334155);
+  static Color get slate500 => ThemeColours.fixed(0xFF64748B);
+  static Color get slate400 => ThemeColours.fixed(0xFF94A3B8);
+  static Color get slate200 => ThemeColours.fixed(0xFFE2E8F0);
 
-  static const Color hint = Color(0xFFB3B3B3);
+  static Color get hint => ThemeColours.fixed(0xFFB3B3B3);
 
-  static const Color mutedText = Color(0xFF8A8A8A);
-  static const Color secondaryText = Color(0xFF6B7280);
+  static Color get mutedText => ThemeColours.fixed(0xFF8A8A8A);
+  static Color get secondaryText => ThemeColours.fixed(0xFF6B7280);
 
-  static const LinearGradient brandGradient = LinearGradient(
+  static LinearGradient get brandGradient => LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [trialTealDeep, trialTurquoise],
   );
 
   // Something still to do, as a payment owed.
-  static const LinearGradient goldGradient = LinearGradient(
+  static LinearGradient get goldGradient => LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF0BE5E), Color(0xFFC98A1E)],
+    colors: [ThemeColours.of(0xFFF0BE5E), ThemeColours.of(0xFFC98A1E)],
   );
 
-  static const LinearGradient greetingGradient = LinearGradient(
-    colors: [trialOcean, trialViolet],
+  // Text: lit up in the dark.
+  static LinearGradient get greetingGradient => LinearGradient(
+    colors: [trialOceanText, trialVioletText],
     stops: [0.15, 0.95],
   );
 
@@ -135,7 +160,7 @@ abstract final class AppTheme
   // The pumpkin lightened for the dark mobile backdrop.
   static const Color halloweenPumpkinLight = Color(0xFFFFA24C);
 
-  static const LinearGradient halloweenGreetingGradient = LinearGradient(
+  static LinearGradient get halloweenGreetingGradient => LinearGradient(
     colors: [halloweenPumpkin, trialViolet],
     stops: [0.15, 0.95],
   );
@@ -145,7 +170,7 @@ abstract final class AppTheme
     stops: [0.15, 0.95],
   );
 
-  static const LinearGradient dismissGradient = LinearGradient(
+  static LinearGradient get dismissGradient => LinearGradient(
     colors: [trialOcean, trialViolet],
     stops: [0.15, 0.95],
   );
@@ -177,33 +202,35 @@ abstract final class AppTheme
         color: Colors.white,
       );
 
-  // Built once: ColorScheme.fromSeed must not run on every rebuild.
-  static final ThemeData light = _buildLightTheme();
+  // Built once per theme and mode: ColorScheme.fromSeed must not run on every rebuild.
+  static final Map<(ColourTheme, bool), ThemeData> _themes = {};
 
-  static ThemeData _buildLightTheme()
+  static ThemeData get theme => _themes[(ThemeColours.current.value, ThemeColours.isDark)] ??= _buildTheme();
+
+  static ThemeData _buildTheme()
   {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: trialTealDeep,
       primary: trialTealDeep,
       secondary: trialTurquoise,
-      surface: Colors.white,
-      brightness: Brightness.light,
+      surface: surface,
+      brightness: ThemeColours.isDark ? Brightness.dark : Brightness.light,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: trialPaper,
-      canvasColor: Colors.white,
+      scaffoldBackgroundColor: pagePaper,
+      canvasColor: surface,
       // Must match pubspec.yaml and google_fonts' fallbacks, or the engine font takes over.
       fontFamily: 'PlusJakartaSans',
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
+      progressIndicatorTheme: ProgressIndicatorThemeData(
         color: trialTurquoise,
       ),
-      textSelectionTheme: const TextSelectionThemeData(
-        cursorColor: trialTealDeep,
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: trialTealDeepText,
         selectionColor: trialSelection,
-        selectionHandleColor: trialTealDeep,
+        selectionHandleColor: trialTealDeepText,
       ),
       tooltipTheme: TooltipThemeData(
         decoration: tooltipDecoration,

@@ -98,7 +98,7 @@ class BandTimeRangeSlider extends StatelessWidget
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.plusJakartaSans(
-        color: struck ? AppTheme.trialMutedText : AppTheme.trialOcean,
+        color: struck ? AppTheme.trialMutedText : AppTheme.trialOceanText,
         fontWeight: FontWeight.w700,
         fontSize: 16,
         decoration: struck ? TextDecoration.lineThrough : null,
@@ -116,7 +116,7 @@ class BandTimeRangeSlider extends StatelessWidget
       style: GoogleFonts.plusJakartaSans(
         fontWeight: FontWeight.w700,
         fontSize: 18,
-        color: _isOpen ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+        color: _isOpen ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
       ),
     );
   }

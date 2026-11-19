@@ -19,7 +19,7 @@ class AuthPageBackground extends StatelessWidget
   Widget build(BuildContext context)
   {
     return Scaffold(
-      backgroundColor: AppTheme.trialPaper,
+      backgroundColor: AppTheme.pagePaper,
       body: Stack(
         children: [
           // CornerGlows position themselves; do not wrap them in Positioned.
@@ -29,7 +29,7 @@ class AuthPageBackground extends StatelessWidget
             edgeTint: AppTheme.trialOcean,
             intensity: 1.25,
           ),
-          const CornerGlow(
+          CornerGlow(
             corner: GlowCorner.bottomLeft,
             tint: AppTheme.trialSeaGreen,
             edgeTint: AppTheme.trialTealDeep,

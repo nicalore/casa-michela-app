@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../features/settings/utils/settings_strings.dart';
+import '../../../features/settings/utils/split_preview_clip.dart';
+import '../../../shared/widgets/whole_words.dart';
 import '../mobile_palette.dart';
 import 'mobile_current_card.dart';
 import 'mobile_glass_panel.dart';
@@ -24,8 +27,8 @@ const double _labelRowPadding = (46 - _tickSize) / 2;
 // The preview's parts were drawn for this height and scale with it.
 const double _drawnAt = 112;
 
-const List<Color> _lightSea = [
-  AppTheme.trialDeepWater,
+List<Color> get _lightSea => [
+  MobilePalette.seaTop,
   AppTheme.trialTealDeep,
   AppTheme.trialSeaGreen,
   AppTheme.trialLagoon,
@@ -36,10 +39,10 @@ const List<Color> _darkSea = [Color(0xFF050D15), Color(0xFF0A1B28), Color(0xFF0E
 BoxDecoration _tileDecoration({required bool chosen})
 {
   return BoxDecoration(
-    color: chosen ? Colors.white : Colors.white.withValues(alpha: 0.6),
+    color: chosen ? AppTheme.surface : AppTheme.surface.withValues(alpha: 0.6),
     borderRadius: BorderRadius.circular(_radius),
     border: Border.all(
-      color: chosen ? Colors.white : AppTheme.trialOcean.withValues(alpha: 0.1),
+      color: chosen ? AppTheme.surfaceEdge : AppTheme.trialOceanText.withValues(alpha: 0.1),
       width: _restBorder,
     ),
   );
@@ -48,7 +51,7 @@ BoxDecoration _tileDecoration({required bool chosen})
 // Drawn outside the tile, so the content keeps its place.
 Decoration? _chosenRim({required bool chosen})
 {
-  return chosen ? const MobileCurrentCard(BorderRadius.all(Radius.circular(_radius))) : null;
+  return chosen ? MobileCurrentCard(BorderRadius.all(Radius.circular(_radius))) : null;
 }
 
 TextStyle _labelStyle({required bool available, double fontSize = 16})
@@ -178,16 +181,17 @@ class MobileChoiceTick extends StatelessWidget
       height: _tickSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.trialGold, Color(0xFFF3C766)],
+          colors: [AppTheme.trialGold, ThemeColours.of(0xFFF3C766)],
         ),
         boxShadow: [
           BoxShadow(color: AppTheme.trialGold.withValues(alpha: 0.35), offset: const Offset(0, 3), blurRadius: 8),
         ],
       ),
-      child: const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialDeepWater),
+      // Dark on the gold in either mode.
+      child: Icon(Icons.check_rounded, size: 16, color: AppTheme.trialDeepWater),
     );
   }
 }
@@ -201,6 +205,9 @@ class MobileThemeTile extends StatelessWidget
 
   final double previewHeight;
 
+  // Automatic: the light look with the dark one over its lower right half.
+  final bool split;
+
   const MobileThemeTile({
     super.key,
     required this.label,
@@ -208,6 +215,7 @@ class MobileThemeTile extends StatelessWidget
     required this.chosen,
     this.available = true,
     this.previewHeight = _drawnAt,
+    this.split = false,
   });
 
   @override
@@ -224,7 +232,15 @@ class MobileThemeTile extends StatelessWidget
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _ThemePreview(dark: dark, height: previewHeight),
+            if (split)
+              Stack(
+                children: [
+                  _ThemePreview(dark: false, height: previewHeight),
+                  ClipPath(clipper: const SplitPreviewClip(), child: _ThemePreview(dark: true, height: previewHeight)),
+                ],
+              )
+            else
+              _ThemePreview(dark: dark, height: previewHeight),
             // Takes its neighbour's height when the badge has to go under the label.
             Expanded(
               child: Padding(
@@ -246,10 +262,13 @@ class MobileThemeTile extends StatelessWidget
                           child: Align(
                             widthFactor: 1,
                             alignment: Alignment.centerLeft,
-                            child: Text(
-                              label,
-                              style: _labelStyle(available: available, fontSize: 15.5).copyWith(
-                                fontWeight: FontWeight.w800,
+                            // A narrow phone at a large text size: «Automatico» gives way before it breaks.
+                            child: WholeWords(
+                              child: Text(
+                                label,
+                                style: _labelStyle(available: available, fontSize: 15.5).copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                           ),
@@ -313,7 +332,7 @@ class _ThemePreview extends StatelessWidget
                   colors: _darkSea,
                   stops: [0, 0.55, 1],
                 )
-              : const LinearGradient(
+              : LinearGradient(
                   begin: Alignment(-0.6, -1),
                   end: Alignment(0.6, 1),
                   colors: _lightSea,
@@ -333,13 +352,14 @@ class _ThemePreview extends StatelessWidget
                     child: _bar(7 * s, Colors.white.withValues(alpha: dark ? 0.85 : 0.92)),
                   ),
                   SizedBox(height: 7 * s),
+                  // The tabs shrink with a narrow tile.
                   Row(
                     children: [
-                      _bar(3 * s, AppTheme.trialGold, width: 17 * s),
+                      Flexible(child: _bar(3 * s, AppTheme.trialGold, width: 17 * s)),
                       SizedBox(width: 5 * s),
-                      _bar(3 * s, dash, width: 17 * s),
+                      Flexible(child: _bar(3 * s, dash, width: 17 * s)),
                       SizedBox(width: 5 * s),
-                      _bar(3 * s, dash, width: 17 * s),
+                      Flexible(child: _bar(3 * s, dash, width: 17 * s)),
                     ],
                   ),
                   SizedBox(height: 7 * s),
@@ -399,7 +419,7 @@ class MobileSwatches extends StatelessWidget
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: colors[i],
-                    border: Border.all(color: Colors.white, width: 2),
+                    border: Border.all(color: AppTheme.surfaceEdge, width: 2),
                     boxShadow: const [BoxShadow(color: Color(0x33000000), offset: Offset(0, 1), blurRadius: 3)],
                   ),
                 ),
@@ -421,7 +441,7 @@ class MobileLanguageCode extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final Color tint = available ? AppTheme.trialTealDeep : MobilePalette.mutedText;
+    final Color tint = available ? AppTheme.trialTealDeepText : MobilePalette.mutedText;
 
     return ExcludeSemantics(
       child: Container(

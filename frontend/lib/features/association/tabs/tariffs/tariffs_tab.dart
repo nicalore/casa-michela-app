@@ -32,19 +32,19 @@ const double _editWidth = 40;
 TextStyle _labelStyle(bool dense) => GoogleFonts.plusJakartaSans(
       fontSize: dense ? 14.5 : 16,
       fontWeight: FontWeight.w700,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
 
 TextStyle _headStyle(bool dense) => GoogleFonts.plusJakartaSans(
       fontSize: dense ? 13.5 : 15,
       fontWeight: FontWeight.w700,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
 
 TextStyle _priceStyle(bool dense) => GoogleFonts.plusJakartaSans(
       fontSize: dense ? 14 : 15.5,
       fontWeight: FontWeight.w700,
-      color: AppTheme.trialTealDeep,
+      color: AppTheme.trialTealDeepText,
     );
 
 TextStyle _quietStyle(bool dense) => GoogleFonts.plusJakartaSans(
@@ -153,7 +153,7 @@ class _TariffsTabState extends State<TariffsTab>
 
     if (_loading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+      return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
     if (tariffs == null)
@@ -201,7 +201,7 @@ Widget _edit(VoidCallback onTap)
     child: Center(
       child: FadeHoverIconButton(
         icon: Icons.edit_outlined,
-        color: AppTheme.trialTealDeep,
+        color: AppTheme.trialTealDeepText,
         hoverColor: AppTheme.trialGoldSurface,
         iconSize: 22,
         onTap: onTap,
@@ -313,7 +313,7 @@ class _HomeworkCard extends StatelessWidget
           ),
         ),
         for (final tariff in levels) ...[
-          const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+          Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
           Container(
             height: dense ? _denseRowHeight : _rowHeight,
             padding: const EdgeInsets.symmetric(horizontal: _rowPadding),
@@ -341,7 +341,7 @@ class _HomeworkCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (index, tariff) in levels.indexed) ...[
-          if (index > 0) const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+          if (index > 0) Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
           Padding(
             padding: const EdgeInsets.fromLTRB(_rowPadding, 10, _rowPadding / 2, 12),
             child: Column(
@@ -406,7 +406,7 @@ class _FeesCard extends StatelessWidget
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final (index, (fee, title, cents)) in rows.indexed) ...[
-            if (index > 0) const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+            if (index > 0) Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             Container(
               height: dense ? _denseRowHeight : _rowHeight,
               padding: const EdgeInsets.symmetric(horizontal: _rowPadding),

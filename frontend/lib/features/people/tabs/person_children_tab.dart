@@ -624,7 +624,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
   {
     if (_isLoadingData)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );

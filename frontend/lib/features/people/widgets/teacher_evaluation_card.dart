@@ -127,7 +127,7 @@ class _TeacherEvaluationCardState extends State<TeacherEvaluationCard>
     final TextStyle style = GoogleFonts.plusJakartaSans(
       fontSize: dense ? _denseScoreSize : 17,
       fontWeight: FontWeight.w800,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
     final TextScaler scaler = MediaQuery.textScalerOf(context);
 
@@ -171,7 +171,7 @@ class _TeacherEvaluationCardState extends State<TeacherEvaluationCard>
       decoration: BoxDecoration(color: AppTheme.trialGoldSurface, borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
-          const Icon(Icons.info_outline_rounded, size: 20, color: AppTheme.trialTealDeep),
+          Icon(Icons.info_outline_rounded, size: 20, color: AppTheme.trialTealDeepText),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -179,7 +179,7 @@ class _TeacherEvaluationCardState extends State<TeacherEvaluationCard>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14.5,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
           ),
@@ -296,7 +296,7 @@ class _CriterionTileState extends State<_CriterionTile>
   static const double _ringWidth = 2;
 
   // Opaque, so the fill's fade never passes through a darker shade.
-  static final Color _restFill = Color.alphaBlend(AppTheme.trialPaper.withValues(alpha: 0.6), Colors.white);
+  static Color get _restFill => Color.alphaBlend(AppTheme.trialPaper.withValues(alpha: 0.6), AppTheme.surface);
 
   bool _hover = false;
 
@@ -344,7 +344,7 @@ class _CriterionTileState extends State<_CriterionTile>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 15.5,
                     fontWeight: FontWeight.w800,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
                 const SizedBox(height: 4),

@@ -94,7 +94,7 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
         ),
@@ -109,9 +109,9 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
                 fontWeight: FontWeight.w600,
               ),
               decoration: AppTheme.tooltipDecoration,
-              child: const Icon(
+              child: Icon(
                 Icons.error_outline_rounded,
-                color: AppTheme.trialDanger,
+                color: AppTheme.trialDangerText,
                 size: 22,
               ),
             ),
@@ -123,7 +123,7 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
             waitDuration: const Duration(milliseconds: 400),
             child: FadeHoverIconButton(
               icon: Icons.edit_rounded,
-              color: AppTheme.trialTealDeep,
+              color: AppTheme.trialTealDeepText,
               hoverColor: AppTheme.trialGoldSurface,
               onTap: onEdit,
             ),
@@ -136,7 +136,7 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
             waitDuration: const Duration(milliseconds: 400),
             child: FadeHoverIconButton(
               icon: Icons.delete_outline_rounded,
-              color: AppTheme.trialDanger,
+              color: AppTheme.trialDangerText,
               hoverColor: AppTheme.trialGoldSurface,
               onTap: onRemove,
             ),

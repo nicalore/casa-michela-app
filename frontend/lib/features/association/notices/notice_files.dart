@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import 'notice_format.dart';
@@ -15,9 +16,9 @@ import 'notice_strings.dart';
 const double _chipHeight = 44;
 const double _chipRadius = 12;
 const double _badgeSize = 28;
-const Color _chipSurface = Color(0xFFF5FAF9);
+Color get _chipSurface => ThemeColours.of(0xFFF5FAF9);
 const Duration _hoverFade = Duration(milliseconds: 180);
-const Color _dashColor = Color(0xFF9FC9C3);
+Color get _dashColor => ThemeColours.of(0xFF9FC9C3);
 
 class NoticeFileChip extends StatefulWidget
 {
@@ -89,13 +90,13 @@ class _NoticeFileChipState extends State<NoticeFileChip>
           if (onRemove != null)
             FadeHoverIconButton(
               icon: Icons.delete_outline_rounded,
-              color: AppTheme.trialDanger,
+              color: AppTheme.trialDangerText,
               hoverColor: AppTheme.trialGoldSurface,
               onTap: onRemove,
             )
           else
             TweenAnimationBuilder<Color?>(
-              tween: ColorTween(end: lit ? AppTheme.trialTealDeep : AppTheme.trialMutedText),
+              tween: ColorTween(end: lit ? AppTheme.trialTealDeepText : AppTheme.trialMutedText),
               duration: _hoverFade,
               curve: Curves.easeOut,
               builder: (context, color, _) => Icon(Icons.download_rounded, size: 19, color: color),
@@ -197,7 +198,7 @@ class _NoticeDropZoneState extends State<NoticeDropZone>
       fontSize: 14,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.4,
-      color: AppTheme.trialTealDeep,
+      color: AppTheme.trialTealDeepText,
     );
 
     return DropTarget(
@@ -220,7 +221,7 @@ class _NoticeDropZoneState extends State<NoticeDropZone>
                 height: _chipHeight,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Color.lerp(Colors.white, AppTheme.trialGoldSurface, t),
+                  color: Color.lerp(AppTheme.surface, AppTheme.trialGoldSurface, t),
                   borderRadius: BorderRadius.circular(_chipRadius),
                 ),
                 child: child,
@@ -229,7 +230,7 @@ class _NoticeDropZoneState extends State<NoticeDropZone>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.upload_file_rounded, size: 20, color: AppTheme.trialTealDeep),
+                Icon(Icons.upload_file_rounded, size: 20, color: AppTheme.trialTealDeepText),
                 const SizedBox(width: 10),
                 Text(kAddFile, style: strong),
                 const SizedBox(width: 8),

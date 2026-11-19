@@ -174,10 +174,10 @@ class _CustomFilterMenuState<T> extends State<CustomFilterMenu<T>> with CloseOnR
             right: (isActive && widget.showClearIcon) ? 12 : 16,
           ),
           decoration: BoxDecoration(
-            color: isHighlighted ? AppTheme.surfaceHover : Colors.white,
+            color: isHighlighted ? AppTheme.surfaceHover : AppTheme.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isHighlighted ? AppTheme.primary : AppTheme.border,
+              color: isHighlighted ? AppTheme.primaryText : AppTheme.border,
               width: 1.5,
             ),
             boxShadow: const [
@@ -187,7 +187,7 @@ class _CustomFilterMenuState<T> extends State<CustomFilterMenu<T>> with CloseOnR
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, color: AppTheme.primary, size: 18),
+              Icon(widget.icon, color: AppTheme.primaryText, size: 18),
               const SizedBox(width: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 160),
@@ -196,7 +196,7 @@ class _CustomFilterMenuState<T> extends State<CustomFilterMenu<T>> with CloseOnR
                   maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w600,
-                    color: isActive ? AppTheme.primary : AppTheme.mutedText,
+                    color: isActive ? AppTheme.primaryText : AppTheme.mutedText,
                   ),
                 ),
               ),
@@ -302,7 +302,7 @@ class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
         width: widget.menuWidth,
         constraints: const BoxConstraints(maxHeight: 350),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: AppTheme.overlayShadow,
         ),
@@ -392,7 +392,7 @@ class _FilterMenuItemState extends State<_FilterMenuItem>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: AppTheme.primary,
+                    color: AppTheme.primaryText,
                   ),
                 ),
               ),

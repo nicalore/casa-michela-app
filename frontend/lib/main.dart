@@ -9,6 +9,7 @@ import 'core/layout/dense_text_scale.dart';
 import 'core/platform/app_platform.dart';
 import 'core/platform/visual_effects.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/colour_theme_scope.dart';
 import 'core/utils/splash_bridge.dart';
 import 'features/auth/reset_link.dart';
 import 'features/notifications/device_notifications.dart';
@@ -19,6 +20,7 @@ import 'mobile/mobile_app.dart';
 import 'routing/app_router.dart';
 import 'routing/dialog_history_guard.dart';
 import 'routing/notification_destinations.dart';
+import 'services/account_colour_theme.dart';
 import 'services/api_service.dart';
 import 'services/seen_tours.dart';
 import 'shared/widgets/dialog_components.dart';
@@ -36,6 +38,7 @@ void main() async
   }
 
   usePathUrlStrategy();
+  await AccountColourTheme.follow();
   await ApiService().restoreSession();
 
   if (AppPlatform.isNativeMobile)
@@ -78,35 +81,37 @@ class CasaMichelaApp extends StatelessWidget
   @override
   Widget build(BuildContext context) 
   {
-    return MaterialApp.router(
-      title: 'Associazione Casa Michela',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      routerConfig: appRouter,
-      builder: (context, child) 
-      {
-        return DenseTextScale(
-          child: _ScrollTooltipDismisser(
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                tooltipTheme: Theme.of(context).tooltipTheme.copyWith(
-                  exitDuration: Duration.zero,
+    return ColourThemeScope(
+      builder: (context) => MaterialApp.router(
+        title: 'Associazione Casa Michela',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.theme,
+        routerConfig: appRouter,
+        builder: (context, child) 
+        {
+          return DenseTextScale(
+            child: _ScrollTooltipDismisser(
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  tooltipTheme: Theme.of(context).tooltipTheme.copyWith(
+                    exitDuration: Duration.zero,
+                  ),
                 ),
-              ),
-              child: VisualEffects.scope(
-                // Over every page and dialog, outside what dialogs blur behind them.
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    RepaintBoundary(key: dialogBackdropKey, child: child!),
-                    const NotificationToastLayer(),
-                  ],
+                child: VisualEffects.scope(
+                  // Over every page and dialog, outside what dialogs blur behind them.
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      RepaintBoundary(key: dialogBackdropKey, child: child!),
+                      const NotificationToastLayer(),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

@@ -93,7 +93,7 @@ class StudentHoursTable extends StatelessWidget
         return Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(24),
             boxShadow: AppTheme.cardShadow,
           ),
@@ -208,7 +208,7 @@ class _Head extends StatelessWidget
           ),
           Container(
             height: 28,
-            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
             child: hoursCellsOf([
               HoursCell(
                 width: c.name,
@@ -314,7 +314,7 @@ class _Row extends StatelessWidget
           style: GoogleFonts.plusJakartaSans(
             fontSize: 14.5,
             fontWeight: FontWeight.w700,
-            color: row.absent ? AppTheme.trialMutedText : AppTheme.trialOcean,
+            color: row.absent ? AppTheme.trialMutedText : AppTheme.trialOceanText,
           ),
           onTap: () => onOpen(row),
         ),
@@ -333,7 +333,7 @@ class _Row extends StatelessWidget
 
     return Container(
       height: hoursRowHeight(_shownWork.length, first: first),
-      decoration: first ? null : const BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
+      decoration: first ? null : BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
       child: hoursCellsOf([
         HoursCell(
           width: c.name,
@@ -405,7 +405,7 @@ class _Tariff extends StatelessWidget
           kTariffKindLabels[kind] ?? '',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
         ),
         const SizedBox(height: 1),
         Text(
@@ -473,7 +473,7 @@ class _Situation extends StatelessWidget
     }
 
     final bool due = situation.isDue;
-    final Color ink = due ? AppTheme.modifiedAccent : AppTheme.trialOcean;
+    final Color ink = due ? AppTheme.modifiedAccent : AppTheme.trialOceanText;
     final String? below = said.below;
     final String? badge = said.badge;
 
@@ -543,7 +543,7 @@ class _Chip extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: ahead ? AppTheme.trialTealDeep : AppTheme.laterBlue,
+          color: ahead ? AppTheme.trialTealDeepText : AppTheme.laterBlueText,
         ),
       ),
     );
@@ -568,7 +568,7 @@ class _Totals extends StatelessWidget
 
     return Container(
       height: 44,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: kHoursHeadSurface,
         border: Border(top: BorderSide(color: AppTheme.trialLine)),
       ),

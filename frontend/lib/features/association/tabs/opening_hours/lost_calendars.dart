@@ -219,7 +219,7 @@ Future<bool?> showLostCalendarsConfirmation({
           label: 'ANNULLA',
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: _buttonHeight,
           fontSize: _buttonFontSize,
           onPressed: () => Navigator.of(confirmContext).pop(false),
@@ -228,7 +228,7 @@ Future<bool?> showLostCalendarsConfirmation({
           label: confirmLabel,
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           height: _buttonHeight,
           fontSize: _buttonFontSize,
           onPressed: () => Navigator.of(confirmContext).pop(true),
@@ -264,7 +264,7 @@ Future<bool?> showLostCalendarsConfirmation({
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       height: 1.4,
-                      color: AppTheme.trialOcean,
+                      color: AppTheme.trialOceanText,
                     ),
                   ),
                 ),
@@ -314,7 +314,7 @@ Future<bool?> showLostCalendarsConfirmation({
   );
 }
 
-final TextStyle _prose = GoogleFonts.plusJakartaSans(
+TextStyle get _prose => GoogleFonts.plusJakartaSans(
   fontSize: 16,
   fontWeight: FontWeight.w500,
   height: 1.45,

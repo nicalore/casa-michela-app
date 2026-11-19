@@ -239,7 +239,7 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.trialOcean,
+                      color: AppTheme.trialOceanText,
                     ),
                   ),
                   if (_summary.isNotEmpty) ...[
@@ -261,14 +261,14 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
             if (widget.onEdit != null)
               FadeHoverIconButton(
                 icon: Icons.edit_outlined,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
                 hoverColor: AppTheme.trialGoldSurface,
                 onTap: widget.onEdit!,
               ),
             if (widget.onDelete case final delete?)
               FadeHoverIconButton(
                 icon: Icons.delete_outline_rounded,
-                color: AppTheme.trialDanger,
+                color: AppTheme.trialDangerText,
                 hoverColor: AppTheme.trialGoldSurface,
                 onTap: delete,
               ),
@@ -382,7 +382,7 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
             label: 'ELIMINA',
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: delete,
@@ -537,7 +537,7 @@ class _TeacherPickerState extends State<TeacherPicker>
                   Text(
                     '${widget.chosen.length} di $max',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.trialTealDeep,
+                      color: AppTheme.trialTealDeepText,
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
                     ),

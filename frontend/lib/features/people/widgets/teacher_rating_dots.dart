@@ -119,9 +119,9 @@ class _TeacherRatingDotsState extends State<TeacherRatingDots>
       child: Stack(
         children: [
           Positioned.fill(
-            child: _buildDotRow(const DecoratedBox(
+            child: _buildDotRow(DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.surface,
                 shape: BoxShape.circle,
                 border: Border.fromBorderSide(
                   BorderSide(color: AppTheme.trialLine, width: 2),
@@ -145,8 +145,8 @@ class _TeacherRatingDotsState extends State<TeacherRatingDots>
               blendMode: BlendMode.srcIn,
               shaderCallback: (bounds) =>
                   AppTheme.greetingGradient.createShader(bounds),
-              child: _buildDotRow(const DecoratedBox(
-                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: _buildDotRow(DecoratedBox(
+                decoration: BoxDecoration(color: AppTheme.surface, shape: BoxShape.circle),
               )),
             ),
           ),

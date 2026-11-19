@@ -1,3 +1,6 @@
+import '../../../core/theme/theme_choice.dart';
+import '../../../core/theme/theme_colours.dart';
+
 class MeResponse
 {
   final String taxCode;
@@ -28,6 +31,12 @@ class MeResponse
 
   // PRESIDENT, VICE_PRESIDENT, TREASURER or null; mirrors _BOARD_ROLES on the server.
   final String? boardRole;
+
+  // The account's colours, on every device it signs in on.
+  final ColourTheme colourTheme;
+
+  // Light, dark or the device's own, chosen like the colours.
+  final ThemeChoice themeChoice;
 
   // The kinds of report they receive (IT managers, the president); empty for the rest.
   final List<String> reportKinds;
@@ -74,6 +83,8 @@ class MeResponse
     this.hasParentalResponsibility = false,
     this.autonomousBookings = false,
     this.boardRole,
+    this.colourTheme = ColourTheme.casaMichela,
+    this.themeChoice = ThemeChoice.light,
     this.reportKinds = const [],
     this.managesUpdates = false,
     this.lastLogin,
@@ -109,6 +120,8 @@ class MeResponse
       hasParentalResponsibility: json['has_parental_responsibility'] ?? false,
       autonomousBookings: json['autonomous_bookings'] ?? false,
       boardRole: json['board_role'] as String?,
+      colourTheme: ColourTheme.fromKey(json['colour_theme'] as String?),
+      themeChoice: ThemeChoice.fromKey(json['theme_mode'] as String?),
       reportKinds: List<String>.from(json['report_kinds'] ?? const []),
       managesUpdates: json['manages_updates'] ?? false,
       // The server sends UTC; convert to local or it reads hours behind.

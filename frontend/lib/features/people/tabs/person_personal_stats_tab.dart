@@ -30,7 +30,7 @@ import 'statistics/widgets/stats_layout.dart';
 import 'statistics/widgets/trend_band.dart';
 import 'statistics/widgets/trend_line_chart.dart';
 
-const Color _sectionDivider = AppTheme.trialLine;
+Color get _sectionDivider => AppTheme.trialLine;
 
 const Duration _fetchFade = Duration(milliseconds: 150);
 
@@ -279,7 +279,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
   {
     if (_isLoading)
     {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
       );
     }
@@ -611,16 +611,16 @@ class PersonalAvailabilityCard extends StatelessWidget
                   ),
                 ],
               ),
-              const StatPartDivider(color: _sectionDivider),
+              StatPartDivider(color: _sectionDivider),
               const StatSectionTitle(kAvailabilityTrendTitle),
               SizedBox(height: metrics.titleGap),
               _personalTrend(context, period, statistics.monthlyTrend, TrendScale.count, axis),
-              const StatPartDivider(color: _sectionDivider),
+              StatPartDivider(color: _sectionDivider),
               const StatSectionTitle(kLessonTrendTitle),
               SizedBox(height: metrics.titleGap),
               _personalTrend(context, period, statistics.monthlyLessonMinutes, TrendScale.minutes, axis),
               if (statistics.hasPay) ...[
-                const StatPartDivider(color: _sectionDivider),
+                StatPartDivider(color: _sectionDivider),
                 Row(
                   children: [
                     _Figure(label: kGrossPayLabel, value: grossPayText(statistics)),
@@ -628,12 +628,12 @@ class PersonalAvailabilityCard extends StatelessWidget
                     _Figure(label: kPaidHoursLabel, value: paidHoursText(statistics)),
                   ],
                 ),
-                const StatPartDivider(color: _sectionDivider),
+                StatPartDivider(color: _sectionDivider),
                 const StatSectionTitle(kPayTrendTitle),
                 SizedBox(height: metrics.titleGap),
                 _personalTrend(context, period, statistics.monthlyPay, TrendScale.cents, axis, bars: true),
               ],
-              const StatPartDivider(color: _sectionDivider),
+              StatPartDivider(color: _sectionDivider),
               RankingPair(
                 first: _subjectHoursRanking(kTaughtDisciplinesTitle, statistics.taughtDisciplines),
                 second: _peopleHoursRanking(kTopStudentsTitle, statistics.topStudents),
@@ -689,7 +689,7 @@ class PersonalAppreciationCard extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: dense ? 13 : 14,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialDeepWater,
+          color: AppTheme.trialDeepWaterText,
         ),
       ),
     );
@@ -876,15 +876,15 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
                 ),
               ],
             ),
-            const StatPartDivider(color: _sectionDivider),
+            StatPartDivider(color: _sectionDivider),
             StatSectionTitle(presenceTrendTitle(online: online)),
             SizedBox(height: StatMetrics.of(context).titleGap),
             _personalTrend(context, widget.period, statistics.monthlyTrend, TrendScale.count, axis),
-            const StatPartDivider(color: _sectionDivider),
+            StatPartDivider(color: _sectionDivider),
             StatSectionTitle(pupilLessonTrendTitle(online: online)),
             SizedBox(height: StatMetrics.of(context).titleGap),
             _personalTrend(context, widget.period, statistics.monthlyLessonMinutes, TrendScale.minutes, axis),
-            const StatPartDivider(color: _sectionDivider),
+            StatPartDivider(color: _sectionDivider),
             RankingPair(
               first: _subjectHoursRanking(subjectHoursTitle(_kind), widget.statistics.lessonHours.of(_kind)),
               second: _peopleHoursRanking(kTopTeachersTitle, widget.statistics.topTeachers),

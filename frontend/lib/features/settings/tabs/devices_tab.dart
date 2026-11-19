@@ -128,7 +128,7 @@ class _DevicesTabState extends State<DevicesTab>
             label: 'ANNULLA',
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -137,7 +137,7 @@ class _DevicesTabState extends State<DevicesTab>
             label: kRevokeSessionLabel.toUpperCase(),
             icon: Icons.logout_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: ()
@@ -241,12 +241,12 @@ class _DevicesTabState extends State<DevicesTab>
     // Part of the section handover, else it paints over the section still leaving.
     if (sessions == null)
     {
-      return const PageTransitionItem(
+      return PageTransitionItem(
         slot: PageTransitionItem.header,
         child: Center(
           child: Padding(
             padding: EdgeInsets.only(top: 40.0),
-            child: CircularProgressIndicator(color: AppTheme.trialTealDeep),
+            child: CircularProgressIndicator(color: AppTheme.trialTealDeepText),
           ),
         ),
       );
@@ -275,7 +275,7 @@ class _DevicesTabState extends State<DevicesTab>
                   label: kRevokeOthersLabel.toUpperCase(),
                   icon: Icons.logout_rounded,
                   gradient: AppTheme.dangerGradient,
-                  accent: AppTheme.trialDanger,
+                  accent: AppTheme.trialDangerText,
                   busy: _revokingOthers,
                   onPressed: _confirmRevokeOthers,
                 ),

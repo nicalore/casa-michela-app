@@ -82,7 +82,7 @@ class _Body extends StatelessWidget
     return Container(
       width: width,
       height: height,
-      color: AppTheme.trialPaper,
+      color: AppTheme.pagePaper,
       child: Stack(
         children: [
           const CornerGlow(
@@ -91,7 +91,7 @@ class _Body extends StatelessWidget
             edgeTint: AppTheme.trialOcean,
             intensity: 1.25,
           ),
-          const CornerGlow(
+          CornerGlow(
             corner: GlowCorner.bottomLeft,
             tint: AppTheme.trialSeaGreen,
             edgeTint: AppTheme.trialTealDeep,

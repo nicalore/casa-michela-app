@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/utils/day_marks.dart';
 import '../mobile_palette.dart';
@@ -14,8 +15,8 @@ const double _dayDiameter = 38;
 const double _dotSize = 5;
 const double _arrowSize = 36;
 
-const Color _disabledDay = Color(0xFFA9B6BE);
-const Color _closedDay = Color(0xFF7F909B);
+Color get _disabledDay =>  ThemeColours.fixed(0xFFA9B6BE);
+Color get _closedDay => ThemeColours.fixed(0xFF7F909B);
 
 const Duration _turnDuration = Duration(milliseconds: 300);
 
@@ -174,7 +175,7 @@ class _MonthPickerState extends State<_MonthPicker>
           child: Icon(
             icon,
             size: 24,
-            color: enabled ? AppTheme.trialTealDeep : AppTheme.trialInk.withValues(alpha: 0.22),
+            color: enabled ? AppTheme.trialTealDeepText : AppTheme.trialInk.withValues(alpha: 0.22),
           ),
         ),
       );
@@ -208,7 +209,7 @@ class _MonthPickerState extends State<_MonthPicker>
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.9,
-                    color: hasToday ? AppTheme.trialTealDeep : AppTheme.trialInk.withValues(alpha: 0.22),
+                    color: hasToday ? AppTheme.trialTealDeepText : AppTheme.trialInk.withValues(alpha: 0.22),
                   ),
                 ),
               ),

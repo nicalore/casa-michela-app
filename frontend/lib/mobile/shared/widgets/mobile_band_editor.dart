@@ -159,7 +159,7 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
                 ),
                 if (locked) ...[
                   const SizedBox(width: 6),
-                  const Icon(Icons.lock_outline_rounded, size: 14, color: MobilePalette.mutedText),
+                  Icon(Icons.lock_outline_rounded, size: 14, color: MobilePalette.mutedText),
                 ],
               ],
             ),
@@ -408,7 +408,7 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
       duration: _move,
       padding: const EdgeInsets.fromLTRB(14, 8, 12, 14),
       decoration: BoxDecoration(
-        color: shut ? Colors.white.withValues(alpha: 0.45) : Colors.white,
+        color: shut ? AppTheme.surface.withValues(alpha: 0.45) : AppTheme.surface,
         borderRadius: BorderRadius.circular(_radius),
         border: Border.all(color: AppTheme.trialInk.withValues(alpha: 0.06)),
         boxShadow: shut ? null : _cardShadow,
@@ -563,7 +563,7 @@ class _YesNo extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13.5,
               fontWeight: FontWeight.w800,
-              color: on ? (yes ? AppTheme.trialTealDeep : AppTheme.trialInk) : MobilePalette.mutedText,
+              color: on ? (yes ? AppTheme.trialTealDeepText : AppTheme.trialInk) : MobilePalette.mutedText,
             ),
             child: Text(label),
           ),
@@ -595,7 +595,7 @@ class _YesNo extends StatelessWidget
                   heightFactor: 1,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(9),
                       boxShadow: const [BoxShadow(color: Color(0x1F122438), offset: Offset(0, 2), blurRadius: 6)],
                     ),

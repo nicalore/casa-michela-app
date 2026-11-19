@@ -15,7 +15,7 @@ const double _dayDiameter = 36;
 const double _dotSize = 5;
 
 // Fading from Colors.transparent (black) would pass through grey.
-final Color _goldSurfaceClear = AppTheme.trialGoldSurface.withValues(alpha: 0);
+Color get _goldSurfaceClear => AppTheme.trialGoldSurface.withValues(alpha: 0);
 
 class AppCalendarButton extends StatefulWidget
 {
@@ -200,7 +200,7 @@ class _MonthPopoverState extends State<_MonthPopover>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
               ),
@@ -336,7 +336,7 @@ class _DayCellState extends State<_DayCell>
             ? kCalendarDisabled
             : widget.closed
                 ? AppTheme.trialMutedText
-                : (tinted ? AppTheme.trialTealDeep : AppTheme.trialInk);
+                : (tinted ? AppTheme.trialTealDeepText : AppTheme.trialInk);
 
     final Widget cell = SizedBox(
       height: _cellHeight,

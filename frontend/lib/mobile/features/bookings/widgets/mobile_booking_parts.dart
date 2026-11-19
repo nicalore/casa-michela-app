@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/lessons/models/band_offer.dart';
@@ -57,7 +58,7 @@ class MobileAddModeButton extends StatelessWidget
           letterSpacing: 0.7,
           gap: 4,
           padding: EdgeInsets.only(left: tablet ? 11 : 9, right: tablet ? 15 : 12),
-          shadow: const [BoxShadow(color: Color(0x330B6478), offset: Offset(0, 4), blurRadius: 10)],
+          shadow: [BoxShadow(color: ThemeColours.keep(0x330B6478), offset: Offset(0, 4), blurRadius: 10)],
         ),
       ),
     );
@@ -141,7 +142,7 @@ class MobileHoursChip extends StatelessWidget
     final Color surface = closed
         ? MobilePalette.pastSurface
         : (online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge);
-    final Color ink = closed ? MobilePalette.mutedText : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);
+    final Color ink = closed ? MobilePalette.mutedText : (online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText);
     final Color edge = closed
         ? MobilePalette.pastEdge
         : (online ? MobilePalette.onlineChipEdge : MobilePalette.presenceChipEdge);
@@ -224,7 +225,7 @@ class MobileBandTag extends StatelessWidget
   Widget build(BuildContext context)
   {
     final bool online = mode == kOnlineMode;
-    final Color accent = online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
+    final Color accent = online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText;
 
     final TextStyle hours = GoogleFonts.plusJakartaSans(
       fontSize: 13.5,
@@ -306,7 +307,7 @@ class MobileBandTag extends StatelessWidget
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
                 height: 1.45,
-                color: offer.left <= 0 ? AppTheme.trialDanger : accent,
+                color: offer.left <= 0 ? AppTheme.trialDangerText : accent,
               ),
             ),
           ),
@@ -356,7 +357,7 @@ class MobileFieldHead extends StatelessWidget
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: over ? AppTheme.trialDanger : AppTheme.trialTealDeep,
+                  color: over ? AppTheme.trialDangerText : AppTheme.trialTealDeepText,
                 ),
               ),
             ),
@@ -423,7 +424,7 @@ class MobileSubjectGroup extends StatelessWidget
       curve: Curves.easeOutCubic,
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: open ? 0.4 : 0),
+        color: AppTheme.surface.withValues(alpha: open ? 0.4 : 0),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -439,7 +440,7 @@ class MobileSubjectGroup extends StatelessWidget
                 constraints: const BoxConstraints(minHeight: 50),
                 padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xB8FFFFFF),
+                  color: ThemeColours.fixed(0xB8FFFFFF),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppTheme.trialInk.withValues(alpha: 0.06)),
                 ),
@@ -467,7 +468,7 @@ class MobileSubjectGroup extends StatelessWidget
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w700,
                                   height: 1.35,
-                                  color: AppTheme.trialTealDeep,
+                                  color: AppTheme.trialTealDeepText,
                                 ),
                               ),
                             ),

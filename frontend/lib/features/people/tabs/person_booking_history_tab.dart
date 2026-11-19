@@ -434,7 +434,7 @@ class _PersonBookingHistoryTabState extends State<PersonBookingHistoryTab>
       style: GoogleFonts.plusJakartaSans(
         fontSize: dense ? 13.5 : 17,
         fontWeight: FontWeight.w700,
-        color: AppTheme.trialOcean,
+        color: AppTheme.trialOceanText,
       ),
     );
 
@@ -557,7 +557,7 @@ class _PersonBookingHistoryTabState extends State<PersonBookingHistoryTab>
                       ),
                     SizedBox(height: gap),
                     if (shown == null && _fetching)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(top: 60),
                         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
                       )
@@ -612,7 +612,7 @@ class _Figure extends StatelessWidget
               style: GoogleFonts.plusJakartaSans(
                 fontSize: sizes.figureSize,
                 fontWeight: FontWeight.w800,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -656,7 +656,7 @@ class _FiguresCard extends StatelessWidget
     return Container(
       padding: sizes.figuresPadding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(sizes.radius + 6),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -710,7 +710,7 @@ class _DayCard extends StatelessWidget
           fontSize: sizes.dateSize,
           fontWeight: FontWeight.w700,
           height: 1.15,
-          color: AppTheme.trialOcean,
+          color: AppTheme.trialOceanText,
         ),
       ),
     );
@@ -779,7 +779,7 @@ class _DayCard extends StatelessWidget
               Expanded(
                 child: Container(
                   padding: EdgeInsets.only(left: sizes.dividerGap),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     border: Border(left: BorderSide(color: AppTheme.trialLine)),
                   ),
                   child: _buildStretches(),
@@ -814,7 +814,7 @@ class _DayCard extends StatelessWidget
       child: Container(
         padding: sizes.cardPadding,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(sizes.radius - sizes.rim),
         ),
         child: content,
@@ -875,7 +875,7 @@ class _StretchBlock extends StatelessWidget
             fontSize: sizes.chipSize,
             fontWeight: FontWeight.w700,
             height: 1.2,
-            color: _online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep,
+            color: _online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText,
           ),
         ),
       ),
@@ -996,7 +996,7 @@ class _BookingRowState extends State<_BookingRow>
               fontSize: _sizes.nameSize,
               fontWeight: FontWeight.w700,
               height: 1.3,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
         ),

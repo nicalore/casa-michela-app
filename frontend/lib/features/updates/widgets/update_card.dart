@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/whole_words.dart';
 import '../../association/notices/notice_format.dart';
@@ -101,7 +102,7 @@ class _UpdateCardState extends State<UpdateCard>
                 fontSize: dense ? 15.5 : 19,
                 fontWeight: FontWeight.w700,
                 height: under ? 1.3 : null,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
           ),
@@ -145,7 +146,7 @@ class _UpdateCardState extends State<UpdateCard>
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(dense ? _denseRadius : _radius),
             border: Border.all(color: AppTheme.trialGold.withValues(alpha: _hover ? 1 : 0), width: 2),
             boxShadow: AppTheme.cardShadow,
@@ -170,7 +171,7 @@ class _UpdateCardState extends State<UpdateCard>
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: dense ? 12.5 : 14,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.trialTealDeep,
+                            color: AppTheme.trialTealDeepText,
                           ),
                         ),
                       ),
@@ -192,7 +193,7 @@ class _UpdateCardState extends State<UpdateCard>
                       fontSize: dense ? 13.5 : 15,
                       fontWeight: FontWeight.w500,
                       height: 1.45,
-                      color: const Color(0xFF33495A),
+                      color: ThemeColours.fixed(0xFF33495A),
                     ),
                   ),
                 ],

@@ -28,7 +28,7 @@ TextStyle get lessonsHeadingStyle => GoogleFonts.plusJakartaSans(
   fontSize: _titleSize,
   fontWeight: FontWeight.w700,
   height: 1.2,
-  color: AppTheme.trialOcean,
+  color: AppTheme.trialOceanText,
 );
 
 TextStyle get lessonsHeadingNoteStyle => GoogleFonts.plusJakartaSans(
@@ -201,7 +201,7 @@ class LessonsDayBar extends StatelessWidget
               );
 
         return DecoratedBox(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: AppTheme.closedLine)),
           ),
           child: Padding(
@@ -376,19 +376,19 @@ class _BandButtonState extends State<_BandButton>
           surface: AppTheme.trialGoldSurface,
           count: entry.toPlan,
         ),
-      LessonsBandState.draft when tight => const Icon(Icons.edit_outlined, size: 18, color: AppTheme.modifiedAccent),
-      LessonsBandState.draft => const BandStatePill(
+      LessonsBandState.draft when tight => Icon(Icons.edit_outlined, size: 18, color: AppTheme.modifiedAccent),
+      LessonsBandState.draft => BandStatePill(
           label: 'IN BOZZA',
           icon: Icons.edit_outlined,
           accent: AppTheme.modifiedAccent,
           surface: AppTheme.modifiedAccentSurface,
         ),
       LessonsBandState.published when tight =>
-        const Icon(Icons.check_circle_outline_rounded, size: 18, color: AppTheme.trialTealDeep),
-      LessonsBandState.published => const BandStatePill(
+        Icon(Icons.check_circle_outline_rounded, size: 18, color: AppTheme.trialTealDeepText),
+      LessonsBandState.published => BandStatePill(
           label: 'PUBBLICATO',
           icon: Icons.check_circle_outline_rounded,
-          accent: AppTheme.trialTealDeep,
+          accent: AppTheme.trialTealDeepText,
           surface: AppTheme.todaySurface,
         ),
     };
@@ -438,7 +438,7 @@ class _BandButtonState extends State<_BandButton>
         ?state,
         if (!_closed) ...[
           const SizedBox(width: 10),
-          const Icon(Icons.arrow_forward_rounded, size: 20, color: AppTheme.trialTealDeep),
+          Icon(Icons.arrow_forward_rounded, size: 20, color: AppTheme.trialTealDeepText),
         ],
       ],
     );
@@ -457,7 +457,7 @@ class _BandButtonState extends State<_BandButton>
             curve: Curves.easeOut,
             padding: const EdgeInsets.only(left: 18, right: 12),
             decoration: BoxDecoration(
-              color: _closed ? Colors.white.withValues(alpha: 0.45) : Colors.white,
+              color: _closed ? AppTheme.surface.withValues(alpha: 0.45) : AppTheme.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: lit ? AppTheme.trialGold : AppTheme.trialLine, width: 1.5),
               boxShadow: _closed ? null : AppTheme.cardShadow,

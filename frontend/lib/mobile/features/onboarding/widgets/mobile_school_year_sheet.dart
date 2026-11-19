@@ -293,7 +293,7 @@ class _YearSheetState extends State<_YearSheet>
           style: GoogleFonts.plusJakartaSans(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: AppTheme.trialTealDeep,
+            color: AppTheme.trialTealDeepText,
           ),
         ),
       ),
@@ -647,9 +647,9 @@ class _YearStepper extends StatelessWidget
       height: _stepperHeight,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.55),
+        color: AppTheme.surface.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(_stepperRadius),
-        border: Border.all(color: AppTheme.trialOcean.withValues(alpha: 0.14)),
+        border: Border.all(color: AppTheme.trialOceanText.withValues(alpha: 0.14)),
       ),
       child: Row(
         children: [
@@ -664,7 +664,7 @@ class _YearStepper extends StatelessWidget
                 LengthLimitingTextInputFormatter(4),
               ],
               contextMenuBuilder: mobileTextMenu,
-              cursorColor: AppTheme.trialTealDeep,
+              cursorColor: AppTheme.trialTealDeepText,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -708,7 +708,7 @@ class _StepButton extends StatelessWidget
             color: AppTheme.trialTealDeep.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icon, size: 22, color: AppTheme.trialTealDeep),
+          child: Icon(icon, size: 22, color: AppTheme.trialTealDeepText),
         ),
       ),
     );

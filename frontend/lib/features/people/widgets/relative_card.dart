@@ -67,7 +67,7 @@ class _RelativeCardState extends State<RelativeCard>
     final style = GoogleFonts.plusJakartaSans(
       fontSize: 12,
       fontWeight: FontWeight.w700,
-      color: AppTheme.trialTealDeep,
+      color: AppTheme.trialTealDeepText,
     );
 
     // Not RoleChipsRow: its LayoutBuilder cannot sit inside the grid's IntrinsicHeight.
@@ -97,7 +97,7 @@ class _RelativeCardState extends State<RelativeCard>
         Icon(
           fact.icon,
           size: 21,
-          color: fact.isWarning ? AppTheme.trialDanger : AppTheme.trialTealDeep,
+          color: fact.isWarning ? AppTheme.trialDangerText : AppTheme.trialTealDeepText,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -107,7 +107,7 @@ class _RelativeCardState extends State<RelativeCard>
             style: GoogleFonts.plusJakartaSans(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: fact.isWarning ? AppTheme.trialDanger : AppTheme.trialInk,
+              color: fact.isWarning ? AppTheme.trialDangerText : AppTheme.trialInk,
             ),
           ),
         ),
@@ -117,7 +117,7 @@ class _RelativeCardState extends State<RelativeCard>
 
   Widget _buildPickupPill(bool authorized)
   {
-    final Color color = authorized ? AppTheme.trialTealDeep : AppTheme.trialDanger;
+    final Color color = authorized ? AppTheme.trialTealDeepText : AppTheme.trialDangerText;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
@@ -163,7 +163,7 @@ class _RelativeCardState extends State<RelativeCard>
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(top: 18),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(top: BorderSide(color: AppTheme.trialLine)),
       ),
       child: Column(
@@ -213,7 +213,7 @@ class _RelativeCardState extends State<RelativeCard>
           curve: Curves.easeOut,
           padding: const EdgeInsets.fromLTRB(24, 26, 24, 22),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(_cardRadius),
             border: Border.all(
               color: _hover ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
@@ -232,14 +232,14 @@ class _RelativeCardState extends State<RelativeCard>
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 23,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                   height: 1.15,
                 ),
               ),
               const SizedBox(height: 12),
               _buildRoles(),
               if (widget.facts.isNotEmpty) ...[
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: _sectionGap),
                   child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
                 ),

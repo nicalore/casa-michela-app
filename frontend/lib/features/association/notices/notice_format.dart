@@ -42,15 +42,22 @@ String fileSizeLabel(int bytes)
 
 enum NoticeFileKind
 {
-  pdf(Icons.picture_as_pdf_rounded, AppTheme.trialDanger),
-  image(Icons.image_rounded, AppTheme.trialViolet),
-  sheet(Icons.table_chart_rounded, AppTheme.trialLagoon),
-  other(Icons.insert_drive_file_rounded, AppTheme.trialTealDeep);
+  pdf(Icons.picture_as_pdf_rounded),
+  image(Icons.image_rounded),
+  sheet(Icons.table_chart_rounded),
+  other(Icons.insert_drive_file_rounded);
 
   final IconData icon;
-  final Color color;
 
-  const NoticeFileKind(this.icon, this.color);
+  const NoticeFileKind(this.icon);
+
+  Color get color => switch (this)
+  {
+    pdf => AppTheme.trialDangerText,
+    image => AppTheme.trialVioletText,
+    sheet => AppTheme.trialLagoon,
+    other => AppTheme.trialTealDeepText,
+  };
 
   static NoticeFileKind of(String fileName)
   {

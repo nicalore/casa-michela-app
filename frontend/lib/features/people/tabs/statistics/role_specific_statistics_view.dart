@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/app_card.dart';
@@ -40,11 +41,12 @@ import 'widgets/stat_widgets.dart';
 import 'widgets/stats_data.dart';
 import 'widgets/stats_layout.dart';
 import 'widgets/trend_line_chart.dart';
+import 'widgets/uncovered_subjects_section.dart';
 import 'widgets/stats_constants.dart';
 
-const Color _sectionDivider = AppTheme.trialLine;
+Color get _sectionDivider => AppTheme.trialLine;
 
-const Color _subjectBadgeBackground = Color(0xFFE8F7F5);
+Color get _subjectBadgeBackground => ThemeColours.of(0xFFE8F7F5);
 
 // Other roles skip the city/age requests entirely.
 const Set<String> _rolesWithDemographics = {
@@ -69,18 +71,18 @@ const Map<String, int> _ageGroupOrder = {
 };
 
 // Fixed per category, so a slice keeps its colour whichever others are present.
-const Map<String, Color> _certificationColors = {
+Map<String, Color> get _certificationColors => {
   'DSA': AppTheme.chartOcean,
   'BES': AppTheme.chartViolet,
-  'ADHD': AppTheme.chartNavy,
+  'ADHD': AppTheme.chartNavyText,
   'Altro': AppTheme.chartGray,
   'Nessuna': AppTheme.chartGrayLight,
 };
 
-const Map<String, Color> _areaColors = {
+Map<String, Color> get _areaColors => {
   'SCIENCES': AppTheme.chartOcean,
   'HUMANITIES': AppTheme.chartViolet,
-  'LINGUISTICS': AppTheme.chartNavy,
+  'LINGUISTICS': AppTheme.chartNavyText,
 };
 
 Color _ageGroupColor(String ageGroup)
@@ -880,6 +882,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           'level' => 'Altri $count livelli',
           _ => 'Altre $count scuole',
         },
+        longNames: _educationDataType != 'level',
       ),
     );
   }
@@ -945,7 +948,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          RankPosition(position: position, color: AppTheme.trialTealDeep),
+          RankPosition(position: position, color: AppTheme.trialTealDeepText),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -987,7 +990,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: metrics.badgeSize,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               ),
             ),
           ),
@@ -1018,8 +1021,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
 
   Widget _buildFigure(String label, String value) => StatFigure(label: label, value: value);
 
-  // Split in two columns, 1°–5° beside 6°–10°, when it has the card's width to itself.
-  Widget _buildTeacherRanking(List<TeacherCompetenceRankItem> teachers, {bool split = false})
+  Widget _buildTeacherRanking(List<TeacherCompetenceRankItem> teachers)
   {
     final byProgram = _teacherRankingMode == 'program';
     final String title = byProgram ? '10 docenti con più discipline e percorsi' : '10 docenti con più discipline';
@@ -1029,11 +1031,11 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           position: index + 1,
           person: item.teacher,
           badgeText: _competenceCountLabel(item.count, byProgram),
-          accent: AppTheme.trialTealDeep,
+          accent: AppTheme.trialTealDeepText,
         ),
     ];
 
-    return split ? SplitRanking(title: title, rows: rows) : PersonRankingSection(title: title, rows: rows);
+    return PersonRankingSection(title: title, rows: rows);
   }
 
   String _competenceCountLabel(int count, bool byProgram)
@@ -1073,17 +1075,15 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
   }
 
-  // Three columns; then the teachers across in two halves over the two subject lists; then one list under the other.
+  // The two rankings side by side, then every subject nobody teaches.
   Widget _buildTeacherSubjectsSections(TeacherSubjectsStatisticsItem stats)
   {
+    final teacherRanking = _buildTeacherRanking(stats.top10Teachers);
     final topRanking = _buildSubjectRanking(
       '10 discipline più coperte',
       stats.top10Subjects,
     );
-    final bottomRanking = _buildSubjectRanking(
-      '10 discipline meno coperte',
-      stats.bottom10Subjects,
-    );
+    final uncovered = UncoveredSubjectsSection(subjects: stats.subjectsWithoutTeachers);
     final StatMetrics metrics = StatMetrics.of(context);
 
     return LayoutBuilder(
@@ -1094,49 +1094,31 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTeacherRanking(stats.top10Teachers),
-              const StatPartDivider(color: _sectionDivider, lists: true),
+              teacherRanking,
+              StatPartDivider(color: _sectionDivider, lists: true),
               topRanking,
-              const StatPartDivider(color: _sectionDivider, lists: true),
-              bottomRanking,
+              StatPartDivider(color: _sectionDivider, lists: true),
+              uncovered,
             ],
           );
         }
 
-        if (constraints.maxWidth < metrics.threeListsFrom)
-        {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTeacherRanking(stats.top10Teachers, split: true),
-              const StatPartDivider(color: _sectionDivider, lists: true),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: topRanking),
-                    const StatColumnDivider(),
-                    Expanded(child: bottomRanking),
-                  ],
-                ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: teacherRanking),
+                  const StatColumnDivider(),
+                  Expanded(child: topRanking),
+                ],
               ),
-            ],
-          );
-        }
-
-        final teacherRanking = _buildTeacherRanking(stats.top10Teachers);
-
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: teacherRanking),
-              const StatColumnDivider(),
-              Expanded(child: topRanking),
-              const StatColumnDivider(),
-              Expanded(child: bottomRanking),
-            ],
-          ),
+            ),
+            StatPartDivider(color: _sectionDivider, lists: true),
+            uncovered,
+          ],
         );
       },
     );
@@ -1172,7 +1154,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFigures(stats),
-          const StatPartDivider(color: _sectionDivider),
+          StatPartDivider(color: _sectionDivider),
           _buildTeacherSubjectsSections(stats),
         ],
       ),
@@ -1352,7 +1334,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     if (_isLoading)
     {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
       );
     }

@@ -2210,7 +2210,7 @@ class _LessonsPageState extends State<LessonsPage>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.trialMutedText),
+        Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.trialMutedText),
         const SizedBox(width: 5),
         Text(
           'Non modificabile',
@@ -2245,7 +2245,7 @@ class _LessonsPageState extends State<LessonsPage>
         ),
         SizedBox(height: dense ? 14 : 20),
         if (_isLoading || _isLoadingDay)
-          const Expanded(child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)))
+          Expanded(child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)))
         else if (_isShortOfData)
           Expanded(child: _buildLoadFailed())
         else ...[
@@ -2335,7 +2335,7 @@ class _LessonsPageState extends State<LessonsPage>
           Align(alignment: Alignment.centerLeft, child: leading),
           Expanded(
             child: waiting
-                ? const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))
+                ? Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))
                 : _buildLoadFailed(),
           ),
         ],
@@ -2472,7 +2472,7 @@ class LessonsBackdrop extends StatelessWidget
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -2481,7 +2481,7 @@ class LessonsBackdrop extends StatelessWidget
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
@@ -2570,7 +2570,7 @@ class _LessonsCalendarScreenState extends State<LessonsCalendarScreen>
             {
               if (host == null)
               {
-                return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+                return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
               }
 
               return ValueListenableBuilder<int>(

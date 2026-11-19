@@ -227,7 +227,7 @@ class DashboardTodaySection extends StatelessWidget
   {
     if (isLoading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 30),
         child: Center(
           child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
@@ -392,7 +392,7 @@ class _Figure extends StatelessWidget
                   fontSize: scale.figure,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
-                  color: AppTheme.trialOcean,
+                  color: AppTheme.trialOceanText,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),

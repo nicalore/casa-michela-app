@@ -638,7 +638,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     return Container(
       width: widget.width,
       height: widget.height,
-      color: AppTheme.trialPaper,
+      color: AppTheme.pagePaper,
       child: Stack(
         children: [
           const CornerGlow(
@@ -647,7 +647,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
             edgeTint: AppTheme.trialOcean,
             intensity: 1.25,
           ),
-          const CornerGlow(
+          CornerGlow(
             corner: GlowCorner.bottomLeft,
             tint: AppTheme.trialSeaGreen,
             edgeTint: AppTheme.trialTealDeep,

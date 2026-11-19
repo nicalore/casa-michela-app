@@ -127,7 +127,7 @@ class _SubjectPickRowState extends State<SubjectPickRow>
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.trialOcean,
+                          color: AppTheme.trialOceanText,
                         ),
                       ),
                       if (widget.discipline case final String discipline) ...[
@@ -138,7 +138,7 @@ class _SubjectPickRowState extends State<SubjectPickRow>
                               const TextSpan(text: kSingleDisciplineLabel),
                               TextSpan(
                                 text: discipline,
-                                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+                                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
                               ),
                             ],
                           ),
@@ -210,7 +210,7 @@ class _TuneButtonState extends State<_TuneButton>
             color: _hover ? AppTheme.trialGoldSurface : AppTheme.trialGoldSurface.withValues(alpha: 0),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.tune_rounded, size: 20, color: AppTheme.trialTealDeep),
+          child: Icon(Icons.tune_rounded, size: 20, color: AppTheme.trialTealDeepText),
         ),
       ),
     );
@@ -395,7 +395,7 @@ class _SubjectGroupRowState extends State<SubjectGroupRow>
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.trialOcean,
+                              color: AppTheme.trialOceanText,
                             ),
                           ),
                           if (widget.booked.isNotEmpty) ...[
@@ -407,7 +407,7 @@ class _SubjectGroupRowState extends State<SubjectGroupRow>
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: AppTheme.trialTealDeep,
+                                color: AppTheme.trialTealDeepText,
                               ),
                             ),
                           ],
@@ -418,7 +418,7 @@ class _SubjectGroupRowState extends State<SubjectGroupRow>
                       turns: widget.open ? 0.5 : 0,
                       duration: effects ? move : Duration.zero,
                       curve: Curves.easeOutCubic,
-                      child: Icon(Icons.expand_more_rounded, size: 26, color: AppTheme.trialOcean.withValues(alpha: 0.55)),
+                      child: Icon(Icons.expand_more_rounded, size: 26, color: AppTheme.trialOceanText.withValues(alpha: 0.55)),
                     ),
                   ],
                 ),

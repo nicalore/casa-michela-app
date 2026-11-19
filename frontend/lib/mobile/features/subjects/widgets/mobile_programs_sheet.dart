@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colours.dart';
 import '../../../../features/association/models/program_tree.dart';
 import '../../../../features/association/models/study_program_item.dart';
 import '../../../../features/people/utils/program_scope_strings.dart';
@@ -33,7 +34,7 @@ const EdgeInsets _tourButtonInflate = EdgeInsets.all(5);
 const double _tourButtonRadius = 23;
 
 const double _panelRadius = 18;
-const Color _panelFill = Color(0xB8FFFFFF);
+Color get _panelFill => ThemeColours.fixed(0xB8FFFFFF);
 const double _panelEdgeAlpha = 0.06;
 const double _hairlineAlpha = 0.07;
 
@@ -307,7 +308,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: AppTheme.trialTealDeep,
+              color: AppTheme.trialTealDeepText,
             ),
           ),
         ),
@@ -650,7 +651,7 @@ class _GroupHead extends StatelessWidget
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.6,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                   )
                 : GoogleFonts.plusJakartaSans(
                     fontSize: 17,
@@ -734,7 +735,7 @@ class _SectorLine extends StatelessWidget
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       height: 1.3,
-                      color: open ? AppTheme.trialTealDeep : AppTheme.trialInk,
+                      color: open ? AppTheme.trialTealDeepText : AppTheme.trialInk,
                     ),
                     child: Text(title),
                   ),

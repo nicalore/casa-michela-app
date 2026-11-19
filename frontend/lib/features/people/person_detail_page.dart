@@ -594,7 +594,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+      return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
     if (_loadFailure != null || _person == null)
@@ -701,7 +701,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -710,7 +710,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,

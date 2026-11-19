@@ -185,7 +185,7 @@ class _BandBlock extends StatelessWidget
           ),
           if (band.showsLock) ...[
             const SizedBox(width: 5),
-            const Icon(Icons.lock_outline_rounded, size: 13, color: MobilePalette.mutedText),
+            Icon(Icons.lock_outline_rounded, size: 13, color: MobilePalette.mutedText),
           ],
         ],
       ),
@@ -242,7 +242,7 @@ class _BandBlock extends StatelessWidget
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 4, 8, 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.62),
+        color: AppTheme.surface.withValues(alpha: 0.62),
         borderRadius: BorderRadius.circular(_blockRadius),
         border: Border.all(color: AppTheme.trialInk.withValues(alpha: 0.08)),
       ),
@@ -328,7 +328,7 @@ class _SlotRow extends StatelessWidget
         Icon(
           lessonModeIcon(slot.mode),
           size: 19,
-          color: ink(online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep),
+          color: ink(online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText),
         ),
         const SizedBox(width: 10),
         Expanded(

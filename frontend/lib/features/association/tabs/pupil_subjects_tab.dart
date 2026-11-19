@@ -144,7 +144,7 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+      return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
     if (_loadFailure != null)
@@ -199,7 +199,7 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
           label: kMissingSubjectAction,
           icon: Icons.flag_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           onPressed: _openReportDialog,
         ),
       ),

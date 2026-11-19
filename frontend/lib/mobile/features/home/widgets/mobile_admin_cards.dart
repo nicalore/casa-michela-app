@@ -42,7 +42,7 @@ const double _numberGap = 12;
 const double _faceSize = 60;
 const double _compactFaceSize = 40;
 
-const LinearGradient _birthdayGradient = LinearGradient(
+LinearGradient get _birthdayGradient => LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
   colors: [AppTheme.modifiedAccent, AppTheme.trialGold],
@@ -75,7 +75,7 @@ Widget _rimmed(Widget card, bool current)
 
   return DecoratedBox(
     position: DecorationPosition.foreground,
-    decoration: const MobileCurrentCard(_cardRadius),
+    decoration: MobileCurrentCard(_cardRadius),
     child: card,
   );
 }
@@ -227,7 +227,7 @@ class MobileAdminBandCard extends StatelessWidget
       padding: const EdgeInsets.only(left: 4),
       child: Row(
         children: [
-          const Icon(Icons.event_busy_rounded, size: 22, color: MobilePalette.mutedText),
+          Icon(Icons.event_busy_rounded, size: 22, color: MobilePalette.mutedText),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

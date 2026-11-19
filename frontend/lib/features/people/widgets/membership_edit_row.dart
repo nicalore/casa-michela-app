@@ -108,7 +108,7 @@ class MembershipEditRow extends StatelessWidget
       child: locked
           ? AppTooltip(
               message: lockedTip,
-              child: const SizedBox(
+              child: SizedBox(
                 width: kPersonFieldButtonSize,
                 height: kPersonFieldButtonSize,
                 child: Icon(Icons.lock_outline_rounded, size: 20, color: AppTheme.trialMutedText),
@@ -118,7 +118,7 @@ class MembershipEditRow extends StatelessWidget
           ? const SizedBox(width: kPersonFieldButtonSize, height: kPersonFieldButtonSize)
           : FadeHoverIconButton(
               icon: Icons.delete_outline_rounded,
-              color: AppTheme.trialDanger,
+              color: AppTheme.trialDangerText,
               hoverColor: AppTheme.trialGoldSurface,
               onTap: onRemove!,
             ),

@@ -81,14 +81,14 @@ TextStyle get _titleStyle => GoogleFonts.plusJakartaSans(
       fontSize: 15,
       fontWeight: FontWeight.w800,
       height: 1.15,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
 
 TextStyle get _denseTitleStyle => GoogleFonts.plusJakartaSans(
       fontSize: 14,
       fontWeight: FontWeight.w800,
       height: 1.15,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
 
 TextStyle get _subjectStyle => GoogleFonts.plusJakartaSans(
@@ -233,7 +233,7 @@ class _BlockFrameState extends State<_BlockFrame>
           ],
           if (widget.isPast) ...[
             const SizedBox(width: 6),
-            const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
+            Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
           ],
           const SizedBox(width: 12),
         ],
@@ -325,7 +325,7 @@ class _BlockFrameState extends State<_BlockFrame>
                                         ],
                                         if (!narrow && widget.isPast) ...[
                                           const SizedBox(width: 4),
-                                          const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
+                                          Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
                                         ],
                                       ],
                                     ),
@@ -546,7 +546,7 @@ class OwnLessonBlock extends StatelessWidget
 
     return _BlockFrame(
       accent: lessonAccent(lesson.mode),
-      surface: Colors.white,
+      surface: AppTheme.surface,
       icon: lessonModeIcon(lesson.mode),
       hours: _hours,
       isPast: isPast,

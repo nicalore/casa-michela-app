@@ -82,7 +82,7 @@ class EarlyExitEditRow extends StatelessWidget
       padding: EdgeInsets.only(left: 10, top: personFieldButtonInset(context)),
       child: FadeHoverIconButton(
         icon: Icons.delete_outline_rounded,
-        color: AppTheme.trialDanger,
+        color: AppTheme.trialDangerText,
         hoverColor: AppTheme.trialGoldSurface,
         onTap: onRemove,
       ),

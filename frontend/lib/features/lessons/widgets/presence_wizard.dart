@@ -1532,7 +1532,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           id: _toured ? kTourBookingsWizardLeft : null,
           child: Text(
             minutesLeftLabel(offer.left),
-            style: offer.left <= 0 ? style.copyWith(color: AppTheme.trialDanger) : style,
+            style: offer.left <= 0 ? style.copyWith(color: AppTheme.trialDangerText) : style,
           ),
         ),
       ],

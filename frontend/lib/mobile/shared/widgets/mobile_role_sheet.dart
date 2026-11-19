@@ -118,16 +118,16 @@ class _RoleRow extends StatelessWidget
         height: _rowHeight,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: offered ? 0.55 : 0.3),
+          color: AppTheme.surface.withValues(alpha: offered ? 0.55 : 0.3),
           borderRadius: BorderRadius.circular(_rowRadius),
-          border: Border.all(color: AppTheme.trialOcean.withValues(alpha: 0.14)),
+          border: Border.all(color: AppTheme.trialOceanText.withValues(alpha: 0.14)),
         ),
         child: Row(
           children: [
             Icon(
               roleIconFor(role),
               size: 24,
-              color: offered ? AppTheme.trialTealDeep : AppTheme.trialTealDeep.withValues(alpha: 0.45),
+              color: offered ? AppTheme.trialTealDeepText : AppTheme.trialTealDeepText.withValues(alpha: 0.45),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -142,9 +142,9 @@ class _RoleRow extends StatelessWidget
             ),
             if (!offered) const MobilePill('In arrivo', tone: MobilePillTone.teal),
             if (choosing)
-              const SizedBox.square(
+              SizedBox.square(
                 dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeep),
+                child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeepText),
               ),
           ],
         ),

@@ -133,7 +133,7 @@ class _DocumentRow extends StatelessWidget
                     shape: BoxShape.circle,
                     color: AppTheme.trialTealDeep.withValues(alpha: 0.13),
                   ),
-                  child: Icon(document.icon, size: 21, color: AppTheme.trialTealDeep),
+                  child: Icon(document.icon, size: 21, color: AppTheme.trialTealDeepText),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -162,7 +162,7 @@ class _DocumentRow extends StatelessWidget
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Icon(Icons.open_in_new_rounded, size: 21, color: AppTheme.trialTealDeep),
+                Icon(Icons.open_in_new_rounded, size: 21, color: AppTheme.trialTealDeepText),
               ],
             ),
           ),

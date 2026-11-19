@@ -497,13 +497,13 @@ class _TeacherMonthTabState extends State<TeacherMonthTab> with DestinationRefre
   Widget _buildHeading(TeacherMonth data, bool dense)
   {
     final Widget status = data.finished
-        ? const BandStatePill(
+        ? BandStatePill(
             label: kMonthFinished,
             icon: Icons.check_rounded,
-            accent: AppTheme.trialTealDeep,
+            accent: AppTheme.trialTealDeepText,
             surface: AppTheme.todaySurface,
           )
-        : const BandStatePill(label: kLiveStatus, accent: AppTheme.trialTealDeep, surface: Colors.white);
+        : BandStatePill(label: kLiveStatus, accent: AppTheme.trialTealDeepText, surface: AppTheme.surface);
 
     return Padding(
       padding: const EdgeInsets.only(left: 8),
@@ -613,7 +613,7 @@ class _TeacherMonthTabState extends State<TeacherMonthTab> with DestinationRefre
           onRetry: _load,
         ),
       (final TeacherMonth month, _) => _buildBody(month, dense),
-      _ => const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+      _ => Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
     };
 
     return Column(

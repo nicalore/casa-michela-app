@@ -160,7 +160,7 @@ class _NoticeSheetState extends State<_NoticeSheet>
           children: [
             Text(
               noticeAttachmentCountLabel(attachments.length),
-              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.trialTealDeep),
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.trialTealDeepText),
             ),
             for (final attachment in attachments) ...[
               const SizedBox(height: _fileGap + 2),
@@ -256,11 +256,11 @@ class _FileRow extends StatelessWidget
               SizedBox.square(
                 dimension: 24,
                 child: saving
-                    ? const Padding(
+                    ? Padding(
                         padding: EdgeInsets.all(3),
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeep),
+                        child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeepText),
                       )
-                    : const Icon(Icons.download_rounded, size: 22, color: AppTheme.trialTealDeep),
+                    : Icon(Icons.download_rounded, size: 22, color: AppTheme.trialTealDeepText),
               ),
             ],
           ),

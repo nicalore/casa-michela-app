@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -23,8 +24,10 @@ import '../../people/tabs/statistics/widgets/stat_widgets.dart';
 import '../../people/tabs/statistics/widgets/stats_layout.dart';
 import '../../people/tabs/statistics/widgets/trend_band.dart';
 import '../../people/tabs/statistics/widgets/trend_line_chart.dart';
+import '../../association/tabs/tariffs/tariffs_strings.dart' show kTariffLevelLabels;
 import '../models/accounting_stats_items.dart';
 import '../utils/accounting_strings.dart';
+import '../widgets/margin_bars.dart';
 import '../widgets/money_charts.dart';
 
 const String _defaultPeriod = 'last-12';
@@ -36,14 +39,17 @@ const double _switchHeight = 32;
 const double _switchFont = 12.5;
 const double _switchPadding = 10;
 
+// Four amounts, or hours "al mese", in a row: below this they would break across lines.
+const double _bigFeeFiguresFrom = 1200;
+
 // Stacked bars, in the order of kIncomeKinds.
-const List<Color> _kindColors = [
-  AppTheme.chartNavy,
+List<Color> get _kindColors => [
+  AppTheme.chartNavyText,
   AppTheme.chartOcean,
   AppTheme.chartViolet,
   AppTheme.chartLilac,
-  Color(0xFF77B5FB),
-  Color(0xFFD9C8F2),
+  ThemeColours.of(0xFF77B5FB),
+  ThemeColours.of(0xFFD9C8F2),
 ];
 
 // 'last-3' or 'year-2025'.
@@ -197,7 +203,7 @@ class _AccountingStatsTabState extends State<AccountingStatsTab>
           payView: _payView,
           onPayView: (index) => setState(() => _payView = index),
         ),
-      _ => const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+      _ => Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
     };
 
     final bool dense = AppBreakpoints.of(context).isDense;
@@ -247,12 +253,18 @@ class _StatsBody extends StatelessWidget
 
   // Figures side by side, one under the other in a narrow card: the width is handed down,
   // since a card matched to its neighbour may not measure itself.
-  Widget _figures(BuildContext context, List<(String, String)> items, double width, {bool small = false})
+  Widget _figures(
+    BuildContext context,
+    List<(String, String)> items,
+    double width, {
+    bool small = false,
+    Map<String, String> infos = const {},
+  })
   {
     final StatMetrics metrics = StatMetrics.of(context);
     final List<Widget> figures = [
       for (final (label, value) in items)
-        small ? _SmallFigure(label: label, value: value) : StatFigure(label: label, value: value),
+        small ? _SmallFigure(label: label, value: value) : StatFigure(label: label, value: value, info: infos[label]),
     ];
 
     if (width < metrics.figuresStackBelow)
@@ -285,7 +297,7 @@ class _StatsBody extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 16),
-        const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+        Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
         const SizedBox(height: 16),
         title,
         const SizedBox(height: 12),
@@ -369,7 +381,7 @@ class _StatsBody extends StatelessWidget
               child: MoneyChart.bars(
                 months: _months,
                 stacks: [for (final month in stats.months) [month.balanceCents]],
-                stackColors: const [AppTheme.chartViolet],
+                stackColors: [AppTheme.chartViolet],
                 span: _span,
                 tooltip: _tooltip,
               ),
@@ -380,20 +392,137 @@ class _StatsBody extends StatelessWidget
     );
   }
 
+  // The three read the same days, so they can be compared: the server works them out.
   Widget _perHourCard(BuildContext context, double width)
   {
-    final int pupilMinutes = stats.sum((month) => month.pupilMinutes);
-    final int paidMinutes = stats.sum((month) => month.paidMinutes);
-
-    String perHour(int cents, int minutes) => minutes == 0 ? '—' : formatAmount((cents * 60 / minutes).round());
+    String perHour(int? cents) => cents == null ? '—' : formatAmount(cents);
 
     return _card(
       title: kPerHourTitle,
       icon: Icons.price_change_rounded,
-      child: _figures(context, [
-        (kIncomePerHour, perHour(stats.sum((month) => month.lessonIncomeCents), pupilMinutes)),
-        (kPayPerHour, perHour(stats.sum((month) => month.grossCents), paidMinutes)),
-      ], width),
+      child: _figures(
+        context,
+        [
+          (kIncomePerHour, perHour(stats.incomePerHourCents)),
+          (kPayPerHour, perHour(stats.payPerHourCents)),
+          (kCostPerHour, perHour(stats.lessonCostCents)),
+        ],
+        width,
+        infos: const {kPayPerHour: kPayPerHourInfo, kCostPerHour: kCostPerHourInfo},
+      ),
+    );
+  }
+
+  Widget _payersCard(BuildContext context, double width)
+  {
+    final int income = stats.sum((month) => month.incomeCents);
+    final List<ShareRankRow> rows = [
+      for (final (index, payer) in stats.topPayers.indexed)
+        ShareRankRow(
+          position: index + 1,
+          name: payer.person.fullName,
+          percentage: income == 0 ? 0 : payer.cents * 100 / income,
+          badgeText: formatAmount(payer.cents),
+        ),
+    ];
+
+    return _card(
+      title: kPayersTitle,
+      icon: Icons.leaderboard_rounded,
+      child: width < StatMetrics.of(context).listsFrom
+          ? (rows.isEmpty ? const EmptyChartMessage(fontSize: 14) : RankingRows(rows: rows))
+          : SplitRanking(title: null, rows: rows),
+    );
+  }
+
+  Widget _feeTooltip(int index)
+  {
+    final FeePupilItem pupil = stats.feePupils[index];
+    final int? even = pupil.evenMinutes;
+
+    return TrendTooltip(
+      title: pupil.person.fullName,
+      rows: [
+        (value: formatAmount(pupil.feeCents), label: kFeeRow),
+        (value: '${pupil.months}', label: pupil.months == 1 ? kPaidMonthRow : kPaidMonthsRow),
+        (value: _hoursFigure(pupil.minutes), label: kLessonHoursRow),
+        (value: _hoursFigure(pupil.minutes ~/ pupil.months), label: kHoursPerMonthRow),
+        (value: formatAmount(pupil.paidCents), label: kFeesPaidRow),
+        (value: formatAmount(pupil.costCents), label: kHoursCostRow),
+        (value: formatSignedAmount(pupil.marginCents), label: kMarginRow),
+        if (even != null) (value: _hoursFigure(even), label: kEvenRow),
+      ],
+    );
+  }
+
+  Widget _feesNote(String text)
+  {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.trialMutedText,
+        ),
+      ),
+    );
+  }
+
+  Widget _feesCard(BuildContext context, double width)
+  {
+    // Every margin needs the cost of an hour.
+    if (stats.lessonCostCents == null)
+    {
+      return _card(title: kFeesTitle, icon: Icons.balance_rounded, child: _feesNote(kNoLessonCost));
+    }
+
+    final List<FeePupilItem> pupils = stats.feePupils;
+    final int paid = pupils.fold(0, (sum, pupil) => sum + pupil.paidCents);
+    final int cost = pupils.fold(0, (sum, pupil) => sum + pupil.costCents);
+    final int losing = pupils.where((pupil) => pupil.marginCents < 0).length;
+    final bool small = width < _bigFeeFiguresFrom;
+
+    return _card(
+      title: kFeesTitle,
+      icon: Icons.balance_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _figures(context, [
+            (kFeesPaidFigure, formatAmount(paid)),
+            (kFeesCostFigure, formatAmount(cost)),
+            (kFeesMarginFigure, formatSignedAmount(paid - cost)),
+            (kFeesLosingFigure, losingOf(losing, pupils.length)),
+          ], width, small: small),
+          if (stats.breakEven.isNotEmpty)
+            _part(
+              context,
+              const StatSectionTitle(kBreakEvenTitle),
+              _figures(context, [
+                for (final even in stats.breakEven)
+                  (
+                    breakEvenLabel(formatAmount(even.feeCents), kTariffLevelLabels[even.level] ?? even.level),
+                    perMonth(_hoursFigure(even.minutes)),
+                  ),
+              ], width, small: small),
+            ),
+          _part(
+            context,
+            const StatSectionTitle(kMarginChart),
+            pupils.isEmpty
+                ? _feesNote(kNoFeePupils)
+                : MarginBars(
+                    names: [for (final pupil in pupils) pupil.person.fullName],
+                    cents: [for (final pupil in pupils) pupil.marginCents],
+                    tooltip: _feeTooltip,
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -524,7 +653,7 @@ class _StatsBody extends StatelessWidget
             ),
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+          Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
           const SizedBox(height: 8),
           for (final (index, kind) in kIncomeKinds.indexed)
             _KindRow(
@@ -581,16 +710,20 @@ class _StatsBody extends StatelessWidget
             SizedBox(height: gap),
             PageTransitionItem(slot: PageTransitionItem.list, child: whole(_perHourCard)),
             SizedBox(height: gap),
+            PageTransitionItem(slot: PageTransitionItem.list + 1, child: whole(_feesCard)),
+            SizedBox(height: gap),
             PageTransitionItem(
-              slot: PageTransitionItem.list + 1,
+              slot: PageTransitionItem.list + 2,
               child: MatchedCardPair(
                 first: (width, _) => _payCard(context, width),
                 second: (width, _) => _incomeCard(context, width),
               ),
             ),
             SizedBox(height: gap),
+            PageTransitionItem(slot: PageTransitionItem.list + 3, child: whole(_payersCard)),
+            SizedBox(height: gap),
             PageTransitionItem(
-              slot: PageTransitionItem.list + 2,
+              slot: PageTransitionItem.list + 4,
               child: MatchedCardPair(
                 first: (width, _) => _kindsCard(context, width),
                 second: (width, _) => _volunteerCard(context, width),
@@ -631,7 +764,7 @@ class _KindRow extends StatelessWidget
           Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
           const SizedBox(width: 10),
           Expanded(child: Text(label, style: style)),
-          Text(formatAmount(cents), style: style.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialOcean)),
+          Text(formatAmount(cents), style: style.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialOceanText)),
           SizedBox(width: 52, child: Text('$share%', textAlign: TextAlign.right, style: style)),
         ],
       ),
@@ -675,7 +808,7 @@ class _SmallFigure extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: metrics.dense ? 20 : 24,
               fontWeight: FontWeight.w800,
-              color: AppTheme.trialTealDeep,
+              color: AppTheme.trialTealDeepText,
             ),
           ),
         ),

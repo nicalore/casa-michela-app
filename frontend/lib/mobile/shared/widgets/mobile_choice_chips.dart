@@ -164,13 +164,13 @@ class _Chip extends StatelessWidget
   {
     final Color fill = onLight
         ? (selected ? AppTheme.trialDeepWater : AppTheme.trialOcean.withValues(alpha: 0.06))
-        : Colors.white.withValues(alpha: selected ? 0.92 : 0.12);
+        : AppTheme.surface.withValues(alpha: selected ? 0.92 : 0.12);
     final Color edge = onLight
-        ? AppTheme.trialOcean.withValues(alpha: 0.14)
+        ? AppTheme.trialOceanText.withValues(alpha: 0.14)
         : Colors.white.withValues(alpha: 0.22);
     final Color ink = onLight
         ? (selected ? Colors.white : MobilePalette.mutedText)
-        : (selected ? AppTheme.trialDeepWater : Colors.white.withValues(alpha: 0.78));
+        : (selected ? AppTheme.trialDeepWaterText : Colors.white.withValues(alpha: 0.78));
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

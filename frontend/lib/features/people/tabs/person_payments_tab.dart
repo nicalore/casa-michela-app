@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -283,7 +284,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           TextSpan(text: '$label  '),
           TextSpan(
             text: formatAmount(cents),
-            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: AppTheme.trialOcean),
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: AppTheme.trialOceanText),
           ),
         ],
       ),
@@ -521,7 +522,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
 
     if (payments == null)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.only(top: 60),
         child: Align(
           alignment: Alignment.topCenter,
@@ -716,7 +717,7 @@ class _Card extends StatelessWidget
     return Container(
       padding: metrics.padding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(metrics.radius),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -736,7 +737,7 @@ class _Rule extends StatelessWidget
   {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: metrics.ruleGap),
-      child: const Divider(height: 1, thickness: 1, color: Color(0xFFEDF2F1)),
+      child: Divider(height: 1, thickness: 1, color: ThemeColours.of(0xFFEDF2F1)),
     );
   }
 }
@@ -776,7 +777,7 @@ class _SummaryCard extends StatelessWidget
           style: GoogleFonts.plusJakartaSans(
             fontSize: metrics.valueText,
             fontWeight: FontWeight.w800,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
           ),
         ),
       ],
@@ -852,7 +853,7 @@ class _StatusCard extends StatelessWidget
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: metrics.titleText,
                   fontWeight: FontWeight.w800,
-                  color: _ok ? AppTheme.trialOcean : AppTheme.modifiedAccent,
+                  color: _ok ? AppTheme.trialOceanText : AppTheme.modifiedAccent,
                 ),
               ),
               if (subtitle != null) ...[
@@ -953,7 +954,7 @@ class _PendingCard extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: metrics.titleText,
                     fontWeight: FontWeight.w800,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
                 if (lastDay != null) ...[
@@ -998,7 +999,7 @@ class _HoursBar extends StatelessWidget
     final TextStyle label = GoogleFonts.plusJakartaSans(
       fontSize: metrics.barText,
       fontWeight: FontWeight.w700,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
 
     return Column(
@@ -1018,7 +1019,7 @@ class _HoursBar extends StatelessWidget
             height: metrics.bar,
             child: Stack(
               children: [
-                const Positioned.fill(child: ColoredBox(color: Color(0xFFE6EEEE))),
+                Positioned.fill(child: ColoredBox(color: ThemeColours.of(0xFFE6EEEE))),
                 TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: share),
                   duration: _barFill,
@@ -1098,7 +1099,7 @@ class _MonthCell extends StatelessWidget
   {
     final MonthState state = month.state;
     final bool marked = state != MonthState.none;
-    final Color accent = state == MonthState.paid ? AppTheme.trialTealDeep : AppTheme.modifiedAccent;
+    final Color accent = state == MonthState.paid ? AppTheme.trialTealDeepText : AppTheme.modifiedAccent;
 
     return Container(
       height: metrics.monthHeight,
@@ -1119,7 +1120,7 @@ class _MonthCell extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: metrics.monthText,
               fontWeight: FontWeight.w700,
-              color: marked ? AppTheme.trialOcean : const Color(0xFFA9B7BF),
+              color: marked ? AppTheme.trialOceanText : ThemeColours.fixed(0xFFA9B7BF),
             ),
           ),
           if (marked) ...[

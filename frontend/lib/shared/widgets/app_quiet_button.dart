@@ -51,7 +51,7 @@ class _AppQuietButtonState extends State<AppQuietButton>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, size: 18, color: AppTheme.trialTealDeep),
+              Icon(widget.icon, size: 18, color: AppTheme.trialTealDeepText),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -61,7 +61,7 @@ class _AppQuietButtonState extends State<AppQuietButton>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                   ),
                 ),
               ),

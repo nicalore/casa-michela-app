@@ -64,7 +64,7 @@ class _TeacherCardState extends State<TeacherCard>
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(dense ? 20 : _radius),
               border: Border.all(
                 color: _isHovering ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
@@ -86,13 +86,13 @@ class _TeacherCardState extends State<TeacherCard>
                         fontSize: dense ? 14.5 : _nameFontSize,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
-                        color: AppTheme.trialOcean,
+                        color: AppTheme.trialOceanText,
                       ),
                     ),
                   ),
                   if (widget.disliked) ...[
                     const SizedBox(width: _markGap),
-                    const Icon(Icons.thumb_down_rounded, size: _markSize, color: AppTheme.trialDanger),
+                    Icon(Icons.thumb_down_rounded, size: _markSize, color: AppTheme.trialDangerText),
                   ],
                 ],
               ),

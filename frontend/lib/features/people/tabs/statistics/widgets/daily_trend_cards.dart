@@ -7,6 +7,7 @@ import '../../../../../services/api_service.dart';
 import '../../../../../shared/widgets/app_card.dart';
 import '../../../../lessons/utils/opening_window.dart' show kPresenceMode;
 import '../../../models/daily_trend_items.dart';
+import '../../../models/personal_statistics_items.dart';
 import 'daily_trend.dart';
 import 'daily_trend_chart.dart';
 import 'stat_filters.dart';
@@ -21,11 +22,11 @@ const double _denseHoursChartHeight = 140;
 const double _presenceChartHeight = 280;
 
 // A pair that stays distinct on white: change them together.
-const Color _availableColor = AppTheme.chartOcean;
-const Color _convenedColor = AppTheme.chartViolet;
+Color get _availableColor => AppTheme.chartOcean;
+Color get _convenedColor => AppTheme.chartViolet;
 
 // A third entity in the card: neither of the two series colours above.
-const Color _hoursColor = AppTheme.chartNavy;
+Color get _hoursColor => AppTheme.chartNavyText;
 
 const String _defaultResolution = kTrendByWeek;
 
@@ -138,7 +139,7 @@ mixin _TrendFilters<W extends StatefulWidget, T> on State<W>
     if (days == null)
     {
       child = isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))
+          ? Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise))
           : const EmptyChartMessage();
     }
     else if (days!.isEmpty)
@@ -181,6 +182,74 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
   static const String _availableOne = 'Docente disponibile';
   static const String _convenedOne = 'Docente convocato';
   static const String _hoursOne = 'Ora di lezione erogata';
+
+  static const String _rankingTitle = '10 docenti con più ore di lezione';
+
+  // Its own request, so a failure leaves the charts alone.
+  List<PersonHoursItem>? _ranking;
+  bool _isRankingLoading = false;
+  int _rankingRequest = 0;
+
+  @override
+  Future<void> load()
+  {
+    _loadRanking();
+
+    return super.load();
+  }
+
+  Future<void> _loadRanking() async
+  {
+    final request = ++_rankingRequest;
+    final parts = statsPeriodParts(period);
+    setState(() => _isRankingLoading = true);
+
+    try
+    {
+      final ranking = await api.getTeacherLessonHours(
+        months: parts.months,
+        year: parts.year,
+        month: parts.month,
+        mode: mode,
+      );
+
+      if (mounted && request == _rankingRequest)
+      {
+        setState(() => _ranking = ranking);
+      }
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted && request == _rankingRequest)
+      {
+        setState(() => _isRankingLoading = false);
+      }
+    }
+  }
+
+  Widget _rankingSection(List<PersonHoursItem> ranking)
+  {
+    final rows = [
+      for (final (index, item) in ranking.indexed)
+        PersonRankRow(
+          position: index + 1,
+          person: item.person,
+          badgeText: formatMinutes(item.minutes),
+          accent: AppTheme.trialTealDeepText,
+        ),
+    ];
+
+    return AnimatedOpacity(
+      opacity: _isRankingLoading ? 0.4 : 1,
+      duration: _fetchFade,
+      child: LayoutBuilder(
+        builder: (context, constraints) => constraints.maxWidth < StatMetrics.of(context).listsFrom
+            ? PersonRankingSection(title: _rankingTitle, rows: rows)
+            : SplitRanking(title: _rankingTitle, rows: rows),
+      ),
+    );
+  }
 
   @override
   Future<List<TeacherActivityDayItem>> fetch(StatsPeriod period, String mode)
@@ -258,47 +327,56 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
       leading: const AppCardBadge(icon: Icons.timeline_rounded),
       trailingFit: AppCardTrailing.wrapping,
       trailing: filters(),
-      child: fading(
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TrendLegend(series: teachers),
-            SizedBox(height: dense ? 12 : 20),
-            chartArea(
-              statChartHeight(context, _teachersChartHeight),
-              () => DailyTrendChart(
-                axisLabels: axisLabels,
-                positions: positions,
-                series: teachers,
-                formatAxis: _countAxis,
-                hovered: hovered,
-                tooltip: tooltip,
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          fading(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TrendLegend(series: teachers),
+                SizedBox(height: dense ? 12 : 20),
+                chartArea(
+                  statChartHeight(context, _teachersChartHeight),
+                  () => DailyTrendChart(
+                    axisLabels: axisLabels,
+                    positions: positions,
+                    series: teachers,
+                    formatAxis: _countAxis,
+                    hovered: hovered,
+                    tooltip: tooltip,
+                  ),
+                ),
+                SizedBox(height: dense ? 20 : 32),
+                Text(
+                  _hoursLabel,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: dense ? 13 : 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.trialMutedText,
+                  ),
+                ),
+                SizedBox(height: dense ? 12 : 20),
+                chartArea(
+                  dense ? _denseHoursChartHeight : _hoursChartHeight,
+                  () => DailyTrendChart(
+                    axisLabels: axisLabels,
+                    positions: positions,
+                    series: hours,
+                    formatAxis: _hoursAxis,
+                    hovered: hovered,
+                    tooltip: tooltip,
+                    filled: true,
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: dense ? 20 : 32),
-            Text(
-              _hoursLabel,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: dense ? 13 : 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.trialMutedText,
-              ),
-            ),
-            SizedBox(height: dense ? 12 : 20),
-            chartArea(
-              dense ? _denseHoursChartHeight : _hoursChartHeight,
-              () => DailyTrendChart(
-                axisLabels: axisLabels,
-                positions: positions,
-                series: hours,
-                formatAxis: _hoursAxis,
-                hovered: hovered,
-                tooltip: tooltip,
-                filled: true,
-              ),
-            ),
+          ),
+          if (_ranking case final ranking?) ...[
+            StatPartDivider(),
+            _rankingSection(ranking),
           ],
-        ),
+        ],
       ),
     );
   }

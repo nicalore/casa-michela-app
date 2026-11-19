@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/utils/week_range.dart';
 import '../../../../../shared/widgets/app_card.dart';
 import '../../../../lessons/utils/opening_window.dart' show kOnlineMode;
 import '../../../models/student_presence_statistics_item.dart';
@@ -8,7 +9,7 @@ import 'stat_filters.dart';
 import 'stat_widgets.dart';
 import 'stats_layout.dart';
 
-const Color _sectionDivider = AppTheme.trialLine;
+Color get _sectionDivider => AppTheme.trialLine;
 
 // Places in each requests ranking; must match the backend limit.
 const int _requestsLimit = 10;
@@ -63,7 +64,23 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
             badgeText:
                 '${widget.statistics.topStudents[position - 1].presenceDays} '
                 '${widget.statistics.topStudents[position - 1].presenceDays == 1 ? 'giorno' : 'giorni'}',
-            accent: AppTheme.trialTealDeep,
+            accent: AppTheme.trialTealDeepText,
+          ),
+      ],
+    );
+  }
+
+  Widget _topByHours()
+  {
+    return PersonRankingSection(
+      title: widget._online ? '10 studenti con più ore di lezione online' : '10 studenti con più ore di lezione',
+      rows: [
+        for (final (index, item) in widget.statistics.topStudentsByHours.indexed)
+          PersonRankRow(
+            position: index + 1,
+            person: item.person,
+            badgeText: formatMinutes(item.minutes),
+            accent: AppTheme.trialTealDeepText,
           ),
       ],
     );
@@ -115,8 +132,8 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
                 ),
               ],
             ),
-            const StatPartDivider(color: _sectionDivider),
-            RankingPair(first: _topStudents(), second: _topSubjects()),
+            StatPartDivider(color: _sectionDivider),
+            RankingTriple(first: _topStudents(), second: _topByHours(), third: _topSubjects()),
           ],
         ),
       ),

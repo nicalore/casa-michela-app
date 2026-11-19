@@ -800,7 +800,7 @@ class _BookingsPageState extends State<BookingsPage>
             label: 'ANNULLA',
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -809,7 +809,7 @@ class _BookingsPageState extends State<BookingsPage>
             label: 'ELIMINA',
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: ()
@@ -1010,7 +1010,7 @@ class _BookingsPageState extends State<BookingsPage>
             fontSize: dense ? 18 : 21,
             fontWeight: FontWeight.w700,
             height: 1.2,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
           ),
         ),
         if (_summaryLine.isNotEmpty) ...[
@@ -1176,7 +1176,7 @@ class _BookingsPageState extends State<BookingsPage>
   {
     if (_isLoading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.only(top: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );
@@ -1241,7 +1241,7 @@ class _BookingsPageState extends State<BookingsPage>
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -1250,7 +1250,7 @@ class _BookingsPageState extends State<BookingsPage>
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,

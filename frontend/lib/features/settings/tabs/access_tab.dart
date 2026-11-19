@@ -158,12 +158,12 @@ class _AccessTabState extends State<AccessTab>
     // Part of the section handover, else it paints over the section still leaving.
     if (_isLoading)
     {
-      return const PageTransitionItem(
+      return PageTransitionItem(
         slot: PageTransitionItem.header,
         child: Center(
           child: Padding(
             padding: EdgeInsets.only(top: 40.0),
-            child: CircularProgressIndicator(color: AppTheme.trialTealDeep),
+            child: CircularProgressIndicator(color: AppTheme.trialTealDeepText),
           ),
         ),
       );
@@ -273,7 +273,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
           Icon(
             matches ? Icons.check_circle_rounded : Icons.error_outline_rounded,
             size: 16,
-            color: matches ? AppTheme.trialTurquoise : AppTheme.trialDanger,
+            color: matches ? AppTheme.trialTurquoise : AppTheme.trialDangerText,
           ),
           const SizedBox(width: 8),
           Text(
@@ -281,7 +281,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: matches ? AppTheme.trialTealDeep : AppTheme.trialDanger,
+              color: matches ? AppTheme.trialTealDeepText : AppTheme.trialDangerText,
             ),
           ),
         ],

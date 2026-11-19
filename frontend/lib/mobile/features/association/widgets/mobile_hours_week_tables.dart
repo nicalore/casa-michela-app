@@ -401,9 +401,9 @@ class _MobileHoursWeekTablesState extends State<MobileHoursWeekTables> with Sing
 
   Widget get _spinner
   {
-    return const SizedBox.square(
+    return SizedBox.square(
       dimension: 26,
-      child: CircularProgressIndicator(strokeWidth: 2.6, color: AppTheme.trialTealDeep),
+      child: CircularProgressIndicator(strokeWidth: 2.6, color: AppTheme.trialTealDeepText),
     );
   }
 

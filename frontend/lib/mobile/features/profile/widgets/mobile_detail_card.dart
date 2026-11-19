@@ -108,14 +108,14 @@ class MobileCardHead extends StatelessWidget
 
   final Color tint;
 
-  const MobileCardHead({
+  MobileCardHead({
     super.key,
     required this.icon,
     required this.title,
     this.eyebrow,
     this.trailing,
-    this.tint = AppTheme.trialTealDeep,
-  });
+    Color? tint,
+  })  : tint = tint ?? AppTheme.trialTealDeepText;
 
   @override
   Widget build(BuildContext context)
@@ -143,7 +143,7 @@ class MobileCardHead extends StatelessWidget
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.4,
-                        color: AppTheme.trialTealDeep,
+                        color: AppTheme.trialTealDeepText,
                       ),
                     ),
                   ),
@@ -173,7 +173,7 @@ class MobileCardBadge extends StatelessWidget
   final IconData icon;
   final Color tint;
 
-  const MobileCardBadge({super.key, required this.icon, this.tint = AppTheme.trialTealDeep});
+  MobileCardBadge({super.key, required this.icon, Color? tint}) : tint = tint ?? AppTheme.trialTealDeepText;
 
   @override
   Widget build(BuildContext context)
@@ -404,10 +404,10 @@ class _CardButtonFace extends StatelessWidget
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: 0.85),
-        border: Border.all(color: AppTheme.trialOcean.withValues(alpha: 0.13)),
+        color: AppTheme.surface.withValues(alpha: 0.85),
+        border: Border.all(color: AppTheme.trialOceanText.withValues(alpha: 0.13)),
       ),
-      child: Icon(icon, size: size * _editIconShare, color: AppTheme.trialTealDeep),
+      child: Icon(icon, size: size * _editIconShare, color: AppTheme.trialTealDeepText),
     );
   }
 }

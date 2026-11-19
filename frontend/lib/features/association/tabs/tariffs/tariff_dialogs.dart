@@ -213,7 +213,7 @@ class _LevelDialogState extends State<_LevelDialog>
       padding: EdgeInsets.only(top: first ? 4 : _blockPadding, bottom: _blockPadding),
       decoration: first
           ? null
-          : const BoxDecoration(border: Border(top: BorderSide(color: AppTheme.trialLine))),
+          : BoxDecoration(border: Border(top: BorderSide(color: AppTheme.trialLine))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -225,7 +225,7 @@ class _LevelDialogState extends State<_LevelDialog>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: on ? AppTheme.trialOcean : AppTheme.trialMutedText.withValues(alpha: 0.7),
+                    color: on ? AppTheme.trialOceanText : AppTheme.trialMutedText.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -251,7 +251,7 @@ class _LevelDialogState extends State<_LevelDialog>
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 1),
                   child: Icon(Icons.info_outline_rounded, size: 17, color: AppTheme.trialTurquoise),
                 ),

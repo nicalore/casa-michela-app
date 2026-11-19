@@ -7,7 +7,7 @@ import 'app_menu.dart';
 import 'app_top_nav.dart';
 import 'overflow_tooltip_text.dart';
 
-const Color _logoutColor = AppTheme.trialDanger;
+Color get _logoutColor => AppTheme.trialDangerText;
 
 const double _menuWidth = 210;
 const double _headedMenuWidth = 230;
@@ -119,7 +119,7 @@ class UserMenu extends StatelessWidget
               fontSize: 15,
               fontWeight: FontWeight.w700,
               height: 1.2,
-              color: AppTheme.trialTealDeep,
+              color: AppTheme.trialTealDeepText,
             ),
           ),
         ],

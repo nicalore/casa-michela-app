@@ -45,7 +45,7 @@ class LessonTimeRangeSlider extends StatelessWidget
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.plusJakartaSans(
-        color: AppTheme.trialOcean,
+        color: AppTheme.trialOceanText,
         fontWeight: FontWeight.w700,
         fontSize: 16,
       ),
@@ -61,7 +61,7 @@ class LessonTimeRangeSlider extends StatelessWidget
       style: GoogleFonts.plusJakartaSans(
         fontWeight: FontWeight.w700,
         fontSize: 18,
-        color: _isSet ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+        color: _isSet ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
       ),
     );
   }
@@ -78,7 +78,7 @@ class LessonTimeRangeSlider extends StatelessWidget
         if (remove != null)
           FadeHoverIconButton(
             icon: Icons.delete_outline_rounded,
-            color: AppTheme.trialDanger,
+            color: AppTheme.trialDangerText,
             hoverColor: AppTheme.trialGoldSurface,
             onTap: remove,
           ),

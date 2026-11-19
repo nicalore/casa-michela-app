@@ -14,11 +14,11 @@ const double kConfettiPour = 3.0;
 const double kConfettiSlowest = 110;
 const double kConfettiFastest = 230;
 
-const List<Color> _colors = [
+List<Color> get _colors => [
   AppTheme.trialTurquoise,
   AppTheme.trialGold,
-  AppTheme.trialViolet,
-  AppTheme.trialTealDeep,
+  AppTheme.trialVioletText,
+  AppTheme.trialTealDeepText,
   AppTheme.trialDangerLight,
   AppTheme.trialSeaGreen,
 ];

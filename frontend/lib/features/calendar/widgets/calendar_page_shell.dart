@@ -381,7 +381,7 @@ class CalendarPageShell extends StatelessWidget
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -390,7 +390,7 @@ class CalendarPageShell extends StatelessWidget
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
@@ -459,7 +459,7 @@ class CalendarLoading extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.only(top: 60),
       child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
     );

@@ -8,6 +8,7 @@ import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
+import '../../../services/account_colour_theme.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/corner_glow.dart';
@@ -302,6 +303,8 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   {
     try
     {
+      // The page fades to the sign-in look before the login replaces it.
+      await AccountColourTheme.fadeToSignedOut();
       await _apiService.logout();
     }
     catch (e)
@@ -331,8 +334,8 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   {
     if (_loadingUser)
     {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.trialTealDeep),
+      return Center(
+        child: CircularProgressIndicator(color: AppTheme.trialTealDeepText),
       );
     }
 
@@ -347,21 +350,21 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     final isTablet = screenWidth > _tabletBreakpoint;
 
     return Scaffold(
-      backgroundColor: AppTheme.trialPaper,
+      backgroundColor: AppTheme.pagePaper,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           'Ciao, ${_currentUser?.firstName ?? ''}',
-          style: const TextStyle(
-            color: AppTheme.trialOcean,
+          style: TextStyle(
+            color: AppTheme.trialOceanText,
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            color: AppTheme.trialTealDeep,
+            color: AppTheme.trialTealDeepText,
             onPressed: _logout,
           ),
         ],
@@ -593,7 +596,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     return Container(
       width: widget.width,
       height: widget.height,
-      color: AppTheme.trialPaper,
+      color: AppTheme.pagePaper,
       child: Stack(
         children: [
           const CornerGlow(
@@ -602,7 +605,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
             edgeTint: AppTheme.trialOcean,
             intensity: 1.25,
           ),
-          const CornerGlow(
+          CornerGlow(
             corner: GlowCorner.bottomLeft,
             tint: AppTheme.trialSeaGreen,
             edgeTint: AppTheme.trialTealDeep,

@@ -160,7 +160,7 @@ class _TeacherSheetState extends State<_TeacherSheet>
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 fontStyle: subjects.isEmpty ? FontStyle.italic : FontStyle.normal,
-                color: subjects.isEmpty ? MobilePalette.mutedText : AppTheme.trialTealDeep,
+                color: subjects.isEmpty ? MobilePalette.mutedText : AppTheme.trialTealDeepText,
               ),
             ),
             for (final group in groupByArea(subjects, (subject) => subject.subjectArea)) ...[
@@ -313,7 +313,7 @@ class _Tag extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     );
@@ -321,7 +321,7 @@ class _Tag extends StatelessWidget
 }
 
 // Opaque, so the fade between the two fills passes through no grey.
-final Color _restSurface = Color.alphaBlend(AppTheme.trialOcean.withValues(alpha: 0.05), Colors.white);
+Color get _restSurface => Color.alphaBlend(AppTheme.trialOcean.withValues(alpha: 0.05), AppTheme.surface);
 
 BoxDecoration _opinionDecoration({required bool selected, required BorderRadius radius})
 {
@@ -330,8 +330,8 @@ BoxDecoration _opinionDecoration({required bool selected, required BorderRadius 
     borderRadius: radius,
     border: Border.all(
       color: selected
-          ? AppTheme.trialDanger.withValues(alpha: 0.55)
-          : AppTheme.trialOcean.withValues(alpha: 0.14),
+          ? AppTheme.trialDangerText.withValues(alpha: 0.55)
+          : AppTheme.trialOceanText.withValues(alpha: 0.14),
       width: selected ? 1.5 : 1,
     ),
   );
@@ -366,7 +366,7 @@ class _ThumbChip extends StatelessWidget
               Icon(
                 selected ? Icons.thumb_down_rounded : Icons.thumb_down_outlined,
                 size: 17,
-                color: selected ? AppTheme.trialDanger : MobilePalette.mutedText,
+                color: selected ? AppTheme.trialDangerText : MobilePalette.mutedText,
               ),
               const SizedBox(width: 7),
               Text(
@@ -374,7 +374,7 @@ class _ThumbChip extends StatelessWidget
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                  color: selected ? AppTheme.trialDanger : AppTheme.trialInk,
+                  color: selected ? AppTheme.trialDangerText : AppTheme.trialInk,
                 ),
               ),
             ],
@@ -412,7 +412,7 @@ class _OpinionRow extends StatelessWidget
               Icon(
                 selected ? Icons.thumb_down_rounded : Icons.thumb_down_outlined,
                 size: 20,
-                color: selected ? AppTheme.trialDanger : MobilePalette.mutedText,
+                color: selected ? AppTheme.trialDangerText : MobilePalette.mutedText,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -422,7 +422,7 @@ class _OpinionRow extends StatelessWidget
                     fontSize: 14.5,
                     fontWeight: FontWeight.w700,
                     height: 1.35,
-                    color: selected ? AppTheme.trialDanger : AppTheme.trialInk,
+                    color: selected ? AppTheme.trialDangerText : AppTheme.trialInk,
                   ),
                 ),
               ),
@@ -452,10 +452,10 @@ class _RedCheck extends StatelessWidget
       width: _checkSize,
       height: _checkSize,
       decoration: BoxDecoration(
-        color: selected ? AppTheme.trialDanger : Colors.white,
+        color: selected ? AppTheme.trialDanger : AppTheme.surface,
         borderRadius: BorderRadius.circular(7),
         border: Border.all(
-          color: selected ? AppTheme.trialDanger : AppTheme.trialOcean.withValues(alpha: 0.2),
+          color: selected ? AppTheme.trialDangerText : AppTheme.trialOceanText.withValues(alpha: 0.2),
           width: 1.5,
         ),
       ),

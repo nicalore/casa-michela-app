@@ -294,7 +294,7 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
           onRetry: _load,
         ),
       (final ToSettle list, _) => _body(list, dense),
-      _ => const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+      _ => Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
     };
 
     return Column(
@@ -337,7 +337,7 @@ class _ToSettleTable extends StatelessWidget
     return Container(
       height: _headHeight,
       padding: const EdgeInsets.only(left: _sideInset),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: kHoursHeadSurface,
         border: Border(bottom: BorderSide(color: kHoursRowLine)),
       ),
@@ -367,7 +367,7 @@ class _ToSettleTable extends StatelessWidget
           style: GoogleFonts.plusJakartaSans(
             fontSize: _font + 1,
             fontWeight: FontWeight.w800,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
           ),
         ),
         if (!row.enrolled) ...[
@@ -408,7 +408,7 @@ class _ToSettleTable extends StatelessWidget
     return Container(
       padding: const EdgeInsets.fromLTRB(_stackedInset, 12, 8, 12),
       decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: kHoursRowLine)),
+        border: first ? null : Border(top: BorderSide(color: kHoursRowLine)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -419,9 +419,9 @@ class _ToSettleTable extends StatelessWidget
               Expanded(child: _name(row)),
               const SizedBox(width: _itemAmountGap),
               _total(row),
-              const SizedBox(
+              SizedBox(
                 width: _stackedChevron,
-                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeep),
+                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeepText),
               ),
             ],
           ),
@@ -478,7 +478,7 @@ class _ToSettleTable extends StatelessWidget
     return Container(
       padding: EdgeInsets.fromLTRB(_sideInset, dense ? 12 : 15, 0, dense ? 12 : 15),
       decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: kHoursRowLine)),
+        border: first ? null : Border(top: BorderSide(color: kHoursRowLine)),
       ),
       child: Row(
         children: [
@@ -491,7 +491,7 @@ class _ToSettleTable extends StatelessWidget
           SizedBox(width: c.amount, child: _total(row)),
           SizedBox(
             width: c.chevron,
-            child: const Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeep),
+            child: Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeepText),
           ),
         ],
       ),
@@ -511,7 +511,7 @@ class _ToSettleTable extends StatelessWidget
         return Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(_radius),
             boxShadow: AppTheme.cardShadow,
           ),

@@ -329,7 +329,7 @@ class TimelineLaneName extends StatelessWidget
               fontSize: dense ? 15 : 18,
               fontWeight: FontWeight.w700,
               height: 1.2,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
         ),
@@ -348,11 +348,11 @@ class _GridPainter extends CustomPainter
   void paint(Canvas canvas, Size size)
   {
     final hour = Paint()
-      ..color = AppTheme.trialTealDeep.withValues(alpha: 0.22)
+      ..color = AppTheme.trialTealDeepText.withValues(alpha: 0.22)
       ..strokeWidth = 1;
 
     final half = Paint()
-      ..color = AppTheme.trialTealDeep.withValues(alpha: 0.14)
+      ..color = AppTheme.trialTealDeepText.withValues(alpha: 0.14)
       ..strokeWidth = 1;
 
     final quarter = Paint()

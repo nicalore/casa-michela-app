@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -41,7 +42,7 @@ const double _tagGap = 8;
 // Past this the disciplines scroll inside their card, not the dialog.
 const double _subjectsMaxHeight = 280;
 
-const Color _tagSurface = Color(0xFFE8F7F5);
+Color get _tagSurface => ThemeColours.of(0xFFE8F7F5);
 
 const String _empty = '—';
 
@@ -262,7 +263,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+      return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
     if (_loadFailure != null)
@@ -439,7 +440,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
         style: GoogleFonts.plusJakartaSans(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     );
@@ -506,7 +507,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: subjects.isEmpty ? AppTheme.trialMutedText : AppTheme.trialTealDeep,
+                color: subjects.isEmpty ? AppTheme.trialMutedText : AppTheme.trialTealDeepText,
                 fontStyle: subjects.isEmpty ? FontStyle.italic : FontStyle.normal,
               ),
             ),

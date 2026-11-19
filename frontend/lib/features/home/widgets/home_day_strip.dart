@@ -20,7 +20,7 @@ import 'home_schedule_data.dart';
 const List<String> kStripModes = [kPresenceMode, kOnlineMode];
 
 // A mode the band does not open, or a closed band: greyer than the muted text.
-final Color kStripClosedColor = AppTheme.trialMutedText.withValues(alpha: 0.62);
+Color get kStripClosedColor => AppTheme.trialMutedText.withValues(alpha: 0.62);
 
 // Below this the three bands go one under the other, each with its name beside its rows.
 const double kStripStackedBelow = 480;
@@ -237,7 +237,7 @@ class StripBandHead extends StatelessWidget
                 fontSize: scale.bandName,
                 fontWeight: FontWeight.w700,
                 height: 1.25,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
           ),
@@ -381,7 +381,7 @@ class HomeDayStrip extends StatelessWidget
   {
     if (isLoading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 30),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );

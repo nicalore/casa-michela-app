@@ -220,7 +220,7 @@ class _EditNotPreferredTeachersDialogState extends State<_EditNotPreferredTeache
   {
     if (_isLoading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );

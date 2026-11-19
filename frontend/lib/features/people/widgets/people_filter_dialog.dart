@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -393,7 +394,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
             label: 'AZZERA',
             icon: Icons.refresh_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: 52,
             fontSize: 14,
             onPressed: _resetFilters,
@@ -869,7 +870,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   }
 }
 
-const Color _fieldSurface = Color(0xFFFBFDFC);
+Color get _fieldSurface => ThemeColours.of(0xFFFBFDFC);
 const double _fieldRadius = 14;
 const double _fieldBorder = 2;
 
@@ -1083,10 +1084,10 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
                             color:        AppTheme.trialDanger.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.close_rounded,
                             size:  16,
-                            color: AppTheme.trialDanger,
+                            color: AppTheme.trialDangerText,
                           ),
                         ),
                       ),

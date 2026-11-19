@@ -2,6 +2,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import 'mobile_entrance_motion.dart';
 import 'mobile_glass_panel.dart';
 import 'mobile_nav_sheet.dart';
@@ -189,7 +190,7 @@ class _MorphingGlass extends StatelessWidget
   // A rounded Border needs one colour, so the sides thin out instead of fading.
   static Border _border(double t)
   {
-    final Color edge = Colors.white.withValues(alpha: lerpDouble(MobileGlassPanel.edgeAlpha, 0.7, t)!);
+    final Color edge = AppTheme.surfaceEdge.withValues(alpha: lerpDouble(MobileGlassPanel.edgeAlpha, 0.7, t)!);
     final BorderSide side = t < 1 ? BorderSide(color: edge, width: 1 - t) : BorderSide.none;
 
     return Border(top: BorderSide(color: edge), left: side, right: side, bottom: side);
@@ -218,7 +219,7 @@ class _MorphingGlass extends StatelessWidget
             children: [
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Color.lerp(Colors.white.withValues(alpha: MobileGlassPanel.cardAlpha), bar.color, t),
+                  color: Color.lerp(AppTheme.surface.withValues(alpha: MobileGlassPanel.cardAlpha), bar.color, t),
                   borderRadius: radius,
                   border: _border(t),
                 ),
@@ -233,7 +234,7 @@ class _MorphingGlass extends StatelessWidget
                     gradient: LinearGradient(
                       colors: [
                         Colors.white.withValues(alpha: 0),
-                        Colors.white.withValues(alpha: highlight),
+                        AppTheme.surface.withValues(alpha: highlight),
                         Colors.white.withValues(alpha: 0),
                       ],
                     ),

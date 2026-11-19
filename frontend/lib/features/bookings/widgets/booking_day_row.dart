@@ -105,7 +105,7 @@ TextStyle get _denseNameStyle => GoogleFonts.plusJakartaSans(
   fontSize: 14.5,
   fontWeight: FontWeight.w700,
   height: 1.2,
-  color: AppTheme.trialOcean,
+  color: AppTheme.trialOceanText,
 );
 
 const double _denseButtonHeight = 36;
@@ -452,7 +452,7 @@ class _BookingDayRowState extends State<BookingDayRow>
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     height: 1.15,
-                    color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+                    color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOceanText,
                   ),
                 ),
               ),
@@ -465,7 +465,7 @@ class _BookingDayRowState extends State<BookingDayRow>
                   visible: _hover,
                   litBy: bin,
                   icon: Icons.delete_outline_rounded,
-                  color: AppTheme.trialDanger,
+                  color: AppTheme.trialDangerText,
                   tooltip: 'Elimina la giornata',
                   onTap: () => widget.onDeleteDay(_lanes.single),
                 ),
@@ -589,7 +589,7 @@ class _BookingDayRowState extends State<BookingDayRow>
           fontSize: 16,
           fontWeight: FontWeight.w700,
           height: 1.15,
-          color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+          color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOceanText,
         ),
       ),
     );
@@ -614,7 +614,7 @@ class _BookingDayRowState extends State<BookingDayRow>
         litBy: bin,
         dense: true,
         icon: Icons.delete_outline_rounded,
-        color: AppTheme.trialDanger,
+        color: AppTheme.trialDangerText,
         tooltip: 'Elimina la giornata',
         onTap: () => widget.onDeleteDay(_lanes.single),
       ),
@@ -676,7 +676,7 @@ class _BookingDayRowState extends State<BookingDayRow>
         children: [
           Flexible(child: _buildDenseDateLine(tour)),
           const SizedBox(width: 16),
-          const Icon(Icons.event_busy_rounded, size: 17, color: AppTheme.trialMutedText),
+          Icon(Icons.event_busy_rounded, size: 17, color: AppTheme.trialMutedText),
           const SizedBox(width: 8),
           const Expanded(child: _Muted("L'Associazione è chiusa", dense: true)),
         ],
@@ -720,7 +720,7 @@ class _BookingDayRowState extends State<BookingDayRow>
   {
     return Row(
       children: [
-        const Icon(Icons.event_busy_rounded, size: 20, color: AppTheme.trialMutedText),
+        Icon(Icons.event_busy_rounded, size: 20, color: AppTheme.trialMutedText),
         const SizedBox(width: 10),
         const Expanded(child: _Muted("L'Associazione è chiusa")),
       ],
@@ -823,7 +823,7 @@ class _BookingDayRowState extends State<BookingDayRow>
     final Widget card = Container(
       padding: dense ? (shut ? _densePadding.copyWith(top: 10, bottom: 10) : _densePadding) : _padding,
       decoration: BoxDecoration(
-        color: shut ? AppTheme.closedSurface : Colors.white,
+        color: shut ? AppTheme.closedSurface : AppTheme.surface,
         borderRadius: BorderRadius.circular(radius - rim),
       ),
       child: content,
@@ -849,7 +849,7 @@ class _Divider extends StatelessWidget
 {
   final Color color;
 
-  const _Divider({this.color = AppTheme.trialLine});
+  _Divider({Color? color}) : color = color ?? AppTheme.trialLine;
 
   @override
   Widget build(BuildContext context)
@@ -967,7 +967,7 @@ class _LaneViewState extends State<_LaneView>
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                               height: 1.2,
-                              color: AppTheme.trialOcean,
+                              color: AppTheme.trialOceanText,
                             ),
                           ),
                         ),
@@ -980,7 +980,7 @@ class _LaneViewState extends State<_LaneView>
                             visible: _hover,
                             litBy: bin,
                             icon: Icons.delete_outline_rounded,
-                            color: AppTheme.trialDanger,
+                            color: AppTheme.trialDangerText,
                             tooltip: 'Elimina la giornata',
                             onTap: widget.onDeleteDay,
                           ),
@@ -1065,7 +1065,7 @@ class _LaneViewState extends State<_LaneView>
                         litBy: bin,
                         dense: true,
                         icon: Icons.delete_outline_rounded,
-                        color: AppTheme.trialDanger,
+                        color: AppTheme.trialDangerText,
                         tooltip: 'Elimina la giornata',
                         onTap: widget.onDeleteDay,
                       ),
@@ -1329,7 +1329,7 @@ class _ModeBlockState extends State<_ModeBlock>
           dense: widget.dense,
           litBy: _actionsTour,
           icon: Icons.edit_outlined,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
           tooltip: 'Modifica gli orari',
           onTap: widget.onEditHours,
         ),
@@ -1339,7 +1339,7 @@ class _ModeBlockState extends State<_ModeBlock>
           dense: widget.dense,
           litBy: _actionsTour,
           icon: Icons.add_rounded,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
           tooltip: 'Aggiungi una lezione',
           onTap: widget.onAddLesson,
         ),
@@ -1350,7 +1350,7 @@ class _ModeBlockState extends State<_ModeBlock>
             dense: widget.dense,
             litBy: _actionsTour,
             icon: Icons.swap_horiz_rounded,
-            color: AppTheme.trialTealDeep,
+            color: AppTheme.trialTealDeepText,
             tooltip: moveBandLessons(widget.band),
             disabledReason: widget.blockMoveRefusal,
             onTap: widget.onMoveBlock,
@@ -1364,7 +1364,7 @@ class _ModeBlockState extends State<_ModeBlock>
           dense: widget.dense,
           litBy: _actionsTour,
           icon: Icons.delete_outline_rounded,
-          color: AppTheme.trialDanger,
+          color: AppTheme.trialDangerText,
           tooltip: deleteBand(widget.band),
           onTap: widget.onDelete,
         ),
@@ -1473,11 +1473,11 @@ class _HoursChip extends StatelessWidget
     final bool online = slot.mode == kOnlineMode;
 
     final Color surface = locked
-        ? Colors.white
+        ? AppTheme.surface
         : (online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge);
     final Color ink = locked
         ? AppTheme.trialMutedText
-        : (online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep);
+        : (online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText);
 
     final double height = dense ? _denseChipHeight : _chipHeight;
 
@@ -1578,7 +1578,7 @@ class _LessonRowState extends State<_LessonRow>
             fontSize: 17,
             fontWeight: FontWeight.w700,
             height: 1.3,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
           ),
         ),
         if (_disciplines.isEmpty)
@@ -1641,7 +1641,7 @@ class _LessonRowState extends State<_LessonRow>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 2),
           child: Icon(Icons.thumb_up_outlined, size: 18, color: AppTheme.trialMutedText),
         ),
@@ -1711,7 +1711,7 @@ class _LessonRowState extends State<_LessonRow>
                   litBy: lit,
                   dense: widget.dense,
                   icon: Icons.edit_outlined,
-                  color: AppTheme.trialTealDeep,
+                  color: AppTheme.trialTealDeepText,
                   tooltip: 'Modifica la lezione',
                   onTap: widget.onEdit,
                 ),
@@ -1722,7 +1722,7 @@ class _LessonRowState extends State<_LessonRow>
                     litBy: lit,
                     dense: widget.dense,
                     icon: Icons.swap_horiz_rounded,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                     tooltip: 'Sposta la lezione',
                     onTap: widget.onMove,
                   ),
@@ -1733,7 +1733,7 @@ class _LessonRowState extends State<_LessonRow>
                   litBy: lit,
                   dense: widget.dense,
                   icon: Icons.delete_outline_rounded,
-                  color: AppTheme.trialDanger,
+                  color: AppTheme.trialDangerText,
                   tooltip: 'Elimina la lezione',
                   onTap: widget.onDelete,
                 ),
@@ -1804,7 +1804,7 @@ class _LessonRowState extends State<_LessonRow>
   TextStyle get _denseTitleStyle => GoogleFonts.plusJakartaSans(
     fontSize: 13.5,
     fontWeight: FontWeight.w700,
-    color: AppTheme.trialOcean,
+    color: AppTheme.trialOceanText,
   );
 
   TextStyle get _denseDisciplinesStyle => GoogleFonts.plusJakartaSans(
@@ -1912,7 +1912,7 @@ class _LessonRowState extends State<_LessonRow>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.thumb_up_outlined, size: 15, color: AppTheme.trialMutedText),
+        Icon(Icons.thumb_up_outlined, size: 15, color: AppTheme.trialMutedText),
         const SizedBox(width: 6),
         Flexible(
           child: text == null
@@ -2191,7 +2191,7 @@ class _Mark extends StatelessWidget
       child: Icon(
         icon,
         size: dense ? _denseMarkIconSize : _markIconSize,
-        color: muted ? AppTheme.trialMutedText.withValues(alpha: 0.5) : AppTheme.trialTealDeep,
+        color: muted ? AppTheme.trialMutedText.withValues(alpha: 0.5) : AppTheme.trialTealDeepText,
       ),
     );
 
@@ -2260,7 +2260,7 @@ class BookingTodayPill extends StatelessWidget
       decoration: BoxDecoration(
         color: AppTheme.todaySurface,
         borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: AppTheme.trialTealDeep.withValues(alpha: 0.28)),
+        border: Border.all(color: AppTheme.trialTealDeepText.withValues(alpha: 0.28)),
       ),
       child: Text(
         'OGGI',
@@ -2269,7 +2269,7 @@ class BookingTodayPill extends StatelessWidget
           fontWeight: FontWeight.w700,
           height: 1.2,
           letterSpacing: 1.1,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     );

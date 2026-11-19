@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/layout/app_breakpoints.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/theme/theme_colours.dart';
 import '../../../../../shared/widgets/app_card.dart';
+import '../../../../../shared/widgets/app_tooltip.dart';
 import '../../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../../shared/widgets/page_density.dart';
 import '../../../../../shared/widgets/show_more_button.dart';
@@ -23,6 +25,10 @@ const double _denseFiguresStackBelow = 330;
 // The narrowest wide window leaves a whole card 864 wide inside and a paired summary card 400: below those
 // nothing may stack there, or narrowing past 1280 (rail and margins gone, content wider) would unstack it again.
 const double _wideListsFrom = 860;
+
+// Three rankings with long titles in a row: each title on one line. Above the dense
+// content of a 1279 window too, so narrowing past 1280 never puts them back in a row.
+const double _threeRankingsFrom = 1220;
 const double _wideFiguresStackBelow = 380;
 
 // In the minimal window a ranking shows this many rows, then lengthens in place.
@@ -66,6 +72,7 @@ class StatMetrics
   // Lists inside a card sit side by side from this width, three of them from the next.
   double get listsFrom => dense ? 640 : _wideListsFrom;
   double get threeListsFrom => dense ? 900 : _wideListsFrom;
+  double get threeRankingsFrom => _threeRankingsFrom;
 
   double get figuresStackBelow => dense ? _denseFiguresStackBelow : _wideFiguresStackBelow;
 }
@@ -117,7 +124,7 @@ class StatSectionTitle extends StatelessWidget
       style: GoogleFonts.plusJakartaSans(
         fontSize: StatMetrics.of(context).sectionTitleSize,
         fontWeight: FontWeight.w700,
-        color: AppTheme.trialOcean,
+        color: AppTheme.trialOceanText,
       ),
     );
   }
@@ -150,7 +157,7 @@ class StatRowDivider extends StatelessWidget
   {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: StatMetrics.of(context).dense ? 12 : 16),
-      child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+      child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
     );
   }
 }
@@ -163,7 +170,7 @@ class StatPartDivider extends StatelessWidget
   // Between lists stacked in a card rather than between its parts.
   final bool lists;
 
-  const StatPartDivider({super.key, this.color = AppTheme.trialLine, this.lists = false});
+  StatPartDivider({super.key, Color? color, this.lists = false}) : color = color ?? AppTheme.trialLine;
 
   @override
   Widget build(BuildContext context)
@@ -188,15 +195,15 @@ class StatColumnDivider extends StatelessWidget
   {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: StatMetrics.of(context).dense ? 20 : 24),
-      child: const VerticalDivider(color: AppTheme.trialLine, thickness: 1),
+      child: VerticalDivider(color: AppTheme.trialLine, thickness: 1),
     );
   }
 }
 
-// A ranking in two columns, 1°–5° beside 6°–10°.
+// A ranking in two columns, 1°–5° beside 6°–10°; without a title when the card's says it all.
 class SplitRanking extends StatelessWidget
 {
-  final String title;
+  final String? title;
   final List<Widget> rows;
 
   const SplitRanking({super.key, required this.title, required this.rows});
@@ -210,8 +217,10 @@ class SplitRanking extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        StatSectionTitle(title),
-        SizedBox(height: StatMetrics.of(context).titleGap),
+        if (title case final title?) ...[
+          StatSectionTitle(title),
+          SizedBox(height: StatMetrics.of(context).titleGap),
+        ],
         if (rows.isEmpty)
           const EmptyChartMessage(fontSize: 14)
         else
@@ -230,13 +239,14 @@ class SplitRanking extends StatelessWidget
   }
 }
 
-// A label over a big figure, as wide as its slot.
+// A label over a big figure, as wide as its slot; [info] explains it behind an (i).
 class StatFigure extends StatelessWidget
 {
   final String label;
   final String value;
+  final String? info;
 
-  const StatFigure({super.key, required this.label, required this.value});
+  const StatFigure({super.key, required this.label, required this.value, this.info});
 
   @override
   Widget build(BuildContext context)
@@ -247,15 +257,28 @@ class StatFigure extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        WholeWords(
-          child: Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: metrics.labelSize,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
+        Row(
+          children: [
+            Flexible(
+              child: WholeWords(
+                child: Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: metrics.labelSize,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.trialMutedText,
+                  ),
+                ),
+              ),
             ),
-          ),
+            if (info case final info?) ...[
+              const SizedBox(width: 6),
+              AppTooltip(
+                message: info,
+                child: Icon(Icons.info_outline_rounded, size: metrics.labelSize + 2, color: AppTheme.trialTurquoise),
+              ),
+            ],
+          ],
         ),
         SizedBox(height: metrics.labelGap),
         WholeWords(
@@ -264,7 +287,7 @@ class StatFigure extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: metrics.figureSize,
               fontWeight: FontWeight.w800,
-              color: AppTheme.trialTealDeep,
+              color: AppTheme.trialTealDeepText,
             ),
           ),
         ),
@@ -328,7 +351,7 @@ class StatBlock extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final color = isDelta && value < 0 ? AppTheme.trialDanger : AppTheme.trialTealDeep;
+    final color = isDelta && value < 0 ? AppTheme.trialDangerText : AppTheme.trialTealDeepText;
     final sign = value > 0 ? '+' : '';
     final StatMetrics metrics = StatMetrics.of(context);
 
@@ -498,7 +521,7 @@ class ChartCard extends StatelessWidget
 
     if (isLoading)
     {
-      chartArea = const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+      chartArea = Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
     else if (isEmpty)
     {
@@ -570,7 +593,7 @@ class RetentionCard extends StatelessWidget
     {
       if (isLoading)
       {
-        return const Center(
+        return Center(
           child: SizedBox(
             width: 26,
             height: 26,
@@ -587,7 +610,7 @@ class RetentionCard extends StatelessWidget
       style: GoogleFonts.plusJakartaSans(
         fontSize: dense ? _densePercentageFigureSize : _percentageFigureSize,
         fontWeight: FontWeight.w800,
-        color: AppTheme.trialTealDeep,
+        color: AppTheme.trialTealDeepText,
       ),
     );
 
@@ -663,7 +686,7 @@ String formatAppreciationScore(int score)
   return '${score > 0 ? '+' : '−'}${score.abs()}';
 }
 
-const Color kThumbUpColor = AppTheme.trialTealDeep;
+Color get kThumbUpColor => AppTheme.trialTealDeep;
 const Color kThumbDownColor = AppTheme.trialDeepWater;
 
 const Duration _hoverFade = Duration(milliseconds: 180);
@@ -912,7 +935,7 @@ class PersonRankingSection extends StatelessWidget
 // Share and badge sit in fixed slots so they line up down the list.
 class ShareRankRow extends StatelessWidget
 {
-  static const Color _badgeBackground = Color(0xFFE8F7F5);
+  static Color get _badgeBackground => ThemeColours.of(0xFFE8F7F5);
 
   // Room for "100.0%".
   static const double _percentageSlot = 48;
@@ -943,7 +966,7 @@ class ShareRankRow extends StatelessWidget
       padding: EdgeInsets.only(bottom: metrics.rowGap),
       child: Row(
         children: [
-          RankPosition(position: position, color: AppTheme.trialTealDeep),
+          RankPosition(position: position, color: AppTheme.trialTealDeepText),
           Expanded(
             child: OverflowTooltipText(
               text: name,
@@ -984,7 +1007,7 @@ class ShareRankRow extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: metrics.badgeSize,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                   ),
                 ),
               ),

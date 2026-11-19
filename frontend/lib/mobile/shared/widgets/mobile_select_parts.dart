@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../mobile_palette.dart';
 
 const Duration _press = Duration(milliseconds: 160);
@@ -10,7 +11,7 @@ const double kMobileChipGap = 6;
 
 const double _rowRadius = 16;
 const double _rowMinHeight = 50;
-const Color _rowRest = Color(0xB8FFFFFF);
+Color get _rowRest => ThemeColours.fixed(0xB8FFFFFF);
 const double _rowEdgeAlpha = 0.06;
 
 const double _ringSize = 24;
@@ -104,7 +105,7 @@ class MobileSelectChip extends StatelessWidget
             // Tight enough for three of the lesson kinds to share a phone's row.
             padding: const EdgeInsets.symmetric(horizontal: 11),
             decoration: BoxDecoration(
-              gradient: mobileSelectFill(Colors.white, t),
+              gradient: mobileSelectFill(AppTheme.surface, t),
               borderRadius: BorderRadius.circular(19),
               border: Border.all(color: AppTheme.trialInk.withValues(alpha: 0.12 * (1 - t))),
             ),
@@ -359,10 +360,10 @@ class _Ring extends StatelessWidget
       height: _ringSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: t),
+        color: AppTheme.surface.withValues(alpha: t),
         border: Border.all(color: AppTheme.trialInk.withValues(alpha: _ringEdgeAlpha * (1 - t)), width: _ringEdge),
       ),
-      child: Icon(Icons.check_rounded, size: 16, color: AppTheme.trialTealDeep.withValues(alpha: t)),
+      child: Icon(Icons.check_rounded, size: 16, color: AppTheme.trialTealDeepText.withValues(alpha: t)),
     );
   }
 }

@@ -457,7 +457,7 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
           label: _suspendLabel.toUpperCase(),
           icon: Icons.block_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           busy: busyAction == PersonAccountAction.suspension,
           onPressed: _confirmSuspension,
         ),

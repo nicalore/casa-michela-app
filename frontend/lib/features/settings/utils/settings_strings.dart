@@ -58,7 +58,7 @@ class AppearanceSetting
   final String title;
   final IconData icon;
 
-  // The first is the one in force, but for palettes, which name their theme.
+  // The first is the one in force, but for the theme (light, dark) and the palettes, which name their theme.
   final List<AppearanceOption> options;
 
   const AppearanceSetting(this.title, this.icon, this.options);
@@ -66,7 +66,8 @@ class AppearanceSetting
 
 const AppearanceSetting kThemeSetting = AppearanceSetting('Tema', Icons.brightness_6_rounded, [
   AppearanceOption('Chiaro'),
-  AppearanceOption('Scuro', available: false),
+  AppearanceOption('Scuro'),
+  AppearanceOption('Automatico'),
 ]);
 
 String colourThemeLabel(ColourTheme theme)
@@ -234,7 +235,7 @@ const String kCookieTitle = 'Cookie policy';
 
 const String kDocumentOpenFailed = 'Non è stato possibile aprire il documento.';
 
-const String kAppVersion = '0.6.3 - Alpha';
+const String kAppVersion = '0.7.0 - Alpha';
 
 const String kDevelopmentWarning =
     'ATTENZIONE: Applicazione attualmente in sviluppo. '

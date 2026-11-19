@@ -54,7 +54,7 @@ class MobileMembershipStatusCard extends StatelessWidget
           children: [
             MobileCardBadge(
               icon: enrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
-              tint: enrolled ? AppTheme.trialSeaGreen : AppTheme.trialDanger,
+              tint: enrolled ? AppTheme.trialSeaGreen : AppTheme.trialDangerText,
             ),
             const SizedBox(width: 10),
             Flexible(
@@ -221,7 +221,7 @@ class _YearsTable extends StatelessWidget
           top: _ringTop,
           bottom: _ringTop,
           child: DecoratedBox(
-            decoration: const MobileCurrentCard(BorderRadius.all(Radius.circular(12 - MobileCurrentCard.rimWidth))),
+            decoration: MobileCurrentCard(BorderRadius.all(Radius.circular(12 - MobileCurrentCard.rimWidth))),
           ),
         ),
         content,
@@ -242,7 +242,7 @@ class _Revoked extends StatelessWidget
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.gavel_rounded, size: 17, color: AppTheme.trialDanger),
+        Icon(Icons.gavel_rounded, size: 17, color: AppTheme.trialDangerText),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -250,7 +250,7 @@ class _Revoked extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13.5,
               fontWeight: FontWeight.w700,
-              color: AppTheme.trialDanger,
+              color: AppTheme.trialDangerText,
             ),
           ),
         ),

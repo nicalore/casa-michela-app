@@ -95,7 +95,7 @@ class _MobileSystemCardState extends State<MobileSystemCard>
     return MobileGlassListRow(
       leading: MobileCardBadge(
         icon: Icons.tune_rounded,
-        tint: on ? AppTheme.trialTealDeep : AppTheme.trialTealDeep.withValues(alpha: _offOpacity),
+        tint: on ? AppTheme.trialTealDeepText : AppTheme.trialTealDeepText.withValues(alpha: _offOpacity),
       ),
       title: kNotificationKindsTitle,
       titleStyle: on
@@ -132,7 +132,7 @@ class _MobileSystemCardState extends State<MobileSystemCard>
           indent: _rowLeft + _badgeSize + _rowGap,
           rows: [
             MobileGlassListRow(
-              leading: const MobileCardBadge(icon: Icons.school_rounded),
+              leading: MobileCardBadge(icon: Icons.school_rounded),
               title: kTutorialTitle,
               subtitle: const Text(kTutorialSubtitle),
               trailing: MobileGlassListRow.chevron(),
@@ -140,7 +140,7 @@ class _MobileSystemCardState extends State<MobileSystemCard>
             ),
             if (state != NotificationSwitch.unsupported)
               MobileGlassListRow(
-                leading: const MobileCardBadge(icon: Icons.notifications_rounded),
+                leading: MobileCardBadge(icon: Icons.notifications_rounded),
                 title: kNotificationsSettingTitle,
                 subtitle: Text(_stateLabel(state)),
                 trailing: MobileGlassListRow.chevron(),
@@ -257,7 +257,7 @@ class _TutorialSheetState extends State<_TutorialSheet>
             title: section.label,
             leading: MobileCardBadge(
               icon: section.icon,
-              tint: _chosen.contains(section.slug) ? Colors.white : AppTheme.trialTealDeep,
+              tint: _chosen.contains(section.slug) ? AppTheme.surface : AppTheme.trialTealDeepText,
             ),
             selected: _chosen.contains(section.slug),
             onTap: () => _toggle(section.slug),

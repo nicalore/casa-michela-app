@@ -82,7 +82,7 @@ Future<bool> askMobileNotifications(BuildContext context) async
           shape: BoxShape.circle,
           color: AppTheme.trialTealDeep.withValues(alpha: 0.13),
         ),
-        child: const Icon(Icons.notifications_active_rounded, size: 30, color: AppTheme.trialTealDeep),
+        child: Icon(Icons.notifications_active_rounded, size: 30, color: AppTheme.trialTealDeepText),
       ),
       body: const [
         SizedBox(height: 16),

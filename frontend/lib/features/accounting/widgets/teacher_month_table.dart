@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -70,14 +71,14 @@ const double _scrollBarRoom = 12;
 // More than this many bands and the last ones are only counted.
 const int kNamedPendingBands = 4;
 
-const Color _headSurface = Color(0xFFF5F8F8);
-const Color _rowLine = Color(0xFFEDF2F1);
-const Color _groupLine = Color(0xFFDDE3EA);
-const Color _cellInk = Color(0xFF33495A);
-const Color _dashInk = Color(0xFFA9B7BF);
+Color get _headSurface => ThemeColours.of(0xFFF5F8F8);
+Color get _rowLine => ThemeColours.of(0xFFEDF2F1);
+Color get _groupLine => ThemeColours.fixed(0xFFDDE3EA);
+Color get _cellInk => ThemeColours.fixed(0xFF33495A);
+Color get _dashInk => ThemeColours.fixed(0xFFA9B7BF);
 
 // A row with a file dragged over it, and the label that says whose it will be.
-const Color _dropSurface = Color(0xFFEAF6F5);
+Color get _dropSurface => ThemeColours.of(0xFFEAF6F5);
 const double _dropRim = 2;
 const Duration _dropFade = Duration(milliseconds: 150);
 
@@ -173,7 +174,7 @@ class TeacherMonthTable extends StatelessWidget
                   // The rule is drawn over the names' edge: it takes none of their room.
                   Container(
                     width: columns.name,
-                    foregroundDecoration: const BoxDecoration(border: Border(right: _groupSide)),
+                    foregroundDecoration: BoxDecoration(border: Border(right: _groupSide)),
                     child: _part(columns, _Part.pinned),
                   ),
                   Expanded(
@@ -193,7 +194,7 @@ class TeacherMonthTable extends StatelessWidget
         final Widget card = Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(24),
             boxShadow: AppTheme.cardShadow,
           ),
@@ -206,7 +207,7 @@ class TeacherMonthTable extends StatelessWidget
                 if (month.pending.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.fromLTRB(_nameInset, 13, _nameInset, 13),
-                    decoration: const BoxDecoration(border: Border(top: BorderSide(color: _rowLine))),
+                    decoration: BoxDecoration(border: Border(top: BorderSide(color: _rowLine))),
                     child: PendingBandsNote(pending: month.pending, onOpen: onOpenBand),
                   ),
               ],
@@ -622,7 +623,7 @@ List<double> _needs(BuildContext context, List<TeacherMonthRow> rows, _Fit fit)
 TextStyle _cellStyle(_Columns c, {bool strong = false, Color? color}) => GoogleFonts.plusJakartaSans(
   fontSize: c.cellFont,
   fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
-  color: color ?? (strong ? AppTheme.trialOcean : _cellInk),
+  color: color ?? (strong ? AppTheme.trialOceanText : _cellInk),
 );
 
 TextStyle _headStyle(_Columns c) => GoogleFonts.plusJakartaSans(
@@ -639,7 +640,7 @@ TextStyle get _groupStyle => GoogleFonts.plusJakartaSans(
   color: AppTheme.trialMutedText,
 );
 
-const BorderSide _groupSide = BorderSide(color: _groupLine, width: 1.5);
+BorderSide get _groupSide => BorderSide(color: _groupLine, width: 1.5);
 
 // A cell: its width, and a rule on its left when it opens a group.
 class _Cell extends StatelessWidget
@@ -665,7 +666,7 @@ class _Cell extends StatelessWidget
       width: width,
       alignment: alignment,
       padding: padding ?? _CellInset.of(context),
-      decoration: opensGroup ? const BoxDecoration(border: Border(left: _groupSide)) : null,
+      decoration: opensGroup ? BoxDecoration(border: Border(left: _groupSide)) : null,
       child: child,
     );
   }
@@ -718,7 +719,7 @@ class _Head extends StatelessWidget
 
     return Container(
       width: width,
-      decoration: opens ? const BoxDecoration(border: Border(left: _groupSide)) : null,
+      decoration: opens ? BoxDecoration(border: Border(left: _groupSide)) : null,
       child: Column(
         children: [
           Container(
@@ -778,7 +779,7 @@ class _Head extends StatelessWidget
     // And the rule under it.
     return Container(
       height: 2 * _headRow + 1,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _headSurface,
         border: Border(bottom: BorderSide(color: AppTheme.trialLine)),
       ),
@@ -802,7 +803,7 @@ class _Warning extends StatelessWidget
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.warning_amber_rounded, size: _warningIcon, color: AppTheme.modifiedAccent),
+          Icon(Icons.warning_amber_rounded, size: _warningIcon, color: AppTheme.modifiedAccent),
           const SizedBox(width: _warningGap),
           Text(
             text,
@@ -815,7 +816,7 @@ class _Warning extends StatelessWidget
   }
 }
 
-const Widget _reached = Icon(Icons.check_rounded, size: 18, color: AppTheme.trialTurquoise);
+Widget get _reached => Icon(Icons.check_rounded, size: 18, color: AppTheme.trialTurquoise);
 
 class _Row extends StatelessWidget
 {
@@ -1004,7 +1005,7 @@ class _Row extends StatelessWidget
           children: [
             AppTextLink(
               text: row.fullName,
-              style: GoogleFonts.plusJakartaSans(fontSize: c.cellFont, fontWeight: FontWeight.w700, color: AppTheme.trialOcean),
+              style: GoogleFonts.plusJakartaSans(fontSize: c.cellFont, fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
               onTap: () => onOpen(row),
             ),
             if (row.openingPending) ...[
@@ -1050,7 +1051,7 @@ class _Row extends StatelessWidget
       height: _rowHeight + (first ? 0 : 1),
       decoration: BoxDecoration(
         color: dropLit ? _dropSurface : Colors.white.withValues(alpha: 0),
-        border: first ? null : const Border(top: BorderSide(color: _rowLine)),
+        border: first ? null : Border(top: BorderSide(color: _rowLine)),
       ),
       foregroundDecoration: dropLit
           ? BoxDecoration(border: Border.all(color: AppTheme.trialTurquoise, width: _dropRim))
@@ -1193,7 +1194,7 @@ class _Totals extends StatelessWidget
 
     return Container(
       height: 44,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _headSurface,
         border: Border(top: BorderSide(color: AppTheme.trialLine)),
       ),
@@ -1232,7 +1233,7 @@ class PendingBandsNote extends StatelessWidget
       fontWeight: FontWeight.w600,
       color: AppTheme.trialMutedText,
     );
-    final TextStyle link = plain.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep);
+    final TextStyle link = plain.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialTealDeepText);
 
     final List<PendingBand> named = _named;
     final int others = pending.length - named.length;
@@ -1277,7 +1278,7 @@ class PendingBandsNote extends StatelessWidget
       mainAxisSize: centered ? MainAxisSize.min : MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 1),
           child: Icon(Icons.schedule_rounded, size: 17, color: AppTheme.trialTurquoise),
         ),

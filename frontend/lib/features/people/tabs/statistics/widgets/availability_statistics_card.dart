@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/utils/week_range.dart';
 import '../../../../../shared/widgets/app_card.dart';
 import '../../../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../../lessons/utils/opening_window.dart' show kOnlineMode;
 import '../../../models/teacher_availability_statistics_item.dart';
 import 'stat_filters.dart';
 import 'stat_widgets.dart';
+import 'stats_layout.dart';
 
-const Color _sectionDivider = AppTheme.trialLine;
+Color get _sectionDivider => AppTheme.trialLine;
 
 const Duration _fetchFade = Duration(milliseconds: 150);
 
@@ -58,77 +60,87 @@ class TeacherAvailabilityCard extends StatelessWidget
 
   Widget _topRanking() => PersonRankingSection(title: _topTitle, rows: _topRows());
 
-  Widget _splitRanking() => SplitRanking(title: _topTitle, rows: _topRows());
+  Widget _hoursRanking()
+  {
+    return PersonRankingSection(
+      title: '10 docenti con più ore di disponibilità',
+      rows: [
+        for (final (index, item) in statistics.topTeachersByHours.indexed)
+          PersonRankRow(
+            position: index + 1,
+            person: item.person,
+            badgeText: formatMinutes(item.minutes),
+            accent: AppTheme.trialSeaGreen,
+          ),
+      ],
+    );
+  }
 
+  Widget _weeklyWarnings(double listHeight)
+  {
+    return TeacherWarningSection(
+      title: 'Sotto 2 disponibilità a settimana',
+      flagged: statistics.lowAvailabilityTeachers,
+      describe: (item) => '${item.shortWeekCount} ${item.shortWeekCount == 1 ? 'settimana' : 'settimane'}',
+      listMaxHeight: listHeight,
+    );
+  }
+
+  Widget _monthlyWarnings(double listHeight)
+  {
+    return TeacherWarningSection(
+      title: 'Sotto 9 disponibilità nel mese',
+      flagged: statistics.lowMonthlyTeachers,
+      describe: (item) => '${item.availabilityCount} disponibilità',
+      listMaxHeight: listHeight,
+    );
+  }
+
+  // In a column beside the rankings: the monthly list, when there is one, under the weekly.
   Widget _warnings()
   {
-    final bool paired = statistics.isSingleMonth;
-    final double listHeight =
-        paired ? _pairedWarningListMaxHeight : _warningListMaxHeight;
+    if (!statistics.isSingleMonth)
+    {
+      return _weeklyWarnings(_warningListMaxHeight);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        TeacherWarningSection(
-          title: 'Sotto 2 disponibilità a settimana',
-          flagged: statistics.lowAvailabilityTeachers,
-          describe: (item) => '${item.shortWeekCount} ${item.shortWeekCount == 1 ? 'settimana' : 'settimane'}',
-          listMaxHeight: listHeight,
-        ),
-        if (paired) ...[
-          const StatPartDivider(color: _sectionDivider, lists: true),
-          TeacherWarningSection(
-            title: 'Sotto 9 disponibilità nel mese',
-            flagged: statistics.lowMonthlyTeachers,
-            describe: (item) => '${item.availabilityCount} disponibilità',
-            listMaxHeight: listHeight,
-          ),
-        ],
+        _weeklyWarnings(_pairedWarningListMaxHeight),
+        StatPartDivider(color: _sectionDivider, lists: true),
+        _monthlyWarnings(_pairedWarningListMaxHeight),
       ],
     );
   }
 
-  Widget _sections(BuildContext context)
+  // Across the card under the rankings: the two lists side by side.
+  Widget _warningsAcross()
   {
-    final ranking = _topRanking();
-    final double stackBelow = StatMetrics.of(context).listsFrom;
-
-    if (mode == kOnlineMode)
+    if (!statistics.isSingleMonth)
     {
-      return LayoutBuilder(
-        builder: (context, constraints) => constraints.maxWidth < stackBelow ? ranking : _splitRanking(),
-      );
+      return _weeklyWarnings(_warningListMaxHeight);
     }
 
-    final warnings = _warnings();
+    return RankingPair(
+      first: _weeklyWarnings(_warningListMaxHeight),
+      second: _monthlyWarnings(_warningListMaxHeight),
+    );
+  }
 
-    return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        if (constraints.maxWidth < stackBelow)
-        {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ranking,
-              const StatPartDivider(color: _sectionDivider, lists: true),
-              warnings,
-            ],
-          );
-        }
+  Widget _sections()
+  {
+    if (mode == kOnlineMode)
+    {
+      return RankingPair(first: _topRanking(), second: _hoursRanking());
+    }
 
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: ranking),
-              const StatColumnDivider(),
-              Expanded(child: warnings),
-            ],
-          ),
-        );
-      },
+    return RankingTriple(
+      first: _topRanking(),
+      second: _hoursRanking(),
+      third: _warnings(),
+      thirdAcross: _warningsAcross(),
     );
   }
 
@@ -162,8 +174,8 @@ class TeacherAvailabilityCard extends StatelessWidget
                 _figure('Totale nel periodo', '${statistics.totalAvailabilities}'),
               ],
             ),
-            const StatPartDivider(color: _sectionDivider),
-            _sections(context),
+            StatPartDivider(color: _sectionDivider),
+            _sections(),
           ],
         ),
       ),

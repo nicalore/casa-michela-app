@@ -266,8 +266,8 @@ Future<void> showMobileModeSheet({
             clipped: true,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.all(Radius.circular(MobileSheetCard.radius)),
                 boxShadow: [BoxShadow(color: Color(0x12122438), offset: Offset(0, 4), blurRadius: 14)],
               ),
@@ -313,8 +313,8 @@ class _ActionRow extends StatelessWidget
     final String? refusal = this.refusal;
     final bool off = refusal != null;
 
-    final Color ink = off ? MobilePalette.mutedText.withValues(alpha: 0.6) : (danger ? AppTheme.trialDanger : AppTheme.trialInk);
-    final Color iconInk = off ? ink : (danger ? AppTheme.trialDanger : AppTheme.trialTealDeep);
+    final Color ink = off ? MobilePalette.mutedText.withValues(alpha: 0.6) : (danger ? AppTheme.trialDangerText : AppTheme.trialInk);
+    final Color iconInk = off ? ink : (danger ? AppTheme.trialDangerText : AppTheme.trialTealDeepText);
 
     return Semantics(
       button: true,

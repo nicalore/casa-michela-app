@@ -49,7 +49,7 @@ class _AppChoiceCardState extends State<AppChoiceCard>
           decoration: BoxDecoration(
             color: widget.disabled
                 ? AppTheme.trialPaper
-                : (widget.selected ? kPickedSurface : Colors.white),
+                : (widget.selected ? kPickedSurface : AppTheme.surface),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _hover ? AppTheme.trialGold : AppTheme.trialLine,
@@ -81,7 +81,7 @@ class _AppChoiceCardState extends State<AppChoiceCard>
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: widget.disabled ? AppTheme.trialMutedText : AppTheme.trialOcean,
+                        color: widget.disabled ? AppTheme.trialMutedText : AppTheme.trialOceanText,
                       ),
                     ),
                     if (widget.subtitle != null) ...[

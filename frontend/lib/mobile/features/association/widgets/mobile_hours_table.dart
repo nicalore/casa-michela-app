@@ -40,7 +40,7 @@ class MobileHoursTable
         fontSize: tablet ? 15 : 14,
         fontWeight: decided ? FontWeight.w800 : FontWeight.w600,
         height: 1.45,
-        color: decided ? AppTheme.trialDanger : MobilePalette.mutedText,
+        color: decided ? AppTheme.trialDangerText : MobilePalette.mutedText,
       );
 
   // Largest a phone column takes at default text size; the fit shrinks it beyond.

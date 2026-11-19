@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/page_density.dart';
 import '../utils/settings_strings.dart';
+import '../utils/split_preview_clip.dart';
 
 const double _themeWidth = 236;
 const double _themePreview = 126;
@@ -21,6 +23,9 @@ const double _denseThemeWidth = 180;
 const double _denseThemePreview = 92;
 const double _denseThemeRadius = 16;
 const double _denseThemePadding = 7;
+
+// Below this a theme tile wraps to its own line instead of shrinking.
+const double _leastThemeWidth = 150;
 const double _densePaletteWidth = 130;
 const double _densePaletteBar = 26;
 const double _densePaletteRadius = 14;
@@ -41,7 +46,7 @@ const Color _lightLine = Color(0xFFC9D6DC);
 BoxDecoration _tileDecoration({required bool chosen, required double radius})
 {
   return BoxDecoration(
-    color: Colors.white,
+    color: AppTheme.surface,
     borderRadius: BorderRadius.circular(radius),
     border: Border.all(
       color: chosen ? AppTheme.trialTurquoise : AppTheme.trialLine,
@@ -66,6 +71,13 @@ class ThemePreviewTile extends StatelessWidget
   final bool dark;
   final bool chosen;
   final bool available;
+  final VoidCallback? onTap;
+
+  // Automatic: the light look with the dark one over its lower right half.
+  final bool split;
+
+  // Narrower than its own width when that lets the theme tiles share one row; ignored below a usable width.
+  final double? sharedWidth;
 
   const ThemePreviewTile({
     super.key,
@@ -73,7 +85,23 @@ class ThemePreviewTile extends StatelessWidget
     required this.dark,
     required this.chosen,
     required this.available,
+    this.onTap,
+    this.split = false,
+    this.sharedWidth,
   });
+
+  double _width(bool dense)
+  {
+    final double own = dense ? _denseThemeWidth : _themeWidth;
+    final double? shared = sharedWidth;
+
+    if (shared == null || shared >= own)
+    {
+      return own;
+    }
+
+    return shared >= _leastThemeWidth ? shared : own;
+  }
 
   @override
   Widget build(BuildContext context)
@@ -81,7 +109,7 @@ class ThemePreviewTile extends StatelessWidget
     final bool dense = AppPageDensity.of(context);
 
     final Widget tile = Container(
-      width: dense ? _denseThemeWidth : _themeWidth,
+      width: _width(dense),
       padding: _tilePadding(dense ? _denseThemePadding : _themePadding, chosen: chosen),
       decoration: _tileDecoration(chosen: chosen, radius: dense ? _denseThemeRadius : _themeRadius),
       child: Column(
@@ -89,7 +117,7 @@ class ThemePreviewTile extends StatelessWidget
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(dense ? 10 : 12),
-            child: SizedBox(height: dense ? _denseThemePreview : _themePreview, child: _MiniScreen(dark: dark)),
+            child: SizedBox(height: dense ? _denseThemePreview : _themePreview, child: split ? const _SplitScreen() : _MiniScreen(dark: dark)),
           ),
           SizedBox(height: dense ? 7 : 12),
           Padding(
@@ -101,7 +129,7 @@ class ThemePreviewTile extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: dense ? 13 : 15.5,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
                 const Spacer(),
@@ -115,13 +143,33 @@ class ThemePreviewTile extends StatelessWidget
 
     if (available)
     {
-      return tile;
+      return MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(onTap: onTap, child: tile),
+      );
     }
 
     return AppTooltip(
       waitDuration: kComingSoonWait,
       message: kComingSoon,
       child: Opacity(opacity: _unavailableOpacity, child: tile),
+    );
+  }
+}
+
+class _SplitScreen extends StatelessWidget
+{
+  const _SplitScreen();
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return const Stack(
+      fit: StackFit.expand,
+      children: [
+        _MiniScreen(dark: false),
+        ClipPath(clipper: SplitPreviewClip(), child: _MiniScreen(dark: true)),
+      ],
     );
   }
 }
@@ -170,7 +218,7 @@ class _MiniScreen extends StatelessWidget
     final Color glow = dark ? AppTheme.trialTurquoise : AppTheme.trialDeepWater;
 
     return ColoredBox(
-      color: dark ? _darkScreen : AppTheme.trialPaper,
+      color: dark ? _darkScreen : ThemeColours.keep(0xFFEBEFF3),
       child: Stack(
         clipBehavior: Clip.hardEdge,
         children: [
@@ -206,15 +254,16 @@ class PaletteTile extends StatelessWidget
   final String label;
   final List<Color> colors;
   final bool chosen;
+  final VoidCallback? onTap;
 
-  const PaletteTile({super.key, required this.label, required this.colors, required this.chosen});
+  const PaletteTile({super.key, required this.label, required this.colors, required this.chosen, this.onTap});
 
   @override
   Widget build(BuildContext context)
   {
     final bool dense = AppPageDensity.of(context);
 
-    return Container(
+    final Widget tile = Container(
       width: dense ? _densePaletteWidth : _paletteWidth,
       padding: _tilePadding(dense ? _densePalettePadding : _palettePadding, chosen: chosen),
       decoration: _tileDecoration(chosen: chosen, radius: dense ? _densePaletteRadius : _paletteRadius),
@@ -246,7 +295,7 @@ class PaletteTile extends StatelessWidget
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: dense ? 12.5 : 14,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.trialOcean,
+                      color: AppTheme.trialOceanText,
                     ),
                   ),
                 ),
@@ -256,6 +305,11 @@ class PaletteTile extends StatelessWidget
           ),
         ],
       ),
+    );
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(onTap: onTap, child: tile),
     );
   }
 }

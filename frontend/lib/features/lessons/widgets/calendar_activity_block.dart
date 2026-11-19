@@ -17,9 +17,9 @@ import 'calendar_search_fade.dart';
 
 const IconData kActivityIcon = Icons.event_note_rounded;
 
-const Color kActivityAccent = AppTheme.trialOcean;
+Color get kActivityAccent => AppTheme.trialOceanText;
 
-const Color kActivitySurface = AppTheme.trialPaper;
+Color get kActivitySurface => AppTheme.trialPaper;
 
 const String kActivityWord = 'Attività';
 

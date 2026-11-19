@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
 import '../../../services/api_service.dart';
@@ -84,7 +85,7 @@ class _WhenBox extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final Color accent = later ? AppTheme.laterBlue : AppTheme.trialTealDeep;
+    final Color accent = later ? AppTheme.laterBlueText : AppTheme.trialTealDeepText;
     final String? note = this.note;
 
     return Container(
@@ -108,7 +109,7 @@ class _WhenBox extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: later ? AppTheme.laterBlue : AppTheme.trialOcean,
+                    color: later ? AppTheme.laterBlueText : AppTheme.trialOceanText,
                   ),
                 ),
                 if (note != null) ...[
@@ -119,7 +120,7 @@ class _WhenBox extends StatelessWidget
                       fontSize: 13.5,
                       fontWeight: FontWeight.w500,
                       height: 1.45,
-                      color: const Color(0xFF33495A),
+                      color: ThemeColours.fixed(0xFF33495A),
                     ),
                   ),
                 ],

@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/whole_words.dart';
 import '../mobile_line_breaks.dart';
 import '../mobile_palette.dart';
@@ -866,7 +867,7 @@ class MobileSheet extends StatelessWidget
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.9,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1483,17 +1484,17 @@ class _EdgeShadow extends CustomPainter
     canvas.drawRect(
       strip,
       Paint()
-        ..shader = const LinearGradient(colors: [Color(0x00000000), Color(0x1F000000)])
+        ..shader = LinearGradient(colors: [ThemeColours.fixed(0x00000000), ThemeColours.fixed(0x1F000000)])
             .createShader(Rect.fromLTWH(-_width, 0, _width, 1)),
     );
     canvas.drawRect(
       strip,
       Paint()
         ..blendMode = BlendMode.dstIn
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0x00000000), Color(0xFF000000)],
+          colors: [ThemeColours.fixed(0x00000000), ThemeColours.fixed(0xFF000000)],
         ).createShader(const Rect.fromLTWH(0, 0, 1, _fadeIn)),
     );
     canvas.restore();
@@ -1517,7 +1518,7 @@ class MobileSheetCloseButton extends StatelessWidget
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Color.alphaBlend(AppTheme.trialInk.withValues(alpha: 0.07), Colors.white),
+        color: Color.alphaBlend(AppTheme.trialInk.withValues(alpha: 0.07), AppTheme.surface),
       ),
       child: Icon(Icons.close_rounded, size: size * 0.6, color: AppTheme.trialInk.withValues(alpha: 0.7)),
     );
@@ -1563,8 +1564,8 @@ class MobileSheetCard extends StatelessWidget
   {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
         borderRadius: BorderRadius.all(Radius.circular(radius)),
         boxShadow: [BoxShadow(color: Color(0x12122438), offset: Offset(0, 4), blurRadius: 14)],
       ),
@@ -1588,7 +1589,7 @@ class MobileSheetMessage extends StatelessWidget
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.62),
+        color: AppTheme.surface.withValues(alpha: 0.62),
         borderRadius: BorderRadius.circular(_radius),
         border: Border.all(color: AppTheme.trialInk.withValues(alpha: 0.08)),
       ),

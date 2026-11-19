@@ -65,7 +65,7 @@ class _UpdateDetails extends StatelessWidget
             label: kUpdateCancel,
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -74,7 +74,7 @@ class _UpdateDetails extends StatelessWidget
             label: kUpdateDelete,
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
             onPressed: ()
@@ -108,7 +108,7 @@ class _UpdateDetails extends StatelessWidget
     return Container(
       padding: EdgeInsets.only(top: first ? 0 : 10, bottom: 10),
       decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: AppTheme.trialLine)),
+        border: first ? null : Border(top: BorderSide(color: AppTheme.trialLine)),
       ),
       child: Row(
         children: [
@@ -142,7 +142,7 @@ class _UpdateDetails extends StatelessWidget
           label: kUpdateDelete,
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           height: _buttonHeight,
           fontSize: _buttonFontSize,
           onPressed: () => _confirmDeletion(context),
@@ -165,7 +165,7 @@ class _UpdateDetails extends StatelessWidget
               if (editedAt != null) _row(kUpdateEditedLabel, _value(noticeSentLong(editedAt))),
               _row(kUpdateAuthorLabel, _value(update.authorName)),
               _row(kUpdateRecipientsLabel, Align(alignment: Alignment.centerLeft, child: UpdateRoleBadges(roles: update.recipients))),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(bottom: 16),
                 child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
               ),

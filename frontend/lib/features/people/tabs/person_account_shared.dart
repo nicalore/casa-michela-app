@@ -96,7 +96,7 @@ Widget? accountPlaceholder(PersonAccountController controller)
 
   if (controller.account == null)
   {
-    return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+    return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
   }
 
   return null;
@@ -203,7 +203,7 @@ Future<bool> askPersonConfirmation(
           label: 'ANNULLA',
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: kPersonDialogButtonHeight,
           fontSize: kPersonDialogButtonFontSize,
           onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -212,7 +212,7 @@ Future<bool> askPersonConfirmation(
           label: confirmLabel,
           icon: confirmIcon,
           gradient: danger ? AppTheme.dangerGradient : AppTheme.brandGradient,
-          accent: danger ? AppTheme.trialDanger : AppTheme.trialTealDeep,
+          accent: danger ? AppTheme.trialDangerText : AppTheme.trialTealDeepText,
           height: kPersonDialogButtonHeight,
           fontSize: kPersonDialogButtonFontSize,
           onPressed: () => Navigator.of(dialogContext).pop(true),

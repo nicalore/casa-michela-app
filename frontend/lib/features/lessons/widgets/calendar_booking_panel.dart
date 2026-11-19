@@ -87,14 +87,14 @@ class _CloseButtonState extends State<_CloseButton>
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: _hover ? AppTheme.trialGoldSurface : Colors.white,
+            color: _hover ? AppTheme.trialGoldSurface : AppTheme.surface,
             shape: BoxShape.circle,
             border: Border.all(
               color: _hover ? AppTheme.trialGold : AppTheme.trialLine,
               width: 1.5,
             ),
           ),
-          child: const Icon(Icons.close_rounded, size: 18, color: AppTheme.trialTealDeep),
+          child: Icon(Icons.close_rounded, size: 18, color: AppTheme.trialTealDeepText),
         ),
       ),
     );
@@ -141,7 +141,7 @@ class _StudentHeader extends StatelessWidget
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
               ),
@@ -155,7 +155,7 @@ class _StudentHeader extends StatelessWidget
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     height: 1.2,
-                    color: done ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                    color: done ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
                   ),
                 ),
               ),
@@ -336,7 +336,7 @@ class CalendarBookingPanel extends StatelessWidget
     return AppFloatingGrip(
       child: Row(
         children: [
-          const Icon(Icons.drag_indicator_rounded, size: 18, color: AppTheme.trialMutedText),
+          Icon(Icons.drag_indicator_rounded, size: 18, color: AppTheme.trialMutedText),
           Expanded(child: heading),
         ],
       ),

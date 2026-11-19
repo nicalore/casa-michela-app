@@ -55,18 +55,18 @@ const double _knobSize = 22;
 const double _trackHeight = 6;
 const double _unitGap = 4;
 
-final TextStyle _supervisorHoursStyle = GoogleFonts.plusJakartaSans(
+TextStyle get _supervisorHoursStyle => GoogleFonts.plusJakartaSans(
   fontSize: 11,
   fontWeight: FontWeight.w600,
   height: 1.2,
   color: AppTheme.trialMutedText,
 );
 
-final TextStyle _elsewhereStyle = GoogleFonts.plusJakartaSans(
+TextStyle get _elsewhereStyle => GoogleFonts.plusJakartaSans(
   fontSize: 11,
   fontWeight: FontWeight.w700,
   height: 1.2,
-  color: AppTheme.trialTealDeep,
+  color: AppTheme.trialTealDeepText,
 );
 
 // Keeps a 15-minute stretch visible: it would otherwise be under 2 px.
@@ -339,7 +339,7 @@ class _TeacherCardState extends State<_TeacherCard>
 
     return Row(
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(right: 6),
           child: Icon(Icons.drag_indicator_rounded, size: 18, color: AppTheme.trialMutedText),
         ),
@@ -359,7 +359,7 @@ class _TeacherCardState extends State<_TeacherCard>
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
               ),
@@ -398,10 +398,10 @@ class _TeacherCardState extends State<_TeacherCard>
       curve: Curves.easeOut,
       padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
       decoration: BoxDecoration(
-        color: (_hover || inHand) && !widget.isOpen ? AppTheme.todaySurface : Colors.white,
+        color: (_hover || inHand) && !widget.isOpen ? AppTheme.todaySurface : AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: lit ? AppTheme.trialTealDeep : AppTheme.trialLine,
+          color: lit ? AppTheme.trialTealDeepText : AppTheme.trialLine,
           width: 1.5,
         ),
       ),
@@ -476,7 +476,7 @@ class _Elsewhere extends StatelessWidget
   {
     return Row(
       children: [
-        const Icon(Icons.call_split_rounded, size: 13, color: AppTheme.trialTealDeep),
+        Icon(Icons.call_split_rounded, size: 13, color: AppTheme.trialTealDeepText),
         const SizedBox(width: 4),
         Expanded(
           child: DescenderRoom(
@@ -523,7 +523,7 @@ class _DropBox extends StatelessWidget
           color: candidate.isEmpty ? AppTheme.trialPaper : AppTheme.todaySurface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: candidate.isEmpty ? AppTheme.trialLine : AppTheme.trialTealDeep,
+            color: candidate.isEmpty ? AppTheme.trialLine : AppTheme.trialTealDeepText,
             width: 1.5,
           ),
         ),
@@ -701,9 +701,9 @@ class _UnitRangeSliderState extends State<_UnitRangeSlider>
                           top: 0,
                           width: _knobSize,
                           height: _knobSize,
-                          child: const DecoratedBox(
+                          child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppTheme.surface,
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(color: Color(0x40000000), blurRadius: 4, offset: Offset(0, 1)),
@@ -783,7 +783,7 @@ class _SupervisorCardState extends State<_SupervisorCard>
           width: widget.width,
           padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
           decoration: BoxDecoration(
-            color: widget.isSelected ? kPickedSurface : Colors.white,
+            color: widget.isSelected ? kPickedSurface : AppTheme.surface,
             borderRadius: BorderRadius.circular(16),
             // Border always present (transparent when idle) so hover does not shift layout.
             border: Border.all(
@@ -810,7 +810,7 @@ class _SupervisorCardState extends State<_SupervisorCard>
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                           height: 1.2,
-                          color: AppTheme.trialOcean,
+                          color: AppTheme.trialOceanText,
                         ),
                       ),
                     ),
@@ -1077,9 +1077,9 @@ class _RoomTimeline extends StatelessWidget
               ),
             ),
           ),
-          Positioned.fill(child: layer(covered, AppTheme.trialTealDeep)),
+          Positioned.fill(child: layer(covered, AppTheme.trialTealDeepText)),
           // Drawn last so a sliver of uncovered time wins over the cover around it.
-          Positioned.fill(child: layer(open, AppTheme.trialDanger)),
+          Positioned.fill(child: layer(open, AppTheme.trialDangerText)),
         ],
       ),
     );
@@ -1637,7 +1637,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 height: 1.2,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               ),
             ),
         ],
@@ -1670,7 +1670,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
         Icon(
           occupied ? Icons.meeting_room_rounded : Icons.meeting_room_outlined,
           size: 18,
-          color: occupied ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+          color: occupied ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -1683,7 +1683,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 height: 1.2,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
           ),
@@ -1718,7 +1718,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
       padding: const EdgeInsets.only(top: 12),
       child: Container(
         padding: const EdgeInsets.only(top: 12, left: 2, right: 2),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(top: BorderSide(color: AppTheme.trialLine)),
         ),
         child: Column(
@@ -1735,7 +1735,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.east_rounded, size: 14, color: AppTheme.trialTealDeep),
+                  Icon(Icons.east_rounded, size: 14, color: AppTheme.trialTealDeepText),
                   const SizedBox(width: 6),
                   Expanded(
                     child: DescenderRoom(
@@ -2006,7 +2006,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
         Icon(
           covered ? Icons.verified_rounded : Icons.warning_amber_rounded,
           size: 16,
-          color: covered ? AppTheme.trialTealDeep : AppTheme.trialDanger,
+          color: covered ? AppTheme.trialTealDeepText : AppTheme.trialDangerText,
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -2016,7 +2016,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
               height: 1.35,
-              color: covered ? AppTheme.trialTealDeep : AppTheme.trialDanger,
+              color: covered ? AppTheme.trialTealDeepText : AppTheme.trialDangerText,
             ),
           ),
         ),
@@ -2056,8 +2056,8 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
             spacing: 18,
             runSpacing: 6,
             children: [
-              _buildLegendEntry(AppTheme.trialTealDeep, 'Con responsabile'),
-              _buildLegendEntry(AppTheme.trialDanger, 'Da coprire'),
+              _buildLegendEntry(AppTheme.trialTealDeepText, 'Con responsabile'),
+              _buildLegendEntry(AppTheme.trialDangerText, 'Da coprire'),
               _buildLegendEntry(AppTheme.trialLine.withValues(alpha: 0.5), 'Stanza vuota'),
             ],
           ),

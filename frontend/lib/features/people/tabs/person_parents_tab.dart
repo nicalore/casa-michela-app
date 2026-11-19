@@ -248,7 +248,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
             label: 'ANNULLA',
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: 52,
             fontSize: 14,
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -257,7 +257,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
             label: 'RIMUOVI',
             icon: Icons.gavel_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: 52,
             fontSize: 14,
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -398,7 +398,7 @@ class _ResponsiveParentActionButtonsRow extends StatelessWidget
           label: 'RIMUOVI RESPONSABILITÀ',
           icon: Icons.gavel_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           onPressed: onRemoveResponsibility!,
         ),
       ],
@@ -587,7 +587,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
   {
     if (_isLoading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );

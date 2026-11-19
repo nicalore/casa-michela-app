@@ -11,7 +11,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../models/course_item.dart';
 import '../models/subject_taxonomy.dart';
 
-const Color _costTextColor = AppTheme.trialTealDeep;
+Color get _costTextColor => AppTheme.trialTealDeepText;
 
 class CourseCard extends StatelessWidget
 {
@@ -91,7 +91,7 @@ class _CourseDetailsDialogContent extends StatelessWidget
             label: 'ANNULLA',
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -100,7 +100,7 @@ class _CourseDetailsDialogContent extends StatelessWidget
             label: 'ELIMINA',
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: ()
@@ -160,7 +160,7 @@ class _CourseDetailsDialogContent extends StatelessWidget
           label: 'ELIMINA',
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: () => _showDeleteConfirmation(context),

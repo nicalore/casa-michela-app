@@ -7,6 +7,7 @@ import '../../features/auth/models/me_response.dart';
 import '../../features/reports/reports_board.dart';
 import '../../features/updates/unread_updates.dart';
 import '../../routing/app_router.dart';
+import '../../services/account_colour_theme.dart';
 import '../../services/api_service.dart';
 import '../../services/profile_photo_image.dart';
 
@@ -294,6 +295,8 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
   {
     try
     {
+      // The page fades to the sign-in look before the login replaces it.
+      await AccountColourTheme.fadeToSignedOut();
       await _apiService.logout();
     }
     catch (e)
@@ -377,7 +380,7 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
-                        color: AppTheme.trialTealDeep,
+                        color: AppTheme.trialTealDeepText,
                       ),
                     ),
                   ],
@@ -400,10 +403,10 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
       turns: _isMenuOpen ? 0.5 : 0,
       duration: _animates ? const Duration(milliseconds: 200) : Duration.zero,
       curve: Curves.easeInOut,
-      child: const Icon(
+      child: Icon(
         Icons.keyboard_arrow_down_rounded,
         size: 20,
-        color: AppTheme.trialTealDeep,
+        color: AppTheme.trialTealDeepText,
       ),
     );
   }
@@ -431,7 +434,7 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                   ),
                 ),
               ),
@@ -485,7 +488,7 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 height: 1.2,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               ),
             ),
           ),
@@ -514,7 +517,7 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
         child: DecoratedBox(
           key: ValueKey(photo),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             shape: BoxShape.circle,
             image: photo == null
                 ? null
@@ -532,7 +535,7 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: diameter * 0.37,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.trialTealDeep,
+                        color: AppTheme.trialTealDeepText,
                       ),
                     ),
                   ),
@@ -751,7 +754,7 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
           height: _barHeightFor(size),
           padding: padding,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(100),
             boxShadow: size.isDense
                 ? const [BoxShadow(color: _denseHeaderShadow, blurRadius: 16, spreadRadius: 8)]

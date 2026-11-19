@@ -257,7 +257,7 @@ class CertificationChip extends StatelessWidget
     return Container(
       padding: _padding,
       decoration: BoxDecoration(
-        color: Color.alphaBlend(AppTheme.trialViolet.withValues(alpha: 0.1), Colors.white),
+        color: Color.alphaBlend(AppTheme.trialViolet.withValues(alpha: 0.1), AppTheme.surface),
         borderRadius: BorderRadius.circular(large ? (dense ? 12 : 16) : (dense ? 8 : 9)),
       ),
       child: Text(
@@ -265,7 +265,7 @@ class CertificationChip extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: large ? (dense ? 13 : 15) : (dense ? 10 : 11),
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialViolet,
+          color: AppTheme.trialVioletText,
         ),
       ),
     );
@@ -288,7 +288,7 @@ class _IdentityCard extends StatelessWidget
           ? const EdgeInsets.symmetric(horizontal: 20, vertical: 14)
           : const EdgeInsets.symmetric(horizontal: 30, vertical: 22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(dense ? 24 : 40),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -306,7 +306,7 @@ class _IdentityCard extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: dense ? _denseNameSize : 30,
                     fontWeight: FontWeight.w800,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                     height: 1.15,
                   ),
                 ),

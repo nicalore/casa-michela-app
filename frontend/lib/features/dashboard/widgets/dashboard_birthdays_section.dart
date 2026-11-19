@@ -148,7 +148,7 @@ class DashboardBirthdaysSection extends StatelessWidget
       fill: fill,
       compact: compact,
       child: isLoading
-          ? const Padding(
+          ? Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
               child: Center(
                 child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
@@ -227,7 +227,7 @@ class _BirthdayRow extends StatefulWidget
   State<_BirthdayRow> createState() => _BirthdayRowState();
 }
 
-const LinearGradient _birthdayGradient = LinearGradient(
+LinearGradient get _birthdayGradient => LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
   colors: [AppTheme.modifiedAccent, AppTheme.trialGold],
@@ -303,7 +303,7 @@ class _BirthdayRowState extends State<_BirthdayRow>
                           fontSize: widget.tight ? 14 : 15,
                           fontWeight: FontWeight.w700,
                           height: 1.25,
-                          color: AppTheme.trialOcean,
+                          color: AppTheme.trialOceanText,
                         ),
                       ),
                     ),

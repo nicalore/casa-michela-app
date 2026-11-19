@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -29,10 +30,10 @@ const Duration _flipDuration = Duration(milliseconds: 400);
 const Duration _pulseDuration = Duration(milliseconds: 400);
 const Duration _pressDuration = Duration(milliseconds: 100);
 
-const Color _activeSurface = Color(0xFFE8F7F5);
-const Color _activeHoverSurface = Color(0xFFD6F0EC);
-const Color _inactiveSurface = AppTheme.trialPaper;
-const Color _inactiveHoverSurface = Color(0xFFDFE5EA);
+Color get _activeSurface => ThemeColours.of(0xFFE8F7F5);
+Color get _activeHoverSurface => ThemeColours.of(0xFFD6F0EC);
+Color get _inactiveSurface => AppTheme.trialPaper;
+Color get _inactiveHoverSurface => ThemeColours.fixed(0xFFDFE5EA);
 
 String collaborationStatusLabel({required bool isActive, required bool isFemale})
 {
@@ -172,7 +173,7 @@ class _CollaborationBadgeState extends State<CollaborationBadge> with TickerProv
     return GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: color);
   }
 
-  Color _foreground(bool active) => active ? AppTheme.trialTealDeep : AppTheme.trialMutedText;
+  Color _foreground(bool active) => active ? AppTheme.trialTealDeepText : AppTheme.trialMutedText;
 
   Color _surface(bool active, double hover)
   {

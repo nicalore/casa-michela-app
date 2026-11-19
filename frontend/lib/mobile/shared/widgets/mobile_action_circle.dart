@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 
 class MobileActionCircle extends StatelessWidget
 {
@@ -16,10 +17,10 @@ class MobileActionCircle extends StatelessWidget
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: AppTheme.brandGradient,
-        boxShadow: [BoxShadow(color: Color(0x330B6478), offset: Offset(0, 4), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: ThemeColours.keep(0x330B6478), offset: Offset(0, 4), blurRadius: 10)],
       ),
       child: Icon(icon, size: iconSize, color: Colors.white),
     );

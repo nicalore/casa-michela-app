@@ -101,7 +101,7 @@ class AppDialogStack extends StatelessWidget
       fontSize: dense ? 21 : 26,
       fontWeight: FontWeight.w700,
       height: 1.2,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
 
     Widget write(TextStyle style)
@@ -210,7 +210,7 @@ class AppDialogStack extends StatelessWidget
             iconSize: dense ? 18 : CarouselArrowButton.defaultIconSize,
             icon: Icons.close_rounded,
             hoverColor: AppTheme.trialGoldSurface,
-            hoverIconColor: AppTheme.trialTealDeep,
+            hoverIconColor: AppTheme.trialTealDeepText,
             hoverBorderColor: AppTheme.trialGold,
             onTap: onClose ?? () => Navigator.of(context).pop(),
           ),
@@ -572,7 +572,7 @@ class AppDialogPill extends StatelessWidget
     final Widget piece = Container(
       decoration: BoxDecoration(borderRadius: borderRadius, boxShadow: shadow),
       child: Material(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: borderRadius,
         elevation: 0,
         child: Padding(

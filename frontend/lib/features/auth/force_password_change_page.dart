@@ -149,7 +149,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.lock_reset_rounded, size: line ? 22 : 28, color: AppTheme.trialTealDeep),
+        Icon(Icons.lock_reset_rounded, size: line ? 22 : 28, color: AppTheme.trialTealDeepText),
         SizedBox(width: line ? 12 : 16),
         Expanded(
           child: Text(
@@ -196,7 +196,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
             label: 'TORNA AL LOGIN',
             icon: Icons.logout_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             busy: _isCancelling,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
@@ -221,7 +221,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
               children: [
                 if (dense) ...[
                   _buildNotice(line: true),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: _noticeRuleGap),
                     child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
                   ),

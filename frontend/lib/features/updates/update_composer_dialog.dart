@@ -290,7 +290,7 @@ class _UpdateComposerState extends State<_UpdateComposer>
             label: kUpdateCancel,
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
             onPressed: () => Navigator.of(confirmContext).pop(false),
@@ -347,7 +347,7 @@ class _UpdateComposerState extends State<_UpdateComposer>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.group_rounded, size: 16, color: AppTheme.trialMutedText),
+        Icon(Icons.group_rounded, size: 16, color: AppTheme.trialMutedText),
         const SizedBox(width: 6),
         Text(
           updatePeopleLabel(people),

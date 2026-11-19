@@ -23,7 +23,7 @@ class MobileDevelopmentWarning extends StatelessWidget
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, size: 22, color: AppTheme.trialGold),
+          Icon(Icons.warning_amber_rounded, size: 22, color: AppTheme.trialGold),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

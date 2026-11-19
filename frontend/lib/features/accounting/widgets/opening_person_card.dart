@@ -57,7 +57,7 @@ class _OpeningPersonCardState extends State<OpeningPersonCard>
           style: GoogleFonts.plusJakartaSans(
             fontSize: dense ? 16 : 23,
             fontWeight: FontWeight.w700,
-            color: AppTheme.trialTealDeep,
+            color: AppTheme.trialTealDeepText,
           ),
         ),
       ),
@@ -106,7 +106,7 @@ class _OpeningPersonCardState extends State<OpeningPersonCard>
         style: GoogleFonts.plusJakartaSans(
           fontSize: dense ? 11 : 12,
           fontWeight: FontWeight.w700,
-          color: widget.missing ? AppTheme.modifiedAccent : AppTheme.trialTealDeep,
+          color: widget.missing ? AppTheme.modifiedAccent : AppTheme.trialTealDeepText,
         ),
       ),
     );
@@ -130,7 +130,7 @@ class _OpeningPersonCardState extends State<OpeningPersonCard>
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(dense ? 20 : 26),
               border: Border.all(
                 color: _hover ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
@@ -157,7 +157,7 @@ class _OpeningPersonCardState extends State<OpeningPersonCard>
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: dense ? 15 : 18,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.trialOcean,
+                            color: AppTheme.trialOceanText,
                             height: 1.2,
                           ),
                         ),

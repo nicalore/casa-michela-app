@@ -203,7 +203,7 @@ class _AddStudentDialogState extends State<_AddStudentDialog>
       trailing: _work.length > 1
           ? FadeHoverIconButton(
               icon: Icons.delete_outline_rounded,
-              color: AppTheme.trialDanger,
+              color: AppTheme.trialDangerText,
               hoverColor: AppTheme.trialGoldSurface,
               onTap: () => _removeStretch(index),
             )

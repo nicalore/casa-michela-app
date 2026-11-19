@@ -83,7 +83,7 @@ class MobileBookingDayCard extends StatelessWidget
 
   Widget _buildDate()
   {
-    final Color ink = day.isPast || day.isShut ? MobilePalette.mutedText : AppTheme.trialOcean;
+    final Color ink = day.isPast || day.isShut ? MobilePalette.mutedText : AppTheme.trialOceanText;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -224,7 +224,7 @@ class MobileBookingDayCard extends StatelessWidget
     {
       card = DecoratedBox(
         position: DecorationPosition.foreground,
-        decoration: const MobileCurrentCard(BorderRadius.all(Radius.circular(_radius))),
+        decoration: MobileCurrentCard(BorderRadius.all(Radius.circular(_radius))),
         child: card,
       );
     }
@@ -385,7 +385,7 @@ class _LessonRow extends StatelessWidget
         child: Container(
           padding: EdgeInsets.fromLTRB(tablet ? 16 : 13, 12, 6, 12),
           decoration: BoxDecoration(
-            color: muted ? MobilePalette.pastSurface : Colors.white.withValues(alpha: 0.72),
+            color: muted ? MobilePalette.pastSurface : AppTheme.surface.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: muted ? MobilePalette.pastEdge : AppTheme.trialInk.withValues(alpha: 0.05)),
           ),
@@ -405,7 +405,7 @@ class _LessonRow extends StatelessWidget
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.1,
                             height: 1.35,
-                            color: muted ? MobilePalette.mutedText : AppTheme.trialTealDeep,
+                            color: muted ? MobilePalette.mutedText : AppTheme.trialTealDeepText,
                           ),
                         ),
                       ),
@@ -416,7 +416,7 @@ class _LessonRow extends StatelessWidget
                           fontSize: titleSize,
                           fontWeight: FontWeight.w800,
                           height: 1.3,
-                          color: muted ? MobilePalette.mutedText : AppTheme.trialOcean,
+                          color: muted ? MobilePalette.mutedText : AppTheme.trialOceanText,
                         ),
                       ),
                     ),

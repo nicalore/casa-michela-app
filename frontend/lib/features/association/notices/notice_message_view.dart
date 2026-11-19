@@ -47,7 +47,7 @@ DefaultTextBlockStyle _heading(TextStyle text, double size)
       fontSize: size * text.fontSize! / _fontSize,
       fontWeight: FontWeight.w700,
       height: 1.3,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     ),
     _headingGap,
   );
@@ -67,11 +67,11 @@ DefaultStyles noticeStyles([TextStyle? textStyle])
     bold: TextStyle(fontWeight: bold),
     italic: const TextStyle(fontStyle: FontStyle.italic),
     strikeThrough: const TextStyle(decoration: TextDecoration.lineThrough),
-    link: const TextStyle(
-      color: AppTheme.trialTealDeep,
+    link: TextStyle(
+      color: AppTheme.trialTealDeepText,
       fontWeight: FontWeight.w600,
       decoration: TextDecoration.underline,
-      decorationColor: AppTheme.trialTealDeep,
+      decorationColor: AppTheme.trialTealDeepText,
     ),
     lists: DefaultListBlockStyle(text, HorizontalSpacing.zero, _paragraphGap, _listLineGap, null, null),
     // Bullets and numbers in the text's own family, whatever the theme around.
@@ -81,7 +81,7 @@ DefaultStyles noticeStyles([TextStyle? textStyle])
       const HorizontalSpacing(14, 0),
       _paragraphGap,
       _quoteLineGap,
-      const BoxDecoration(border: Border(left: BorderSide(width: 3, color: AppTheme.trialLine))),
+      BoxDecoration(border: Border(left: BorderSide(width: 3, color: AppTheme.trialLine))),
     ),
     placeHolder: _block(text.copyWith(color: AppTheme.trialMutedText.withValues(alpha: 0.7)), VerticalSpacing.zero),
   );

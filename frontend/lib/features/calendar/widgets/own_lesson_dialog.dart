@@ -738,7 +738,7 @@ class _NotesColumnState extends State<_NotesColumn>
   Widget _buildHead()
   {
     return DecoratedBox(
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
       child: Padding(
         padding: const EdgeInsets.only(bottom: _rowPadding),
         child: DesktopTourTarget(
@@ -764,7 +764,7 @@ class _NotesColumnState extends State<_NotesColumn>
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: index == 0 ? null : const Border(top: BorderSide(color: AppTheme.trialLine)),
+        border: index == 0 ? null : Border(top: BorderSide(color: AppTheme.trialLine)),
       ),
       child: Padding(
         padding: EdgeInsets.only(top: _noteGap, bottom: last ? 0 : _noteGap),
@@ -779,7 +779,7 @@ class _NotesColumnState extends State<_NotesColumn>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
             const SizedBox(height: 4),
@@ -911,7 +911,7 @@ class LessonVoicesTable extends StatelessWidget
           for (final (index, voice) in voices.indexed)
             DecoratedBox(
               decoration: BoxDecoration(
-                border: index == 0 ? null : const Border(top: BorderSide(color: AppTheme.trialLine)),
+                border: index == 0 ? null : Border(top: BorderSide(color: AppTheme.trialLine)),
               ),
               child: Padding(
                 padding: EdgeInsets.only(top: index == 0 ? 0 : _rowPadding, bottom: _rowPadding),

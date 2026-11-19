@@ -132,7 +132,7 @@ class _CalendarActivityCardState extends State<CalendarActivityCard>
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(_cardRadius),
             border: Border.all(
               color: _hover ? AppTheme.trialGold : AppTheme.trialLine,
@@ -163,14 +163,14 @@ class _CalendarActivityCardState extends State<CalendarActivityCard>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (_canDrag) ...[
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(top: 1),
                             child: Icon(Icons.drag_indicator, size: 16, color: kActivityAccent),
                           ),
                           const SizedBox(width: 4),
                         ]
                         else ...[
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(top: 1),
                             child: Icon(kActivityIcon, size: 15, color: kActivityAccent),
                           ),
@@ -186,7 +186,7 @@ class _CalendarActivityCardState extends State<CalendarActivityCard>
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                                 height: 1.2,
-                                color: AppTheme.trialOcean,
+                                color: AppTheme.trialOceanText,
                               ),
                             ),
                           ),

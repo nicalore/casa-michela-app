@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/theme/app_theme.dart';
+import '../core/theme/colour_theme_scope.dart';
+import '../core/theme/theme_colours.dart';
 import '../features/auth/models/me_response.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
@@ -33,7 +35,9 @@ class MobileApp extends StatefulWidget
 
 class _MobileAppState extends State<MobileApp>
 {
-  static final ThemeData _theme = AppTheme.light.copyWith(
+  static final Map<(ColourTheme, bool), ThemeData> _themes = {};
+
+  static ThemeData get _theme => _themes[(ThemeColours.current.value, ThemeColours.isDark)] ??= AppTheme.theme.copyWith(
     scaffoldBackgroundColor: Colors.transparent,
   );
 
@@ -58,17 +62,19 @@ class _MobileAppState extends State<MobileApp>
   Widget build(BuildContext context)
   {
     return MobileOrientationPolicy(
-      child: MaterialApp(
-        title: 'Associazione Casa Michela',
-        debugShowCheckedModeBanner: false,
-        theme: _theme,
-        locale: const Locale('it'),
-        supportedLocales: const [Locale('it')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        builder: (context, child) => MobileTextScale(child: MobileBackground(child: MobileRotationVeil(child: child))),
-        // An app link names a site route; the gate reads it itself.
-        onGenerateInitialRoutes: (_) => [_entrance()],
-        onGenerateRoute: (_) => _entrance(),
+      child: ColourThemeScope(
+        builder: (context) => MaterialApp(
+          title: 'Associazione Casa Michela',
+          debugShowCheckedModeBanner: false,
+          theme: _theme,
+          locale: const Locale('it'),
+          supportedLocales: const [Locale('it')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          builder: (context, child) => MobileTextScale(child: MobileBackground(child: MobileRotationVeil(child: child))),
+          // An app link names a site route; the gate reads it itself.
+          onGenerateInitialRoutes: (_) => [_entrance()],
+          onGenerateRoute: (_) => _entrance(),
+        ),
       ),
     );
   }

@@ -128,7 +128,7 @@ class _NoticeDetailsState extends State<_NoticeDetails>
             label: kCancel,
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -137,7 +137,7 @@ class _NoticeDetailsState extends State<_NoticeDetails>
             label: kDelete,
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
             onPressed: ()
@@ -171,7 +171,7 @@ class _NoticeDetailsState extends State<_NoticeDetails>
     return Container(
       padding: EdgeInsets.only(top: first ? 0 : 10, bottom: 10),
       decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: AppTheme.trialLine)),
+        border: first ? null : Border(top: BorderSide(color: AppTheme.trialLine)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -194,7 +194,7 @@ class _NoticeDetailsState extends State<_NoticeDetails>
   // Under the rows the line sits as close as between them: their own bottom padding is the room.
   Widget _divider({double above = 16}) => Padding(
         padding: EdgeInsets.only(top: above, bottom: 16),
-        child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+        child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
       );
 
   @override
@@ -213,7 +213,7 @@ class _NoticeDetailsState extends State<_NoticeDetails>
                 label: kDelete,
                 icon: Icons.delete_outline_rounded,
                 gradient: AppTheme.dangerGradient,
-                accent: AppTheme.trialDanger,
+                accent: AppTheme.trialDangerText,
                 height: _buttonHeight,
                 fontSize: _buttonFontSize,
                 onPressed: _confirmDeletion,

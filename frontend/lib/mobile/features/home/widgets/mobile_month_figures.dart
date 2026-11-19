@@ -214,7 +214,7 @@ Widget _asideOf(HomeFigure figure, {bool shrink = false})
   final (IconData icon, Color color) = switch (delta.direction)
   {
     > 0 => (Icons.trending_up_rounded, AppTheme.trialSeaGreen),
-    < 0 => (Icons.trending_down_rounded, AppTheme.trialDanger),
+    < 0 => (Icons.trending_down_rounded, AppTheme.trialDangerText),
     _ => (Icons.remove_rounded, MobilePalette.mutedText),
   };
 
@@ -261,7 +261,7 @@ class _FigureText extends StatelessWidget
             color: switch (figure.tone)
             {
               HomeFigureTone.plain => AppTheme.trialInk,
-              HomeFigureTone.pending => AppTheme.trialTealDeep,
+              HomeFigureTone.pending => AppTheme.trialTealDeepText,
               HomeFigureTone.absent => MobilePalette.mutedText,
             },
           ),
@@ -332,9 +332,9 @@ class _LeadIcon extends StatelessWidget
     return DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: 0.5),
+        color: AppTheme.surface.withValues(alpha: 0.5),
       ),
-      child: Icon(icon, size: size, color: AppTheme.trialTealDeep),
+      child: Icon(icon, size: size, color: AppTheme.trialTealDeepText),
     );
   }
 }

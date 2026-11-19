@@ -156,7 +156,7 @@ class _Number extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: 13,
           fontWeight: FontWeight.w800,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     );
@@ -261,7 +261,7 @@ class _RailStep extends StatelessWidget
                     ),
             ),
             child: done
-                ? const Icon(Icons.check_rounded, size: 17, color: AppTheme.trialDeepWater)
+                ? Icon(Icons.check_rounded, size: 17, color: AppTheme.trialDeepWaterText)
                 : Text(
                     '$number',
                     style: GoogleFonts.plusJakartaSans(

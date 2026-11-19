@@ -406,7 +406,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         ),
         const TabHeaderGap(wide: 16, dense: 12),
         if (_isLoading)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 60),
             child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
           )

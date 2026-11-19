@@ -57,13 +57,13 @@ class MobileFilterChip extends StatelessWidget
   {
     final Color fill = onLight
         ? (active ? AppTheme.trialDeepWater : AppTheme.trialOcean.withValues(alpha: 0.06))
-        : Colors.white.withValues(alpha: active ? 0.92 : 0.12);
+        : AppTheme.surface.withValues(alpha: active ? 0.92 : 0.12);
     final Color edge = onLight
-        ? AppTheme.trialOcean.withValues(alpha: 0.14)
+        ? AppTheme.trialOceanText.withValues(alpha: 0.14)
         : Colors.white.withValues(alpha: 0.22);
     final Color ink = onLight
         ? (active ? Colors.white : MobilePalette.mutedText)
-        : (active ? AppTheme.trialDeepWater : Colors.white.withValues(alpha: 0.85));
+        : (active ? AppTheme.trialDeepWaterText : Colors.white.withValues(alpha: 0.85));
 
     return Semantics(
       button: true,

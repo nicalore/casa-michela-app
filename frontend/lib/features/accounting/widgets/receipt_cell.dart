@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -19,7 +20,7 @@ const double _buttonHeight = 30;
 const double _radius = 10;
 const Duration _fade = Duration(milliseconds: 150);
 
-const Color _receiptSurface = Color(0xFFE3F1F0);
+Color get _receiptSurface => ThemeColours.of(0xFFE3F1F0);
 
 const double _confirmWidth = 480;
 
@@ -96,7 +97,7 @@ class ReceiptCell extends StatelessWidget
           AppMenuItem(
             icon: Icons.delete_outline_rounded,
             text: kDeleteReceipt,
-            color: AppTheme.trialDanger,
+            color: AppTheme.trialDangerText,
             dense: true,
             onTap: ()
             {
@@ -162,7 +163,7 @@ class _ReceiptButtonState extends State<_ReceiptButton>
                     child: const SizedBox.expand(),
                   ),
                 ),
-                const Icon(Icons.receipt_long_rounded, size: 18, color: AppTheme.trialTealDeep),
+                Icon(Icons.receipt_long_rounded, size: 18, color: AppTheme.trialTealDeepText),
               ],
             ),
           ),
@@ -187,7 +188,7 @@ Future<bool> confirmReceiptDeletion(BuildContext context) async
           label: kCancelLabel,
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: 52,
           fontSize: 14,
           onPressed: () => Navigator.pop(confirmContext, false),
@@ -196,7 +197,7 @@ Future<bool> confirmReceiptDeletion(BuildContext context) async
           label: kDeleteLabel,
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           height: 52,
           fontSize: 14,
           onPressed: () => Navigator.pop(confirmContext, true),

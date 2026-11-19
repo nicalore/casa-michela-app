@@ -132,7 +132,7 @@ class _DayCell extends StatelessWidget
 
     final Color fill = state == _DotState.open ? (selected ? hoursInk(mode) : onSea) : Colors.transparent;
     final Color ring = state == _DotState.shut
-        ? (selected ? MobilePalette.mutedText.withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.55))
+        ? (selected ? MobilePalette.mutedText.withValues(alpha: 0.55) : AppTheme.surfaceEdge.withValues(alpha: 0.55))
         : Colors.transparent;
 
     return AnimatedContainer(
@@ -157,9 +157,9 @@ class _DayCell extends StatelessWidget
       curve: Curves.easeOutCubic,
       height: tablet ? 76 : 66,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: selected ? MobileGlassPanel.cardAlpha : 0.12),
+        color: AppTheme.surface.withValues(alpha: selected ? MobileGlassPanel.cardAlpha : 0.12),
         borderRadius: radius,
-        border: Border.all(color: Colors.white.withValues(alpha: selected ? 0.62 : 0.24)),
+        border: Border.all(color: AppTheme.surfaceEdge.withValues(alpha: selected ? 0.62 : 0.24)),
         boxShadow: selected ? _liftedShadow : _flatShadow,
       ),
       foregroundDecoration: today

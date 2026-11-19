@@ -321,7 +321,7 @@ class _MobileStepFieldState extends State<MobileStepField>
         inputFormatters: widget.inputFormatters,
         contextMenuBuilder: mobileTextMenu,
         style: _valueStyle,
-        cursorColor: AppTheme.trialTealDeep,
+        cursorColor: AppTheme.trialTealDeepText,
         decoration: const InputDecoration(isCollapsed: true, border: InputBorder.none),
         onSubmitted: (_) => _focus.unfocus(),
         onTapOutside: (_) => _focus.unfocus(),
@@ -366,10 +366,10 @@ class _MobileStepFieldState extends State<MobileStepField>
           constraints: const BoxConstraints(minHeight: _height),
           padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(_radius),
             border: Border.all(
-              color: _typing ? AppTheme.trialTealDeep : AppTheme.trialInk.withValues(alpha: 0.12),
+              color: _typing ? AppTheme.trialTealDeepText : AppTheme.trialInk.withValues(alpha: 0.12),
               width: 1.5,
             ),
           ),
@@ -431,7 +431,7 @@ class _StepButton extends StatelessWidget
           child: Icon(
             icon,
             size: 20,
-            color: enabled ? AppTheme.trialTealDeep : AppTheme.trialInk.withValues(alpha: 0.22),
+            color: enabled ? AppTheme.trialTealDeepText : AppTheme.trialInk.withValues(alpha: 0.22),
           ),
         ),
       ),

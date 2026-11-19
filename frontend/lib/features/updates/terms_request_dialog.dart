@@ -27,7 +27,7 @@ Future<bool> showTermsRequestConfirmation(BuildContext context) async
           label: kUpdateCancel,
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
+          accent: AppTheme.trialVioletText,
           height: _buttonHeight,
           fontSize: _buttonFontSize,
           onPressed: () => Navigator.pop(confirmContext, false),

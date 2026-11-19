@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
@@ -37,10 +38,10 @@ const double _fieldGap = 16;
 const double _stripe = 4;
 const double _chevron = 54;
 
-const Color _headSurface = Color(0xFFF5F8F8);
-const Color _rowRule = Color(0xFFEDF2F1);
-const Color _greyBadge = Color(0xFFEEF3F3);
-const Color _greyBadgeText = Color(0xFF33495A);
+Color get _headSurface => ThemeColours.of(0xFFF5F8F8);
+Color get _rowRule => ThemeColours.of(0xFFEDF2F1);
+Color get _greyBadge => ThemeColours.of(0xFFEEF3F3);
+Color get _greyBadgeText => ThemeColours.fixed(0xFF33495A);
 
 // Shares of the row: the payment, its hours, the amount, the day it was paid and how.
 const int _titleShare = 34;
@@ -192,11 +193,11 @@ class PaymentHistoryTable extends StatelessWidget
 
   bool _waiting(PaymentHistoryRow row) => openingPending && !row.isPaid && !row.isFee;
 
-  TextStyle _cell({Color color = AppTheme.trialOcean, FontWeight weight = FontWeight.w500}) => GoogleFonts.plusJakartaSans(
+  TextStyle _cell({Color? color, FontWeight weight = FontWeight.w500}) => GoogleFonts.plusJakartaSans(
         fontSize: metrics.cell,
         fontWeight: weight,
         height: 1.35,
-        color: color,
+        color: color ?? AppTheme.trialOceanText,
         fontFeatures: const [FontFeature.tabularFigures()],
       );
 
@@ -234,7 +235,7 @@ class PaymentHistoryTable extends StatelessWidget
 
     return Container(
       height: metrics.headHeight,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _headSurface,
         border: Border(bottom: BorderSide(color: AppTheme.trialLine)),
       ),
@@ -257,8 +258,8 @@ class PaymentHistoryTable extends StatelessWidget
     final String? line = historyLine(row);
     final Color tone = switch (row.state)
     {
-      PaymentHistoryState.running => AppTheme.trialTealDeep,
-      PaymentHistoryState.waiting => AppTheme.laterBlue,
+      PaymentHistoryState.running => AppTheme.trialTealDeepText,
+      PaymentHistoryState.waiting => AppTheme.laterBlueText,
       _ => AppTheme.trialMutedText,
     };
     final bool marked = tone != AppTheme.trialMutedText;
@@ -274,7 +275,7 @@ class PaymentHistoryTable extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: metrics.title,
               fontWeight: FontWeight.w800,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
           if (line != null) ...[
@@ -315,7 +316,7 @@ class PaymentHistoryTable extends StatelessWidget
     return Text(
       waiting ? '—' : formatAmount(row.amountCents),
       style: _cell(
-        color: waiting ? AppTheme.trialMutedText : (row.isPaid ? AppTheme.trialTealDeep : AppTheme.modifiedAccent),
+        color: waiting ? AppTheme.trialMutedText : (row.isPaid ? AppTheme.trialTealDeepText : AppTheme.modifiedAccent),
         weight: FontWeight.w800,
       ),
     );
@@ -351,7 +352,7 @@ class PaymentHistoryTable extends StatelessWidget
     final Widget cells = Container(
       padding: EdgeInsets.fromLTRB(metrics.sidePadding, 12, 8, 12),
       decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: _rowRule)),
+        border: first ? null : Border(top: BorderSide(color: _rowRule)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -365,21 +366,21 @@ class PaymentHistoryTable extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: metrics.title,
                     fontWeight: FontWeight.w800,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               _amount(row),
-              const SizedBox(
+              SizedBox(
                 width: 30,
-                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeep),
+                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeepText),
               ),
             ],
           ),
           if (period.isNotEmpty) ...[
             const SizedBox(height: 3),
-            Text(period, style: small.copyWith(fontWeight: FontWeight.w500, color: const Color(0xFF33495A))),
+            Text(period, style: small.copyWith(fontWeight: FontWeight.w500, color: ThemeColours.fixed(0xFF33495A))),
           ],
           const SizedBox(height: 5),
           Align(alignment: Alignment.centerLeft, child: state),
@@ -395,7 +396,7 @@ class PaymentHistoryTable extends StatelessWidget
     return Stack(
       children: [
         cells,
-        const Positioned(
+        Positioned(
           left: 0,
           top: 0,
           bottom: 0,
@@ -415,7 +416,7 @@ class PaymentHistoryTable extends StatelessWidget
     final Widget cells = Container(
       padding: EdgeInsets.symmetric(vertical: metrics.rowPadding),
       decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: _rowRule)),
+        border: first ? null : Border(top: BorderSide(color: _rowRule)),
       ),
       child: Row(
         children: [
@@ -429,7 +430,7 @@ class PaymentHistoryTable extends StatelessWidget
               style: _cell(
                 color: waiting
                     ? AppTheme.trialMutedText
-                    : (paid ? AppTheme.trialTealDeep : AppTheme.modifiedAccent),
+                    : (paid ? AppTheme.trialTealDeepText : AppTheme.modifiedAccent),
                 weight: FontWeight.w800,
               ),
             ),
@@ -448,12 +449,12 @@ class PaymentHistoryTable extends StatelessWidget
           _left(
             _methodShare,
             paid
-                ? Text(_method(row), style: _cell(color: const Color(0xFF33495A)))
+                ? Text(_method(row), style: _cell(color: ThemeColours.fixed(0xFF33495A)))
                 : (waiting ? const SizedBox.shrink() : FittedBox(fit: BoxFit.scaleDown, child: _settle(row))),
           ),
-          const SizedBox(
+          SizedBox(
             width: _chevron,
-            child: Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeep),
+            child: Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeepText),
           ),
         ],
       ),
@@ -467,7 +468,7 @@ class PaymentHistoryTable extends StatelessWidget
     return Stack(
       children: [
         cells,
-        const Positioned(
+        Positioned(
           left: 0,
           top: 0,
           bottom: 0,
@@ -484,7 +485,7 @@ class PaymentHistoryTable extends StatelessWidget
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(metrics.radius),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -530,7 +531,7 @@ class _Badge extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: blue ? AppTheme.laterBlue : _greyBadgeText,
+          color: blue ? AppTheme.laterBlueText : _greyBadgeText,
         ),
       ),
     );
@@ -629,7 +630,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
         label: kCancelPaymentLabel,
         icon: Icons.undo_rounded,
         gradient: AppTheme.dangerGradient,
-        accent: AppTheme.trialDanger,
+        accent: AppTheme.trialDangerText,
         height: 52,
         fontSize: 14,
         busy: _cancelling,
@@ -676,11 +677,11 @@ class _PaymentDetailsState extends State<_PaymentDetails>
     );
   }
 
-  Widget _figure(String text, {Color color = AppTheme.trialOcean})
+  Widget _figure(String text, {Color? color})
   {
     return Text(
       text,
-      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: color),
+      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: color ?? AppTheme.trialOceanText),
     );
   }
 
@@ -708,7 +709,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
           kAmountColumn,
           _figure(
             formatAmount(row.amountCents),
-            color: row.isPaid ? AppTheme.trialTealDeep : AppTheme.modifiedAccent,
+            color: row.isPaid ? AppTheme.trialTealDeepText : AppTheme.modifiedAccent,
           ),
         ),
         _fact(kPaidOnColumn, paid),
@@ -739,7 +740,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
     final TextStyle cell = GoogleFonts.plusJakartaSans(
       fontSize: 15,
       fontWeight: FontWeight.w500,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
@@ -761,7 +762,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
         for (final PaymentHistoryLesson lesson in row.lessons)
           Container(
             padding: const EdgeInsets.fromLTRB(4, 9, 0, 9),
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: _rowRule))),
+            decoration: BoxDecoration(border: Border(top: BorderSide(color: _rowRule))),
             child: Row(
               children: [
                 Expanded(
@@ -829,7 +830,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
             children: [
               _facts(),
               if (row.lessons.isNotEmpty) ...[
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 18),
                   child: Divider(height: 1, thickness: 1, color: _rowRule),
                 ),
@@ -1023,7 +1024,7 @@ class _PaymentsExportState extends State<_PaymentsExport>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14.5,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.trialOcean,
+                color: AppTheme.trialOceanText,
               ),
             ),
           ],

@@ -27,7 +27,7 @@ Future<void> showMobileCriteriaSheet(BuildContext context)
               fontSize: 15,
               fontWeight: FontWeight.w800,
               height: 1.3,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
           const SizedBox(height: _nameGap),

@@ -93,7 +93,7 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
   {
     if (_isLoading)
     {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
       );
     }

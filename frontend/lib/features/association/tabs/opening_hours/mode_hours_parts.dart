@@ -104,7 +104,7 @@ class ClosedPill extends StatelessWidget
   static TextStyle _style(bool isOverride, {bool dense = false}) => GoogleFonts.plusJakartaSans(
         fontSize: dense ? 13 : 15,
         fontWeight: isOverride ? FontWeight.w700 : FontWeight.w500,
-        color: isOverride ? AppTheme.trialDanger : AppTheme.trialMutedText,
+        color: isOverride ? AppTheme.trialDangerText : AppTheme.trialMutedText,
       );
 
   static double widthOf(BuildContext context, {required bool isOverride, bool dense = false})

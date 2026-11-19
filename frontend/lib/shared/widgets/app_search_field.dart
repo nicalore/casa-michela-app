@@ -84,7 +84,7 @@ class _AppSearchFieldState extends State<AppSearchField>
       return Icon(
         Icons.search_rounded,
         size: 28,
-        color: _hasFocus ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+        color: _hasFocus ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
       );
     }
 
@@ -93,7 +93,7 @@ class _AppSearchFieldState extends State<AppSearchField>
       child: GestureDetector(
         onTap: _clear,
         behavior: HitTestBehavior.opaque,
-        child: const Icon(Icons.close_rounded, size: 24, color: AppTheme.trialTealDeep),
+        child: Icon(Icons.close_rounded, size: 24, color: AppTheme.trialTealDeepText),
       ),
     );
   }
@@ -114,7 +114,7 @@ class _AppSearchFieldState extends State<AppSearchField>
           duration: _focusFade,
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(height),
             border: Border.all(
               color: _hasFocus || _hover ? AppTheme.trialGold : AppTheme.trialLine,
@@ -133,7 +133,7 @@ class _AppSearchFieldState extends State<AppSearchField>
             focusNode: _focusNode,
             onChanged: widget.onChanged,
             textAlignVertical: TextAlignVertical.center,
-            cursorColor: AppTheme.trialTealDeep,
+            cursorColor: AppTheme.trialTealDeepText,
             style: GoogleFonts.plusJakartaSans(
               fontSize: fontSize,
               fontWeight: FontWeight.w500,

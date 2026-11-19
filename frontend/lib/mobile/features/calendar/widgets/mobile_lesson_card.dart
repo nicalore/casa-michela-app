@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
 import '../../../../features/calendar/widgets/own_lesson_block.dart' show kSharedLessonIcon;
@@ -38,14 +39,14 @@ const double _columnPersonGap = 8;
 const double _whereGap = 2;
 const double _whereIconGap = 4;
 
-const Color _pastAccent = Color(0xFF93A3AD);
+Color get _pastAccent =>  ThemeColours.fixed(0xFF93A3AD);
 
 // A lesson gone by keeps its three levels, each a step back.
-const Color _pastTitle = Color(0xFF4A5C69);
-const Color _pastPerson = Color(0xFF4F6272);
-const Color _pastSubject = Color(0xFF8796A1);
+Color get _pastTitle => ThemeColours.fixed(0xFF4A5C69);
+Color get _pastPerson => ThemeColours.fixed(0xFF4F6272);
+Color get _pastSubject => ThemeColours.fixed(0xFF8796A1);
 
-const Color _subjectColor = Color(0xFF6E808C);
+Color get _subjectColor =>  ThemeColours.fixed(0xFF6E808C);
 
 const double kMobilePhoneCardScale = 1.1;
 const double kMobileTabletCardScale = 1.15;
@@ -67,7 +68,7 @@ const List<BoxShadow> _shadow = [
 
 enum MobileEntryTime { upcoming, running, past }
 
-const Decoration _runningRim = MobileCurrentCard(BorderRadius.all(Radius.circular(_radius)));
+Decoration get _runningRim => MobileCurrentCard(BorderRadius.all(Radius.circular(_radius)));
 
 typedef MobileLessonWhere = ({IconData icon, String label, Color accent});
 
@@ -126,7 +127,7 @@ class MobileCalendarEntry
       startMinutes: lesson.startMinutes,
       endMinutes: lesson.endMinutes,
       accent: lessonAccent(lesson.mode),
-      surface: Colors.white,
+      surface: AppTheme.surface,
       icon: lessonModeIcon(lesson.mode),
       title: topic.discipline,
       subject: topic.subject,
@@ -153,7 +154,7 @@ class MobileCalendarEntry
       startMinutes: lesson.startMinutes,
       endMinutes: lesson.endMinutes,
       accent: lessonAccent(lesson.mode),
-      surface: Colors.white,
+      surface: AppTheme.surface,
       icon: lessonModeIcon(lesson.mode),
       title: topic.discipline,
       subject: topic.subject,
@@ -735,7 +736,7 @@ TextStyle _cardTitleStyle({required double scale, required bool past, bool inCol
       fontSize: (inColumn ? 15 : 18) * scale,
       fontWeight: FontWeight.w800,
       height: 1.2,
-      color: past ? _pastTitle : AppTheme.trialOcean,
+      color: past ? _pastTitle : AppTheme.trialOceanText,
     );
 
 TextStyle _cardSubjectStyle({required double scale, required bool past, bool inColumn = false}) => GoogleFonts.plusJakartaSans(

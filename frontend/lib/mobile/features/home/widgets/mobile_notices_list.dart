@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../features/association/notices/notice_card.dart' show NoticePinnedIcon;
 import '../../../../features/association/notices/notice_format.dart';
@@ -152,12 +153,12 @@ class _NotificationsCard extends StatelessWidget
   {
     if (board.loading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 14),
         child: Center(
           child: SizedBox.square(
             dimension: 26,
-            child: CircularProgressIndicator(strokeWidth: 2.6, color: AppTheme.trialTealDeep),
+            child: CircularProgressIndicator(strokeWidth: 2.6, color: AppTheme.trialTealDeepText),
           ),
         ),
       );
@@ -243,13 +244,14 @@ class _OffRow extends StatelessWidget
     return Container(
       margin: const EdgeInsets.only(top: 2, bottom: 4),
       padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      // In the dark a gold box under the gold button reads as one blot: the card's own well, gold left to the words.
       decoration: BoxDecoration(
-        color: AppTheme.trialGoldSurface.withValues(alpha: 0.9),
+        color: ThemeColours.isDark ? AppTheme.trialPaper : AppTheme.trialGoldSurface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
-          const Icon(Icons.notifications_off_rounded, size: 22, color: AppTheme.modifiedAccent),
+          Icon(Icons.notifications_off_rounded, size: 22, color: AppTheme.modifiedAccent),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -285,8 +287,8 @@ class _OffRow extends StatelessWidget
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(colors: [AppTheme.trialGold, Color(0xFFF3C766)]),
-                boxShadow: const [BoxShadow(color: Color(0x52E3A83C), offset: Offset(0, 6), blurRadius: 14)],
+                gradient: LinearGradient(colors: [AppTheme.trialGold, ThemeColours.of(0xFFF3C766)]),
+                boxShadow: [BoxShadow(color: ThemeColours.keep(0x52E3A83C), offset: Offset(0, 6), blurRadius: 14)],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -297,11 +299,12 @@ class _OffRow extends StatelessWidget
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.1,
+                      // Dark on the gold in either mode.
                       color: AppTheme.trialDeepWater,
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Icon(Icons.notifications_active_rounded, size: 16, color: AppTheme.trialDeepWater),
+                  Icon(Icons.notifications_active_rounded, size: 16, color: AppTheme.trialDeepWater),
                 ],
               ),
             ),
@@ -422,7 +425,7 @@ class _NotificationLineState extends State<_NotificationLine> with SingleTickerP
                     kind: item.kind,
                     unread: !item.read,
                     size: _iconSize,
-                    surface: Colors.white.withValues(alpha: 0.85),
+                    surface: AppTheme.surface.withValues(alpha: 0.85),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -478,7 +481,7 @@ class _NotificationLineState extends State<_NotificationLine> with SingleTickerP
                     label: item.read ? kNotificationMarkUnread : kNotificationMarkRead,
                     labels: const [kNotificationMarkRead, kNotificationMarkUnread],
                     icon: item.read ? Icons.remove_done_rounded : Icons.done_all_rounded,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                     onPressed: () => NotificationBoard.instance.toggleRead(item),
                   ),
                 ),
@@ -486,7 +489,7 @@ class _NotificationLineState extends State<_NotificationLine> with SingleTickerP
                 MobileCardPillButton(
                   label: kNotificationDelete,
                   icon: Icons.delete_outline_rounded,
-                  color: AppTheme.trialDanger,
+                  color: AppTheme.trialDangerText,
                   onPressed: _delete,
                 ),
               ],
@@ -582,10 +585,10 @@ class _NoticesCard extends StatelessWidget
 
     final Widget body = switch ((notices.loading, items))
     {
-      (true, _) => const Center(
+      (true, _) => Center(
           child: SizedBox.square(
             dimension: 26,
-            child: CircularProgressIndicator(strokeWidth: 2.6, color: AppTheme.trialTealDeep),
+            child: CircularProgressIndicator(strokeWidth: 2.6, color: AppTheme.trialTealDeepText),
           ),
         ),
       (false, null) => _status(kHomeNoticesUnavailable),

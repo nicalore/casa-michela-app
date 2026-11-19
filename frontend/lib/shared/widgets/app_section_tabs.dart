@@ -47,7 +47,7 @@ TextStyle _tabStyle({required bool lit, required bool enabled})
     color: !enabled
         ? AppTheme.trialMutedText.withValues(alpha: 0.55)
         : lit
-            ? AppTheme.trialTealDeep
+            ? AppTheme.trialTealDeepText
             : AppTheme.trialMutedText,
   );
 }
@@ -65,7 +65,7 @@ TextStyle _titleStyle([double size = _titleSize])
     fontSize: size,
     fontWeight: FontWeight.w700,
     height: 1.2,
-    color: AppTheme.trialOcean,
+    color: AppTheme.trialOceanText,
   );
 }
 
@@ -354,7 +354,7 @@ class _AppSectionTabsState extends State<AppSectionTabs>
         );
 
         final Widget line = DecoratedBox(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: AppTheme.closedLine)),
           ),
           child: Padding(
@@ -592,7 +592,7 @@ class _AppTitleMenuState extends State<AppTitleMenu>
                     child: Icon(
                       Icons.keyboard_arrow_down_rounded,
                       size: _titleChevronSize,
-                      color: lit ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                      color: lit ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
                     ),
                   ),
                 ],
@@ -731,7 +731,7 @@ class _MenuTabState extends State<_MenuTab>
       builder: (context, open, toggle)
       {
         final bool lit = widget.selected || _hover || open;
-        final Color color = lit ? AppTheme.trialTealDeep : AppTheme.trialMutedText;
+        final Color color = lit ? AppTheme.trialTealDeepText : AppTheme.trialMutedText;
 
         return MouseRegion(
           cursor: SystemMouseCursors.click,

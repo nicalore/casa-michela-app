@@ -505,7 +505,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
         AppDialogPill(
           expand: true,
           child: _isLoading
-              ? const Padding(
+              ? Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Center(
                     child: CircularProgressIndicator(color: AppTheme.trialTurquoise),

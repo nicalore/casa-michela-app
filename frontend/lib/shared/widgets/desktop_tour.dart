@@ -34,8 +34,8 @@ const double _bubbleGap = 20;
 const double _windowMargin = 20;
 
 // Same colour as the desktop tooltips (AppTheme.tooltipDecoration).
-final Color _bubbleColor = AppTheme.trialOcean.withValues(alpha: 0.97);
-final Color _closeHover = Color.alphaBlend(Colors.white.withValues(alpha: 0.14), AppTheme.trialOcean);
+Color get _bubbleColor => AppTheme.trialOcean.withValues(alpha: 0.97);
+Color get _closeHover => Color.alphaBlend(Colors.white.withValues(alpha: 0.14), AppTheme.trialOcean);
 
 // Above or below a part, the bubble needs at least this much height.
 const double _shortestRoom = 170;
@@ -1671,7 +1671,7 @@ class _Bubble extends StatelessWidget
       label: label,
       icon: icon,
       gradient: forward ? AppTheme.brandGradient : AppTheme.dismissGradient,
-      accent: forward ? AppTheme.trialTealDeep : AppTheme.trialViolet,
+      accent: forward ? AppTheme.trialTealDeepText : AppTheme.trialVioletText,
       height: 46,
       fontSize: 14,
       onPressed: onPressed,
@@ -1746,7 +1746,7 @@ class _Bubble extends StatelessWidget
           label: 'Chiudi',
           child: FadeHoverIconButton(
             icon: Icons.close_rounded,
-            color: Colors.white,
+            color: AppTheme.surface,
             hoverColor: _closeHover,
             onTap: onClose,
           ),

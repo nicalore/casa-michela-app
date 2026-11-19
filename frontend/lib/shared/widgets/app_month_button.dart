@@ -21,7 +21,7 @@ const double _cellGap = 8;
 const double _dotSize = 5;
 
 // Fading from Colors.transparent (black) would pass through grey.
-final Color _goldSurfaceClear = AppTheme.trialGoldSurface.withValues(alpha: 0);
+Color get _goldSurfaceClear => AppTheme.trialGoldSurface.withValues(alpha: 0);
 
 // As AppCalendarButton, with the twelve months of a year instead of the days of a month.
 class AppMonthButton extends StatelessWidget
@@ -127,7 +127,7 @@ class _YearPopoverState extends State<_YearPopover>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.trialOcean,
+                    color: AppTheme.trialOceanText,
                   ),
                 ),
               ),
@@ -250,7 +250,7 @@ class _MonthCellState extends State<_MonthCell>
               shape: BoxShape.circle,
               color: !widget.marked || !widget.enabled
                   ? Colors.transparent
-                  : (selected ? Colors.white : AppTheme.trialTurquoise),
+                  : (selected ? AppTheme.surface : AppTheme.trialTurquoise),
             ),
           ),
         ],

@@ -12,7 +12,7 @@ class PublishedPill extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final Color accent = isDraft ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
+    final Color accent = isDraft ? AppTheme.modifiedAccent : AppTheme.trialTealDeepText;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

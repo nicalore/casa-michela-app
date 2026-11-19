@@ -27,12 +27,12 @@ class PageHeading extends StatelessWidget
 
   const PageHeading(this.text, {super.key, this.count, this.trailing, this.large = false});
 
-  static TextStyle style({Color color = AppTheme.trialMutedText, bool large = false}) => GoogleFonts.plusJakartaSans(
+  static TextStyle style({Color? color, bool large = false}) => GoogleFonts.plusJakartaSans(
         fontSize: large ? _largeFontSize : _fontSize,
         fontWeight: FontWeight.w700,
         height: 1.2,
         letterSpacing: 1.6,
-        color: color,
+        color: color ?? AppTheme.trialMutedText,
       );
 
   @override
@@ -55,7 +55,7 @@ class PageHeading extends StatelessWidget
           const SizedBox(width: 8),
           Text(
             '$count',
-            style: style(color: AppTheme.trialTealDeep, large: large).copyWith(fontWeight: FontWeight.w800),
+            style: style(color: AppTheme.trialTealDeepText, large: large).copyWith(fontWeight: FontWeight.w800),
           ),
         ],
       ],

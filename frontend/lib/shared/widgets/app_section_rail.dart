@@ -86,7 +86,7 @@ class AppSectionRail extends StatelessWidget
           fontSize: 21,
           fontWeight: FontWeight.w700,
           height: 1.2,
-          color: AppTheme.trialOcean,
+          color: AppTheme.trialOceanText,
         ),
       ),
     );
@@ -131,7 +131,7 @@ class AppSectionRail extends StatelessWidget
       width: width,
       padding: const EdgeInsets.symmetric(vertical: 22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -222,7 +222,7 @@ class _AppRailEntryState extends State<AppRailEntry>
       return AppTheme.trialMutedText.withValues(alpha: _unavailableAlpha);
     }
 
-    return widget.selected || _hover ? AppTheme.trialTealDeep : AppTheme.trialMutedText;
+    return widget.selected || _hover ? AppTheme.trialTealDeepText : AppTheme.trialMutedText;
   }
 
   @override

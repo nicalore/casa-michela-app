@@ -89,7 +89,7 @@ class _CompetenceRowState extends State<CompetenceRow>
       id: widget.addTour,
       child: FadeHoverIconButton(
         icon: Icons.add_rounded,
-        color: AppTheme.trialTealDeep,
+        color: AppTheme.trialTealDeepText,
         hoverColor: AppTheme.trialGoldSurface,
         onTap: widget.onAdd,
       ),
@@ -131,7 +131,7 @@ class _CompetenceRowState extends State<CompetenceRow>
                 id: widget.binTour,
                 child: FadeHoverIconButton(
                   icon: Icons.delete_outline_rounded,
-                  color: AppTheme.trialDanger,
+                  color: AppTheme.trialDangerText,
                   hoverColor: AppTheme.trialGoldSurface,
                   onTap: widget.onRemove,
                 ),
@@ -164,7 +164,7 @@ class _CompetenceRowState extends State<CompetenceRow>
         style: GoogleFonts.plusJakartaSans(
           fontSize: 12.5,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     );
@@ -219,7 +219,7 @@ class _CompetenceRowState extends State<CompetenceRow>
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.trialOcean,
+                            color: AppTheme.trialOceanText,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -604,7 +604,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
   {
     if (widget.isLoading)
     {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );

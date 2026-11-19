@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
@@ -78,10 +79,10 @@ const double kBlockSideGap = 3;
 
 const double kMinResizableBlockWidth = 48;
 
-const Color kPreferredTeacherColor = AppTheme.trialViolet;
-const Color kAvoidedTeacherColor = AppTheme.trialDeepWater;
+Color get kPreferredTeacherColor => AppTheme.trialVioletText;
+Color get kAvoidedTeacherColor => AppTheme.trialDeepWaterText;
 
-const Color kSupervisorColor = AppTheme.trialTealDeep;
+Color get kSupervisorColor => AppTheme.trialTealDeepText;
 
 const String kLessonDoneLabel = 'Lezione svolta';
 
@@ -116,13 +117,13 @@ const Duration kExcludedLaneTravel = Duration(milliseconds: 340);
 const Curve kExcludedLaneCurve = Curves.easeOutCubic;
 
 // The teacher or the pupil on a block: darker than the muted text, which is hard to read there.
-const Color kLessonPersonColor = Color(0xFF2A4356);
+Color get kLessonPersonColor => ThemeColours.fixed(0xFF2A4356);
 
-const Color kLessonSubjectColor = Color(0xFF5B7082);
+Color get kLessonSubjectColor =>  ThemeColours.fixed(0xFF5B7082);
 
-Color lessonAccent(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
+Color lessonAccent(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccent : AppTheme.presenceAccentText;
 
-Color lessonSurface(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface;
+Color lessonSurface(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccentSurface : AppTheme.presenceSurface;
 
 Color lessonBadgeSurface(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge;
 
@@ -224,7 +225,7 @@ TextSpan lessonHoursSpan(List<String> parts, TextStyle style)
 
 Color lessonWhereAccent(LessonItem lesson)
 {
-  return lessonWhere(lesson).icon == Icons.meeting_room_outlined ? AppTheme.trialTealDeep : lessonAccent(lesson.mode);
+  return lessonWhere(lesson).icon == Icons.meeting_room_outlined ? AppTheme.presenceAccentText : lessonAccent(lesson.mode);
 }
 
 bool isLessonPast(LessonItem lesson, DateTime now)
@@ -356,7 +357,7 @@ Gradient? elapsedFill(double? share, Color surface)
     return null;
   }
 
-  final tint = Color.alphaBlend(AppTheme.trialDanger.withValues(alpha: 0.16), surface);
+  final tint = Color.alphaBlend(AppTheme.trialDangerText.withValues(alpha: 0.16), surface);
   final at = share.clamp(0.0, 0.999);
 
   // Two stops a hair apart, not one twice: a hover's lerp merges equal stops and blurs the edge.
@@ -405,7 +406,7 @@ class CalendarGhostBlock extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final accent = isRefused ? AppTheme.trialDanger : AppTheme.trialTurquoise;
+    final accent = isRefused ? AppTheme.trialDangerText : AppTheme.trialTurquoise;
 
     final tint = accent.withValues(alpha: isSaving ? 0.3 : 0.14);
 
@@ -414,7 +415,7 @@ class CalendarGhostBlock extends StatelessWidget
       curve: Curves.easeOut,
       decoration: BoxDecoration(
         color: label != null && (isAlongside || isSaving)
-            ? Color.alphaBlend(tint, Colors.white)
+            ? Color.alphaBlend(tint, AppTheme.surface)
             : tint,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: accent, width: isAlongside ? 2.4 : 1.8),
@@ -434,7 +435,7 @@ class CalendarGhostBlock extends StatelessWidget
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       height: 1.2,
-                      color: isRefused ? AppTheme.trialDanger : AppTheme.trialTealDeep,
+                      color: isRefused ? AppTheme.trialDangerText : AppTheme.trialTealDeepText,
                     ),
                   ),
                 ),
@@ -539,7 +540,7 @@ class CalendarDragFeedback extends StatelessWidget
 
     final mark = leaving && awayLabel == null ? null : carriedMark(carried);
 
-    final isWrong = mark?.accent == AppTheme.trialDanger;
+    final isWrong = mark?.accent == AppTheme.trialDangerText;
     final accent = mark?.accent ?? this.accent ?? lessonAccent(mode);
     final span = carried.span;
 
@@ -553,10 +554,10 @@ class CalendarDragFeedback extends StatelessWidget
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isWrong
-              ? Color.alphaBlend(AppTheme.trialDangerLight.withValues(alpha: 0.16), Colors.white)
+              ? Color.alphaBlend(AppTheme.trialDangerLight.withValues(alpha: 0.16), AppTheme.surface)
               : mark == null
-                  ? Colors.white
-                  : Color.alphaBlend(accent.withValues(alpha: 0.14), Colors.white),
+                  ? AppTheme.surface
+                  : Color.alphaBlend(accent.withValues(alpha: 0.14), AppTheme.surface),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: mark == null ? AppTheme.trialGold : accent, width: 2),
           boxShadow: AppTheme.overlayShadow,
@@ -604,7 +605,7 @@ class CalendarDragFeedback extends StatelessWidget
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       height: 1.15,
-                      color: isWrong ? AppTheme.trialDanger : AppTheme.trialOcean,
+                      color: isWrong ? AppTheme.trialDangerText : AppTheme.trialOceanText,
                     ),
                     child: DescenderRoom(
                       child: Text(
@@ -634,12 +635,12 @@ const IconData kJoinHourIcon = Icons.playlist_add_rounded;
 {
   if (!carried.isOverTrack)
   {
-    return (icon: Icons.delete_outline_rounded, accent: AppTheme.trialDanger);
+    return (icon: Icons.delete_outline_rounded, accent: AppTheme.trialDangerText);
   }
 
   if (carried.refusal != null)
   {
-    return (icon: Icons.priority_high_rounded, accent: AppTheme.trialDanger);
+    return (icon: Icons.priority_high_rounded, accent: AppTheme.trialDangerText);
   }
 
   return switch (carried.kind)
@@ -956,7 +957,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock> with Calendar
   Color get _whereAccent
   {
     return _where.icon == Icons.meeting_room_outlined
-        ? AppTheme.trialTealDeep
+        ? AppTheme.trialTealDeepText
         : lessonAccent(widget.lesson.mode);
   }
 
@@ -1099,10 +1100,10 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock> with Calendar
       ].join(' · '),
       isCurrent: widget.elapsed != null,
       marks: [
-        if (widget.isPreferred) const Icon(Icons.star_rounded, size: 14, color: kPreferredTeacherColor),
-        if (widget.hasWarning) const Icon(Icons.circle, size: 9, color: kAvoidedTeacherColor),
+        if (widget.isPreferred) Icon(Icons.star_rounded, size: 14, color: kPreferredTeacherColor),
+        if (widget.hasWarning) Icon(Icons.circle, size: 9, color: kAvoidedTeacherColor),
         if (widget.isPast)
-          const AppTooltip(
+          AppTooltip(
             message: kLessonDoneLabel,
             child: Icon(Icons.check_rounded, size: 16, color: AppTheme.trialMutedText),
           ),
@@ -1123,7 +1124,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock> with Calendar
           onTap: widget.onTap,
           child: CardGround(
             elapsed: widget.elapsed,
-            surface: Colors.white,
+            surface: AppTheme.surface,
             radius: 10,
             child: AnimatedContainer(
               // Turning into a row starts afresh: its padding must not animate.
@@ -1176,14 +1177,14 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock> with Calendar
                                   // Too narrow for the marks: they would push past the edge.
                                   if (!_isNarrow) ...[
                                     if (widget.isPreferred)
-                                      const Icon(Icons.star_rounded, size: 12, color: kPreferredTeacherColor),
+                                      Icon(Icons.star_rounded, size: 12, color: kPreferredTeacherColor),
                                     if (widget.hasWarning) ...[
                                       if (widget.isPreferred) const SizedBox(width: 2),
-                                      const Icon(Icons.circle, size: 8, color: kAvoidedTeacherColor),
+                                      Icon(Icons.circle, size: 8, color: kAvoidedTeacherColor),
                                     ],
                                     if (widget.isPast) ...[
                                       if (widget.isPreferred || widget.hasWarning) const SizedBox(width: _markGap),
-                                      const AppTooltip(
+                                      AppTooltip(
                                         message: kLessonDoneLabel,
                                         child: Icon(Icons.check_rounded, size: 13, color: AppTheme.trialMutedText),
                                       ),
@@ -1272,7 +1273,7 @@ TextStyle get _blockDisciplineStyle => GoogleFonts.plusJakartaSans(
       fontSize: 14,
       fontWeight: FontWeight.w800,
       height: 1.12,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
 
 TextStyle get _blockSubjectStyle => GoogleFonts.plusJakartaSans(

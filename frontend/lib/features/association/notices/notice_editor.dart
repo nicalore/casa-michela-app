@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
@@ -25,7 +26,7 @@ const double _radius = 14;
 const double _borderWidth = 2;
 const double _focusRingWidth = 4;
 const double _focusRingOpacity = 0.15;
-const Color _surface = Color(0xFFFBFDFC);
+Color get _surface => ThemeColours.of(0xFFFBFDFC);
 
 const double _toolSize = 36;
 const double _toolHeight = 34;
@@ -229,7 +230,7 @@ class _NoticeEditorState extends State<NoticeEditor>
         height: _toolHeight,
         padding: const EdgeInsets.only(left: 12, right: 6),
         decoration: BoxDecoration(
-          color: marked ? AppTheme.trialGoldSurface : Colors.white,
+          color: marked ? AppTheme.trialGoldSurface : AppTheme.surface,
           borderRadius: BorderRadius.circular(9),
         ),
         child: Row(
@@ -245,14 +246,14 @@ class _NoticeEditorState extends State<NoticeEditor>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: marked ? AppTheme.trialTealDeep : AppTheme.trialInk,
+                color: marked ? AppTheme.trialTealDeepText : AppTheme.trialInk,
               ),
             ),
             const SizedBox(width: 4),
             Icon(
               Icons.keyboard_arrow_down_rounded,
               size: 18,
-              color: marked ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+              color: marked ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
             ),
           ],
         ),
@@ -276,8 +277,8 @@ class _NoticeEditorState extends State<NoticeEditor>
       listenable: _controller,
       builder: (context, _) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
           border: Border(bottom: BorderSide(color: AppTheme.trialLine, width: 1.5)),
         ),
         child: Wrap(
@@ -382,7 +383,7 @@ class _ToolState extends State<_Tool>
     final bool lit = widget.enabled && (widget.on || _hover);
     final Color color = !widget.enabled
         ? AppTheme.trialMutedText.withValues(alpha: 0.4)
-        : widget.on ? AppTheme.modifiedAccent : _hover ? AppTheme.trialTealDeep : AppTheme.trialMutedText;
+        : widget.on ? AppTheme.modifiedAccent : _hover ? AppTheme.trialTealDeepText : AppTheme.trialMutedText;
 
     return AppTooltip(
       message: widget.tip,

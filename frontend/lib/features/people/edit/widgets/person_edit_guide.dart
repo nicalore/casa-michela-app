@@ -27,7 +27,7 @@ class PersonEditGuide extends StatelessWidget
             fontSize: 19,
             fontWeight: FontWeight.w700,
             height: 1.25,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
           ),
         ),
         if (hint case final hint?) ...[

@@ -7,7 +7,7 @@ import 'appreciation_students_dialog.dart';
 import 'stat_filters.dart';
 import 'stat_widgets.dart';
 
-const Color _accent = AppTheme.trialDeepWater;
+Color get _accent => AppTheme.trialDeepWaterText;
 
 
 const Duration _fetchFade = Duration(milliseconds: 150);

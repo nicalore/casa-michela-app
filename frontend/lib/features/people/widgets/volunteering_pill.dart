@@ -59,7 +59,7 @@ class _VolunteeringPillState extends State<VolunteeringPill>
               if (monthOnly != null)
                 TextSpan(
                   text: ' · ${volunteeringMonthOnlyNote(monthOnly)}',
-                  style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.trialMutedText),
+                  style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.trialMutedText),
                 ),
             ],
           ),
@@ -69,7 +69,7 @@ class _VolunteeringPillState extends State<VolunteeringPill>
           style: GoogleFonts.plusJakartaSans(
             fontSize: dense ? 13.5 : 15,
             fontWeight: FontWeight.w700,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
           ),
         ),
       ],
@@ -92,7 +92,7 @@ class _VolunteeringPillState extends State<VolunteeringPill>
               constraints: BoxConstraints(minHeight: height),
               padding: EdgeInsets.fromLTRB(dense ? 12 : 14, 4, dense ? 14 : 16, 4),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(height / 2),
                 boxShadow: AppTheme.cardShadow,
                 border: Border.all(color: AppTheme.trialGold.withValues(alpha: lit), width: _frameWidth),
@@ -102,11 +102,11 @@ class _VolunteeringPillState extends State<VolunteeringPill>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.volunteer_activism_rounded, size: dense ? 18 : 20, color: AppTheme.trialTealDeep),
+                Icon(Icons.volunteer_activism_rounded, size: dense ? 18 : 20, color: AppTheme.trialTealDeepText),
                 SizedBox(width: dense ? 10 : 12),
                 Flexible(child: text),
                 SizedBox(width: dense ? 12 : 16),
-                Icon(Icons.edit_rounded, size: dense ? 15 : 17, color: AppTheme.trialTealDeep),
+                Icon(Icons.edit_rounded, size: dense ? 15 : 17, color: AppTheme.trialTealDeepText),
               ],
             ),
           ),

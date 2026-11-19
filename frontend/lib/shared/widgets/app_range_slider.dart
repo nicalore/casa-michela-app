@@ -12,13 +12,13 @@ SliderThemeData _sliderTheme(BuildContext context, Color activeTrackColor, bool 
     trackHeight: kRangeSliderTrackHeight,
     activeTrackColor: activeTrackColor,
     inactiveTrackColor: AppTheme.trialLine,
-    thumbColor: Colors.white,
+    thumbColor: AppTheme.surface,
     overlayColor: AppTheme.trialGold.withValues(alpha: 0.18),
     overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
     activeTickMarkColor: Colors.transparent,
     inactiveTickMarkColor: Colors.transparent,
     showValueIndicator: ShowValueIndicator.onDrag,
-    valueIndicatorColor: AppTheme.trialOcean,
+    valueIndicatorColor: AppTheme.trialOceanText,
     valueIndicatorTextStyle: GoogleFonts.plusJakartaSans(
       fontSize: 13,
       fontWeight: FontWeight.w700,
@@ -50,7 +50,7 @@ class AppRangeSlider extends StatelessWidget
 
   final bool dimsWhenDisabled;
 
-  const AppRangeSlider({
+  AppRangeSlider({
     super.key,
     required this.values,
     required this.min,
@@ -58,9 +58,9 @@ class AppRangeSlider extends StatelessWidget
     required this.divisions,
     required this.onChanged,
     this.labels,
-    this.activeTrackColor = AppTheme.trialTealDeep,
+    Color? activeTrackColor,
     this.dimsWhenDisabled = false,
-  });
+  })  : activeTrackColor = activeTrackColor ?? AppTheme.trialTealDeep;
 
   @override
   Widget build(BuildContext context)
@@ -113,7 +113,7 @@ class AppSlider extends StatelessWidget
   Widget build(BuildContext context)
   {
     return SliderTheme(
-      data: _sliderTheme(context, AppTheme.trialTealDeep, dimsWhenDisabled).copyWith(
+      data: _sliderTheme(context, AppTheme.trialTealDeepText, dimsWhenDisabled).copyWith(
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: kRangeSliderThumbRadius, elevation: 2),
         trackShape: const RoundedRectSliderTrackShape(),
         valueIndicatorShape: const RectangularSliderValueIndicatorShape(),

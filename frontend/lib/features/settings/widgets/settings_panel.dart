@@ -96,7 +96,7 @@ class SettingsPanel extends StatelessWidget
   {
     final Widget card = DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppPageDensity.of(context) ? _densePanelRadius : _panelRadius),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -162,15 +162,15 @@ class SettingsRow extends StatelessWidget
 
   final Widget? trailing;
 
-  const SettingsRow({
+  SettingsRow({
     super.key,
     required this.icon,
-    this.tint = AppTheme.trialTealDeep,
+    Color? tint,
     required this.title,
     this.subtitle,
     this.titleMark,
     this.trailing,
-  });
+  })  : tint = tint ?? AppTheme.trialTealDeepText;
 
   @override
   Widget build(BuildContext context)
@@ -290,7 +290,7 @@ class SettingsIconTile extends StatelessWidget
   final IconData icon;
   final Color tint;
 
-  const SettingsIconTile({super.key, required this.icon, this.tint = AppTheme.trialTealDeep});
+  SettingsIconTile({super.key, required this.icon, Color? tint}) : tint = tint ?? AppTheme.trialTealDeepText;
 
   @override
   Widget build(BuildContext context)
@@ -312,7 +312,7 @@ class SettingsIconTile extends StatelessWidget
 TextStyle settingsTitleStyle({bool dense = false}) => GoogleFonts.plusJakartaSans(
       fontSize: dense ? 14.5 : 16,
       fontWeight: FontWeight.w700,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
 
 TextStyle settingsLineStyle({bool dense = false}) => GoogleFonts.plusJakartaSans(

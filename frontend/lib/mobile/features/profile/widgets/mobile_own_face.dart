@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colours.dart';
 import '../../../../features/auth/models/me_response.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
@@ -65,12 +66,12 @@ class MobileOwnFace extends StatelessWidget
                   height: badge,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [AppTheme.trialGold, Color(0xFFF3C766)],
+                      colors: [AppTheme.trialGold, ThemeColours.of(0xFFF3C766)],
                     ),
-                    border: Border.all(color: Colors.white, width: 2.5),
+                    border: Border.all(color: AppTheme.surfaceEdge, width: 2.5),
                     boxShadow: const [
                       BoxShadow(color: Color(0x47000000), offset: Offset(0, 4), blurRadius: 10),
                     ],
@@ -78,6 +79,7 @@ class MobileOwnFace extends StatelessWidget
                   child: Icon(
                     Icons.photo_camera_rounded,
                     size: (badge * 0.52).roundToDouble(),
+                    // Dark on the gold in either mode.
                     color: AppTheme.trialDeepWater,
                   ),
                 ),
@@ -163,7 +165,7 @@ class _ActionRow extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final Color tint = danger ? AppTheme.trialDanger : AppTheme.trialTealDeep;
+    final Color tint = danger ? AppTheme.trialDangerText : AppTheme.trialTealDeepText;
 
     return Semantics(
       button: true,
@@ -174,7 +176,7 @@ class _ActionRow extends StatelessWidget
           height: 56,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(18),
             boxShadow: const [
               BoxShadow(color: Color(0x0F122438), offset: Offset(0, 4), blurRadius: 14),
@@ -190,7 +192,7 @@ class _ActionRow extends StatelessWidget
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: danger ? AppTheme.trialDanger : AppTheme.trialInk,
+                    color: danger ? AppTheme.trialDangerText : AppTheme.trialInk,
                   ),
                 ),
               ),

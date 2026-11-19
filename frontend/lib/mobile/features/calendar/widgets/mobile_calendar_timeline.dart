@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/lessons/utils/timeline_geometry.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart' show NowGlide, cardShare;
@@ -59,7 +60,7 @@ TextStyle _labelStyle({required bool half})
   );
 }
 
-Color _gridColor({required bool half}) => Colors.white.withValues(alpha: half ? 0.07 : 0.18);
+Color _gridColor({required bool half}) => AppTheme.surfaceEdge.withValues(alpha: half ? 0.07 : 0.18);
 
 List<int> _marks((int, int) window)
 {

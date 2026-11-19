@@ -1689,7 +1689,7 @@ class _CalendarTabState extends State<CalendarTab>
   {
     final draft = publication.isDraft;
 
-    final accent = draft ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
+    final accent = draft ? AppTheme.modifiedAccent : AppTheme.trialTealDeepText;
     final surface = draft ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface;
 
     final sent = publishedSentence(publication);
@@ -2665,7 +2665,7 @@ class _CalendarTabState extends State<CalendarTab>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.lock_clock_rounded, size: 20, color: AppTheme.modifiedAccent),
+          Icon(Icons.lock_clock_rounded, size: 20, color: AppTheme.modifiedAccent),
           const SizedBox(width: 12),
           Flexible(
             child: Column(
@@ -2722,7 +2722,7 @@ class _CalendarTabState extends State<CalendarTab>
             label: 'ESCI DALLA BOZZA',
             icon: Icons.undo_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             busy: _isPublishing,
             width: _actionWidth,
             height: _actionHeight,

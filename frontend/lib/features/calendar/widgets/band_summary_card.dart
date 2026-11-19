@@ -42,7 +42,7 @@ class BandSummaryCard extends StatelessWidget
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -75,7 +75,7 @@ class BandSummaryCard extends StatelessWidget
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         height: 1.25,
-                        color: AppTheme.trialOcean,
+                        color: AppTheme.trialOceanText,
                       ),
                     ),
                     if (summary != null)
@@ -102,7 +102,7 @@ class BandSummaryCard extends StatelessWidget
           ),
           if (footer != null) ...[
             const SizedBox(height: 8),
-            const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+            Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             const SizedBox(height: 8),
             footer,
           ],
@@ -127,7 +127,7 @@ class BandSummaryCard extends StatelessWidget
     return Container(
       padding: compact ? const EdgeInsets.fromLTRB(18, 16, 18, 14) : const EdgeInsets.fromLTRB(24, 20, 24, 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -152,7 +152,7 @@ class BandSummaryCard extends StatelessWidget
               fontSize: compact ? 17 : 21,
               fontWeight: FontWeight.w700,
               height: 1.2,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
           if (summary != null) ...[
@@ -169,7 +169,7 @@ class BandSummaryCard extends StatelessWidget
           ],
           if (chips.isNotEmpty || footer != null) ...[
             SizedBox(height: gap),
-            const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+            Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             SizedBox(height: gap),
           ],
           if (chips.isNotEmpty) Wrap(spacing: 10, runSpacing: 10, children: chips),

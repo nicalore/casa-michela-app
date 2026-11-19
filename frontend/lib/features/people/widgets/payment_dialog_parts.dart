@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -136,7 +137,7 @@ class PaymentBlockTitle extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: kPaymentBlockGap),
-        const Divider(height: 1, thickness: 1, color: Color(0xFFEDF2F1)),
+        Divider(height: 1, thickness: 1, color: ThemeColours.of(0xFFEDF2F1)),
         const SizedBox(height: kPaymentDialogGap),
         Text(
           text.toUpperCase(),
@@ -184,7 +185,7 @@ class PaymentFactBox extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: 17,
               fontWeight: FontWeight.w800,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
         ],

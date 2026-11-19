@@ -449,7 +449,7 @@ class _TrendPainter extends CustomPainter
       for (var index = 0; index < frame.count; index++)
       {
         final point = Offset(frame.xOf(index), frame.yOf(line.values[index]));
-        canvas.drawCircle(point, 5, Paint()..color = Colors.white);
+        canvas.drawCircle(point, 5, Paint()..color = AppTheme.surface);
         canvas.drawCircle(point, 4, Paint()..color = frame.colorOf(line, point.dx));
       }
     }
@@ -496,7 +496,7 @@ class _HoverPainter extends CustomPainter
     for (final line in series)
     {
       final point = Offset(x, frame.yOf(line.values[index]));
-      canvas.drawCircle(point, 7, Paint()..color = Colors.white);
+      canvas.drawCircle(point, 7, Paint()..color = AppTheme.surface);
       canvas.drawCircle(point, 5, Paint()..color = frame.colorOf(line, x));
     }
   }

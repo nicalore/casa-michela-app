@@ -524,7 +524,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
             fontSize: size.isDense ? _denseTitleSize : 38,
             fontWeight: FontWeight.w700,
             height: 1.15,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
           ),
         ),
         SizedBox(height: size.isDense ? 6 : 10),
@@ -580,7 +580,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       label: 'TORNA AL LOGIN',
       icon: Icons.logout_rounded,
       gradient: AppTheme.dismissGradient,
-      accent: AppTheme.trialViolet,
+      accent: AppTheme.trialVioletText,
       busy: _isLeaving,
       height: kPersonDialogButtonHeight,
       fontSize: kPersonDialogButtonFontSize,
@@ -595,7 +595,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
             label: 'INDIETRO',
             icon: Icons.chevron_left_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: kPersonDialogButtonHeight,
             fontSize: kPersonDialogButtonFontSize,
             onPressed: () => setState(()
@@ -616,7 +616,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       label: 'SEGNALA ERRORE',
       icon: Icons.flag_rounded,
       gradient: AppTheme.dismissGradient,
-      accent: AppTheme.trialViolet,
+      accent: AppTheme.trialVioletText,
       height: kPersonDialogButtonHeight,
       fontSize: kPersonDialogButtonFontSize,
       onPressed: _report,
@@ -715,7 +715,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     return Container(
       width: widget.width,
       height: widget.height,
-      color: AppTheme.trialPaper,
+      color: AppTheme.pagePaper,
       child: Stack(
         children: [
           const CornerGlow(
@@ -724,7 +724,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
             edgeTint: AppTheme.trialOcean,
             intensity: 1.25,
           ),
-          const CornerGlow(
+          CornerGlow(
             corner: GlowCorner.bottomLeft,
             tint: AppTheme.trialSeaGreen,
             edgeTint: AppTheme.trialTealDeep,
@@ -755,7 +755,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTealDeep));
+      return Center(child: CircularProgressIndicator(color: AppTheme.trialTealDeepText));
     }
 
     if (_loadFailure != null || _person == null || _steps.isEmpty)

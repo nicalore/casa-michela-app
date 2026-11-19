@@ -77,12 +77,12 @@ class _MobileSearchFieldState extends State<MobileSearchField>
         height: _height,
         padding: const EdgeInsets.symmetric(horizontal: 15),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: _fillAlpha),
+          color: AppTheme.surface.withValues(alpha: _fillAlpha),
           borderRadius: BorderRadius.circular(_radius),
           border: Border.all(
             color: onGlass
                 ? AppTheme.trialInk.withValues(alpha: 0.1)
-                : Colors.white.withValues(alpha: _edgeAlpha),
+                : AppTheme.surfaceEdge.withValues(alpha: _edgeAlpha),
           ),
           boxShadow: onGlass
               ? null
@@ -90,7 +90,7 @@ class _MobileSearchFieldState extends State<MobileSearchField>
         ),
         child: Row(
           children: [
-            const Icon(Icons.search_rounded, size: 20, color: AppTheme.trialTealDeep),
+            Icon(Icons.search_rounded, size: 20, color: AppTheme.trialTealDeepText),
             const SizedBox(width: 11),
             Expanded(
               child: TextField(
@@ -106,7 +106,7 @@ class _MobileSearchFieldState extends State<MobileSearchField>
                   fontWeight: FontWeight.w600,
                   color: AppTheme.trialInk,
                 ),
-                cursorColor: AppTheme.trialTealDeep,
+                cursorColor: AppTheme.trialTealDeepText,
                 decoration: InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
@@ -128,7 +128,7 @@ class _MobileSearchFieldState extends State<MobileSearchField>
                       onTap: _clear,
                       child: Padding(
                         padding: const EdgeInsets.only(left: 8),
-                        child: const Icon(
+                        child: Icon(
                           Icons.close_rounded,
                           size: 18,
                           color: MobilePalette.mutedText,

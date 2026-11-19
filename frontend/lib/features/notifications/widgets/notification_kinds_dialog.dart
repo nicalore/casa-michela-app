@@ -180,7 +180,7 @@ class _KindRowState extends State<_KindRow>
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.trialOcean,
+                        color: AppTheme.trialOceanText,
                       ),
                     ),
                     const SizedBox(height: 2),

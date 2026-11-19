@@ -54,7 +54,7 @@ class MobileCardBinButton extends StatelessWidget
                 shape: BoxShape.circle,
                 color: AppTheme.trialInk.withValues(alpha: _circleAlpha),
               ),
-              child: const Icon(Icons.delete_outline_rounded, size: _binSize, color: AppTheme.trialDanger),
+              child: Icon(Icons.delete_outline_rounded, size: _binSize, color: AppTheme.trialDangerText),
             ),
           ),
         ),
@@ -89,7 +89,7 @@ class MobileCardDeleteButton extends StatelessWidget
           child: MobileButtonLabel(
             label: label,
             icon: Icons.delete_outline_rounded,
-            color: AppTheme.trialDanger,
+            color: AppTheme.trialDangerText,
             fontSize: _fontSize,
             iconSize: _iconSize,
           ),

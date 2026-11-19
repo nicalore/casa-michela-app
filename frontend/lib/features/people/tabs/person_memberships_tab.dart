@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
@@ -58,10 +59,10 @@ const double _denseTableHeadHeight = 34;
 const double _denseTableRowHeight = 40;
 const double _denseTablePaddingH = 12;
 
-const Color _revokedSurface = Color(0xFFFBEDEA);
-const Color _revokedRowSurface = Color(0xFFFDF4F2);
-const Color _tableHeadSurface = Color(0xFFF5F8F8);
-const Color _tableRule = Color(0xFFEDF2F1);
+Color get _revokedSurface => ThemeColours.fixed(0xFFFBEDEA);
+Color get _revokedRowSurface => ThemeColours.fixed(0xFFFDF4F2);
+Color get _tableHeadSurface => ThemeColours.of(0xFFF5F8F8);
+Color get _tableRule => ThemeColours.of(0xFFEDF2F1);
 
 const Map<String, String> _revocationLabels = {
   MembershipItem.revocationExpulsion: 'Espulsione',
@@ -99,7 +100,7 @@ TextStyle _valueStyle(double size, {bool strong = false, Color? color})
   return GoogleFonts.plusJakartaSans(
     fontSize: size,
     fontWeight: strong ? FontWeight.w800 : FontWeight.w700,
-    color: color ?? (strong ? AppTheme.trialOcean : AppTheme.trialInk),
+    color: color ?? (strong ? AppTheme.trialOceanText : AppTheme.trialInk),
   );
 }
 
@@ -205,7 +206,7 @@ class PersonMembershipsTab extends StatelessWidget
             label: 'REVOCA ISCRIZIONE',
             icon: Icons.gavel_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             onPressed: () => _showRevokeDialog(context),
           ),
       ],
@@ -219,7 +220,7 @@ class PersonMembershipsTab extends StatelessWidget
       children: [
         Icon(
           isEnrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
-          color: isEnrolled ? AppTheme.trialSeaGreen : AppTheme.trialDanger,
+          color: isEnrolled ? AppTheme.trialSeaGreen : AppTheme.trialDangerText,
           size: dense ? 24 : 30,
         ),
         SizedBox(width: dense ? 10 : 12),
@@ -229,7 +230,7 @@ class PersonMembershipsTab extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: dense ? 19 : 24,
               fontWeight: FontWeight.w800,
-              color: AppTheme.trialOcean,
+              color: AppTheme.trialOceanText,
             ),
           ),
         ),
@@ -433,7 +434,7 @@ class PersonMembershipsTab extends StatelessWidget
     Widget row(MembershipItem membership, {required bool first})
     {
       final bool revoked = membership.isRevoked;
-      final Color? tint = revoked ? AppTheme.trialDanger : null;
+      final Color? tint = revoked ? AppTheme.trialDangerText : null;
 
       return Container(
         height: dense ? _denseTableRowHeight : _tableRowHeight,
@@ -442,7 +443,7 @@ class PersonMembershipsTab extends StatelessWidget
         child: Stack(
           children: [
             if (!first)
-              const Positioned(
+              Positioned(
                 left: 0,
                 right: 0,
                 top: 0,
@@ -457,7 +458,7 @@ class PersonMembershipsTab extends StatelessWidget
                       if (revoked) ...[
                         AppTooltip(
                           message: revokedMembershipLabel(membership),
-                          child: Icon(Icons.gavel_rounded, size: dense ? 15 : 17, color: AppTheme.trialDanger),
+                          child: Icon(Icons.gavel_rounded, size: dense ? 15 : 17, color: AppTheme.trialDangerText),
                         ),
                         const SizedBox(width: 6),
                       ],
@@ -489,7 +490,7 @@ class PersonMembershipsTab extends StatelessWidget
             Container(
               height: dense ? _denseTableHeadHeight : _tableHeadHeight,
               padding: EdgeInsets.symmetric(horizontal: paddingH - _tableBorder),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: _tableHeadSurface,
                 border: Border(bottom: BorderSide(color: AppTheme.trialLine)),
               ),
@@ -525,7 +526,7 @@ class PersonMembershipsTab extends StatelessWidget
     final Widget card = Container(
       padding: dense ? _denseCardPadding : const EdgeInsets.all(_cardPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(dense ? _denseCardRadius : _cardRadius),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -537,7 +538,7 @@ class PersonMembershipsTab extends StatelessWidget
             _buildHeader(context, latest),
             Padding(
               padding: EdgeInsets.symmetric(vertical: dense ? _denseRuleSpace : 20),
-              child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
+              child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             ),
             if (currentMembership != null) ...[
               _buildEyebrow('Iscrizione attuale', dense),
@@ -596,7 +597,7 @@ class _RevokedNotice extends StatelessWidget
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.gavel_rounded, size: 18, color: AppTheme.trialDanger),
+          Icon(Icons.gavel_rounded, size: 18, color: AppTheme.trialDangerText),
           const SizedBox(width: 10),
           Flexible(
             child: Text(
@@ -604,7 +605,7 @@ class _RevokedNotice extends StatelessWidget
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.trialDanger,
+                color: AppTheme.trialDangerText,
               ),
             ),
           ),
@@ -685,7 +686,7 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_rounded, color: AppTheme.trialDanger, size: 26),
+          Icon(Icons.warning_rounded, color: AppTheme.trialDangerText, size: 26),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
@@ -695,7 +696,7 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.trialDanger,
+                color: AppTheme.trialDangerText,
                 height: 1.4,
               ),
             ),
@@ -717,7 +718,7 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
           label: 'CONFERMA REVOCA',
           icon: Icons.gavel_rounded,
           gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
+          accent: AppTheme.trialDangerText,
           busy: _isSaving,
           height: kPersonDialogButtonHeight,
           fontSize: kPersonDialogButtonFontSize,

@@ -423,7 +423,7 @@ class BandScheduleField<T> extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (index, bucket) in (bands ?? TimeBucket.values).indexed) ...[
-          if (index > 0) const Divider(height: 26, thickness: 1, color: AppTheme.trialLine),
+          if (index > 0) Divider(height: 26, thickness: 1, color: AppTheme.trialLine),
           _buildBand(
             bucket,
             switchTour: bucket == switchAt ? tour?.yesNo : null,
@@ -558,7 +558,7 @@ class BandScheduleField<T> extends StatelessWidget
               id: binTour,
               child: FadeHoverIconButton(
                 icon: Icons.delete_outline_rounded,
-                color: AppTheme.trialDanger,
+                color: AppTheme.trialDangerText,
                 hoverColor: AppTheme.trialGoldSurface,
                 onTap: () => _report(() => schedule.removeAt(bucket, index)),
               ),

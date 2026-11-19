@@ -122,10 +122,10 @@ class _AppPhotoUploaderState
               : null,
         ),
         child: !hasImage
-            ? const Icon(
+            ? Icon(
                 Icons.person_outline,
                 size: 48,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               )
             : null,
       ),

@@ -89,7 +89,7 @@ class _KindsSheetState extends State<_KindsSheet>
               subtitle: kNotificationKindLabels[choice.kind]?.$2,
               leading: MobileCardBadge(
                 icon: NotificationLook.of(choice.kind).icon,
-                tint: choice.enabled ? Colors.white : AppTheme.trialTealDeep,
+                tint: choice.enabled ? AppTheme.surface : AppTheme.trialTealDeepText,
               ),
               selected: choice.enabled,
               onTap: () => _turn(choice),

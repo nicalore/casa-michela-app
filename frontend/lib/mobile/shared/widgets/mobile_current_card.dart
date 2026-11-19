@@ -7,10 +7,10 @@ class MobileCurrentCard extends BoxDecoration
 {
   static const double rimWidth = 3;
 
-  const MobileCurrentCard(BorderRadius radius)
+  MobileCurrentCard(BorderRadius radius)
     : super(
         borderRadius: radius,
-        border: const Border.fromBorderSide(
+        border: Border.fromBorderSide(
           BorderSide(color: AppTheme.trialGold, width: rimWidth, strokeAlign: BorderSide.strokeAlignOutside),
         ),
       );

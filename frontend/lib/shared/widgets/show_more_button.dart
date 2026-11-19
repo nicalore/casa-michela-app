@@ -49,14 +49,14 @@ class _ShowMoreButtonState extends State<ShowMoreButton>
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.trialTealDeep,
+                  color: AppTheme.trialTealDeepText,
                 ),
               ),
               const SizedBox(width: 4),
               Icon(
                 widget.open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
                 size: 18,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialTealDeepText,
               ),
             ],
           ),

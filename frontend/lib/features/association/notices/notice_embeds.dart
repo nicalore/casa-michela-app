@@ -204,7 +204,7 @@ class NoticeDividerEmbedBuilder extends EmbedBuilder
   @override
   Widget build(BuildContext context, EmbedContext embedContext)
   {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
       child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
     );

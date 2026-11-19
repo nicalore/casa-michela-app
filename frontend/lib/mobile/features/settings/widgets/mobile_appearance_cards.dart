@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/theme_colours.dart';
+import '../../../../core/theme/theme_choice.dart';
+import '../../../../core/utils/error_message.dart';
 import '../../../../features/settings/utils/settings_strings.dart';
+import '../../../../services/account_colour_theme.dart';
 import '../../../shared/widgets/mobile_choice_tile.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
+import '../../../shared/widgets/mobile_notice.dart';
 import '../../profile/widgets/mobile_detail_card.dart';
 
 const double _cardGap = 12;
@@ -26,7 +31,11 @@ class MobileAppearanceCards extends StatelessWidget
   {
     final Widget theme = _SettingCard(
       setting: kThemeSetting,
-      child: _ThemeChoices(previewHeight: tablet ? _tabletPreview : _phonePreview),
+      // The tick follows the account's choice, which may change without the colours changing.
+      child: ValueListenableBuilder<ThemeChoice>(
+        valueListenable: AccountColourTheme.choice,
+        builder: (context, _, _) => _ThemeChoices(previewHeight: tablet ? _tabletPreview : _phonePreview),
+      ),
     );
 
     final Widget colors = _SettingCard(
@@ -120,33 +129,84 @@ class _ThemeChoices extends StatelessWidget
 
   const _ThemeChoices({required this.previewHeight});
 
+  Future<void> _chooseMode(BuildContext context, ThemeChoice mode) async
+  {
+    if (mode == AccountColourTheme.choice.value)
+    {
+      return;
+    }
+
+    try
+    {
+      await AccountColourTheme.chooseMode(mode);
+    }
+    catch (e)
+    {
+      if (context.mounted)
+      {
+        MobileNotice.show(context, readableApiError(e), error: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context)
   {
     final List<AppearanceOption> options = kThemeSetting.options;
+    final ThemeChoice chosen = AccountColourTheme.choice.value;
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < options.length; i++) ...[
-            if (i > 0) const SizedBox(width: _cardGap),
-            Expanded(
-              child: MobileThemeTile(
-                label: options[i].label,
-                dark: i > 0,
-                chosen: i == 0,
-                available: options[i].available,
-                previewHeight: previewHeight,
-              ),
-            ),
-          ],
-        ],
-      ),
+    Widget tile(int i)
+    {
+      final ThemeChoice mode = ThemeChoice.values[i];
+
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _chooseMode(context, mode),
+        child: MobileThemeTile(
+          label: options[i].label,
+          dark: mode == ThemeChoice.dark,
+          split: mode == ThemeChoice.system,
+          chosen: mode == chosen,
+          available: options[i].available,
+          previewHeight: previewHeight,
+        ),
+      );
+    }
+
+    // Chiaro and Scuro side by side as ever; Automatico under them, centred, as wide as either.
+    // Shares, not a LayoutBuilder: on a tablet the card is measured beside Lingua, which a LayoutBuilder refuses.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: tile(0)),
+              const SizedBox(width: _cardGap),
+              Expanded(child: tile(1)),
+            ],
+          ),
+        ),
+        const SizedBox(height: _cardGap),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Spacer(),
+              const SizedBox(width: _cardGap / 2),
+              Expanded(flex: 2, child: tile(2)),
+              const SizedBox(width: _cardGap / 2),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
+// The first option is the one in force, but for palettes, which name their theme.
 class _Choices extends StatelessWidget
 {
   final AppearanceSetting setting;
@@ -154,22 +214,60 @@ class _Choices extends StatelessWidget
 
   const _Choices({required this.setting, required this.leading});
 
+  Future<void> _choose(BuildContext context, ColourTheme theme) async
+  {
+    if (theme == ThemeColours.current.value)
+    {
+      return;
+    }
+
+    try
+    {
+      await AccountColourTheme.choose(theme);
+    }
+    catch (e)
+    {
+      if (context.mounted)
+      {
+        MobileNotice.show(context, readableApiError(e), error: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context)
   {
     final List<AppearanceOption> options = setting.options;
+
+    Widget tile(int i)
+    {
+      final ColourTheme? theme = options[i].colourTheme;
+
+      final Widget choice = MobileChoiceTile(
+        leading: leading(options[i]),
+        label: options[i].label,
+        chosen: theme == null ? i == 0 : theme == ThemeColours.current.value,
+        available: options[i].available,
+      );
+
+      if (theme == null)
+      {
+        return choice;
+      }
+
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _choose(context, theme),
+        child: choice,
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < options.length; i++) ...[
           if (i > 0) const SizedBox(height: _tileGap),
-          MobileChoiceTile(
-            leading: leading(options[i]),
-            label: options[i].label,
-            chosen: i == 0,
-            available: options[i].available,
-          ),
+          tile(i),
         ],
       ],
     );

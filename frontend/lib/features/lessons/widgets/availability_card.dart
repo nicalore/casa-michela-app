@@ -96,7 +96,7 @@ class _AvailabilityCardState extends State<AvailabilityCard>
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(dense ? 20 : 30),
               border: Border.all(
                 color: _isHovering
@@ -119,7 +119,7 @@ class _AvailabilityCardState extends State<AvailabilityCard>
                       fontSize: dense ? 15 : 19,
                       fontWeight: FontWeight.w700,
                       height: 1.15,
-                      color: AppTheme.trialOcean,
+                      color: AppTheme.trialOceanText,
                     ),
                   ),
                   SizedBox(height: dense ? 8 : 12),
@@ -174,7 +174,7 @@ class _ModeColumn extends StatelessWidget
   Widget build(BuildContext context)
   {
     final online = mode == kOnlineMode;
-    final accent = online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
+    final accent = online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText;
 
     final int maxLines = dense ? _denseMaxLines : _maxLines;
     final fits = slots.length <= maxLines;
@@ -271,7 +271,7 @@ class _TimeSlotLabel extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep,
+          color: online ? AppTheme.modifiedAccent : AppTheme.presenceAccentText,
         ),
       ),
     );
@@ -306,7 +306,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
             label: 'ANNULLA',
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            accent: AppTheme.trialVioletText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -315,7 +315,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
             label: 'ELIMINA',
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
+            accent: AppTheme.trialDangerText,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: ()
@@ -389,7 +389,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
                 label: 'ELIMINA',
                 icon: Icons.delete_outline_rounded,
                 gradient: AppTheme.dangerGradient,
-                accent: AppTheme.trialDanger,
+                accent: AppTheme.trialDangerText,
                 height: _dialogButtonHeight,
                 fontSize: _dialogButtonFontSize,
                 onPressed: () => _showDeleteConfirmation(context),

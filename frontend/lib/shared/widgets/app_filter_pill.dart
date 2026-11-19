@@ -578,11 +578,11 @@ class _PillSurface extends StatelessWidget
   {
     return Color.lerp(
       Color.lerp(
-        answered ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
-        AppTheme.trialTealDeep,
+        answered ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
+        AppTheme.trialTealDeepText,
         h,
       )!,
-      Colors.white,
+      AppTheme.surface,
       t,
     )!;
   }
@@ -593,8 +593,8 @@ class _PillSurface extends StatelessWidget
       begin: AppTheme.brandGradient.begin,
       end: AppTheme.brandGradient.end,
       colors: [
-        Color.lerp(Colors.white, AppTheme.trialTealDeep, t)!,
-        Color.lerp(Colors.white, AppTheme.trialTurquoise, t)!,
+        Color.lerp(AppTheme.surface, AppTheme.trialTealDeep, t)!,
+        Color.lerp(AppTheme.surface, AppTheme.trialTurquoise, t)!,
       ],
     );
   }
@@ -684,7 +684,7 @@ class _ClearButtonState extends State<_ClearButton>
                 curve: Curves.easeOut,
                 padding: const EdgeInsets.all(_clearDiscPadding),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(
+                  color: AppTheme.surface.withValues(
                     alpha: (_hover ? 0.42 : 0.20) * widget.opacity,
                   ),
                   shape: BoxShape.circle,
@@ -897,7 +897,7 @@ class _FilterMenuState<T> extends State<_FilterMenu<T>>
           width: widget.width,
           constraints: const BoxConstraints(maxHeight: _menuMaxHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(_menuRadius),
             boxShadow: AppTheme.overlayShadow,
           ),
@@ -996,13 +996,13 @@ class _FilterMenuRowState extends State<_FilterMenuRow>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: widget.selected ? FontWeight.w700 : FontWeight.w500,
-                    color: marked ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                    color: marked ? AppTheme.trialTealDeepText : AppTheme.trialMutedText,
                   ),
                 ),
               ),
               if (widget.selected) ...[
                 const SizedBox(width: 8),
-                const Icon(Icons.check_rounded, size: 16, color: AppTheme.trialTurquoise),
+                Icon(Icons.check_rounded, size: 16, color: AppTheme.trialTurquoise),
               ],
             ],
           ),

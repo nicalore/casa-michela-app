@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 class CasaMichelaLoader extends StatelessWidget
 {
   static const double _largeScreenBreakpoint = 500;
@@ -40,7 +42,7 @@ class CasaMichelaLoader extends StatelessWidget
       children: [
         BackdropFilter(
           filter: ImageFilter.blur(sigmaX: _blurSigma, sigmaY: _blurSigma),
-          child: Container(color: Colors.white.withValues(alpha: _scrimOpacity)),
+          child: Container(color: AppTheme.surface.withValues(alpha: _scrimOpacity)),
         ),
         loaderContent,
       ],

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -37,7 +38,7 @@ const double _actionGap = 6;
 const double _denseActionSize = 24;
 const double _denseActionIcon = 15;
 const double _denseActionGap = 5;
-const Color _actionGround = Color(0x0F122438);
+Color get _actionGround => ThemeColours.fixed(0x0F122438);
 const double _actionRim = 1.5;
 const Duration _hoverFade = Duration(milliseconds: 150);
 
@@ -132,7 +133,7 @@ class HomeNotificationsSection extends StatelessWidget
   {
     if (board.loading)
     {
-      return const Align(
+      return Align(
         alignment: Alignment.topCenter,
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
@@ -300,10 +301,14 @@ class _OffRow extends StatelessWidget
 
     return Container(
       padding: dense ? const EdgeInsets.fromLTRB(11, 9, 11, 10) : const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      // In the dark a gold tile reads as a blot: the notifications' own tile, gold left to the words.
       decoration: BoxDecoration(
-        color: AppTheme.trialGoldSurface,
+        color: ThemeColours.isDark ? AppTheme.trialPaper : AppTheme.trialGoldSurface,
         borderRadius: BorderRadius.circular(dense ? _denseTileRadius : _tileRadius),
-        border: Border.all(color: AppTheme.modifiedAccentSurface, width: _tileBorder),
+        border: Border.all(
+          color: ThemeColours.isDark ? AppTheme.trialLine : AppTheme.modifiedAccentSurface,
+          width: _tileBorder,
+        ),
       ),
       child: Row(
         crossAxisAlignment: dense ? CrossAxisAlignment.start : CrossAxisAlignment.center,
@@ -552,7 +557,7 @@ class _NotificationTileState extends State<_NotificationTile>
               kind: item.kind,
               unread: !item.read,
               size: dense ? _denseIconSize : _iconSize,
-              surface: Colors.white,
+              surface: AppTheme.surface,
             ),
             SizedBox(width: dense ? 9 : 12),
             Expanded(
@@ -565,7 +570,7 @@ class _NotificationTileState extends State<_NotificationTile>
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: dense ? 13 : 15,
                       fontWeight: item.read ? FontWeight.w700 : FontWeight.w800,
-                      color: item.read ? AppTheme.trialOcean : AppTheme.trialInk,
+                      color: item.read ? AppTheme.trialOceanText : AppTheme.trialInk,
                     ),
                   ),
                   const SizedBox(height: 1),
@@ -601,7 +606,7 @@ class _NotificationTileState extends State<_NotificationTile>
                     _TileAction(
                       icon: item.read ? Icons.remove_done_rounded : Icons.done_all_rounded,
                       tip: item.read ? kNotificationMarkUnread : kNotificationMarkRead,
-                      color: AppTheme.trialTealDeep,
+                      color: AppTheme.trialTealDeepText,
                       dense: dense,
                       onHover: _actionHover,
                       onTap: () => NotificationBoard.instance.toggleRead(item),
@@ -610,7 +615,7 @@ class _NotificationTileState extends State<_NotificationTile>
                     _TileAction(
                       icon: Icons.delete_outline_rounded,
                       tip: kNotificationDelete,
-                      color: AppTheme.trialDanger,
+                      color: AppTheme.trialDangerText,
                       dense: dense,
                       onHover: _actionHover,
                       onTap: widget.onDelete,

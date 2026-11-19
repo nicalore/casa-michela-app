@@ -104,7 +104,7 @@ class CalendarLanePanel extends StatelessWidget
       return DescenderRoom(child: Text(said, maxLines: 2, overflow: TextOverflow.ellipsis, style: quiet));
     }
 
-    final named = quiet.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialTealDeep);
+    final named = quiet.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialTealDeepText);
 
     // Hours and the shield only for a lane changing room: with one, the band says it all.
     return DescenderRoom(
@@ -120,11 +120,11 @@ class CalendarLanePanel extends StatelessWidget
                 child: Padding(
                   padding: const EdgeInsets.only(right: 3),
                   child: stay.isSupervisor
-                      ? const AppTooltip(
+                      ? AppTooltip(
                           message: kSupervisorLabel,
                           child: Icon(Icons.shield_rounded, size: 12, color: kSupervisorColor),
                         )
-                      : const Icon(Icons.meeting_room_outlined, size: 12, color: AppTheme.trialTealDeep),
+                      : Icon(Icons.meeting_room_outlined, size: 12, color: AppTheme.trialTealDeepText),
                 ),
               ),
               TextSpan(text: stay.room.name, style: named),
@@ -144,7 +144,7 @@ class CalendarLanePanel extends StatelessWidget
       fontSize: 14,
       fontWeight: FontWeight.w700,
       height: 1.2,
-      color: AppTheme.trialOcean,
+      color: AppTheme.trialOceanText,
     );
 
     final String name = lane.person.fullName;

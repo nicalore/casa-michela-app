@@ -394,7 +394,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
         label: 'SEGNALA DATO MANCANTE / ERRATO',
         icon: Icons.flag_rounded,
         gradient: AppTheme.dismissGradient,
-        accent: AppTheme.trialViolet,
+        accent: AppTheme.trialVioletText,
         onPressed: () => _report(person),
       ),
     );
@@ -439,7 +439,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
+      return Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
     final PersonItem? person = _person;
@@ -535,7 +535,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
           return Container(
             width: width,
             height: height,
-            color: AppTheme.trialPaper,
+            color: AppTheme.pagePaper,
             child: Stack(
               children: [
                 const CornerGlow(
@@ -544,7 +544,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
                 ),
-                const CornerGlow(
+                CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,

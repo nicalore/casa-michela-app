@@ -44,7 +44,7 @@ class DurationSlider extends StatelessWidget
       children: [
         Text(
           kDurationLabel,
-          style: GoogleFonts.plusJakartaSans(color: AppTheme.trialOcean, fontWeight: FontWeight.w700, fontSize: 16),
+          style: GoogleFonts.plusJakartaSans(color: AppTheme.trialOceanText, fontWeight: FontWeight.w700, fontSize: 16),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -52,7 +52,7 @@ class DurationSlider extends StatelessWidget
             durationText(minutes),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(color: AppTheme.trialTealDeep, fontWeight: FontWeight.w700, fontSize: 18),
+            style: GoogleFonts.plusJakartaSans(color: AppTheme.trialTealDeepText, fontWeight: FontWeight.w700, fontSize: 18),
           ),
         ),
         if (count != null)
@@ -61,7 +61,7 @@ class DurationSlider extends StatelessWidget
             child: Text(
               count,
               style: GoogleFonts.plusJakartaSans(
-                color: over ? AppTheme.trialDanger : AppTheme.trialTealDeep,
+                color: over ? AppTheme.trialDangerText : AppTheme.trialTealDeepText,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
               ),

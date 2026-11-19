@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_colours.dart';
 
-const Color kPickedSurface = Color(0xFFE8F7F5);
+Color get kPickedSurface => ThemeColours.of(0xFFE8F7F5);
 
 class AppCheckMark extends StatelessWidget
 {
@@ -42,7 +43,7 @@ class AppCheckMark extends StatelessWidget
         children: [
           DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surface,
               borderRadius: _radius,
               border: Border.all(color: AppTheme.trialLine, width: 2),
             ),

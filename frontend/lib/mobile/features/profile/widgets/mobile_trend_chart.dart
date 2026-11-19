@@ -30,8 +30,8 @@ const double _scaleGap = 8;
 const double _barWidthRatio = 0.56;
 const double _barRadius = 4;
 
-TextStyle _scaleStyle({Color color = MobilePalette.mutedText}) =>
-    GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w700, color: color);
+TextStyle _scaleStyle({Color? color}) =>
+    GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w700, color: color ?? MobilePalette.mutedText);
 
 // Room for the scale of charts stacked in one card, so their plots line up.
 double mobileTrendPadding(
@@ -256,7 +256,7 @@ class _TrendPainter extends CustomPainter
   TextPainter _text(
     String text, {
     double size = 10.5,
-    Color color = MobilePalette.mutedText,
+    Color? color,
     FontWeight weight = FontWeight.w700,
   })
   {

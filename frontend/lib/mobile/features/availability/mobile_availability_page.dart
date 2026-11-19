@@ -744,7 +744,7 @@ class _LockedWeek extends StatelessWidget
               color: AppTheme.trialGoldSurface,
               border: Border.all(color: AppTheme.trialGold.withValues(alpha: 0.6), width: 1.5),
             ),
-            child: const Icon(Icons.lock_outline_rounded, size: 26, color: AppTheme.modifiedAccent),
+            child: Icon(Icons.lock_outline_rounded, size: 26, color: AppTheme.modifiedAccent),
           ),
           const SizedBox(height: 14),
           Text(

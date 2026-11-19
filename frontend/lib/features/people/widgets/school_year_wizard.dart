@@ -427,7 +427,7 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.trialTealDeep,
+                    color: AppTheme.trialTealDeepText,
                   ),
                 ),
               ),
@@ -746,7 +746,7 @@ class _PickRowState extends State<_PickRow>
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.trialOcean,
+                        color: AppTheme.trialOceanText,
                       ),
                     ),
                     if (subtitle != null) ...[

@@ -249,7 +249,7 @@ class _NotificationToastLayerState extends State<NotificationToastLayer> with Ti
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          NotificationIcon(kind: item.kind, unread: true, size: _iconSize, surface: Colors.white),
+          NotificationIcon(kind: item.kind, unread: true, size: _iconSize, surface: AppTheme.surface),
           const SizedBox(width: 12),
           Expanded(
             child: Padding(
@@ -307,7 +307,7 @@ class _NotificationToastLayerState extends State<NotificationToastLayer> with Ti
           curve: Curves.easeOut,
           builder: (context, lit, child) => Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(_radius),
               boxShadow: _shadows,
             ),
@@ -334,7 +334,7 @@ class _NotificationToastLayerState extends State<NotificationToastLayer> with Ti
                       builder: (context, _) => FractionallySizedBox(
                         alignment: Alignment.centerLeft,
                         widthFactor: 1 - _countdown.value,
-                        child: const DecoratedBox(
+                        child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: AppTheme.trialGold,
                             borderRadius: BorderRadius.horizontal(right: Radius.circular(_lineHeight)),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../core/platform/visual_effects.dart';
+import '../../core/theme/app_theme.dart';
 import 'casa_michela_loader.dart';
 import 'scroll_edge_fade.dart';
 
@@ -1211,7 +1212,7 @@ class _ScreenTransition extends StatelessWidget
         final bool covered = secondaryAnimation.value > 0;
 
         final Widget cover = Container(
-          color: Colors.white.withValues(alpha: backgroundOpacity),
+          color: AppTheme.surface.withValues(alpha: backgroundOpacity),
         );
 
         return Stack(

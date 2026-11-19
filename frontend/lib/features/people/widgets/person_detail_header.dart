@@ -59,7 +59,7 @@ Widget _staticFace(BuildContext context, PersonItem person, double size)
         style: GoogleFonts.plusJakartaSans(
           fontSize: size / 3,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: AppTheme.trialTealDeepText,
         ),
       ),
     ),
@@ -149,7 +149,7 @@ class PersonDetailHeader extends StatelessWidget
           style: GoogleFonts.plusJakartaSans(
             fontSize: 30,
             fontWeight: FontWeight.w700,
-            color: AppTheme.trialOcean,
+            color: AppTheme.trialOceanText,
             height: 1.1,
           ),
         ),
@@ -172,7 +172,7 @@ class PersonDetailHeader extends StatelessWidget
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(_identityRadius),
           boxShadow: AppTheme.cardShadow,
         ),

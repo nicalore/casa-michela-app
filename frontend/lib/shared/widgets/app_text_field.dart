@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme/theme_colours.dart';
 import 'app_field_label.dart';
 import 'desktop_tour.dart';
 import 'dialog_density.dart';
 
 import '../../core/theme/app_theme.dart';
 
-const Color _fieldSurface = Color(0xFFFBFDFC);
+Color get _fieldSurface => ThemeColours.of(0xFFFBFDFC);
 
 const double _fieldRadius = 14;
 const double _borderWidth = 2;
 
-const Color _focusAccent = AppTheme.trialGold;
+Color get _focusAccent => AppTheme.trialGold;
 
 const double _focusRingWidth = 4;
 const double _focusRingOpacity = 0.15;
@@ -198,7 +199,7 @@ class _AppTextFieldState extends State<AppTextField>
             style: GoogleFonts.plusJakartaSans(
               fontSize: _counterFontSize,
               fontWeight: FontWeight.w600,
-              color: full || hasError ? AppTheme.trialDanger : AppTheme.trialMutedText,
+              color: full || hasError ? AppTheme.trialDangerText : AppTheme.trialMutedText,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
@@ -215,10 +216,10 @@ class _AppTextFieldState extends State<AppTextField>
     final bool lit = widget.enabled && (_hasFocus || _hover);
 
     final Color outline = error != null
-        ? AppTheme.trialDanger
+        ? AppTheme.trialDangerText
         : (lit ? _focusAccent : AppTheme.trialLine);
 
-    final Color ring = error != null ? AppTheme.trialDanger : _focusAccent;
+    final Color ring = error != null ? AppTheme.trialDangerText : _focusAccent;
 
     final bool dense = AppDialogDensity.of(context);
     final double fontSize = dense ? _denseInputFontSize : _inputFontSize;
@@ -277,7 +278,7 @@ class _AppTextFieldState extends State<AppTextField>
                 inputFormatters: widget.inputFormatters,
                 onChanged: widget.onChanged,
                 onSubmitted: widget.onSubmitted,
-                cursorColor: AppTheme.trialTealDeep,
+                cursorColor: AppTheme.trialTealDeepText,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: fontSize,
                   height: 1.28,
@@ -319,7 +320,7 @@ class _AppTextFieldState extends State<AppTextField>
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: AppTheme.trialDanger,
+                              color: AppTheme.trialDangerText,
                             ),
                           ),
                   ),

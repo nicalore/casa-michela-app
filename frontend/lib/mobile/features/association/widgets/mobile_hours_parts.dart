@@ -113,7 +113,7 @@ class MobileHoursChip extends StatelessWidget
         color: online ? AppTheme.modifiedAccentSurface : AppTheme.presenceBadge,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: online ? AppTheme.trialGold.withValues(alpha: 0.45) : AppTheme.trialTealDeep.withValues(alpha: 0.2),
+          color: online ? AppTheme.trialGold.withValues(alpha: 0.45) : AppTheme.presenceAccentText.withValues(alpha: 0.2),
         ),
       ),
       child: FittedBox(
@@ -152,7 +152,7 @@ class MobileClosedTag extends StatelessWidget
         color: decided ? AppTheme.closedOverrideSurface : AppTheme.closedSurface.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(height * 0.3),
         border: Border.all(
-          color: decided ? AppTheme.trialDanger.withValues(alpha: 0.32) : MobilePalette.mutedText.withValues(alpha: 0.14),
+          color: decided ? AppTheme.trialDangerText.withValues(alpha: 0.32) : MobilePalette.mutedText.withValues(alpha: 0.14),
         ),
       ),
       child: FittedBox(
@@ -162,7 +162,7 @@ class MobileClosedTag extends StatelessWidget
           style: GoogleFonts.plusJakartaSans(
             fontSize: fontSize,
             fontWeight: decided ? FontWeight.w800 : FontWeight.w600,
-            color: decided ? AppTheme.trialDanger : MobilePalette.mutedText,
+            color: decided ? AppTheme.trialDangerText : MobilePalette.mutedText,
           ),
         ),
       ),

@@ -16,7 +16,7 @@ const double kFieldLabelLineHeight = _fieldFontSize * _fieldLineHeightRatio;
 TextStyle fieldLabelStyle()
 {
   return GoogleFonts.plusJakartaSans(
-    color: AppTheme.trialOcean,
+    color: AppTheme.trialOceanText,
     fontWeight: FontWeight.w700,
     fontSize: _fieldFontSize,
     height: _fieldLineHeightRatio,

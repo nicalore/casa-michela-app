@@ -33,6 +33,7 @@ from app.repositories.account_repository import AccountRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.schemas.auth.active_role_request import ActiveRoleRequest
 from app.schemas.auth.change_password_request import ChangePasswordRequest
+from app.schemas.auth.colour_theme_request import ColourThemeRequest
 from app.schemas.auth.login_request import LoginRequest
 from app.schemas.auth.login_response import LoginResponse
 from app.schemas.auth.logout_request import LogoutRequest
@@ -43,6 +44,7 @@ from app.schemas.auth.password_reset import (
 )
 from app.schemas.auth.refresh_request import RefreshRequest
 from app.schemas.auth.session_response import SessionResponse
+from app.schemas.auth.theme_mode_request import ThemeModeRequest
 from app.services import push
 from app.services.app_updates import manages_updates
 from app.services.auth_service import (
@@ -364,6 +366,8 @@ def _identity_payload(
         "has_parental_responsibility": RoleService.is_answered_for(person),
         # Such a pupil may still be allowed to book; payments stay with the parents.
         "autonomous_bookings": account.autonomous_bookings,
+        "colour_theme": account.colour_theme.value,
+        "theme_mode": account.theme_mode.value,
         "board_role": _board_role(person),
         # The kinds of report they receive; their menu lists them if any.
         "report_kinds": [kind.value for kind in kinds_read_by(person)],
@@ -425,6 +429,46 @@ async def set_active_role(
     await db.commit()
 
     return _identity_payload(account, await latest_terms_request(db))
+
+
+# Every device of the account follows; sign-in pages keep Casa Michela's colours.
+@router.put("/colour-theme")
+async def set_colour_theme(
+    payload: ColourThemeRequest,
+    request: Request,
+    current_account: CurrentAccount,
+    db: DbSession,
+) -> dict[str, Any]:
+    account = current_account
+    account.colour_theme = payload.colour_theme
+
+    await db.commit()
+
+    return _identity_payload(
+        account,
+        await latest_terms_request(db),
+        worn_role(request),
+    )
+
+
+# Like the colours: every device follows, sign-in pages stay light.
+@router.put("/theme-mode")
+async def set_theme_mode(
+    payload: ThemeModeRequest,
+    request: Request,
+    current_account: CurrentAccount,
+    db: DbSession,
+) -> dict[str, Any]:
+    account = current_account
+    account.theme_mode = payload.theme_mode
+
+    await db.commit()
+
+    return _identity_payload(
+        account,
+        await latest_terms_request(db),
+        worn_role(request),
+    )
 
 
 # Only reaching the end writes anything; abandoning halfway restarts the flow.
