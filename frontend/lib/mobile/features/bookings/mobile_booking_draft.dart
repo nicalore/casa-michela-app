@@ -10,11 +10,13 @@ import '../../../features/association/models/ministry_subject_item.dart';
 import '../../../features/association/models/opening_day_item.dart';
 import '../../../features/bookings/utils/booking_replacement.dart' show withLeftOut;
 import '../../../features/lessons/models/band_offer.dart';
+import '../../../features/lessons/models/lesson_item.dart';
 import '../../../features/lessons/models/presence_item.dart';
 import '../../../features/lessons/models/subject_request.dart';
 import '../../../features/lessons/utils/booking_window.dart';
 import '../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../features/lessons/utils/opening_window.dart';
+import '../../../features/lessons/widgets/band_note_parts.dart' show bandNoteIn;
 import '../../../features/lessons/widgets/band_schedule.dart';
 import '../../../features/lessons/widgets/subject_request_tile.dart' show ministrySubjectName;
 import '../../../features/people/models/person_item.dart';
@@ -28,9 +30,9 @@ class MobileBookingGroup
   const MobileBookingGroup({required this.key, required this.days});
 }
 
-enum MobileBookingStepKind { days, hours, subjects }
+enum MobileBookingStepKind { days, hours, subjects, notes }
 
-// Subjects are asked band by band: [band] is set on those steps only.
+// Subjects and notes are asked band by band: [band] is set on those steps only.
 typedef MobileBookingStep = ({MobileBookingStepKind kind, MobileBookingGroup? group, TimeBucket? band});
 
 // Mirrors the desktop presence wizard's rules, without UI.
@@ -68,6 +70,9 @@ class MobileBookingDraft
   // Keyed by opening signature, so answers survive adding or removing days.
   final Map<String, BandSchedule<PresenceItem>> _hours = {};
   final Map<String, List<SubjectRequestDraft>> _requests = {};
+
+  // Per day group and band, as typed; a band never typed in keeps its stored note.
+  final Map<String, String> _notes = {};
 
   // Closed bands: the server refuses changes, so shown, never edited.
   final Map<TimeBucket, List<BandStretch<PresenceItem>>> frozen = {
@@ -294,8 +299,41 @@ class MobileBookingDraft
         if (_opensIn(group)) ...[
           if (!subjectsOnly) (kind: MobileBookingStepKind.hours, group: group, band: null),
           if (!hoursOnly)
-            for (final band in hoursOf(group).bands) (kind: MobileBookingStepKind.subjects, group: group, band: band),
+            for (final band in hoursOf(group).bands) ...[
+              (kind: MobileBookingStepKind.subjects, group: group, band: band),
+              (kind: MobileBookingStepKind.notes, group: group, band: band),
+            ],
         ],
+    ];
+  }
+
+  String? _storedNote(MobileBookingGroup group, TimeBucket band)
+  {
+    for (final day in group.days)
+    {
+      final String? note = bandNoteIn(presences, studentTaxCode: pupil.fiscalCode, day: day, band: band);
+
+      if (note != null)
+      {
+        return note;
+      }
+    }
+
+    return null;
+  }
+
+  String bandNoteOf(MobileBookingGroup group, TimeBucket band) =>
+      _notes['${group.key}/${band.name}'] ?? _storedNote(group, band) ?? '';
+
+  void setBandNote(MobileBookingGroup group, TimeBucket band, String text) => _notes['${group.key}/${band.name}'] = text;
+
+  // [blanks] sends the emptied ones too, so the server clears them.
+  List<Map<String, dynamic>> _notesOf(MobileBookingGroup group, {required bool blanks})
+  {
+    return [
+      for (final band in hoursOf(group).bands)
+        if (bandNoteOf(group, band).trim() case final String said when blanks || said.isNotEmpty)
+          {'band': LessonItem.formatBand(band), 'notes': said.isEmpty ? null : said},
     ];
   }
 
@@ -469,6 +507,7 @@ class MobileBookingDraft
             },
       MobileBookingStepKind.subjects =>
         requestsOf(group!).any((request) => request.band == step.band) ? null : kPickSubjectToGoOn,
+      MobileBookingStepKind.notes => null,
     };
   }
 
@@ -592,6 +631,7 @@ class MobileBookingDraft
         for (final group in groups) ...[
           for (final stretch in hoursOf(group).all) '${formatTimeOfDay(stretch.startTime)}-${formatTimeOfDay(stretch.endTime)}',
           for (final request in requestsOf(group)) request.toRequestJson(),
+          for (final band in hoursOf(group).bands) bandNoteOf(group, band).trim(),
         ],
       ]);
 
@@ -617,6 +657,7 @@ class MobileBookingDraft
             },
         ],
         'subjects': [for (final request in requestsOf(group)) request.toRequestJson()],
+        'notes': _notesOf(group, blanks: false),
       },
     ];
   }
@@ -651,6 +692,8 @@ class MobileBookingDraft
             for (final booking in row.bookings)
               SubjectRequestDraft.fromBooking(booking, band: bucketFor(row.startTime)).toRequestJson(),
         ],
+        // The hours alone leave the notes to the server, which keeps them.
+        if (!hoursOnly) 'notes': _notesOf(group, blanks: true),
       },
     ];
   }

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
+import '../lessons/utils/booking_wizard_strings.dart' show bookingFinishTourText, kBandNoteTourText, teacherNotesTourText;
 
 const String kTourBookingsDays = 'bookings.days';
 const String kTourBookingsNext = 'bookings.next';
@@ -34,6 +35,7 @@ const String kTourBookingsWizardDisciplines = 'bookings.wizard.disciplines';
 const String kTourBookingsWizardServices = 'bookings.wizard.services';
 const String kTourBookingsWizardList = 'bookings.wizard.list';
 const String kTourBookingsWizardOpen = 'bookings.wizard.open';
+const String kTourBookingsWizardNote = 'bookings.wizard.note';
 
 const String kTourBookingsSubjectKinds = 'bookings.subject.kinds';
 const String kTourBookingsSubjectTopic = 'bookings.subject.topic';
@@ -102,7 +104,7 @@ const Map<BookingsTourMark, int> _markVersions = {
   BookingsTourMark.topic: 1,
   BookingsTourMark.notes: 2,
   BookingsTourMark.lessonActions: 1,
-  BookingsTourMark.bandActions: 1,
+  BookingsTourMark.bandActions: 3,
   BookingsTourMark.dayBin: 1,
 };
 
@@ -122,8 +124,9 @@ const (String, int) _disciplinesSeen = ('bookings.wizard.disciplines', 1);
 const (String, int) _servicesSeen = ('bookings.wizard.services', 1);
 const (String, int) _listSeen = ('bookings.wizard.list', 2);
 const (String, int) _openSeen = ('bookings.wizard.open', 3);
-const (String, int) _createSeen = ('bookings.wizard.create', 3);
-const (String, int) _saveSeen = ('bookings.wizard.save', 3);
+const (String, int) _createSeen = ('bookings.wizard.create', 4);
+const (String, int) _saveSeen = ('bookings.wizard.save', 4);
+const (String, int) _noteSeen = ('bookings.wizard.note', 2);
 
 const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.below];
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.right, DesktopTourSide.above];
@@ -320,8 +323,9 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
   BookingsTourMark.bandActions: DesktopTourStep(
     targets: const [kTourBookingsBandActions],
     text: 'Passando con il mouse su una fascia oraria compaiono i pulsanti con cui puoi modificare gli orari delle '
-        "prenotazioni, richiedere un'altra lezione nella stessa fascia, spostare tutte le lezioni della fascia "
-        'oraria selezionata (mattina, pomeriggio o sera) oppure eliminare tutte le materie prenotate in quella fascia.',
+        "prenotazioni, richiedere un'altra lezione nella stessa fascia, aggiungere una nota sulla prenotazione, "
+        'spostare tutte le lezioni della fascia oraria selezionata (mattina, pomeriggio o sera) oppure eliminare '
+        'tutte le materie prenotate in quella fascia.',
     sides: _beside,
     pad: 4,
     radius: 10,
@@ -566,13 +570,12 @@ final DesktopTourStep _openStep = DesktopTourStep(
   seen: _openSeen,
 );
 
-// Once a subject is chosen: [editing] saves the booking, else creates it.
+// At the end, on the band's note: [editing] saves the booking, else creates it.
 DesktopTourStep _finishStep({required bool editing})
 {
   return DesktopTourStep(
     targets: const [kTourBookingsWizardSave],
-    text: 'Quando hai selezionato tutte le materie che ti interessano, clicca «${editing ? 'Salva' : 'Crea'}» per '
-        'concludere e salvare la prenotazione.',
+    text: bookingFinishTourText('clicca', editing: editing),
     sides: _beside,
     pad: 6,
     radius: 17,
@@ -582,17 +585,14 @@ DesktopTourStep _finishStep({required bool editing})
 }
 
 // The subjects card: band and hours left, the lists; a click on a subject opens it.
-// [chosen]: some subject is already in the card, so the button saving it all is told too.
+// The button saving it all is told on the band's note, the card after.
 Future<DesktopTour?> bookingsWizardSubjectsTour({
   required BookingsTourPupil pupil,
   required bool online,
-  required bool editing,
-  required bool Function() chosen,
 })
 {
   final bool self = pupil == BookingsTourPupil.self;
   final String yours = pupil.yours;
-  final DesktopTourStep finish = _finishStep(editing: editing);
 
   DesktopTourStep tab(String target, String text, (String, int) seen)
   {
@@ -666,15 +666,29 @@ Future<DesktopTour?> bookingsWizardSubjectsTour({
       seen: _listSeen,
     ),
     _openStep,
-    if (chosen()) finish,
   ]);
 }
 
-// Late parts of the card: a subject opened in place, the button once one is chosen.
-Future<DesktopTour?> bookingsLateSubjectsTour({required bool editing, required bool chosen})
+// The band's note card: the field, then the button saving it all.
+Future<DesktopTour?> bookingsWizardNoteTour({required bool editing})
 {
-  return _dueTour([_openStep, if (chosen) _finishStep(editing: editing)]);
+  return _freshTour([
+    DesktopTourStep(
+      targets: const [kTourBookingsWizardNote],
+      text: kBandNoteTourText,
+      sides: _beside,
+      pad: 6,
+      radius: 17,
+      interactive: true,
+      present: () => _shown(kTourBookingsWizardNote),
+      seen: _noteSeen,
+    ),
+    _finishStep(editing: editing),
+  ]);
 }
+
+// A late part of the card: a subject opened in place.
+Future<DesktopTour?> bookingsLateSubjectsTour() => _dueTour([_openStep]);
 
 enum BookingsSubjectCard { what, duration, teachers, notes }
 
@@ -689,7 +703,7 @@ const Map<_SubjectMark, int> _subjectVersions = {
   _SubjectMark.count: 2,
   _SubjectMark.teachers: 2,
   _SubjectMark.search: 2,
-  _SubjectMark.notes: 3,
+  _SubjectMark.notes: 4,
   _SubjectMark.add: 3,
   _SubjectMark.save: 3,
 };
@@ -701,6 +715,7 @@ Future<DesktopTour?> bookingsSubjectTour({
   required BookingsSubjectCard card,
   required bool first,
   required bool editing,
+  required BookingsTourPupil pupil,
 })
 {
   // Closing the window ends the tour.
@@ -800,7 +815,7 @@ Future<DesktopTour?> bookingsSubjectTour({
       BookingsSubjectCard.notes => [
           step(
             _SubjectMark.notes,
-            'Qui puoi aggiungere eventuali altre osservazioni o informazioni che ritieni utili.',
+            teacherNotesTourText(pupil == BookingsTourPupil.self ? null : pupil.yours),
             target: kTourBookingsSubjectNotes,
             radius: 17,
             interactive: true,

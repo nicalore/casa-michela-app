@@ -53,6 +53,7 @@ def _to_response(
         booker_tax_code=presence.booker_tax_code,
         booker=PersonOption.model_validate(people[presence.booker_tax_code]),
         bookings=booking_summaries(presence.bookings, people, avoided_tax_codes),
+        notes=presence.notes,
         not_preferred_teachers=person_options(avoided_tax_codes, people),
         competence_waivers=[
             CompetenceWaiverResponse(

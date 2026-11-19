@@ -10,6 +10,7 @@ from app.models.presence import Presence
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.lesson_request import (
+    LessonRequestBandNoteUpdate,
     LessonRequestCreate,
     LessonRequestReplace,
     LessonRequestReplaceDays,
@@ -117,5 +118,17 @@ async def replace_lesson_request_days(
     before = await lessons_of(db, pupil, days)
     presences = await _service(db).replace_days(identity, per_day)
     await _settle(db, background, identity, pupil, days, before, presences)
+
+    return await to_responses(db, identity, presences)
+
+
+@router.put("/notes", response_model=list[PresenceResponse])
+# A band's note after booking: the day's presences come back.
+async def write_band_notes(
+    payload: LessonRequestBandNoteUpdate,
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> list[PresenceResponse]:
+    presences = await _service(db).write_band_notes(identity, payload)
 
     return await to_responses(db, identity, presences)

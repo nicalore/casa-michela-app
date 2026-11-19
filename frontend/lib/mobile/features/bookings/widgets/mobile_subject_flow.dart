@@ -741,6 +741,7 @@ class _MobileSubjectPageState extends State<MobileSubjectPage>
       page: key,
       first: index == 0,
       editing: _flow.isEditing,
+      pupil: BookingTourPupil.of(self: _flow.isSelf, gender: _flow.pupil.gender),
       pulse: _tourPulse,
     );
   }

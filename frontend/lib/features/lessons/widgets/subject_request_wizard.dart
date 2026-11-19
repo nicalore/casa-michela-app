@@ -188,6 +188,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
         card: card,
         first: step == (_choosesBand ? 1 : 0),
         editing: widget.isEditing,
+        pupil: BookingsTourPupil.of(self: widget.isSelf, gender: widget.studentGender),
       );
 
       if (tour != null && mounted && _step == step)

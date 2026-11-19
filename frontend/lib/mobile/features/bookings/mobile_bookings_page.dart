@@ -53,6 +53,7 @@ import '../children/widgets/mobile_child_tiles.dart';
 import 'mobile_booking_day.dart';
 import 'mobile_booking_draft.dart';
 import 'mobile_bookings_tour.dart';
+import 'widgets/mobile_band_note_sheet.dart';
 import 'widgets/mobile_booking_day_card.dart';
 import 'widgets/mobile_booking_sheets.dart';
 import 'widgets/mobile_booking_wizard.dart';
@@ -641,6 +642,20 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
           case MobileEditHours():
             await _openWizard(day, pupil, mode.mode, from: sheet, hoursOnly: true, band: mode.band);
 
+          case MobileEditNote():
+            await _editNote(sheet, day, pupil, mode);
+
+          case MobileDeleteNote():
+            await _confirmDeletion(
+              sheet,
+              day,
+              bandNoteDeletionWarning(day.date, pupil: _named(pupil)),
+              delete: () async
+              {
+                await _writeNote(day, pupil, mode, null);
+              },
+            );
+
           case MobileMoveAll():
             await _move(
               sheet,
@@ -671,6 +686,41 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
         }
       },
     );
+  }
+
+  Future<void> _editNote(BuildContext sheet, MobileBookingDay day, PersonItem pupil, MobileBookingMode mode)
+  {
+    final String when = formatAvailableDayLabel(day.date);
+
+    return showMobileBandNoteSheet(
+      context: sheet,
+      eyebrow: _isParent ? '${pupil.firstName} · $when' : when,
+      subtitle: '${modeLabel(mode.mode)} · ${bandLabel(mode.band)}',
+      note: mode.note,
+      onSave: (notes) => _writeNote(day, pupil, mode, notes),
+    );
+  }
+
+  // Null [notes] deletes it; true once written.
+  Future<bool> _writeNote(MobileBookingDay day, PersonItem pupil, MobileBookingMode mode, String? notes) async
+  {
+    try
+    {
+      await _apiService.writeBandNotes(studentTaxCode: pupil.fiscalCode, date: day.date, band: mode.band, notes: notes);
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        MobileNotice.show(context, readableApiError(e), error: true);
+      }
+
+      return false;
+    }
+
+    await _load(quiet: true);
+
+    return true;
   }
 
   Future<void> _confirmDeletion(

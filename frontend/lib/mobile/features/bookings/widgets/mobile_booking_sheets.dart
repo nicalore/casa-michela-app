@@ -9,6 +9,7 @@ import '../../../../features/bookings/utils/booking_strings.dart' show deleteBan
 import '../../../../features/lessons/utils/booking_window.dart';
 import '../../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
+import '../../../../features/lessons/widgets/band_note_parts.dart' show kBandNoteIcon;
 import '../../../../features/people/models/person_item.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart' show DetailRowData;
 import '../../../shared/mobile_palette.dart';
@@ -39,6 +40,16 @@ class MobileEditHours extends MobileBookingAction
   final String mode;
 
   const MobileEditHours(this.mode);
+}
+
+class MobileEditNote extends MobileBookingAction
+{
+  const MobileEditNote();
+}
+
+class MobileDeleteNote extends MobileBookingAction
+{
+  const MobileDeleteNote();
 }
 
 class MobileMoveAll extends MobileBookingAction
@@ -226,12 +237,25 @@ Future<void> showMobileModeSheet({
             label: 'Modifica gli orari',
             onTap: () => act(MobileEditHours(mode.mode)),
           ),
+        if (mode.changeable)
+          _ActionRow(
+            icon: kBandNoteIcon,
+            label: bandNoteAction(mode.note),
+            onTap: () => act(const MobileEditNote()),
+          ),
         if (mode.changeable && mode.lessons.isNotEmpty)
           _ActionRow(
             icon: Icons.swap_horiz_rounded,
             label: moveBandLessons(mode.band),
             refusal: moveAllRefusal,
             onTap: () => act(MobileMoveAll(mode.mode)),
+          ),
+        if (mode.changeable && mode.note != null)
+          _ActionRow(
+            icon: Icons.delete_outline_rounded,
+            label: kDeleteBandNote,
+            danger: true,
+            onTap: () => act(const MobileDeleteNote()),
           ),
         if (mode.deletable)
           _ActionRow(

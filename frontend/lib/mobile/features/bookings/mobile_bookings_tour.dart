@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../features/lessons/utils/booking_wizard_strings.dart' show bookingFinishTourText, kBandNoteTourText, teacherNotesTourText;
 import '../../../features/lessons/utils/opening_window.dart';
 import '../../shared/widgets/mobile_action_circle.dart';
 import '../../shared/widgets/mobile_info_button.dart';
@@ -529,14 +530,14 @@ Future<void> startLessonSheetTour({required String taxCode, required Set<LessonS
 
 // The sheet of a mode's round button: its actions at once, the first time it opens.
 const String _modeSheetSlug = '$_slug.mode';
-const int _modeSheetVersion = 1;
+const int _modeSheetVersion = 2;
 
 const String kBookingsTourModeActions = 'bookings.mode.actions';
 
 const String _modeActions =
-    'Puoi modificare gli orari delle prenotazioni, spostare tutte le lezioni della fascia oraria selezionata '
-    '(mattina, pomeriggio o sera), eliminare tutte le materie prenotate in quella fascia oppure cancellare le '
-    "prenotazioni dell'intera giornata.";
+    'Puoi modificare gli orari delle prenotazioni, aggiungere o modificare la nota sulla prenotazione, spostare tutte '
+    'le lezioni della fascia oraria selezionata (mattina, pomeriggio o sera), eliminare tutte le materie prenotate in '
+    "quella fascia oppure cancellare le prenotazioni dell'intera giornata.";
 
 // Closed under it, it comes again the next time.
 Future<void> startModeSheetTour({required String taxCode})
@@ -697,12 +698,13 @@ enum BookingWizardMark
   left,
   list,
   open,
+  note,
   create,
   save,
   saveHours,
 }
 
-enum BookingWizardPage { days, hours, subjects }
+enum BookingWizardPage { days, hours, subjects, notes }
 
 const Map<BookingWizardMark, int> _wizardVersions = {
   BookingWizardMark.days: 3,
@@ -714,8 +716,9 @@ const Map<BookingWizardMark, int> _wizardVersions = {
   BookingWizardMark.left: 2,
   BookingWizardMark.list: 5,
   BookingWizardMark.open: 3,
-  BookingWizardMark.create: 4,
-  BookingWizardMark.save: 5,
+  BookingWizardMark.note: 2,
+  BookingWizardMark.create: 6,
+  BookingWizardMark.save: 7,
   BookingWizardMark.saveHours: 3,
 };
 
@@ -781,10 +784,9 @@ String _wizardText(BookingWizardMark mark, {required bool online, required Booki
     BookingWizardMark.open =>
       "Questa materia è articolata in più aree disciplinari. Seleziona l'area per cui desideri prenotare una lezione. "
           'Se hai bisogno di prenotare lezioni per più aree, puoi farlo separatamente, una alla volta.',
-    BookingWizardMark.create =>
-      'Quando hai selezionato tutte le materie che ti interessano, tocca «Crea» per concludere e salvare la prenotazione.',
-    BookingWizardMark.save =>
-      'Quando hai selezionato tutte le materie che ti interessano, tocca «Salva» per concludere e salvare la prenotazione.',
+    BookingWizardMark.note => kBandNoteTourText,
+    BookingWizardMark.create => bookingFinishTourText('tocca', editing: false),
+    BookingWizardMark.save => bookingFinishTourText('tocca', editing: true),
     BookingWizardMark.saveHours => 'Quando hai finito, tocca «Salva» per salvare i nuovi orari.',
   };
 }
@@ -855,9 +857,9 @@ Future<void> startBookingWizardTour({
         BookingWizardMark.left,
         BookingWizardMark.list,
         BookingWizardMark.open,
-        BookingWizardMark.create,
-        BookingWizardMark.save,
       ],
+    // The band's note comes last: the button that saves it all is there.
+    BookingWizardPage.notes => const [BookingWizardMark.note, BookingWizardMark.create, BookingWizardMark.save],
   };
 
   final bool asksYesNo = !await isMobileTourSeen(taxCode: taxCode, tour: _seenMarker(_wizardSeen(BookingWizardMark.yesNo)));
@@ -929,6 +931,14 @@ Future<void> startBookingWizardTour({
           tapEnds: true,
           seen: seen,
         ),
+      // The band's note: a field, touched to write in it.
+      BookingWizardMark.note => MobileTourStep(
+          text: text,
+          touched: [target],
+          reveal: target,
+          present: () => isMobileTourTargetShown(target),
+          seen: seen,
+        ),
       // A subject divided in disciplines, once its list is open under it.
       BookingWizardMark.open => MobileTourStep(
           text: text,
@@ -974,7 +984,7 @@ const Map<SubjectFlowMark, int> _subjectVersions = {
   SubjectFlowMark.count: 2,
   SubjectFlowMark.teachers: 3,
   SubjectFlowMark.search: 2,
-  SubjectFlowMark.notes: 3,
+  SubjectFlowMark.notes: 4,
   SubjectFlowMark.add: 3,
   SubjectFlowMark.save: 3,
 };
@@ -986,7 +996,7 @@ String subjectFlowTourTarget(SubjectFlowMark mark) => 'bookings.subject.${mark.n
 
 (String, int) _subjectSeen(SubjectFlowMark mark) => ('$_slug.subject.${mark.name}', _subjectVersions[mark]!);
 
-String _subjectText(SubjectFlowMark mark)
+String _subjectText(SubjectFlowMark mark, BookingTourPupil pupil)
 {
   return switch (mark)
   {
@@ -1005,7 +1015,7 @@ String _subjectText(SubjectFlowMark mark)
       'Qui puoi vedere quante ore di lezione sono state prenotate rispetto al totale delle ore che puoi richiedere.',
     SubjectFlowMark.teachers => 'Puoi selezionare fino a tre docenti preferiti per la lezione.',
     SubjectFlowMark.search => 'Puoi cercare direttamente un docente tramite il suo nome e cognome.',
-    SubjectFlowMark.notes => 'Qui puoi aggiungere eventuali altre osservazioni o informazioni che ritieni utili.',
+    SubjectFlowMark.notes => teacherNotesTourText(pupil == BookingTourPupil.self ? null : pupil.yours),
     SubjectFlowMark.add =>
       'Quando hai finito, tocca «Aggiungi» per concludere e tornare alla selezione delle materie.',
     SubjectFlowMark.save => 'Quando hai finito, tocca «Salva» per salvare le modifiche.',
@@ -1042,12 +1052,13 @@ Future<void> startSubjectFlowTour({
   required String page,
   required bool first,
   required bool editing,
+  required BookingTourPupil pupil,
   required SubjectFlowTourPulse pulse,
 })
 {
   MobileTourStep build(SubjectFlowMark mark, (String, int) seen)
   {
-    final String text = _subjectText(mark);
+    final String text = _subjectText(mark, pupil);
     final String target = subjectFlowTourTarget(mark);
 
     bool built() => isMobileTourTargetShown(target);

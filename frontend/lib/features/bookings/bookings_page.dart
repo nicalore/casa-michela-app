@@ -41,6 +41,7 @@ import '../lessons/models/subject_request.dart';
 import '../lessons/utils/booking_window.dart';
 import '../lessons/utils/opening_window.dart';
 import '../lessons/utils/study_program_lookup.dart';
+import '../lessons/widgets/band_note_parts.dart';
 import '../lessons/widgets/presence_wizard.dart';
 import '../lessons/widgets/subject_request_tile.dart';
 import '../lessons/widgets/subject_request_wizard.dart';
@@ -521,6 +522,36 @@ class _BookingsPageState extends State<BookingsPage>
     {
       CustomSnackBar.show(context: context, message: message, isError: true);
     }
+  }
+
+  // The note of a band already booked, on its own.
+  void _editBandNote(DateTime day, BookingLane lane, String mode, TimeBucket band)
+  {
+    final PersonItem pupil = lane.pupil;
+    final String when = '${formatAvailableDayLabel(day)} · ${bandLabel(band)}';
+
+    showBandNoteDialog(
+      context: context,
+      eyebrow: _isParent ? '${pupil.firstName} · $when' : when,
+      note: bandNoteOf(lane.group?.slotsFor(mode, band: band) ?? const []),
+      onSave: (notes) => _writeBandNote(day, lane, band, notes),
+    );
+  }
+
+  // Null [notes] deletes it.
+  Future<bool> _writeBandNote(DateTime day, BookingLane lane, TimeBucket band, String? notes)
+  {
+    final String pupil = lane.pupil.fiscalCode;
+
+    return write(
+      call: () => _apiService.writeBandNotes(studentTaxCode: pupil, date: day, band: band, notes: notes),
+      apply: (rows) => _presences = [
+        for (final presence in _presences)
+          if (presence.studentTaxCode != pupil || !isSameDate(presence.date, day)) presence,
+        ...rows,
+      ],
+      onError: _showError,
+    );
   }
 
   void _showWizard(
@@ -1209,6 +1240,12 @@ class _BookingsPageState extends State<BookingsPage>
             onAdd: (lane, mode) => _showWizard(day, lane, mode, onlyFreeBands: true),
             onEditHours: (lane, mode, band) => _showWizard(day, lane, mode, hoursOnly: true, band: band),
             onAddLesson: (lane, mode, band) => _showWizard(day, lane, mode, openOnSubjects: true, band: band),
+            onEditNote: (lane, mode, band) => _editBandNote(day, lane, mode, band),
+            onDeleteNote: (lane, mode, band) => _confirm(
+              day,
+              bandNoteDeletionWarning(day, pupil: _named(lane)),
+              onConfirmed: () => _writeBandNote(day, lane, band, null),
+            ),
             onEditLesson: _editLesson,
             canMoveLesson: (lane, booking) => _canMoveLesson(day, lane, booking),
             onMoveLesson: (lane, booking) => _showMoveLesson(day, lane, booking),

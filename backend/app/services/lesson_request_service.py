@@ -21,6 +21,7 @@ from app.models.lesson_booking import LessonBooking
 from app.models.presence import Presence
 from app.schemas.lesson_request import (
     NO_LESSON_ERROR,
+    LessonRequestBandNoteUpdate,
     LessonRequestCreate,
     LessonRequestReplace,
     LessonRequestReplaceMode,
@@ -210,6 +211,9 @@ class _ModePlan:
     # Bands whose stored hours are all over: their subjects stay as they are.
     over: set[TimeBandEnum] = field(default_factory=set)
 
+    # The day's stored band notes, whatever the mode: new stretches take them.
+    inherited: dict[TimeBandEnum, str] = field(default_factory=dict)
+
     bookings: dict[int, Booking] = field(default_factory=dict)
     gone: list[Booking] = field(default_factory=list)
 
@@ -253,6 +257,7 @@ class LessonRequestService:
 
                 # Per mode: each mode has its own bands and hours.
                 for block in payload.modes:
+                    given = block.given_notes()
                     block_presences = [
                         await self.presence_service.prepare_create(
                             identity,
@@ -264,6 +269,7 @@ class LessonRequestService:
                                 student_tax_code=payload.student_tax_code,
                                 booker_tax_code=payload.booker_tax_code,
                             ),
+                            notes=given.get(slot.band),
                         )
                         for slot in block.slots
                     ]
@@ -357,9 +363,55 @@ class LessonRequestService:
             for presence in await self._day_of(payload, fresh=True)
         ]
 
+    # The note on every stretch of the band; not once the band is over.
+    async def write_band_notes(
+        self,
+        identity: IdentityContext,
+        payload: LessonRequestBandNoteUpdate,
+    ) -> list[Presence]:
+        assert_may_book_for(identity, payload.student_tax_code)
+        await assert_admin_may_name(self.session, identity, payload.student_tax_code)
+
+        async with integrity_guard(self.session, _REPLACE_ERROR):
+            try:
+                await lock_pupil(self.session, payload.student_tax_code)
+
+                band = [
+                    presence
+                    for presence in await self._day_of(payload)
+                    if _band(presence) == payload.band
+                ]
+
+                if not band:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=_BOOKING_NOT_FOUND_ERROR,
+                    )
+
+                assert_still_open(
+                    payload.date,
+                    {payload.band},
+                    is_admin=identity.overrides_closures,
+                )
+
+                if all(has_begun(payload.date, row.end_time) for row in band):
+                    raise refuse_begun_hours()
+
+                for presence in band:
+                    presence.notes = payload.notes
+
+                await self.session.flush()
+                await self.session.commit()
+
+            except HTTPException:
+                await self.session.rollback()
+                raise
+
+        return await self._day_of(payload, fresh=True)
+
     async def _day_of(
         self,
-        payload: LessonRequestReplace,
+        payload: LessonRequestReplace | LessonRequestBandNoteUpdate,
         *,
         fresh: bool = False,
     ) -> list[Presence]:
@@ -413,6 +465,11 @@ class LessonRequestService:
                     for presence in rows
                     if _band(presence) == band
                 )
+            },
+            inherited={
+                _band(presence): presence.notes
+                for presence in stored
+                if presence.notes is not None
             },
         )
 
@@ -629,9 +686,11 @@ class LessonRequestService:
     def _lay(self, identity: IdentityContext, plan: _ModePlan) -> None:
         payload = plan.payload
         booker = self.presence_service.resolve_booker(identity, payload.booker_tax_code)
+        given = plan.block.given_notes()
 
         for slot in plan.block.slots:
             presence = plan.kept.get(slot.presence_id) if slot.presence_id else None
+            moved = presence is None or _band(presence) != slot.band
 
             if presence is None:
                 presence = Presence(
@@ -647,6 +706,13 @@ class LessonRequestService:
 
             presence.start_time = slot.start_time
             presence.end_time = slot.end_time
+
+            if slot.band in given:
+                presence.notes = given[slot.band]
+
+            elif moved:
+                presence.notes = plan.inherited.get(slot.band)
+
             plan.final.append(presence)
 
         plan.final.sort(key=lambda presence: presence.start_time)

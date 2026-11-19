@@ -219,7 +219,17 @@ class MobileBandTag extends StatelessWidget
   final String? tourBand;
   final String? tourLeft;
 
-  const MobileBandTag({super.key, required this.offer, required this.mode, this.tourBand, this.tourLeft});
+  // Off where nothing is being booked, as on the notes page.
+  final bool showsLeft;
+
+  const MobileBandTag({
+    super.key,
+    required this.offer,
+    required this.mode,
+    this.tourBand,
+    this.tourLeft,
+    this.showsLeft = true,
+  });
 
   @override
   Widget build(BuildContext context)
@@ -296,21 +306,23 @@ class MobileBandTag extends StatelessWidget
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          MobileTourTarget(
-            id: tourLeft,
-            inflate: inflate,
-            radius: 12,
-            child: Text(
-              minutesLeftLabel(offer.left),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w800,
-                height: 1.45,
-                color: offer.left <= 0 ? AppTheme.trialDangerText : accent,
+          if (showsLeft) ...[
+            const SizedBox(width: 12),
+            MobileTourTarget(
+              id: tourLeft,
+              inflate: inflate,
+              radius: 12,
+              child: Text(
+                minutesLeftLabel(offer.left),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  height: 1.45,
+                  color: offer.left <= 0 ? AppTheme.trialDangerText : accent,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

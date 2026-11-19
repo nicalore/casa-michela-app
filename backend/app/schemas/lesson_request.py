@@ -3,10 +3,11 @@ from typing import Final, Self
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.core import field_lengths
 from app.core.time_band import TimeBandEnum, presence_band
 from app.schemas.booking import BookingBase
 from app.schemas.opening_day import OpeningModeEnum
-from app.schemas.validators import TimeBandMixin
+from app.schemas.validators import OptionalCleanStr, TimeBandMixin
 
 _OVERLAPPING_SLOTS_ERROR: Final[str] = (
     "Gli orari di presenza indicati si sovrappongono fra loro."
@@ -22,6 +23,14 @@ _BAND_MISSING_ERROR: Final[str] = (
 
 _BAND_WITHOUT_HOURS_ERROR: Final[str] = (
     "Una materia è indicata per una fascia in cui non ci sono orari di presenza."
+)
+
+_DUPLICATE_BAND_NOTE_ERROR: Final[str] = (
+    "Ogni fascia va indicata una volta sola nelle note sulla prenotazione."
+)
+
+_NOTE_WITHOUT_HOURS_ERROR: Final[str] = (
+    "Una nota è indicata per una fascia in cui non ci sono orari di presenza."
 )
 
 _DUPLICATE_DAY_ERROR: Final[str] = (
@@ -48,10 +57,35 @@ class LessonRequestSubject(BookingBase):
     band: TimeBandEnum | None = None
 
 
+# None clears the band's note.
+class LessonRequestBandNote(BaseModel):
+    band: TimeBandEnum
+    notes: OptionalCleanStr = Field(None, max_length=field_lengths.NOTES)
+
+
 class _ModeHours(BaseModel):
     mode: OpeningModeEnum
     slots: list[LessonRequestSlot]
     subjects: list[LessonRequestSubject]
+
+    # Bands left out keep their stored note; a new stretch takes its band's.
+    notes: list[LessonRequestBandNote] | None = None
+
+    @model_validator(mode="after")
+    def _notes_have_hours(self) -> Self:
+        bands = {slot.band for slot in self.slots}
+        noted = [note.band for note in self.notes or []]
+
+        if len(set(noted)) != len(noted):
+            raise ValueError(_DUPLICATE_BAND_NOTE_ERROR)
+
+        if any(band not in bands for band in noted):
+            raise ValueError(_NOTE_WITHOUT_HOURS_ERROR)
+
+        return self
+
+    def given_notes(self) -> dict[TimeBandEnum, str | None]:
+        return {note.band: note.notes for note in self.notes or []}
 
     @model_validator(mode="after")
     def _slots_do_not_overlap(self) -> Self:
@@ -188,3 +222,11 @@ class LessonRequestReplaceDays(BaseModel):
             )
             for day in self.days
         ]
+
+
+# A band's note written apart, after booking: on every stretch of that band.
+class LessonRequestBandNoteUpdate(BaseModel):
+    student_tax_code: str
+    date: date
+    band: TimeBandEnum
+    notes: OptionalCleanStr = Field(None, max_length=field_lengths.NOTES)

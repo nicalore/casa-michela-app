@@ -49,6 +49,7 @@ import '../utils/new_members.dart';
 import '../utils/opening_window.dart';
 import '../utils/study_program_lookup.dart';
 import '../utils/timeline_geometry.dart';
+import '../widgets/band_note_parts.dart' show bandNoteIn;
 import '../widgets/activity_dialog.dart';
 import '../widgets/activity_details_dialog.dart';
 import '../widgets/calendar_activity_block.dart';
@@ -2994,7 +2995,23 @@ class _CalendarTabState extends State<CalendarTab>
       student: widget.people.where((person) => person.fiscalCode == studentTaxCode).firstOrNull,
       ministrySubjects: widget.ministrySubjects,
       teacherNames: _teacherNames,
+      note: _bandNoteOf(booking, studentTaxCode),
     );
+  }
+
+  // The note of the band the booking was typed in.
+  String? _bandNoteOf(BookingSummaryItem booking, String studentTaxCode)
+  {
+    final PresenceItem? held =
+        widget.presences.where((presence) => presence.bookings.any((row) => row.id == booking.id)).firstOrNull;
+    final TimeBucket? band = held == null ? null : bucketFor(held.startTime);
+
+    if (held == null || band == null)
+    {
+      return null;
+    }
+
+    return bandNoteIn(widget.presences, studentTaxCode: studentTaxCode, day: held.date, band: band);
   }
 
   WidgetBuilder? _lessonDetails(LessonItem lesson)

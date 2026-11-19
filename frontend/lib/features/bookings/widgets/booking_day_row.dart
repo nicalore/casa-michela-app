@@ -20,7 +20,9 @@ import '../../people/models/person_item.dart';
 import '../../lessons/models/booking_summary_item.dart';
 import '../../lessons/models/presence_group.dart';
 import '../../lessons/models/presence_item.dart';
+import '../../lessons/utils/booking_wizard_strings.dart' show bandNoteAction, kDeleteBandNote;
 import '../../lessons/utils/opening_window.dart';
+import '../../lessons/widgets/band_note_parts.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
 import '../../lessons/widgets/calendar_lesson_block.dart' show lessonModeIcon;
 import '../bookings_tour.dart';
@@ -313,6 +315,8 @@ class BookingDayRow extends StatefulWidget
   final void Function(BookingLane lane, String mode) onAdd;
   final void Function(BookingLane lane, String mode, TimeBucket band) onEditHours;
   final void Function(BookingLane lane, String mode, TimeBucket band) onAddLesson;
+  final void Function(BookingLane lane, String mode, TimeBucket band) onEditNote;
+  final void Function(BookingLane lane, String mode, TimeBucket band) onDeleteNote;
 
   final void Function(BookingLane lane, BookingSummaryItem booking) onEditLesson;
 
@@ -343,6 +347,8 @@ class BookingDayRow extends StatefulWidget
     required this.onAdd,
     required this.onEditHours,
     required this.onAddLesson,
+    required this.onEditNote,
+    required this.onDeleteNote,
     required this.onEditLesson,
     required this.canMoveLesson,
     required this.onMoveLesson,
@@ -544,6 +550,8 @@ class _BookingDayRowState extends State<BookingDayRow>
       onDeleteDay: () => widget.onDeleteDay(lane),
       onEditHours: (mode, band) => widget.onEditHours(lane, mode, band),
       onAddLesson: (mode, band) => widget.onAddLesson(lane, mode, band),
+      onEditNote: (mode, band) => widget.onEditNote(lane, mode, band),
+      onDeleteNote: (mode, band) => widget.onDeleteNote(lane, mode, band),
       onDeleteBand: (mode, band) => widget.onDeleteBand(lane, mode, band),
       onEditLesson: (booking) => widget.onEditLesson(lane, booking),
       canMoveLesson: (booking) => widget.canMoveLesson(lane, booking),
@@ -896,6 +904,8 @@ class _LaneView extends StatefulWidget
   final VoidCallback onDeleteDay;
   final void Function(String mode, TimeBucket band) onEditHours;
   final void Function(String mode, TimeBucket band) onAddLesson;
+  final void Function(String mode, TimeBucket band) onEditNote;
+  final void Function(String mode, TimeBucket band) onDeleteNote;
   final void Function(String mode, TimeBucket band) onDeleteBand;
   final ValueChanged<BookingSummaryItem> onEditLesson;
   final bool Function(BookingSummaryItem booking) canMoveLesson;
@@ -922,6 +932,8 @@ class _LaneView extends StatefulWidget
     required this.onDeleteDay,
     required this.onEditHours,
     required this.onAddLesson,
+    required this.onEditNote,
+    required this.onDeleteNote,
     required this.onDeleteBand,
     required this.onEditLesson,
     required this.canMoveLesson,
@@ -1156,6 +1168,8 @@ class _LaneViewState extends State<_LaneView>
                 canChange: !widget.bandClosed(band),
                 onEditHours: () => widget.onEditHours(mode, band),
                 onAddLesson: () => widget.onAddLesson(mode, band),
+                onEditNote: () => widget.onEditNote(mode, band),
+                onDeleteNote: () => widget.onDeleteNote(mode, band),
                 onDelete: () => widget.onDeleteBand(mode, band),
                 onEditLesson: widget.onEditLesson,
                 canMoveLesson: widget.canMoveLesson,
@@ -1195,6 +1209,8 @@ class _ModeBlock extends StatefulWidget
 
   final VoidCallback onEditHours;
   final VoidCallback onAddLesson;
+  final VoidCallback onEditNote;
+  final VoidCallback onDeleteNote;
   final VoidCallback onDelete;
   final ValueChanged<BookingSummaryItem> onEditLesson;
   final bool Function(BookingSummaryItem booking) canMoveLesson;
@@ -1219,6 +1235,8 @@ class _ModeBlock extends StatefulWidget
     required this.canChange,
     required this.onEditHours,
     required this.onAddLesson,
+    required this.onEditNote,
+    required this.onDeleteNote,
     required this.onDelete,
     required this.onEditLesson,
     required this.canMoveLesson,
@@ -1245,6 +1263,8 @@ class _ModeBlockState extends State<_ModeBlock>
   bool get _hasClosed => _slots.any(widget.slotClosed);
 
   bool get _deletable => !widget.readOnly && !_hasClosed;
+
+  String? get _note => bandNoteOf(_slots);
 
   PresenceItem? _slotOf(BookingSummaryItem booking)
   {
@@ -1328,7 +1348,7 @@ class _ModeBlockState extends State<_ModeBlock>
           visible: _hover,
           dense: widget.dense,
           litBy: _actionsTour,
-          icon: Icons.edit_outlined,
+          icon: Icons.schedule_rounded,
           color: AppTheme.trialTealDeepText,
           tooltip: 'Modifica gli orari',
           onTap: widget.onEditHours,
@@ -1343,6 +1363,19 @@ class _ModeBlockState extends State<_ModeBlock>
           tooltip: 'Aggiungi una lezione',
           onTap: widget.onAddLesson,
         ),
+        // A note there is changed beside it.
+        if (_note == null) ...[
+          const SizedBox(width: 2),
+          _HoverAction(
+            visible: _hover,
+            dense: widget.dense,
+            litBy: _actionsTour,
+            icon: kBandNoteIcon,
+            color: AppTheme.trialTealDeepText,
+            tooltip: bandNoteAction(null),
+            onTap: widget.onEditNote,
+          ),
+        ],
         if (_lessons.isNotEmpty) ...[
           const SizedBox(width: 2),
           _HoverAction(
@@ -1451,6 +1484,38 @@ class _ModeBlockState extends State<_ModeBlock>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildModeRow(),
+          if (_note case final String note) ...[
+            SizedBox(height: widget.dense ? 4 : 6),
+            BandNoteLine(
+              note: note,
+              size: widget.dense ? 12.5 : 13.5,
+              muted: _hasClosed,
+              trailing: widget.canChange
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _HoverAction(
+                          visible: _hover,
+                          dense: widget.dense,
+                          icon: Icons.edit_outlined,
+                          color: AppTheme.trialTealDeepText,
+                          tooltip: bandNoteAction(note),
+                          onTap: widget.onEditNote,
+                        ),
+                        const SizedBox(width: 2),
+                        _HoverAction(
+                          visible: _hover,
+                          dense: widget.dense,
+                          icon: Icons.delete_outline_rounded,
+                          color: AppTheme.trialDangerText,
+                          tooltip: kDeleteBandNote,
+                          onTap: widget.onDeleteNote,
+                        ),
+                      ],
+                    )
+                  : null,
+            ),
+          ],
           SizedBox(height: widget.dense ? _denseModeRowGap : _modeRowGap),
           ..._buildRows(),
         ],

@@ -639,6 +639,43 @@ class _LessonsPageState extends State<LessonsPage>
     }
   }
 
+  Future<bool> _executeWriteBandNotes(
+    String studentTaxCode,
+    DateTime date,
+    TimeBucket band,
+    String? notes,
+    Function(String) onError,
+  ) async
+  {
+    try
+    {
+      final List<PresenceItem> day = await _apiService.writeBandNotes(
+        studentTaxCode: studentTaxCode,
+        date: date,
+        band: band,
+        notes: notes,
+      );
+
+      if (mounted)
+      {
+        setState(() => _presences = [
+              for (final presence in _presences)
+                if (presence.studentTaxCode != studentTaxCode || !isSameDate(presence.date, date)) presence,
+              ...day,
+            ]);
+      }
+
+      return true;
+    }
+    catch (e)
+    {
+      onError(readableApiError(e));
+      await _refreshDay(date);
+
+      return false;
+    }
+  }
+
   Future<bool> _executeReplaceLessonRequest(
     String studentTaxCode,
     DateTime date,
@@ -2143,6 +2180,7 @@ class _LessonsPageState extends State<LessonsPage>
           onDeleteBookingQuietly: _executeDeleteBookingQuietly,
           onDeleteGroup: _executeDeleteRequestGroup,
           onEditBooking: _executeEditBooking,
+          onWriteBandNotes: _executeWriteBandNotes,
         ),
       ],
     );

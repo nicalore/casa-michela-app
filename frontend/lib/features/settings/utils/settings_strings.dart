@@ -235,7 +235,7 @@ const String kCookieTitle = 'Cookie policy';
 
 const String kDocumentOpenFailed = 'Non è stato possibile aprire il documento.';
 
-const String kAppVersion = '0.7.0 - Alpha';
+const String kAppVersion = '0.7.1 - Alpha';
 
 const String kDevelopmentWarning =
     'ATTENZIONE: Applicazione attualmente in sviluppo. '

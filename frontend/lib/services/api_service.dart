@@ -1558,6 +1558,34 @@ class ApiService
     }
   }
 
+  // A band's note on its own; the day's presences come back. Null or blank clears it.
+  Future<List<PresenceItem>> writeBandNotes({
+    required String studentTaxCode,
+    required DateTime date,
+    required TimeBucket band,
+    required String? notes,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/lesson-requests/notes',
+        data: {
+          'student_tax_code': studentTaxCode,
+          'date': formatDateOnly(date),
+          'band': LessonItem.formatBand(band),
+          'notes': notes,
+        },
+      );
+
+      return parseList(response.data, PresenceItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Errore durante l'aggiornamento della richiesta.");
+    }
+  }
+
   // A move: the days it touches, each as it is to be, in one transaction.
   Future<List<PresenceItem>> replaceLessonRequestDays({
     required String studentTaxCode,

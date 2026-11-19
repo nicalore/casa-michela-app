@@ -320,6 +320,8 @@ class PresenceService:
         self,
         identity: IdentityContext,
         payload: PresenceCreate,
+        *,
+        notes: str | None = None,
     ) -> Presence:
         # Permission before closure, so a refusal is not masked by a closed day.
         student_tax_code = self._resolve_student_tax_code_for_create(
@@ -369,6 +371,7 @@ class PresenceService:
             mode=payload.mode.value,
             start_time=payload.start_time,
             end_time=payload.end_time,
+            notes=notes,
             bookings=[],
         )
 

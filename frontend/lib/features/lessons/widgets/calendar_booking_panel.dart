@@ -19,6 +19,7 @@ import '../models/schedulable_booking.dart';
 import '../utils/calendar_search.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
+import 'band_note_parts.dart';
 import 'calendar_activity_card.dart';
 import 'calendar_booking_card.dart';
 import 'calendar_lesson_block.dart';
@@ -458,6 +459,10 @@ class CalendarBookingPanel extends StatelessWidget
             for (final (i, presence) in group.presences.indexed) ...[
               if (i > 0) const SizedBox(height: 4),
               faded(_PresenceBand(presence: presence)),
+            ],
+            if (bandNoteOf(group.presences) case final String note) ...[
+              const SizedBox(height: 8),
+              faded(BandNoteLine(note: note, size: 13)),
             ],
             for (final entry in group.bookings) ...[
               const SizedBox(height: 8),

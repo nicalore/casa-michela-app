@@ -19,6 +19,9 @@ class PresenceItem
   final PersonOptionItem booker;
   final List<BookingSummaryItem> bookings;
 
+  // The band's note for the board, the same on every stretch of the band.
+  final String? notes;
+
   // The pupil's standing list: left out of the offer when asking for teachers.
   final List<PersonOptionItem> notPreferredTeachers;
 
@@ -38,6 +41,7 @@ class PresenceItem
     required this.bookerTaxCode,
     required this.booker,
     required this.bookings,
+    this.notes,
     this.notPreferredTeachers = const [],
     this.competenceWaivers = const {},
     required this.updatedAt,
@@ -70,6 +74,7 @@ class PresenceItem
       bookerTaxCode: bookerTaxCode,
       booker: booker,
       bookings: bookings,
+      notes: notes,
       notPreferredTeachers: notPreferredTeachers,
       competenceWaivers: {
         ...competenceWaivers,
@@ -92,6 +97,7 @@ class PresenceItem
       bookerTaxCode: json['booker_tax_code'] as String,
       booker: PersonOptionItem.fromJson(json['booker'] as Map<String, dynamic>),
       bookings: parseList(json['bookings'], BookingSummaryItem.fromJson),
+      notes: json['notes'] as String?,
       notPreferredTeachers: parseList(
         json['not_preferred_teachers'],
         PersonOptionItem.fromJson,

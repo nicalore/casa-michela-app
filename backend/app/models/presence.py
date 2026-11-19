@@ -17,6 +17,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.constraints import (
+    no_surrounding_whitespace_constraints,
+    not_blank_when_present_constraints,
+)
 from app.models.flush_state import pending_instances
 from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 
@@ -55,6 +59,8 @@ class Presence(CreatedAtMixin, UpdatedAtMixin, Base):
             "AND EXTRACT(MINUTE FROM end_time)::integer % 15 = 0",
             name="presence_time_step",
         ),
+        *not_blank_when_present_constraints("notes"),
+        *no_surrounding_whitespace_constraints("notes"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -80,6 +86,10 @@ class Presence(CreatedAtMixin, UpdatedAtMixin, Base):
         nullable=False,
         index=True,
     )
+
+    # The booker's note on the whole band, for the board: every stretch of the band
+    # carries the same text, so it goes with the band's last stretch.
+    notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     student: Mapped[Student] = relationship(
         back_populates="presences",

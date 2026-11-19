@@ -71,6 +71,14 @@ String bookingDeletionWarning(DateTime day, {String? pupil, String? mode, TimeBu
   return '$whose di ${formatAvailableDayLabel(day).toLowerCase()} verrà eliminata definitivamente.';
 }
 
+// [pupil] null: the reader's own booking.
+String bandNoteDeletionWarning(DateTime day, {String? pupil})
+{
+  final String whose = pupil == null ? 'La nota sulla tua prenotazione' : 'La nota sulla prenotazione di $pupil';
+
+  return '$whose di ${formatAvailableDayLabel(day).toLowerCase()} verrà eliminata definitivamente.';
+}
+
 String lastLessonNote(String mode, {TimeBucket? band})
 {
   final String stay = '${mode == kOnlineMode ? kOnScreen : 'in Associazione'}${band == null ? '' : ' ${ofBandLabel(band)}'}';

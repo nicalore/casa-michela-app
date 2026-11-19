@@ -13,6 +13,7 @@ import '../../calendar/widgets/own_lesson_dialog.dart' show studentCertification
 import '../../people/models/person_item.dart';
 import '../../people/models/school_enrollment_item.dart';
 import '../models/booking_summary_item.dart';
+import 'band_note_parts.dart';
 import 'booking_fields_section.dart';
 import 'subject_request_tile.dart';
 
@@ -40,12 +41,16 @@ class CalendarRequestDetails extends StatelessWidget
   final List<MinistrySubjectItem> ministrySubjects;
   final Map<String, String> teacherNames;
 
+  // The band's note, first: what the board is told about the whole band.
+  final String? note;
+
   const CalendarRequestDetails({
     super.key,
     required this.booking,
     this.student,
     required this.ministrySubjects,
     this.teacherNames = const {},
+    this.note,
   });
 
   String _said(String? value) => value == null || value.trim().isEmpty ? _empty : value.trim();
@@ -139,6 +144,10 @@ class CalendarRequestDetails extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (note case final String note) ...[
+              BandNoteWell(note: note),
+              const SizedBox(height: 18),
+            ],
             if (student != null) ..._buildStudent(student),
             const AppEyebrow('Disciplina richiesta'),
             const SizedBox(height: 2),

@@ -386,44 +386,54 @@ class _MobileStepPagerState extends State<MobileStepPager>
   {
     final List<String> keys = widget.keys;
 
-    return AnimatedBuilder(
-      animation: Listenable.merge([widget.controller, _heights]),
-      builder: (context, child)
-      {
-        final double page = _page.clamp(0, keys.length - 1).toDouble();
-        final int low = page.floor();
-        final int high = page.ceil();
-
-        final Map<String, double> heights = _heights.value;
-        final double from = heights[keys[low]] ?? heights[keys[high]] ?? _unmeasured;
-        final double to = heights[keys[high]] ?? from;
-
-        // Bounded by the Flexible around it in the sheet.
-        return SizedBox(height: ui.lerpDouble(from, to, page - low), child: child);
-      },
-      child: PageView.builder(
-        controller: widget.controller,
-        // The physics snap to pages themselves.
-        pageSnapping: false,
-        physics: _physics,
-        // Keeps the neighbours laid out, so their height is known before a swipe.
-        allowImplicitScrolling: true,
-        itemCount: keys.length,
-        onPageChanged: (index)
+    // A page taller than the sheet's room counts as the room, so the height moves through the whole turn.
+    return LayoutBuilder(
+      builder: (context, constraints) => AnimatedBuilder(
+        animation: Listenable.merge([widget.controller, _heights]),
+        builder: (context, child)
         {
-          FocusManager.instance.primaryFocus?.unfocus();
-          widget.onPageChanged(index);
+          final double page = _page.clamp(0, keys.length - 1).toDouble();
+          final int low = page.floor();
+          final int high = page.ceil();
+          final double room = constraints.maxHeight;
+
+          final Map<String, double> heights = _heights.value;
+          final double from = math.min(heights[keys[low]] ?? heights[keys[high]] ?? _unmeasured, room);
+          final double to = math.min(heights[keys[high]] ?? from, room);
+
+          return SizedBox(height: ui.lerpDouble(from, to, page - low), child: child);
         },
-        itemBuilder: (context, index) => SingleChildScrollView(
-          key: PageStorageKey(keys[index]),
-          child: MobileHeightReporter(
-            onHeight: (height) => _measured(keys[index], height),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(MobileSheet.sidePadding, 20, MobileSheet.sidePadding, 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: widget.pageBuilder(index),
-              ),
+        child: _buildPages(),
+      ),
+    );
+  }
+
+  Widget _buildPages()
+  {
+    final List<String> keys = widget.keys;
+
+    return PageView.builder(
+      controller: widget.controller,
+      // The physics snap to pages themselves.
+      pageSnapping: false,
+      physics: _physics,
+      // Keeps the neighbours laid out, so their height is known before a swipe.
+      allowImplicitScrolling: true,
+      itemCount: keys.length,
+      onPageChanged: (index)
+      {
+        FocusManager.instance.primaryFocus?.unfocus();
+        widget.onPageChanged(index);
+      },
+      itemBuilder: (context, index) => SingleChildScrollView(
+        key: PageStorageKey(keys[index]),
+        child: MobileHeightReporter(
+          onHeight: (height) => _measured(keys[index], height),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(MobileSheet.sidePadding, 20, MobileSheet.sidePadding, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.pageBuilder(index),
             ),
           ),
         ),

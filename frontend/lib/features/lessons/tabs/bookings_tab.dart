@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/time_bucket.dart';
-import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/dialog_components.dart';
@@ -16,13 +15,15 @@ import '../../association/models/opening_day_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../bookings/utils/booking_replacement.dart';
-import '../../bookings/utils/booking_strings.dart' show modeBookingDeleted;
+import '../../bookings/utils/booking_strings.dart' show bandNoteDeletionWarning, modeBookingDeleted;
 import '../../people/models/person_face.dart';
 import '../../people/models/person_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/presence_group.dart';
 import '../models/presence_item.dart';
+import '../utils/booking_window.dart';
 import '../utils/opening_window.dart';
+import '../widgets/band_note_parts.dart';
 import '../widgets/lessons_closed_day.dart';
 import '../widgets/lessons_toolbar.dart';
 import '../widgets/presence_card.dart';
@@ -61,6 +62,7 @@ class BookingsTab extends StatefulWidget
   final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteBookingQuietly;
   final void Function(List<PresenceItem> slots) onDeleteGroup;
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditBooking;
+  final Future<bool> Function(String studentTaxCode, DateTime date, TimeBucket band, String? notes, Function(String) onError) onWriteBandNotes;
 
   const BookingsTab({
     super.key,
@@ -83,6 +85,7 @@ class BookingsTab extends StatefulWidget
     required this.onDeleteBookingQuietly,
     required this.onDeleteGroup,
     required this.onEditBooking,
+    required this.onWriteBandNotes,
   });
 
   @override
@@ -395,6 +398,40 @@ class _BookingsTabState extends State<BookingsTab>
   }
 
   // One write, closed bands too: administrators are not held by the deadlines.
+  // Over the request's window: written as it stands, so the window follows.
+  void _editNote(PresenceGroup group, TimeBucket band)
+  {
+    showBandNoteDialog(
+      context: context,
+      eyebrow: '${group.student.firstName} · ${formatAvailableDayLabel(group.date)} · ${bandLabel(band)}',
+      note: bandNoteOf(group.slots.where((slot) => bucketFor(slot.startTime) == band)),
+      hinted: false,
+      onSave: (notes) => widget.onWriteBandNotes(
+        group.studentTaxCode,
+        group.date,
+        band,
+        notes,
+        (message) => CustomSnackBar.show(context: context, message: message, isError: true),
+      ),
+    );
+  }
+
+  void _deleteNote(PresenceGroup group, TimeBucket band)
+  {
+    showBandNoteDeletion(
+      context: context,
+      eyebrow: 'Eliminazione',
+      warning: bandNoteDeletionWarning(group.date, pupil: group.student.fullName),
+      onConfirmed: () => widget.onWriteBandNotes(
+        group.studentTaxCode,
+        group.date,
+        band,
+        null,
+        (message) => CustomSnackBar.show(context: context, message: message, isError: true),
+      ),
+    );
+  }
+
   Future<void> _deleteMode(PresenceGroup group, String mode, {TimeBucket? band}) async
   {
     final bool deleted = await widget.onReplaceLessonRequest(
@@ -431,6 +468,8 @@ class _BookingsTabState extends State<BookingsTab>
       ),
       onDelete: () => widget.onDeleteGroup(follow.value.slots),
       onDeleteMode: (mode, {band}) => _deleteMode(follow.value, mode, band: band),
+      onEditNote: (band) => _editNote(follow.value, band),
+      onDeleteNote: (band) => _deleteNote(follow.value, band),
       onEditSubject: widget.onEditBooking,
       onDeleteSubject: widget.onDeleteBookingQuietly,
       readOnly: widget.readOnly,

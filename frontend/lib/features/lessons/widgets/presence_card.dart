@@ -30,11 +30,13 @@ import '../models/booking_summary_item.dart';
 import '../models/presence_group.dart';
 import '../models/presence_item.dart';
 import '../models/subject_request.dart';
+import 'band_note_parts.dart';
 import 'calendar_lesson_block.dart' show lessonModeIcon;
 import 'person_avatar.dart';
 import 'subject_request_tile.dart';
 import 'subject_request_wizard.dart';
 import '../utils/booking_window.dart';
+import '../utils/booking_wizard_strings.dart' show bandNoteAction, kDeleteBandNote;
 import '../utils/opening_window.dart';
 
 const double _dialogButtonHeight = 52;
@@ -80,6 +82,8 @@ class PresenceCard extends StatefulWidget
   final RequestModeEditor onEditMode;
   final VoidCallback onDelete;
   final void Function(String mode, {TimeBucket? band}) onDeleteMode;
+  final void Function(TimeBucket band) onEditNote;
+  final void Function(TimeBucket band) onDeleteNote;
 
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditSubject;
   final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteSubject;
@@ -102,6 +106,8 @@ class PresenceCard extends StatefulWidget
     required this.onEditMode,
     required this.onDelete,
     required this.onDeleteMode,
+    required this.onEditNote,
+    required this.onDeleteNote,
     required this.onEditSubject,
     required this.onDeleteSubject,
     this.readOnly = false,
@@ -132,12 +138,26 @@ class _PresenceCardState extends State<PresenceCard>
         onEditMode: widget.onEditMode,
         onDelete: widget.onDelete,
         onDeleteMode: widget.onDeleteMode,
+        onEditNote: widget.onEditNote,
+        onDeleteNote: widget.onDeleteNote,
         onEditSubject: widget.onEditSubject,
         onDeleteSubject: widget.onDeleteSubject,
         readOnly: widget.readOnly,
         begunBookingIds: widget.begunBookingIds,
       ),
     );
+  }
+
+  // The notes of the day's bands, in clock order.
+  List<(TimeBucket, String)> get _notes
+  {
+    final PresenceGroup group = widget.group;
+
+    return [
+      for (final band in TimeBucket.values)
+        if (bandNoteOf(group.slots.where((slot) => bucketFor(slot.startTime) == band)) case final String note)
+          (band, note),
+    ];
   }
 
   PersonItem? get _student
@@ -177,6 +197,36 @@ class _PresenceCardState extends State<PresenceCard>
   @override
   Widget build(BuildContext context)
   {
+    final List<(TimeBucket, String)> notes = _notes;
+    final Widget card = _buildCard(context, marked: notes.isNotEmpty);
+
+    if (notes.isEmpty)
+    {
+      return card;
+    }
+
+    final bool dense = AppBreakpoints.of(context).isDense;
+
+    return Stack(
+      children: [
+        card,
+        Positioned(
+          top: dense ? 11 : 16,
+          right: dense ? 13 : 18,
+          child: AppTooltip(
+            richMessage: notes.length == 1
+                ? bandNoteTip(notes.single.$2)
+                : bandNotesTip([for (final (band, note) in notes) '${bandLabel(band)} · $note']),
+            child: Icon(kBandNoteIcon, size: dense ? 17 : 20, color: AppTheme.trialOceanText),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // [marked]: the note's sign sits in the corner, so the name keeps clear of it on both sides.
+  Widget _buildCard(BuildContext context, {required bool marked})
+  {
     final group = widget.group;
     final presence = group.slotsFor(kPresenceMode);
     final online = group.slotsFor(kOnlineMode);
@@ -212,15 +262,18 @@ class _PresenceCardState extends State<PresenceCard>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  OverflowTooltipText(
-                    text: group.student.fullName,
-                    maxLines: 1,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: dense ? 15 : 19,
-                      fontWeight: FontWeight.w700,
-                      height: 1.15,
-                      color: AppTheme.trialOceanText,
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: marked ? (dense ? 12 : 18) : 0),
+                    child: OverflowTooltipText(
+                      text: group.student.fullName,
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: dense ? 15 : 19,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                        color: AppTheme.trialOceanText,
+                      ),
                     ),
                   ),
                   SizedBox(height: dense ? 8 : 12),
@@ -469,6 +522,8 @@ class _RequestDetailsDialogContent extends StatefulWidget
   final RequestModeEditor onEditMode;
   final VoidCallback onDelete;
   final void Function(String mode, {TimeBucket? band}) onDeleteMode;
+  final void Function(TimeBucket band) onEditNote;
+  final void Function(TimeBucket band) onDeleteNote;
 
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditSubject;
   final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteSubject;
@@ -488,6 +543,8 @@ class _RequestDetailsDialogContent extends StatefulWidget
     required this.onEditMode,
     required this.onDelete,
     required this.onDeleteMode,
+    required this.onEditNote,
+    required this.onDeleteNote,
     required this.onEditSubject,
     required this.onDeleteSubject,
     this.readOnly = false,
@@ -768,7 +825,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     }
 
     return [
-      _buildModeAction(Icons.edit_outlined, AppTheme.trialTealDeepText, 'Modifica gli orari', () => widget.onEditMode(mode)),
+      _buildModeAction(Icons.schedule_rounded, AppTheme.trialTealDeepText, 'Modifica gli orari', () => widget.onEditMode(mode)),
       // With one mode alone it would do what the footer's ELIMINA does.
       if (_isBooked(_otherMode(mode)))
         _buildModeAction(
@@ -864,6 +921,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     // Hours all over (their end come): the band's subjects stay as they are, as the server holds them.
     final DateTime now = romeNow();
     final bool locked = widget.readOnly || slots.every((slot) => hasBegun(group.date, slot.endTime, now));
+    final String? note = bandNoteOf(slots);
 
     return [
       if (!first)
@@ -886,6 +944,10 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
               child: Icon(Icons.lock_outline_rounded, size: 14, color: AppTheme.trialMutedText),
             ),
           ],
+          if (!locked && note == null) ...[
+            const Spacer(),
+            _buildModeAction(kBandNoteIcon, AppTheme.trialTealDeepText, bandNoteAction(null), () => widget.onEditNote(band)),
+          ],
         ],
       ),
       const SizedBox(height: 10),
@@ -897,6 +959,21 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
             _TimeSlotLabel(label: _timeRangeLabel(slot), online: mode == kOnlineMode),
         ],
       ),
+      if (note != null) ...[
+        const SizedBox(height: 16),
+        BandNoteWell(
+          note: note,
+          trailing: locked
+              ? null
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildModeAction(Icons.edit_outlined, AppTheme.trialTealDeepText, bandNoteAction(note), () => widget.onEditNote(band)),
+                    _buildModeAction(Icons.delete_outline_rounded, AppTheme.trialDangerText, kDeleteBandNote, () => widget.onDeleteNote(band)),
+                  ],
+                ),
+        ),
+      ],
       _buildFieldLabel('Discipline richieste'),
       SubjectRequestList(
         requests: [for (final booking in stored) _draftOf(booking)],

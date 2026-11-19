@@ -50,6 +50,8 @@ class PresenceResponse(PresenceBase):
     booker_tax_code: str
     booker: PersonOption
     bookings: list[BookingSummaryResponse]
+    # The band's note for the board; never sent to teachers.
+    notes: str | None = None
     # The pupil's standing list, for the wizard to leave them out of the offer.
     not_preferred_teachers: list[PersonOption] = Field(default_factory=list)
     # Admins only: to anyone else it would name the teacher of a draft calendar.

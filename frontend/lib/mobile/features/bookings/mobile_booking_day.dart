@@ -8,6 +8,7 @@ import '../../../features/lessons/models/presence_group.dart';
 import '../../../features/lessons/models/presence_item.dart';
 import '../../../features/lessons/utils/booking_window.dart';
 import '../../../features/lessons/utils/opening_window.dart';
+import '../../../features/lessons/widgets/band_note_parts.dart' show bandNoteOf;
 import '../../../features/lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
 import '../../../features/people/models/person_item.dart';
 
@@ -84,6 +85,8 @@ class MobileBookingMode
   });
 
   bool get hasClosed => closedSlotIds.isNotEmpty;
+
+  String? get note => bandNoteOf(slots);
 
   bool get canAddLesson => changeable && slots.any((slot) => !isClosed(slot));
 

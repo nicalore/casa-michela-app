@@ -268,6 +268,29 @@ const String kDurationLabel = 'Durata';
 const String kDurationHoursLabel = 'Ore';
 const String kDurationMinutesLabel = 'Minuti';
 const String kTeacherNotesLabel = 'Note per il docente';
+
+const String kBandNotesLabel = 'Note sulla prenotazione';
+const String kBandNotesQuestion = 'Vuoi aggiungere una nota sulla prenotazione?';
+const String kBandNotesHint =
+    'Se lo desideri, puoi aggiungere delle note che verranno lette dal Direttivo e da chi preparerà il calendario delle '
+    'lezioni.';
+
+String bandNoteAction(String? note) => note == null ? 'Aggiungi una nota' : 'Modifica la nota';
+
+const String kDeleteBandNote = 'Elimina la nota';
+
+// [yours] null: the reader books for themselves.
+String teacherNotesTourText(String? yours) =>
+    'Qui puoi aggiungere eventuali altre informazioni o indicazioni per il docente che '
+    '${yours == null ? 'ti seguirà' : 'seguirà $yours'}.';
+
+// The last step of a booking: «Crea» for a new one, «Salva» for one changed. [verb]: clicca or tocca.
+String bookingFinishTourText(String verb, {required bool editing}) =>
+    'Quando hai terminato, $verb «${editing ? 'Salva' : 'Crea'}» per concludere e salvare la prenotazione.';
+
+// The tours' step on the note's field.
+const String kBandNoteTourText = 'Qui puoi aggiungere altre informazioni o effettuare richieste organizzative. Ciò che '
+    'scriverai sarà letto dal Direttivo e da chi preparerà il calendario delle lezioni.';
 const String kTeacherNotesHint = 'Inserisci...';
 
 const String kRemoveSubjectLink = 'Rimuovi materia';

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/lessons/models/presence_item.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
+import '../../../../features/lessons/widgets/band_note_parts.dart' show BandNoteLine;
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../../shared/widgets/whole_words.dart';
 import '../../../shared/mobile_palette.dart';
@@ -335,6 +337,15 @@ class _ModeBlock extends StatelessWidget
             ],
           ),
         ),
+        if (mode.note case final String note) ...[
+          const SizedBox(height: 6),
+          BandNoteLine(
+            note: note,
+            size: tablet ? 14 : 13,
+            muted: past || mode.hasClosed,
+            mutedInk: MobilePalette.mutedText,
+          ),
+        ],
         for (final (index, lesson) in mode.lessons.indexed) ...[
           SizedBox(height: 8 + (index == 0 ? lead : 0)),
           _lit(
@@ -377,6 +388,13 @@ class _LessonRow extends StatelessWidget
   {
     final double titleSize = tablet ? 17 : 15.5;
 
+    // Whiter than the glass in the light; in the dark the card's own fill would vanish, so a lit tint.
+    final bool dark = ThemeColours.isDark;
+    final Color fill = muted
+        ? MobilePalette.pastSurface
+        : dark ? AppTheme.trialInk.withValues(alpha: 0.08) : AppTheme.surface.withValues(alpha: 0.72);
+    final Color edge = muted ? MobilePalette.pastEdge : AppTheme.trialInk.withValues(alpha: dark ? 0.1 : 0.05);
+
     return Semantics(
       button: true,
       child: GestureDetector(
@@ -385,9 +403,9 @@ class _LessonRow extends StatelessWidget
         child: Container(
           padding: EdgeInsets.fromLTRB(tablet ? 16 : 13, 12, 6, 12),
           decoration: BoxDecoration(
-            color: muted ? MobilePalette.pastSurface : AppTheme.surface.withValues(alpha: 0.72),
+            color: fill,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: muted ? MobilePalette.pastEdge : AppTheme.trialInk.withValues(alpha: 0.05)),
+            border: Border.all(color: edge),
           ),
           child: Row(
             children: [
