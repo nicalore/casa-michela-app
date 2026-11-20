@@ -30,6 +30,9 @@ from app.repositories.calendar_publication_repository import (
 from app.repositories.calendar_teacher_exclusion_repository import (
     CalendarTeacherExclusionRepository,
 )
+from app.repositories.calendar_teacher_note_repository import (
+    CalendarTeacherNoteRepository,
+)
 from app.repositories.lesson_repository import LessonRepository
 from app.repositories.person_repository import PersonRepository
 from app.repositories.presence_repository import PresenceRepository
@@ -388,6 +391,10 @@ class CalendarPublicationService:
         exclusions = await CalendarTeacherExclusionRepository(
             self.session,
         ).list_for_band(day, band)
+        notes = await CalendarTeacherNoteRepository(self.session).list_for_band(
+            day,
+            band,
+        )
 
         return snapshot_of(
             lessons,
@@ -395,6 +402,7 @@ class CalendarPublicationService:
             supervisions,
             activities,
             exclusions,
+            notes,
         )
 
     # Unassigned activities become unreachable once the band is published.

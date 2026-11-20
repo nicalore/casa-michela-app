@@ -37,6 +37,7 @@ import '../models/booking_summary_item.dart';
 import '../models/calendar_day.dart';
 import '../models/calendar_lock_item.dart';
 import '../models/calendar_publication_item.dart';
+import '../models/calendar_teacher_note_item.dart';
 import '../models/lesson_item.dart';
 import '../models/presence_item.dart';
 import '../models/room_day_plan.dart';
@@ -50,7 +51,7 @@ import '../utils/new_members.dart';
 import '../utils/opening_window.dart';
 import '../utils/study_program_lookup.dart';
 import '../utils/timeline_geometry.dart';
-import '../widgets/band_note_parts.dart' show bandNoteIn;
+import '../widgets/band_note_parts.dart' show bandNoteIn, kBandNoteIcon;
 import '../widgets/activity_dialog.dart';
 import '../widgets/activity_details_dialog.dart';
 import '../widgets/calendar_activity_block.dart';
@@ -59,6 +60,7 @@ import '../widgets/calendar_day_agenda.dart';
 import '../widgets/calendar_lesson_block.dart';
 import '../widgets/calendar_lesson_board.dart';
 import '../widgets/calendar_publish_dialogs.dart';
+import '../widgets/teacher_notes_dialog.dart';
 import '../widgets/calendar_request_details.dart';
 import '../widgets/calendar_timeline.dart';
 import '../widgets/lesson_captions.dart';
@@ -320,6 +322,17 @@ class CalendarTab extends StatefulWidget
     required Function(String) onError,
   })? onSaveRoomPlan;
 
+  // The band's notes for the teachers; null when they could not be read.
+  final Future<List<CalendarTeacherNoteItem>?> Function(DateTime day, TimeBucket band)? onLoadTeacherNotes;
+
+  // The notes as the server keeps them, or null if it refused.
+  final Future<List<CalendarTeacherNoteItem>?> Function({
+    required DateTime day,
+    required TimeBucket band,
+    required Map<String, String> notes,
+    required Function(String) onError,
+  })? onSaveTeacherNotes;
+
   final Set<String> excludedTeachers;
 
   final Future<HandedBack?> Function({
@@ -372,6 +385,8 @@ class CalendarTab extends StatefulWidget
     this.onDeleteActivity,
     this.onLoadRoomPlan,
     this.onSaveRoomPlan,
+    this.onLoadTeacherNotes,
+    this.onSaveTeacherNotes,
     this.excludedTeachers = const {},
     this.onExcludeTeacher,
     this.onReadmitTeacher,
@@ -455,6 +470,7 @@ class _CalendarTabState extends State<CalendarTab>
       setState(_syncClock);
       _sayWhichBand();
       _ensureRoomPlan();
+      _loadTeacherNotes();
     });
   }
 
@@ -521,6 +537,9 @@ class _CalendarTabState extends State<CalendarTab>
       _ensureRoomPlan(force: true, quietly: _hasRoomPlan);
     }
 
+    // Again with every refresh of the lessons, like the rooms.
+    _loadTeacherNotes(force: !identical(widget.lessons, oldWidget.lessons));
+
     if (_excluding == 0 && !setEquals(widget.excludedTeachers, oldWidget.excludedTeachers))
     {
       _redraws++;
@@ -580,9 +599,7 @@ class _CalendarTabState extends State<CalendarTab>
   // Below the wide window, read at every build: the controls shrink.
   bool _isDense = false;
 
-  // On the wide window the band's actions weigh the same; below it each is as wide as its words.
-  double? get _actionWidth => _isDense ? null : _publishedActionWidth;
-
+  // While composing each action is as wide as its words, so a third fits beside the search.
   double get _actionHeight => _isDense ? _denseActionHeight : _actionButtonHeight;
 
   double get _actionFontSize => _isDense ? _denseActionFontSize : _actionButtonFontSize;
@@ -2234,6 +2251,97 @@ class _CalendarTabState extends State<CalendarTab>
     return inBuilding;
   }
 
+  List<CalendarTeacherNoteItem> _teacherNotes = const [];
+
+  // Which day and band [_teacherNotes] belong to.
+  String? _teacherNotesKey;
+
+  // The day and band last asked for, so a rebuild does not ask again.
+  String? _teacherNotesAsked;
+
+  static String _notesKeyOf(DateTime day, TimeBucket band) => '${_keyOf(day)}/${band.name}';
+
+  Future<void> _loadTeacherNotes({bool force = false}) async
+  {
+    final load = widget.onLoadTeacherNotes;
+    final day = _day;
+    final band = _band;
+    final key = _notesKeyOf(day, band);
+
+    if (load == null || (!force && _teacherNotesAsked == key))
+    {
+      return;
+    }
+
+    _teacherNotesAsked = key;
+
+    final notes = await load(day, band);
+
+    if (!mounted || notes == null || _notesKeyOf(day, band) != _notesKeyOf(_day, _band))
+    {
+      return;
+    }
+
+    setState(()
+    {
+      _teacherNotes = notes;
+      _teacherNotesKey = _notesKeyOf(day, band);
+    });
+  }
+
+  // Only notes the band can show: a teacher no longer called in keeps none.
+  Map<String, String> get _shownTeacherNotes
+  {
+    if (_teacherNotesKey != _notesKeyOf(_day, _band))
+    {
+      return const {};
+    }
+
+    final called = {for (final lane in convokedTeachers(_lanes)) lane.teacherTaxCode};
+
+    return {
+      for (final note in _teacherNotes)
+        if (called.contains(note.teacherTaxCode)) note.teacherTaxCode: note.text,
+    };
+  }
+
+  Future<void> _openTeacherNotes() async
+  {
+    final save = widget.onSaveTeacherNotes;
+
+    if (save == null)
+    {
+      return;
+    }
+
+    final day = _day;
+    final band = _band;
+
+    await showTeacherNotesDialog(
+      context: context,
+      eyebrow: '${formatWeekdayColumnLabel(day)} ${day.year} · ${bandLabel(band)}',
+      lanes: _lanes,
+      notes: _shownTeacherNotes,
+      onSave: (notes) async
+      {
+        final kept = await save(day: day, band: band, notes: notes, onError: _reportRefusal);
+
+        if (kept == null || !mounted)
+        {
+          return false;
+        }
+
+        setState(()
+        {
+          _teacherNotes = kept;
+          _teacherNotesKey = _notesKeyOf(day, band);
+        });
+
+        return true;
+      },
+    );
+  }
+
   // The load in flight, for whoever needs the rooms to wait for them.
   Future<void>? _roomPlanLoad;
 
@@ -2732,7 +2840,8 @@ class _CalendarTabState extends State<CalendarTab>
     {
       final changed = _publication?.hasChanges ?? false;
 
-      final rooms = openBookingCount(_bookingGroups) == 0 && teachersInBuilding(_lanes).isNotEmpty;
+      final placed = openBookingCount(_bookingGroups) == 0;
+      final rooms = placed && teachersInBuilding(_lanes).isNotEmpty;
 
       return Wrap(
         alignment: WrapAlignment.center,
@@ -2745,19 +2854,18 @@ class _CalendarTabState extends State<CalendarTab>
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
             busy: _isPublishing,
-            width: _actionWidth,
             height: _actionHeight,
             fontSize: _actionFontSize,
             horizontalPadding: _actionPadding,
             onPressed: _discardDraft,
           ),
           if (rooms) _buildRoomsButton(),
+          if (placed && _canWriteTeacherNotes) _buildNotesButton(),
           if (changed)
             AppGradientButton(
               label: tr('PUBBLICA MODIFICHE', 'PUBLISH CHANGES'),
               icon: Icons.send_rounded,
               busy: _isPublishing,
-              width: _actionWidth,
               height: _actionHeight,
               fontSize: _actionFontSize,
               horizontalPadding: _actionPadding,
@@ -2806,55 +2914,66 @@ class _CalendarTabState extends State<CalendarTab>
       return null;
     }
 
-    if (teachersInBuilding(_lanes).isEmpty)
-    {
-      return AppGradientButton(
-        label: tr('PUBBLICA CALENDARIO', 'PUBLISH CALENDAR'),
-        icon: Icons.send_rounded,
-        busy: _isPublishing,
-        disabledReason: _tooEarlyReason,
-        width: _actionWidth,
-        height: _actionHeight,
-        fontSize: _actionFontSize,
-        horizontalPadding: _actionPadding,
-        onPressed: _publish,
-      );
-    }
+    final publish = AppGradientButton(
+      label: tr('PUBBLICA CALENDARIO', 'PUBLISH CALENDAR'),
+      icon: Icons.send_rounded,
+      busy: _isPublishing,
+      disabledReason: _tooEarlyReason,
+      height: _actionHeight,
+      fontSize: _actionFontSize,
+      horizontalPadding: _actionPadding,
+      onPressed: _publish,
+    );
+
+    final bool inBuilding = teachersInBuilding(_lanes).isNotEmpty;
 
     final plan = _roomPlan;
 
-    final settled = _hasRoomPlan &&
-        isRoomPlanSettled(
-          lanes: _dayLanesInBuilding(),
-          assignments: plan!.assignments,
-          supervisions: plan.supervisions,
-        );
+    final settled = !inBuilding ||
+        (_hasRoomPlan &&
+            isRoomPlanSettled(
+              lanes: _dayLanesInBuilding(),
+              assignments: plan!.assignments,
+              supervisions: plan.supervisions,
+            ));
 
-    final rooms = _buildRoomsButton();
+    final buttons = [
+      if (inBuilding) _buildRoomsButton(),
+      if (_canWriteTeacherNotes) _buildNotesButton(),
+      if (settled) publish,
+    ];
 
-    if (!settled)
+    if (buttons.length == 1)
     {
-      return rooms;
+      return buttons.single;
     }
 
     return Wrap(
       spacing: _isDense ? 8 : 14,
       runSpacing: _isDense ? 8 : 12,
       alignment: WrapAlignment.center,
-      children: [
-        rooms,
-        AppGradientButton(
-          label: tr('PUBBLICA CALENDARIO', 'PUBLISH CALENDAR'),
-          icon: Icons.send_rounded,
-          busy: _isPublishing,
-          disabledReason: _tooEarlyReason,
-          width: _actionWidth,
-          height: _actionHeight,
-          fontSize: _actionFontSize,
-          horizontalPadding: _actionPadding,
-          onPressed: _publish,
-        ),
-      ],
+      children: buttons,
+    );
+  }
+
+  // Only once the band's notes are read: saving replaces them all.
+  bool get _canWriteTeacherNotes =>
+      widget.onSaveTeacherNotes != null &&
+      _teacherNotesKey == _notesKeyOf(_day, _band) &&
+      convokedTeachers(_lanes).isNotEmpty;
+
+  Widget _buildNotesButton()
+  {
+    final int count = _shownTeacherNotes.length;
+
+    return AppGradientButton(
+      label: kCalendarTeacherNotesButton,
+      icon: kBandNoteIcon,
+      badge: count > 0 ? '$count' : null,
+      height: _actionHeight,
+      fontSize: _actionFontSize,
+      horizontalPadding: _actionPadding,
+      onPressed: _openTeacherNotes,
     );
   }
 
@@ -2866,7 +2985,6 @@ class _CalendarTabState extends State<CalendarTab>
       label: _hasRoomPlan && plan!.assignments.isNotEmpty ? tr('MODIFICA STANZE', 'EDIT ROOMS') : tr('ASSEGNA STANZE', 'ASSIGN ROOMS'),
       icon: Icons.meeting_room_outlined,
       busy: _isLoadingRoomPlan,
-      width: _actionWidth,
       height: _actionHeight,
       fontSize: _actionFontSize,
       horizontalPadding: _actionPadding,

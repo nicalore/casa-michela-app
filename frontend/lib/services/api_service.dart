@@ -33,6 +33,7 @@ import '../features/lessons/models/activity_item.dart';
 import '../features/lessons/models/availability_item.dart';
 import '../features/lessons/models/calendar_lock_item.dart';
 import '../features/lessons/models/calendar_publication_item.dart';
+import '../features/lessons/models/calendar_teacher_note_item.dart';
 import '../features/lessons/models/lesson_item.dart';
 import '../features/lessons/models/presence_item.dart';
 import '../features/lessons/models/room_supervision_item.dart';
@@ -5972,6 +5973,55 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, tr('Errore durante il reinserimento del docente.', "Couldn't bring the teacher back."));
+    }
+  }
+
+  // Administrators read the band's notes; a teacher reads their own, published bands only.
+  Future<List<CalendarTeacherNoteItem>> getCalendarTeacherNotes({
+    required DateTime day,
+    TimeBucket? band,
+  }) async
+  {
+    final response = await _dio.get(
+      '/calendar-teacher-notes/',
+      queryParameters: {
+        'day': formatDateOnly(day),
+        if (band != null) 'band': LessonItem.formatBand(band),
+      },
+    );
+
+    return [
+      for (final row in (response.data as List).cast<Map<String, dynamic>>()) CalendarTeacherNoteItem.fromJson(row),
+    ];
+  }
+
+  // The band's whole set: teachers left out lose their note.
+  Future<List<CalendarTeacherNoteItem>> replaceCalendarTeacherNotes({
+    required DateTime day,
+    required TimeBucket band,
+    required Map<String, String> notes,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/calendar-teacher-notes/',
+        data: {
+          'date': formatDateOnly(day),
+          'band': LessonItem.formatBand(band),
+          'notes': [
+            for (final MapEntry(:key, :value) in notes.entries) {'teacher_tax_code': key, 'text': value},
+          ],
+        },
+      );
+
+      return [
+        for (final row in (response.data as List).cast<Map<String, dynamic>>()) CalendarTeacherNoteItem.fromJson(row),
+      ];
+    }
+    on DioException catch (e)
+    {
+      _refused(e, tr('Errore durante il salvataggio delle note.', "Couldn't save the notes."));
     }
   }
 

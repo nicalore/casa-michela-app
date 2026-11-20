@@ -22,6 +22,7 @@ import '../../../features/calendar/utils/viewable_days.dart';
 import '../../../features/lessons/models/activity_item.dart';
 import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/models/calendar_publication_item.dart';
+import '../../../features/lessons/models/calendar_teacher_note_item.dart';
 import '../../../features/lessons/models/lesson_item.dart';
 import '../../../features/lessons/models/room_supervision_item.dart';
 import '../../../features/lessons/utils/calendar_jump.dart';
@@ -121,6 +122,9 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
   MobileCalendarDay? _data;
 
   List<MinistrySubjectItem> _ministrySubjects = const [];
+
+  // The administrators' notes to this teacher, in the day's published bands.
+  List<CalendarTeacherNoteItem> _notes = const [];
 
   // Bumped on every fetch so a stale response is dropped.
   int _request = 0;
@@ -408,6 +412,21 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
     _timer = Timer(Duration(seconds: 60 - now.second, milliseconds: -now.millisecond), _tick);
   }
 
+  // A note that cannot be read leaves the calendar as it is.
+  Future<List<CalendarTeacherNoteItem>> _ownNotes(DateTime day) async
+  {
+    try
+    {
+      return await _apiService.getCalendarTeacherNotes(day: day);
+    }
+    catch (e, stackTrace)
+    {
+      reportCaughtError(e, stackTrace, during: 'il caricamento delle note del calendario');
+
+      return const [];
+    }
+  }
+
   Future<void> _load({bool quiet = false}) async
   {
     final int request = ++_request;
@@ -425,6 +444,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
         _apiService.getAvailabilities(dateFrom: day, dateTo: day),
         _apiService.getUnbookedBands(dateFrom: day, dateTo: day),
         _apiService.getCalendarPublications(dateFrom: addDays(_today, 1), dateTo: addDays(_today, 1)),
+        _ownNotes(day),
         if (_ministrySubjects.isEmpty) _apiService.getMinistrySubjects(),
       ]);
 
@@ -435,10 +455,12 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
       setState(()
       {
-        if (results.length > 9)
+        if (results.length > 10)
         {
-          _ministrySubjects = results[9] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[10] as List<MinistrySubjectItem>;
         }
+
+        _notes = results[9] as List<CalendarTeacherNoteItem>;
 
         _publications = results[2] as List<CalendarPublicationItem>;
         _lastDay = lastViewableDay(_today, results[8] as List<CalendarPublicationItem>);
@@ -731,7 +753,13 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
           id: calendarTourCard(band),
           inflate: _tourCardInflate,
           radius: _tourCardRadius,
-          child: MobileConvocationCard(call: shown.call, feminine: _feminine, tablet: tablet, stretched: wide),
+          child: MobileConvocationCard(
+            call: shown.call,
+            feminine: _feminine,
+            tablet: tablet,
+            stretched: wide,
+            note: _notes.where((note) => note.band == band).firstOrNull,
+          ),
         ),
         const SizedBox(height: _cardGap),
         ValueListenableBuilder<DateTime>(

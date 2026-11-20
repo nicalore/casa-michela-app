@@ -6,8 +6,12 @@ import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/calendar/utils/calendar_strings.dart';
 import '../../../../features/calendar/utils/teacher_band_call.dart';
+import '../../../../features/lessons/models/calendar_teacher_note_item.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
+import '../../../../features/lessons/widgets/band_note_parts.dart' show kBandNoteIcon;
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
+import '../../../../shared/widgets/whole_words.dart';
+import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
@@ -41,12 +45,16 @@ class MobileConvocationCard extends StatelessWidget
   final bool tablet;
   final bool stretched;
 
+  // The administrators' note for this teacher and band, if any.
+  final CalendarTeacherNoteItem? note;
+
   const MobileConvocationCard({
     super.key,
     required this.call,
     required this.feminine,
     required this.tablet,
     this.stretched = false,
+    this.note,
   });
 
   @override
@@ -54,10 +62,12 @@ class MobileConvocationCard extends StatelessWidget
   {
     final hull = call.hull;
     final room = call.room;
+    final note = this.note;
     final Set<String> modes = {for (final span in call.byMode) span.mode};
 
     return MobileBandCard(
       eyebrow: convokedWord(feminine: feminine),
+      lead: note == null ? null : MobileConvocationNote(note: note, tablet: tablet),
       hours: hull == null ? '' : formatMinutesRange(hull.$1, hull.$2),
       figures: convocationFigures(call),
       tablet: tablet,
@@ -344,6 +354,9 @@ class MobileBandCard extends StatelessWidget
   // Under the chips, past a rule of its own.
   final Widget? footer;
 
+  // Right under the hours; under the whole row on a stretched card.
+  final Widget? lead;
+
   final String? name;
 
   final bool tablet;
@@ -356,6 +369,7 @@ class MobileBandCard extends StatelessWidget
     required this.figures,
     required this.chips,
     this.footer,
+    this.lead,
     this.name,
     required this.tablet,
     this.stretched = false,
@@ -479,6 +493,7 @@ class MobileBandCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     final Widget? footer = this.footer;
+    final Widget? lead = this.lead;
     final Widget chipList = Wrap(
       spacing: _chipGap,
       runSpacing: _chipGap,
@@ -487,39 +502,46 @@ class MobileBandCard extends StatelessWidget
 
     if (stretched)
     {
-      return MobileGlassPanel(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-        borderRadius: const BorderRadius.all(Radius.circular(_radius)),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(child: _buildHeadline()),
+      final Widget row = IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(child: _buildHeadline()),
+            const SizedBox(width: 24),
+            VerticalDivider(width: 1, thickness: 1, color: _hairline),
+            const SizedBox(width: 20),
+            Center(child: _buildFigures()),
+            if (chips.isEmpty && footer == null)
+              const Spacer()
+            else ...[
               const SizedBox(width: 24),
               VerticalDivider(width: 1, thickness: 1, color: _hairline),
               const SizedBox(width: 20),
-              Center(child: _buildFigures()),
-              if (chips.isEmpty && footer == null)
-                const Spacer()
-              else ...[
-                const SizedBox(width: 24),
-                VerticalDivider(width: 1, thickness: 1, color: _hairline),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (chips.isNotEmpty) chipList,
-                      if (chips.isNotEmpty && footer != null) const SizedBox(height: 14),
-                      ?footer,
-                    ],
-                  ),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (chips.isNotEmpty) chipList,
+                    if (chips.isNotEmpty && footer != null) const SizedBox(height: 14),
+                    ?footer,
+                  ],
                 ),
-              ],
+              ),
             ],
-          ),
+          ],
         ),
+      );
+
+      return MobileGlassPanel(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+        borderRadius: const BorderRadius.all(Radius.circular(_radius)),
+        child: lead == null
+            ? row
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [row, const SizedBox(height: 14), lead],
+              ),
       );
     }
 
@@ -530,6 +552,10 @@ class MobileBandCard extends StatelessWidget
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeadline(),
+          if (lead != null) ...[
+            const SizedBox(height: 14),
+            lead,
+          ],
           const _Rule(),
           _buildFigures(),
           if (chips.isNotEmpty) ...[
@@ -540,6 +566,69 @@ class MobileBandCard extends StatelessWidget
             const _Rule(),
             footer,
           ],
+        ],
+      ),
+    );
+  }
+}
+
+// The note in a well under the hours: the teacher reads it first.
+class MobileConvocationNote extends StatelessWidget
+{
+  final CalendarTeacherNoteItem note;
+  final bool tablet;
+
+  const MobileConvocationNote({super.key, required this.note, required this.tablet});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
+      decoration: BoxDecoration(
+        color: AppTheme.trialInk.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(kBandNoteIcon, size: tablet ? 20 : 19, color: AppTheme.trialOceanText),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                WholeWords(
+                  child: Text(
+                    calendarTeacherNoteHeading(note.author?.fullName).toUpperCase(),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: tablet ? 12 : 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.3,
+                      height: 1.35,
+                      color: MobilePalette.mutedText,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                WholeWords(
+                  child: Text(
+                    withoutOrphans(note.text),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: tablet ? 16 : 15,
+                      fontWeight: FontWeight.w600,
+                      height: 1.45,
+                      color: AppTheme.trialInk,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -36,6 +36,7 @@ import 'models/availability_item.dart';
 import 'models/booking_summary_item.dart';
 import 'models/calendar_lock_item.dart';
 import 'models/calendar_publication_item.dart';
+import 'models/calendar_teacher_note_item.dart';
 import 'models/lesson_item.dart';
 import 'models/presence_item.dart';
 import 'models/room_day_plan.dart';
@@ -893,6 +894,37 @@ class _LessonsPageState extends State<LessonsPage>
         assignments: results[0] as List<TeacherRoomAssignmentItem>,
         supervisions: results[1] as List<RoomSupervisionItem>,
       );
+    }
+    catch (e)
+    {
+      onError(readableApiError(e));
+
+      return null;
+    }
+  }
+
+  Future<List<CalendarTeacherNoteItem>?> _executeLoadTeacherNotes(DateTime day, TimeBucket band) async
+  {
+    try
+    {
+      return await _apiService.getCalendarTeacherNotes(day: day, band: band);
+    }
+    catch (_)
+    {
+      return null;
+    }
+  }
+
+  Future<List<CalendarTeacherNoteItem>?> _executeSaveTeacherNotes({
+    required DateTime day,
+    required TimeBucket band,
+    required Map<String, String> notes,
+    required Function(String) onError,
+  }) async
+  {
+    try
+    {
+      return await _apiService.replaceCalendarTeacherNotes(day: day, band: band, notes: notes);
     }
     catch (e)
     {
@@ -2413,6 +2445,8 @@ class _LessonsPageState extends State<LessonsPage>
       onCloseDraft: _isCalendarShut ? null : _executeCloseDraft,
       onDiscardDraft: _isCalendarShut ? null : _executeDiscardDraft,
       onSaveRoomPlan: _isCalendarShut ? null : _executeSaveRoomPlan,
+      onLoadTeacherNotes: _executeLoadTeacherNotes,
+      onSaveTeacherNotes: _isCalendarShut ? null : _executeSaveTeacherNotes,
       excludedTeachers: _excludedTeachers,
       onExcludeTeacher: _isCalendarShut ? null : _executeExcludeTeacher,
       onReadmitTeacher: _isCalendarShut ? null : _executeReadmitTeacher,

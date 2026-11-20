@@ -13,6 +13,9 @@ from app.repositories.calendar_activity_repository import (
 from app.repositories.calendar_teacher_exclusion_repository import (
     CalendarTeacherExclusionRepository,
 )
+from app.repositories.calendar_teacher_note_repository import (
+    CalendarTeacherNoteRepository,
+)
 from app.repositories.lesson_repository import LessonRepository
 from app.repositories.room_supervision_repository import RoomSupervisionRepository
 from app.repositories.teacher_room_assignment_repository import (
@@ -46,6 +49,7 @@ async def _settled_pictures(
             await RoomSupervisionRepository(session).list_for_day(day),
             await CalendarActivityRepository(session).list_for_band(day, band),
             await CalendarTeacherExclusionRepository(session).list_for_band(day, band),
+            await CalendarTeacherNoteRepository(session).list_for_band(day, band),
         )
 
     return pictures

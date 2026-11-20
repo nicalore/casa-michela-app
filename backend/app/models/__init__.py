@@ -15,6 +15,7 @@ from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_band_lock import CalendarBandLock
 from app.models.calendar_publication import CalendarPublication
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
+from app.models.calendar_teacher_note import CalendarTeacherNote
 from app.models.collaboration_change import CollaborationChange
 from app.models.compensation_term import CompensationTerm
 from app.models.competence_waiver import CompetenceWaiver
@@ -104,6 +105,7 @@ __all__ = [
     "CalendarBandLock",
     "CalendarPublication",
     "CalendarTeacherExclusion",
+    "CalendarTeacherNote",
     "CollaborationChange",
     "CompensationTerm",
     "CompetenceWaiver",

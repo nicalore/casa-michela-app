@@ -20,6 +20,9 @@ class BandSummaryCard extends StatelessWidget
   // Under the chips, past the same rule.
   final Widget? footer;
 
+  // Right under the title and its numbers, before the rule.
+  final Widget? lead;
+
   final bool compact;
 
   const BandSummaryCard({
@@ -29,6 +32,7 @@ class BandSummaryCard extends StatelessWidget
     this.summary,
     this.chips = const [],
     this.footer,
+    this.lead,
     this.compact = false,
   });
 
@@ -38,6 +42,7 @@ class BandSummaryCard extends StatelessWidget
     final eyebrow = this.eyebrow;
     final summary = this.summary;
     final footer = this.footer;
+    final lead = this.lead;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -100,6 +105,10 @@ class BandSummaryCard extends StatelessWidget
               ],
             ],
           ),
+          if (lead != null) ...[
+            const SizedBox(height: 8),
+            lead,
+          ],
           if (footer != null) ...[
             const SizedBox(height: 8),
             Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
@@ -122,6 +131,7 @@ class BandSummaryCard extends StatelessWidget
     final eyebrow = this.eyebrow;
     final summary = this.summary;
     final footer = this.footer;
+    final lead = this.lead;
     final double gap = compact ? 12 : 16;
 
     return Container(
@@ -166,6 +176,10 @@ class BandSummaryCard extends StatelessWidget
                 color: AppTheme.trialMutedText,
               ),
             ),
+          ],
+          if (lead != null) ...[
+            SizedBox(height: gap),
+            lead,
           ],
           if (chips.isNotEmpty || footer != null) ...[
             SizedBox(height: gap),

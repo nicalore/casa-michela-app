@@ -21,6 +21,7 @@ from app.api import (
     calendar_locks,
     calendar_publications,
     calendar_teacher_exclusions,
+    calendar_teacher_notes,
     compensation,
     courses,
     documents,
@@ -180,6 +181,7 @@ app.include_router(calendar_publications.router)
 app.include_router(calendar_locks.router)
 app.include_router(calendar_activities.router)
 app.include_router(calendar_teacher_exclusions.router)
+app.include_router(calendar_teacher_notes.router)
 app.include_router(notices.router)
 app.include_router(notifications.router)
 app.include_router(reports.router)

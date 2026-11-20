@@ -4,7 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../lessons/models/calendar_teacher_note_item.dart';
 import '../../lessons/utils/opening_window.dart';
+import '../../lessons/widgets/band_note_parts.dart' show kBandNoteIcon;
 import '../../lessons/widgets/calendar_lesson_block.dart';
 import '../../lessons/widgets/person_avatar.dart';
 import '../utils/calendar_strings.dart';
@@ -17,7 +19,10 @@ class ConvocationCard extends StatelessWidget
 
   final bool isFeminine;
 
-  const ConvocationCard({super.key, required this.call, required this.isFeminine});
+  // The administrators' note for this teacher and band, if any.
+  final CalendarTeacherNoteItem? note;
+
+  const ConvocationCard({super.key, required this.call, required this.isFeminine, this.note});
 
   // In the building the room speaks for the mode; "In presenza" only while no room is set.
   // Changing room, each room has a section of its own below instead.
@@ -66,11 +71,74 @@ class ConvocationCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool dense = AppBreakpoints.of(context).isDense;
+    final note = this.note;
+
     return BandSummaryCard(
       title: convocationTitle(call, feminine: isFeminine),
       summary: convocationSummary(call),
+      lead: note == null ? null : ConvocationNoteWell(note: note, dense: dense),
       chips: _buildChips(),
-      footer: _buildFooter(AppBreakpoints.of(context).isDense),
+      footer: _buildFooter(dense),
+    );
+  }
+}
+
+// The note in the card's well, under the title: the teacher reads it first.
+class ConvocationNoteWell extends StatelessWidget
+{
+  final CalendarTeacherNoteItem note;
+
+  final bool dense;
+
+  const ConvocationNoteWell({super.key, required this.note, this.dense = false});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      padding: dense ? const EdgeInsets.fromLTRB(10, 8, 12, 9) : const EdgeInsets.fromLTRB(16, 13, 18, 14),
+      decoration: BoxDecoration(
+        color: AppTheme.trialPaper,
+        borderRadius: BorderRadius.circular(dense ? 10 : 14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(kBandNoteIcon, size: dense ? 16 : 20, color: AppTheme.trialOceanText),
+          ),
+          SizedBox(width: dense ? 8 : 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  calendarTeacherNoteHeading(note.author?.fullName).toUpperCase(),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: dense ? 9.5 : 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: dense ? 1.2 : 1.4,
+                    color: AppTheme.trialMutedText,
+                  ),
+                ),
+                SizedBox(height: dense ? 3 : 8),
+                Text(
+                  note.text,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: dense ? 13 : 15,
+                    fontWeight: FontWeight.w600,
+                    height: dense ? 1.35 : 1.45,
+                    color: AppTheme.trialInk,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

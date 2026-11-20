@@ -9,9 +9,11 @@ from app.models.availability import Availability
 from app.models.booking import Booking
 from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
+from app.models.calendar_teacher_note import CalendarTeacherNote
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
+from app.models.person import Person
 from app.models.room_supervision import RoomSupervision
 from app.models.teacher import Teacher
 from app.models.teacher_room_assignment import MIDNIGHT, TeacherRoomAssignment
@@ -24,6 +26,7 @@ _ASSIGNMENTS: Final[str] = "assignments"
 _SUPERVISIONS: Final[str] = "supervisions"
 _ACTIVITIES: Final[str] = "activities"
 _EXCLUSIONS: Final[str] = "exclusions"
+_NOTES: Final[str] = "teacher_notes"
 
 
 def _lesson_row(lesson: Lesson) -> dict[str, Any]:
@@ -101,6 +104,14 @@ def _activity_row(activity: CalendarActivity) -> dict[str, Any]:
     }
 
 
+def _note_row(note: CalendarTeacherNote) -> dict[str, Any]:
+    return {
+        "teacher_tax_code": note.teacher_tax_code,
+        "text": note.text,
+        "author_tax_code": note.author_tax_code,
+    }
+
+
 def _ordered(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: sorted(row.items(), key=lambda p: p[0]))
 
@@ -120,8 +131,22 @@ def snapshot_of(
     supervisions: Sequence[RoomSupervision],
     activities: Sequence[CalendarActivity] = (),
     exclusions: Sequence[CalendarTeacherExclusion] = (),
+    notes: Sequence[CalendarTeacherNote] | None = None,
 ) -> dict[str, Any]:
+    # Left out when not given, so restoring leaves the notes as they are.
+    taken = (
+        {}
+        if notes is None
+        else {
+            _NOTES: sorted(
+                (_note_row(note) for note in notes),
+                key=lambda row: row["teacher_tax_code"],
+            ),
+        }
+    )
+
     return {
+        **taken,
         _LESSONS: _ordered([_lesson_row(lesson) for lesson in lessons]),
         _ASSIGNMENTS: _ordered([_assignment_row(row) for row in assignments]),
         _SUPERVISIONS: _ordered([_supervision_row(row) for row in supervisions]),
@@ -149,8 +174,26 @@ def without_teacher(snapshot: dict[str, Any], tax_code: str) -> dict[str, Any]:
         "end_time": None,
     }
 
+    notes = {}
+
+    if _NOTES in snapshot:
+        notes = {
+            _NOTES: [
+                {
+                    **row,
+                    "author_tax_code": (
+                        None
+                        if row["author_tax_code"] == tax_code
+                        else row["author_tax_code"]
+                    ),
+                }
+                for row in others(_NOTES)
+            ],
+        }
+
     return {
         **snapshot,
+        **notes,
         _LESSONS: others(_LESSONS),
         _ASSIGNMENTS: others(_ASSIGNMENTS),
         _SUPERVISIONS: others(_SUPERVISIONS),
@@ -166,9 +209,14 @@ def without_teacher(snapshot: dict[str, Any], tax_code: str) -> dict[str, Any]:
     }
 
 
-# Exclusions were never published, so they don't count toward "changed".
+# Exclusions were never published, and notes go out to no one again: neither
+# counts toward "changed".
 def _as_published(snapshot: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in snapshot.items() if key != _EXCLUSIONS}
+    return {
+        key: value
+        for key, value in snapshot.items()
+        if key not in (_EXCLUSIONS, _NOTES)
+    }
 
 
 def differs(before: dict[str, Any], after: dict[str, Any]) -> bool:
@@ -257,8 +305,75 @@ async def restore(
     await _restore_rooms(session, day, snapshot, surviving)
     await _restore_activities(session, day, band, snapshot)
     await _restore_exclusions(session, day, band, snapshot)
+    await _restore_notes(session, day, band, snapshot)
 
     return len(stored) - len(surviving)
+
+
+async def _restore_notes(
+    session: AsyncSession,
+    day: date,
+    band: str,
+    snapshot: dict[str, Any],
+) -> None:
+    if _NOTES not in snapshot:
+        return
+
+    current = (
+        await session.scalars(
+            select(CalendarTeacherNote).where(
+                CalendarTeacherNote.date == day,
+                CalendarTeacherNote.band == band,
+            ),
+        )
+    ).all()
+
+    for note in current:
+        await session.delete(note)
+
+    await session.flush()
+
+    rows = snapshot[_NOTES]
+
+    if not rows:
+        return
+
+    teaching = set(
+        (
+            await session.scalars(
+                select(Teacher.tax_code).where(
+                    Teacher.tax_code.in_({row["teacher_tax_code"] for row in rows}),
+                ),
+            )
+        ).all(),
+    )
+    authors = set(
+        (
+            await session.scalars(
+                select(Person.tax_code).where(
+                    Person.tax_code.in_({row["author_tax_code"] for row in rows}),
+                ),
+            )
+        ).all(),
+    )
+
+    for row in rows:
+        if row["teacher_tax_code"] not in teaching:
+            continue
+
+        author = row["author_tax_code"]
+
+        session.add(
+            CalendarTeacherNote(
+                date=day,
+                band=band,
+                teacher_tax_code=row["teacher_tax_code"],
+                text=row["text"],
+                author_tax_code=author if author in authors else None,
+            ),
+        )
+
+    await session.flush()
 
 
 async def _restore_exclusions(

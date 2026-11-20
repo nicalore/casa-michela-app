@@ -18,6 +18,7 @@ import '../association/tabs/opening_hours/calendar_bounds.dart';
 import '../lessons/models/activity_item.dart';
 import '../lessons/models/availability_item.dart';
 import '../lessons/models/calendar_day.dart';
+import '../lessons/models/calendar_teacher_note_item.dart';
 import '../lessons/models/calendar_publication_item.dart';
 import '../lessons/models/lesson_item.dart';
 import '../lessons/models/room_supervision_item.dart';
@@ -88,6 +89,9 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   List<ActivityItem> _activities = [];
   List<RoomSupervisionItem> _supervisions = [];
   List<AvailabilityItem> _availabilities = [];
+
+  // The administrators' notes to this teacher, in the day's published bands.
+  List<CalendarTeacherNoteItem> _notes = [];
 
   List<MinistrySubjectItem> _ministrySubjects = [];
 
@@ -233,6 +237,21 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     }
   }
 
+  // A note that cannot be read leaves the calendar as it is.
+  Future<List<CalendarTeacherNoteItem>> _ownNotes(DateTime day) async
+  {
+    try
+    {
+      return await _apiService.getCalendarTeacherNotes(day: day);
+    }
+    catch (e, stackTrace)
+    {
+      reportCaughtError(e, stackTrace, during: 'il caricamento delle note del calendario');
+
+      return const [];
+    }
+  }
+
   Future<void> _loadDay({bool quiet = false}) async
   {
     final int request = ++_request;
@@ -250,6 +269,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
         _apiService.getAvailabilities(dateFrom: day, dateTo: day),
         _apiService.getUnbookedBands(dateFrom: day, dateTo: day),
         _apiService.getCalendarPublications(dateFrom: addDays(_today, 1), dateTo: addDays(_today, 1)),
+        _ownNotes(day),
         if (_ministrySubjects.isEmpty) _apiService.getMinistrySubjects(),
       ]);
 
@@ -271,10 +291,11 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
         _availabilities = results[6] as List<AvailabilityItem>;
         _unbooked = results[7] as List<(DateTime, TimeBucket)>;
         _lastDay = lastViewableDay(_today, results[8] as List<CalendarPublicationItem>);
+        _notes = results[9] as List<CalendarTeacherNoteItem>;
 
-        if (results.length > 9)
+        if (results.length > 10)
         {
-          _ministrySubjects = results[9] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[10] as List<MinistrySubjectItem>;
         }
 
         _isLoading = false;
@@ -566,7 +587,11 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     return CalendarSplitBody(
       top: DesktopTourTarget(
         id: kTourCalendarCard,
-        child: ConvocationCard(call: call, isFeminine: _isFeminine),
+        child: ConvocationCard(
+          call: call,
+          isFeminine: _isFeminine,
+          note: _notes.where((note) => note.band == _band).firstOrNull,
+        ),
       ),
       day: isNarrow
           ? Center(

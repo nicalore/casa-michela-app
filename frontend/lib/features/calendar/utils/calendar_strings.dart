@@ -153,3 +153,22 @@ String presenceSummary(PupilBandPresence presence)
 {
   return presenceFigures(presence).map((figure) => '${figure.value} ${figure.label}').join(' · ');
 }
+
+// Notes an administrator leaves each convened teacher before publishing.
+String get kCalendarTeacherNotesButton => tr('NOTE AI DOCENTI', 'NOTES FOR TEACHERS');
+
+String get kCalendarTeacherNotesTitle => tr('Note ai docenti', 'Notes for teachers');
+
+String get kCalendarTeacherNotesQuestion =>
+    tr('Vuoi lasciare una nota ai docenti convocati?', 'Would you like to leave a note for the teachers called in?');
+
+String get kCalendarTeacherNotesHint =>
+    tr('Ogni docente leggerà solo la propria nota, dopo la pubblicazione.', 'Each teacher will read only their own note, after publication.');
+
+String calendarTeacherNoteField(String firstName) => tr('Nota per $firstName', 'Note for $firstName');
+
+// [author] null once the writer's record is gone.
+String calendarTeacherNoteHeading(String? author)
+{
+  return author == null ? tr('Nota per te', 'A note for you') : tr('Nota per te da $author', 'A note for you from $author');
+}

@@ -258,7 +258,7 @@ String get kCookieTitle => tr('Cookie policy', 'Cookie policy');
 
 String get kDocumentOpenFailed => tr('Non è stato possibile aprire il documento.', "Couldn't open the document.");
 
-const String kAppVersion = '0.8.0 - Alpha';
+const String kAppVersion = '0.8.1 - Alpha';
 
 String get kDevelopmentWarning => tr(
     'ATTENZIONE: Applicazione attualmente in sviluppo. '
