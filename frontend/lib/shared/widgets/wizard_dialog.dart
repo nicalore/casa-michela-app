@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/field_limits.dart';
+import '../../core/language/app_language.dart';
 import 'app_carousel_frame.dart';
 import 'app_dialog_footer.dart';
 import 'app_dialog_stack.dart';
@@ -15,8 +16,8 @@ const double kWizardButtonFontSize = 14;
 
 const double kWizardDialogWidth = 540;
 
-const String kDescriptionFieldLabel = 'Descrizione (opzionale)';
-const String kDescriptionFieldHint = 'Aggiungi una descrizione...';
+String get kDescriptionFieldLabel => tr('Descrizione (opzionale)', 'Description (optional)');
+String get kDescriptionFieldHint => tr('Aggiungi una descrizione...', 'Add a description...');
 
 class DescriptionField extends StatelessWidget
 {
@@ -118,7 +119,7 @@ mixin WizardDialogState<T extends StatefulWidget> on State<T>
   {
     return AppDialogFooter.single(
       AppGradientButton(
-        label: isEditing ? 'SALVA' : 'CREA',
+        label: isEditing ? tr('SALVA', 'SAVE') : tr('CREA', 'CREATE'),
         icon: Icons.check_rounded,
         busy: isSaving,
         height: kWizardButtonHeight,
@@ -204,7 +205,7 @@ mixin TwoStepWizardState<T extends StatefulWidget> on WizardDialogState<T>
   })
   {
     return AppDialogStack(
-      eyebrow: 'Passo ${step + 1} di 2',
+      eyebrow: tr('Passo ${step + 1} di 2', 'Step ${step + 1} of 2'),
       title: title,
       onClose: closeDialog,
       maxWidth: contentMaxWidth +

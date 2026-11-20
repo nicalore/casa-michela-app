@@ -6,6 +6,8 @@ from typing import Final
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from app.core.i18n import tr
+
 UPLOADS_DIR: Final[Path] = Path("uploads")
 
 PROFILE_IMAGES_DIR: Final[Path] = UPLOADS_DIR / "profile-images"
@@ -29,7 +31,9 @@ def store_profile_image(previous_url: str | None, content: bytes) -> str:
             oriented = ImageOps.exif_transpose(image).convert("RGBA")
 
     except UnidentifiedImageError:
-        raise ValueError(INVALID_IMAGE_ERROR) from None
+        raise ValueError(
+            tr(INVALID_IMAGE_ERROR, "Only JPEG, PNG and WEBP images are allowed")
+        ) from None
 
     flattened = Image.new("RGB", oriented.size, "white")
     flattened.paste(oriented, mask=oriented.getchannel("A"))
@@ -89,6 +93,12 @@ STATUTE_DOCUMENT: Final[Path] = DOCUMENTS_DIR / "Statuto Casa Michela.pdf"
 TERMS_DOCUMENT: Final[Path] = DOCUMENTS_DIR / "Termini e Condizioni.pdf"
 PRIVACY_DOCUMENT: Final[Path] = DOCUMENTS_DIR / "Privacy Policy.pdf"
 COOKIE_DOCUMENT: Final[Path] = DOCUMENTS_DIR / "Cookie Policy.pdf"
+
+# The same three printed from the English version on iubenda.
+ENGLISH_DOCUMENTS_DIR: Final[Path] = DOCUMENTS_DIR / "en"
+ENGLISH_TERMS_DOCUMENT: Final[Path] = ENGLISH_DOCUMENTS_DIR / "Terms and Conditions.pdf"
+ENGLISH_PRIVACY_DOCUMENT: Final[Path] = ENGLISH_DOCUMENTS_DIR / "Privacy Policy.pdf"
+ENGLISH_COOKIE_DOCUMENT: Final[Path] = ENGLISH_DOCUMENTS_DIR / "Cookie Policy.pdf"
 
 # The app logo at twice the size emails draw it, reduced to a palette.
 EMAIL_LOGO: Final[Path] = DOCUMENTS_DIR / "email_logo.png"

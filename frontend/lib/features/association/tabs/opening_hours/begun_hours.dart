@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../lessons/utils/opening_window.dart';
 import '../../models/opening_day_item.dart';
@@ -10,11 +11,14 @@ import '../../models/weekly_template_item.dart';
 
 typedef HoursSpan = (TimeOfDay, TimeOfDay);
 
-const String kPastDaysError = 'Non si possono cambiare gli orari dei giorni passati.';
+String get kPastDaysError => tr('Non si possono cambiare gli orari dei giorni passati.', "The hours of past days can't be changed.");
 
-String begunHoursError(String mode, TimeBucket band) =>
-    'Gli orari ${modeLabel(mode).toLowerCase()} ${ofBandLabel(band)} di oggi sono già iniziati: '
-        'non si possono più cambiare.';
+String begunHoursError(String mode, TimeBucket band) => tr(
+  'Gli orari ${modeLabel(mode).toLowerCase()} ${ofBandLabel(band)} di oggi sono già iniziati: '
+      'non si possono più cambiare.',
+  "Today's ${bandLabel(band).toLowerCase()} hours ${modeLabel(mode).toLowerCase()} have already begun: "
+      'they can no longer be changed.',
+);
 
 List<HoursSpan> hoursOfRows(Iterable<OpeningDayItem> rows, String mode)
 {

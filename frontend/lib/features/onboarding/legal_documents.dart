@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/utils/rome_clock.dart';
 import '../../core/utils/week_range.dart';
 
@@ -20,36 +21,51 @@ class LegalDocument
 }
 
 // iubenda's own pages, opened on a tap; the app embeds none of their scripts.
-const List<LegalDocument> kLegalDocuments = [
+// The English version has its own id on the same iubenda site.
+List<LegalDocument> get kLegalDocuments => [
   LegalDocument(
     icon: Icons.gavel_rounded,
-    title: 'Termini e Condizioni',
-    subtitle: "Le regole per l'uso dell'applicazione",
-    url: 'https://www.iubenda.com/termini-e-condizioni/84343803',
+    title: tr('Termini e Condizioni', 'Terms and Conditions'),
+    subtitle: tr("Le regole per l'uso dell'applicazione", 'The rules for using the app'),
+    url: isEnglish
+        ? 'https://www.iubenda.com/terms-and-conditions/90366927'
+        : 'https://www.iubenda.com/termini-e-condizioni/84343803',
   ),
   LegalDocument(
     icon: Icons.privacy_tip_rounded,
     title: 'Privacy Policy',
-    subtitle: 'Quali dati trattiamo, perché e per quanto tempo',
-    url: 'https://www.iubenda.com/privacy-policy/84343803',
+    subtitle: tr('Quali dati trattiamo, perché e per quanto tempo', 'What data we handle, why and for how long'),
+    url: isEnglish
+        ? 'https://www.iubenda.com/privacy-policy/90366927'
+        : 'https://www.iubenda.com/privacy-policy/84343803',
   ),
   LegalDocument(
     icon: Icons.cookie_rounded,
     title: 'Cookie Policy',
-    subtitle: "Cosa l'applicazione salva sul tuo dispositivo",
-    url: 'https://www.iubenda.com/privacy-policy/84343803/cookie-policy',
+    subtitle: tr("Cosa l'applicazione salva sul tuo dispositivo", 'What the app saves on your device'),
+    url: isEnglish
+        ? 'https://www.iubenda.com/privacy-policy/90366927/cookie-policy'
+        : 'https://www.iubenda.com/privacy-policy/84343803/cookie-policy',
   ),
 ];
 
-const String kTermsDeclaration = 'Dichiaro di aver letto e di accettare i Termini e Condizioni, '
-    'la Privacy Policy e la Cookie Policy.';
+String get kTermsDeclaration => tr(
+    'Dichiaro di aver letto e di accettare i Termini e Condizioni, '
+    'la Privacy Policy e la Cookie Policy.',
+    'I declare that I have read and accept the Terms and Conditions, '
+    'the Privacy Policy and the Cookie Policy.',
+);
 
-const String kTermsRefusal = 'Per proseguire, conferma di aver letto e accettato i documenti.';
+String get kTermsRefusal => tr('Per proseguire, conferma di aver letto e accettato i documenti.', 'To go on, confirm that you have read and accepted the documents.');
 
-const String kTermsUpdateTitle = 'Documenti aggiornati';
+String get kTermsUpdateTitle => tr('Documenti aggiornati', 'Updated documents');
 
-const String kTermsUpdateText = "Abbiamo modificato i documenti che regolano l'uso dell'applicazione e spiegano come "
-    'trattiamo i tuoi dati. Per proseguire, leggili e conferma di accettarli nuovamente.';
+String get kTermsUpdateText => tr(
+    "Abbiamo modificato i documenti che regolano l'uso dell'applicazione e spiegano come "
+    'trattiamo i tuoi dati. Per proseguire, leggili e conferma di accettarli nuovamente.',
+    'We have changed the documents that govern the use of the app and explain how '
+    'we handle your data. To go on, read them and confirm that you accept them again.',
+);
 
 // The day the IT manager asked, on Rome's calendar: "28 ottobre 2026".
 String termsUpdateEyebrow(DateTime updatedAt)

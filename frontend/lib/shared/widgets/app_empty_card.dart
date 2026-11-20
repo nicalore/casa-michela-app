@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import 'desktop_tour.dart';
 import 'page_transition.dart';
 import 'scroll_edge_fade.dart';
 
-const String kNoSearchMatch = 'Nessun elemento trovato per questa ricerca.';
+String get kNoSearchMatch => tr('Nessun elemento trovato per questa ricerca.', 'Nothing found for this search.');
 
 const double _detailMaxWidth = 460;
 
@@ -139,5 +140,5 @@ AppEmptyCard? emptyListCard({
 
   return total == 0
       ? AppEmptyCard(icon: icon, message: none)
-      : const AppEmptyCard(icon: Icons.search_off_rounded, message: kNoSearchMatch);
+      : AppEmptyCard(icon: Icons.search_off_rounded, message: kNoSearchMatch);
 }

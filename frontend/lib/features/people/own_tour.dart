@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/language/app_language.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
@@ -30,16 +31,33 @@ const int _studentVersion = 2;
 const int _parentVersion = 1;
 const int _psychologistVersion = 1;
 
-const String _about = 'In questo menù puoi consultare tutte le tue informazioni personali.';
-const String _report = 'Se noti inesattezze o alcune informazioni sono cambiate, ti preghiamo di farcelo sapere.';
-const String _faceEdit = 'Cliccando sulla tua foto profilo puoi modificarla.';
-const String _filters =
-    "Puoi consultare le statistiche delle lezioni in presenza oppure online, e scegliere l'intervallo di tempo che "
-    'desideri analizzare.';
-const String _observations =
-    'Qui trovi le osservazioni che gli amministratori scrivono su di te, derivate sia dai feedback ricevuti da '
-    'studenti e genitori sulle tue lezioni, sia da una valutazione del tuo operato in base ad alcuni criteri.';
-const String _criteria = 'Cliccando su questa icona puoi leggere i criteri su cui si basa questa valutazione.';
+String get _about => tr(
+  'In questo menù puoi consultare tutte le tue informazioni personali.',
+  'In this menu you can see all your personal information.',
+);
+String get _report => tr(
+  'Se noti inesattezze o alcune informazioni sono cambiate, ti preghiamo di farcelo sapere.',
+  'If you notice any mistakes or some information has changed, please let us know.',
+);
+String get _faceEdit => tr(
+  'Cliccando sulla tua foto profilo puoi modificarla.',
+  'Click your profile photo to change it.',
+);
+String get _filters => tr(
+  "Puoi consultare le statistiche delle lezioni in presenza oppure online, e scegliere l'intervallo di tempo che "
+      'desideri analizzare.',
+  'You can see the statistics of in-person or online lessons, and choose the time range you want to analyse.',
+);
+String get _observations => tr(
+  'Qui trovi le osservazioni che gli amministratori scrivono su di te, derivate sia dai feedback ricevuti da '
+      'studenti e genitori sulle tue lezioni, sia da una valutazione del tuo operato in base ad alcuni criteri.',
+  'Here you find the observations the administrators write about you, drawn both from the feedback students and '
+      'parents give on your lessons and from an assessment of your work against a few criteria.',
+);
+String get _criteria => tr(
+  'Cliccando su questa icona puoi leggere i criteri su cui si basa questa valutazione.',
+  'Click this icon to read the criteria this assessment is based on.',
+);
 
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.right];
 const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.below];
@@ -86,9 +104,9 @@ Future<bool> ownTourSeen(DesktopTour tour) async
 List<DesktopTourStep> _pageSteps({required String face})
 {
   return [
-    const DesktopTourStep(text: _about),
-    const DesktopTourStep(
-      targets: [kTourOwnReport],
+    DesktopTourStep(text: _about),
+    DesktopTourStep(
+      targets: const [kTourOwnReport],
       text: _report,
       sides: _over,
       pad: 6,
@@ -129,11 +147,15 @@ DesktopTour studentOwnTour({required String title, required ValueChanged<String>
     version: _studentVersion,
     steps: [
       ..._pageSteps(face: _faceEdit),
-      _click(kTourOwnToStats, 'Clicca «Statistiche personali».', 'stats'),
+      _click(kTourOwnToStats, tr('Clicca «Statistiche personali».', 'Click “Personal statistics”.'), 'stats'),
       DesktopTourStep(
         targets: const [kTourOwnStats],
-        text: 'Qui puoi vedere le presenze che hai fatto nel tempo, le materie su cui hai svolto più ore di lezione e i '
-            'docenti con cui hai lavorato di più.',
+        text: tr(
+          'Qui puoi vedere le presenze che hai fatto nel tempo, le materie su cui hai svolto più ore di lezione e i '
+              'docenti con cui hai lavorato di più.',
+          'Here you can see your attendance over time, the subjects with the most lesson hours and the teachers you '
+              'worked with the most.',
+        ),
         sides: _below,
         pad: 6,
         radius: 43,
@@ -185,15 +207,23 @@ DesktopTour teacherOwnTour({required String title, required ValueChanged<String>
     version: _teacherVersion,
     steps: [
       ..._pageSteps(
-        face: '$_faceEdit Sarà visibile a studenti e genitori, pertanto scegline una in cui sia presente solo tu e in '
-            'cui ti si veda bene in volto.',
+        face: tr(
+          '$_faceEdit Sarà visibile a studenti e genitori, pertanto scegline una in cui sia presente solo tu e in '
+              'cui ti si veda bene in volto.',
+          '$_faceEdit Students and parents will see it, so choose one where only you appear and your face is clearly '
+              'visible.',
+        ),
       ),
-      _click(kTourOwnToOther, 'Clicca «Altre informazioni».', 'other'),
+      _click(kTourOwnToOther, tr('Clicca «Altre informazioni».', 'Click “Other information”.'), 'other'),
       DesktopTourStep(
         targets: const [kTourOwnStudies, kTourOwnStudiesEdit],
         apart: true,
-        text: 'Puoi modificare in qualsiasi momento le informazioni relative ai tuoi studi. Poiché saranno visibili a '
-            'studenti e genitori, ti chiediamo di mantenerle sempre accurate e aggiornate.',
+        text: tr(
+          'Puoi modificare in qualsiasi momento le informazioni relative ai tuoi studi. Poiché saranno visibili a '
+              'studenti e genitori, ti chiediamo di mantenerle sempre accurate e aggiornate.',
+          'You can change the information about your studies at any time. Since students and parents will see it, '
+              'please always keep it accurate and up to date.',
+        ),
         sides: _beside,
         pad: 6,
         radius: 17,
@@ -205,11 +235,15 @@ DesktopTour teacherOwnTour({required String title, required ValueChanged<String>
         present: () => _on('other') && _shown(kTourOwnStudies),
         coming: () => true,
       ),
-      _click(kTourOwnToStats, 'Clicca «Statistiche personali».', 'stats'),
+      _click(kTourOwnToStats, tr('Clicca «Statistiche personali».', 'Click “Personal statistics”.'), 'stats'),
       DesktopTourStep(
         targets: const [kTourOwnStats],
-        text: 'Qui puoi vedere le disponibilità che hai dato nel tempo, le discipline che hai insegnato e gli studenti '
-            'che hai seguito.',
+        text: tr(
+          'Qui puoi vedere le disponibilità che hai dato nel tempo, le discipline che hai insegnato e gli studenti '
+              'che hai seguito.',
+          'Here you can see the availability you have given over time, the disciplines you have taught and the '
+              'students you have followed.',
+        ),
         sides: _below,
         pad: 6,
         radius: 43,
@@ -226,7 +260,7 @@ DesktopTour teacherOwnTour({required String title, required ValueChanged<String>
         present: () => _on('stats'),
         coming: () => _shown(kTourOwnToStats),
       ),
-      _click(kTourOwnToObservations, 'Clicca «Osservazioni».', 'observations'),
+      _click(kTourOwnToObservations, tr('Clicca «Osservazioni».', 'Click “Observations”.'), 'observations'),
       DesktopTourStep(
         targets: const [kTourOwnObservations],
         text: _observations,

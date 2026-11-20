@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../shared/widgets/mobile_danger_button.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
@@ -15,7 +16,7 @@ Future<bool?> showMobileServiceSheet({
   return showMobileSheet<bool>(
     context: context,
     builder: (context) => MobileSheet(
-      eyebrow: 'Servizio',
+      eyebrow: tr('Servizio', 'Service'),
       title: name,
       body: [
         if (description != null) ...[
@@ -27,7 +28,7 @@ Future<bool?> showMobileServiceSheet({
           ? Padding(
               padding: const EdgeInsets.only(top: 24),
               child: MobileDangerButton(
-                label: 'Rimuovi servizio',
+                label: tr('Rimuovi servizio', 'Remove service'),
                 icon: Icons.delete_outline_rounded,
                 onPressed: () => onRemove(context),
               ),
@@ -35,7 +36,7 @@ Future<bool?> showMobileServiceSheet({
           : Padding(
               padding: const EdgeInsets.only(top: 24),
               child: MobileGoldButton(
-                label: 'Conferma',
+                label: tr('Conferma', 'Confirm'),
                 icon: Icons.check_rounded,
                 onPressed: () => finishMobileSheet(context, true),
               ),

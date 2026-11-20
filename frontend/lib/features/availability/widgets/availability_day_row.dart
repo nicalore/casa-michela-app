@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -269,7 +270,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
               const SizedBox(width: _binGap),
               _Bin(
                 visible: _hover || _binsLit,
-                tooltip: 'Elimina la giornata',
+                tooltip: tr('Elimina la giornata', 'Delete the day'),
                 onTap: widget.onDeleteDay,
               ),
             ],
@@ -291,7 +292,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
             ? _tourId(AvailabilityTourMark.add, kTourAvailabilityAdd)
             : _tourId(AvailabilityTourMark.edit, kTourAvailabilityEdit),
         child: AppGradientButton(
-          label: empty ? 'AGGIUNGI' : 'MODIFICA',
+          label: empty ? tr('AGGIUNGI', 'ADD') : tr('MODIFICA', 'EDIT'),
           icon: empty ? Icons.add_rounded : Icons.edit_outlined,
           height: height,
           fontSize: _buttonFontSize,
@@ -313,7 +314,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
   Widget _buildLockedNote({bool dense = false})
   {
     return Text(
-      'Non modificabile',
+      tr('Non modificabile', 'Locked'),
       style: GoogleFonts.plusJakartaSans(
         fontSize: dense ? 11.5 : 13,
         fontWeight: FontWeight.w600,
@@ -347,7 +348,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
       return null;
     }
 
-    return _Bin(visible: _hover || _binsLit, tooltip: 'Elimina la giornata', onTap: widget.onDeleteDay);
+    return _Bin(visible: _hover || _binsLit, tooltip: tr('Elimina la giornata', 'Delete the day'), onTap: widget.onDeleteDay);
   }
 
   // Beside the bands: weekday (and the day's bin) over the date, the note of a day no longer editable under it.
@@ -410,7 +411,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
         const SizedBox(width: 16),
         Icon(Icons.event_busy_rounded, size: 17, color: AppTheme.trialMutedText),
         const SizedBox(width: 8),
-        const Expanded(child: _Muted("L'Associazione è chiusa", dense: true)),
+        Expanded(child: _Muted(tr("L'Associazione è chiusa", 'The Association is closed'), dense: true)),
       ],
     );
   }
@@ -543,7 +544,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
       children: [
         Icon(Icons.event_busy_rounded, size: 20, color: AppTheme.trialMutedText),
         const SizedBox(width: 10),
-        const Expanded(child: _Muted("L'Associazione è chiusa")),
+        Expanded(child: _Muted(tr("L'Associazione è chiusa", 'The Association is closed'))),
       ],
     );
   }
@@ -752,7 +753,7 @@ class _BandCellState extends State<_BandCell>
                   DesktopTourTarget(
                     id: widget.lockTour,
                     child: AppTooltip(
-                      message: 'Disponibilità chiuse',
+                      message: tr('Disponibilità chiuse', 'Availability closed'),
                       child: Icon(
                         Icons.lock_outline_rounded,
                         size: widget.dense ? 13 : 15,
@@ -774,7 +775,7 @@ class _BandCellState extends State<_BandCell>
             if (widget.dense)
               _buildDenseChips(locked)
             else if (!widget.isOpen && widget.slots.isEmpty)
-              const _Muted('Associazione chiusa')
+              _Muted(tr('Associazione chiusa', 'Association closed'))
             else
               for (final mode in _modes) ...[
                 if (mode != _modes.first) const SizedBox(height: _groupGap),
@@ -795,7 +796,7 @@ class _BandCellState extends State<_BandCell>
     {
       content = Padding(
         padding: const EdgeInsets.only(top: _denseBadgeOverhangTop),
-        child: _Muted(widget.isOpen ? 'Nessuna disponibilità' : 'Associazione chiusa', dense: true),
+        child: _Muted(widget.isOpen ? tr('Nessuna disponibilità', 'No availability') : tr('Associazione chiusa', 'Association closed'), dense: true),
       );
     }
     else
@@ -850,7 +851,9 @@ class _BandCellState extends State<_BandCell>
     {
       content = Padding(
         padding: const EdgeInsets.only(top: _badgeOverhangTop),
-        child: _Muted(widget.openModes.contains(mode) ? 'Nessuna disponibilità' : 'Associazione chiusa'),
+        child: _Muted(
+          widget.openModes.contains(mode) ? tr('Nessuna disponibilità', 'No availability') : tr('Associazione chiusa', 'Association closed'),
+        ),
       );
     }
 
@@ -1146,7 +1149,7 @@ class _TodayPill extends StatelessWidget
         border: Border.all(color: AppTheme.trialTealDeepText.withValues(alpha: 0.28)),
       ),
       child: Text(
-        'OGGI',
+        tr('OGGI', 'TODAY'),
         style: GoogleFonts.plusJakartaSans(
           fontSize: 9.5,
           fontWeight: FontWeight.w700,

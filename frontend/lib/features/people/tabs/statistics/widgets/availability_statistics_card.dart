@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../core/language/app_language.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/utils/week_range.dart';
 import '../../../../../shared/widgets/app_card.dart';
@@ -43,7 +44,7 @@ class TeacherAvailabilityCard extends StatelessWidget
 
   Widget _figure(String label, String value) => Expanded(child: StatFigure(label: label, value: value));
 
-  static const String _topTitle = '10 docenti più disponibili';
+  static String get _topTitle => tr('10 docenti più disponibili', '10 most available teachers');
 
   List<PersonRankRow> _topRows()
   {
@@ -52,7 +53,10 @@ class TeacherAvailabilityCard extends StatelessWidget
         PersonRankRow(
           position: index + 1,
           person: item.teacher,
-          badgeText: '${item.availabilityCount} disponibilità',
+          badgeText: tr(
+            '${item.availabilityCount} disponibilità',
+            item.availabilityCount == 1 ? '1 availability' : '${item.availabilityCount} availabilities',
+          ),
           accent: AppTheme.trialSeaGreen,
         ),
     ];
@@ -63,7 +67,7 @@ class TeacherAvailabilityCard extends StatelessWidget
   Widget _hoursRanking()
   {
     return PersonRankingSection(
-      title: '10 docenti con più ore di disponibilità',
+      title: tr('10 docenti con più ore di disponibilità', '10 teachers with the most hours of availability'),
       rows: [
         for (final (index, item) in statistics.topTeachersByHours.indexed)
           PersonRankRow(
@@ -79,9 +83,12 @@ class TeacherAvailabilityCard extends StatelessWidget
   Widget _weeklyWarnings(double listHeight)
   {
     return TeacherWarningSection(
-      title: 'Sotto 2 disponibilità a settimana',
+      title: tr('Sotto 2 disponibilità a settimana', 'Under 2 availabilities per week'),
       flagged: statistics.lowAvailabilityTeachers,
-      describe: (item) => '${item.shortWeekCount} ${item.shortWeekCount == 1 ? 'settimana' : 'settimane'}',
+      describe: (item) => tr(
+        '${item.shortWeekCount} ${item.shortWeekCount == 1 ? 'settimana' : 'settimane'}',
+        '${item.shortWeekCount} ${item.shortWeekCount == 1 ? 'week' : 'weeks'}',
+      ),
       listMaxHeight: listHeight,
     );
   }
@@ -89,9 +96,12 @@ class TeacherAvailabilityCard extends StatelessWidget
   Widget _monthlyWarnings(double listHeight)
   {
     return TeacherWarningSection(
-      title: 'Sotto 9 disponibilità nel mese',
+      title: tr('Sotto 9 disponibilità nel mese', 'Under 9 availabilities in the month'),
       flagged: statistics.lowMonthlyTeachers,
-      describe: (item) => '${item.availabilityCount} disponibilità',
+      describe: (item) => tr(
+        '${item.availabilityCount} disponibilità',
+        item.availabilityCount == 1 ? '1 availability' : '${item.availabilityCount} availabilities',
+      ),
       listMaxHeight: listHeight,
     );
   }
@@ -148,7 +158,7 @@ class TeacherAvailabilityCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppCard(
-      title: 'Disponibilità docenti',
+      title: tr('Disponibilità docenti', 'Teacher availability'),
       selectable: false,
       leading: const AppCardBadge(icon: Icons.event_available_rounded),
       trailingFit: AppCardTrailing.wrapping,
@@ -167,11 +177,11 @@ class TeacherAvailabilityCard extends StatelessWidget
             Row(
               children: [
                 _figure(
-                  'Disponibilità a settimana',
+                  tr('Disponibilità a settimana', 'Availability per week'),
                   statistics.weeklyAverage.toStringAsFixed(1),
                 ),
                 const StatDivider(),
-                _figure('Totale nel periodo', '${statistics.totalAvailabilities}'),
+                _figure(tr('Totale nel periodo', 'Total in the period'), '${statistics.totalAvailabilities}'),
               ],
             ),
             StatPartDivider(color: _sectionDivider),
@@ -239,7 +249,7 @@ class _TeacherWarningSectionState extends State<TeacherWarningSection>
         if (widget.flagged.isEmpty)
           Center(
             child: Text(
-              'Nessun docente da segnalare.',
+              tr('Nessun docente da segnalare.', 'No teacher to flag.'),
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../core/language/app_language.dart';
 import '../../../../../core/layout/app_breakpoints.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/theme/theme_colours.dart';
@@ -99,7 +100,7 @@ class EmptyChartMessage extends StatelessWidget
   {
     return Center(
       child: Text(
-        'Nessun dato',
+        tr('Nessun dato', 'No data'),
         style: GoogleFonts.plusJakartaSans(
           color: AppTheme.trialMutedText,
           fontSize: fontSize,
@@ -445,9 +446,9 @@ class SummaryStatCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     final blocks = [
-      StatBlock(label: 'Totale', value: count, percentage: percentage),
-      StatBlock(label: 'Da inizio mese', value: deltaMonth, isDelta: true),
-      StatBlock(label: 'Da inizio anno', value: deltaYear, isDelta: true),
+      StatBlock(label: tr('Totale', 'Total'), value: count, percentage: percentage),
+      StatBlock(label: tr('Da inizio mese', 'Since start of month'), value: deltaMonth, isDelta: true),
+      StatBlock(label: tr('Da inizio anno', 'Since start of year'), value: deltaYear, isDelta: true),
     ];
     final StatMetrics metrics = StatMetrics.of(context);
 
@@ -825,7 +826,7 @@ class RankPosition extends StatelessWidget
       child: SizedBox(
         width: 32,
         child: Text(
-          '$position°',
+          tr('$position°', '#$position'),
           style: GoogleFonts.plusJakartaSans(
             fontSize: StatMetrics.of(context).dense ? 13.5 : 15,
             fontWeight: FontWeight.w800,
@@ -1070,7 +1071,7 @@ class RequestedSubjectsSection extends StatelessWidget
             percentage: subjects[index].percentage,
             badgeText:
                 '${subjects[index].requestCount} '
-                '${subjects[index].requestCount == 1 ? 'richiesta' : 'richieste'}',
+                '${subjects[index].requestCount == 1 ? tr('richiesta', 'request') : tr('richieste', 'requests')}',
           ),
       ],
     );

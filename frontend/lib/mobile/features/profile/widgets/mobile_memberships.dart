@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/people/models/membership_item.dart';
 import '../../../../features/people/models/person_item.dart';
@@ -109,7 +110,7 @@ class MobileMembershipYearsCard extends StatelessWidget
   {
     final DateTime deadline = membership.renewalDeadline;
 
-    return DetailRowData('Rinnovo entro', _dateFormat.format(deadline));
+    return DetailRowData(tr('Rinnovo entro', 'Renew by'), _dateFormat.format(deadline));
   }
 }
 
@@ -158,9 +159,9 @@ class _YearsTable extends StatelessWidget
         Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: _row(context, [
-            Text('Anno', style: head),
-            Text('Data inizio', style: head),
-            Text('Data fine', style: head),
+            Text(tr('Anno', 'Year'), style: head),
+            Text(tr('Data inizio', 'Start date'), style: head),
+            Text(tr('Data fine', 'End date'), style: head),
           ]),
         ),
         for (var i = 0; i < memberships.length; i++)

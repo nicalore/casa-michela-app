@@ -44,8 +44,8 @@ class MobileSessionList extends StatelessWidget
               color: AppTheme.trialInk,
             ),
             subtitle: session.isCurrent
-                ? const Padding(
-                    padding: EdgeInsets.only(top: 2),
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 2),
                     child: MobilePill(kCurrentSessionLabel, tone: MobilePillTone.teal),
                   )
                 : Text('$kSessionLastUsedLabel: ${formatSessionTime(session.lastUsedAt)}'),
@@ -72,7 +72,7 @@ Future<void> showMobileSessionSheet({
       body: [
         const SizedBox(height: 18),
         if (session.isCurrent) ...[
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: MobilePill(kCurrentSessionLabel, tone: MobilePillTone.teal),
           ),

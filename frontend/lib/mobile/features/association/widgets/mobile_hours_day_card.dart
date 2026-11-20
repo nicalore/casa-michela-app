@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/tabs/opening_hours/combined_hours.dart';
@@ -99,7 +100,7 @@ class MobileHoursDayCard extends StatelessWidget
         ),
         if (isSameDate(day.date, today)) ...[
           const SizedBox(width: 10),
-          const MobilePill('Oggi', tone: MobilePillTone.teal),
+          MobilePill(tr('Oggi', 'Today'), tone: MobilePillTone.teal),
         ],
       ],
     );

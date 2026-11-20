@@ -3,11 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../shared/utils/day_marks.dart';
 import '../mobile_palette.dart';
 
 // Measured: the widest day label of a year in Plus Jakarta Sans.
-const String kWidestDayLabel = 'Domenica 20 settembre';
+String get kWidestDayLabel => tr('Domenica 20 settembre', 'Wednesday 30 September');
 
 const double _sidePadding = 10;
 const double _iconSize = 20;

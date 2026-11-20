@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/language/app_language.dart';
 import 'app_segmented_tabs.dart';
 
 const double _height = 36;
@@ -10,8 +11,9 @@ class AppSegmentedSwitch extends StatelessWidget
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  final String trueLabel;
-  final String falseLabel;
+  // Null reads Sì / No in the language in force.
+  final String? trueLabel;
+  final String? falseLabel;
 
   final bool hugContent;
 
@@ -19,8 +21,8 @@ class AppSegmentedSwitch extends StatelessWidget
     super.key,
     required this.value,
     required this.onChanged,
-    this.trueLabel = 'Sì',
-    this.falseLabel = 'No',
+    this.trueLabel,
+    this.falseLabel,
     this.hugContent = false,
   });
 
@@ -28,7 +30,7 @@ class AppSegmentedSwitch extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppSegmentedTabs(
-      labels: [trueLabel, falseLabel],
+      labels: [trueLabel ?? tr('Sì', 'Yes'), falseLabel ?? tr('No', 'No')],
       selectedIndex: value ? 0 : 1,
       onSelected: (index) => onChanged(index == 0),
       height: _height,

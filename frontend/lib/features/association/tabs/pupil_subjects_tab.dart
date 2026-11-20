@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -23,18 +24,20 @@ import '../models/association_subject_item.dart';
 import '../models/subject_taxonomy.dart';
 import '../widgets/association_subject_card.dart';
 
-const String kSubjectsSearchHint = 'Cerca disciplina...';
+String get kSubjectsSearchHint => tr('Cerca disciplina...', 'Search disciplines...');
 
-const String kMissingSubjectAction = 'SEGNALA DISCIPLINA';
-const String kMissingSubjectEyebrow = 'Disciplina mancante';
-const String kMissingSubjectTitle = 'Segnala disciplina';
-const String kMissingSubjectNameLabel = 'Nome';
-const String kMissingSubjectNameHint = 'Es. Grammatica latina';
-const String kMissingSubjectNameEmpty = 'Il nome non può essere vuoto.';
-const String kMissingSubjectSend = 'INVIA SEGNALAZIONE';
-const String kMissingSubjectSent = 'Segnalazione inviata con successo!';
+String get kMissingSubjectAction => tr('SEGNALA DISCIPLINA', 'REPORT DISCIPLINE');
+String get kMissingSubjectEyebrow => tr('Disciplina mancante', 'Missing discipline');
+String get kMissingSubjectTitle => tr('Segnala disciplina', 'Report discipline');
+String get kMissingSubjectNameLabel => tr('Nome', 'Name');
+String get kMissingSubjectNameHint => tr('Es. Grammatica latina', 'E.g. Latin grammar');
+String get kMissingSubjectNameEmpty => tr('Il nome non può essere vuoto.', 'The name cannot be empty.');
+String get kMissingSubjectSend => tr('INVIA SEGNALAZIONE', 'SEND REPORT');
+String get kMissingSubjectSent => tr('Segnalazione inviata con successo!', 'Report sent!');
 
-String subjectsFoundLabel(int count) => count == 1 ? '1 disciplina trovata' : '$count discipline trovate';
+String subjectsFoundLabel(int count) => count == 1
+    ? tr('1 disciplina trovata', '1 discipline found')
+    : tr('$count discipline trovate', '$count disciplines found');
 
 // Keeps 'INVIA SEGNALAZIONE' on one line.
 const double _footerWidth = 576;
@@ -167,8 +170,8 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
           filters: [
             const FilterGroupDivider(),
             AppFilterPill<String>.filter(
-              prefix: 'Area',
-              hint: 'Tutte le aree',
+              prefix: tr('Area', 'Area'),
+              hint: tr('Tutte le aree', 'All areas'),
               icon: Icons.category_outlined,
               value: _filterArea,
               menuWidth: 210,

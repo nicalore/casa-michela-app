@@ -12,13 +12,13 @@ import '../utils/accounting_strings.dart';
 import '../utils/opening_strings.dart' show openingRowLabel;
 import 'accounting_pdf_look.dart';
 
-const AccountingGroup _day = AccountingGroup(
+AccountingGroup get _day => AccountingGroup(
   parts: [(label: compensation.kDayColumn, width: 0)],
   flexible: true,
   leading: true,
 );
 
-const List<AccountingGroup> _paidGroups = [
+List<AccountingGroup> get _paidGroups => [
   _day,
   AccountingGroup(
     title: compensation.kWorkGroup,
@@ -47,7 +47,7 @@ const List<AccountingGroup> _paidGroups = [
 ];
 
 // Those not paid have days and hours only, as on the tab.
-const List<AccountingGroup> _plainGroups = [
+List<AccountingGroup> get _plainGroups => [
   _day,
   AccountingGroup(
     parts: [

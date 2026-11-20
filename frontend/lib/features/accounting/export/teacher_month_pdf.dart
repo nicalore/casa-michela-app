@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
@@ -13,7 +14,7 @@ import 'accounting_pdf_look.dart';
 // Tall enough to sign on.
 const double _rowHeight = 31;
 
-const List<AccountingGroup> _groups = [
+List<AccountingGroup> get _groups => [
   AccountingGroup(parts: [(label: kTeacherColumn, width: 124)], leading: true),
   AccountingGroup(
     title: kDaysGroup,
@@ -157,9 +158,9 @@ pw.Widget accountingPendingNote(AccountingPdfStyles styles, List<PendingBand> pe
     text: pw.TextSpan(
       style: styles.note,
       children: [
-        const pw.TextSpan(text: kStillToConfirm),
+        pw.TextSpan(text: kStillToConfirm),
         for (final (index, band) in named.indexed) ...[
-          if (index > 0) pw.TextSpan(text: index == named.length - 1 && others == 0 ? ' e ' : ', '),
+          if (index > 0) pw.TextSpan(text: index == named.length - 1 && others == 0 ? tr(' e ', ' and ') : ', '),
           pw.TextSpan(text: pendingBandLabel(band), style: styles.noteStrong),
         ],
         if (others > 0) pw.TextSpan(text: ' ${andOthers(others)}'),

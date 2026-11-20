@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
@@ -327,7 +328,7 @@ class _BandStays extends StatelessWidget
             color: AppTheme.trialInk.withValues(alpha: 0.6),
           ),
         ),
-        if (band.isPublished) const MobilePill('Pubblicato', dense: true),
+        if (band.isPublished) MobilePill(tr('Pubblicato', 'Published'), dense: true),
       ],
     );
   }

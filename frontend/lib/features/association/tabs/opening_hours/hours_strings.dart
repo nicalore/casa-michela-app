@@ -1,9 +1,11 @@
-const String kWeeklyHoursTitle = 'Orario settimanale';
-const String kStandardHoursTitle = 'Orario standard';
-const String kUpcomingVariationsTitle = 'Prossime variazioni';
+import '../../../../core/language/app_language.dart';
 
-const String kNoStandardHours = 'Nessun orario standard configurato.';
-const String kNoUpcomingVariations = 'Nessuna variazione programmata.';
+String get kWeeklyHoursTitle => tr('Orario settimanale', 'Weekly hours');
+String get kStandardHoursTitle => tr('Orario standard', 'Standard hours');
+String get kUpcomingVariationsTitle => tr('Prossime variazioni', 'Upcoming schedule changes');
 
-const String kWeekHoursLoadFailed = 'Impossibile caricare gli orari della settimana.';
-const String kVariationsLoadFailed = 'Impossibile caricare le variazioni programmate.';
+String get kNoStandardHours => tr('Nessun orario standard configurato.', 'No standard hours set up.');
+String get kNoUpcomingVariations => tr('Nessuna variazione programmata.', 'No schedule changes planned.');
+
+String get kWeekHoursLoadFailed => tr('Impossibile caricare gli orari della settimana.', "Couldn't load the week's hours.");
+String get kVariationsLoadFailed => tr('Impossibile caricare le variazioni programmate.', "Couldn't load the planned schedule changes.");

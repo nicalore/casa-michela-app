@@ -5,10 +5,12 @@ from fastapi import HTTPException, status
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.i18n import tr
 from app.models.confirmed_hours import ConfirmedHours
 from app.models.payment_receipt import PaymentReceipt
 from app.models.student_hours import StudentConfirmedHours
 from app.models.student_payment import StudentPayment
+from app.services.bilingual import Bilingual
 from app.services.collaboration import (
     count_hours_ahead,
     drop_hours_ahead,
@@ -18,30 +20,51 @@ from app.services.write_losses import Losses
 
 # A role is taken away only to fix a mistake: once it has a history it stays,
 # and the person stops through the collaboration, a lapse or a revocation.
-_HISTORY_ERROR: Final[str] = (
+_HISTORY_ERROR: Final[Bilingual] = Bilingual(
     "Impossibile togliere il ruolo {role}: ci sono lezioni, ore o pagamenti "
-    "registrati."
+    "registrati.",
+    "The role {role} cannot be removed: there are lessons, hours or payments recorded.",
 )
 
-_TEACHING_AHEAD: Final[str] = (
-    "Togliendo il ruolo Docente, le sue disponibilità non ancora iniziate "
-    "verranno eliminate definitivamente."
+_TEACHING_AHEAD: Final[Bilingual] = Bilingual(
+    "Togliendo il ruolo Docente, le sue disponibilità non ancora iniziate verranno "
+    "eliminate definitivamente.",
+    "Removing the Teacher role permanently deletes their availability that has not "
+    "started yet.",
 )
-_TEACHING_LESSONS: Final[str] = (
+_TEACHING_LESSONS: Final[Bilingual] = Bilingual(
     " Le lezioni già pianificate verranno tolte dal calendario e dovranno essere "
-    "nuovamente pianificate."
+    "nuovamente pianificate.",
+    " The lessons already planned will be taken off the calendar and will have to be "
+    "planned again.",
 )
-_LEARNING_AHEAD: Final[str] = (
+_LEARNING_AHEAD: Final[Bilingual] = Bilingual(
     "Togliendo il ruolo Studente, le sue presenze non ancora iniziate verranno "
-    "eliminate definitivamente, insieme alle prenotazioni{lessons}."
+    "eliminate definitivamente, insieme alle prenotazioni{lessons}.",
+    "Removing the Student role permanently deletes their attendance that has not "
+    "started yet, together with the bookings{lessons}.",
 )
-_LEARNING_LESSONS: Final[str] = " e alle lezioni già pianificate"
+_LEARNING_LESSONS: Final[Bilingual] = Bilingual(
+    " e alle lezioni già pianificate",
+    " and the lessons already planned",
+)
+
+
+# Roles arrive by their Italian names; an English reader gets the glossary's.
+_ENGLISH_ROLES: Final[dict[str, str]] = {
+    "Docente": "Teacher",
+    "Studente": "Student",
+    "Amministratore": "Administrator",
+    "Psicologo": "Psychologist",
+}
 
 
 def _refused(role: str) -> HTTPException:
+    role = tr(role, _ENGLISH_ROLES.get(role, role))
+
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
-        detail=_HISTORY_ERROR.format(role=role),
+        detail=_HISTORY_ERROR.for_request().format(role=role),
     )
 
 
@@ -111,7 +134,8 @@ async def end_teaching(db: AsyncSession, tax_code: str, losses: Losses) -> None:
     ahead = await count_hours_ahead(db, tax_code, learning=False)
 
     if ahead:
-        losses.note(_TEACHING_AHEAD + (_TEACHING_LESSONS if ahead.lessons else ""))
+        lessons = _TEACHING_LESSONS.for_request() if ahead.lessons else ""
+        losses.note(_TEACHING_AHEAD.for_request() + lessons)
 
     await drop_hours_ahead(db, tax_code, learning=False)
 
@@ -125,8 +149,8 @@ async def end_learning(db: AsyncSession, tax_code: str, losses: Losses) -> None:
 
     if ahead:
         losses.note(
-            _LEARNING_AHEAD.format(
-                lessons=_LEARNING_LESSONS if ahead.lessons else "",
+            _LEARNING_AHEAD.for_request().format(
+                lessons=_LEARNING_LESSONS.for_request() if ahead.lessons else "",
             ),
         )
 

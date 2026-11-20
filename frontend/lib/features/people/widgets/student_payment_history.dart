@@ -19,7 +19,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/hover_gold_frame.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../accounting/export/accounting_pdf_export.dart';
-import '../../accounting/utils/opening_strings.dart' show kPendingReason;
+import '../../accounting/utils/opening_strings.dart' show pendingReason;
 import '../../accounting/widgets/opening_pending_pill.dart';
 import '../../association/tabs/opening_hours/hours_date_field.dart'
     show formatDateString, isValidDateString, parseDateString;
@@ -603,7 +603,9 @@ class _PaymentDetailsState extends State<_PaymentDetails>
   Widget? _footer(BuildContext context)
   {
     // Fees are paid whatever the set-up; the rest waits for it.
-    final String? blocked = widget.payments.openingPending && !row.isFee ? kPendingReason : null;
+    final String? blocked = widget.payments.openingPending && !row.isFee
+        ? pendingReason(feminine: person.gender == 'F')
+        : null;
 
     if (!row.isPaid)
     {
@@ -634,7 +636,9 @@ class _PaymentDetailsState extends State<_PaymentDetails>
         height: 52,
         fontSize: 14,
         busy: _cancelling,
-        disabledReason: widget.payments.openingPending && !row.isFee ? kPendingReason : null,
+        disabledReason: widget.payments.openingPending && !row.isFee
+            ? pendingReason(feminine: person.gender == 'F')
+            : null,
         onPressed: () => unawaited(_cancel()),
       ),
     );

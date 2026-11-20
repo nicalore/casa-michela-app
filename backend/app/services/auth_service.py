@@ -16,6 +16,7 @@ from jwt import (
 
 from app.core.client_device import UNKNOWN_DEVICE, ClientDevice
 from app.core.config import settings
+from app.core.i18n import tr_for
 from app.core.password_policy import validate_password
 from app.core.security import (
     create_access_token,
@@ -26,12 +27,14 @@ from app.core.security import (
     verify_password_async,
 )
 from app.models.account import Account, AccountStatusEnum
+from app.models.person import GenderEnum
 from app.models.refresh_token import DeviceTypeEnum, RefreshToken, TokenTypeEnum
 from app.repositories.account_repository import AccountRepository
 from app.repositories.identity_repository import IdentityRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services import email_service
 from app.services.auth_result import AuthResult
+from app.services.bilingual import Bilingual
 from app.services.role_service import RoleService
 
 _LOCAL_TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
@@ -42,22 +45,46 @@ _RESET_TOKEN_LIFETIME: Final[timedelta] = timedelta(hours=1)
 _PENDING_CHANGE_WINDOW: Final[timedelta] = timedelta(minutes=15)
 _PASSWORD_RESET_MIN_DURATION_SECONDS: Final[float] = 2.0
 
-_INVALID_CREDENTIALS_ERROR: Final[str] = "Nome utente o password non validi"
-_ACCOUNT_DISABLED_ERROR: Final[str] = "Account disabilitato"
-_ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
-_ACCOUNT_LOCKED_ERROR: Final[str] = "Account bloccato fino al {locked_until}"
-_CURRENT_PASSWORD_ERROR: Final[str] = "La password attuale non è corretta"
-_PASSWORD_REUSE_ERROR: Final[str] = (
-    "La nuova password deve essere diversa da quella attuale"
+_INVALID_CREDENTIALS_ERROR: Final[Bilingual] = Bilingual(
+    "Nome utente o password non validi",
+    "Invalid username or password",
 )
-_INVALID_TOKEN_TYPE_ERROR: Final[str] = "Tipo di token non valido"
-_INVALID_TOKEN_PAYLOAD_ERROR: Final[str] = "Contenuto del token non valido"
-_INVALID_RESET_TOKEN_ERROR: Final[str] = (
-    "Token di reimpostazione non valido o scaduto"
+_ACCOUNT_DISABLED_ERROR: Final[Bilingual] = Bilingual(
+    "Account disabilitato",
+    "Account disabled",
 )
-_EXPIRED_RESET_LINK_ERROR: Final[str] = (
-    "Il link di reimpostazione della password non è più valido. "
-    "Effettua una nuova richiesta."
+_ACCOUNT_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Account non trovato",
+    "Account not found",
+)
+_ACCOUNT_LOCKED_ERROR: Final[Bilingual] = Bilingual(
+    "Account bloccato fino al {locked_until}",
+    "Account locked until {locked_until}",
+)
+_CURRENT_PASSWORD_ERROR: Final[Bilingual] = Bilingual(
+    "La password attuale non è corretta",
+    "The current password is not correct",
+)
+_PASSWORD_REUSE_ERROR: Final[Bilingual] = Bilingual(
+    "La nuova password deve essere diversa da quella attuale",
+    "The new password must be different from the current one",
+)
+_INVALID_TOKEN_TYPE_ERROR: Final[Bilingual] = Bilingual(
+    "Tipo di token non valido",
+    "Invalid token type",
+)
+_INVALID_TOKEN_PAYLOAD_ERROR: Final[Bilingual] = Bilingual(
+    "Contenuto del token non valido",
+    "Invalid token content",
+)
+_INVALID_RESET_TOKEN_ERROR: Final[Bilingual] = Bilingual(
+    "Token di reimpostazione non valido o scaduto",
+    "Invalid or expired reset token",
+)
+_EXPIRED_RESET_LINK_ERROR: Final[Bilingual] = Bilingual(
+    "Il link di reimpostazione della password non è più valido. Effettua una nuova "
+    "richiesta.",
+    "The password reset link is no longer valid. Please make a new request.",
 )
 _EMAIL_SEND_ERROR: Final[str] = "Errore nell'invio dell'email via Resend: {error}"
 
@@ -68,14 +95,36 @@ _ACCOUNT_LOCKED_EMAIL_BODY: Final[str] = """
                 border: 1px solid {line}; border-radius: 18px; text-align: center;">
         <strong style="color: {ink}; font-size: 17px;">{unlock_time}</strong>
     </div>
-    <p>Se sei stato tu a effettuare questi tentativi, attendi lo scadere del blocco prima di riprovare ad accedere.</p>
+    <p>Se sei {been} tu a effettuare questi tentativi, attendi lo scadere del blocco prima di riprovare ad accedere.</p>
     <p>Se invece ritieni che qualcuno abbia tentato di accedere al tuo account, ti invitiamo a rispondere a questa email o a contattare l'Associazione il prima possibile.</p>
 """
 
-_PASSWORD_CHANGED_EMAIL_BODY: Final[str] = """
+_BEEN: Final[dict[GenderEnum, str]] = {
+    GenderEnum.M: "stato",
+    GenderEnum.F: "stata",
+}
+
+_ENGLISH_ACCOUNT_LOCKED_EMAIL_BODY: Final[str] = """
+    <p>To protect your account, we have temporarily blocked sign-in after repeated failed sign-in attempts.</p>
+    <p>You can sign in again from this moment:</p>
+    <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
+                border: 1px solid {line}; border-radius: 18px; text-align: center;">
+        <strong style="color: {ink}; font-size: 17px;">{unlock_time}</strong>
+    </div>
+    <p>If you made these attempts yourself, wait until the block ends before trying to sign in again.</p>
+    <p>If instead you think someone tried to get into your account, please reply to this email or contact the Association as soon as possible.</p>
+"""
+
+_PASSWORD_CHANGED_EMAIL_BODY: Final[Bilingual] = Bilingual(
+    """
     <p>Ti confermiamo che la password del tuo account è stata modificata con successo.</p>
     <p>Se non hai effettuato tu l'operazione, rispondi a questa email o contatta direttamente l'Associazione.</p>
-"""
+""",
+    """
+    <p>We confirm that your account's password has been changed successfully.</p>
+    <p>If you did not make this change, reply to this email or contact the Association directly.</p>
+""",
+)
 
 _PASSWORD_RESET_EMAIL_BODY: Final[str] = """
     <p>Hai richiesto di reimpostare la password del tuo account.</p>
@@ -93,6 +142,24 @@ _PASSWORD_RESET_EMAIL_BODY: Final[str] = """
     </p>
     <p>Per motivi di sicurezza, la richiesta sarà valida per <strong>1 ora</strong>. Trascorso questo tempo, dovrai effettuarne una nuova.</p>
     <p>Se hai bisogno di assistenza o riscontri qualche problema, rispondi a questa email oppure contatta direttamente l'Associazione.</p>
+"""
+
+_ENGLISH_PASSWORD_RESET_EMAIL_BODY: Final[str] = """
+    <p>You asked to reset your account's password.</p>
+    <p>To go ahead, click the button below:</p>
+    <div style="text-align: center; margin: 28px 0;">
+        <a href="{reset_link}"
+           style="display: inline-block; padding: 15px 30px; background-color: {teal};
+                  color: #ffffff; text-decoration: none; border-radius: 26px;
+                  font-weight: 700; font-size: 14px; letter-spacing: 0.6px;
+                  text-transform: uppercase;"> Reset password </a>
+    </div>
+    <p>If the button doesn't work, copy and paste this link into your browser:</p>
+    <p style="word-break: break-all;">
+        <a href="{reset_link}" style="color: {teal};">{reset_link}</a>
+    </p>
+    <p>For security reasons, the request will be valid for <strong>1 hour</strong>. After that, you will need to make a new one.</p>
+    <p>If you need help or run into any problem, reply to this email or contact the Association directly.</p>
 """
 
 
@@ -127,7 +194,9 @@ class MissingEmailError(Exception):
 class AccountLockedError(Exception):
     def __init__(self, locked_until: datetime) -> None:
         self.locked_until = locked_until
-        super().__init__(_ACCOUNT_LOCKED_ERROR.format(locked_until=locked_until))
+        super().__init__(
+            _ACCOUNT_LOCKED_ERROR.for_request().format(locked_until=locked_until)
+        )
 
 
 class _ResetEmail(TypedDict):
@@ -135,6 +204,7 @@ class _ResetEmail(TypedDict):
     subject: str
     heading: str
     body: str
+    language: str | None
 
 
 class AuthService:
@@ -166,6 +236,7 @@ class AuthService:
         subject: str,
         heading: str,
         body: str,
+        language: str | None = None,
     ) -> None:
         try:
             email_service.send_email(
@@ -173,6 +244,7 @@ class AuthService:
                 subject=subject,
                 heading=heading,
                 body=body,
+                language=language,
             )
         except Exception as error:
             print(_EMAIL_SEND_ERROR.format(error=error))
@@ -185,31 +257,55 @@ class AuthService:
         if not (account.person and account.person.email):
             return
 
+        # Written to the account's owner, in their language.
+        language = account.language
         unlock_time = locked_until.astimezone(_LOCAL_TIMEZONE).strftime(
-            "%d/%m/%Y alle ore %H:%M"
+            tr_for(language, "%d/%m/%Y alle ore %H:%M", "%d/%m/%Y at %H:%M")
+        )
+        body = tr_for(
+            language,
+            _ACCOUNT_LOCKED_EMAIL_BODY,
+            _ENGLISH_ACCOUNT_LOCKED_EMAIL_BODY,
         )
 
         self._send_email(
             recipient=account.person.email,
-            subject="Account temporaneamente bloccato - Associazione Casa Michela",
-            heading="Account temporaneamente bloccato",
-            body=_ACCOUNT_LOCKED_EMAIL_BODY.format(
+            subject=tr_for(
+                language,
+                "Account temporaneamente bloccato - Associazione Casa Michela",
+                "Account temporarily locked - Associazione Casa Michela",
+            ),
+            heading=tr_for(
+                language,
+                "Account temporaneamente bloccato",
+                "Account temporarily locked",
+            ),
+            body=body.format(
                 unlock_time=unlock_time,
+                been=_BEEN[account.person.gender],
                 paper=email_service.PAPER,
                 line=email_service.LINE,
                 ink=email_service.INK,
             ),
+            language=language,
         )
 
     def _send_password_changed_email(self, account: Account) -> None:
         if not (account.person and account.person.email):
             return
 
+        language = account.language
+
         self._send_email(
             recipient=account.person.email,
-            subject="Conferma modifica password - Associazione Casa Michela",
-            heading="Password modificata",
-            body=_PASSWORD_CHANGED_EMAIL_BODY,
+            subject=tr_for(
+                language,
+                "Conferma modifica password - Associazione Casa Michela",
+                "Password change confirmed - Associazione Casa Michela",
+            ),
+            heading=tr_for(language, "Password modificata", "Password changed"),
+            body=_PASSWORD_CHANGED_EMAIL_BODY.to(language),
+            language=language,
         )
 
     def _password_reset_email(
@@ -217,14 +313,23 @@ class AuthService:
         account: Account,
         reset_link: str,
     ) -> _ResetEmail:
+        language = account.language
+        body = tr_for(
+            language,
+            _PASSWORD_RESET_EMAIL_BODY,
+            _ENGLISH_PASSWORD_RESET_EMAIL_BODY,
+        )
+
         return {
             "recipient": account.person.email,
-            "subject": "Recupero password - Associazione Casa Michela",
-            "heading": "Recupero password",
-            "body": _PASSWORD_RESET_EMAIL_BODY.format(
-                reset_link=reset_link,
-                teal=email_service.TEAL,
+            "subject": tr_for(
+                language,
+                "Recupero password - Associazione Casa Michela",
+                "Password recovery - Associazione Casa Michela",
             ),
+            "heading": tr_for(language, "Recupero password", "Password recovery"),
+            "body": body.format(reset_link=reset_link, teal=email_service.TEAL),
+            "language": language,
         }
 
     async def _create_session(
@@ -342,15 +447,15 @@ class AuthService:
             raise AuthenticationError(invalid_token_error) from err
 
         if payload.get("type") != _RESET_TOKEN_TYPE:
-            raise AuthenticationError(_INVALID_TOKEN_TYPE_ERROR)
+            raise AuthenticationError(_INVALID_TOKEN_TYPE_ERROR.for_request())
 
         tax_code = payload.get("sub")
         if not isinstance(tax_code, str):
-            raise AuthenticationError(_INVALID_TOKEN_PAYLOAD_ERROR)
+            raise AuthenticationError(_INVALID_TOKEN_PAYLOAD_ERROR.for_request())
 
         token_id = payload.get("jti")
         if not isinstance(token_id, str):
-            raise AuthenticationError(_INVALID_TOKEN_PAYLOAD_ERROR)
+            raise AuthenticationError(_INVALID_TOKEN_PAYLOAD_ERROR.for_request())
 
         stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
 
@@ -358,7 +463,7 @@ class AuthService:
             raise AuthenticationError(invalid_token_error)
 
         if stored_token.token_type != TokenTypeEnum.PASSWORD_RESET:
-            raise AuthenticationError(_INVALID_TOKEN_TYPE_ERROR)
+            raise AuthenticationError(_INVALID_TOKEN_TYPE_ERROR.for_request())
 
         if hash_refresh_token(token) != stored_token.token_hash:
             raise AuthenticationError(invalid_token_error)
@@ -374,7 +479,7 @@ class AuthService:
         account = await self.account_repository.get_by_username(username)
 
         if account is None:
-            raise AuthenticationError(_INVALID_CREDENTIALS_ERROR)
+            raise AuthenticationError(_INVALID_CREDENTIALS_ERROR.for_request())
 
         now = datetime.now(UTC)
 
@@ -410,10 +515,10 @@ class AuthService:
                 self._send_account_locked_email(account, new_lock)
                 raise AccountLockedError(new_lock)
 
-            raise AuthenticationError(_INVALID_CREDENTIALS_ERROR)
+            raise AuthenticationError(_INVALID_CREDENTIALS_ERROR.for_request())
 
         if not await self._usable(account):
-            raise AccountDisabledError(_ACCOUNT_DISABLED_ERROR)
+            raise AccountDisabledError(_ACCOUNT_DISABLED_ERROR.for_request())
 
         account.failed_login_attempts = 0
         account.last_failed_login_attempt = None
@@ -556,16 +661,16 @@ class AuthService:
         if current_password is None:
             # Typed at the sign-in a moment ago: only the forced change skips it.
             if not account.password_reset_required:
-                raise AuthenticationError(_CURRENT_PASSWORD_ERROR)
+                raise AuthenticationError(_CURRENT_PASSWORD_ERROR.for_request())
 
             if self._pending_change_expired(account, stored_token, datetime.now(UTC)):
                 raise PasswordChangeExpiredError()
 
         elif not await verify_password_async(current_password, account.password_hash):
-            raise AuthenticationError(_CURRENT_PASSWORD_ERROR)
+            raise AuthenticationError(_CURRENT_PASSWORD_ERROR.for_request())
 
         if await verify_password_async(new_password, account.password_hash):
-            raise PasswordReuseError(_PASSWORD_REUSE_ERROR)
+            raise PasswordReuseError(_PASSWORD_REUSE_ERROR.for_request())
 
         validate_password(new_password)
 
@@ -640,7 +745,7 @@ class AuthService:
     # Sent on an administrator's behalf, so a failed delivery is raised, not swallowed.
     async def send_password_reset(self, account: Account) -> None:
         if not await self._usable(account):
-            raise AccountDisabledError(_ACCOUNT_DISABLED_ERROR)
+            raise AccountDisabledError(_ACCOUNT_DISABLED_ERROR.for_request())
 
         if account.person is None or not account.person.email:
             raise MissingEmailError()
@@ -685,15 +790,15 @@ class AuthService:
     async def reset_password(self, token: str, new_password: str) -> None:
         tax_code, stored_token = await self._load_valid_reset_token(
             token,
-            _EXPIRED_RESET_LINK_ERROR,
+            _EXPIRED_RESET_LINK_ERROR.for_request(),
         )
 
         account = await self.account_repository.get_by_tax_code(tax_code)
         if account is None:
-            raise AuthenticationError(_ACCOUNT_NOT_FOUND_ERROR)
+            raise AuthenticationError(_ACCOUNT_NOT_FOUND_ERROR.for_request())
 
         if not await self._usable(account):
-            raise AuthenticationError(_ACCOUNT_DISABLED_ERROR)
+            raise AuthenticationError(_ACCOUNT_DISABLED_ERROR.for_request())
 
         validate_password(new_password)
 
@@ -715,4 +820,7 @@ class AuthService:
         self._send_password_changed_email(account)
 
     async def validate_reset_token(self, token: str) -> None:
-        await self._load_valid_reset_token(token, _INVALID_RESET_TOKEN_ERROR)
+        await self._load_valid_reset_token(
+            token,
+            _INVALID_RESET_TOKEN_ERROR.for_request(),
+        )

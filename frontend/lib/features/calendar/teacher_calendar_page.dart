@@ -542,7 +542,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
     if (unionOpeningWindow(_openingDays, _day, _band) == null)
     {
-      return const CalendarClosedBand();
+      return CalendarClosedBand();
     }
 
     if (!_isSettled)

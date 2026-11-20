@@ -9,13 +9,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.booking_window import now_in_rome
+from app.core.i18n import request_language
 from app.core.labels import opening_mode_label, time_band_phrase
 from app.core.time_band import DAY_END, DAY_START, band_of
 from app.models.opening_day import OpeningDay
+from app.services.bilingual import Bilingual
 
-_STARTED_ERROR: Final[str] = (
-    "Gli orari {mode} {band} del {day} sono già iniziati: "
-    "non si possono più cambiare."
+_STARTED_ERROR: Final[Bilingual] = Bilingual(
+    "Gli orari {mode} {band} del {day} sono già iniziati: non si possono più cambiare.",
+    "The {band} hours {mode} on {day} have already started: they can no longer "
+    "be changed.",
 )
 
 type HoursByBand = dict[tuple[date, str], frozenset[tuple[time, time]]]
@@ -105,9 +108,9 @@ class StartedHoursGuard:
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_STARTED_ERROR.format(
-                mode=opening_mode_label(self.mode),
-                band=time_band_phrase(band),
+            detail=_STARTED_ERROR.for_request().format(
+                mode=opening_mode_label(self.mode, request_language()),
+                band=time_band_phrase(band, request_language()),
                 day=day.strftime("%d/%m/%Y"),
             ),
         )

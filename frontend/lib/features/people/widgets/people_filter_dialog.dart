@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_field_label.dart';
@@ -30,7 +31,7 @@ class PeopleFilterDialog extends StatefulWidget
   // For a list holding only these roles: no roles filter, their sections always shown.
   final List<String>?                     fixedRoles;
 
-  final String                            eyebrow;
+  final String?                           eyebrow;
   final bool                              enrollmentFilter;
   final bool                              earlyExitFilter;
   final bool                              methodologicalNotesFilter;
@@ -46,7 +47,7 @@ class PeopleFilterDialog extends StatefulWidget
     required this.availableSubjects,
     required this.onApply,
     this.fixedRoles,
-    this.eyebrow = 'Persone',
+    this.eyebrow,
     this.enrollmentFilter = true,
     this.earlyExitFilter = true,
     this.methodologicalNotesFilter = false,
@@ -55,6 +56,19 @@ class PeopleFilterDialog extends StatefulWidget
   @override
   State<PeopleFilterDialog> createState() => _PeopleFilterDialogState();
 }
+
+// The chip's words for a role the filter keeps in Italian.
+String _roleLabel(String role) => switch (role)
+{
+  'Amministratore' => tr('Amministratore', 'Administrator'),
+  'Docente' => tr('Docente', 'Teacher'),
+  'Psicologo' => tr('Psicologo', 'Psychologist'),
+  'Genitore' => tr('Genitore', 'Parent'),
+  'Associato' => tr('Associato', 'Member'),
+  'Studente' => tr('Studente', 'Student'),
+  'Corsista' => tr('Corsista', 'Course participant'),
+  _ => role,
+};
 
 class _PeopleFilterDialogState extends State<PeopleFilterDialog>
 {
@@ -74,6 +88,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   final TextEditingController _courseTypeController   = TextEditingController();
   final ScrollController      _scrollController       = ScrollController();
 
+  // Italian, as the server names them: the filter compares them with each person's roles.
   final List<String> _availableRoles = [
     'Amministratore',
     'Docente',
@@ -384,14 +399,14 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
         (_currentState.taughtSubjectsCount!.start == 1 && _currentState.taughtSubjectsCount!.end == 15);
 
     return AppDialogStack(
-      eyebrow: widget.eyebrow,
-      title: 'Filtri di ricerca',
+      eyebrow: widget.eyebrow ?? tr('Persone', 'People'),
+      title: tr('Filtri di ricerca', 'Search filters'),
       maxWidth: _cardWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap),
       footer: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'AZZERA',
+            label: tr('AZZERA', 'RESET'),
             icon: Icons.refresh_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -400,7 +415,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
             onPressed: _resetFilters,
           ),
           primary: AppGradientButton(
-            label: 'APPLICA',
+            label: tr('APPLICA', 'APPLY'),
             icon: Icons.check_rounded,
             height: 52,
             fontSize: 14,
@@ -413,16 +428,16 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
         ),
       ),
       children: [_buildCarousel([
-                        _buildSectionTitle('Generali'),
+                        _buildSectionTitle(tr('Generali', 'General')),
                         if (widget.fixedRoles == null) ...[
-                          _buildFieldLabel('Ruoli'),
+                          _buildFieldLabel(tr('Ruoli', 'Roles')),
                           Wrap(
                             spacing:    10,
                             runSpacing: 10,
                             children:   _availableRoles.map((role)
                             {
                               return AppSelectableChip(
-                                label: role,
+                                label: _roleLabel(role),
                                 selected: _currentState.selectedRoles.contains(role),
                                 onSelected: (val) => _toggleRole(role, val),
                               );
@@ -431,12 +446,12 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
 
                           _buildPillBreak(),
                         ],
-                        _buildFieldLabel('Nazione di nascita'),
+                        _buildFieldLabel(tr('Nazione di nascita', 'Country of birth')),
                         _buildChoiceChips<String>(
                           value: _currentState.birthPlace,
-                          options: const [
-                            (PeopleFilterState.bornInItaly, 'Italia'),
-                            (PeopleFilterState.bornAbroad, 'Estero'),
+                          options: [
+                            (PeopleFilterState.bornInItaly, tr('Italia', 'Italy')),
+                            (PeopleFilterState.bornAbroad, tr('Estero', 'Abroad')),
                           ],
                           onChanged: _setBirthPlace,
                         ),
@@ -444,7 +459,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           const SizedBox(height: 12),
                           ..._buildMultiAutocomplete(
                             controller: _birthNationController,
-                            hint:       'Es. Romania',
+                            hint:       tr('Es. Romania', 'E.g. Romania'),
                             options:    widget.availableBirthNations,
                             values:     _currentState.birthNations,
                             onChanged:  (values) => _currentState = _currentState.copyWith(
@@ -454,10 +469,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           ),
                         ],
 
-                        _buildFieldLabel('Città di nascita'),
+                        _buildFieldLabel(tr('Città di nascita', 'City of birth')),
                         ..._buildMultiAutocomplete(
                           controller: _birthCityController,
-                          hint:       'Es. Thiene',
+                          hint:       tr('Es. Thiene', 'E.g. Thiene'),
                           options:    widget.availableBirthCities,
                           values:     _currentState.birthCities,
                           onChanged:  (values) => _currentState = _currentState.copyWith(
@@ -466,10 +481,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           ),
                         ),
 
-                        _buildFieldLabel('Città di residenza'),
+                        _buildFieldLabel(tr('Città di residenza', 'City of residence')),
                         ..._buildMultiAutocomplete(
                           controller: _cityController,
-                          hint:       'Es. Thiene',
+                          hint:       tr('Es. Thiene', 'E.g. Thiene'),
                           options:    widget.availableCities,
                           values:     _currentState.cities,
                           onChanged:  (values) => _currentState = _currentState.copyWith(
@@ -478,7 +493,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           ),
                         ),
 
-                        _buildFieldLabel('Fascia di età'),
+                        _buildFieldLabel(tr('Fascia di età', 'Age range')),
                         const SizedBox(height: 8),
                         AppRangeSlider(
                           values:    _currentState.ageRange ?? const RangeValues(5, 99),
@@ -502,8 +517,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         Center(
                           child: Text(
                             isFullAgeRange
-                                ? 'Tutte le età'
-                                : '${_currentState.ageRange!.start.round()} - ${_currentState.ageRange!.end.round() == 99 ? '99+' : _currentState.ageRange!.end.round()} anni',
+                                ? tr('Tutte le età', 'All ages')
+                                : '${_currentState.ageRange!.start.round()} - ${_currentState.ageRange!.end.round() == 99 ? '99+' : _currentState.ageRange!.end.round()} ${tr('anni', 'years')}',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize:   14,
                               color:      AppTheme.trialMutedText,
@@ -513,11 +528,11 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         ),
 
                         if (showParentFilters) ...[
-                          _buildSectionTitle('Filtri Genitore'),
-                          _buildFieldLabel('Numero figli associati'),
+                          _buildSectionTitle(tr('Filtri Genitore', 'Parent filters')),
+                          _buildFieldLabel(tr('Numero figli associati', 'Number of member children')),
                           _buildChoiceChips<String>(
                             value: _currentState.childrenCount,
-                            options: const [('1', '1'), ('2', '2'), ('3', '3'), ('4+', '4 o più')],
+                            options: [('1', '1'), ('2', '2'), ('3', '3'), ('4+', tr('4 o più', '4 or more'))],
                             onChanged: (val) => setState(()
                             {
                               _currentState = _currentState.copyWith(
@@ -529,12 +544,12 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         ],
 
                         if (showAssociateFilters) ...[
-                          _buildSectionTitle('Filtri Associato'),
+                          _buildSectionTitle(tr('Filtri Associato', 'Member filters')),
                           if (widget.enrollmentFilter) ...[
-                            _buildFieldLabel('Stato iscrizione'),
+                            _buildFieldLabel(tr('Stato iscrizione', 'Enrolment status')),
                             _buildChoiceChips<bool>(
                               value: _currentState.isEnrolled,
-                              options: const [(true, 'Iscritto'), (false, 'Non iscritto')],
+                              options: [(true, tr('Iscritto', 'Enrolled')), (false, tr('Non iscritto', 'Not enrolled'))],
                               onChanged: (val) => setState(()
                               {
                                 _currentState = _currentState.copyWith(
@@ -544,10 +559,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                               }),
                             ),
                           ],
-                          _buildFieldLabel('Stato collaborazione'),
+                          _buildFieldLabel(tr('Stato collaborazione', 'Collaboration status')),
                           _buildChoiceChips<bool>(
                             value: _currentState.isActiveCollaborator,
-                            options: const [(true, 'Attiva'), (false, 'Inattiva')],
+                            options: [(true, tr('Attiva', 'Active')), (false, tr('Inattiva', 'Inactive'))],
                             onChanged: (val) => setState(()
                             {
                               _currentState = _currentState.copyWith(
@@ -556,12 +571,12 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                               );
                             }),
                           ),
-                          _buildFieldLabel('Anno di prima iscrizione'),
+                          _buildFieldLabel(tr('Anno di prima iscrizione', 'Year of first enrolment')),
                           AppDropdownField<String?>(
-                            hint:    'Qualsiasi anno',
+                            hint:    tr('Qualsiasi anno', 'Any year'),
                             value:   _currentState.enrollmentYear,
                             options: [
-                              AppDropdownOption(value: null,   label: 'Qualsiasi anno'),
+                              AppDropdownOption(value: null,   label: tr('Qualsiasi anno', 'Any year')),
                               AppDropdownOption(value: '2026', label: '2026'),
                               AppDropdownOption(value: '2025', label: '2025'),
                               AppDropdownOption(value: '2024', label: '2024'),
@@ -579,13 +594,13 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         ],
 
                         if (showStudentFilters) ...[
-                          _buildSectionTitle('Filtri Studente'),
-                          _buildFieldLabel('Livello di istruzione'),
+                          _buildSectionTitle(tr('Filtri Studente', 'Student filters')),
+                          _buildFieldLabel(tr('Livello di istruzione', 'Education level')),
                           _buildChoiceChips<String>(
                             value: _currentState.educationLevel,
-                            options: const [('Scuola primaria', 'Primaria'),
-                              ('Scuola secondaria di I grado', 'Secondaria I grado'),
-                              ('Scuola secondaria di II grado', 'Secondaria II grado')],
+                            options: [('Scuola primaria', tr('Primaria', 'Primary school')),
+                              ('Scuola secondaria di I grado', tr('Secondaria I grado', 'Lower secondary')),
+                              ('Scuola secondaria di II grado', tr('Secondaria II grado', 'Upper secondary'))],
                             onChanged: (val) => setState(()
                             {
                               _currentState = _currentState.copyWith(
@@ -594,10 +609,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                               );
                             }),
                           ),
-                          _buildFieldLabel('Scuola frequentata'),
+                          _buildFieldLabel(tr('Scuola frequentata', 'School attended')),
                           ..._buildMultiAutocomplete(
                             controller: _schoolController,
-                            hint:       'Es. Liceo Statale "F. Corradini"',
+                            hint:       tr('Es. Liceo Statale "F. Corradini"', 'E.g. Liceo Statale "F. Corradini"'),
                             options:    widget.availableSchools,
                             values:     _currentState.schoolNames,
                             onChanged:  (values) => _currentState = _currentState.copyWith(
@@ -605,7 +620,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                               clearSchoolNames: values.isEmpty,
                             ),
                           ),
-                          _buildFieldLabel('Classe'),
+                          _buildFieldLabel(tr('Classe', 'Class')),
                           _buildChoiceChips<String>(
                             value: _currentState.schoolClass,
                             options: const [('I', 'I'), ('II', 'II'), ('III', 'III'), ('IV', 'IV'), ('V', 'V')],
@@ -617,10 +632,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                               );
                             }),
                           ),
-                          _buildFieldLabel('Indirizzo di studio'),
+                          _buildFieldLabel(tr('Indirizzo di studio', 'Course of study')),
                           ..._buildMultiAutocomplete(
                             controller: _studyProgramController,
-                            hint:       'Es. Amministrazione, finanza e marketing',
+                            hint:       tr('Es. Amministrazione, finanza e marketing', 'E.g. Amministrazione, finanza e marketing'),
                             options:    widget.availableStudyPrograms,
                             values:     _currentState.studyPrograms,
                             onChanged:  (values) => _currentState = _currentState.copyWith(
@@ -628,15 +643,15 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                               clearStudyPrograms: values.isEmpty,
                             ),
                           ),
-                          _buildFieldLabel('Certificazione'),
+                          _buildFieldLabel(tr('Certificazione', 'Certification')),
                           _buildMultiChips(
                             values: _currentState.certifications,
-                            options: const [
-                              (PeopleFilterState.noCertification, 'Nessuna'),
-                              ('DSA', 'DSA'),
-                              ('BES', 'BES'),
+                            options: [
+                              (PeopleFilterState.noCertification, tr('Nessuna', 'None')),
+                              ('DSA', tr('DSA', 'SLD')),
+                              ('BES', tr('BES', 'SEN')),
                               ('ADHD', 'ADHD'),
-                              ('OTHER', 'Altro'),
+                              ('OTHER', tr('Altro', 'Other')),
                             ],
                             onChanged: (values) => setState(()
                             {
@@ -647,10 +662,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                             }),
                           ),
                           if (widget.earlyExitFilter) ...[
-                            _buildFieldLabel('Uscita anticipata'),
+                            _buildFieldLabel(tr('Uscita anticipata', 'Early departure')),
                             _buildChoiceChips<bool>(
                               value: _currentState.earlyExit,
-                              options: const [(true, 'Sì'), (false, 'No')],
+                              options: [(true, tr('Sì', 'Yes')), (false, 'No')],
                               onChanged: (val) => setState(()
                               {
                                 _currentState = _currentState.copyWith(
@@ -661,10 +676,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                             ),
                           ],
                           if (widget.methodologicalNotesFilter) ...[
-                            _buildFieldLabel('Osservazioni metodologiche'),
+                            _buildFieldLabel(tr('Osservazioni metodologiche', 'Methodological observations')),
                             _buildChoiceChips<bool>(
                               value: _currentState.hasMethodologicalNotes,
-                              options: const [(true, 'Presenti'), (false, 'Assenti')],
+                              options: [(true, tr('Presenti', 'Present')), (false, tr('Assenti', 'Absent'))],
                               onChanged: (val) => setState(()
                               {
                                 _currentState = _currentState.copyWith(
@@ -677,11 +692,15 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         ],
 
                         if (showStaffFilters) ...[
-                          _buildSectionTitle('Filtri Staff'),
-                          _buildFieldLabel('Tipo collaborazione'),
+                          _buildSectionTitle(tr('Filtri Staff', 'Staff filters')),
+                          _buildFieldLabel(tr('Tipo collaborazione', 'Collaboration type')),
                           _buildChoiceChips<String>(
                             value: _currentState.collaborationType,
-                            options: const [('Volontario', 'Volontario'), ('Retribuito', 'Retribuito'), ('FSL (Ex PCTO)', 'FSL (Ex PCTO)')],
+                            options: [
+                              ('Volontario', tr('Volontario', 'Volunteer')),
+                              ('Retribuito', tr('Retribuito', 'Paid')),
+                              ('FSL (Ex PCTO)', 'FSL (Ex PCTO)'),
+                            ],
                             onChanged: (val) => setState(()
                             {
                               _currentState = _currentState.copyWith(
@@ -693,12 +712,12 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         ],
 
                         if (showTeacherFilters) ...[
-                          _buildSectionTitle('Filtri Docente'),
+                          _buildSectionTitle(tr('Filtri Docente', 'Teacher filters')),
 
-                          _buildFieldLabel('Discipline insegnate'),
+                          _buildFieldLabel(tr('Discipline insegnate', 'Disciplines taught')),
                           ..._buildMultiAutocomplete(
                             controller: _subjectController,
-                            hint:       'Es. Aritmetica',
+                            hint:       tr('Es. Aritmetica', 'E.g. Aritmetica'),
                             options:    widget.availableSubjects,
                             values:     _currentState.taughtSubjects,
                             onChanged:  (values) => _currentState = _currentState.copyWith(
@@ -707,7 +726,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                             ),
                           ),
 
-                          _buildFieldLabel('Numero materie insegnate'),
+                          _buildFieldLabel(tr('Numero materie insegnate', 'Number of subjects taught')),
                           const SizedBox(height: 8),
                           AppRangeSlider(
                             values:    _currentState.taughtSubjectsCount ?? const RangeValues(1, 15),
@@ -731,8 +750,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           Center(
                             child: Text(
                               isFullSubjectRange
-                                  ? 'Qualsiasi'
-                                  : '${_currentState.taughtSubjectsCount!.start.round()} - ${_currentState.taughtSubjectsCount!.end.round() == 15 ? '15+' : _currentState.taughtSubjectsCount!.end.round()} materie',
+                                  ? tr('Qualsiasi', 'Any')
+                                  : '${_currentState.taughtSubjectsCount!.start.round()} - ${_currentState.taughtSubjectsCount!.end.round() == 15 ? '15+' : _currentState.taughtSubjectsCount!.end.round()} ${tr('materie', 'subjects')}',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize:   14,
                                 color:      AppTheme.trialMutedText,
@@ -743,11 +762,11 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         ],
 
                         if (showCourseFilters) ...[
-                          _buildSectionTitle('Filtri Corsista'),
-                          _buildFieldLabel('Tipo di corso'),
+                          _buildSectionTitle(tr('Filtri Corsista', 'Course participant filters')),
+                          _buildFieldLabel(tr('Tipo di corso', 'Course type')),
                           _buildTextField(
                             _courseTypeController,
-                            'Es. Yoga',
+                            tr('Es. Yoga', 'E.g. Yoga'),
                             (val) => setState(()
                             {
                               _currentState = _currentState.copyWith(
@@ -756,10 +775,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                               );
                             }),
                           ),
-                          _buildFieldLabel('Certificato medico'),
+                          _buildFieldLabel(tr('Certificato medico', 'Medical certificate')),
                           _buildChoiceChips<bool>(
                             value: _currentState.isMedicalCertificateValid,
-                            options: const [(true, 'Non scaduto'), (false, 'Scaduto')],
+                            options: [(true, tr('Non scaduto', 'Valid')), (false, tr('Scaduto', 'Expired'))],
                             onChanged: (val) => setState(()
                             {
                               _currentState = _currentState.copyWith(

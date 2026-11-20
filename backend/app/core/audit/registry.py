@@ -565,6 +565,7 @@ IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
         ("DELETE", "/notifications/{notification_id}"),
         ("PUT", "/notifications/kinds"),
         ("PUT", "/auth/colour-theme"),
+        ("PUT", "/auth/language"),
         ("PUT", "/notifications/calendar/{calendar_date}/{band}/seen"),
         ("PUT", "/notifications/bookings/{pupil_tax_code}/seen"),
         ("PUT", "/notifications/availabilities/seen"),

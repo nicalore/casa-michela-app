@@ -213,7 +213,7 @@ class _NoticeEditorState extends State<NoticeEditor>
     return AppMenuButton<int>(
       value: current,
       menuWidth: _headingMenuWidth,
-      options: const [
+      options: [
         FilterOption(value: 0, label: kTextStyle),
         FilterOption(value: 2, label: kHeadingStyle),
         FilterOption(value: 3, label: kSubheadingStyle),

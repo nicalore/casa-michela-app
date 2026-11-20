@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Final
 from sqlalchemy import ForeignKey, event, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
+from app.core.i18n import tr
 from app.db.base import Base
 from app.models.flush_state import (
     BookingFlushKey,
@@ -20,8 +21,9 @@ if TYPE_CHECKING:
 # More than three is not a preference any more, it is the whole staff in order.
 MAX_PREFERRED_TEACHERS_PER_BOOKING: Final[int] = 3
 
-_TOO_MANY_PREFERRED_TEACHERS_ERROR: Final[str] = (
-    "Puoi indicare al massimo tre docenti preferiti per ogni lezione"
+_TOO_MANY_PREFERRED_TEACHERS_ERROR: Final[tuple[str, str]] = (
+    "Puoi indicare al massimo tre docenti preferiti per ogni lezione",
+    "You can choose at most three preferred teachers for each lesson",
 )
 
 
@@ -88,4 +90,4 @@ def _validate_preferred_teachers_cap(
             )
 
         if len(merged) > MAX_PREFERRED_TEACHERS_PER_BOOKING:
-            raise ValueError(_TOO_MANY_PREFERRED_TEACHERS_ERROR)
+            raise ValueError(tr(*_TOO_MANY_PREFERRED_TEACHERS_ERROR))

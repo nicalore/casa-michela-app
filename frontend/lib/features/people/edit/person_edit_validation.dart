@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/iban.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
@@ -117,16 +118,16 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
   if (form.involvementType == 0 && activeRoles.isEmpty)
   {
-    return const PersonEditValidation(
-      errors: {},
+    return PersonEditValidation(
+      errors: const {},
       issues: [
         PersonEditIssue(
           field: 'roles',
-          message: 'Seleziona almeno un ruolo.',
+          message: tr('Seleziona almeno un ruolo.', 'Select at least one role.'),
           card: PersonEditCardId.roleChoice,
         ),
       ],
-      message: 'Seleziona almeno un ruolo.',
+      message: tr('Seleziona almeno un ruolo.', 'Select at least one role.'),
     );
   }
 
@@ -136,16 +137,22 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
   if (requiresAdult && form.isMinor)
   {
-    return const PersonEditValidation(
-      errors: {},
+    return PersonEditValidation(
+      errors: const {},
       issues: [
         PersonEditIssue(
           field: 'roles',
-          message: 'I ruoli Genitore, Psicologo e Amministratore richiedono la maggiore età.',
+          message: tr(
+            'I ruoli Genitore, Psicologo e Amministratore richiedono la maggiore età.',
+            'The Parent, Psychologist and Administrator roles require being of age.',
+          ),
           card: PersonEditCardId.roleChoice,
         ),
       ],
-      message: 'I ruoli Genitore, Psicologo e Amministratore richiedono la maggiore età.',
+      message: tr(
+        'I ruoli Genitore, Psicologo e Amministratore richiedono la maggiore età.',
+        'The Parent, Psychologist and Administrator roles require being of age.',
+      ),
     );
   }
 
@@ -155,14 +162,17 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     return PersonEditValidation(
       errors: const {},
-      issues: const [
+      issues: [
         PersonEditIssue(
           field: 'roles',
-          message: 'Genitore obbligatorio',
+          message: tr('Genitore obbligatorio', 'Parent required'),
           card: PersonEditCardId.roleChoice,
         ),
       ],
-      message: 'Impossibile rimuovere il ruolo Genitore: $orphaned rimarrebbe senza genitori.',
+      message: tr(
+        'Impossibile rimuovere il ruolo Genitore: $orphaned rimarrebbe senza genitori.',
+        'Cannot remove the Parent role: $orphaned would be left without parents.',
+      ),
     );
   }
 
@@ -170,37 +180,37 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     if (form.firstNameCtrl.text.trim().isEmpty)
     {
-      collector.add('nome', 'Campo obbligatorio', PersonEditCardId.identity);
+      collector.add('nome', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.identity);
     }
 
     if (form.lastNameCtrl.text.trim().isEmpty)
     {
-      collector.add('cognome', 'Campo obbligatorio', PersonEditCardId.identity);
+      collector.add('cognome', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.identity);
     }
 
     if (form.genderValue == null)
     {
-      collector.add('sesso', 'Campo obbligatorio', PersonEditCardId.identity);
+      collector.add('sesso', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.identity);
     }
 
     final String cf = form.cfCtrl.text.trim().toUpperCase();
 
     if (cf.isEmpty)
     {
-      collector.add('cf', 'Campo obbligatorio', PersonEditCardId.identity);
+      collector.add('cf', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.identity);
     }
     else if (!PersonEditForm.isFiscalCodeValid(cf))
     {
-      collector.add('cf', 'Codice fiscale non valido', PersonEditCardId.identity);
+      collector.add('cf', tr('Codice fiscale non valido', 'Invalid tax code'), PersonEditCardId.identity);
     }
 
     if (form.birthDateCtrl.text.trim().isEmpty)
     {
-      collector.add('dataNascita', 'Campo obbligatorio', PersonEditCardId.birthData);
+      collector.add('dataNascita', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.birthData);
     }
     else if (!PersonEditForm.isValidDate(form.birthDateCtrl.text.trim()))
     {
-      collector.add('dataNascita', 'Data non valida', PersonEditCardId.birthData);
+      collector.add('dataNascita', tr('Data non valida', 'Invalid date'), PersonEditCardId.birthData);
     }
     else if (cf.length == 16 &&
         form.genderValue != null &&
@@ -212,7 +222,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     {
       collector.add(
         'cf',
-        'Non combacia con data di nascita e sesso',
+        tr('Non combacia con data di nascita e sesso', 'Does not match date of birth and sex'),
         PersonEditCardId.identity,
       );
     }
@@ -227,88 +237,100 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
           form.lastNameCtrl.text.trim(),
         ))
     {
-      collector.add('cf', 'Non combacia con nome e cognome', PersonEditCardId.identity);
+      collector.add(
+        'cf',
+        tr('Non combacia con nome e cognome', 'Does not match first name and surname'),
+        PersonEditCardId.identity,
+      );
     }
 
     if (cf.length == 16 && !collector.errors.containsKey('cf') && form.isTaxCodeTaken(cf))
     {
-      collector.add('cf', 'Codice fiscale già presente', PersonEditCardId.identity);
+      collector.add('cf', tr('Codice fiscale già presente', 'Tax code already registered'), PersonEditCardId.identity);
     }
 
     // Abroad the city may be unknown; the switch fills the province in.
     if (!form.bornAbroad && form.birthCityCtrl.text.trim().isEmpty)
     {
-      collector.add('cittaNascita', 'Campo obbligatorio', PersonEditCardId.birthData);
+      collector.add('cittaNascita', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.birthData);
     }
 
     if (form.birthProvinceCtrl.text.trim().isEmpty)
     {
-      collector.add('provNascita', 'Campo obbligatorio', PersonEditCardId.birthData);
+      collector.add('provNascita', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.birthData);
     }
 
     if (form.birthNationCtrl.text.trim().isEmpty)
     {
-      collector.add('nazioneNascita', 'Campo obbligatorio', PersonEditCardId.birthData);
+      collector.add('nazioneNascita', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.birthData);
     }
   }
 
   if (form.streetTypeCtrl.text.isEmpty)
   {
-    collector.add('tipoVia', 'Campo obbligatorio', PersonEditCardId.residence);
+    collector.add('tipoVia', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.residence);
   }
 
   if (form.streetNameCtrl.text.isEmpty)
   {
-    collector.add('indirizzo', 'Campo obbligatorio', PersonEditCardId.residence);
+    collector.add('indirizzo', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.residence);
   }
 
   if (form.streetNumberCtrl.text.isEmpty)
   {
-    collector.add('civico', 'Campo obbligatorio', PersonEditCardId.residence);
+    collector.add('civico', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.residence);
   }
 
   if (form.residenceCityCtrl.text.isEmpty)
   {
-    collector.add('cittaResidenza', 'Campo obbligatorio', PersonEditCardId.residence);
+    collector.add('cittaResidenza', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.residence);
   }
 
   if (form.residenceProvinceCtrl.text.isEmpty)
   {
-    collector.add('provResidenza', 'Campo obbligatorio', PersonEditCardId.residence);
+    collector.add('provResidenza', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.residence);
   }
   else if (!RegExp(r'^[A-Z]{2}$').hasMatch(form.residenceProvinceCtrl.text))
   {
-    collector.add('provResidenza', 'Inserire 2 lettere (es. VI)', PersonEditCardId.residence);
+    collector.add(
+      'provResidenza',
+      tr('Inserire 2 lettere (es. VI)', 'Enter 2 letters (e.g. VI)'),
+      PersonEditCardId.residence,
+    );
   }
 
   if (form.postalCodeCtrl.text.isEmpty)
   {
-    collector.add('cap', 'Campo obbligatorio', PersonEditCardId.residence);
+    collector.add('cap', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.residence);
   }
   else if (!RegExp(r'^\d{5}$').hasMatch(form.postalCodeCtrl.text))
   {
-    collector.add('cap', 'Deve contenere esattamente 5 numeri', PersonEditCardId.residence);
+    collector.add(
+      'cap',
+      tr('Deve contenere esattamente 5 numeri', 'Must contain exactly 5 digits'),
+      PersonEditCardId.residence,
+    );
   }
 
   if (form.emailCtrl.text.isEmpty)
   {
-    collector.add('email', 'Campo obbligatorio', PersonEditCardId.contacts);
+    collector.add('email', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.contacts);
   }
   // Must match the database CHECK ck_people_email_format exactly.
   else if (!RegExp(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
       .hasMatch(form.emailCtrl.text))
   {
-    collector.add('email', 'Formato email non valido', PersonEditCardId.contacts);
+    collector.add('email', tr('Formato email non valido', 'Invalid email format'), PersonEditCardId.contacts);
   }
 
   if (form.phoneCtrl.text.isEmpty)
   {
-    collector.add('telefono', 'Campo obbligatorio', PersonEditCardId.contacts);
+    collector.add('telefono', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.contacts);
   }
   // Validates the bare digits, not the formatted text.
   else if (!RegExp(r'^\+?[0-9]+$').hasMatch(barePhoneNumber(form.phoneCtrl.text)))
   {
-    collector.add('telefono', 'Formato telefono non valido', PersonEditCardId.contacts);
+    collector.add('telefono', tr('Formato telefono non valido', 'Invalid phone format'), PersonEditCardId.contacts);
   }
 
   // Reduced to the personal details: nothing beyond them may be required.
@@ -328,7 +350,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     {
       collector.add(
         'enrollmentGeneral',
-        'Aggiungi almeno un\'iscrizione',
+        tr('Aggiungi almeno un\'iscrizione', 'Add at least one enrolment'),
         PersonEditCardId.memberships,
       );
     }
@@ -342,15 +364,19 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
       if (year.isEmpty)
       {
-        collector.add('enrollmentYear_$i', 'Campo obbligatorio', PersonEditCardId.memberships);
+        collector.add('enrollmentYear_$i', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.memberships);
       }
       else if (!RegExp(r'^\d{4}$').hasMatch(year))
       {
-        collector.add('enrollmentYear_$i', 'Anno non valido', PersonEditCardId.memberships);
+        collector.add('enrollmentYear_$i', tr('Anno non valido', 'Invalid year'), PersonEditCardId.memberships);
       }
       else if (int.parse(year) > romeNow().year)
       {
-        collector.add('enrollmentYear_$i', 'Anno non futuro', PersonEditCardId.memberships);
+        collector.add(
+          'enrollmentYear_$i',
+          tr('Anno non futuro', 'Year cannot be in the future'),
+          PersonEditCardId.memberships,
+        );
       }
       else if ((newestMembershipYear(form.person) ?? 9999) < int.parse(year))
       {
@@ -363,15 +389,15 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
       if (date.isEmpty)
       {
-        collector.add('enrollmentDate_$i', 'Campo obbligatorio', PersonEditCardId.memberships);
+        collector.add('enrollmentDate_$i', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.memberships);
       }
       else if (yearValid && !PersonEditForm.isValidDayMonthYear(date, year))
       {
-        collector.add('enrollmentDate_$i', 'Data non valida', PersonEditCardId.memberships);
+        collector.add('enrollmentDate_$i', tr('Data non valida', 'Invalid date'), PersonEditCardId.memberships);
       }
       else if (!yearValid && !RegExp(r'^\d{2}/\d{2}$').hasMatch(date))
       {
-        collector.add('enrollmentDate_$i', 'Formato gg/mm', PersonEditCardId.memberships);
+        collector.add('enrollmentDate_$i', tr('Formato gg/mm', 'Format dd/mm'), PersonEditCardId.memberships);
       }
       else if (yearValid)
       {
@@ -391,14 +417,14 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     if (form.adminRoleValue == null)
     {
-      collector.add('ruoloAmministratore', 'Campo obbligatorio', PersonEditCardId.admin);
+      collector.add('ruoloAmministratore', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.admin);
     }
-    else if (form.adminRoleValue == 'Altro' &&
+    else if (kAdminRoles[form.adminRoleValue] == 'OTHER' &&
         form.otherAdminRoleCtrl.text.isEmpty)
     {
       collector.add(
         'altroRuoloAmministratore',
-        'Specificare il ruolo',
+        tr('Specificare il ruolo', 'Specify the role'),
         PersonEditCardId.admin,
       );
     }
@@ -412,7 +438,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     {
       collector.add(
         'scadenzaCertificato',
-        'Formato data non valido',
+        tr('Formato data non valido', 'Invalid date format'),
         PersonEditCardId.courseParticipant,
       );
     }
@@ -421,7 +447,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
     if (courseMissing)
     {
-      collector.add('tipoCorso', 'Campo obbligatorio', PersonEditCardId.courseParticipant);
+      collector.add('tipoCorso', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.courseParticipant);
     }
   }
 
@@ -444,19 +470,19 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     if (!form.statuteAcknowledged)
     {
-      collector.add('statutoAccettato', 'Obbligatorio', PersonEditCardId.consents);
+      collector.add('statutoAccettato', tr('Obbligatorio', 'Required'), PersonEditCardId.consents);
     }
 
     if (!form.regulationAcknowledged)
     {
-      collector.add('regolamentoAccettato', 'Obbligatorio', PersonEditCardId.consents);
+      collector.add('regolamentoAccettato', tr('Obbligatorio', 'Required'), PersonEditCardId.consents);
     }
 
     if (!form.videoSurveillanceAcknowledged)
     {
       collector.add(
         'videosorveglianzaPresaVisione',
-        'Obbligatorio',
+        tr('Obbligatorio', 'Required'),
         PersonEditCardId.consents,
       );
     }
@@ -469,7 +495,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       {
         collector.add(
           'dataInizioSostegnoPsicologico',
-          'Campo obbligatorio',
+          tr('Campo obbligatorio', 'Required field'),
           PersonEditCardId.psychologicalSupport,
         );
       }
@@ -477,7 +503,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       {
         collector.add(
           'dataInizioSostegnoPsicologico',
-          'Formato data non valido',
+          tr('Formato data non valido', 'Invalid date format'),
           PersonEditCardId.psychologicalSupport,
         );
       }
@@ -497,7 +523,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
     if (form.collaborationTypeValue == null && !form.collaborationInCompensi)
     {
-      collector.add('tipoCollaborazione', 'Campo obbligatorio', PersonEditCardId.staff);
+      collector.add('tipoCollaborazione', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.staff);
     }
 
     final String compensation = form.grossCompensationCtrl.text.trim();
@@ -507,7 +533,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
         compensation.isNotEmpty &&
         parseAmountCents(compensation) == null)
     {
-      collector.add('compensoLordo', 'Importo non valido', PersonEditCardId.staff);
+      collector.add('compensoLordo', tr('Importo non valido', 'Invalid amount'), PersonEditCardId.staff);
     }
   }
 
@@ -515,7 +541,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     collector.add(
       'parents',
-      'Seleziona almeno un genitore',
+      tr('Seleziona almeno un genitore', 'Select at least one parent'),
       PersonEditCardId.parents,
     );
   }
@@ -525,7 +551,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     collector.add(
       'subjects',
-      'Seleziona almeno una disciplina',
+      tr('Seleziona almeno una disciplina', 'Select at least one discipline'),
       PersonEditCardId.subjects,
     );
   }
@@ -558,7 +584,7 @@ bool _checkSchoolRows(PersonEditForm form, _Collector collector)
   {
     collector.add(
       'schoolGeneral',
-      'Aggiungi almeno un anno scolastico',
+      tr('Aggiungi almeno un anno scolastico', 'Add at least one school year'),
       PersonEditCardId.schoolEnrollments,
     );
   }
@@ -572,11 +598,11 @@ bool _checkSchoolRows(PersonEditForm form, _Collector collector)
 
     if (year.isEmpty)
     {
-      collector.add('schoolYear_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
+      collector.add('schoolYear_$i', tr('Obbligatorio', 'Required'), PersonEditCardId.schoolEnrollments);
     }
     else if (!RegExp(r'^\d{4}$').hasMatch(year))
     {
-      collector.add('schoolYear_$i', 'Anno non valido', PersonEditCardId.schoolEnrollments);
+      collector.add('schoolYear_$i', tr('Anno non valido', 'Invalid year'), PersonEditCardId.schoolEnrollments);
     }
     else
     {
@@ -587,29 +613,29 @@ bool _checkSchoolRows(PersonEditForm form, _Collector collector)
         future = true;
         collector.add(
           'schoolYear_$i',
-          'Anno futuro non permesso',
+          tr('Anno futuro non permesso', 'Future year not allowed'),
           PersonEditCardId.schoolEnrollments,
         );
       }
       else if (!seenYears.add(parsed))
       {
-        collector.add('schoolYear_$i', 'Duplicato', PersonEditCardId.schoolEnrollments);
+        collector.add('schoolYear_$i', tr('Duplicato', 'Duplicate'), PersonEditCardId.schoolEnrollments);
       }
     }
 
     if (!row.hasSchool)
     {
-      collector.add('school_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
+      collector.add('school_$i', tr('Obbligatorio', 'Required'), PersonEditCardId.schoolEnrollments);
     }
 
     if (row.program == null)
     {
-      collector.add('program_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
+      collector.add('program_$i', tr('Obbligatorio', 'Required'), PersonEditCardId.schoolEnrollments);
     }
 
     if (row.grade == null)
     {
-      collector.add('grade_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
+      collector.add('grade_$i', tr('Obbligatorio', 'Required'), PersonEditCardId.schoolEnrollments);
     }
   }
 
@@ -622,7 +648,7 @@ void _checkPayment(PersonEditForm form, _Collector collector)
 
   if (asksPayment && form.paymentMethodValue == null)
   {
-    collector.add('modalitaPagamento', 'Obbligatorio', PersonEditCardId.payment);
+    collector.add('modalitaPagamento', tr('Obbligatorio', 'Required'), PersonEditCardId.payment);
   }
 
   if (form.asksTariff)
@@ -637,12 +663,12 @@ void _checkPayment(PersonEditForm form, _Collector collector)
   }
 
   if (asksPayment &&
-      form.paymentMethodValue == 'Altro' &&
+      kPaymentMethods[form.paymentMethodValue] == 'OTHER' &&
       form.otherPaymentMethodCtrl.text.isEmpty)
   {
     collector.add(
       'altraModalitaPagamento',
-      'Specificare la modalità',
+      tr('Specificare la modalità', 'Specify the method'),
       PersonEditCardId.payment,
     );
   }
@@ -656,11 +682,11 @@ PersonEditValidation _validateReEnrollment(PersonEditForm form)
 
   if (start.isEmpty)
   {
-    collector.add('reEnrollStart', 'Campo obbligatorio', PersonEditCardId.reEnrollment);
+    collector.add('reEnrollStart', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.reEnrollment);
   }
   else if (!PersonEditForm.isValidDayMonthYear(start, form.reEnrollYearCtrl.text))
   {
-    collector.add('reEnrollStart', 'Data non valida', PersonEditCardId.reEnrollment);
+    collector.add('reEnrollStart', tr('Data non valida', 'Invalid date'), PersonEditCardId.reEnrollment);
   }
 
   bool futureSchoolYear = false;
@@ -677,7 +703,7 @@ PersonEditValidation _validateReEnrollment(PersonEditForm form)
     {
       collector.add(
         'schoolGeneral',
-        'Aggiungi l\'anno scolastico in corso',
+        tr('Aggiungi l\'anno scolastico in corso', 'Add the current school year'),
         PersonEditCardId.schoolEnrollments,
       );
     }
@@ -714,7 +740,7 @@ String _messageFor(PersonEditIssue issue, bool futureSchoolYear)
 
   if (futureSchoolYear && issue.card == PersonEditCardId.schoolEnrollments)
   {
-    return 'Non è possibile inserire anni scolastici futuri.';
+    return tr('Non è possibile inserire anni scolastici futuri.', 'Future school years cannot be entered.');
   }
 
   return switch (issue.card)
@@ -723,12 +749,24 @@ String _messageFor(PersonEditIssue issue, bool futureSchoolYear)
     PersonEditCardId.birthData ||
     PersonEditCardId.residence ||
     PersonEditCardId.contacts =>
-      'Ci sono errori nei dati inseriti. Correggi i campi.',
-    PersonEditCardId.payment => 'Completa i dati sul pagamento.',
-    PersonEditCardId.consents => 'Statuto, regolamento e videosorveglianza sono obbligatori.',
-    PersonEditCardId.parents => 'Seleziona almeno un genitore o tutore legale.',
-    PersonEditCardId.subjects => 'Seleziona almeno una disciplina.',
-    _ => 'Ci sono errori nelle informazioni associative. Correggi i campi.',
+      tr(
+        'Ci sono errori nei dati inseriti. Correggi i campi.',
+        'There are errors in the details entered. Correct the fields.',
+      ),
+    PersonEditCardId.payment => tr('Completa i dati sul pagamento.', 'Complete the payment details.'),
+    PersonEditCardId.consents => tr(
+      'Statuto, regolamento e videosorveglianza sono obbligatori.',
+      'The statute, the rules and the video surveillance notice are required.',
+    ),
+    PersonEditCardId.parents => tr(
+      'Seleziona almeno un genitore o tutore legale.',
+      'Select at least one parent or legal guardian.',
+    ),
+    PersonEditCardId.subjects => tr('Seleziona almeno una disciplina.', 'Select at least one discipline.'),
+    _ => tr(
+      'Ci sono errori nelle informazioni associative. Correggi i campi.',
+      'There are errors in the membership details. Correct the fields.',
+    ),
   };
 }
 
@@ -806,22 +844,26 @@ int? _minutesOfDay(String value)
 
 void _checkCertifications(PersonEditForm form, _Collector collector)
 {
-  if (form.certificationValues.contains('Altro') &&
+  if (form.certificationValues.any((value) => kCertificationTypes[value] == 'OTHER') &&
       form.otherCertificationCtrl.text.isEmpty)
   {
-    collector.add('altraCertificazione', 'Specificare il tipo', PersonEditCardId.certifications);
+    collector.add(
+      'altraCertificazione',
+      tr('Specificare il tipo', 'Specify the type'),
+      PersonEditCardId.certifications,
+    );
   }
 
-  if (form.certificationValues.contains('DSA') && form.dsaCertificationCtrl.text.isEmpty)
+  if (form.certificationValues.any((value) => kCertificationTypes[value] == 'DSA') && form.dsaCertificationCtrl.text.isEmpty)
   {
-    collector.add('tipoDsa', 'Specificare il disturbo', PersonEditCardId.certifications);
+    collector.add('tipoDsa', tr('Specificare il disturbo', 'Specify the disorder'), PersonEditCardId.certifications);
   }
 
   if (form.certificationValues.isNotEmpty && !form.psychMeetingsAcknowledgedValue)
   {
     collector.add(
       'presaVisioneIncontri',
-      'Presa visione obbligatoria',
+      tr('Presa visione obbligatoria', 'Acknowledgement required'),
       PersonEditCardId.certifications,
     );
   }
@@ -834,23 +876,23 @@ void _checkEarlyExitPeriod(PersonEditForm form, _Collector collector)
 
   if (from.isEmpty)
   {
-    collector.add('uscitaAnticipataDal', 'Campo obbligatorio', PersonEditCardId.earlyExit);
+    collector.add('uscitaAnticipataDal', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.earlyExit);
   }
   else if (!PersonEditForm.isValidDate(from))
   {
-    collector.add('uscitaAnticipataDal', 'Data non valida', PersonEditCardId.earlyExit);
+    collector.add('uscitaAnticipataDal', tr('Data non valida', 'Invalid date'), PersonEditCardId.earlyExit);
   }
 
   if (to.isEmpty)
   {
-    collector.add('uscitaAnticipataAl', 'Campo obbligatorio', PersonEditCardId.earlyExit);
+    collector.add('uscitaAnticipataAl', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.earlyExit);
 
     return;
   }
 
   if (!PersonEditForm.isValidDate(to))
   {
-    collector.add('uscitaAnticipataAl', 'Data non valida', PersonEditCardId.earlyExit);
+    collector.add('uscitaAnticipataAl', tr('Data non valida', 'Invalid date'), PersonEditCardId.earlyExit);
 
     return;
   }
@@ -862,7 +904,7 @@ void _checkEarlyExitPeriod(PersonEditForm form, _Collector collector)
   {
     collector.add(
       'uscitaAnticipataAl',
-      'Non può precedere l\'inizio',
+      tr('Non può precedere l\'inizio', 'Cannot be before the start'),
       PersonEditCardId.earlyExit,
     );
   }
@@ -883,13 +925,17 @@ void _checkEarlyExit(PersonEditForm form, _Collector collector)
 
     if (row.weekdays.isEmpty)
     {
-      collector.add('earlyExitDays_$i', 'Scegli almeno un giorno', PersonEditCardId.earlyExit);
+      collector.add(
+        'earlyExitDays_$i',
+        tr('Scegli almeno un giorno', 'Choose at least one day'),
+        PersonEditCardId.earlyExit,
+      );
     }
     else if (row.weekdays.any(takenDays.contains))
     {
       collector.add(
         'earlyExitDays_$i',
-        'Giorno già indicato in un\'altra uscita',
+        tr('Giorno già indicato in un\'altra uscita', 'Day already set in another departure'),
         PersonEditCardId.earlyExit,
       );
     }
@@ -901,20 +947,24 @@ void _checkEarlyExit(PersonEditForm form, _Collector collector)
 
     if (time.isEmpty)
     {
-      collector.add('earlyExitTime_$i', 'Campo obbligatorio', PersonEditCardId.earlyExit);
+      collector.add('earlyExitTime_$i', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.earlyExit);
     }
     else if (minutes == null)
     {
-      collector.add('earlyExitTime_$i', 'Orario non valido', PersonEditCardId.earlyExit);
+      collector.add('earlyExitTime_$i', tr('Orario non valido', 'Invalid time'), PersonEditCardId.earlyExit);
     }
     else if (minutes >= _closingHour * 60)
     {
-      collector.add('earlyExitTime_$i', 'Deve precedere le 19:00', PersonEditCardId.earlyExit);
+      collector.add(
+        'earlyExitTime_$i',
+        tr('Deve precedere le 19:00', 'Must be before 19:00'),
+        PersonEditCardId.earlyExit,
+      );
     }
 
     if (row.reasonCtrl.text.trim().isEmpty)
     {
-      collector.add('earlyExitReason_$i', 'Campo obbligatorio', PersonEditCardId.earlyExit);
+      collector.add('earlyExitReason_$i', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.earlyExit);
     }
   }
 }
@@ -926,11 +976,11 @@ void _validateFee(TextEditingController controller, String key, _Collector colle
 
   if (amount.isEmpty)
   {
-    collector.add(key, 'Campo obbligatorio', PersonEditCardId.payment);
+    collector.add(key, tr('Campo obbligatorio', 'Required field'), PersonEditCardId.payment);
   }
   else if (cents == null || cents == 0)
   {
-    collector.add(key, 'Importo non valido', PersonEditCardId.payment);
+    collector.add(key, tr('Importo non valido', 'Invalid amount'), PersonEditCardId.payment);
   }
 }
 
@@ -940,7 +990,7 @@ void _validateTariff(PersonEditForm form, _Collector collector)
 
   if (choice == null)
   {
-    collector.add('tariffaAiutoCompiti', 'Obbligatoria', PersonEditCardId.payment);
+    collector.add('tariffaAiutoCompiti', tr('Obbligatoria', 'Required'), PersonEditCardId.payment);
 
     return;
   }
@@ -950,11 +1000,11 @@ void _validateTariff(PersonEditForm form, _Collector collector)
 
   if (amount.isEmpty)
   {
-    collector.add('tariffaCosto', 'Campo obbligatorio', PersonEditCardId.payment);
+    collector.add('tariffaCosto', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.payment);
   }
   else if (cents == null || cents == 0)
   {
-    collector.add('tariffaCosto', 'Importo non valido', PersonEditCardId.payment);
+    collector.add('tariffaCosto', tr('Importo non valido', 'Invalid amount'), PersonEditCardId.payment);
   }
 
   if (choice != kPackageTariff)
@@ -966,10 +1016,10 @@ void _validateTariff(PersonEditForm form, _Collector collector)
 
   if (hours.isEmpty)
   {
-    collector.add('tariffaOre', 'Campo obbligatorio', PersonEditCardId.payment);
+    collector.add('tariffaOre', tr('Campo obbligatorio', 'Required field'), PersonEditCardId.payment);
   }
   else if ((int.tryParse(hours) ?? 0) == 0)
   {
-    collector.add('tariffaOre', 'Numero non valido', PersonEditCardId.payment);
+    collector.add('tariffaOre', tr('Numero non valido', 'Invalid number'), PersonEditCardId.payment);
   }
 }

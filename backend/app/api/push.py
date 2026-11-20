@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import insert
 from app.api.current_account import CurrentAccount, CurrentSessionId
 from app.api.dependencies import DbSession
 from app.core.config import settings
+from app.core.i18n import tr
 from app.models.push_device import PushDevice, PushPlatformEnum
 from app.schemas.notification import (
     PushDeviceRemove,
@@ -21,8 +22,9 @@ router = APIRouter(prefix="/push", tags=["push"])
 # A family's browsers and phones; past that the oldest goes, so no account fans out.
 _DEVICE_LIMIT: Final[int] = 10
 
-_UNKNOWN_SESSION_ERROR: Final[str] = (
-    "Sessione in uso non riconosciuta: esci e accedi di nuovo"
+_UNKNOWN_SESSION_ERROR: Final[tuple[str, str]] = (
+    "Sessione in uso non riconosciuta: esci e accedi di nuovo",
+    "Current session not recognised: sign out and sign in again",
 )
 
 
@@ -45,7 +47,7 @@ async def register_device(
     if current_session_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UNKNOWN_SESSION_ERROR,
+            detail=tr(*_UNKNOWN_SESSION_ERROR),
         )
 
     statement = insert(PushDevice).values(

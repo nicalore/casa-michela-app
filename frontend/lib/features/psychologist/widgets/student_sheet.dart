@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -542,7 +543,7 @@ class _NarrowWidths
     return _NarrowWidths(
       year: widest(kSchoolYearLabel, [for (final item in years) _yearLabel(item)]),
       grade: widest(kClassLabel, [for (final item in years) gradeLabel(item.grade)]),
-      repeating: widest(kRepeatingLabel, const ['Sì', 'No']),
+      repeating: widest(kRepeatingLabel, [tr('Sì', 'Yes'), tr('No', 'No')]),
       school: dense ? widest(kSchoolLabel, [for (final item in years) item.schoolName]) : 0,
       programme: dense ? widest(kProgrammeLabel, [for (final item in years) item.studyProgramNameOnly]) : 0,
     );
@@ -600,7 +601,7 @@ class _YearRow extends StatelessWidget
     final Widget grade = SizedBox(width: widths.grade, child: _cell(kClassLabel, gradeLabel(item.grade)));
     final Widget repeating = SizedBox(
       width: widths.repeating,
-      child: _cell(kRepeatingLabel, isRepeatingYear(item, all) ? 'Sì' : 'No'),
+      child: _cell(kRepeatingLabel, isRepeatingYear(item, all) ? tr('Sì', 'Yes') : tr('No', 'No')),
     );
 
     if (layout == _YearLayout.line)

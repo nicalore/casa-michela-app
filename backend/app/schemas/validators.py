@@ -9,6 +9,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.core.i18n import tr
 from app.core.text_case import opening_capital, sentence_case, title_case
 from app.core.time_step import (
     MINIMUM_BAND_MINUTES,
@@ -16,16 +17,20 @@ from app.core.time_step import (
     minutes_between,
 )
 
-END_BEFORE_START_ERROR: Final[str] = (
-    "L'orario di fine deve essere successivo all'orario di inizio."
+END_BEFORE_START_ERROR: Final[tuple[str, str]] = (
+    "L'orario di fine deve essere successivo all'orario di inizio.",
+    "The end time must be after the start time.",
 )
 
-_INCONSISTENT_CLOSURE_ERROR: Final[str] = (
-    "Se è chiuso, sia l'orario di inizio sia quello di fine devono essere "
-    "assenti."
+_INCONSISTENT_CLOSURE_ERROR: Final[tuple[str, str]] = (
+    "Se è chiuso, sia l'orario di inizio sia quello di fine devono essere assenti.",
+    "If it's closed, both the start and end times must be empty.",
 )
 
-_BAND_TOO_SHORT_ERROR: Final[str] = "L'orario deve durare almeno mezz'ora."
+_BAND_TOO_SHORT_ERROR: Final[tuple[str, str]] = (
+    "L'orario deve durare almeno mezz'ora.",
+    "The time must last at least half an hour.",
+)
 
 
 def _strip(value: str) -> str:
@@ -101,7 +106,7 @@ class TimeRangeMixin(BaseModel):
     @model_validator(mode="after")
     def _end_after_start(self) -> Self:
         if self.end_time <= self.start_time:
-            raise ValueError(END_BEFORE_START_ERROR)
+            raise ValueError(tr(*END_BEFORE_START_ERROR))
 
         return self
 
@@ -115,12 +120,12 @@ class QuarterHourTimeRangeMixin(TimeRangeMixin):
 
 class TimeBandMixin(QuarterHourTimeRangeMixin):
     _minimum_minutes: ClassVar[int] = MINIMUM_BAND_MINUTES
-    _too_short_error: ClassVar[str] = _BAND_TOO_SHORT_ERROR
+    _too_short_error: ClassVar[tuple[str, str]] = _BAND_TOO_SHORT_ERROR
 
     @model_validator(mode="after")
     def _band_is_long_enough(self) -> Self:
         if minutes_between(self.start_time, self.end_time) < self._minimum_minutes:
-            raise ValueError(self._too_short_error)
+            raise ValueError(tr(*self._too_short_error))
 
         return self
 
@@ -132,13 +137,13 @@ class OptionalTimeRangeMixin(BaseModel):
     @model_validator(mode="after")
     def _hours_consistency(self) -> Self:
         if (self.start_time is None) != (self.end_time is None):
-            raise ValueError(_INCONSISTENT_CLOSURE_ERROR)
+            raise ValueError(tr(*_INCONSISTENT_CLOSURE_ERROR))
 
         if (
             self.start_time is not None
             and self.end_time is not None
             and self.end_time <= self.start_time
         ):
-            raise ValueError(END_BEFORE_START_ERROR)
+            raise ValueError(tr(*END_BEFORE_START_ERROR))
 
         return self

@@ -95,7 +95,7 @@ class _NoticePinDialogState extends State<_NoticePinDialog>
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            const AppFieldLabel(kPinUntilLabel),
+                            AppFieldLabel(kPinUntilLabel),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Text(

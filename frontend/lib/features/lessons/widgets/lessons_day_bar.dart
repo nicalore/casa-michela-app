@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
@@ -150,13 +151,13 @@ class LessonsDayBar extends StatelessWidget
       builder: (context, constraints)
       {
         // The name, the figures whole and the arrows on one line while they fit; else the arrows go under.
-        final double named = _textWidth(context, 'Lezioni', lessonsHeadingStyle) +
+        final double named = _textWidth(context, tr('Lezioni', 'Lessons'), lessonsHeadingStyle) +
             (note == null ? 0 : _noteGap + _textWidth(context, note, lessonsHeadingNoteStyle));
         final double room = constraints.maxWidth - 2 * _sidePadding;
         final bool oneLine = named + _navGap + _navWidth(AppBreakpoints.of(context).isDense) <= room;
         final bool stretched = AppBreakpoints.of(context).isMinimal;
 
-        final Widget title = Text('Lezioni', maxLines: 1, style: lessonsHeadingStyle);
+        final Widget title = Text(tr('Lezioni', 'Lessons'), maxLines: 1, style: lessonsHeadingStyle);
 
         // One paragraph: two would each be rounded to the pixel on their own and miss each other's baseline.
         final Widget titled = note == null
@@ -164,7 +165,7 @@ class LessonsDayBar extends StatelessWidget
             : Text.rich(
                 TextSpan(
                   children: [
-                    TextSpan(text: 'Lezioni', style: lessonsHeadingStyle),
+                    TextSpan(text: tr('Lezioni', 'Lessons'), style: lessonsHeadingStyle),
                     const WidgetSpan(alignment: PlaceholderAlignment.middle, child: SizedBox(width: _noteGap)),
                     TextSpan(text: note, style: lessonsHeadingNoteStyle),
                   ],
@@ -273,7 +274,7 @@ class LessonsBandButtons extends StatelessWidget
 
         final Widget heading = Padding(
           padding: const EdgeInsets.only(left: 4),
-          child: Text('Calendario'.toUpperCase(), maxLines: 1, style: PageHeading.style()),
+          child: Text(tr('Calendario', 'Calendar').toUpperCase(), maxLines: 1, style: PageHeading.style()),
         );
 
         Widget button(LessonsBandEntry entry) =>
@@ -352,7 +353,7 @@ class _BandButtonState extends State<_BandButton>
   // Shut or asked nothing of: dimmed, and it opens nothing.
   bool get _closed => widget.entry.state == LessonsBandState.closed || widget.entry.state == LessonsBandState.empty;
 
-  static const String _nobodyBooked = 'Nessuna prenotazione';
+  static String get _nobodyBooked => tr('Nessuna prenotazione', 'No bookings');
 
   TextStyle get _mutedStyle =>
       GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.trialMutedText);
@@ -364,21 +365,21 @@ class _BandButtonState extends State<_BandButton>
 
     return switch (entry.state)
     {
-      LessonsBandState.closed => Text('Chiuso', maxLines: 1, style: _mutedStyle),
+      LessonsBandState.closed => Text(tr('Chiuso', 'Closed'), maxLines: 1, style: _mutedStyle),
       // Short of room the words go to a tooltip over the whole button.
       LessonsBandState.empty when tight => null,
       LessonsBandState.empty => Text(_nobodyBooked, maxLines: 1, style: _mutedStyle),
       LessonsBandState.open when entry.toPlan == 0 => null,
       LessonsBandState.open when tight => _CountBadge(count: entry.toPlan),
       LessonsBandState.open => BandStatePill(
-          label: 'DA PIANIFICARE',
+          label: tr('DA PIANIFICARE', 'TO PLAN'),
           accent: AppTheme.modifiedAccent,
           surface: AppTheme.trialGoldSurface,
           count: entry.toPlan,
         ),
       LessonsBandState.draft when tight => Icon(Icons.edit_outlined, size: 18, color: AppTheme.modifiedAccent),
       LessonsBandState.draft => BandStatePill(
-          label: 'IN BOZZA',
+          label: tr('IN BOZZA', 'DRAFT'),
           icon: Icons.edit_outlined,
           accent: AppTheme.modifiedAccent,
           surface: AppTheme.modifiedAccentSurface,
@@ -386,7 +387,7 @@ class _BandButtonState extends State<_BandButton>
       LessonsBandState.published when tight =>
         Icon(Icons.check_circle_outline_rounded, size: 18, color: AppTheme.trialTealDeepText),
       LessonsBandState.published => BandStatePill(
-          label: 'PUBBLICATO',
+          label: tr('PUBBLICATO', 'PUBLISHED'),
           icon: Icons.check_circle_outline_rounded,
           accent: AppTheme.trialTealDeepText,
           surface: AppTheme.todaySurface,

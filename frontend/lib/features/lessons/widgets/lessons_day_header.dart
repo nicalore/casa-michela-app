@@ -1,3 +1,5 @@
+import '../../../core/language/app_language.dart';
+
 String _count(int value, String singular, String plural)
 {
   return '$value ${value == 1 ? singular : plural}';
@@ -7,7 +9,7 @@ String _count(int value, String singular, String plural)
 String lessonsDaySummary({required int availableTeachers, required int presentStudents})
 {
   return [
-    _count(availableTeachers, 'docente disponibile', 'docenti disponibili'),
-    _count(presentStudents, 'alunno prenotato', 'alunni prenotati'),
+    _count(availableTeachers, tr('docente disponibile', 'teacher available'), tr('docenti disponibili', 'teachers available')),
+    _count(presentStudents, tr('alunno prenotato', 'pupil booked'), tr('alunni prenotati', 'pupils booked')),
   ].join(' · ');
 }

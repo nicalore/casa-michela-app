@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_catalogue_card.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -21,7 +22,7 @@ String? roomCapacityLabel(int? capacity)
     return null;
   }
 
-  return capacity == 1 ? '1 posto' : '$capacity posti';
+  return capacity == 1 ? tr('1 posto', '1 place') : tr('$capacity posti', '$capacity places');
 }
 
 class RoomCard extends StatelessWidget
@@ -93,13 +94,13 @@ class _RoomDetailsDialogContent extends StatelessWidget
       context: context,
       barrierLabel: 'ConfirmDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Eliminazione',
-        title: 'Confermi?',
+        eyebrow: tr('Eliminazione', 'Deletion'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -108,7 +109,7 @@ class _RoomDetailsDialogContent extends StatelessWidget
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -127,12 +128,12 @@ class _RoomDetailsDialogContent extends StatelessWidget
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: 'La stanza '),
+                  TextSpan(text: tr('La stanza ', 'The room ')),
                   TextSpan(
                     text: room.name,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                   ),
-                  const TextSpan(text: ' verrà eliminata definitivamente.'),
+                  TextSpan(text: tr(' verrà eliminata definitivamente.', ' will be deleted permanently.')),
                 ],
               ),
               style: GoogleFonts.plusJakartaSans(
@@ -183,12 +184,12 @@ class _RoomDetailsDialogContent extends StatelessWidget
     final String? description = descriptionOrNull(room.description);
 
     return AppDialogStack(
-      eyebrow: 'Stanza',
+      eyebrow: tr('Stanza', 'Room'),
       title: room.name,
       maxWidth: _detailsWidth,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ELIMINA',
+          label: tr('ELIMINA', 'DELETE'),
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -197,7 +198,7 @@ class _RoomDetailsDialogContent extends StatelessWidget
           onPressed: () => _showDeleteConfirmation(context),
         ),
         primary: AppGradientButton(
-          label: 'MODIFICA',
+          label: tr('MODIFICA', 'EDIT'),
           icon: Icons.edit_outlined,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -212,17 +213,17 @@ class _RoomDetailsDialogContent extends StatelessWidget
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFieldLabel('Capienza', first: true),
+                _buildFieldLabel(tr('Capienza', 'Capacity'), first: true),
                 _buildValue(
                   capacity,
-                  'Non indicata.',
+                  tr('Non indicata.', 'Not given.'),
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
-                _buildFieldLabel('Descrizione'),
+                _buildFieldLabel(tr('Descrizione', 'Description')),
                 _buildValue(
                   description,
-                  'Nessuna descrizione fornita.',
+                  tr('Nessuna descrizione fornita.', 'No description given.'),
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   height: 1.4,

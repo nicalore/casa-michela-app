@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
 
@@ -105,7 +106,7 @@ class AppBadgedFace extends StatelessWidget
               size: badgeSize,
               icon: Icons.edit_outlined,
               color: AppTheme.trialTealDeepText,
-              tooltip: hasImage ? 'Cambia la foto' : 'Carica una foto',
+              tooltip: hasImage ? tr('Cambia la foto', 'Change photo') : tr('Carica una foto', 'Upload a photo'),
               onTap: onPick,
             ),
           ),
@@ -116,7 +117,7 @@ class AppBadgedFace extends StatelessWidget
                 size: badgeSize,
                 icon: Icons.delete_outline_rounded,
                 color: AppTheme.trialDangerText,
-                tooltip: 'Rimuovi la foto',
+                tooltip: tr('Rimuovi la foto', 'Remove photo'),
                 onTap: onRemove,
               ),
             ),

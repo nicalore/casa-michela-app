@@ -15,13 +15,26 @@ from app.repositories.opening_day_repository import OpeningDayRepository
 from app.repositories.weekly_template_repository import WeeklyTemplateRepository
 from app.schemas.weekly_template import WeeklyTemplateCreate, WeeklyTemplateUpdate
 from app.services.availability_cleanup import purge_hours_outside_openings
+from app.services.bilingual import Bilingual
 from app.services.calendar_hours_sync import CalendarHoursWatch
 from app.services.started_hours import StartedHoursGuard
 
-_ENTITY_LABEL: Final[str] = "il template settimanale"
-_NOT_FOUND_ERROR: Final[str] = "Riga di template non trovata"
-_CREATE_ERROR: Final[str] = "Errore durante la creazione della riga di template."
-_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
+_ENTITY_LABEL: Final[Bilingual] = Bilingual(
+    "il template settimanale",
+    "the weekly template",
+)
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Riga di template non trovata",
+    "Template row not found",
+)
+_CREATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante la creazione della riga di template.",
+    "Something went wrong while creating the template row.",
+)
+_UPDATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'aggiornamento.",
+    "Something went wrong while saving.",
+)
 
 _DAYS_IN_WEEK: Final[int] = 7
 
@@ -44,7 +57,7 @@ class WeeklyTemplateService:
         if template is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return template
@@ -175,7 +188,13 @@ class WeeklyTemplateService:
         # apply earlier than the date the rule was decided for.
         rule_start = payload.effective_from or today_in_rome()
 
-        async with integrity_guard(self.repository.session, _CREATE_ERROR):
+        async with integrity_guard(
+
+            self.repository.session,
+
+            _CREATE_ERROR.for_request(),
+
+        ):
             # (weekday, mode, start_time) is unique: an existing slot is overwritten.
             existing = await self.repository.get_by_slot(
                 payload.weekday, payload.mode.value, payload.start_time
@@ -218,7 +237,7 @@ class WeeklyTemplateService:
         assert_not_stale(
             template,
             payload.expected_updated_at,
-            entity_label=_ENTITY_LABEL,
+            entity_label=_ENTITY_LABEL.for_request(),
         )
 
         # weekday/mode are immutable: they identify the generated opening_days rows.
@@ -226,7 +245,13 @@ class WeeklyTemplateService:
         weekday = template.weekday
         mode = template.mode
 
-        async with integrity_guard(self.repository.session, _UPDATE_ERROR):
+        async with integrity_guard(
+
+            self.repository.session,
+
+            _UPDATE_ERROR.for_request(),
+
+        ):
             # Moving onto an occupied slot withdraws that row first, or the
             # unique constraint is hit.
             if payload.start_time != old_start_time:

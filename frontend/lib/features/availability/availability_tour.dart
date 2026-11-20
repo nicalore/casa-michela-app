@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/language/app_language.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
@@ -29,7 +30,7 @@ final ValueNotifier<bool> availabilityNextWeekShown = ValueNotifier(false);
 final ValueNotifier<int> availabilityWizardDaysPicked = ValueNotifier(0);
 final ValueNotifier<bool> availabilityWizardHasHours = ValueNotifier(false);
 
-const String _title = 'Disponibilità';
+String get _title => tr('Disponibilità', 'Availability');
 
 // Bump a version on every change to that tour.
 const int _pageVersion = 5;
@@ -106,7 +107,7 @@ List<DesktopTourStep> _nextWeekSteps(VoidCallback showThisWeek)
   return [
     DesktopTourStep(
       targets: const [kTourAvailabilityNext],
-      text: 'Clicca la freccia per passare alla settimana prossima.',
+      text: tr('Clicca la freccia per passare alla settimana prossima.', 'Click the arrow to go to next week.'),
       sides: _leftFirst,
       pad: 6,
       radius: 30,
@@ -117,7 +118,10 @@ List<DesktopTourStep> _nextWeekSteps(VoidCallback showThisWeek)
     ),
     DesktopTourStep(
       targets: const [kTourAvailabilityDays],
-      text: 'Qui puoi dare le disponibilità per la settimana prossima, che si sblocca il venerdì alle 20:00.',
+      text: tr(
+        'Qui puoi dare le disponibilità per la settimana prossima, che si sblocca il venerdì alle 20:00.',
+        'Here you can give your availability for next week, which unlocks on Friday at 20:00.',
+      ),
       sides: _over,
       pad: 6,
       radius: 27,
@@ -130,10 +134,14 @@ List<DesktopTourStep> _nextWeekSteps(VoidCallback showThisWeek)
 }
 
 // Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
-final DesktopTourStep _modesStep = DesktopTourStep(
+DesktopTourStep get _modesStep => DesktopTourStep(
   targets: const [kTourAvailabilityModes],
-  text: "Le lezioni in presenza sono contrassegnate dal colore verde e dall'icona di una casa, mentre quelle "
-      "online sono indicate in arancione e con l'icona di una videocamera.",
+  text: tr(
+    "Le lezioni in presenza sono contrassegnate dal colore verde e dall'icona di una casa, mentre quelle "
+        "online sono indicate in arancione e con l'icona di una videocamera.",
+    'In-person lessons are marked in green with a house icon, while online ones are shown in orange '
+        'with a video camera icon.',
+  ),
   sides: _beside,
   pad: 10,
   radius: 16,
@@ -142,9 +150,9 @@ final DesktopTourStep _modesStep = DesktopTourStep(
   seen: _modesSeen,
 );
 
-final DesktopTourStep _addStep = DesktopTourStep(
+DesktopTourStep get _addStep => DesktopTourStep(
   targets: const [kTourAvailabilityAdd],
-  text: 'Con «Aggiungi» puoi aggiungere una disponibilità per un giorno.',
+  text: tr('Con «Aggiungi» puoi aggiungere una disponibilità per un giorno.', 'With “Add” you can add availability for a day.'),
   sides: _leftFirst,
   pad: 6,
   radius: 23,
@@ -153,9 +161,9 @@ final DesktopTourStep _addStep = DesktopTourStep(
   seen: _addSeen,
 );
 
-final DesktopTourStep _editStep = DesktopTourStep(
+DesktopTourStep get _editStep => DesktopTourStep(
   targets: const [kTourAvailabilityEdit],
-  text: 'Con «Modifica» puoi modificare una disponibilità.',
+  text: tr('Con «Modifica» puoi modificare una disponibilità.', 'With “Edit” you can change your availability.'),
   sides: _leftFirst,
   pad: 6,
   radius: 23,
@@ -164,10 +172,14 @@ final DesktopTourStep _editStep = DesktopTourStep(
   seen: _editSeen,
 );
 
-final DesktopTourStep _binsStep = DesktopTourStep(
+DesktopTourStep get _binsStep => DesktopTourStep(
   targets: const [kTourAvailabilityBins],
-  text: 'Passando con il mouse su un giorno compaiono i cestini: puoi eliminare un singolo orario, tutte le '
-      "disponibilità di una fascia oraria o l'intera giornata.",
+  text: tr(
+    'Passando con il mouse su un giorno compaiono i cestini: puoi eliminare un singolo orario, tutte le '
+        "disponibilità di una fascia oraria o l'intera giornata.",
+    'Hovering over a day shows the bins: you can delete a single time, all the availability of a time slot '
+        'or the whole day.',
+  ),
   sides: _below,
   pad: 6,
   radius: 27,
@@ -176,9 +188,12 @@ final DesktopTourStep _binsStep = DesktopTourStep(
   seen: _binsSeen,
 );
 
-final DesktopTourStep _lockStep = DesktopTourStep(
+DesktopTourStep get _lockStep => DesktopTourStep(
   targets: const [kTourAvailabilityLock],
-  text: 'Il lucchetto indica che non è più possibile aggiungere o modificare la disponibilità.',
+  text: tr(
+    'Il lucchetto indica che non è più possibile aggiungere o modificare la disponibilità.',
+    'The padlock means you can no longer add or change your availability.',
+  ),
   sides: _beside,
   pad: 6,
   radius: 10,
@@ -208,7 +223,7 @@ DesktopTour availabilityPageTour({required VoidCallback showThisWeek})
       // The next week shown by a click while the tour got ready: back on this week.
       DesktopTourStep(
         targets: const [kTourAvailabilityDays],
-        text: 'Qui puoi vedere le disponibilità che hai dato questa settimana.',
+        text: tr('Qui puoi vedere le disponibilità che hai dato questa settimana.', "Here you can see the availability you've given this week."),
         sides: _over,
         pad: 6,
         radius: 27,
@@ -217,9 +232,12 @@ DesktopTour availabilityPageTour({required VoidCallback showThisWeek})
       for (final step in _pageMarks) _once(step, told),
       ..._nextWeekSteps(showThisWeek),
       for (final step in _pageMarks) _once(step, told, nextWeek: true),
-      const DesktopTourStep(
-        targets: [kTourAvailabilityDeadlines],
-        text: 'Qui trovi le scadenze entro cui dare o modificare le disponibilità.',
+      DesktopTourStep(
+        targets: const [kTourAvailabilityDeadlines],
+        text: tr(
+          'Qui trovi le scadenze entro cui dare o modificare le disponibilità.',
+          'Here you find the deadlines for giving or changing your availability.',
+        ),
         sides: _below,
         pad: 8,
         radius: 14,
@@ -243,7 +261,7 @@ Future<DesktopTour?> availabilityLatePageTour() => _dueTour(_pageMarks);
 
 bool _always() => true;
 
-final DesktopTour availabilityDaysTour = DesktopTour(
+DesktopTour get availabilityDaysTour => DesktopTour(
   slug: 'availability.wizard.days',
   title: _title,
   version: _daysVersion,
@@ -251,8 +269,11 @@ final DesktopTour availabilityDaysTour = DesktopTour(
     // Picking a date ends it.
     DesktopTourStep(
       targets: const [kTourWizardDays],
-      text: 'Puoi selezionare una data cliccandola. Passando il mouse su una data barrata scopri perché non è '
-          'disponibile.',
+      text: tr(
+        'Puoi selezionare una data cliccandola. Passando il mouse su una data barrata scopri perché non è '
+            'disponibile.',
+        "You can pick a date by clicking it. Hover over a struck-out date to find out why it isn't available.",
+      ),
       sides: _below,
       pad: 6,
       radius: 31,
@@ -263,9 +284,9 @@ final DesktopTour availabilityDaysTour = DesktopTour(
   ],
 );
 
-final DesktopTourStep _cursorsStep = DesktopTourStep(
+DesktopTourStep get _cursorsStep => DesktopTourStep(
   targets: const [kTourWizardHours],
-  text: 'Trascinando i cursori cambi gli orari in cui sei disponibile.',
+  text: tr('Trascinando i cursori cambi gli orari in cui sei disponibile.', "Drag the handles to change the hours you're available."),
   sides: _beside,
   pad: 6,
   radius: 14,
@@ -275,10 +296,14 @@ final DesktopTourStep _cursorsStep = DesktopTourStep(
 );
 
 // A "Sì" gives the full band: the add button shows once the cursors leave some room.
-final DesktopTourStep _addHoursStep = DesktopTourStep(
+DesktopTourStep get _addHoursStep => DesktopTourStep(
   targets: const [kTourWizardAdd],
-  text: 'Puoi indicare più orari di disponibilità nella stessa fascia. Ad esempio, dalle 14:00 alle 15:00 e '
-      'dalle 17:00 alle 18:00.',
+  text: tr(
+    'Puoi indicare più orari di disponibilità nella stessa fascia. Ad esempio, dalle 14:00 alle 15:00 e '
+        'dalle 17:00 alle 18:00.',
+    'You can give more than one available time in the same time slot. For example, from 14:00 to 15:00 and '
+        'from 17:00 to 18:00.',
+  ),
   sides: _beside,
   pad: 6,
   radius: 19,
@@ -287,9 +312,12 @@ final DesktopTourStep _addHoursStep = DesktopTourStep(
 );
 
 // A band with two hours shows a bin on each.
-final DesktopTourStep _binStep = DesktopTourStep(
+DesktopTourStep get _binStep => DesktopTourStep(
   targets: const [kTourWizardBin],
-  text: 'Puoi eliminare un orario in cui hai dato disponibilità cliccando sul cestino.',
+  text: tr(
+    'Puoi eliminare un orario in cui hai dato disponibilità cliccando sul cestino.',
+    "You can delete a time you've given by clicking the bin.",
+  ),
   sides: _beside,
   pad: 4,
   radius: 12,
@@ -307,8 +335,12 @@ DesktopTour availabilityHoursTour({required bool editing})
     steps: [
       DesktopTourStep(
         targets: const [kTourWizardYesNo],
-        text: 'Con il selettore dai o togli la tua disponibilità per la fascia oraria corrispondente (mattina, '
-            'pomeriggio o sera).',
+        text: tr(
+          'Con il selettore dai o togli la tua disponibilità per la fascia oraria corrispondente (mattina, '
+              'pomeriggio o sera).',
+          'With the switch you give or take away your availability for that time slot (morning, afternoon '
+              'or evening).',
+        ),
         sides: _beside,
         pad: 6,
         radius: 23,
@@ -332,7 +364,9 @@ DesktopTour availabilityHoursTour({required bool editing})
       _binStep,
       DesktopTourStep(
         targets: const [kTourWizardSave],
-        text: editing ? 'Quando hai finito, clicca «Salva».' : 'Quando hai finito, clicca «Crea».',
+        text: editing
+            ? tr('Quando hai finito, clicca «Salva».', "When you're done, click “Save”.")
+            : tr('Quando hai finito, clicca «Crea».', "When you're done, click “Create”."),
         sides: _beside,
         pad: 6,
         radius: 17,

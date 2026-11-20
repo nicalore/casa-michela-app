@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/profile_photo.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../../services/api_service.dart';
@@ -10,9 +11,12 @@ import '../../shared/widgets/mobile_confirm_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
 import 'widgets/mobile_own_face.dart';
 
-const String _uploadFailed = "Errore durante il caricamento dell'immagine.";
-const String _removalFailed = "Errore durante la rimozione dell'immagine.";
-const String _cameraDenied = 'Concedi il permesso a utilizzare la fotocamera dalle impostazioni.';
+String get _uploadFailed => tr("Errore durante il caricamento dell'immagine.", "Couldn't upload the image.");
+String get _removalFailed => tr("Errore durante la rimozione dell'immagine.", "Couldn't remove the image.");
+String get _cameraDenied => tr(
+  'Concedi il permesso a utilizzare la fotocamera dalle impostazioni.',
+  'Allow the app to use the camera from the settings.',
+);
 
 // What image_picker reports, on iOS and Android alike, once camera access is refused.
 const String _cameraDeniedCode = 'camera_access_denied';
@@ -94,13 +98,16 @@ Future<bool> _confirmRemoval(BuildContext sheet)
 {
   return showMobileConfirmSheet(
     context: sheet,
-    eyebrow: 'Foto profilo',
-    title: 'Confermi?',
-    message: const TextSpan(
-      text: 'La foto verrà eliminata definitivamente. '
-          'Potrai sempre caricarne una nuova in seguito.',
+    eyebrow: tr('Foto profilo', 'Profile photo'),
+    title: tr('Confermi?', 'Are you sure?'),
+    message: TextSpan(
+      text: tr(
+        'La foto verrà eliminata definitivamente. '
+            'Potrai sempre caricarne una nuova in seguito.',
+        'The photo will be deleted permanently. You can always upload a new one later.',
+      ),
     ),
-    confirmLabel: 'Rimuovi',
+    confirmLabel: tr('Rimuovi', 'Remove'),
     confirmIcon: Icons.delete_outline_rounded,
   );
 }

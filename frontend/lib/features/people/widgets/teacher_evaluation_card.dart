@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -25,10 +26,11 @@ const double _pointsPerCriterion = 0.5;
 // "3,5", "4": the score as read aloud.
 String _scoreText(double score)
 {
+  final String fraction = score.toStringAsFixed(1);
   final String points =
-      score == score.roundToDouble() ? '${score.round()}' : score.toStringAsFixed(1).replaceAll('.', ',');
+      score == score.roundToDouble() ? '${score.round()}' : tr(fraction.replaceAll('.', ','), fraction);
 
-  return '$points su 5';
+  return tr('$points su 5', '$points out of 5');
 }
 
 const int _scoreSteps = 10;

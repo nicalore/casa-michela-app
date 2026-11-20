@@ -52,7 +52,7 @@ class _SystemTabState extends State<SystemTab>
               ],
             ),
             if (TutorialRow.shownFor(ApiService().lastKnownIdentity))
-              const SettingsPanel(heading: kTutorialTitle, rows: [TutorialRow()]),
+              SettingsPanel(heading: kTutorialTitle, rows: const [TutorialRow()]),
           ],
         );
       },

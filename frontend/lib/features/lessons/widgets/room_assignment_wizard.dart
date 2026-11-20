@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart' show TimeBucket, bucketFor;
 import '../../../core/utils/week_range.dart';
@@ -202,7 +203,7 @@ List<_Unit> _unitsOf(TeacherLane lane)
   return units;
 }
 
-String _lessonsLabel(int count) => count == 1 ? '1 lezione' : '$count lezioni';
+String _lessonsLabel(int count) => count == 1 ? tr('1 lezione', '1 lesson') : tr('$count lezioni', '$count lessons');
 
 // The in-person lessons inside [spans], one line each in clock order: their hours and their pupil.
 String _pupilsIn(TeacherLane lane, List<(int, int)> spans)
@@ -1202,6 +1203,8 @@ class RoomAssignmentWizard extends StatefulWidget
   final List<TeacherRoomAssignmentItem> assignments;
   final List<RoomSupervisionItem> supervisions;
 
+  final Set<String> femaleTeachers;
+
   final Future<bool> Function({
     required DateTime day,
     required PlannedRooms rooms,
@@ -1216,6 +1219,7 @@ class RoomAssignmentWizard extends StatefulWidget
     required this.rooms,
     required this.assignments,
     this.supervisions = const [],
+    this.femaleTeachers = const {},
     this.onSave,
   });
 
@@ -1324,7 +1328,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
       if (other != null && other != roomId)
       {
-        return 'Poi in ${_roomName(other)}';
+        return tr('Poi in ${_roomName(other)}', 'Then in ${_roomName(other)}');
       }
     }
 
@@ -1529,8 +1533,11 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     {
       return (
         message: waiting.length == 1
-            ? '${waiting.values.first.teacher.fullName} è in sede e non ha una stanza.'
-            : '${waiting.length} docenti in sede non hanno una stanza.',
+            ? tr(
+                '${waiting.values.first.teacher.fullName} è in sede e non ha una stanza.',
+                '${waiting.values.first.teacher.fullName} is on site and has no room.',
+              )
+            : tr('${waiting.length} docenti in sede non hanno una stanza.', '${waiting.length} teachers on site have no room.'),
         step: 0,
       );
     }
@@ -1548,13 +1555,19 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
       final gap = plan.uncovered.first;
 
       return (
-        message: '${plan.room.name} resta senza responsabile: ${formatMinutesRange(gap.$1, gap.$2)}.',
+        message: tr(
+          '${plan.room.name} resta senza responsabile: ${formatMinutesRange(gap.$1, gap.$2)}.',
+          '${plan.room.name} is left without a supervisor: ${formatMinutesRange(gap.$1, gap.$2)}.',
+        ),
         step: 1,
       );
     }
 
     return (
-      message: '${short.length} stanze restano senza responsabile in qualche ora di lezione.',
+      message: tr(
+        '${short.length} stanze restano senza responsabile in qualche ora di lezione.',
+        '${short.length} rooms are left without a supervisor for some lesson hours.',
+      ),
       step: 1,
     );
   }
@@ -1740,7 +1753,10 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
                   Expanded(
                     child: DescenderRoom(
                       child: Text(
-                        '${waiting.map((span) => formatMinutesRange(span.$1, span.$2)).join(', ')} torna da assegnare',
+                        tr(
+                          '${waiting.map((span) => formatMinutesRange(span.$1, span.$2)).join(', ')} torna da assegnare',
+                          '${waiting.map((span) => formatMinutesRange(span.$1, span.$2)).join(', ')} goes back to be assigned',
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.plusJakartaSans(
@@ -1833,7 +1849,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
             accepts: (carried) => carried.fromRoomId != null,
             onAccept: (carried) => _put(carried, null),
             child: pieces.isEmpty
-                ? _buildQuiet('Tutti i docenti in sede hanno una stanza.')
+                ? _buildQuiet(tr('Tutti i docenti in sede hanno una stanza.', 'All teachers on site have a room.'))
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
@@ -1855,9 +1871,9 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (inBuilding.isNotEmpty || apart.isEmpty) group('Docenti in sede', inBuilding),
+          if (inBuilding.isNotEmpty || apart.isEmpty) group(tr('Docenti in sede', 'Teachers on site'), inBuilding),
           if (inBuilding.isNotEmpty && apart.isNotEmpty) const SizedBox(height: 16),
-          if (apart.isNotEmpty) group('In sede solo per lezioni online', apart),
+          if (apart.isNotEmpty) group(tr('In sede solo per lezioni online', 'On site for online lessons only'), apart),
         ],
       ),
     );
@@ -1883,7 +1899,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
             ),
           ),
           if (inside.isEmpty)
-            _buildQuiet('Vuota.')
+            _buildQuiet(tr('Vuota.', 'Empty.'))
           else
             for (var i = 0; i < inside.length; i++) ...[
               if (i > 0) const SizedBox(height: 8),
@@ -1902,22 +1918,32 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildSideTitle('Stanze'),
-          _buildQuiet('Nessuna stanza disponibile. Aggiungine una in Associazione › Stanze.'),
+          _buildSideTitle(tr('Stanze', 'Rooms')),
+          _buildQuiet(tr(
+            'Nessuna stanza disponibile. Aggiungine una in Associazione › Stanze.',
+            'No rooms available. Add one in Association › Rooms.',
+          )),
         ],
       );
     }
 
     // Teachers with every lesson in some room.
-    final assigned = widget.lanes
-        .where((lane) => !_roomOfUnit[lane.teacherTaxCode]!.contains(null))
-        .length;
+    final assignedTeachers = [
+      for (final lane in widget.lanes)
+        if (!_roomOfUnit[lane.teacherTaxCode]!.contains(null)) lane.teacherTaxCode,
+    ];
+    final assigned = assignedTeachers.length;
+    final bool feminine = assignedTeachers.every(widget.femaleTeachers.contains);
+    final String assignedWord = tr(
+      assigned == 1 ? (feminine ? 'assegnata' : 'assegnato') : (feminine ? 'assegnate' : 'assegnati'),
+      'assigned',
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildSideTitle('Stanze', trailing: assigned == 0 ? null : '$assigned assegnati'),
+        _buildSideTitle(tr('Stanze', 'Rooms'), trailing: assigned == 0 ? null : '$assigned $assignedWord'),
         _buildScrollingSide(
           capped: twoColumns,
           child: Column(
@@ -1997,8 +2023,11 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     final covered = gaps.isEmpty;
 
     final message = covered
-        ? 'Ha un responsabile per tutte le ore di lezione.'
-        : 'Senza responsabile: ${gaps.map((gap) => formatMinutesRange(gap.$1, gap.$2)).join(', ')}.';
+        ? tr('Ha un responsabile per tutte le ore di lezione.', 'It has a supervisor for all lesson hours.')
+        : tr(
+            'Senza responsabile: ${gaps.map((gap) => formatMinutesRange(gap.$1, gap.$2)).join(', ')}.',
+            'No supervisor: ${gaps.map((gap) => formatMinutesRange(gap.$1, gap.$2)).join(', ')}.',
+          );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2056,9 +2085,9 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
             spacing: 18,
             runSpacing: 6,
             children: [
-              _buildLegendEntry(AppTheme.trialTealDeepText, 'Con responsabile'),
-              _buildLegendEntry(AppTheme.trialDangerText, 'Da coprire'),
-              _buildLegendEntry(AppTheme.trialLine.withValues(alpha: 0.5), 'Stanza vuota'),
+              _buildLegendEntry(AppTheme.trialTealDeepText, tr('Con responsabile', 'With supervisor')),
+              _buildLegendEntry(AppTheme.trialDangerText, tr('Da coprire', 'To cover')),
+              _buildLegendEntry(AppTheme.trialLine.withValues(alpha: 0.5), tr('Stanza vuota', 'Empty room')),
             ],
           ),
           const SizedBox(height: 14),
@@ -2120,7 +2149,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
     if (plans.isEmpty)
     {
-      return _buildQuiet('Nessuna stanza occupata.');
+      return _buildQuiet(tr('Nessuna stanza occupata.', 'No rooms in use.'));
     }
 
     return Column(
@@ -2140,12 +2169,18 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     return switch (_stepIndex)
     {
       0 => (
-        question: 'A quali stanze sono assegnati i docenti?',
-        hint: 'Trascina ogni docente dentro una stanza.\nUn docente può essere assegnato a più stanze in orari diversi, selezionabili tramite l\'icona dell\'orologio.',
+        question: tr('A quali stanze sono assegnati i docenti?', 'Which rooms are the teachers assigned to?'),
+        hint: tr(
+          'Trascina ogni docente dentro una stanza.\nUn docente può essere assegnato a più stanze in orari diversi, selezionabili tramite l\'icona dell\'orologio.',
+          'Drag each teacher into a room.\nA teacher can be assigned to several rooms at different times, chosen with the clock icon.',
+        ),
       ),
       _ => (
-        question: 'Chi sono i responsabili?',
-        hint: 'Assegna almeno un responsabile a ogni stanza.\nLa presenza dei responsabili deve coprire tutti gli orari di lezione.',
+        question: tr('Chi sono i responsabili?', 'Who are the supervisors?'),
+        hint: tr(
+          'Assegna almeno un responsabile a ogni stanza.\nLa presenza dei responsabili deve coprire tutti gli orari di lezione.',
+          "Assign at least one supervisor to each room.\nThe supervisors' presence must cover all lesson hours.",
+        ),
       ),
     };
   }
@@ -2165,12 +2200,12 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     final guide = _guide;
 
     return AppDialogStack(
-      eyebrow: 'Passo ${_stepIndex + 1} di 2 · ${formatWeekdayColumnLabel(widget.day)} ${widget.day.year}',
-      title: 'Stanze e responsabili',
+      eyebrow: '${tr('Passo ${_stepIndex + 1} di 2', 'Step ${_stepIndex + 1} of 2')} · ${formatWeekdayColumnLabel(widget.day)} ${widget.day.year}',
+      title: tr('Stanze e responsabili', 'Rooms and supervisors'),
       maxWidth: _dialogWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'CONFERMA',
+          label: tr('CONFERMA', 'CONFIRM'),
           icon: Icons.check_rounded,
           busy: _isSaving,
           height: _dialogButtonHeight,
@@ -2213,6 +2248,7 @@ Future<bool?> showRoomAssignmentWizard({
   required List<RoomItem> rooms,
   required List<TeacherRoomAssignmentItem> assignments,
   List<RoomSupervisionItem> supervisions = const [],
+  Set<String> femaleTeachers = const {},
   Future<bool> Function({
     required DateTime day,
     required PlannedRooms rooms,
@@ -2223,13 +2259,14 @@ Future<bool?> showRoomAssignmentWizard({
 {
   return showBlurredDialog<bool>(
     context: context,
-    barrierLabel: 'Stanze e responsabili',
+    barrierLabel: tr('Stanze e responsabili', 'Rooms and supervisors'),
     builder: (dialogContext) => RoomAssignmentWizard(
       day: day,
       lanes: lanes,
       rooms: rooms,
       assignments: assignments,
       supervisions: supervisions,
+      femaleTeachers: femaleTeachers,
       onSave: onSave,
     ),
   );

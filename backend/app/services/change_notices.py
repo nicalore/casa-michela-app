@@ -11,10 +11,16 @@ from app.models.account import Account
 from app.models.notification import Notification, NotificationKindEnum
 from app.models.person import Person
 from app.services.notification_kinds import holds_kind
-from app.services.notifications import dismissals, fingerprint, notify
+from app.services.notifications import (
+    Bilingual,
+    dismissals,
+    fingerprint,
+    languages_of,
+    notify,
+)
 from app.services.push import PushBatch, joined
 
-_FOR: Final[str] = "{title} per {owner}"
+_FOR: Final[Bilingual] = Bilingual("{title} per {owner}", "{title} for {owner}")
 
 # Each item's id with its day.
 Days = Mapping[int, date]
@@ -34,15 +40,15 @@ class Item:
 # The phone taps, the desktop clicks; {author} is who wrote.
 @dataclass(frozen=True)
 class Texts:
-    one: str
-    many: str
-    body_one: str
-    web_body_one: str
-    body_many: str
-    web_body_many: str
+    one: Bilingual
+    many: Bilingual
+    body_one: Bilingual
+    web_body_one: Bilingual
+    body_many: Bilingual
+    web_body_many: Bilingual
     # For anyone but the owner, where one and many say "tua".
-    others_one: str | None = None
-    others_many: str | None = None
+    others_one: Bilingual | None = None
+    others_many: Bilingual | None = None
 
 
 # What someone else wrote for another: the kinds its news is told in, and the words.
@@ -71,12 +77,14 @@ def _first_day(known: dict[str, Any]) -> date:
     return min(date.fromisoformat(entry["day"]) for entry in known.values())
 
 
-# Worded for the items it tells of now; the owner named to anyone else.
+# Worded for the items it tells of now, in its reader's language; the owner named
+# to anyone else.
 def _word(
     row: Notification,
     texts: Texts,
     author: Person,
     owner: Person,
+    language: str | None,
 ) -> None:
     many = len(row.item_ids or ()) > 1
     template = texts.many if many else texts.one
@@ -84,14 +92,14 @@ def _word(
     if owner.tax_code != row.account_tax_code:
         template = (texts.others_many if many else texts.others_one) or template
 
-    title = template.format(author=_full_name(author))
+    title = template.to(language).format(author=_full_name(author))
 
     if owner.tax_code not in (row.account_tax_code, author.tax_code):
-        title = _FOR.format(title=title, owner=owner.first_name)
+        title = _FOR.to(language).format(title=title, owner=owner.first_name)
 
     row.title = title
-    row.body = texts.body_many if many else texts.body_one
-    row.web_body = texts.web_body_many if many else texts.web_body_one
+    row.body = (texts.body_many if many else texts.body_one).to(language)
+    row.web_body = (texts.web_body_many if many else texts.web_body_one).to(language)
 
 
 # One live notice per reader, author and owner: the next replaces it, items merged.
@@ -99,7 +107,7 @@ async def _tell(
     db: AsyncSession,
     topic: Topic,
     kind: NotificationKindEnum,
-    reader: str,
+    reader: Account,
     scene: Scene,
     known: Mapping[int, dict[str, str]],
 ) -> PushBatch:
@@ -108,7 +116,7 @@ async def _tell(
             update(Notification)
             .where(
                 Notification.kind == kind,
-                Notification.account_tax_code == reader,
+                Notification.account_tax_code == reader.tax_code,
                 Notification.author_tax_code == scene.author.tax_code,
                 Notification.pupil_tax_code == scene.pupil,
                 Notification.withdrawn_at.is_(None),
@@ -124,18 +132,18 @@ async def _tell(
 
     merged.update({str(i): entry for i, entry in known.items()})
     told = Notification(
-        account_tax_code=reader,
+        account_tax_code=reader.tax_code,
         kind=kind,
         item_ids=sorted(int(i) for i in merged),
     )
-    _word(told, topic.texts[kind], scene.author, scene.owner)
+    _word(told, topic.texts[kind], scene.author, scene.owner, reader.language)
 
     return joined(
         [
             await dismissals(db, [row for row in live if row.read_at is None]),
             await notify(
                 db,
-                [reader],
+                [reader.tax_code],
                 kind=kind,
                 title=told.title,
                 body=told.body,
@@ -157,6 +165,8 @@ async def _trim(
     rows: Iterable[Notification],
     gone: set[int],
 ) -> PushBatch:
+    rows = list(rows)
+    languages = await languages_of(db, [row.account_tax_code for row in rows])
     emptied: list[Notification] = []
 
     for row in rows:
@@ -186,7 +196,13 @@ async def _trim(
         owner = await db.get(Person, row.pupil_tax_code or row.account_tax_code)
 
         if author is not None and owner is not None:
-            _word(row, topic.texts[row.kind], author, owner)
+            _word(
+                row,
+                topic.texts[row.kind],
+                author,
+                owner,
+                languages.get(row.account_tax_code),
+            )
 
     return await dismissals(db, [row for row in emptied if row.read_at is None])
 
@@ -206,7 +222,7 @@ async def announce(
 
     return joined(
         [
-            await _tell(db, topic, topic.added, reader.tax_code, scene, _days(items))
+            await _tell(db, topic, topic.added, reader, scene, _days(items))
             for reader in scene.readers
             if holds_kind(reader, topic.added)
         ]
@@ -254,7 +270,7 @@ async def cancel(
                     db,
                     topic,
                     topic.cancelled,
-                    reader.tax_code,
+                    reader,
                     scene,
                     _days(seen),
                 )
@@ -308,7 +324,7 @@ async def change(
 
         if told:
             batches.append(
-                await _tell(db, topic, topic.changed, reader.tax_code, scene, told)
+                await _tell(db, topic, topic.changed, reader, scene, told)
             )
 
     return joined(batches)

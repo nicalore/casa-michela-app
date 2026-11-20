@@ -1,3 +1,4 @@
+import '../../core/language/app_language.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -49,7 +50,7 @@ import 'utils/payments_strings.dart' show kPaymentsSection;
 import 'widgets/create_account_dialog.dart';
 import 'widgets/person_detail_header.dart';
 
-const String _observationsSection = 'Osservazioni';
+String get _observationsSection => tr('Osservazioni', 'Observations');
 
 class PersonDetailPage extends StatefulWidget
 {
@@ -262,7 +263,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     if (_person == null)
     {
       return [
-        PersonSection(label: 'Informazioni personali', view: const SizedBox.shrink()),
+        PersonSection(label: tr('Informazioni personali', 'Personal information'), view: const SizedBox.shrink()),
       ];
     }
 
@@ -272,7 +273,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
     final sections = <PersonSection>[
       PersonSection(
-        label: 'Informazioni personali',
+        label: tr('Informazioni personali', 'Personal information'),
         view: PersonInfoTab(
           person: person,
           onEdit: _openEditDialog,
@@ -287,7 +288,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     if (roles.contains('ASSOCIATO'))
     {
       sections.add(PersonSection(
-        label: 'Iscrizioni',
+        label: tr('Iscrizioni', 'Enrolments'),
         view: PersonMembershipsTab(
           person: person,
           onUpdate: _fetchPersonData,
@@ -300,7 +301,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     if (roles.contains('STUDENTE') && !isRevoked)
     {
       sections.add(PersonSection(
-        label: 'Scuola',
+        label: tr('Scuola', 'School'),
         view: PersonSchoolsTab(
           person: person,
           onUpdate: _fetchPersonData,
@@ -320,7 +321,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       else
       {
         sections.add(PersonSection(
-          label: 'Genitori',
+          label: tr('Genitori', 'Parents'),
           view: PersonParentsTab(
             person: person,
             onUpdate: _fetchPersonData,
@@ -334,7 +335,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     if (roles.contains('GENITORE'))
     {
       sections.add(PersonSection(
-        label: 'Figli',
+        label: tr('Figli', 'Children'),
         view: PersonChildrenTab(
           person: person,
           onUpdate: _fetchPersonData,
@@ -346,7 +347,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     if (roles.contains('DOCENTE') && !isRevoked)
     {
       sections.add(PersonSection(
-        label: 'Discipline',
+        label: tr('Discipline', 'Disciplines'),
         view: PersonSubjectsTab(person: person, onUpdate: _fetchPersonData),
       ));
     }
@@ -357,7 +358,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     if (isPupil)
     {
       sections.add(PersonSection(
-        label: 'Docenti non graditi',
+        label: tr('Docenti non graditi', 'Teachers to avoid'),
         view: PersonNotPreferredTeachersTab(person: person, onUpdate: _fetchPersonData),
       ));
     }
@@ -414,7 +415,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     if ((roles.contains('DOCENTE') || roles.contains('STUDENTE')) && !isRevoked)
     {
       sections.add(PersonSection(
-        label: 'Statistiche personali',
+        label: tr('Statistiche personali', 'Personal statistics'),
         view: PersonPersonalStatsTab(person: person),
       ));
     }
@@ -468,7 +469,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return [
       for (final parent in parents)
         PersonSection(
-          group: 'Genitori',
+          group: tr('Genitori', 'Parents'),
           label: '${parent.firstName} ${parent.lastName}',
           view: PersonTeacherParentTab(parent: parent, onUpdate: _fetchPersonData),
         ),
@@ -487,8 +488,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     final String name = '${person.firstName} ${person.lastName}';
     final bool alsoEarlyExit = person.getsEarlyExitForm;
     final String day = DateFormat('dd-MM-yyyy').format(romeNow());
-    final String enrollmentTitle = 'Modulo di iscrizione · $name';
-    final String earlyExitTitle = 'Modulo uscita anticipata · $name';
+    final String enrollmentTitle = tr('Modulo di iscrizione · $name', 'Enrolment form · $name');
+    final String earlyExitTitle = tr('Modulo uscita anticipata · $name', 'Early departure form · $name');
 
     // Tabs must open before the first await, or the browser blocks them as popups.
     final PdfTab? enrollmentTab = openPdfTab(title: enrollmentTitle);
@@ -501,15 +502,15 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       final bool downloaded = await presentPdfs([
         (
           tab: enrollmentTab,
-          label: 'Modulo di iscrizione',
-          fileName: 'Modulo di iscrizione $name $day.pdf',
+          label: tr('Modulo di iscrizione', 'Enrolment form'),
+          fileName: tr('Modulo di iscrizione $name $day.pdf', 'Enrolment form $name $day.pdf'),
           bytes: () => ApiService().fetchEnrollmentForm(person.fiscalCode),
         ),
         if (alsoEarlyExit)
           (
             tab: earlyExitTab,
-            label: 'Modulo uscita anticipata',
-            fileName: 'Modulo uscita anticipata $name $day.pdf',
+            label: tr('Modulo uscita anticipata', 'Early departure form'),
+            fileName: tr('Modulo uscita anticipata $name $day.pdf', 'Early departure form $name $day.pdf'),
             bytes: () => ApiService().fetchEarlyExitForm(person.fiscalCode),
           ),
       ]);
@@ -519,16 +520,22 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         CustomSnackBar.show(
           context: context,
           message: alsoEarlyExit
-              ? 'Il browser ha bloccato le schede: i moduli sono stati scaricati.'
-              : 'Il browser ha bloccato la scheda: il modulo è stato scaricato.',
+              ? tr(
+                'Il browser ha bloccato le schede: i moduli sono stati scaricati.',
+                'The browser blocked the tabs: the forms were downloaded.',
+              )
+              : tr(
+                'Il browser ha bloccato la scheda: il modulo è stato scaricato.',
+                'The browser blocked the tab: the form was downloaded.',
+              ),
           isError: false,
         );
       }
     }
     catch (e)
     {
-      enrollmentTab?.fail('Non è stato possibile generare il modulo.');
-      earlyExitTab?.fail('Non è stato possibile generare il modulo.');
+      enrollmentTab?.fail(tr('Non è stato possibile generare il modulo.', "Couldn't create the form."));
+      earlyExitTab?.fail(tr('Non è stato possibile generare il modulo.', "Couldn't create the form."));
 
       if (mounted)
       {
@@ -581,7 +588,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   // Opened from another page (the calendar, the accounting), the way back is not the list.
   String get _backTooltip
   {
-    return Uri.parse(_origin).path == '/people' ? 'Torna alle anagrafiche' : 'Torna indietro';
+    return Uri.parse(_origin).path == '/people'
+        ? tr('Torna alle anagrafiche', 'Back to people')
+        : tr('Torna indietro', 'Go back');
   }
 
   // The relative inherits this record's way back: one tap leaves the whole chain.
@@ -601,7 +610,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     {
       return AppLoadFailedRoom(
         error: _loadFailure,
-        message: 'Errore durante il caricamento. Riprova più tardi.',
+        message: tr('Errore durante il caricamento. Riprova più tardi.', 'Error while loading. Please try again later.'),
         onRetry: () => _fetchPersonData(quiet: true),
       );
     }
@@ -630,7 +639,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           Align(
             alignment: Alignment.topLeft,
             child: AppSectionRail(
-              title: 'Persone',
+              title: tr('Persone', 'People'),
               groups: personRailGroups(sections),
               selectedIndex: _selectedSection,
               onSelected: _selectSection,

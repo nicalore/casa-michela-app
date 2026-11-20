@@ -1,3 +1,4 @@
+import '../../../../../core/language/app_language.dart';
 import '../../../../../core/utils/rome_clock.dart';
 import '../../../../../shared/widgets/filter_menu.dart';
 import '../../../models/member_trend_item.dart';
@@ -62,9 +63,9 @@ List<MemberTrendItem> padTrendData(
 
 List<FilterOption<String>> resolutionOptions()
 {
-  return const [
-    FilterOption(value: 'year', label: 'Annuale'),
-    FilterOption(value: 'month', label: 'Mensile'),
+  return [
+    FilterOption(value: 'year', label: tr('Annuale', 'Yearly')),
+    FilterOption(value: 'month', label: tr('Mensile', 'Monthly')),
   ];
 }
 
@@ -111,14 +112,38 @@ String statsPeriodLabel(String value)
   return statsPeriodOptions().firstWhere((option) => option.value == value).label;
 }
 
+// "rispetto all'1 attivo", "agli 8 attivi", "ai 12 attivi".
+String comparedToActive(int count)
+{
+  if (count == 1)
+  {
+    return tr("rispetto all'1 attivo", 'out of the 1 active');
+  }
+
+  return tr('rispetto ${_takesGli(count) ? 'agli' : 'ai'} $count attivi', 'out of the $count active');
+}
+
+// Read aloud: zero, otto, undici, ottanta, ottocento, also before "mila"; mille is not.
+bool _takesGli(int count)
+{
+  if (count >= 1000)
+  {
+    final int thousands = count ~/ 1000;
+
+    return thousands > 1 && _takesGli(thousands);
+  }
+
+  return count == 0 || count == 8 || count == 11 || (count >= 80 && count < 90) || (count >= 800 && count < 900);
+}
+
 List<FilterOption<String>> statsPeriodOptions()
 {
   final now = romeNow();
 
   final options = <FilterOption<String>>[
-    const FilterOption(value: kThisMonthStatsPeriod, label: 'Questo mese'),
+    FilterOption(value: kThisMonthStatsPeriod, label: tr('Questo mese', 'This month')),
     for (var months = 2; months <= statsMonthsWindow; months++)
-      FilterOption(value: 'last-$months', label: 'Ultimi $months mesi'),
+      FilterOption(value: 'last-$months', label: tr('Ultimi $months mesi', 'Last $months months')),
   ];
 
   for (var back = 0; back < statsMonthsWindow; back++)

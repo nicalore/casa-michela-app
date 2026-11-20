@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -49,7 +50,7 @@ class LessonsClosedDay extends StatelessWidget
           PageTransitionItem(
             slot: PageTransitionItem.list,
             child: Text(
-              'Inserite prima della chiusura',
+              tr('Inserite prima della chiusura', 'Entered before closing'),
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 15,

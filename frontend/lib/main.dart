@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'core/language/app_language.dart';
 import 'core/layout/dense_text_scale.dart';
 import 'core/platform/app_platform.dart';
 import 'core/platform/visual_effects.dart';
@@ -21,6 +23,7 @@ import 'routing/app_router.dart';
 import 'routing/dialog_history_guard.dart';
 import 'routing/notification_destinations.dart';
 import 'services/account_colour_theme.dart';
+import 'services/account_language.dart';
 import 'services/api_service.dart';
 import 'services/seen_tours.dart';
 import 'shared/widgets/dialog_components.dart';
@@ -39,6 +42,7 @@ void main() async
 
   usePathUrlStrategy();
   await AccountColourTheme.follow();
+  await AccountLanguage.follow();
   await ApiService().restoreSession();
 
   if (AppPlatform.isNativeMobile)
@@ -86,6 +90,9 @@ class CasaMichelaApp extends StatelessWidget
         title: 'Associazione Casa Michela',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
+        locale: AppLanguages.current.value.locale,
+        supportedLocales: AppLanguages.supportedLocales,
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         routerConfig: appRouter,
         builder: (context, child) 
         {

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
+from app.core.i18n import tr
 from app.core.time_band import TimeBandEnum
 from app.models.calendar_activity import CalendarActivity
 from app.models.person import Person
@@ -154,4 +155,4 @@ async def delete_activity(
 ) -> dict[str, str]:
     await _service(db).delete(identity, activity_id)
 
-    return {"detail": "Attività eliminata"}
+    return {"detail": tr("Attività eliminata", "Activity deleted")}

@@ -32,6 +32,7 @@ from app.core import field_lengths
 from app.core.birthdays import age_on, is_birthday
 from app.core.booking_window import now_in_rome, today_in_rome
 from app.core.downloads import inline_disposition
+from app.core.i18n import tr
 from app.core.labels import (
     roman_numeral,
     translate_collaboration_type,
@@ -73,8 +74,6 @@ from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.schemas.contacts import ContactsUpdate
 from app.schemas.enrollment_form import EnrollmentFormRequest
 from app.schemas.person import (
-    HEALTH_DATA_WITHOUT_CONSENT_ERROR,
-    UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR,
     AdminUpdateData,
     ChildInfoResponse,
     CourseParticipantUpdateData,
@@ -105,10 +104,13 @@ from app.schemas.person import (
     TeacherProgramResponse,
     TeacherSubjectResponse,
     TeacherUpdateData,
+    health_data_without_consent_error,
+    university_education_at_high_school_error,
 )
 from app.schemas.person_wizard import PersonWizardPayload
 from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
 from app.services import email_service, push
+from app.services.bilingual import Bilingual
 from app.services.collaboration import stop_collaboration
 from app.services.compensation import set_terms
 from app.services.early_exit_form import (
@@ -211,26 +213,53 @@ _HEALTH_MEMBER_FIELDS: Final[frozenset[str]] = frozenset(
     {"allergies_notes", "medications_notes"}
 )
 
-_MEMBERSHIPS_LABEL: Final[str] = "Le iscrizioni"
-_SCHOOL_ENROLLMENTS_LABEL: Final[str] = "Le iscrizioni scolastiche"
-_TEACHING_SUBJECTS_LABEL: Final[str] = "Le discipline insegnate"
-_NOT_PREFERRED_TEACHERS_LABEL: Final[str] = "I docenti non graditi"
-_TEACHER_DATA_LABEL: Final[str] = "I dati del docente"
-
-_ENROLLMENT_FORM_ERROR: Final[str] = (
-    "Non è stato possibile generare il modulo di iscrizione: {error}"
+_MEMBERSHIPS_LABEL: Final[tuple[str, str]] = (
+    "Le iscrizioni",
+    "the enrolments",
+)
+_SCHOOL_ENROLLMENTS_LABEL: Final[tuple[str, str]] = (
+    "Le iscrizioni scolastiche",
+    "the school enrolments",
+)
+_TEACHING_SUBJECTS_LABEL: Final[tuple[str, str]] = (
+    "Le discipline insegnate",
+    "the disciplines taught",
+)
+_NOT_PREFERRED_TEACHERS_LABEL: Final[tuple[str, str]] = (
+    "I docenti non graditi",
+    "the teachers to avoid",
+)
+_TEACHER_DATA_LABEL: Final[tuple[str, str]] = (
+    "I dati del docente",
+    "the teacher's details",
 )
 
-_EARLY_EXIT_FORM_ERROR: Final[str] = (
-    "Non è stato possibile generare il modulo di uscita anticipata: {error}"
+_ENROLLMENT_FORM_ERROR: Final[tuple[str, str]] = (
+    "Non è stato possibile generare il modulo di iscrizione: {error}",
+    "Couldn't generate the enrolment form: {error}",
 )
 
-_NO_EARLY_EXIT_ERROR: Final[str] = (
-    "La persona non ha un'uscita anticipata autorizzata."
+_EARLY_EXIT_FORM_ERROR: Final[tuple[str, str]] = (
+    "Non è stato possibile generare il modulo di uscita anticipata: {error}",
+    "Couldn't generate the early departure form: {error}",
 )
-_PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
-_MISSING_COLLABORATION_ERROR: Final[str] = "Indica il tipo di collaborazione."
-_PERSON_FORBIDDEN_ERROR: Final[str] = "Non hai accesso ai dati di questa persona."
+
+_NO_EARLY_EXIT_ERROR: Final[tuple[str, str]] = (
+    "La persona non ha un'uscita anticipata autorizzata.",
+    "This person has no authorised early departure.",
+)
+_PERSON_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Persona non trovata",
+    "Person not found",
+)
+_MISSING_COLLABORATION_ERROR: Final[tuple[str, str]] = (
+    "Indica il tipo di collaborazione.",
+    "Specify the type of collaboration.",
+)
+_PERSON_FORBIDDEN_ERROR: Final[tuple[str, str]] = (
+    "Non hai accesso ai dati di questa persona.",
+    "You don't have access to this person's data.",
+)
 
 # Outside the household a person shows an age, never the birth date, sex or roles.
 _WHO_FIELDS: Final[frozenset[str]] = frozenset(
@@ -276,124 +305,242 @@ _PSYCHOLOGIST_VIEW_FIELDS: Final[frozenset[str]] = _TEACHER_VIEW_FIELDS - {
 }
 
 # What a pupil, or their parent, is told about a teacher who teaches them.
+# The sex only sets the wording of sentences about the teacher.
 _PUPIL_VIEW_FIELDS: Final[frozenset[str]] = _WHO_FIELDS | {
+    "gender",
     "school_education",
     "university_education",
     "taught_subjects",
     "teacher_subjects",
 }
-_TAX_CODE_IMMUTABLE_ERROR: Final[str] = (
-    "La modifica del Codice Fiscale non è consentita per preservare "
-    "l'integrità dei dati storici."
+_TAX_CODE_IMMUTABLE_ERROR: Final[tuple[str, str]] = (
+    "La modifica del Codice Fiscale non è consentita per preservare l'integrità dei "
+    "dati storici.",
+    "The tax code can't be changed, to keep past records consistent.",
 )
-_PSYCHOLOGIST_SUPPORT_ERROR: Final[str] = (
-    "Uno Psicologo non può essere iscritto al servizio di sostegno psicologico."
+_PSYCHOLOGIST_SUPPORT_ERROR: Final[tuple[str, str]] = (
+    "Uno Psicologo non può essere iscritto al servizio di sostegno psicologico.",
+    "A psychologist can't be enrolled in the psychological support service.",
 )
-_EMPTY_SCHOOL_HISTORY_ERROR: Final[str] = (
-    "Impossibile salvare lo storico scolastico vuoto. "
-    "È necessaria almeno un'iscrizione."
+_EMPTY_SCHOOL_HISTORY_ERROR: Final[tuple[str, str]] = (
+    "Impossibile salvare lo storico scolastico vuoto. È necessaria almeno "
+    "un'iscrizione.",
+    "Can't save an empty school history. At least one enrolment is needed.",
 )
-_NO_TARIFF_ERROR: Final[str] = "Manca la tariffa."
-_DUPLICATE_ENROLLMENT_YEAR_ERROR: Final[str] = (
-    "Non è possibile registrare più di un'iscrizione scolastica per lo stesso anno."
+_NO_TARIFF_ERROR: Final[tuple[str, str]] = (
+    "Manca la tariffa.",
+    "The rate is missing.",
 )
-_DUPLICATE_CONTACT_ERROR: Final[str] = (
-    "L'email o il numero di telefono risultano già associati a un'altra "
-    "anagrafica nel sistema."
+_DUPLICATE_ENROLLMENT_YEAR_ERROR: Final[tuple[str, str]] = (
+    "Non è possibile registrare più di un'iscrizione scolastica per lo stesso anno.",
+    "You can't record more than one school enrolment for the same year.",
 )
-_CONSTRAINT_ERROR: Final[str] = "Errore di validazione dei vincoli del database."
-_INTERNAL_ERROR: Final[str] = (
-    "Errore interno del server durante l'aggiornamento: {error}"
+_DUPLICATE_CONTACT_ERROR: Final[tuple[str, str]] = (
+    "L'email o il numero di telefono risultano già associati a un'altra anagrafica "
+    "nel sistema.",
+    "The email or phone number is already linked to another person in the system.",
 )
-_UPDATE_SUCCESS_MESSAGE: Final[str] = "Anagrafica aggiornata con successo"
+_CONSTRAINT_ERROR: Final[tuple[str, str]] = (
+    "Errore di validazione dei vincoli del database.",
+    "The data doesn't meet the database constraints.",
+)
+_INTERNAL_ERROR: Final[tuple[str, str]] = (
+    "Errore interno del server durante l'aggiornamento: {error}",
+    "Internal server error while updating: {error}",
+)
+_UPDATE_SUCCESS_MESSAGE: Final[tuple[str, str]] = (
+    "Anagrafica aggiornata con successo",
+    "Personal details updated successfully",
+)
 
 _MAX_PARENTS: Final[int] = 2
 
 _ADULT_AGE: Final[int] = 18
 
-_NO_STUDENT_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da studente."
-_NO_MEMBER_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da associato."
-_NEW_YEAR_ERROR: Final[str] = "Per un anno nuovo usa RINNOVA ISCRIZIONE."
-_NO_TEACHER_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da docente."
-_NO_PARENT_PROFILE_ERROR: Final[str] = (
-    "Il soggetto selezionato non ha un profilo genitore."
+_NO_STUDENT_PROFILE_ERROR: Final[tuple[str, str]] = (
+    "L'utente non possiede un profilo da studente.",
+    "This user has no student profile.",
 )
-_NEW_PARENT_NO_PROFILE_ERROR: Final[str] = (
-    "Il nuovo soggetto selezionato non ha un profilo genitore."
+_NO_MEMBER_PROFILE_ERROR: Final[tuple[str, str]] = (
+    "L'utente non possiede un profilo da associato.",
+    "This user has no member profile.",
 )
-_PARENT_ALREADY_LINKED_ERROR: Final[str] = (
-    "Questo genitore è già associato a questa persona."
+_NEW_YEAR_ERROR: Final[tuple[str, str]] = (
+    "Per un anno nuovo usa RINNOVA ISCRIZIONE.",
+    "For a new year use RENEW ENROLMENT.",
 )
-_NEW_PARENT_ALREADY_LINKED_ERROR: Final[str] = (
-    "Il nuovo genitore è già associato a questa persona."
+_NO_TEACHER_PROFILE_ERROR: Final[tuple[str, str]] = (
+    "L'utente non possiede un profilo da docente.",
+    "This user has no teacher profile.",
 )
-_MAX_PARENTS_ERROR: Final[str] = "Numero massimo di genitori (2) già raggiunto."
-_PARENTAL_LINK_NOT_FOUND_ERROR: Final[str] = "Associazione genitoriale non trovata."
-_TEACHER_PARENTS_LOCKED_ERROR: Final[str] = (
-    "È possibile modificare i genitori di un docente solo all'interno "
-    "dell'anagrafica del docente stesso."
+_NO_PARENT_PROFILE_ERROR: Final[tuple[str, str]] = (
+    "Il soggetto selezionato non ha un profilo genitore.",
+    "The selected person has no parent profile.",
 )
-_ADULT_TEACHER_PARENTS_ERROR: Final[str] = (
-    "I genitori di un docente maggiorenne non possono essere modificati."
+_NEW_PARENT_NO_PROFILE_ERROR: Final[tuple[str, str]] = (
+    "Il nuovo soggetto selezionato non ha un profilo genitore.",
+    "The newly selected person has no parent profile.",
 )
-_EMPTY_MEMBERSHIPS_ERROR: Final[str] = (
-    "Impossibile salvare lo storico iscrizioni vuoto. "
-    "È necessaria almeno un'iscrizione."
+_PARENT_ALREADY_LINKED_ERROR: Final[tuple[str, str]] = (
+    "Questo genitore è già associato a questa persona.",
+    "This parent is already linked to this person.",
 )
-_DUPLICATE_MEMBERSHIP_YEAR_ERROR: Final[str] = (
-    "Non è possibile registrare più di un'iscrizione per lo stesso anno."
+_NEW_PARENT_ALREADY_LINKED_ERROR: Final[tuple[str, str]] = (
+    "Il nuovo genitore è già associato a questa persona.",
+    "The new parent is already linked to this person.",
 )
-_NO_MEMBERSHIP_TO_REVOKE_ERROR: Final[str] = "Nessuna iscrizione trovata da revocare."
-_MEMBERSHIP_ALREADY_REVOKED_ERROR: Final[str] = (
-    "L'iscrizione per l'anno corrente risulta già revocata."
+_MAX_PARENTS_ERROR: Final[tuple[str, str]] = (
+    "Numero massimo di genitori (2) già raggiunto.",
+    "Maximum number of parents (2) already reached.",
 )
-_EMPTY_COMPETENCES_ERROR: Final[str] = (
-    "Un docente deve insegnare almeno una disciplina o un servizio."
+_PARENTAL_LINK_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Associazione genitoriale non trovata.",
+    "Parent link not found.",
 )
-_UNKNOWN_SERVICES_ERROR: Final[str] = "Alcuni servizi indicati non esistono: {names}."
+_TEACHER_PARENTS_LOCKED_ERROR: Final[tuple[str, str]] = (
+    "È possibile modificare i genitori di un docente solo all'interno dell'anagrafica "
+    "del docente stesso.",
+    "A teacher's parents can only be changed from the teacher's own personal details.",
+)
+_ADULT_TEACHER_PARENTS_ERROR: Final[tuple[str, str]] = (
+    "I genitori di un docente maggiorenne non possono essere modificati.",
+    "The parents of an adult teacher can't be changed.",
+)
+_EMPTY_MEMBERSHIPS_ERROR: Final[tuple[str, str]] = (
+    "Impossibile salvare lo storico iscrizioni vuoto. È necessaria almeno "
+    "un'iscrizione.",
+    "Can't save an empty enrolment history. At least one enrolment is needed.",
+)
+_DUPLICATE_MEMBERSHIP_YEAR_ERROR: Final[tuple[str, str]] = (
+    "Non è possibile registrare più di un'iscrizione per lo stesso anno.",
+    "You can't record more than one enrolment for the same year.",
+)
+_NO_MEMBERSHIP_TO_REVOKE_ERROR: Final[tuple[str, str]] = (
+    "Nessuna iscrizione trovata da revocare.",
+    "No enrolment found to revoke.",
+)
+_MEMBERSHIP_ALREADY_REVOKED_ERROR: Final[tuple[str, str]] = (
+    "L'iscrizione per l'anno corrente risulta già revocata.",
+    "This year's enrolment has already been revoked.",
+)
+_EMPTY_COMPETENCES_ERROR: Final[tuple[str, str]] = (
+    "Un docente deve insegnare almeno una disciplina o un servizio.",
+    "A teacher must teach at least one discipline or service.",
+)
+_UNKNOWN_SERVICES_ERROR: Final[tuple[str, str]] = (
+    "Alcuni servizi indicati non esistono: {names}.",
+    "Some of the services given don't exist: {names}.",
+)
 
-_GENERIC_COMMIT_ERROR: Final[str] = "Errore: {error}"
+_GENERIC_COMMIT_ERROR: Final[tuple[str, str]] = (
+    "Errore: {error}",
+    "Error: {error}",
+)
 _RAW_COMMIT_ERROR: Final[str] = "{error}"
-_REVOKE_COMMIT_ERROR: Final[str] = "Errore durante la revoca dell'iscrizione: {error}"
-_WIZARD_CREATE_ERROR: Final[str] = "Errore durante la creazione della persona: {error}"
-_REPORT_EMAIL_ERROR: Final[str] = "Impossibile inviare la mail tramite Resend: {error}"
-
-_SCHOOL_YEARS_UPDATED_MESSAGE: Final[str] = "Anni scolastici aggiornati con successo!"
-_PARENT_ADDED_MESSAGE: Final[str] = "Genitore aggiunto con successo"
-_PICKUP_UPDATED_MESSAGE: Final[str] = "Autorizzazione al ritiro aggiornata con successo"
-_PARENT_UPDATED_MESSAGE: Final[str] = "Genitore aggiornato con successo"
-_LINK_REMOVED_MESSAGE: Final[str] = "Associazione rimossa con successo"
-_REPORT_SENT_MESSAGE: Final[str] = "Segnalazione inviata correttamente"
-_PERSON_CREATED_MESSAGE: Final[str] = "Persona creata con successo"
-_MEMBERSHIPS_UPDATED_MESSAGE: Final[str] = "Iscrizioni aggiornate con successo"
-_MEMBERSHIP_REVOKED_MESSAGE: Final[str] = "Iscrizione revocata con successo"
-_COMPETENCES_UPDATED_MESSAGE: Final[str] = "Discipline aggiornate con successo"
-_NOT_PREFERRED_TEACHERS_UPDATED_MESSAGE: Final[str] = (
-    "Docenti aggiornati con successo"
+_REVOKE_COMMIT_ERROR: Final[tuple[str, str]] = (
+    "Errore durante la revoca dell'iscrizione: {error}",
+    "Error while revoking the enrolment: {error}",
 )
-_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR: Final[str] = (
-    "Puoi indicare i docenti non graditi solo per i tuoi figli"
+_WIZARD_CREATE_ERROR: Final[tuple[str, str]] = (
+    "Errore durante la creazione della persona: {error}",
+    "Error while creating the person: {error}",
 )
-_UNKNOWN_TEACHERS_ERROR: Final[str] = "Alcuni docenti indicati non esistono: {codes}."
-_EDUCATION_UPDATED_MESSAGE: Final[str] = "Studi aggiornati con successo"
-
-_SCHOOL_HISTORY_CLOSED_ERROR: Final[str] = (
-    "Le iscrizioni scolastiche si compilano al primo accesso: "
-    "per modificarle ora scrivi in segreteria."
-)
-_FORBIDDEN_SCHOOL_HISTORY_ERROR: Final[str] = (
-    "Puoi compilare solo le iscrizioni scolastiche tue o dei tuoi figli"
-)
-_FORBIDDEN_EDUCATION_ERROR: Final[str] = "Puoi aggiornare solo i tuoi studi"
-_CONTACTS_UPDATED_MESSAGE: Final[str] = "Contatti aggiornati con successo"
-_FORBIDDEN_CONTACTS_ERROR: Final[str] = (
-    "Puoi aggiornare solo i contatti tuoi o dei tuoi figli"
+_REPORT_EMAIL_ERROR: Final[tuple[str, str]] = (
+    "Impossibile inviare la mail tramite Resend: {error}",
+    "Couldn't send the email through Resend: {error}",
 )
 
-_REPORT_EMAIL_SUBJECT: Final[str] = "Richiesta correzione anagrafica - {full_name}"
-_REPORT_EMAIL_HEADING: Final[str] = "Errore anagrafica"
+_SCHOOL_YEARS_UPDATED_MESSAGE: Final[tuple[str, str]] = (
+    "Anni scolastici aggiornati con successo!",
+    "School years updated successfully!",
+)
+_PARENT_ADDED_MESSAGE: Final[tuple[str, str]] = (
+    "Genitore aggiunto con successo",
+    "Parent added successfully",
+)
+_PICKUP_UPDATED_MESSAGE: Final[tuple[str, str]] = (
+    "Autorizzazione al ritiro aggiornata con successo",
+    "Pickup authorisation updated successfully",
+)
+_PARENT_UPDATED_MESSAGE: Final[tuple[str, str]] = (
+    "Genitore aggiornato con successo",
+    "Parent updated successfully",
+)
+_LINK_REMOVED_MESSAGE: Final[tuple[str, str]] = (
+    "Associazione rimossa con successo",
+    "Link removed successfully",
+)
+_REPORT_SENT_MESSAGE: Final[tuple[str, str]] = (
+    "Segnalazione inviata correttamente",
+    "Report sent successfully",
+)
+_PERSON_CREATED_MESSAGE: Final[tuple[str, str]] = (
+    "Persona creata con successo",
+    "Person created successfully",
+)
+_MEMBERSHIPS_UPDATED_MESSAGE: Final[tuple[str, str]] = (
+    "Iscrizioni aggiornate con successo",
+    "Enrolments updated successfully",
+)
+_MEMBERSHIP_REVOKED_MESSAGE: Final[tuple[str, str]] = (
+    "Iscrizione revocata con successo",
+    "Enrolment revoked successfully",
+)
+_COMPETENCES_UPDATED_MESSAGE: Final[tuple[str, str]] = (
+    "Discipline aggiornate con successo",
+    "Disciplines updated successfully",
+)
+_NOT_PREFERRED_TEACHERS_UPDATED_MESSAGE: Final[tuple[str, str]] = (
+    "Docenti aggiornati con successo",
+    "Teachers updated successfully",
+)
+_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR: Final[tuple[str, str]] = (
+    "Puoi indicare i docenti non graditi solo per i tuoi figli",
+    "You can only set teachers to avoid for your own children",
+)
+_UNKNOWN_TEACHERS_ERROR: Final[tuple[str, str]] = (
+    "Alcuni docenti indicati non esistono: {codes}.",
+    "Some of the teachers given don't exist: {codes}.",
+)
+_EDUCATION_UPDATED_MESSAGE: Final[tuple[str, str]] = (
+    "Studi aggiornati con successo",
+    "Education updated successfully",
+)
 
-_REPORT_EMAIL_BODY: Final[str] = """
+_SCHOOL_HISTORY_CLOSED_ERROR: Final[tuple[str, str]] = (
+    "Le iscrizioni scolastiche si compilano al primo accesso: per modificarle ora "
+    "scrivi in segreteria.",
+    "School enrolments are filled in at first sign-in: to change them now, write to "
+    "the office.",
+)
+_FORBIDDEN_SCHOOL_HISTORY_ERROR: Final[tuple[str, str]] = (
+    "Puoi compilare solo le iscrizioni scolastiche tue o dei tuoi figli",
+    "You can only fill in your own school enrolments or your children's",
+)
+_FORBIDDEN_EDUCATION_ERROR: Final[tuple[str, str]] = (
+    "Puoi aggiornare solo i tuoi studi",
+    "You can only update your own education",
+)
+_CONTACTS_UPDATED_MESSAGE: Final[tuple[str, str]] = (
+    "Contatti aggiornati con successo",
+    "Contacts updated successfully",
+)
+_FORBIDDEN_CONTACTS_ERROR: Final[tuple[str, str]] = (
+    "Puoi aggiornare solo i contatti tuoi o dei tuoi figli",
+    "You can only update your own contacts or your children's",
+)
+
+_REPORT_EMAIL_SUBJECT: Final[Bilingual] = Bilingual(
+    "Richiesta correzione anagrafica - {full_name}",
+    "Personal details correction request - {full_name}",
+)
+_REPORT_EMAIL_HEADING: Final[Bilingual] = Bilingual(
+    "Errore anagrafica",
+    "Personal details error",
+)
+
+_REPORT_EMAIL_BODY: Final[Bilingual] = Bilingual(
+    """
     <p>È stata inviata una richiesta di correzione per i dati anagrafici di <strong>{full_name}</strong>.</p>
     <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
                 border: 1px solid {line}; border-radius: 18px;">
@@ -406,7 +553,22 @@ _REPORT_EMAIL_BODY: Final[str] = """
                 border: 1px solid {line}; border-radius: 18px;">
         {fields}
     </div>
-"""
+""",
+    """
+    <p>A correction request was sent for the personal details of <strong>{full_name}</strong>.</p>
+    <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
+                border: 1px solid {line}; border-radius: 18px;">
+        <p style="margin: 0 0 4px 0; color: {muted}; font-size: 11px; font-weight: 600;
+                  letter-spacing: 1.4px; text-transform: uppercase;">Current tax code</p>
+        <p style="margin: 0;"><strong style="color: {ink}; font-size: 17px;">{tax_code}</strong></p>
+    </div>
+    <p>Corrections and changes requested:</p>
+    <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
+                border: 1px solid {line}; border-radius: 18px;">
+        {fields}
+    </div>
+""",
+)
 
 _REPORT_FIELD: Final[str] = """
         <p style="margin: 0 0 4px 0; color: {muted}; font-size: 11px; font-weight: 600;
@@ -415,32 +577,46 @@ _REPORT_FIELD: Final[str] = """
 """
 _REPORT_FIELD_GAP: Final[str] = '<div style="height: 16px;"></div>'
 
-_ADMIN_UNIQUENESS_ERRORS: Final[dict[str, str]] = {
+_ADMIN_UNIQUENESS_ERRORS: Final[dict[str, tuple[str, str]]] = {
     "uq_administrator_president": (
-        "Esiste già un Presidente configurato all'interno del sistema."
+        "Esiste già un Presidente configurato all'interno del sistema.",
+        "A President is already set up in the system.",
     ),
     "uq_administrator_vice_president": (
-        "Esiste già un Vicepresidente configurato all'interno del sistema."
+        "Esiste già un Vicepresidente configurato all'interno del sistema.",
+        "A Vice-President is already set up in the system.",
     ),
     "uq_administrator_treasurer": (
-        "Esiste già un Tesoriere configurato all'interno del sistema."
+        "Esiste già un Tesoriere configurato all'interno del sistema.",
+        "A Treasurer is already set up in the system.",
     ),
 }
 
 
-_OWN_ADMIN_ROLE_ERROR: Final[str] = (
-    "Non puoi toglierti da solo il ruolo di Amministratore: deve farlo un altro "
-    "amministratore."
-)
-_OWN_REVOCATION_ERROR: Final[str] = (
-    "Non puoi revocare la tua stessa iscrizione: deve farlo un altro amministratore."
+_OWN_ADMIN_ROLE_ERRORS: Final[dict[GenderEnum, tuple[str, str]]] = {
+    GenderEnum.M: (
+        "Non puoi toglierti da solo il ruolo di Amministratore: deve farlo un altro "
+        "amministratore.",
+        "You can't remove your own Administrator role: another administrator "
+        "must do it.",
+    ),
+    GenderEnum.F: (
+        "Non puoi toglierti da sola il ruolo di Amministratore: deve farlo un altro "
+        "amministratore.",
+        "You can't remove your own Administrator role: another administrator "
+        "must do it.",
+    ),
+}
+_OWN_REVOCATION_ERROR: Final[tuple[str, str]] = (
+    "Non puoi revocare la tua stessa iscrizione: deve farlo un altro amministratore.",
+    "You can't revoke your own enrolment: another administrator must do it.",
 )
 
 
 def _admin_role_uniqueness_error_detail(error_message: str) -> str | None:
     for constraint_name, detail in _ADMIN_UNIQUENESS_ERRORS.items():
         if constraint_name in error_message:
-            return detail
+            return tr(*detail)
 
     return None
 
@@ -1052,7 +1228,7 @@ async def _get_person_or_404(db: AsyncSession, tax_code: str) -> Person:
     if person is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            detail=tr(*_PERSON_NOT_FOUND_ERROR),
         )
 
     return person
@@ -1141,7 +1317,7 @@ async def _assert_not_teacher_only(db: AsyncSession, tax_code: str) -> None:
     if await _teacher_only_tax_codes(db, [tax_code]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_TEACHER_PARENTS_LOCKED_ERROR,
+            detail=tr(*_TEACHER_PARENTS_LOCKED_ERROR),
         )
 
 
@@ -1171,7 +1347,7 @@ async def _check_teacher_relationships(
     if await _teacher_only_tax_codes(db, minors) - teacher_children:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_TEACHER_PARENTS_LOCKED_ERROR,
+            detail=tr(*_TEACHER_PARENTS_LOCKED_ERROR),
         )
 
     if _ROLE_CODE_TEACHER not in roles or _ROLE_CODE_STUDENT in roles:
@@ -1189,7 +1365,7 @@ async def _check_teacher_relationships(
     if before != after and _is_adult(payload.general_data.birth_date):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ADULT_TEACHER_PARENTS_ERROR,
+            detail=tr(*_ADULT_TEACHER_PARENTS_ERROR),
         )
 
     return before - after
@@ -1295,7 +1471,7 @@ async def _rewrite_memberships(
     if newest is not None and any(item.year > newest for item in incoming):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_NEW_YEAR_ERROR,
+            detail=tr(*_NEW_YEAR_ERROR),
         )
 
     await guard_lost_enrollment(
@@ -1356,7 +1532,7 @@ async def _update_member_data(
     assert_not_stale(
         member,
         member_data.expected_updated_at,
-        entity_label=_MEMBERSHIPS_LABEL,
+        entity_label=tr(*_MEMBERSHIPS_LABEL),
     )
 
     provided_fields = member_data.model_fields_set
@@ -1429,7 +1605,7 @@ async def _sync_student_profile(
     if not student_data.school_enrollments:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_EMPTY_SCHOOL_HISTORY_ERROR,
+            detail=tr(*_EMPTY_SCHOOL_HISTORY_ERROR),
         )
 
     years = [enrollment.start_year for enrollment in student_data.school_enrollments]
@@ -1437,7 +1613,7 @@ async def _sync_student_profile(
     if len(years) != len(set(years)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DUPLICATE_ENROLLMENT_YEAR_ERROR,
+            detail=tr(*_DUPLICATE_ENROLLMENT_YEAR_ERROR),
         )
 
     current_student = await db.scalar(
@@ -1448,7 +1624,7 @@ async def _sync_student_profile(
         assert_not_stale(
             current_student,
             student_data.expected_updated_at,
-            entity_label=_SCHOOL_ENROLLMENTS_LABEL,
+            entity_label=tr(*_SCHOOL_ENROLLMENTS_LABEL),
         )
 
         await db.execute(
@@ -1470,7 +1646,7 @@ async def _sync_student_profile(
         ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_NO_TARIFF_ERROR,
+                detail=tr(*_NO_TARIFF_ERROR),
             )
 
         db.add(
@@ -1665,9 +1841,9 @@ async def _sync_teacher_profile(
 
     if existing is not None:
         entity_label = (
-            _TEACHING_SUBJECTS_LABEL
+            tr(*_TEACHING_SUBJECTS_LABEL)
             if teacher_data.competences is not None
-            else _TEACHER_DATA_LABEL
+            else tr(*_TEACHER_DATA_LABEL)
         )
         assert_not_stale(
             existing,
@@ -1730,7 +1906,7 @@ async def _replace_teacher_services(
         if missing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_UNKNOWN_SERVICES_ERROR.format(names=", ".join(missing)),
+                detail=tr(*_UNKNOWN_SERVICES_ERROR).format(names=", ".join(missing)),
             )
 
     await replace_services(db, tax_code, unique_names)
@@ -1782,7 +1958,7 @@ async def _sync_staff_profiles(
         if staff_data.collaboration_type is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_MISSING_COLLABORATION_ERROR,
+                detail=tr(*_MISSING_COLLABORATION_ERROR),
             )
 
         collaboration_type = CollaborationTypeEnum(staff_data.collaboration_type)
@@ -1932,19 +2108,19 @@ async def _commit_person_update(db: AsyncSession) -> None:
         if "unique constraint" in error_message or "duplicate key" in error_message:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_DUPLICATE_CONTACT_ERROR,
+                detail=tr(*_DUPLICATE_CONTACT_ERROR),
             ) from err
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_CONSTRAINT_ERROR,
+            detail=tr(*_CONSTRAINT_ERROR),
         ) from err
 
     except Exception as err:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_INTERNAL_ERROR.format(error=err),
+            detail=tr(*_INTERNAL_ERROR).format(error=err),
         ) from err
 
 
@@ -2113,13 +2289,13 @@ async def get_person(
         if identity.is_admin:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_PERSON_NOT_FOUND_ERROR,
+                detail=tr(*_PERSON_NOT_FOUND_ERROR),
             )
 
         # Unknown codes are refused like hidden ones: the register must not be probed.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_PERSON_FORBIDDEN_ERROR,
+            detail=tr(*_PERSON_FORBIDDEN_ERROR),
         )
 
     full = _map_person_to_response(person, show_teacher_rating=identity.is_admin)
@@ -2179,7 +2355,7 @@ async def get_person(
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail=_PERSON_FORBIDDEN_ERROR,
+        detail=tr(*_PERSON_FORBIDDEN_ERROR),
     )
 
 
@@ -2200,7 +2376,7 @@ async def update_person(
     if payload.general_data.tax_code.upper() != person.tax_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_TAX_CODE_IMMUTABLE_ERROR,
+            detail=tr(*_TAX_CODE_IMMUTABLE_ERROR),
         )
 
     consented = bool(
@@ -2220,7 +2396,7 @@ async def update_person(
     if not consented and not consenting and _brings_health_data(payload):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=HEALTH_DATA_WITHOUT_CONSENT_ERROR,
+            detail=health_data_without_consent_error(),
         )
 
     roles = [role.upper() for role in payload.roles]
@@ -2230,7 +2406,7 @@ async def update_person(
     if person.tax_code == identity.tax_code and _ROLE_CODE_ADMIN not in roles:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_OWN_ADMIN_ROLE_ERROR,
+            detail=tr(*_OWN_ADMIN_ROLE_ERRORS[person.gender]),
         )
 
     losses = Losses(db, confirm=payload.confirm)
@@ -2241,7 +2417,7 @@ async def update_person(
     if _ROLE_CODE_PSYCHOLOGIST in roles and payload.psychological_support_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_PSYCHOLOGIST_SUPPORT_ERROR,
+            detail=tr(*_PSYCHOLOGIST_SUPPORT_ERROR),
         )
 
     # Teacher children are managed from their own record: this rewrite keeps them.
@@ -2377,7 +2553,7 @@ async def update_person(
         discard_profile_image(image)
 
     return {
-        "message": _UPDATE_SUCCESS_MESSAGE,
+        "message": tr(*_UPDATE_SUCCESS_MESSAGE),
         "new_tax_code": person.tax_code,
     }
 
@@ -2414,7 +2590,7 @@ async def _load_person_or_404(
     if person is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            detail=tr(*_PERSON_NOT_FOUND_ERROR),
         )
 
     return person
@@ -2434,7 +2610,7 @@ async def _get_parental_link_or_404(
     if link is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PARENTAL_LINK_NOT_FOUND_ERROR,
+            detail=tr(*_PARENTAL_LINK_NOT_FOUND_ERROR),
         )
 
     return link
@@ -2498,13 +2674,13 @@ def _assert_may_write_school_history(identity: CurrentIdentity, tax_code: str) -
     if not (own or a_child):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_FORBIDDEN_SCHOOL_HISTORY_ERROR,
+            detail=tr(*_FORBIDDEN_SCHOOL_HISTORY_ERROR),
         )
 
     if identity.onboarding_completed:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_SCHOOL_HISTORY_CLOSED_ERROR,
+            detail=tr(*_SCHOOL_HISTORY_CLOSED_ERROR),
         )
 
 
@@ -2520,7 +2696,7 @@ async def update_person_school_enrollments(
     if not payload.enrollments:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_EMPTY_SCHOOL_HISTORY_ERROR,
+            detail=tr(*_EMPTY_SCHOOL_HISTORY_ERROR),
         )
 
     person = await _load_person_or_404(
@@ -2536,18 +2712,18 @@ async def update_person_school_enrollments(
     if member is None or member.student_profile is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_STUDENT_PROFILE_ERROR,
+            detail=tr(*_NO_STUDENT_PROFILE_ERROR),
         )
 
     student = member.student_profile
     assert_not_stale(
         student,
         payload.expected_updated_at,
-        entity_label=_SCHOOL_ENROLLMENTS_LABEL,
+        entity_label=tr(*_SCHOOL_ENROLLMENTS_LABEL),
     )
     _assert_unique_years(
         [enrollment.start_year for enrollment in payload.enrollments],
-        _DUPLICATE_ENROLLMENT_YEAR_ERROR,
+        tr(*_DUPLICATE_ENROLLMENT_YEAR_ERROR),
     )
 
     student.updated_at = datetime.now(UTC)
@@ -2571,9 +2747,9 @@ async def update_person_school_enrollments(
             )
         )
 
-    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+    await _commit_or_500(db, tr(*_GENERIC_COMMIT_ERROR))
 
-    return {"message": _SCHOOL_YEARS_UPDATED_MESSAGE}
+    return {"message": tr(*_SCHOOL_YEARS_UPDATED_MESSAGE)}
 
 
 @router.post(
@@ -2592,13 +2768,13 @@ async def add_parental_responsibility(
     await _load_parent_with_profile(
         db,
         payload.parent_tax_code,
-        _NO_PARENT_PROFILE_ERROR,
+        tr(*_NO_PARENT_PROFILE_ERROR),
     )
     await _assert_parental_link_absent(
         db,
         tax_code,
         payload.parent_tax_code,
-        _PARENT_ALREADY_LINKED_ERROR,
+        tr(*_PARENT_ALREADY_LINKED_ERROR),
     )
 
     existing_links = await db.execute(
@@ -2610,7 +2786,7 @@ async def add_parental_responsibility(
     if len(existing_links.scalars().all()) >= _MAX_PARENTS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_MAX_PARENTS_ERROR,
+            detail=tr(*_MAX_PARENTS_ERROR),
         )
 
     db.add(
@@ -2628,7 +2804,7 @@ async def add_parental_responsibility(
 
     await _commit_or_500(db, _RAW_COMMIT_ERROR)
 
-    return {"message": _PARENT_ADDED_MESSAGE}
+    return {"message": tr(*_PARENT_ADDED_MESSAGE)}
 
 
 @router.put(
@@ -2656,18 +2832,18 @@ async def update_parental_responsibility(
 
         await _commit_or_500(db, _RAW_COMMIT_ERROR)
 
-        return {"message": _PICKUP_UPDATED_MESSAGE}
+        return {"message": tr(*_PICKUP_UPDATED_MESSAGE)}
 
     await _load_parent_with_profile(
         db,
         payload.parent_tax_code,
-        _NEW_PARENT_NO_PROFILE_ERROR,
+        tr(*_NEW_PARENT_NO_PROFILE_ERROR),
     )
     await _assert_parental_link_absent(
         db,
         tax_code,
         payload.parent_tax_code,
-        _NEW_PARENT_ALREADY_LINKED_ERROR,
+        tr(*_NEW_PARENT_ALREADY_LINKED_ERROR),
     )
 
     await db.delete(link)
@@ -2682,7 +2858,7 @@ async def update_parental_responsibility(
 
     await _commit_or_500(db, _RAW_COMMIT_ERROR)
 
-    return {"message": _PARENT_UPDATED_MESSAGE}
+    return {"message": tr(*_PARENT_UPDATED_MESSAGE)}
 
 
 @router.delete(
@@ -2702,7 +2878,7 @@ async def delete_parental_responsibility(
     await db.delete(link)
     await _commit_or_500(db, _RAW_COMMIT_ERROR)
 
-    return {"message": _LINK_REMOVED_MESSAGE}
+    return {"message": tr(*_LINK_REMOVED_MESSAGE)}
 
 
 _ReportedValue = Annotated[
@@ -2726,7 +2902,7 @@ async def report_person_error(
     if not (identity.is_admin or own or a_child):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_PERSON_FORBIDDEN_ERROR,
+            detail=tr(*_PERSON_FORBIDDEN_ERROR),
         )
 
     person = await db.get(Person, tax_code)
@@ -2734,7 +2910,7 @@ async def report_person_error(
     if person is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            detail=tr(*_PERSON_NOT_FOUND_ERROR),
         )
 
     full_name = f"{person.first_name} {person.last_name}"
@@ -2778,14 +2954,14 @@ async def report_person_error(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_REPORT_EMAIL_ERROR.format(error=err),
+            detail=tr(*_REPORT_EMAIL_ERROR).format(error=err),
         ) from err
 
     await db.commit()
     background.add_task(push.deliver, batch)
     background.add_task(deliver_rest, rest)
 
-    return {"status": "success", "message": _REPORT_SENT_MESSAGE}
+    return {"status": "success", "message": tr(*_REPORT_SENT_MESSAGE)}
 
 
 @router.post(
@@ -2809,7 +2985,7 @@ async def wizard_create_person(
         if any(_is_adult(birth_date) for birth_date in birth_dates):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_ADULT_TEACHER_PARENTS_ERROR,
+                detail=tr(*_ADULT_TEACHER_PARENTS_ERROR),
             )
 
     try:
@@ -2833,22 +3009,22 @@ async def wizard_create_person(
         if "unique constraint" in error_message or "duplicate key" in error_message:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_DUPLICATE_CONTACT_ERROR,
+                detail=tr(*_DUPLICATE_CONTACT_ERROR),
             ) from err
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_CONSTRAINT_ERROR,
+            detail=tr(*_CONSTRAINT_ERROR),
         ) from err
 
     except Exception as err:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_WIZARD_CREATE_ERROR.format(error=err),
+            detail=tr(*_WIZARD_CREATE_ERROR).format(error=err),
         ) from err
 
-    return {"message": _PERSON_CREATED_MESSAGE, "tax_code": new_person.tax_code}
+    return {"message": tr(*_PERSON_CREATED_MESSAGE), "tax_code": new_person.tax_code}
 
 
 @router.post(
@@ -2867,7 +3043,7 @@ async def wizard_enrollment_form(
     except Exception as err:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_ENROLLMENT_FORM_ERROR.format(error=err),
+            detail=tr(*_ENROLLMENT_FORM_ERROR).format(error=err),
         ) from err
 
     return Response(
@@ -2898,7 +3074,7 @@ async def _early_exit_form_response(payload: EnrollmentFormRequest) -> Response:
     if not needs_early_exit_form(payload.person):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_EARLY_EXIT_ERROR,
+            detail=tr(*_NO_EARLY_EXIT_ERROR),
         )
 
     try:
@@ -2907,7 +3083,7 @@ async def _early_exit_form_response(payload: EnrollmentFormRequest) -> Response:
     except Exception as err:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_EARLY_EXIT_FORM_ERROR.format(error=err),
+            detail=tr(*_EARLY_EXIT_FORM_ERROR).format(error=err),
         ) from err
 
     return Response(
@@ -2942,7 +3118,7 @@ async def person_enrollment_form(
     if person is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            detail=tr(*_PERSON_NOT_FOUND_ERROR),
         )
 
     payload = request_for_person(person, await member_fees(db, person.tax_code))
@@ -2963,7 +3139,7 @@ async def person_enrollment_form(
     except Exception as err:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_ENROLLMENT_FORM_ERROR.format(error=err),
+            detail=tr(*_ENROLLMENT_FORM_ERROR).format(error=err),
         ) from err
 
     return Response(
@@ -2998,7 +3174,7 @@ async def person_early_exit_form(
     if person is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            detail=tr(*_PERSON_NOT_FOUND_ERROR),
         )
 
     return await _early_exit_form_response(request_for_person(person))
@@ -3019,7 +3195,7 @@ async def upload_profile_image(
     if person is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            detail=tr(*_PERSON_NOT_FOUND_ERROR),
         )
 
     image_url = store_profile_image(person.profile_image_url, await file.read())
@@ -3043,7 +3219,7 @@ async def update_person_memberships(
     if not payload.memberships:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_EMPTY_MEMBERSHIPS_ERROR,
+            detail=tr(*_EMPTY_MEMBERSHIPS_ERROR),
         )
 
     person = await _load_person_or_404(
@@ -3057,24 +3233,24 @@ async def update_person_memberships(
     if member is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_MEMBER_PROFILE_ERROR,
+            detail=tr(*_NO_MEMBER_PROFILE_ERROR),
         )
 
     assert_not_stale(
         member,
         payload.expected_updated_at,
-        entity_label=_MEMBERSHIPS_LABEL,
+        entity_label=tr(*_MEMBERSHIPS_LABEL),
     )
     _assert_unique_years(
         [membership.year for membership in payload.memberships],
-        _DUPLICATE_MEMBERSHIP_YEAR_ERROR,
+        tr(*_DUPLICATE_MEMBERSHIP_YEAR_ERROR),
     )
 
     # A revocation is final, corrections included.
     if await _revoked_for_good(db, person.tax_code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_MEMBERSHIP_ALREADY_REVOKED_ERROR,
+            detail=tr(*_MEMBERSHIP_ALREADY_REVOKED_ERROR),
         )
 
     losses = Losses(db, confirm=payload.confirm)
@@ -3090,9 +3266,9 @@ async def update_person_memberships(
     )
 
     await losses.settle()
-    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+    await _commit_or_500(db, tr(*_GENERIC_COMMIT_ERROR))
 
-    return {"message": _MEMBERSHIPS_UPDATED_MESSAGE}
+    return {"message": tr(*_MEMBERSHIPS_UPDATED_MESSAGE)}
 
 
 @router.put(
@@ -3110,7 +3286,7 @@ async def revoke_person_membership(
     if tax_code.upper() == identity.tax_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_OWN_REVOCATION_ERROR,
+            detail=tr(*_OWN_REVOCATION_ERROR),
         )
 
     person = await _load_person_or_404(
@@ -3124,19 +3300,19 @@ async def revoke_person_membership(
     if member is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_MEMBER_PROFILE_ERROR,
+            detail=tr(*_NO_MEMBER_PROFILE_ERROR),
         )
 
     assert_not_stale(
         member,
         payload.expected_updated_at,
-        entity_label=_MEMBERSHIPS_LABEL,
+        entity_label=tr(*_MEMBERSHIPS_LABEL),
     )
 
     if not member.memberships:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_MEMBERSHIP_TO_REVOKE_ERROR,
+            detail=tr(*_NO_MEMBERSHIP_TO_REVOKE_ERROR),
         )
 
     latest_membership = max(
@@ -3147,7 +3323,7 @@ async def revoke_person_membership(
     if latest_membership.revocation != MembershipRevocationEnum.NO:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_MEMBERSHIP_ALREADY_REVOKED_ERROR,
+            detail=tr(*_MEMBERSHIP_ALREADY_REVOKED_ERROR),
         )
 
     lapses_on = latest_membership.end_date + timedelta(
@@ -3158,7 +3334,7 @@ async def revoke_person_membership(
     if lapses_on <= today_in_rome():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_MEMBERSHIP_TO_REVOKE_ERROR,
+            detail=tr(*_NO_MEMBERSHIP_TO_REVOKE_ERROR),
         )
 
     latest_membership.end_date = date.today()
@@ -3175,9 +3351,9 @@ async def revoke_person_membership(
         account.status = AccountStatusEnum.REVOKED
         await RefreshTokenRepository(db).revoke_all_for_account(person.tax_code)
 
-    await _commit_or_500(db, _REVOKE_COMMIT_ERROR)
+    await _commit_or_500(db, tr(*_REVOKE_COMMIT_ERROR))
 
-    return {"message": _MEMBERSHIP_REVOKED_MESSAGE}
+    return {"message": tr(*_MEMBERSHIP_REVOKED_MESSAGE)}
 
 
 @router.put("/{tax_code}/teacher-competences", status_code=status.HTTP_200_OK)
@@ -3192,13 +3368,13 @@ async def update_teacher_competences(
     if not (identity.is_admin or own):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_PERSON_FORBIDDEN_ERROR,
+            detail=tr(*_PERSON_FORBIDDEN_ERROR),
         )
 
     if not payload.competences and not payload.service_names:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_EMPTY_COMPETENCES_ERROR,
+            detail=tr(*_EMPTY_COMPETENCES_ERROR),
         )
 
     person = await _load_person_or_404(
@@ -3217,13 +3393,13 @@ async def update_teacher_competences(
     if teacher is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_TEACHER_PROFILE_ERROR,
+            detail=tr(*_NO_TEACHER_PROFILE_ERROR),
         )
 
     assert_not_stale(
         teacher,
         payload.expected_updated_at,
-        entity_label=_TEACHING_SUBJECTS_LABEL,
+        entity_label=tr(*_TEACHING_SUBJECTS_LABEL),
     )
 
     teacher.updated_at = datetime.now(UTC)
@@ -3231,9 +3407,9 @@ async def update_teacher_competences(
     await replace_competences(db, person.tax_code, _competence_pairs(payload.competences))
     await _replace_teacher_services(db, person.tax_code, payload.service_names)
 
-    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+    await _commit_or_500(db, tr(*_GENERIC_COMMIT_ERROR))
 
-    return {"message": _COMPETENCES_UPDATED_MESSAGE}
+    return {"message": tr(*_COMPETENCES_UPDATED_MESSAGE)}
 
 
 # Admins reach any pupil with the consent, psychologists only those they follow.
@@ -3254,13 +3430,13 @@ async def _certified_student(
     if student is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_STUDENT_PROFILE_ERROR,
+            detail=tr(*_NO_STUDENT_PROFILE_ERROR),
         )
 
     if not student.member.special_category_data_consent:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=HEALTH_DATA_WITHOUT_CONSENT_ERROR,
+            detail=health_data_without_consent_error(),
         )
 
     return student
@@ -3291,7 +3467,7 @@ async def update_certifications(
         payload.certification_dsa_detail if CertificationTypeEnum.DSA in kinds else None
     )
 
-    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+    await _commit_or_500(db, tr(*_GENERIC_COMMIT_ERROR))
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -3312,7 +3488,7 @@ async def update_not_preferred_teachers(
     if not (identity.is_admin or a_child or themself):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR,
+            detail=tr(*_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR),
         )
 
     person = await _load_person_or_404(
@@ -3330,7 +3506,7 @@ async def update_not_preferred_teachers(
     if answered_for and not (identity.is_admin or a_child or let_alone):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR,
+            detail=tr(*_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR),
         )
 
     member = person.member_profile
@@ -3339,13 +3515,13 @@ async def update_not_preferred_teachers(
     if student is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_STUDENT_PROFILE_ERROR,
+            detail=tr(*_NO_STUDENT_PROFILE_ERROR),
         )
 
     assert_not_stale(
         student,
         payload.expected_updated_at,
-        entity_label=_NOT_PREFERRED_TEACHERS_LABEL,
+        entity_label=tr(*_NOT_PREFERRED_TEACHERS_LABEL),
     )
 
     # Bookings may change below, so serialize with the pupil's other writes.
@@ -3363,7 +3539,7 @@ async def update_not_preferred_teachers(
     if missing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UNKNOWN_TEACHERS_ERROR.format(codes=", ".join(missing)),
+            detail=tr(*_UNKNOWN_TEACHERS_ERROR).format(codes=", ".join(missing)),
         )
 
     today = today_in_rome()
@@ -3428,9 +3604,9 @@ async def update_not_preferred_teachers(
 
     student.updated_at = datetime.now(UTC)
 
-    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+    await _commit_or_500(db, tr(*_GENERIC_COMMIT_ERROR))
 
-    return {"message": _NOT_PREFERRED_TEACHERS_UPDATED_MESSAGE}
+    return {"message": tr(*_NOT_PREFERRED_TEACHERS_UPDATED_MESSAGE)}
 
 
 # The narrow slice a teacher may change on their own; the rest needs a request.
@@ -3444,7 +3620,7 @@ async def update_teacher_education(
     if not identity.is_admin and tax_code.upper() != identity.tax_code:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_FORBIDDEN_EDUCATION_ERROR,
+            detail=tr(*_FORBIDDEN_EDUCATION_ERROR),
         )
 
     person = await _load_person_or_404(
@@ -3462,22 +3638,22 @@ async def update_teacher_education(
     if teacher is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_TEACHER_PROFILE_ERROR,
+            detail=tr(*_NO_TEACHER_PROFILE_ERROR),
         )
 
     if teacher.is_high_school_student and payload.university_education is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR,
+            detail=university_education_at_high_school_error(),
         )
 
     teacher.school_education = payload.school_education
     teacher.university_education = payload.university_education
     teacher.updated_at = datetime.now(UTC)
 
-    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+    await _commit_or_500(db, tr(*_GENERIC_COMMIT_ERROR))
 
-    return {"message": _EDUCATION_UPDATED_MESSAGE}
+    return {"message": tr(*_EDUCATION_UPDATED_MESSAGE)}
 
 
 # First access lets people rewrite their own and their children's contacts freely.
@@ -3496,7 +3672,7 @@ async def update_contacts(
     if not (identity.is_admin or own or a_child):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_FORBIDDEN_CONTACTS_ERROR,
+            detail=tr(*_FORBIDDEN_CONTACTS_ERROR),
         )
 
     person = await _load_person_or_404(db, tax_code)
@@ -3504,6 +3680,6 @@ async def update_contacts(
     person.email = payload.email
     person.phone = payload.phone
 
-    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+    await _commit_or_500(db, tr(*_GENERIC_COMMIT_ERROR))
 
-    return {"message": _CONTACTS_UPDATED_MESSAGE}
+    return {"message": tr(*_CONTACTS_UPDATED_MESSAGE)}

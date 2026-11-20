@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -21,7 +22,7 @@ Color get kActivityAccent => AppTheme.trialOceanText;
 
 Color get kActivitySurface => AppTheme.trialPaper;
 
-const String kActivityWord = 'Attività';
+String get kActivityWord => tr('Attività', 'Activity');
 
 const double _narrowFrom = 110;
 

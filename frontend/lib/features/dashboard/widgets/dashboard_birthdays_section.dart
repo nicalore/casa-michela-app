@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/birthday.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -35,10 +36,12 @@ class DashboardBirthday
 String birthdayCaption(DashboardBirthday birthday, {bool short = false})
 {
   final String when = birthday.isToday
-      ? 'oggi'
+      ? tr('oggi', 'today')
       : (short ? formatDayMonthShort(birthday.date) : formatDayMonthFull(birthday.date));
 
-  return '${birthday.age} ${birthday.age == 1 ? 'anno' : 'anni'} · $when';
+  return birthday.age == 1
+      ? tr('${birthday.age} anno · $when', '${birthday.age} year · $when')
+      : tr('${birthday.age} anni · $when', '${birthday.age} years · $when');
 }
 
 DateTime? _nextBirthday(DateTime? birth, DateTime today)
@@ -143,7 +146,7 @@ class DashboardBirthdaysSection extends StatelessWidget
   {
     return DashboardSectionCard(
       icon: Icons.cake_rounded,
-      title: 'Compleanni',
+      title: tr('Compleanni', 'Birthdays'),
       minHeight: minHeight,
       fill: fill,
       compact: compact,
@@ -156,7 +159,7 @@ class DashboardBirthdaysSection extends StatelessWidget
             )
           : birthdays.isEmpty
               ? Text(
-                  'Nessun compleanno in arrivo.',
+                  tr('Nessun compleanno in arrivo.', 'No upcoming birthdays.'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14.5,

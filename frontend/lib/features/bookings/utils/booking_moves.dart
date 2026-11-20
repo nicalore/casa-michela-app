@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -9,7 +10,7 @@ import '../../lessons/models/presence_group.dart';
 import '../../lessons/models/presence_item.dart';
 import '../../lessons/models/subject_request.dart';
 import '../../lessons/utils/booking_window.dart';
-import '../../lessons/utils/booking_wizard_strings.dart' show bandBookedOtherWay;
+import '../../lessons/utils/booking_wizard_strings.dart' show BookingPupil, bandBookedOtherWay, kAnyPupil;
 import '../../lessons/utils/opening_window.dart';
 import '../../../core/constants/field_limits.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingDurationOptions;
@@ -100,7 +101,10 @@ class BookingMove
 
 int _lengthOf(PresenceItem row) => minutesOfTimeOfDay(row.endTime) - minutesOfTimeOfDay(row.startTime);
 
-const String _overBandLimit = 'Non è possibile garantire più di cinque ore di lezione per la stessa disciplina in una fascia oraria';
+String get _overBandLimit => tr(
+  'Non è possibile garantire più di cinque ore di lezione per la stessa disciplina in una fascia oraria',
+  "More than five hours of lessons for the same discipline in one time slot can't be guaranteed",
+);
 
 // A band books each discipline of a subject once, whatever was asked of it.
 bool _sameSubject(BookingSummaryItem a, BookingSummaryItem b)
@@ -221,10 +225,24 @@ String _ofBand(TimeBucket band)
   return '${band == TimeBucket.afternoon ? 'del' : 'della'} ${bandLabel(band).toLowerCase()}';
 }
 
+String _enBand(TimeBucket band)
+{
+  return switch (band)
+  {
+    TimeBucket.morning => 'morning',
+    TimeBucket.afternoon => 'afternoon',
+    TimeBucket.evening => 'evening',
+  };
+}
+
 String _tooLong(String mode, TimeBucket band, int needed, int free)
 {
-  return 'Le lezioni (${formatMinutes(needed)}) supererebbero le ore libere '
-      '${modeLabel(mode).toLowerCase()} ${_ofBand(band)} (${formatMinutes(free)}).';
+  return tr(
+    'Le lezioni (${formatMinutes(needed)}) supererebbero le ore libere '
+        '${modeLabel(mode).toLowerCase()} ${_ofBand(band)} (${formatMinutes(free)}).',
+    'The lessons (${formatMinutes(needed)}) would go over the free ${mode == kOnlineMode ? 'online' : 'in-person'} '
+        'hours of the ${_enBand(band)} (${formatMinutes(free)}).',
+  );
 }
 
 class BookingMovePlanner
@@ -338,7 +356,7 @@ class BookingMovePlanner
   }
 
   // [group] is null when the pupil has nothing on the day yet.
-  List<MoveOption> moveOptions(DateTime day, PresenceGroup? group, BookingMove move, {required bool sameDay})
+  List<MoveOption> moveOptions(DateTime day, PresenceGroup? group, BookingMove move, {required bool sameDay, BookingPupil who = kAnyPupil})
   {
     final List<MoveOption> options = [];
     final Set<int> gone = move.leavingIds;
@@ -363,7 +381,7 @@ class BookingMovePlanner
         final String? takenRefusal = [
           for (final slot in group?.slotsFor(other) ?? const <PresenceItem>[])
             if (bucketFor(slot.startTime) == band && !gone.contains(slot.id)) slot,
-        ].isEmpty ? null : bandBookedOtherWay(other);
+        ].isEmpty ? null : bandBookedOtherWay(other, who);
 
         final List<PresenceItem> inBand = [
           for (final slot in group?.slotsFor(mode) ?? const <PresenceItem>[])
@@ -473,16 +491,18 @@ class BookingMovePlanner
   {
     if (own)
     {
-      return anyBandShut(day) ? 'Le prenotazioni per le altre fasce orarie sono chiuse' : 'Non ci sono altre fasce orarie';
+      return anyBandShut(day)
+          ? tr('Le prenotazioni per le altre fasce orarie sono chiuse', 'Bookings for the other time slots are closed')
+          : tr('Non ci sono altre fasce orarie', 'There are no other time slots');
     }
 
-    return anyBandShut(day) ? 'Prenotazioni chiuse' : 'Associazione chiusa';
+    return anyBandShut(day) ? tr('Prenotazioni chiuse', 'Bookings closed') : tr('Associazione chiusa', 'Association closed');
   }
 
-  MoveDay moveDay(DateTime from, DateTime day, String pupilTaxCode, BookingMove move)
+  MoveDay moveDay(DateTime from, DateTime day, String pupilTaxCode, BookingMove move, {BookingPupil who = kAnyPupil})
   {
     final bool sameDay = isSameDate(day, from);
-    final List<MoveOption> options = moveOptions(day, groupOn(day, pupilTaxCode), move, sameDay: sameDay);
+    final List<MoveOption> options = moveOptions(day, groupOn(day, pupilTaxCode), move, sameDay: sameDay, who: who);
 
     return MoveDay(
       day: day,
@@ -491,10 +511,10 @@ class BookingMovePlanner
     );
   }
 
-  List<MoveDay> moveDays(DateTime from, String pupilTaxCode, BookingMove move)
+  List<MoveDay> moveDays(DateTime from, String pupilTaxCode, BookingMove move, {BookingPupil who = kAnyPupil})
   {
     return [
-      for (final day in computeAvailableDays(now)) moveDay(from, day, pupilTaxCode, move),
+      for (final day in computeAvailableDays(now)) moveDay(from, day, pupilTaxCode, move, who: who),
     ];
   }
 
@@ -519,7 +539,7 @@ class BookingMovePlanner
 
     if (haveBookingsClosed(day, band, now))
     {
-      return 'Prenotazioni chiuse';
+      return tr('Prenotazioni chiuse', 'Bookings closed');
     }
 
     final List<MoveDay> days = moveDays(day, group.studentTaxCode, BookingMove.all(group, mode, band));
@@ -530,8 +550,11 @@ class BookingMovePlanner
     }
 
     return days.every((option) => option.options.isEmpty && anyBandShut(option.day))
-        ? 'Le prenotazioni per le altre fasce orarie sono chiuse'
-        : "Nessun'altra fascia oraria o giornata può contenere tutte le lezioni inserite";
+        ? tr('Le prenotazioni per le altre fasce orarie sono chiuse', 'Bookings for the other time slots are closed')
+        : tr(
+            "Nessun'altra fascia oraria o giornata può contenere tutte le lezioni inserite",
+            'No other time slot or day can hold all the lessons entered',
+          );
   }
 
   // Lessons keep their stored ids so the server moves them; closed bands are left out and kept.

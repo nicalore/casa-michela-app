@@ -4,39 +4,49 @@ from typing import Final, Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core import field_lengths
+from app.core.i18n import tr
 from app.models.booking import BookingTagEnum
 from app.models.booking_preferred_teacher import MAX_PREFERRED_TEACHERS_PER_BOOKING
 from app.schemas.association_subject import AssociationSubjectOption
 from app.schemas.person import PersonOption
 from app.schemas.validators import OptionalCleanStr
 
-_DURATION_STEP_ERROR: Final[str] = (
-    "La durata deve essere espressa in multipli di 15 minuti."
+_DURATION_STEP_ERROR: Final[tuple[str, str]] = (
+    "La durata deve essere espressa in multipli di 15 minuti.",
+    "The duration must be in steps of 15 minutes.",
 )
 
-_ONE_REQUEST_KIND_ERROR: Final[str] = (
-    "Indica una materia ministeriale, oppure una disciplina, oppure un "
-    "servizio: uno solo dei tre."
+_ONE_REQUEST_KIND_ERROR: Final[tuple[str, str]] = (
+    "Indica una materia ministeriale, oppure una disciplina, oppure un servizio: uno "
+    "solo dei tre.",
+    "Give a curriculum subject, a discipline or a service: only one of the three.",
 )
 
-_NO_SUBJECTS_ERROR: Final[str] = (
-    "Seleziona una disciplina per questa materia ministeriale."
+_NO_SUBJECTS_ERROR: Final[tuple[str, str]] = (
+    "Seleziona una disciplina per questa materia ministeriale.",
+    "Select a discipline for this curriculum subject.",
 )
 
-_SEVERAL_SUBJECTS_ERROR: Final[str] = (
+_SEVERAL_SUBJECTS_ERROR: Final[tuple[str, str]] = (
     "Una prenotazione riguarda una sola disciplina: per più discipline servono "
-    "prenotazioni separate."
+    "prenotazioni separate.",
+    "A booking covers a single discipline: several disciplines need separate bookings.",
 )
 
-_SUBJECTS_ON_WRONG_KIND_ERROR: Final[str] = (
-    "Le discipline si elencano solo sotto una materia ministeriale."
+_SUBJECTS_ON_WRONG_KIND_ERROR: Final[tuple[str, str]] = (
+    "Le discipline si elencano solo sotto una materia ministeriale.",
+    "Disciplines are listed only under a curriculum subject.",
 )
 
-_SERVICE_HAS_NO_TAG_OR_TOPIC_ERROR: Final[str] = (
-    "Un servizio non ha argomento né tipo di lezione."
+_SERVICE_HAS_NO_TAG_OR_TOPIC_ERROR: Final[tuple[str, str]] = (
+    "Un servizio non ha argomento né tipo di lezione.",
+    "A service has no topic or lesson type.",
 )
 
-_NO_TAGS_ERROR: Final[str] = "Indica almeno un tipo di lezione."
+_NO_TAGS_ERROR: Final[tuple[str, str]] = (
+    "Indica almeno un tipo di lezione.",
+    "Give at least one lesson type.",
+)
 
 
 class BookingBase(BaseModel):
@@ -61,7 +71,7 @@ class BookingBase(BaseModel):
     @classmethod
     def _duration_step_of_15(cls, value: int) -> int:
         if value % 15 != 0:
-            raise ValueError(_DURATION_STEP_ERROR)
+            raise ValueError(tr(*_DURATION_STEP_ERROR))
 
         return value
 
@@ -82,22 +92,22 @@ class BookingBase(BaseModel):
         ]
 
         if sum(kinds) != 1:
-            raise ValueError(_ONE_REQUEST_KIND_ERROR)
+            raise ValueError(tr(*_ONE_REQUEST_KIND_ERROR))
 
         if self.ministry_subject_id is not None and not self.association_subject_ids:
-            raise ValueError(_NO_SUBJECTS_ERROR)
+            raise ValueError(tr(*_NO_SUBJECTS_ERROR))
 
         if len(set(self.association_subject_ids)) > 1:
-            raise ValueError(_SEVERAL_SUBJECTS_ERROR)
+            raise ValueError(tr(*_SEVERAL_SUBJECTS_ERROR))
 
         if self.ministry_subject_id is None and self.association_subject_ids:
-            raise ValueError(_SUBJECTS_ON_WRONG_KIND_ERROR)
+            raise ValueError(tr(*_SUBJECTS_ON_WRONG_KIND_ERROR))
 
         if self.service_name is not None and (self.tags or self.topic):
-            raise ValueError(_SERVICE_HAS_NO_TAG_OR_TOPIC_ERROR)
+            raise ValueError(tr(*_SERVICE_HAS_NO_TAG_OR_TOPIC_ERROR))
 
         if self.service_name is None and not self.tags:
-            raise ValueError(_NO_TAGS_ERROR)
+            raise ValueError(tr(*_NO_TAGS_ERROR))
 
         return self
 

@@ -63,7 +63,7 @@ List<RoleSection> desktopTourSectionsOf(MeResponse user)
 
   if (toured)
   {
-    sections[_settings] = const RoleSection(_settings, kSettingsTitle, available: true);
+    sections[_settings] = RoleSection(_settings, kSettingsTitle, available: true);
   }
 
   return sections.values.toList();

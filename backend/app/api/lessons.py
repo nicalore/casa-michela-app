@@ -10,6 +10,7 @@ from app.api.booking_presentation import (
 )
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, IdentityContext, require_role
+from app.core.i18n import tr
 from app.core.time_band import TimeBandEnum
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
@@ -309,4 +310,4 @@ async def delete_lesson(
 ) -> dict[str, str]:
     await _service(db).delete(identity, lesson_id)
 
-    return {"detail": "Lezione eliminata"}
+    return {"detail": tr("Lezione eliminata", "Lesson deleted")}

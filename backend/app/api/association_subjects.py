@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import DbSession
 from app.api.queries import select_parents_left_without_children
 from app.api.rbac import CurrentIdentity, get_current_identity, require_role
+from app.core.i18n import tr
 from app.models.association_subject import AssociationSubject, SubjectAreaEnum
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
@@ -23,6 +24,7 @@ from app.schemas.association_subject import (
     MissingSubjectReport,
 )
 from app.services import email_service, push
+from app.services.bilingual import Bilingual
 from app.services.reports import (
     ReportNotSentError,
     deliver_rest,
@@ -40,13 +42,26 @@ router = APIRouter(
 
 _REPORTER_ROLES: Final[tuple[str, ...]] = ("STUDENT", "PARENT")
 
-_REPORT_SENT_MESSAGE: Final[str] = "Segnalazione inviata correttamente"
-_REPORT_EMAIL_ERROR: Final[str] = "Impossibile inviare la mail tramite Resend: {error}"
+_REPORT_SENT_MESSAGE: Final[tuple[str, str]] = (
+    "Segnalazione inviata correttamente",
+    "Report sent successfully",
+)
+_REPORT_EMAIL_ERROR: Final[tuple[str, str]] = (
+    "Impossibile inviare la mail tramite Resend: {error}",
+    "Couldn't send the email through Resend: {error}",
+)
 
-_REPORT_EMAIL_SUBJECT: Final[str] = "Segnalazione disciplina mancante - {full_name}"
-_REPORT_EMAIL_HEADING: Final[str] = "Disciplina mancante"
+_REPORT_EMAIL_SUBJECT: Final[Bilingual] = Bilingual(
+    "Segnalazione disciplina mancante - {full_name}",
+    "Missing discipline report - {full_name}",
+)
+_REPORT_EMAIL_HEADING: Final[Bilingual] = Bilingual(
+    "Disciplina mancante",
+    "Missing discipline",
+)
 
-_REPORT_EMAIL_BODY: Final[str] = """
+_REPORT_EMAIL_BODY: Final[Bilingual] = Bilingual(
+    """
     <p><strong>{full_name}</strong> ha richiesto di aggiungere una disciplina.</p>
     <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
                 border: 1px solid {line}; border-radius: 18px;">
@@ -58,28 +73,60 @@ _REPORT_EMAIL_BODY: Final[str] = """
         {description}
     </div>
     <p>Puoi rispondere direttamente a questa email: la risposta arriverà a <a href="mailto:{email}" style="color: {teal};">{email}</a>.</p>
-"""
+""",
+    """
+    <p><strong>{full_name}</strong> asked to add a discipline.</p>
+    <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
+                border: 1px solid {line}; border-radius: 18px;">
+        <p style="margin: 0 0 4px 0; color: {muted}; font-size: 11px; font-weight: 600;
+                  letter-spacing: 1.4px; text-transform: uppercase;">Discipline</p>
+        <p style="margin: 0 0 16px 0;"><strong style="color: {ink}; font-size: 17px;">{name}</strong></p>
+        <p style="margin: 0 0 4px 0; color: {muted}; font-size: 11px; font-weight: 600;
+                  letter-spacing: 1.4px; text-transform: uppercase;">Description</p>
+        {description}
+    </div>
+    <p>You can reply directly to this email: the reply will go to <a href="mailto:{email}" style="color: {teal};">{email}</a>.</p>
+""",
+)
 
 _REPORT_DESCRIPTION: Final[str] = '<p style="margin: 0;">{description}</p>'
-_REPORT_NO_DESCRIPTION: Final[str] = (
+_REPORT_NO_DESCRIPTION: Final[Bilingual] = Bilingual(
     '<p style="margin: 0; color: {muted}; font-style: italic;">'
-    "Nessuna descrizione fornita.</p>"
+    "Nessuna descrizione fornita.</p>",
+    '<p style="margin: 0; color: {muted}; font-style: italic;">'
+    "No description given.</p>",
 )
 
-_SUBJECT_NOT_FOUND_ERROR: Final[str] = "Materia non trovata."
-_DUPLICATE_SUBJECT_ERROR: Final[str] = 'Esiste già la disciplina "{name}"'
-_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
-_ORPHAN_MINISTRY_SUBJECT_ERROR: Final[str] = (
-    "Impossibile eliminare: una materia ministeriale rimarrebbe senza "
-    "discipline interne collegate."
+_SUBJECT_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Materia non trovata.",
+    "Subject not found.",
 )
-_ORPHAN_TEACHER_ERROR: Final[str] = (
-    "Impossibile eliminare: un docente rimarrebbe senza competenze."
+_DUPLICATE_SUBJECT_ERROR: Final[tuple[str, str]] = (
+    'Esiste già la disciplina "{name}"',
+    "The discipline “{name}” already exists",
 )
-_DELETE_CONSTRAINT_ERROR: Final[str] = (
-    "Impossibile eliminare la materia in quanto protetta da vincoli referenziali."
+_UPDATE_ERROR: Final[tuple[str, str]] = (
+    "Errore durante l'aggiornamento.",
+    "Error while updating.",
 )
-_DELETE_SUCCESS_DETAIL: Final[str] = "Materia eliminata"
+_ORPHAN_MINISTRY_SUBJECT_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare: una materia ministeriale rimarrebbe senza discipline "
+    "interne collegate.",
+    "Can't delete: a curriculum subject would be left without linked internal "
+    "disciplines.",
+)
+_ORPHAN_TEACHER_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare: un docente rimarrebbe senza competenze.",
+    "Can't delete: a teacher would be left with nothing to teach.",
+)
+_DELETE_CONSTRAINT_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare la materia in quanto protetta da vincoli referenziali.",
+    "Can't delete the subject because other data refers to it.",
+)
+_DELETE_SUCCESS_DETAIL: Final[tuple[str, str]] = (
+    "Materia eliminata",
+    "Subject deleted",
+)
 
 
 async def _get_subject_or_404(db: AsyncSession, subject_id: int) -> AssociationSubject:
@@ -91,7 +138,7 @@ async def _get_subject_or_404(db: AsyncSession, subject_id: int) -> AssociationS
     if subject is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_SUBJECT_NOT_FOUND_ERROR,
+            detail=tr(*_SUBJECT_NOT_FOUND_ERROR),
         )
 
     return subject
@@ -105,17 +152,19 @@ async def _assert_name_available(db: AsyncSession, name: str) -> None:
     if result.scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DUPLICATE_SUBJECT_ERROR.format(name=name),
+            detail=tr(*_DUPLICATE_SUBJECT_ERROR).format(name=name),
         )
 
 
-def _report_description(description: str | None) -> str:
+def _report_description(description: str | None) -> Bilingual:
     if description is None:
         return _REPORT_NO_DESCRIPTION.format(muted=email_service.MUTED)
 
-    return _REPORT_DESCRIPTION.format(
+    written = _REPORT_DESCRIPTION.format(
         description=escape(description).replace("\n", "<br>"),
     )
+
+    return Bilingual(written, written)
 
 
 # The ministry subjects owning the discipline take its new area, and drop the old one
@@ -188,6 +237,8 @@ async def report_missing_subject(
         description=payload.description,
     )
 
+    described = _report_description(payload.description)
+
     try:
         rest = await send_to_readers(
             db,
@@ -195,30 +246,38 @@ async def report_missing_subject(
             reply_to=person.email,
             subject=_REPORT_EMAIL_SUBJECT.format(full_name=full_name),
             heading=_REPORT_EMAIL_HEADING,
-            body=_REPORT_EMAIL_BODY.format(
-                full_name=escape(full_name),
-                name=escape(payload.name),
-                description=_report_description(payload.description),
-                email=escape(person.email),
-                paper=email_service.PAPER,
-                line=email_service.LINE,
-                ink=email_service.INK,
-                muted=email_service.MUTED,
-                teal=email_service.TEAL,
+            body=Bilingual(
+                *(
+                    template.format(
+                        full_name=escape(full_name),
+                        name=escape(payload.name),
+                        description=description,
+                        email=escape(person.email),
+                        paper=email_service.PAPER,
+                        line=email_service.LINE,
+                        ink=email_service.INK,
+                        muted=email_service.MUTED,
+                        teal=email_service.TEAL,
+                    )
+                    for template, description in (
+                        (_REPORT_EMAIL_BODY.it, described.it),
+                        (_REPORT_EMAIL_BODY.en, described.en),
+                    )
+                )
             ),
         )
     except ReportNotSentError as err:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_REPORT_EMAIL_ERROR.format(error=err),
+            detail=tr(*_REPORT_EMAIL_ERROR).format(error=err),
         ) from err
 
     await db.commit()
     background.add_task(push.deliver, batch)
     background.add_task(deliver_rest, rest)
 
-    return {"message": _REPORT_SENT_MESSAGE}
+    return {"message": tr(*_REPORT_SENT_MESSAGE)}
 
 
 @router.get("/", response_model=list[AssociationSubjectResponse])
@@ -276,7 +335,7 @@ async def update_subject(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UPDATE_ERROR,
+            detail=tr(*_UPDATE_ERROR),
         ) from err
 
     return subject
@@ -300,7 +359,7 @@ async def delete_subject(subject_id: int, db: DbSession) -> dict[str, str]:
     if orphan_ministry_subjects.scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ORPHAN_MINISTRY_SUBJECT_ERROR,
+            detail=tr(*_ORPHAN_MINISTRY_SUBJECT_ERROR),
         )
 
     orphan_teachers = await db.execute(
@@ -312,7 +371,7 @@ async def delete_subject(subject_id: int, db: DbSession) -> dict[str, str]:
     if orphan_teachers.scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ORPHAN_TEACHER_ERROR,
+            detail=tr(*_ORPHAN_TEACHER_ERROR),
         )
 
     try:
@@ -322,7 +381,7 @@ async def delete_subject(subject_id: int, db: DbSession) -> dict[str, str]:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DELETE_CONSTRAINT_ERROR,
+            detail=tr(*_DELETE_CONSTRAINT_ERROR),
         ) from err
 
-    return {"detail": _DELETE_SUCCESS_DETAIL}
+    return {"detail": tr(*_DELETE_SUCCESS_DETAIL)}

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/language/app_language.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import '../lessons/utils/booking_wizard_strings.dart' show bookingFinishTourText, kBandNoteTourText, teacherNotesTourText;
@@ -64,7 +65,7 @@ final ValueNotifier<bool> bookingsSubjectOpen = ValueNotifier(false);
 // The move window tells its tour: a day or a place picked.
 final ValueNotifier<int> bookingsMovePicked = ValueNotifier(0);
 
-const String _title = 'Prenotazioni';
+String get _title => tr('Prenotazioni', 'Bookings');
 
 const String _parentRole = 'PARENT';
 const String _studentRole = 'STUDENT';
@@ -84,7 +85,7 @@ enum BookingsTourPupil
     return self ? BookingsTourPupil.self : (gender == 'F' ? daughter : son);
   }
 
-  String get yours => this == daughter ? 'tua figlia' : 'tuo figlio';
+  String get yours => this == daughter ? tr('tua figlia', 'your daughter') : tr('tuo figlio', 'your son');
 }
 
 // Bump a version on every change to that tour.
@@ -237,17 +238,22 @@ String _whose(BookingsTourReader reader, List<String?> genders)
 
   if (genders.length == 1)
   {
-    return genders.single == 'F' ? ' per tua figlia' : ' per tuo figlio';
+    return genders.single == 'F' ? tr(' per tua figlia', ' for your daughter') : tr(' per tuo figlio', ' for your son');
   }
 
-  return genders.every((gender) => gender == 'F') ? ' per le tue figlie' : ' per i tuoi figli';
+  return genders.every((gender) => gender == 'F')
+      ? tr(' per le tue figlie', ' for your daughters')
+      : tr(' per i tuoi figli', ' for your children');
 }
 
 // Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
-final Map<BookingsTourMark, DesktopTourStep> _marks = {
+Map<BookingsTourMark, DesktopTourStep> get _marks => {
   BookingsTourMark.add: DesktopTourStep(
     targets: const [kTourBookingsAdd],
-    text: 'Con «Aggiungi in presenza» e «Aggiungi online» puoi prenotare una lezione in presenza oppure online.',
+    text: tr(
+      'Con «Aggiungi in presenza» e «Aggiungi online» puoi prenotare una lezione in presenza oppure online.',
+      'With “Add in person” and “Add online” you can book a lesson in person or online.',
+    ),
     sides: _leftFirst,
     pad: 6,
     radius: 23,
@@ -257,7 +263,7 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
   ),
   BookingsTourMark.lock: DesktopTourStep(
     targets: const [kTourBookingsLock],
-    text: 'Il lucchetto indica che non è più possibile modificare la prenotazione.',
+    text: tr('Il lucchetto indica che non è più possibile modificare la prenotazione.', 'The padlock means the booking can no longer be changed.'),
     sides: _beside,
     pad: 6,
     radius: 10,
@@ -268,8 +274,12 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
   BookingsTourMark.modes: DesktopTourStep(
     targets: const [kTourBookingsModes],
     apart: true,
-    text: "Le lezioni in presenza sono contrassegnate dal colore verde e dall'icona di una casa, mentre quelle "
-        "online sono indicate in arancione e con l'icona di una videocamera.",
+    text: tr(
+      "Le lezioni in presenza sono contrassegnate dal colore verde e dall'icona di una casa, mentre quelle "
+          "online sono indicate in arancione e con l'icona di una videocamera.",
+      'In-person lessons are marked in green with a house icon, while online ones are shown in orange '
+          'with a video camera icon.',
+    ),
     sides: _beside,
     pad: 6,
     radius: 16,
@@ -279,7 +289,7 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
   ),
   BookingsTourMark.lesson: DesktopTourStep(
     targets: const [kTourBookingsLesson],
-    text: 'Qui puoi vedere i dettagli della prenotazione.',
+    text: tr('Qui puoi vedere i dettagli della prenotazione.', 'Here you can see the details of the booking.'),
     sides: _over,
     pad: 6,
     radius: 19,
@@ -290,7 +300,7 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
   // Topic and notes are lit apart: a lesson may have one without the other.
   BookingsTourMark.topic: DesktopTourStep(
     targets: const [kTourBookingsTopic],
-    text: "Passando il mouse su questa icona puoi leggere l'argomento della lezione.",
+    text: tr("Passando il mouse su questa icona puoi leggere l'argomento della lezione.", 'Hover over this icon to read the topic of the lesson.'),
     sides: _over,
     pad: 4,
     radius: 12,
@@ -300,7 +310,7 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
   ),
   BookingsTourMark.notes: DesktopTourStep(
     targets: const [kTourBookingsNotes],
-    text: 'Passando il mouse su questa icona puoi leggere le note per il docente.',
+    text: tr('Passando il mouse su questa icona puoi leggere le note per il docente.', 'Hover over this icon to read the notes for the teacher.'),
     sides: _over,
     pad: 4,
     radius: 12,
@@ -311,8 +321,12 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
   // The row keeps its buttons in sight while lit, as the mouse would.
   BookingsTourMark.lessonActions: DesktopTourStep(
     targets: const [kTourBookingsLessonActions],
-    text: 'Passando con il mouse su una materia compaiono i pulsanti con cui puoi modificarne la prenotazione, '
-        'eliminarla, oppure cambiare giorno, fascia oraria e/o modalità (online o in presenza).',
+    text: tr(
+      'Passando con il mouse su una materia compaiono i pulsanti con cui puoi modificarne la prenotazione, '
+          'eliminarla, oppure cambiare giorno, fascia oraria e/o modalità (online o in presenza).',
+      'Hovering over a subject shows the buttons to change its booking, delete it, or change its day, '
+          'time slot and/or mode (online or in person).',
+    ),
     sides: _over,
     pad: 4,
     radius: 10,
@@ -322,10 +336,15 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
   ),
   BookingsTourMark.bandActions: DesktopTourStep(
     targets: const [kTourBookingsBandActions],
-    text: 'Passando con il mouse su una fascia oraria compaiono i pulsanti con cui puoi modificare gli orari delle '
-        "prenotazioni, richiedere un'altra lezione nella stessa fascia, aggiungere una nota sulla prenotazione, "
-        'spostare tutte le lezioni della fascia oraria selezionata (mattina, pomeriggio o sera) oppure eliminare '
-        'tutte le materie prenotate in quella fascia.',
+    text: tr(
+      'Passando con il mouse su una fascia oraria compaiono i pulsanti con cui puoi modificare gli orari delle '
+          "prenotazioni, richiedere un'altra lezione nella stessa fascia, aggiungere una nota sulla prenotazione, "
+          'spostare tutte le lezioni della fascia oraria selezionata (mattina, pomeriggio o sera) oppure eliminare '
+          'tutte le materie prenotate in quella fascia.',
+      'Hovering over a time slot shows the buttons to change the hours of the bookings, request another lesson '
+          'in the same time slot, add a note to the booking, move all the lessons of that time slot (morning, '
+          'afternoon or evening) or delete all the subjects booked in it.',
+    ),
     sides: _beside,
     pad: 4,
     radius: 10,
@@ -335,7 +354,7 @@ final Map<BookingsTourMark, DesktopTourStep> _marks = {
   ),
   BookingsTourMark.dayBin: DesktopTourStep(
     targets: const [kTourBookingsDayBin],
-    text: "Con questo cestino puoi cancellare le prenotazioni dell'intera giornata.",
+    text: tr("Con questo cestino puoi cancellare le prenotazioni dell'intera giornata.", 'With this bin you can delete the bookings of the whole day.'),
     sides: _beside,
     pad: 4,
     radius: 10,
@@ -370,7 +389,7 @@ List<DesktopTourStep> _nextWeekSteps(VoidCallback showThisWeek)
   return [
     DesktopTourStep(
       targets: const [kTourBookingsNext],
-      text: 'Clicca la freccia per passare alla settimana prossima.',
+      text: tr('Clicca la freccia per passare alla settimana prossima.', 'Click the arrow to go to next week.'),
       sides: _leftFirst,
       pad: 6,
       radius: 25,
@@ -381,7 +400,10 @@ List<DesktopTourStep> _nextWeekSteps(VoidCallback showThisWeek)
     ),
     DesktopTourStep(
       targets: const [kTourBookingsDays],
-      text: 'Qui puoi prenotare le lezioni per la settimana prossima, che si sblocca il venerdì alle 20:00.',
+      text: tr(
+        'Qui puoi prenotare le lezioni per la settimana prossima, che si sblocca il venerdì alle 20:00.',
+        'Here you can book lessons for next week, which unlocks on Friday at 20:00.',
+      ),
       sides: _over,
       pad: 6,
       radius: 27,
@@ -414,7 +436,10 @@ DesktopTour bookingsPageTour({
       // The next week shown by a click while the tour got ready: back on this week.
       DesktopTourStep(
         targets: const [kTourBookingsDays],
-        text: 'Qui puoi vedere tutte le prenotazioni effettuate questa settimana${_whose(reader, genders)}.',
+        text: tr(
+          'Qui puoi vedere tutte le prenotazioni effettuate questa settimana${_whose(reader, genders)}.',
+          'Here you can see all the bookings made this week${_whose(reader, genders)}.',
+        ),
         sides: _over,
         pad: 6,
         radius: 27,
@@ -424,9 +449,12 @@ DesktopTour bookingsPageTour({
       if (books) ...[
         ..._nextWeekSteps(showThisWeek),
         for (final step in marks) _once(step, told, nextWeek: true),
-        const DesktopTourStep(
-          targets: [kTourBookingsDeadlines],
-          text: 'Qui trovi le scadenze entro cui effettuare o modificare le prenotazioni.',
+        DesktopTourStep(
+          targets: const [kTourBookingsDeadlines],
+          text: tr(
+            'Qui trovi le scadenze entro cui effettuare o modificare le prenotazioni.',
+            'Here you find the deadlines for making or changing bookings.',
+          ),
           sides: _below,
           pad: 8,
           radius: 14,
@@ -444,13 +472,16 @@ DesktopTour bookingsNextWeekTour({required VoidCallback showThisWeek})
 
 Future<DesktopTour?> bookingsLatePageTour(BookingsTourReader reader) => _dueTour(_marksOf(reader));
 
-String _presence(bool online) => online ? 'presenza online' : 'presenza';
+String _presence(bool online) => online ? tr('presenza online', 'online attendance') : tr('presenza', 'attendance');
 
 // The dates of a new booking; picking one ends it.
-final DesktopTourStep _daysStep = DesktopTourStep(
+DesktopTourStep get _daysStep => DesktopTourStep(
   targets: const [kTourBookingsWizardDays],
-  text: 'Puoi selezionare una data cliccandola. Passando il mouse su una data barrata scopri perché non è '
-      'disponibile.',
+  text: tr(
+    'Puoi selezionare una data cliccandola. Passando il mouse su una data barrata scopri perché non è '
+        'disponibile.',
+    "You can pick a date by clicking it. Hover over a struck-out date to find out why it isn't available.",
+  ),
   sides: _below,
   pad: 6,
   radius: 31,
@@ -464,9 +495,9 @@ final DesktopTourStep _daysStep = DesktopTourStep(
 Future<DesktopTour?> bookingsWizardDaysTour() => _dueTour([_daysStep]);
 
 // Shared with the move window: seen in one, seen in both.
-final DesktopTourStep _cursorsStep = DesktopTourStep(
+DesktopTourStep get _cursorsStep => DesktopTourStep(
   targets: const [kTourBookingsHours],
-  text: 'Trascinando i cursori cambi gli orari in cui vuoi prenotare.',
+  text: tr('Trascinando i cursori cambi gli orari in cui vuoi prenotare.', 'Drag the handles to change the hours you want to book.'),
   sides: _beside,
   pad: 6,
   radius: 14,
@@ -475,9 +506,12 @@ final DesktopTourStep _cursorsStep = DesktopTourStep(
   seen: _cursorsSeen,
 );
 
-final DesktopTourStep _addHoursStep = DesktopTourStep(
+DesktopTourStep get _addHoursStep => DesktopTourStep(
   targets: const [kTourBookingsHoursAdd],
-  text: 'Puoi indicare più orari nella stessa fascia. Ad esempio, dalle 14:00 alle 15:00 e dalle 17:00 alle 18:00.',
+  text: tr(
+    'Puoi indicare più orari nella stessa fascia. Ad esempio, dalle 14:00 alle 15:00 e dalle 17:00 alle 18:00.',
+    'You can give more than one time in the same time slot. For example, from 14:00 to 15:00 and from 17:00 to 18:00.',
+  ),
   sides: _beside,
   pad: 6,
   radius: 19,
@@ -485,9 +519,9 @@ final DesktopTourStep _addHoursStep = DesktopTourStep(
   seen: _addHoursSeen,
 );
 
-final DesktopTourStep _binStep = DesktopTourStep(
+DesktopTourStep get _binStep => DesktopTourStep(
   targets: const [kTourBookingsHoursBin],
-  text: 'Puoi eliminare un orario cliccando sul cestino.',
+  text: tr('Puoi eliminare un orario cliccando sul cestino.', 'You can delete a time by clicking the bin.'),
   sides: _beside,
   pad: 4,
   radius: 12,
@@ -502,12 +536,17 @@ Future<DesktopTour?> bookingsWizardHoursTour({
   required bool hoursOnly,
 })
 {
-  final String whose = pupil == BookingsTourPupil.self ? 'la tua ${_presence(online)}' : 'la ${_presence(online)} di ${pupil.yours}';
+  final String whose = pupil == BookingsTourPupil.self
+      ? tr('la tua ${_presence(online)}', 'your ${_presence(online)}')
+      : tr('la ${_presence(online)} di ${pupil.yours}', "${pupil.yours}'s ${_presence(online)}");
 
   return _freshTour([
     DesktopTourStep(
       targets: const [kTourBookingsSwitch],
-      text: 'Con il selettore aggiungi o rimuovi $whose nella fascia oraria corrispondente (mattina, pomeriggio o sera).',
+      text: tr(
+        'Con il selettore aggiungi o rimuovi $whose nella fascia oraria corrispondente (mattina, pomeriggio o sera).',
+        'With the switch you add or remove $whose in that time slot (morning, afternoon or evening).',
+      ),
       sides: _beside,
       pad: 6,
       radius: 23,
@@ -533,7 +572,7 @@ Future<DesktopTour?> bookingsWizardHoursTour({
     if (hoursOnly)
       DesktopTourStep(
         targets: const [kTourBookingsWizardSave],
-        text: 'Quando hai finito, clicca «Salva» per salvare i nuovi orari.',
+        text: tr('Quando hai finito, clicca «Salva» per salvare i nuovi orari.', "When you're done, click “Save” to save the new hours."),
         sides: _beside,
         pad: 6,
         radius: 17,
@@ -543,7 +582,7 @@ Future<DesktopTour?> bookingsWizardHoursTour({
     else
       DesktopTourStep(
         targets: const [kTourBookingsWizardForward],
-        text: 'Quando hai finito, clicca la freccia per scegliere le materie.',
+        text: tr('Quando hai finito, clicca la freccia per scegliere le materie.', "When you're done, click the arrow to choose the subjects."),
         sides: _leftFirst,
         pad: 6,
         radius: 35,
@@ -556,10 +595,14 @@ Future<DesktopTour?> bookingsWizardHoursTour({
 Future<DesktopTour?> bookingsLateHoursTour() => _dueTour([_cursorsStep, _addHoursStep, _binStep]);
 
 // A subject divided in disciplines, once open under its row.
-final DesktopTourStep _openStep = DesktopTourStep(
+DesktopTourStep get _openStep => DesktopTourStep(
   targets: const [kTourBookingsWizardOpen],
-  text: "Questa materia è articolata in più aree disciplinari. Seleziona l'area per cui desideri prenotare una "
-      'lezione. Se hai bisogno di prenotare lezioni per più aree, puoi farlo separatamente, una alla volta.',
+  text: tr(
+    "Questa materia è articolata in più aree disciplinari. Seleziona l'area per cui desideri prenotare una "
+        'lezione. Se hai bisogno di prenotare lezioni per più aree, puoi farlo separatamente, una alla volta.',
+    'This subject is divided into several disciplines. Choose the one you want to book a lesson for. '
+        'If you need lessons for more than one, you can book them separately, one at a time.',
+  ),
   sides: _beside,
   pad: 6,
   radius: 19,
@@ -611,10 +654,18 @@ Future<DesktopTour?> bookingsWizardSubjectsTour({
     DesktopTourStep(
       targets: const [kTourBookingsWizardBand],
       text: self
-          ? "Qui trovi gli orari in cui hai indicato di essere presente${online ? ' online' : ''}: le lezioni prenotate "
-              "verranno organizzate all'interno di questo intervallo."
-          : "Qui trovi gli orari in cui hai indicato che $yours è presente${online ? ' online' : ''}: le lezioni "
-              "prenotate verranno organizzate all'interno di questo intervallo.",
+          ? tr(
+              "Qui trovi gli orari in cui hai indicato di essere presente${online ? ' online' : ''}: le lezioni prenotate "
+                  "verranno organizzate all'interno di questo intervallo.",
+              "Here you find the hours when you said you'd be present${online ? ' online' : ''}: the booked lessons "
+                  'will be arranged within this time.',
+            )
+          : tr(
+              "Qui trovi gli orari in cui hai indicato che $yours è presente${online ? ' online' : ''}: le lezioni "
+                  "prenotate verranno organizzate all'interno di questo intervallo.",
+              'Here you find the hours when you said $yours will be present${online ? ' online' : ''}: the booked '
+                  'lessons will be arranged within this time.',
+            ),
       sides: _below,
       pad: 6,
       radius: 10,
@@ -623,8 +674,12 @@ Future<DesktopTour?> bookingsWizardSubjectsTour({
     ),
     DesktopTourStep(
       targets: const [kTourBookingsWizardLeft],
-      text: 'A destra trovi il totale delle ore di lezione che puoi ancora richiedere, calcolato sottraendo le ore già '
-          'prenotate dal totale delle ore di ${_presence(online)} indicate.',
+      text: tr(
+        'A destra trovi il totale delle ore di lezione che puoi ancora richiedere, calcolato sottraendo le ore già '
+            'prenotate dal totale delle ore di ${_presence(online)} indicate.',
+        'On the right you find the lesson hours you can still request, worked out by taking the hours already '
+            'booked away from the hours of ${_presence(online)} you gave.',
+      ),
       sides: _below,
       pad: 6,
       radius: 10,
@@ -634,28 +689,40 @@ Future<DesktopTour?> bookingsWizardSubjectsTour({
     tab(
       kTourBookingsWizardMinistry,
       self
-          ? 'In «Materie» trovi solo le materie previste nel tuo indirizzo di studi.'
-          : "In «Materie» trovi solo le materie previste nell'indirizzo di studi di $yours.",
+          ? tr('In «Materie» trovi solo le materie previste nel tuo indirizzo di studi.', 'In “Subjects” you find only the subjects of your course of study.')
+          : tr(
+              "In «Materie» trovi solo le materie previste nell'indirizzo di studi di $yours.",
+              "In “Subjects” you find only the subjects of $yours's course of study.",
+            ),
       _ministrySeen,
     ),
     tab(
       kTourBookingsWizardDisciplines,
-      'In «Discipline» trovi tutte le discipline che è possibile prenotare in Associazione.',
+      tr(
+        'In «Discipline» trovi tutte le discipline che è possibile prenotare in Associazione.',
+        'In “Disciplines” you find all the disciplines that can be booked at the Association.',
+      ),
       _disciplinesSeen,
     ),
     tab(
       kTourBookingsWizardServices,
       self
-          ? "In «Servizi» trovi altri servizi che è possibile prenotare, come il supporto per la stesura della tesina "
-              "d'esame."
-          : 'In «Servizi» trovi altri servizi che è possibile prenotare per $yours, come il supporto per la stesura '
-              "della tesina d'esame.",
+          ? tr(
+              "In «Servizi» trovi altri servizi che è possibile prenotare, come il supporto per la stesura della tesina "
+                  "d'esame.",
+              'In “Services” you find other services you can book, such as help writing your exam paper.',
+            )
+          : tr(
+              'In «Servizi» trovi altri servizi che è possibile prenotare per $yours, come il supporto per la stesura '
+                  "della tesina d'esame.",
+              'In “Services” you find other services you can book for $yours, such as help writing the exam paper.',
+            ),
       _servicesSeen,
     ),
     // Its window or its disciplines opened by a click move the tour on.
     DesktopTourStep(
       targets: const [kTourBookingsWizardList],
-      text: 'Da qui puoi selezionare le materie da prenotare.',
+      text: tr('Da qui puoi selezionare le materie da prenotare.', 'From here you can choose the subjects to book.'),
       sides: _beside,
       pad: 6,
       radius: 19,
@@ -749,30 +816,39 @@ Future<DesktopTour?> bookingsSubjectTour({
     if (first)
       step(
         _SubjectMark.intro,
-        'Quando selezioni una materia, ti vengono chieste alcune informazioni aggiuntive, necessarie per '
-            'organizzare al meglio le lezioni.',
+        tr(
+          'Quando selezioni una materia, ti vengono chieste alcune informazioni aggiuntive, necessarie per '
+              'organizzare al meglio le lezioni.',
+          "When you choose a subject, you're asked for some extra information, needed to arrange the lessons as "
+              'well as possible.',
+        ),
       ),
     ...switch (card)
     {
       BookingsSubjectCard.what => [
           step(
             _SubjectMark.kinds,
-            'Puoi selezionare uno o più tipi di lezione tra quelli indicati.',
+            tr('Puoi selezionare uno o più tipi di lezione tra quelli indicati.', 'You can choose one or more of the lesson types shown.'),
             target: kTourBookingsSubjectKinds,
             interactive: true,
           ),
           step(
             _SubjectMark.topic,
-            "Puoi indicare l'argomento da affrontare durante la lezione. Il campo è facoltativo, ma ti invitiamo a "
-                'compilarlo quando possibile: conoscere in anticipo gli argomenti da trattare aiuta il docente a '
-                'preparare la lezione in modo più mirato ed efficace.',
+            tr(
+              "Puoi indicare l'argomento da affrontare durante la lezione. Il campo è facoltativo, ma ti invitiamo a "
+                  'compilarlo quando possibile: conoscere in anticipo gli argomenti da trattare aiuta il docente a '
+                  'preparare la lezione in modo più mirato ed efficace.',
+              'You can give the topic to cover during the lesson. The field is optional, but please fill it in '
+                  'when you can: knowing the topics in advance helps the teacher prepare a more focused and '
+                  'effective lesson.',
+            ),
             target: kTourBookingsSubjectTopic,
             radius: 17,
             interactive: true,
           ),
           step(
             _SubjectMark.forward,
-            'Quando hai fatto, clicca la freccia.',
+            tr('Quando hai fatto, clicca la freccia.', "When you're done, click the arrow."),
             target: kTourBookingsSubjectForward,
             sides: _leftFirst,
             radius: 35,
@@ -781,7 +857,7 @@ Future<DesktopTour?> bookingsSubjectTour({
       BookingsSubjectCard.duration => [
           step(
             _SubjectMark.durations,
-            'Trascinando il cursore cambi la durata della lezione.',
+            tr('Trascinando il cursore cambi la durata della lezione.', 'Drag the handle to change the length of the lesson.'),
             target: kTourBookingsSubjectDurations,
             pad: 4,
             radius: 14,
@@ -789,8 +865,11 @@ Future<DesktopTour?> bookingsSubjectTour({
           ),
           step(
             _SubjectMark.count,
-            'Qui puoi vedere quante ore di lezione sono state prenotate rispetto al totale delle ore che puoi '
-                'richiedere.',
+            tr(
+              'Qui puoi vedere quante ore di lezione sono state prenotate rispetto al totale delle ore che puoi '
+                  'richiedere.',
+              'Here you can see how many lesson hours have been booked out of the hours you can request.',
+            ),
             target: kTourBookingsSubjectCount,
             pad: 6,
             radius: 10,
@@ -799,14 +878,14 @@ Future<DesktopTour?> bookingsSubjectTour({
       BookingsSubjectCard.teachers => [
           step(
             _SubjectMark.teachers,
-            'Puoi selezionare fino a tre docenti preferiti per la lezione.',
+            tr('Puoi selezionare fino a tre docenti preferiti per la lezione.', 'You can choose up to three preferred teachers for the lesson.'),
             target: kTourBookingsSubjectTeachers,
             radius: 31,
             interactive: true,
           ),
           step(
             _SubjectMark.search,
-            'Puoi cercare direttamente un docente tramite il suo nome e cognome.',
+            tr('Puoi cercare direttamente un docente tramite il suo nome e cognome.', 'You can search for a teacher directly by first and last name.'),
             target: kTourBookingsSubjectSearch,
             radius: 28,
             interactive: true,
@@ -823,14 +902,17 @@ Future<DesktopTour?> bookingsSubjectTour({
           if (editing)
             step(
               _SubjectMark.save,
-              'Quando hai finito, clicca «Salva» per salvare le modifiche.',
+              tr('Quando hai finito, clicca «Salva» per salvare le modifiche.', "When you're done, click “Save” to save the changes."),
               target: kTourBookingsSubjectSave,
               radius: 17,
             )
           else
             step(
               _SubjectMark.add,
-              'Quando hai finito, clicca «Aggiungi» per concludere e tornare alla selezione delle materie.',
+              tr(
+                'Quando hai finito, clicca «Aggiungi» per concludere e tornare alla selezione delle materie.',
+                "When you're done, click “Add” to finish and go back to choosing the subjects.",
+              ),
               target: kTourBookingsSubjectSave,
               radius: 17,
             ),
@@ -856,8 +938,12 @@ Future<DesktopTour?> bookingsMoveTour({required bool Function() hoursMayCome})
   return _freshTour([
     DesktopTourStep(
       targets: const [kTourBookingsMoveDays],
-      text: 'Puoi selezionare il giorno in cui vuoi spostare la prenotazione. Passando il mouse su una data barrata '
-          'scopri perché non è disponibile.',
+      text: tr(
+        'Puoi selezionare il giorno in cui vuoi spostare la prenotazione. Passando il mouse su una data barrata '
+            'scopri perché non è disponibile.',
+        "You can choose the day to move the booking to. Hover over a struck-out date to find out why it isn't "
+            'available.',
+      ),
       sides: _beside,
       pad: 6,
       radius: 25,
@@ -869,8 +955,12 @@ Future<DesktopTour?> bookingsMoveTour({required bool Function() hoursMayCome})
     ),
     DesktopTourStep(
       targets: const [kTourBookingsMoveOptions],
-      text: "Puoi scegliere con quale modalità e in quale fascia oraria vuoi spostare la lezione. Passando il mouse "
-          "su un'opzione barrata scopri perché non è disponibile.",
+      text: tr(
+        "Puoi scegliere con quale modalità e in quale fascia oraria vuoi spostare la lezione. Passando il mouse "
+            "su un'opzione barrata scopri perché non è disponibile.",
+        "You can choose the mode and time slot to move the lesson to. Hover over a struck-out option to find out "
+            "why it isn't available.",
+      ),
       sides: _beside,
       pad: 6,
       radius: 25,
@@ -895,7 +985,7 @@ Future<DesktopTour?> bookingsMoveTour({required bool Function() hoursMayCome})
     _binStep,
     DesktopTourStep(
       targets: const [kTourBookingsMoveConfirm],
-      text: 'Quando hai finito, clicca «Sposta».',
+      text: tr('Quando hai finito, clicca «Sposta».', "When you're done, click “Move”."),
       sides: _beside,
       pad: 6,
       radius: 17,

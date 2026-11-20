@@ -1,6 +1,7 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/language/app_language.dart';
 import 'calendar_pdf_palette.dart';
 
 const String kPdfAssociation = 'ASSOCIAZIONE CASA MICHELA';
@@ -111,7 +112,7 @@ pw.Widget pdfFooter(pw.Context context, String said, pw.TextStyle style)
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
         pw.Text(said, style: style),
-        pw.Text('Pagina ${context.pageNumber} di ${context.pagesCount}', style: style),
+        pw.Text(tr('Pagina ${context.pageNumber} di ${context.pagesCount}', 'Page ${context.pageNumber} of ${context.pagesCount}'), style: style),
       ],
     ),
   );

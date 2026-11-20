@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
 import 'desktop_tour.dart';
-import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
+import 'whole_words.dart';
 
 const Duration _markFade = Duration(milliseconds: 150);
 
@@ -15,6 +16,9 @@ const double _markHeight = 20;
 const double _markInset = 9;
 
 const double _entryHeight = 42;
+
+// Above and below a label that wraps.
+const double _labelVerticalInset = 9;
 
 const double _labelInset = 20;
 const double _nestedLabelInset = 32;
@@ -79,14 +83,15 @@ class AppSectionRail extends StatelessWidget
   {
     return Padding(
       padding: const EdgeInsets.only(left: _labelInset, right: 16, bottom: 16),
-      child: OverflowTooltipText(
-        text: title,
-        maxLines: 1,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 21,
-          fontWeight: FontWeight.w700,
-          height: 1.2,
-          color: AppTheme.trialOceanText,
+      child: WholeWords(
+        child: Text(
+          title,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 21,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+            color: AppTheme.trialOceanText,
+          ),
         ),
       ),
     );
@@ -168,16 +173,16 @@ class AppRailHeading extends StatelessWidget
   {
     return Padding(
       padding: const EdgeInsets.only(left: _labelInset, right: 16, top: 18, bottom: 8),
-      child: Text(
-        text.toUpperCase(),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.5,
-          height: 1.2,
-          color: AppTheme.trialMutedText,
+      child: WholeWords(
+        child: Text(
+          text.toUpperCase(),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.5,
+            height: 1.2,
+            color: AppTheme.trialMutedText,
+          ),
         ),
       ),
     );
@@ -225,14 +230,51 @@ class _AppRailEntryState extends State<AppRailEntry>
     return widget.selected || _hover ? AppTheme.trialTealDeepText : AppTheme.trialMutedText;
   }
 
+  TextStyle _labelStyle({required bool bold}) => GoogleFonts.plusJakartaSans(
+        fontSize: 16,
+        fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+        height: 1.25,
+        color: _labelColor,
+      );
+
+  // As tall as the bold label, so selecting an entry moves no row below it.
+  Widget _buildLabel()
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final DefaultTextStyle inherited = DefaultTextStyle.of(context);
+        final TextPainter bold = TextPainter(
+          text: TextSpan(text: widget.label, style: inherited.style.merge(_labelStyle(bold: true))),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          textHeightBehavior: inherited.textHeightBehavior,
+        )..layout(maxWidth: constraints.maxWidth);
+        final double height = bold.height;
+
+        bold.dispose();
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(minHeight: height),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            heightFactor: 1,
+            child: WholeWords(child: Text(widget.label, style: _labelStyle(bold: widget.selected))),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
     final marked = widget.enabled && (widget.selected || _hover);
 
-    final Widget entry = SizedBox(
-      height: _entryHeight,
+    final Widget entry = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: _entryHeight),
       child: Stack(
+        alignment: AlignmentDirectional.centerStart,
         children: [
           Positioned(
             left: _markInset,
@@ -263,25 +305,14 @@ class _AppRailEntryState extends State<AppRailEntry>
             padding: EdgeInsets.only(
               left: widget.nested ? _nestedLabelInset : _labelInset,
               right: _labelTrailingInset,
+              top: _labelVerticalInset,
+              bottom: _labelVerticalInset,
             ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OverflowTooltipText(
-                      text: widget.label,
-                      maxLines: 1,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
-                        fontWeight: widget.selected ? FontWeight.w700 : FontWeight.w500,
-                        color: _labelColor,
-                      ),
-                    ),
-                  ),
-                  ?widget.trailing,
-                ],
-              ),
+            child: Row(
+              children: [
+                Expanded(child: _buildLabel()),
+                ?widget.trailing,
+              ],
             ),
           ),
         ],
@@ -292,7 +323,7 @@ class _AppRailEntryState extends State<AppRailEntry>
     {
       return AppTooltip(
         waitDuration: const Duration(milliseconds: 400),
-        message: 'In arrivo',
+        message: tr('In arrivo', 'Coming soon'),
         child: entry,
       );
     }

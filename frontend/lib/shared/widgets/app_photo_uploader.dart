@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/profile_photo.dart';
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/profile_photo_image.dart';
 import 'app_badged_face.dart';
@@ -68,7 +69,7 @@ class _AppPhotoUploaderState
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Errore durante la selezione dell\'immagine.',
+          message: tr('Errore durante la selezione dell\'immagine.', "Couldn't select the image."),
           isError: true,
         );
       }

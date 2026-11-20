@@ -1,3 +1,4 @@
+import '../../../../../core/language/app_language.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,8 +10,8 @@ import '../../../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../models/teacher_subjects_statistics_item.dart';
 import 'stat_widgets.dart';
 
-const String _title = 'Discipline senza docenti';
-const String _noneLabel = 'Nessuna disciplina senza docenti.';
+String get _title => tr('Discipline senza docenti', 'Disciplines without teachers');
+String get _noneLabel => tr('Nessuna disciplina senza docenti.', 'No discipline without teachers.');
 
 // A column narrower than this would cut most names.
 const double _minColumnWidth = 260;
@@ -169,7 +170,7 @@ class _UncoveredSubjectsSectionState extends State<UncoveredSubjectsSection>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const StatSectionTitle(_title),
+        StatSectionTitle(_title),
         SizedBox(height: metrics.titleGap),
         if (widget.subjects.isEmpty)
           Center(

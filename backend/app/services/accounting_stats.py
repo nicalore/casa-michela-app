@@ -24,6 +24,7 @@ from app.models.student_payment import (
     StudentPaymentKindEnum,
 )
 from app.models.study_program import EducationLevelEnum
+from app.services.bilingual import Bilingual
 from app.services.compensation import load_terms, months_compensation
 from app.services.opening_state import money_from
 from app.services.worked_hours import minutes_of, month_after
@@ -58,7 +59,10 @@ _LEVEL_ORDER: Final[tuple[EducationLevelEnum, ...]] = (
     EducationLevelEnum.HIGH_SCHOOL,
 )
 
-_FUTURE_YEAR_ERROR: Final[str] = "L'anno non è ancora iniziato"
+_FUTURE_YEAR_ERROR: Final[Bilingual] = Bilingual(
+    "L'anno non è ancora iniziato",
+    "The year hasn't started yet",
+)
 
 
 @dataclass
@@ -187,7 +191,7 @@ def _window(
         if year > today.year:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_FUTURE_YEAR_ERROR,
+                detail=_FUTURE_YEAR_ERROR.for_request(),
             )
 
         window = _months_from(date(year, 1, 1), WINDOW_MONTHS)

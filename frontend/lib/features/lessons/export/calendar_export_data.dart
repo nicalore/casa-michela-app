@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -186,7 +187,7 @@ String exportLessonWho(LessonItem lesson, CalendarView view)
 
   final students = [for (final entry in lesson.bookings) entry.presence.student]..sort(compareByName);
 
-  return students.isEmpty ? 'Lezione' : students.map((student) => student.fullName).join(', ');
+  return students.isEmpty ? tr('Lezione', 'Lesson') : students.map((student) => student.fullName).join(', ');
 }
 
 // One strip of the list. The discipline leads and the subject follows, as on its block.
@@ -327,5 +328,5 @@ String togetherLabel((int, int) own, List<(int, int)> others)
 {
   final stretches = sharedStretches(own, others).map((stretch) => formatMinutesRange(stretch.$1, stretch.$2));
 
-  return 'Compresenza ${stretches.join(' e ')}';
+  return tr('Compresenza ${stretches.join(' e ')}', 'Shared ${stretches.join(' and ')}');
 }

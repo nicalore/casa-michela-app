@@ -5,18 +5,34 @@ from sqlalchemy import select
 
 from app.api.dependencies import DbSession
 from app.api.rbac import IdentityContext, require_role
+from app.core.i18n import tr
 from app.models.member import Member
+from app.models.person import GenderEnum
 from app.models.teacher import TEACHER_CRITERIA, Teacher
+from app.repositories.person_repository import PersonRepository
 from app.schemas.teacher_evaluation import CriterionUpdate, TeacherEvaluationResponse
 from app.services import push
 from app.services.rating_reminders import rating_updated
 from app.services.teacher_evaluation import ordered_criteria, teacher_rating
 
-_TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato"
-_UNKNOWN_CRITERION_ERROR: Final[str] = "Criterio di valutazione sconosciuto."
-_NOT_COLLABORATING_ERROR: Final[str] = (
-    "Non è possibile valutare un docente non collaborante."
+_TEACHER_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Docente non trovato",
+    "Teacher not found",
 )
+_UNKNOWN_CRITERION_ERROR: Final[tuple[str, str]] = (
+    "Criterio di valutazione sconosciuto.",
+    "Unknown rating criterion.",
+)
+_NOT_COLLABORATING_ERRORS: Final[dict[GenderEnum, tuple[str, str]]] = {
+    GenderEnum.M: (
+        "Non è possibile valutare un docente non collaborante.",
+        "A non-collaborating teacher can't be rated.",
+    ),
+    GenderEnum.F: (
+        "Non è possibile valutare una docente non collaborante.",
+        "A non-collaborating teacher can't be rated.",
+    ),
+}
 
 # Administrators only, and any of them may judge any teacher.
 router = APIRouter(prefix="/people/{tax_code}/evaluation", tags=["people"])
@@ -37,7 +53,7 @@ async def set_criterion(
     if criterion not in TEACHER_CRITERIA:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_UNKNOWN_CRITERION_ERROR,
+            detail=tr(*_UNKNOWN_CRITERION_ERROR),
         )
 
     teacher = await db.scalar(
@@ -47,7 +63,7 @@ async def set_criterion(
     if teacher is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_TEACHER_NOT_FOUND_ERROR,
+            detail=tr(*_TEACHER_NOT_FOUND_ERROR),
         )
 
     collaborating = bool(
@@ -60,9 +76,11 @@ async def set_criterion(
 
     # Worth nothing meanwhile: the ticks wait as they were for a return.
     if not collaborating:
+        gender = await PersonRepository(db).gender(teacher.tax_code)
+
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_NOT_COLLABORATING_ERROR,
+            detail=tr(*_NOT_COLLABORATING_ERRORS[gender]),
         )
 
     met = set(teacher.met_criteria)

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
@@ -161,7 +162,7 @@ class _ReportsPageState extends State<ReportsPage>
           slot: PageTransitionItem.header,
           child: ScreenHeading(
             title: kReportsTitle,
-            backTooltip: 'Torna indietro',
+            backTooltip: tr('Torna indietro', 'Go back'),
             onBack: () => context.go(_origin),
             // Nothing to solve: the card in the middle says it instead.
             count: !_board.loaded ? '' : (count > 0 ? reportCountLabel(count) : null),
@@ -255,7 +256,7 @@ class _ReportsPageState extends State<ReportsPage>
 
     if (_board.loaded && reports.isEmpty)
     {
-      return const Center(
+      return Center(
         child: PageTransitionItem(
           slot: PageTransitionItem.list,
           child: AppEmptyCard(icon: Icons.task_alt_rounded, message: kNoReports),
@@ -309,7 +310,7 @@ class _ReportsPageState extends State<ReportsPage>
                           Align(
                             alignment: Alignment.topLeft,
                             child: AppBackButton(
-                              tooltip: 'Torna indietro',
+                              tooltip: tr('Torna indietro', 'Go back'),
                               onTap: () => context.go(_origin),
                             ),
                           ),

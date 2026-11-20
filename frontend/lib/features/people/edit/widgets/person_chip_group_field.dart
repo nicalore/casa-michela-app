@@ -28,6 +28,9 @@ class PersonChipGroupField extends StatelessWidget
   // Options shown struck and unpickable, each with the reason in its tooltip.
   final Map<String, String> struck;
 
+  // Words shown in place of some options, which stay the values.
+  final Map<String, String> shownAs;
+
   const PersonChipGroupField({
     super.key,
     required this.label,
@@ -38,6 +41,7 @@ class PersonChipGroupField extends StatelessWidget
     this.note,
     this.errorText,
     this.struck = const {},
+    this.shownAs = const {},
   })  : values = null,
         onToggled = null;
 
@@ -51,6 +55,7 @@ class PersonChipGroupField extends StatelessWidget
     this.note,
     this.errorText,
     this.struck = const {},
+    this.shownAs = const {},
   })  : value = null,
         onChanged = null;
 
@@ -65,11 +70,12 @@ class PersonChipGroupField extends StatelessWidget
   {
     final Set<String>? values = this.values;
     final String? reason = struck[option];
+    final String label = shownAs[option] ?? option;
 
     if (reason != null)
     {
       return AppSelectableChip(
-        label: option,
+        label: label,
         selected: false,
         onSelected: (_) {},
         enabled: false,
@@ -79,12 +85,12 @@ class PersonChipGroupField extends StatelessWidget
 
     final Widget chip = values != null
         ? AppSelectableChip(
-            label: option,
+            label: label,
             selected: values.contains(option),
             onSelected: (_) => onToggled!(option),
           )
         : AppSelectableChip(
-            label: option,
+            label: label,
             selected: value == option,
             // Single choice cannot be cleared by tapping the selected chip again.
             onSelected: (selected) => onChanged!(selected ? option : value),

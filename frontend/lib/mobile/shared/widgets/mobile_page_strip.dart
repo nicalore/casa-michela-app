@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../mobile_palette.dart';
@@ -376,7 +377,7 @@ class _ComingSoon extends StatelessWidget
       children: [
         Text(label, style: _labelStyle(color)),
         const SizedBox(width: 7),
-        MobilePill('In arrivo', tone: onLight ? MobilePillTone.teal : MobilePillTone.sea),
+        MobilePill(tr('In arrivo', 'Coming soon'), tone: onLight ? MobilePillTone.teal : MobilePillTone.sea),
       ],
     );
   }

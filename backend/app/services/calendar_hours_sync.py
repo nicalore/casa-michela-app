@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.i18n import request_language, tr
 from app.core.labels import time_band_label
 from app.core.time_band import DAY_END, DAY_START, band_of
 from app.models.calendar_publication import CalendarPublication
@@ -20,6 +21,7 @@ from app.repositories.teacher_room_assignment_repository import (
     TeacherRoomAssignmentRepository,
 )
 from app.services.availability_cleanup import PurgedHours
+from app.services.bilingual import Bilingual
 from app.services.calendar_snapshot import snapshot_of
 
 # Opening hours vs a published band: moved hours -> draft, removed hours -> deleted.
@@ -27,26 +29,42 @@ from app.services.calendar_snapshot import snapshot_of
 # Shared with every write refused until its losses are confirmed.
 LOST_ERROR: Final[str] = "write_would_take_away"
 
-_ONE_LOST: Final[str] = (
+_ONE_LOST: Final[Bilingual] = Bilingual(
     "Il calendario del {days} è pubblicato. Salvando, le lezioni che docenti, "
-    "studenti e genitori hanno già ricevuto vengono eliminate."
+    "studenti e genitori hanno già ricevuto vengono eliminate.",
+    "The calendar for {days} is published. Saving deletes the lessons that "
+    "teachers, students and parents have already received.",
 )
 
-_MANY_LOST: Final[str] = (
+_MANY_LOST: Final[Bilingual] = Bilingual(
     "I calendari del {days} sono pubblicati. Salvando, le lezioni che docenti, "
-    "studenti e genitori hanno già ricevuto vengono eliminate."
+    "studenti e genitori hanno già ricevuto vengono eliminate.",
+    "The calendars for {days} are published. Saving deletes the lessons that "
+    "teachers, students and parents have already received.",
 )
 
 
-def _counted(value: int, singular: str, plural: str) -> str:
-    return f"{value} {singular if value == 1 else plural}"
+def _counted(value: int, singular: Bilingual, plural: Bilingual) -> str:
+    return f"{value} {(singular if value == 1 else plural).for_request()}"
 
 
 def _hours_said(purged: PurgedHours) -> str:
     parts = [
-        _counted(purged.availabilities, "disponibilità", "disponibilità"),
-        _counted(purged.presences, "prenotazione", "prenotazioni"),
-        _counted(purged.lessons, "lezione", "lezioni"),
+        _counted(
+            purged.availabilities,
+            Bilingual("disponibilità", "availability"),
+            Bilingual("disponibilità", "availabilities"),
+        ),
+        _counted(
+            purged.presences,
+            Bilingual("prenotazione", "booking"),
+            Bilingual("prenotazioni", "bookings"),
+        ),
+        _counted(
+            purged.lessons,
+            Bilingual("lezione", "lesson"),
+            Bilingual("lezioni", "lessons"),
+        ),
     ]
 
     said = [
@@ -59,12 +77,19 @@ def _hours_said(purged: PurgedHours) -> str:
         if value
     ]
 
-    listed = " e ".join([", ".join(said[:-1]), said[-1]]) if len(said) > 1 else said[0]
+    joint = tr(" e ", " and ")
+    listed = joint.join([", ".join(said[:-1]), said[-1]]) if len(said) > 1 else said[0]
 
     if purged.availabilities + purged.presences + purged.lessons == 1:
-        return f"{listed} non rientra nei nuovi orari ed è stata eliminata."
+        return tr(
+            f"{listed} non rientra nei nuovi orari ed è stata eliminata.",
+            f"{listed} falls outside the new hours and has been deleted.",
+        )
 
-    return f"{listed} non rientrano nei nuovi orari e sono state eliminate."
+    return tr(
+        f"{listed} non rientrano nei nuovi orari e sono state eliminate.",
+        f"{listed} fall outside the new hours and have been deleted.",
+    )
 
 
 # whole=True when the band lost all its hours; False when only one mode's lessons go.
@@ -75,7 +100,9 @@ class LostCalendar:
     whole: bool
 
     def said(self) -> str:
-        return f"{self.day.strftime('%d/%m/%Y')} ({time_band_label(self.band).lower()})"
+        band = time_band_label(self.band, request_language()).lower()
+
+        return f"{self.day.strftime('%d/%m/%Y')} ({band})"
 
 
 # Raised after the write, before commit: losses are exact and the rollback undoes it.
@@ -89,7 +116,8 @@ class WriteWouldTakeAway(HTTPException):
 
         if lost:
             pattern = _ONE_LOST if len(lost) == 1 else _MANY_LOST
-            said.append(pattern.format(days=", ".join(row.said() for row in lost)))
+            days = ", ".join(row.said() for row in lost)
+            said.append(pattern.for_request().format(days=days))
 
         if purged:
             said.append(_hours_said(purged))

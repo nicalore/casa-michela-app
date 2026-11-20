@@ -9,10 +9,14 @@ from app.models.account import Account
 from app.models.administrator import AdministratorRoleEnum
 from app.models.muted_notification_kind import MutedNotificationKind
 from app.models.notification import NotificationKindEnum
+from app.services.bilingual import Bilingual
 from app.services.report_readers import kinds_read_by, reader_role
 from app.services.role_service import RoleService
 
-_NOT_CHOOSABLE_ERROR: Final[str] = "Questo tipo di notifica non è tra i tuoi."
+_NOT_CHOOSABLE_ERROR: Final[Bilingual] = Bilingual(
+    "Questo tipo di notifica non è tra i tuoi.",
+    "This kind of notification is not one of yours.",
+)
 
 # Not a role: a pupil who books alone.
 _SELF_BOOKER: Final[str] = "SELF_BOOKER"
@@ -134,7 +138,7 @@ async def choose(
     allowed = set(choosable_by(account))
 
     if any(kind not in allowed for kind in wanted):
-        raise ValueError(_NOT_CHOOSABLE_ERROR)
+        raise ValueError(_NOT_CHOOSABLE_ERROR.for_request())
 
     on = [kind for kind, enabled in wanted.items() if enabled]
     off = [kind for kind, enabled in wanted.items() if not enabled]

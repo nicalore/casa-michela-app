@@ -1,3 +1,4 @@
+import '../../core/language/app_language.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -37,16 +38,22 @@ import 'widgets/person_detail_header.dart';
 
 enum OwnPageSection
 {
-  info('Informazioni personali'),
-  memberships('Iscrizioni'),
-  school('Scuola'),
-  other('Altre informazioni'),
-  stats('Statistiche personali'),
-  observations('Osservazioni');
+  info,
+  memberships,
+  school,
+  other,
+  stats,
+  observations;
 
-  final String label;
-
-  const OwnPageSection(this.label);
+  String get label => switch (this)
+  {
+    info => tr('Informazioni personali', 'Personal information'),
+    memberships => tr('Iscrizioni', 'Enrolments'),
+    school => tr('Scuola', 'School'),
+    other => tr('Altre informazioni', 'Other information'),
+    stats => tr('Statistiche personali', 'Personal statistics'),
+    observations => tr('Osservazioni', 'Observations'),
+  };
 }
 
 Set<String> _rolesOf(PersonItem person)
@@ -95,13 +102,18 @@ List<String> ownReportableFields(PersonItem person)
   return [
     ...kPersonalReportableFields,
     if (sections.contains(OwnPageSection.memberships)) ...[
-      'Iscrizione attuale',
-      'Iscrizioni passate',
+      tr('Iscrizione attuale', 'Current enrolment'),
+      tr('Iscrizioni passate', 'Past enrolments'),
     ],
     if (sections.contains(OwnPageSection.school)) ...kSchoolReportableFields,
-    if (isMinorPupil) ...['Uscita anticipata', 'Contatto di emergenza', 'Allergie e farmaci'],
-    if (isStaff && paymentsCard(person) != null) 'Modalità di pagamento',
-    if (roles.contains('AMMINISTRATORE')) 'Ruolo amministratore',
+    if (isMinorPupil) ...[
+      tr('Uscita anticipata', 'Early departure'),
+      tr('Contatto di emergenza', 'Emergency contact'),
+      tr('Allergie e farmaci', 'Allergies and medicines'),
+    ],
+    if (isStaff && paymentsCard(person) != null) tr('Modalità di pagamento', 'Payment method'),
+    if (roles.contains('AMMINISTRATORE'))
+      person.gender == 'F' ? tr('Ruolo amministratrice', 'Administrator role') : tr('Ruolo amministratore', 'Administrator role'),
   ];
 }
 
@@ -381,7 +393,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
       context,
       person,
       fields: ownReportableFields(person),
-      eyebrow: 'I tuoi dati',
+      eyebrow: tr('I tuoi dati', 'Your details'),
     );
   }
 
@@ -391,7 +403,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
     return DesktopTourTarget(
       id: tour ? kTourOwnReport : null,
       child: AppGradientButton(
-        label: 'SEGNALA DATO MANCANTE / ERRATO',
+        label: tr('SEGNALA DATO MANCANTE / ERRATO', 'REPORT MISSING / WRONG DETAILS'),
         icon: Icons.flag_rounded,
         gradient: AppTheme.dismissGradient,
         accent: AppTheme.trialVioletText,
@@ -448,7 +460,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
     {
       return AppLoadFailedRoom(
         error: _loadFailure,
-        message: 'Non è stato possibile caricare i tuoi dati.',
+        message: tr('Non è stato possibile caricare i tuoi dati.', "Couldn't load your details."),
         onRetry: _load,
       );
     }
@@ -461,7 +473,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
     final PersonHeading heading = PersonHeading(
       person: person,
       imageVersion: '${_apiService.profileImageVersion}',
-      backTooltip: 'Torna indietro',
+      backTooltip: tr('Torna indietro', 'Go back'),
       onBack: () => context.go(_origin),
       onFaceChanged: () => _load(refreshIdentity: true),
     );
@@ -566,7 +578,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
                           PersonDetailHeader(
                             person: size.isDense ? null : _person,
                             imageVersion: '${_apiService.profileImageVersion}',
-                            backTooltip: 'Torna indietro',
+                            backTooltip: tr('Torna indietro', 'Go back'),
                             onBack: () => context.go(_origin),
                             onFaceChanged: () => _load(refreshIdentity: true),
                           ),

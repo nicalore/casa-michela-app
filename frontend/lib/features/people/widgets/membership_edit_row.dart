@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -9,7 +10,7 @@ import '../models/person_item.dart';
 import 'person_detail_widgets.dart';
 
 // Draft: a year after the newest on file goes through «RINNOVA ISCRIZIONE».
-const String kNewYearError = 'Usa RINNOVA ISCRIZIONE';
+String get kNewYearError => tr('Usa RINNOVA ISCRIZIONE', 'Use RENEW ENROLMENT');
 
 int? newestMembershipYear(PersonItem? person)
 {
@@ -39,7 +40,10 @@ class MembershipEditRow extends StatelessWidget
   // The re-enrollment's row: the year is the one in course, not chosen.
   final bool yearFixed;
 
-  static const String lockedTip = 'Ci sono pagamenti registrati in questo periodo.';
+  static String get lockedTip => tr(
+    'Ci sono pagamenti registrati in questo periodo.',
+    'There are payments recorded in this period.',
+  );
 
   const MembershipEditRow({
     super.key,
@@ -75,7 +79,7 @@ class MembershipEditRow extends StatelessWidget
     final String limit =
         '${latestStart.day.toString().padLeft(2, '0')}/${latestStart.month.toString().padLeft(2, '0')}';
 
-    return 'Non dopo il $limit';
+    return tr('Non dopo il $limit', 'Not after $limit');
   }
 
   @override
@@ -83,8 +87,8 @@ class MembershipEditRow extends StatelessWidget
   {
     final Widget yearField = AppTextField(
       controller: yearController,
-      label: 'Anno',
-      hintText: 'Es. 2024',
+      label: tr('Anno', 'Year'),
+      hintText: tr('Es. 2024', 'E.g. 2024'),
       errorText: yearError,
       keyboardType: TextInputType.number,
       enabled: !locked && !yearFixed,
@@ -93,8 +97,8 @@ class MembershipEditRow extends StatelessWidget
 
     final Widget dayMonthField = AppTextField(
       controller: dayMonthController,
-      label: 'Data inizio',
-      hintText: 'gg/mm',
+      label: tr('Data inizio', 'Start date'),
+      hintText: tr('gg/mm', 'dd/mm'),
       errorText: startError,
       inputFormatters: [DayMonthInputFormatter()],
       keyboardType: TextInputType.number,

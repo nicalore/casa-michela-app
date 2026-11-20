@@ -19,10 +19,11 @@ from app.core.availability_thresholds import (
     LOW_AVAILABILITY_WEEKLY_THRESHOLD,
 )
 from app.core.booking_window import now_in_rome, today_in_rome
+from app.core.i18n import request_language, tr
 from app.core.labels import (
-    HOMESCHOOLING_LABEL,
     certification_type_label,
     education_level_label,
+    homeschooling_label,
 )
 from app.core.school_year import school_year_start
 from app.core.time_step import minutes_between
@@ -133,34 +134,47 @@ personal_router = APIRouter(prefix="/statistics", tags=["statistics"])
 _ROME: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 
 _MONTH_RESOLUTION: Final[str] = "month"
-_UNKNOWN_AREA_LABEL: Final[str] = "Altra Area"
+_UNKNOWN_AREA_LABEL: Final[tuple[str, str]] = ("Altra Area", "Other area")
 _TOP_SUBJECTS_LIMIT: Final[int] = 10
 _TOP_PEOPLE_LIMIT: Final[int] = 10
 
 # Only 12 months back are askable.
 _STATS_MONTHS_WINDOW: Final[int] = 12
 
-_MONTH_OUT_OF_STATS_WINDOW_ERROR: Final[str] = (
-    "Le statistiche coprono solo gli ultimi dodici mesi"
+_MONTH_OUT_OF_STATS_WINDOW_ERROR: Final[tuple[str, str]] = (
+    "Le statistiche coprono solo gli ultimi dodici mesi",
+    "Statistics only cover the last twelve months",
 )
 
-_INCOMPLETE_STATS_MONTH_ERROR: Final[str] = (
-    "Indica anno e mese insieme, oppure nessuno dei due per gli ultimi "
-    "dodici mesi"
+_INCOMPLETE_STATS_MONTH_ERROR: Final[tuple[str, str]] = (
+    "Indica anno e mese insieme, oppure nessuno dei due per gli ultimi dodici mesi",
+    "Give the year and month together, or neither for the last twelve months",
 )
 
-_CONFLICTING_STATS_PERIOD_ERROR: Final[str] = (
-    "Indica gli ultimi mesi oppure un mese preciso, non entrambi"
+_CONFLICTING_STATS_PERIOD_ERROR: Final[tuple[str, str]] = (
+    "Indica gli ultimi mesi oppure un mese preciso, non entrambi",
+    "Give either the last months or a specific month, not both",
 )
 
-_TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato"
-_DISCIPLINE_NOT_FOUND_ERROR: Final[str] = "Disciplina non trovata"
-_STUDENT_NOT_FOUND_ERROR: Final[str] = "Studente non trovato"
-_PUPIL_FORBIDDEN_ERROR: Final[str] = (
-    "Non hai accesso alle statistiche di questo studente."
+_TEACHER_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Docente non trovato",
+    "Teacher not found",
 )
-_TEACHER_FORBIDDEN_ERROR: Final[str] = (
-    "Non hai accesso alle statistiche di questo docente."
+_DISCIPLINE_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Disciplina non trovata",
+    "Discipline not found",
+)
+_STUDENT_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Studente non trovato",
+    "Student not found",
+)
+_PUPIL_FORBIDDEN_ERROR: Final[tuple[str, str]] = (
+    "Non hai accesso alle statistiche di questo studente.",
+    "You don't have access to this student's statistics.",
+)
+_TEACHER_FORBIDDEN_ERROR: Final[tuple[str, str]] = (
+    "Non hai accesso alle statistiche di questo docente.",
+    "You don't have access to this teacher's statistics.",
 )
 
 _ROLE_JOINS: Final[dict[str, tuple[tuple[Any, Any], ...]]] = {
@@ -225,7 +239,7 @@ def _area_label(area: Any) -> str:
     if value is not None:
         return str(value)
 
-    return str(area) if area else _UNKNOWN_AREA_LABEL
+    return str(area) if area else tr(*_UNKNOWN_AREA_LABEL)
 
 
 # The register's rule (people._enrolled) as of a day; a revocation ends it that day.
@@ -564,7 +578,7 @@ def _stats_window(
 
     if months is not None:
         if year is not None or month is not None:
-            raise ValueError(_CONFLICTING_STATS_PERIOD_ERROR)
+            raise ValueError(tr(*_CONFLICTING_STATS_PERIOD_ERROR))
 
         return (
             _first_day_of_index(current - (months - 1)),
@@ -575,12 +589,12 @@ def _stats_window(
         return _first_day_of_index(oldest), _first_day_of_index(current + 1)
 
     if year is None or month is None:
-        raise ValueError(_INCOMPLETE_STATS_MONTH_ERROR)
+        raise ValueError(tr(*_INCOMPLETE_STATS_MONTH_ERROR))
 
     selected = _month_index(year, month)
 
     if not oldest <= selected <= current:
-        raise ValueError(_MONTH_OUT_OF_STATS_WINDOW_ERROR)
+        raise ValueError(tr(*_MONTH_OUT_OF_STATS_WINDOW_ERROR))
 
     return _first_day_of_index(selected), _first_day_of_index(selected + 1)
 
@@ -1175,7 +1189,8 @@ async def get_student_education_distribution(
     if distribution_type == "school":
         # Outer: homeschooling has no school and is counted under its own label.
         query = query.outerjoin(School, SchoolEnrollment.school_id == School.id)
-        label_column = func.coalesce(School.name, HOMESCHOOLING_LABEL)
+        homeschooling = homeschooling_label(request_language())
+        label_column = func.coalesce(School.name, homeschooling)
 
     elif distribution_type in ("program", "level"):
         query = query.join(
@@ -1197,7 +1212,7 @@ async def get_student_education_distribution(
         (
             EducationDistributionItem(
                 label=(
-                    education_level_label(row.label)
+                    education_level_label(row.label, request_language())
                     if distribution_type == "level"
                     else row.label
                 ),
@@ -1232,7 +1247,7 @@ async def get_student_certification_distribution(
 
     distribution = [
         CertificationDistributionItem(
-            label=certification_type_label(row.kind),
+            label=certification_type_label(row.kind, request_language()),
             count=row.student_count,
         )
         for row in result.all()
@@ -1249,7 +1264,7 @@ async def get_student_certification_distribution(
     if without:
         distribution.append(
             CertificationDistributionItem(
-                label=certification_type_label(None),
+                label=certification_type_label(None, request_language()),
                 count=without,
             )
         )
@@ -1868,10 +1883,10 @@ async def get_teacher_personal_statistics(
     is_own = tax_code.upper() == identity.tax_code and "TEACHER" in identity.roles
 
     if not (identity.is_admin or is_own):
-        raise HTTPException(status_code=403, detail=_TEACHER_FORBIDDEN_ERROR)
+        raise HTTPException(status_code=403, detail=tr(*_TEACHER_FORBIDDEN_ERROR))
 
     if await db.scalar(select(Teacher.tax_code).where(Teacher.tax_code == tax_code)) is None:
-        raise HTTPException(status_code=404, detail=_TEACHER_NOT_FOUND_ERROR)
+        raise HTTPException(status_code=404, detail=tr(*_TEACHER_NOT_FOUND_ERROR))
 
     window = _stats_window(months, year, month)
     start, end = _elapsed_window(window)
@@ -1997,7 +2012,7 @@ async def get_teacher_appreciation_statistics(
     known = select(Teacher.tax_code).where(Teacher.tax_code == tax_code)
 
     if await db.scalar(known) is None:
-        raise HTTPException(status_code=404, detail=_TEACHER_NOT_FOUND_ERROR)
+        raise HTTPException(status_code=404, detail=tr(*_TEACHER_NOT_FOUND_ERROR))
 
     scores = await _appreciation_scores(db, _stats_window(months, year, month))
     points = {code: entry.points for code, entry in scores.items()}
@@ -2047,7 +2062,7 @@ async def get_teacher_appreciation_students(
     known = select(Teacher.tax_code).where(Teacher.tax_code == tax_code)
 
     if await db.scalar(known) is None:
-        raise HTTPException(status_code=404, detail=_TEACHER_NOT_FOUND_ERROR)
+        raise HTTPException(status_code=404, detail=tr(*_TEACHER_NOT_FOUND_ERROR))
 
     scores = await _appreciation_scores(db, _stats_window(months, year, month))
     mine = scores.get(tax_code, TeacherAppreciation())
@@ -2707,7 +2722,7 @@ async def get_discipline_request_trend(
         )
         is None
     ):
-        raise HTTPException(status_code=404, detail=_DISCIPLINE_NOT_FOUND_ERROR)
+        raise HTTPException(status_code=404, detail=tr(*_DISCIPLINE_NOT_FOUND_ERROR))
 
     start, end = _elapsed_window(_stats_window(None, None, None))
 
@@ -2759,10 +2774,10 @@ async def get_student_personal_statistics(
     mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
 ) -> StudentPersonalStatisticsResponse:
     if not (identity.is_admin or tax_code.upper() in identity.own_student_tax_codes):
-        raise HTTPException(status_code=403, detail=_PUPIL_FORBIDDEN_ERROR)
+        raise HTTPException(status_code=403, detail=tr(*_PUPIL_FORBIDDEN_ERROR))
 
     if await db.scalar(select(Student.tax_code).where(Student.tax_code == tax_code)) is None:
-        raise HTTPException(status_code=404, detail=_STUDENT_NOT_FOUND_ERROR)
+        raise HTTPException(status_code=404, detail=tr(*_STUDENT_NOT_FOUND_ERROR))
 
     window = _stats_window(months, year, month)
     start, end = _elapsed_window(window)

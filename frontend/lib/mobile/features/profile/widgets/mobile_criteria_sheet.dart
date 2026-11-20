@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/people/utils/student_notes_strings.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
@@ -14,11 +15,11 @@ Future<void> showMobileCriteriaSheet(BuildContext context)
   return showMobileSheet<void>(
     context: context,
     builder: (context) => MobileSheet(
-      eyebrow: 'Informazioni',
+      eyebrow: tr('Informazioni', 'Information'),
       title: kCriteriaTitle,
       body: [
         const SizedBox(height: 12),
-        const MobileSheetText(kCriteriaIntro),
+        MobileSheetText(kCriteriaIntro),
         for (final TeacherCriterion criterion in kCriteria) ...[
           const SizedBox(height: _criterionGap),
           Text(

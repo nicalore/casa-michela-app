@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from app.api.dependencies import DbSession
 from app.api.rbac import IdentityContext, require_role
 from app.core.booking_window import now_in_rome
+from app.core.i18n import tr
 from app.schemas.student_month import (
     StudentMonthResponse,
     StudentMonthRowResponse,
@@ -22,7 +23,10 @@ Admin = Annotated[IdentityContext, Depends(require_role("ADMIN"))]
 Year = Annotated[int, Path(ge=2000, le=2100)]
 Month = Annotated[int, Path(ge=1, le=12)]
 
-_FUTURE_MONTH_ERROR: Final[str] = "Il mese non è ancora iniziato"
+_FUTURE_MONTH_ERROR: Final[tuple[str, str]] = (
+    "Il mese non è ancora iniziato",
+    "The month hasn't started yet",
+)
 
 
 def _month_or_400(year: int, month: int) -> date:
@@ -31,7 +35,7 @@ def _month_or_400(year: int, month: int) -> date:
     if first > now_in_rome().date().replace(day=1):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_FUTURE_MONTH_ERROR,
+            detail=tr(*_FUTURE_MONTH_ERROR),
         )
 
     return first

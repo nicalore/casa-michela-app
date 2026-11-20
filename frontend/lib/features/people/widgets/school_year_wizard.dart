@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_check_mark.dart';
@@ -47,30 +48,49 @@ const List<String> _levelsUpwards = <String>[
 
 enum SchoolYearStep
 {
-  when(
-    'In quale anno scolastico?',
-    'Indica l\'anno in cui è iniziato e il livello frequentato.',
-  ),
+  when,
+  school,
+  grade,
+  program;
 
-  school(
-    'Quale scuola?',
-    'Indica la scuola frequentata dallo studente nell\'anno scolastico inserito.',
-  ),
+  String get question => switch (this)
+  {
+    SchoolYearStep.when => tr('In quale anno scolastico?', 'Which school year?'),
+    SchoolYearStep.school => tr('Quale scuola?', 'Which school?'),
+    SchoolYearStep.grade => tr('Che classe fa?', 'Which class are they in?'),
+    SchoolYearStep.program => tr('Quale indirizzo?', 'Which course of study?'),
+  };
 
-  grade(
-    'Che classe fa?',
-    'Indica quale classe frequenta nell\'anno scolastico inserito.',
-  ),
+  String get hint => hintFor(null);
 
-  program(
-    'Quale indirizzo?',
-    'Indica il percorso di studi frequentato dallo studente nell\'anno scolastico inserito.',
-  );
+  String hintFor(String? gender)
+  {
+    final bool feminine = gender == 'F';
 
-  final String question;
-  final String hint;
-
-  const SchoolYearStep(this.question, this.hint);
+    return switch (this)
+    {
+      SchoolYearStep.when => tr(
+        'Indica l\'anno in cui è iniziato e il livello frequentato.',
+        'Enter the year it started and the level attended.',
+      ),
+      SchoolYearStep.school => tr(
+        feminine
+            ? 'Indica la scuola frequentata dalla studentessa nell\'anno scolastico inserito.'
+            : 'Indica la scuola frequentata dallo studente nell\'anno scolastico inserito.',
+        'Enter the school the student attended in the school year entered.',
+      ),
+      SchoolYearStep.grade => tr(
+        'Indica quale classe frequenta nell\'anno scolastico inserito.',
+        'Enter the class attended in the school year entered.',
+      ),
+      SchoolYearStep.program => tr(
+        feminine
+            ? 'Indica il percorso di studi frequentato dalla studentessa nell\'anno scolastico inserito.'
+            : 'Indica il percorso di studi frequentato dallo studente nell\'anno scolastico inserito.',
+        'Enter the study programme the student attended in the school year entered.',
+      ),
+    };
+  }
 }
 
 class SchoolYearChoice
@@ -129,31 +149,33 @@ String? schoolYearBlockedReason(
     case SchoolYearStep.when:
       if (year == null)
       {
-        return 'Inserisci l\'anno di inizio, quattro cifre.';
+        return tr('Inserisci l\'anno di inizio, quattro cifre.', 'Enter the start year, four digits.');
       }
 
       if (year > currentSchoolYearStart())
       {
-        return 'Non è possibile inserire un anno scolastico futuro.';
+        return tr('Non è possibile inserire un anno scolastico futuro.', 'A future school year cannot be entered.');
       }
 
       if (takenYears.contains(year))
       {
-        return 'C\'è già un anno scolastico $year/${year + 1}.';
+        return tr('C\'è già un anno scolastico $year/${year + 1}.', 'There is already a school year $year/${year + 1}.');
       }
 
-      return choice.level == null ? 'Scegli il livello di scuola per andare avanti.' : null;
+      return choice.level == null
+          ? tr('Scegli il livello di scuola per andare avanti.', 'Choose the school level to go on.')
+          : null;
 
     case SchoolYearStep.school:
       return choice.school == null && !choice.homeschooling
-          ? 'Scegli la scuola per andare avanti.'
+          ? tr('Scegli la scuola per andare avanti.', 'Choose the school to go on.')
           : null;
 
     case SchoolYearStep.grade:
-      return choice.grade == null ? 'Scegli la classe per andare avanti.' : null;
+      return choice.grade == null ? tr('Scegli la classe per andare avanti.', 'Choose the class to go on.') : null;
 
     case SchoolYearStep.program:
-      return choice.program == null ? 'Scegli il percorso di studi.' : null;
+      return choice.program == null ? tr('Scegli il percorso di studi.', 'Choose the study programme.') : null;
   }
 }
 
@@ -215,8 +237,14 @@ bool homeschoolingMatches(String query)
 String noProgramForChoice(SchoolYearChoice choice)
 {
   return choice.homeschooling
-      ? 'Nessun percorso di questo livello comprende la classe scelta.'
-      : 'La scuola non offre percorsi di questo livello per la classe scelta.';
+      ? tr(
+          'Nessun percorso di questo livello comprende la classe scelta.',
+          'No programme of this level includes the chosen class.',
+        )
+      : tr(
+          'La scuola non offre percorsi di questo livello per la classe scelta.',
+          'The school offers no programmes of this level for the chosen class.',
+        );
 }
 
 List<StudyProgramItem> programsForChoice(
@@ -259,6 +287,9 @@ class SchoolYearWizard extends StatefulWidget
 
   final bool isEditing;
 
+  // The pupil's; the hints agree with it.
+  final String? gender;
+
   final ValueChanged<SchoolYearChoice> onConfirmed;
 
   const SchoolYearWizard({
@@ -269,6 +300,7 @@ class SchoolYearWizard extends StatefulWidget
     this.takenYears = const {},
     this.initial,
     this.isEditing = false,
+    this.gender,
   });
 
   @override
@@ -408,9 +440,9 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
               width: _yearFieldWidth,
               child: AppTextField(
                 controller: _yearController,
-                label: 'Anno di inizio',
+                label: tr('Anno di inizio', 'Start year'),
                 nothingAbove: true,
-                hintText: 'Es. ${currentSchoolYearStart()}',
+                hintText: tr('Es. ${currentSchoolYearStart()}', 'E.g. ${currentSchoolYearStart()}'),
                 maxLength: 4,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -423,7 +455,7 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
                 // Sits on the field's baseline, not on its label's.
                 padding: const EdgeInsets.only(bottom: 14),
                 child: Text(
-                  year == null ? '' : 'Anno scolastico ${_yearSpan(year)}',
+                  year == null ? '' : tr('Anno scolastico ${_yearSpan(year)}', 'School year ${_yearSpan(year)}'),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -434,9 +466,9 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
             ),
           ],
         ),
-        const Padding(
-          padding: EdgeInsets.only(top: 20, bottom: 10),
-          child: AppFieldLabel('Livello di scuola'),
+        Padding(
+          padding: const EdgeInsets.only(top: 20, bottom: 10),
+          child: AppFieldLabel(tr('Livello di scuola', 'School level')),
         ),
         Wrap(
           spacing: 10,
@@ -481,13 +513,13 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
             )
           : null,
       controller: _schoolSearchController,
-      hintText: 'Cerca scuola...',
+      hintText: tr('Cerca scuola...', 'Search for a school...'),
       showSearch: offering.isNotEmpty,
       onQueryChanged: (value) => setState(() => _schoolQuery = value),
       // A search that finds homeschooling alone has still found something.
       empty: offering.isEmpty
-          ? 'Nessuna scuola offre un percorso di questo livello.'
-          : homeschooling ? null : 'Nessuna scuola trovata per questa ricerca.',
+          ? tr('Nessuna scuola offre un percorso di questo livello.', 'No school offers a programme of this level.')
+          : homeschooling ? null : tr('Nessuna scuola trovata per questa ricerca.', 'No school found for this search.'),
       rows: [
         for (final school in schools)
           _PickRow(
@@ -507,9 +539,9 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 10),
-          child: AppFieldLabel('Classe'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: AppFieldLabel(tr('Classe', 'Class')),
         ),
         Wrap(
           spacing: 10,
@@ -546,12 +578,12 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
 
     return _buildPickStep(
       controller: _programSearchController,
-      hintText: 'Cerca percorso...',
+      hintText: tr('Cerca percorso...', 'Search for a programme...'),
       showSearch: offered.isNotEmpty,
       onQueryChanged: (value) => setState(() => _programQuery = value),
       empty: offered.isEmpty
           ? noProgramForChoice(_choice)
-          : 'Nessun percorso trovato per questa ricerca.',
+          : tr('Nessun percorso trovato per questa ricerca.', 'No programme found for this search.'),
       rows: [
         for (final program in programs)
           _PickRow(
@@ -618,14 +650,17 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Passo ${_step + 1} di ${SchoolYearStep.values.length}',
+      eyebrow: tr(
+        'Passo ${_step + 1} di ${SchoolYearStep.values.length}',
+        'Step ${_step + 1} of ${SchoolYearStep.values.length}',
+      ),
       title: widget.isEditing
-          ? 'Modifica anno scolastico'
-          : 'Aggiungi anno scolastico',
+          ? tr('Modifica anno scolastico', 'Edit school year')
+          : tr('Aggiungi anno scolastico', 'Add school year'),
       maxWidth: _stackWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: widget.isEditing ? 'SALVA' : 'AGGIUNGI',
+          label: widget.isEditing ? tr('SALVA', 'SAVE') : tr('AGGIUNGI', 'ADD'),
           icon: Icons.check_rounded,
           height: kPersonDialogButtonHeight,
           fontSize: kPersonDialogButtonFontSize,
@@ -640,7 +675,7 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
               expand: true,
               child: PersonEditGuide(
                 question: _current.question,
-                hint: _current.hint,
+                hint: _current.hintFor(widget.gender),
               ),
             ),
           ),
@@ -780,6 +815,7 @@ void showSchoolYearWizard({
   required ValueChanged<SchoolYearChoice> onConfirmed,
   SchoolYearChoice? initial,
   bool isEditing = false,
+  String? gender,
 })
 {
   showBlurredDialog(
@@ -791,6 +827,7 @@ void showSchoolYearWizard({
       takenYears: takenYears,
       initial: initial,
       isEditing: isEditing,
+      gender: gender,
       onConfirmed: onConfirmed,
     ),
   );

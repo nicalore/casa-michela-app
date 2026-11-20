@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../features/lessons/utils/booking_window.dart';
@@ -209,7 +210,7 @@ class MobileDaysTag extends StatelessWidget
         TextSpan(
           children: [
             TextSpan(
-              text: '${(days.length == 1 ? 'Giornata' : 'Giornate').toUpperCase()}  ',
+              text: '${(days.length == 1 ? tr('Giornata', 'Day') : tr('Giornate', 'Days')).toUpperCase()}  ',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/field_limits.dart';
+import '../../../../core/language/app_language.dart';
 import '../../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
@@ -93,7 +94,7 @@ class _BandNoteSheetState extends State<_BandNoteSheet>
         saving: _busy,
         body: [
           const SizedBox(height: 18),
-          const MobileSheetText(kBandNotesHint),
+          MobileSheetText(kBandNotesHint),
           const SizedBox(height: 18),
           MobileTextField(
             controller: _text,
@@ -109,7 +110,7 @@ class _BandNoteSheetState extends State<_BandNoteSheet>
           padding: const EdgeInsets.only(top: 24),
           child: MobileBackRow(
             child: MobileGoldButton(
-              label: 'Salva',
+              label: tr('Salva', 'Save'),
               icon: Icons.check_rounded,
               busy: _busy,
               onPressed: _save,

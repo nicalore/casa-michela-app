@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -35,10 +36,10 @@ List<({String label, String value})> activityVoicesOf(ActivityItem activity)
   return [
     if (placement != null)
       (
-        label: 'Orario',
+        label: tr('Orario', 'Time'),
         value: '${formatTimeRange(placement.startTime, placement.endTime)} · ${formatMinutes(placement.minutes)}',
       ),
-    (label: 'Descrizione', value: description.isEmpty ? _empty : description),
+    (label: tr('Descrizione', 'Description'), value: description.isEmpty ? _empty : description),
   ];
 }
 

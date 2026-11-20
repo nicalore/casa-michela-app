@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routing/app_router.dart';
@@ -32,17 +33,17 @@ const int _teachersIndex = 2;
 // Last on every rail: after the hours alone for teachers.
 int _noticesIndexFor(String role) => role == _teacherRole ? 1 : 3;
 
-const String _hours = kAssociationHoursLabel;
-const String _notices = kAssociationNoticesLabel;
+String get _hours => kAssociationHoursLabel;
+String get _notices => kAssociationNoticesLabel;
 
 // Order matches the PageSections below; the constants above index both.
 List<RailGroup> _sectionsFor(String role)
 {
   return [
     if (role == _teacherRole)
-      const RailGroup(entries: [_hours, _notices])
+      RailGroup(entries: [_hours, _notices])
     else
-      const RailGroup(
+      RailGroup(
         entries: [
           _hours,
           kAssociationSubjectsLabel,
@@ -272,7 +273,7 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
                             child: PageTransitionItem(
                               slot: PageTransitionItem.frame,
                               child: AppSectionRail(
-                                title: 'Associazione',
+                                title: tr('Associazione', 'Association'),
                                 groups: _sections,
                                 selectedIndex: _selectedSection,
                                 onSelected: _selectSection,
@@ -290,7 +291,7 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
                                 PageTransitionItem(
                                   slot: PageTransitionItem.frame,
                                   child: AppSectionTabs(
-                                    title: 'Associazione',
+                                    title: tr('Associazione', 'Association'),
                                     groups: _sections,
                                     selectedIndex: _selectedSection,
                                     onSelected: _selectSection,

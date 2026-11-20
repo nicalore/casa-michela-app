@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' show TimeOfDay;
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -71,8 +72,12 @@ class CalendarLockState
 String lockedSentence(CalendarLockItem lock)
 {
   final at = lock.acquiredAt.toLocal();
-  final who = lock.holder?.fullName ?? 'Un altro amministratore';
+  final who = lock.holder?.fullName ?? tr('Un altro amministratore', 'Another administrator');
+  final String since = formatTimeOfDayShort(TimeOfDay.fromDateTime(at));
 
-  return '$who sta costruendo questo calendario '
-      'dalle ${formatTimeOfDayShort(TimeOfDay.fromDateTime(at))}';
+  return tr(
+    '$who sta costruendo questo calendario '
+        'dalle $since',
+    '$who has been building this calendar since $since',
+  );
 }

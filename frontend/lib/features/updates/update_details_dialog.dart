@@ -90,9 +90,9 @@ class _UpdateDetails extends StatelessWidget
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: kDeleteUpdateOpening),
+                  TextSpan(text: kDeleteUpdateOpening),
                   TextSpan(text: update.title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
-                  const TextSpan(text: kDeleteUpdateClosing),
+                  TextSpan(text: kDeleteUpdateClosing),
                 ],
               ),
               style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, height: 1.45, color: AppTheme.trialInk),

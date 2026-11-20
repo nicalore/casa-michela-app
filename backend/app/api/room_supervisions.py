@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.core.booking_close import bands_of
+from app.core.i18n import tr
 from app.models.person import Person
 from app.models.room import Room
 from app.models.room_supervision import RoomSupervision
@@ -142,4 +143,4 @@ async def delete_supervision(
 ) -> dict[str, str]:
     await _service(db).delete(identity, supervision_id)
 
-    return {"detail": "Responsabilità eliminata"}
+    return {"detail": tr("Responsabilità eliminata", "Room supervision deleted")}

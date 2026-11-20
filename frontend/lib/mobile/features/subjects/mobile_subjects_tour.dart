@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_tour.dart';
 import 'widgets/mobile_subject_card.dart';
 
-const String _title = 'Discipline';
+String get _title => tr('Discipline', 'Disciplines');
 
 // Bump a version on every change to that tour.
 const String _slug = 'subjects';
@@ -24,18 +25,32 @@ const String kSubjectsTourFilters = 'subjects.filters';
 const String kSubjectsTourOpen = 'subjects.open';
 const String kSubjectsTourAdd = 'subjects.add';
 
-const String _held = 'Qui trovi le discipline che hai scelto di insegnare.';
-const String _filters =
-    'Puoi filtrare le discipline disponibili per area (umanistica, linguistica, scientifica, servizi) oppure cercarle '
-    'direttamente tramite la barra in alto.';
-const String _toOpen = 'Tocca «Da scegliere».';
-const String _open =
-    'Queste sono tutte le discipline che puoi decidere di insegnare in Associazione. Selezionandone una puoi '
-    'indicare gli indirizzi di studio in cui sei disponibile a tenere lezioni.';
-const String _add =
-    'Con il $kMobileTourGlyph selezioni direttamente la disciplina con tutti i percorsi di studio in cui è offerta.';
-const String _moved = "La disciplina è stata spostata tra quelle che hai scelto di insegnare.";
-const String _swipe = 'Puoi rimuovere una disciplina anche facendo scorrere la riga verso destra.';
+String get _held => tr('Qui trovi le discipline che hai scelto di insegnare.', 'Here you will find the disciplines you have chosen to teach.');
+String get _filters => tr(
+  'Puoi filtrare le discipline disponibili per area (umanistica, linguistica, scientifica, servizi) oppure cercarle '
+      'direttamente tramite la barra in alto.',
+  'You can filter the available disciplines by area (humanities, languages, sciences, services) or search for them '
+      'directly with the bar at the top.',
+);
+String get _toOpen => tr('Tocca «Da scegliere».', 'Tap “To choose”.');
+String get _open => tr(
+  'Queste sono tutte le discipline che puoi decidere di insegnare in Associazione. Selezionandone una puoi '
+      'indicare gli indirizzi di studio in cui sei disponibile a tenere lezioni.',
+  'These are all the disciplines you can choose to teach at the Association. By choosing one you can set the '
+      'courses of study you are available to teach in.',
+);
+String get _add => tr(
+  'Con il $kMobileTourGlyph selezioni direttamente la disciplina con tutti i percorsi di studio in cui è offerta.',
+  'With the $kMobileTourGlyph you choose the discipline straight away, with all the study programmes it is offered in.',
+);
+String get _moved => tr(
+  'La disciplina è stata spostata tra quelle che hai scelto di insegnare.',
+  'The discipline has been moved among those you have chosen to teach.',
+);
+String get _swipe => tr(
+  'Puoi rimuovere una disciplina anche facendo scorrere la riga verso destra.',
+  'You can also remove a discipline by swiping its row to the right.',
+);
 
 const Duration _pageBack = Duration(milliseconds: 320);
 
@@ -53,8 +68,8 @@ MobileTour subjectsTour({required PageController pages, required bool Function()
     version: _version,
     prepare: () => turnMobileTourPages(pages, 0),
     steps: [
-      const MobileTourStep(text: _held, shown: [kSubjectsTourHeld]),
-      const MobileTourStep(text: _filters, shown: [kSubjectsTourFilters]),
+      MobileTourStep(text: _held, shown: const [kSubjectsTourHeld]),
+      MobileTourStep(text: _filters, shown: const [kSubjectsTourFilters]),
       MobileTourStep(
         text: _toOpen,
         touched: [subjectsTourTab(1)],
@@ -69,7 +84,7 @@ MobileTour subjectsTour({required PageController pages, required bool Function()
         },
       ),
       // Longer than any screen: read where it stands.
-      const MobileTourStep(text: _open, shown: [kSubjectsTourOpen], scrolls: false),
+      MobileTourStep(text: _open, shown: const [kSubjectsTourOpen], scrolls: false),
       // Read only: what to take is the person's own choice.
       MobileTourStep(
         text: _add,
@@ -126,17 +141,34 @@ const Map<ProgramsMark, int> _programsVersions = {
   ProgramsMark.remove: 8,
 };
 
-const Map<ProgramsMark, String> _programsTexts = {
-  ProgramsMark.list:
-      "L'elenco mostra tutti gli indirizzi in cui la disciplina viene studiata. Puoi selezionare quelli in cui "
-      'desideri insegnare.',
-  ProgramsMark.all: 'Con «Seleziona tutto» selezioni immediatamente tutti i percorsi.',
-  ProgramsMark.groups:
-      'Puoi selezionare direttamente un intero grado scolastico, un settore o un gruppo di anni (biennio, triennio).',
-  ProgramsMark.open: 'Tocca un settore per vedere i percorsi che lo compongono.',
-  ProgramsMark.single: 'Puoi selezionare i singoli percorsi di studio in cui vuoi insegnare.',
-  ProgramsMark.confirm: 'Quando hai finito, tocca «Conferma».',
-  ProgramsMark.remove: 'Con «Rimuovi disciplina» smetti di insegnarla.',
+Map<ProgramsMark, String> get _programsTexts => {
+  ProgramsMark.list: tr(
+    "L'elenco mostra tutti gli indirizzi in cui la disciplina viene studiata. Puoi selezionare quelli in cui "
+        'desideri insegnare.',
+    'The list shows all the courses of study where the discipline is studied. You can choose the ones you want to '
+        'teach in.',
+  ),
+  ProgramsMark.all: tr(
+    'Con «Seleziona tutto» selezioni immediatamente tutti i percorsi.',
+    'With “Select all” you choose all the programmes at once.',
+  ),
+  ProgramsMark.groups: tr(
+    'Puoi selezionare direttamente un intero grado scolastico, un settore o un gruppo di anni (biennio, triennio).',
+    'You can choose a whole school level, a sector or a group of years (first two years, last three years) at once.',
+  ),
+  ProgramsMark.open: tr(
+    'Tocca un settore per vedere i percorsi che lo compongono.',
+    'Tap a sector to see the programmes it is made of.',
+  ),
+  ProgramsMark.single: tr(
+    'Puoi selezionare i singoli percorsi di studio in cui vuoi insegnare.',
+    'You can choose the single study programmes you want to teach in.',
+  ),
+  ProgramsMark.confirm: tr('Quando hai finito, tocca «Conferma».', 'When you have finished, tap “Confirm”.'),
+  ProgramsMark.remove: tr(
+    'Con «Rimuovi disciplina» smetti di insegnarla.',
+    'With “Remove discipline” you stop teaching it.',
+  ),
 };
 
 // Set once a sector of the sheet is opened: the tour asks for it with a touch. Reset: that sector closes.

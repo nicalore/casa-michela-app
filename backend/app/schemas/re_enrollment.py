@@ -4,12 +4,16 @@ from typing import Final, Self
 from pydantic import BaseModel, Field, model_validator
 
 from app.core import field_lengths
+from app.core.i18n import tr
 from app.models.member import PaymentMethodEnum
 from app.schemas.membership_fees import WizardFeesData
 from app.schemas.person import SchoolEnrollmentUpdateItem
 from app.schemas.student_payments import WizardTariffData
 
-_OTHER_METHOD_ERROR: Final[str] = "La modalità si scrive solo per «Altro»."
+_OTHER_METHOD_ERROR: Final[tuple[str, str]] = (
+    "La modalità si scrive solo per «Altro».",
+    "The method is written only for “Other”.",
+)
 
 
 # A new year's membership, asked like at creation: method, fees and, for a pupil,
@@ -32,6 +36,6 @@ class ReEnrollmentPayload(BaseModel):
         other = self.payment_method == PaymentMethodEnum.OTHER
 
         if other != (self.payment_method_other is not None):
-            raise ValueError(_OTHER_METHOD_ERROR)
+            raise ValueError(tr(*_OTHER_METHOD_ERROR))
 
         return self

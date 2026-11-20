@@ -15,17 +15,29 @@ from app.models.booking import Booking, mark_swept
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.lesson import Lesson
 from app.models.member import Member
+from app.models.person import GenderEnum
 from app.models.presence import Presence
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.repositories.calendar_activity_repository import (
     CalendarActivityRepository,
 )
+from app.repositories.person_repository import PersonRepository
 from app.services.availability_cleanup import PurgedHours, lessons_standing_on
+from app.services.bilingual import Bilingual
 from app.services.pupil_lock import lock_pupil
 from app.services.role_service import RoleService
 from app.services.schedule_cascade import unassign, unschedule
 
-_NOT_COLLABORATING_ERROR: Final[str] = "Questa persona non è un collaboratore attivo"
+_NOT_COLLABORATING_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Questa persona non è un collaboratore attivo",
+        "This person is not an active collaborator",
+    ),
+    GenderEnum.F: Bilingual(
+        "Questa persona non è una collaboratrice attiva",
+        "This person is not an active collaborator",
+    ),
+}
 
 
 # Mirrors activeCollaborators in frontend/lib/features/people/models/person_item.dart.
@@ -67,9 +79,11 @@ async def assert_admin_may_name(
         return
 
     if not is_collaborating(await _member(session, tax_code)):
+        gender = await PersonRepository(session).gender(tax_code)
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NOT_COLLABORATING_ERROR,
+            detail=_NOT_COLLABORATING_ERRORS[gender].for_request(),
         )
 
 

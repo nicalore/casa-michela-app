@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import 'dart:math' as math;
 
@@ -18,12 +19,12 @@ import 'person_account_shared.dart';
 
 const double _contentWidth = 1200;
 
-const String _noSessions = 'Nessuna sessione attiva.';
+String get _noSessions => tr('Nessuna sessione attiva.', 'No active sessions.');
 
-const String _revokeAllLabel = 'Disattiva tutte le sessioni';
+String get _revokeAllLabel => tr('Disattiva tutte le sessioni', 'End all sessions');
 
-const String _sessionRevoked = 'Sessione disattivata!';
-const String _sessionsRevoked = 'Sessioni disattivate!';
+String get _sessionRevoked => tr('Sessione disattivata!', 'Session ended!');
+String get _sessionsRevoked => tr('Sessioni disattivate!', 'Sessions ended!');
 
 class PersonDevicesTab extends StatefulWidget
 {
@@ -77,11 +78,19 @@ class _PersonDevicesTabState extends State<PersonDevicesTab> with PersonAccountA
     final confirmed = await askAccountConfirmation(
       eyebrow: kSessionEyebrow,
       message: [
-        const TextSpan(text: 'La sessione su '),
+        TextSpan(text: tr('La sessione su ', 'The session on ')),
         boldSpan(sessionDeviceName(session)),
         TextSpan(
-          text: ' verrà interrotta: $personFullName dovrà effettuare nuovamente '
-              "l'accesso su quel dispositivo.",
+          text: widget.isOwnProfile
+              ? tr(
+                " verrà interrotta: dovrai effettuare nuovamente l'accesso su quel dispositivo.",
+                ' will be ended: you will have to sign in again on that device.',
+              )
+              : tr(
+                ' verrà interrotta: $personFullName dovrà effettuare nuovamente '
+                    "l'accesso su quel dispositivo.",
+                ' will be ended: $personFullName will have to sign in again on that device.',
+              ),
         ),
       ],
       confirmLabel: kRevokeSessionLabel.toUpperCase(),
@@ -124,10 +133,13 @@ class _PersonDevicesTabState extends State<PersonDevicesTab> with PersonAccountA
     final confirmed = await askAccountConfirmation(
       eyebrow: kSessionsEyebrow,
       message: [
-        const TextSpan(text: 'Tutte le sessioni di '),
+        TextSpan(text: tr('Tutte le sessioni di ', 'All the sessions of ')),
         boldSpan(personFullName),
-        const TextSpan(
-          text: " verranno interrotte: dovrà effettuare nuovamente l'accesso su ogni dispositivo.",
+        TextSpan(
+          text: tr(
+            " verranno interrotte: dovrà effettuare nuovamente l'accesso su ogni dispositivo.",
+            ' will be ended: they will have to sign in again on every device.',
+          ),
         ),
       ],
       confirmLabel: kRevokeSessionLabel.toUpperCase(),
@@ -199,7 +211,7 @@ class _PersonDevicesTabState extends State<PersonDevicesTab> with PersonAccountA
   {
     if (account.sessions.isEmpty)
     {
-      return const AppEmptyRoom(card: AppEmptyCard(icon: Icons.devices_rounded, message: _noSessions));
+      return AppEmptyRoom(card: AppEmptyCard(icon: Icons.devices_rounded, message: _noSessions));
     }
 
     final List<Widget> actions = _buildActions(account);

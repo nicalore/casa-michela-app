@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import require_role
+from app.core.i18n import tr
 from app.models.weekly_template import WeeklyTemplate
 from app.repositories.opening_day_repository import OpeningDayRepository
 from app.repositories.weekly_template_repository import WeeklyTemplateRepository
@@ -90,4 +91,4 @@ async def delete_weekly_template(
     # supported across HTTP clients.
     await _service(db).delete(template_id, effective_from, confirmed=confirm)
 
-    return {"detail": "Riga di template eliminata"}
+    return {"detail": tr("Riga di template eliminata", "Template row deleted")}

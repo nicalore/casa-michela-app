@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/rome_clock.dart';
@@ -18,6 +19,7 @@ import '../../shared/widgets/page_transition.dart';
 import '../association/models/ministry_subject_item.dart';
 import '../association/models/opening_day_item.dart';
 import '../association/tabs/opening_hours/calendar_bounds.dart';
+import '../association/teacher_opinions.dart' show canSpeakFor;
 import '../lessons/models/calendar_day.dart';
 import '../lessons/models/calendar_publication_item.dart';
 import '../lessons/models/lesson_item.dart';
@@ -28,6 +30,7 @@ import '../lessons/utils/timeline_geometry.dart';
 import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast, isLessonRunning;
 import '../notifications/calendar_seen.dart';
 import '../people/models/person_face.dart';
+import '../people/models/person_item.dart';
 import 'calendar_tour.dart';
 import 'pupil_calendar_tour.dart';
 import 'utils/calendar_strings.dart';
@@ -228,6 +231,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
       genders: [for (final pupil in pupils) pupil.gender],
       online: presences.expand((presence) => presence.presences).every((row) => row.mode == kOnlineMode) &&
           presences.any((presence) => presence.presences.isNotEmpty),
+      teacherGender: lesson == null ? null : () => _genderOf(_apiService.getPerson(lesson.teacherTaxCode)),
     );
 
     if (tour != null && mounted)
@@ -237,12 +241,24 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   }
 
   // The pupil a lesson is for, as the window's tour names them.
-  ({bool self, String? gender}) _lessonFor(LessonItem? lesson)
+  ({bool self, String? gender, String? teacherGender}) _lessonFor(LessonItem? lesson, {String? teacherGender})
   {
     final String? code = lesson?.bookings.firstOrNull?.presence.student.taxCode;
     final _Pupil? pupil = (_pupils ?? const <_Pupil>[]).where((pupil) => pupil.taxCode == code).firstOrNull;
 
-    return (self: !_isParent, gender: pupil?.gender);
+    return (self: !_isParent, gender: pupil?.gender, teacherGender: teacherGender);
+  }
+
+  Future<String?> _genderOf(Future<PersonItem> person) async
+  {
+    try
+    {
+      return (await person).gender;
+    }
+    catch (_)
+    {
+      return null;
+    }
   }
 
   // The earliest lesson of a published band, among every pupil's: the one a tour lights.
@@ -505,16 +521,25 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     }
 
     _isOpeningLesson = true;
-    pupilCalendarLessonFor = _lessonFor(lesson);
 
     try
     {
+      final Future<PersonItem> teacher = _apiService.getPerson(lesson.teacherTaxCode);
+
+      // Read before the window opens, which waits for it anyway: its tour names the teacher.
+      pupilCalendarLessonFor = _lessonFor(lesson, teacherGender: await _genderOf(teacher));
+
+      if (!mounted)
+      {
+        return;
+      }
+
       await showOwnLessonDialog(
         context: context,
         lesson: lesson,
         ministrySubjects: _ministrySubjects,
         view: CalendarView.byStudent,
-        other: _apiService.getPerson(lesson.teacherTaxCode),
+        other: teacher,
       );
     }
     finally
@@ -578,8 +603,8 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   Widget _buildLayoutPill()
   {
     return AppFilterPill<CalendarLayout>.setting(
-      prefix: 'Disposizione',
-      hint: 'Disposizione',
+      prefix: tr('Disposizione', 'Layout'),
+      hint: tr('Disposizione', 'Layout'),
       icon: Icons.view_agenda_outlined,
       value: _layout,
       maxLabelWidth: double.infinity,
@@ -662,7 +687,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
     if (unionOpeningWindow(_openingDays, _day, _band) == null)
     {
-      return const CalendarClosedBand();
+      return CalendarClosedBand();
     }
 
     if (!_isSettled)
@@ -679,7 +704,10 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
       return CalendarEmptyBand(
         icon: Icons.free_cancellation_rounded,
         title: kCalendarUnavailableTitle,
-        message: kNoLessonsRequested,
+        message: noLessonsRequested(
+          childGenders: [if (_isParent) for (final pupil in pupils) pupil.gender],
+          booksOwn: canSpeakFor(widget.role),
+        ),
       );
     }
 

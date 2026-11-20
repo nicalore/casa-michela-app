@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, IdentityContext, require_role
+from app.core.i18n import tr
 from app.models.availability import Availability
 from app.models.person import Person
 from app.repositories.availability_repository import AvailabilityRepository
@@ -173,4 +174,4 @@ async def delete_availability(
     await db.commit()
     background.add_task(push.deliver, told)
 
-    return {"detail": "Disponibilità eliminata"}
+    return {"detail": tr("Disponibilità eliminata", "Availability deleted")}

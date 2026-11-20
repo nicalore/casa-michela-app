@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/role_label_mapper.dart';
@@ -422,7 +423,7 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
                     ? const _RowSpinner()
                     : destination.available
                         ? null
-                        : const MobilePill('In arrivo', tone: MobilePillTone.teal),
+                        : MobilePill(tr('In arrivo', 'Coming soon'), tone: MobilePillTone.teal),
                 onTap: destination.available ? () => _chooseDestination(destination.slug) : null,
               ),
             _buildSeparator(),
@@ -447,12 +448,12 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
       if (user.availableRoles.length > 1)
         _SheetRow(
           icon: Icons.swap_horiz_rounded,
-          label: 'Cambia ruolo',
+          label: tr('Cambia ruolo', 'Change role'),
           onTap: () => _choose(() => widget.onAction(MobileNavAction.changeRole)),
         ),
       _SheetRow(
         icon: Icons.logout_rounded,
-        label: 'Logout',
+        label: tr('Logout', 'Sign out'),
         danger: true,
         onTap: () => _chooseOnceClosed(() => widget.onAction(MobileNavAction.logout)),
       ),

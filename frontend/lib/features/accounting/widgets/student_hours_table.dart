@@ -319,7 +319,7 @@ class _Row extends StatelessWidget
           onTap: () => onOpen(row),
         ),
         if (row.isOnline) const HoursBadge(text: kOnlineBadge, online: true),
-        if (row.absent) const HoursBadge(text: kAbsentBadge),
+        if (row.absent) HoursBadge(text: kAbsentBadge),
       ],
     );
   }

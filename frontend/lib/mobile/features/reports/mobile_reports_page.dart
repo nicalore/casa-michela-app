@@ -105,7 +105,7 @@ class _MobileReportsPageState extends State<MobileReportsPage>
       title: kKindSheetTitle,
       value: _kind,
       choices: [
-        const MobileChoice<ReportKind?>(value: null, label: kAllKinds),
+        MobileChoice<ReportKind?>(value: null, label: kAllKinds),
         for (final kind in _kinds) MobileChoice<ReportKind?>(value: kind, label: kind.plural),
       ],
     );

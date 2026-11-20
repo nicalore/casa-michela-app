@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -160,7 +161,7 @@ class BandNoteWell extends StatelessWidget
             children: [
               Icon(kBandNoteIcon, size: 15, color: AppTheme.trialOceanText),
               const SizedBox(width: 6),
-              const Expanded(child: AppFieldLabel(kBandNotesLabel)),
+              Expanded(child: AppFieldLabel(kBandNotesLabel)),
               ?trailing,
             ],
           ),
@@ -196,12 +197,12 @@ Future<void> showBandNoteDeletion({
     barrierLabel: 'ConfirmBandNoteDeletion',
     builder: (confirmContext) => AppDialogStack(
       eyebrow: eyebrow,
-      title: 'Confermi?',
+      title: tr('Confermi?', 'Confirm?'),
       showClose: false,
       maxWidth: 480,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ANNULLA',
+          label: tr('ANNULLA', 'CANCEL'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
           accent: AppTheme.trialVioletText,
@@ -210,7 +211,7 @@ Future<void> showBandNoteDeletion({
           onPressed: () => Navigator.pop(confirmContext),
         ),
         primary: AppGradientButton(
-          label: 'ELIMINA',
+          label: tr('ELIMINA', 'DELETE'),
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -320,7 +321,7 @@ class _BandNoteDialogState extends State<_BandNoteDialog>
       maxWidth: 680,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _busy,
           height: 52,

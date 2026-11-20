@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/association/models/school_item.dart';
 import '../../../../features/association/models/study_program_item.dart';
@@ -40,7 +41,7 @@ const double _stepperRadius = 18;
 // Assumed page height until measured.
 const double _unmeasured = 360;
 
-const String _removeLabel = 'Rimuovi anno scolastico';
+String get _removeLabel => tr('Rimuovi anno scolastico', 'Remove school year');
 
 // The confirmed answers, or the year given up.
 class MobileSchoolYearOutcome
@@ -63,6 +64,7 @@ Future<MobileSchoolYearOutcome?> showMobileSchoolYearSheet({
   SchoolYearChoice? initial,
   bool editing = false,
   Future<bool> Function(BuildContext sheet)? confirmRemoval,
+  String? gender,
 })
 {
   return showMobileSheet<MobileSchoolYearOutcome>(
@@ -74,6 +76,7 @@ Future<MobileSchoolYearOutcome?> showMobileSchoolYearSheet({
       initial: initial,
       editing: editing,
       confirmRemoval: confirmRemoval,
+      gender: gender,
     ),
   );
 }
@@ -87,6 +90,9 @@ class _YearSheet extends StatefulWidget
   final bool editing;
   final Future<bool> Function(BuildContext sheet)? confirmRemoval;
 
+  // The pupil's, for the hints.
+  final String? gender;
+
   const _YearSheet({
     required this.schools,
     required this.programs,
@@ -94,6 +100,7 @@ class _YearSheet extends StatefulWidget
     required this.initial,
     required this.editing,
     required this.confirmRemoval,
+    required this.gender,
   });
 
   @override
@@ -280,7 +287,7 @@ class _YearSheetState extends State<_YearSheet>
     final int? year = _startYear;
 
     return [
-      const _Label('Anno di inizio'),
+      _Label(tr('Anno di inizio', 'Starting year')),
       _YearStepper(
         controller: _year,
         onLess: () => _shiftYear(-1),
@@ -289,7 +296,7 @@ class _YearSheetState extends State<_YearSheet>
       Padding(
         padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
         child: Text(
-          year == null ? '' : 'Anno scolastico $year/${year + 1}',
+          year == null ? '' : tr('Anno scolastico $year/${year + 1}', 'School year $year/${year + 1}'),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -298,7 +305,7 @@ class _YearSheetState extends State<_YearSheet>
         ),
       ),
       const SizedBox(height: _blockGap),
-      const _Label('Livello di scuola'),
+      _Label(tr('Livello di scuola', 'School level')),
       for (final level in schoolLevels)
         MobileSelectRow(
           title: level.compactLabel,
@@ -332,11 +339,11 @@ class _YearSheetState extends State<_YearSheet>
             )
           : null,
       search: offering.isEmpty ? null : _schoolSearch,
-      hintText: 'Cerca scuola...',
+      hintText: tr('Cerca scuola...', 'Search school...'),
       // A search that finds homeschooling alone has still found something.
       empty: offering.isEmpty
-          ? 'Nessuna scuola offre un percorso di questo livello.'
-          : homeschooling ? null : 'Nessuna scuola trovata per questa ricerca.',
+          ? tr('Nessuna scuola offre un percorso di questo livello.', 'No school offers a programme at this level.')
+          : homeschooling ? null : tr('Nessuna scuola trovata per questa ricerca.', 'No schools found for this search.'),
       tiles: [
         for (final school in shown)
           MobileSelectRow(
@@ -353,7 +360,7 @@ class _YearSheetState extends State<_YearSheet>
   List<Widget> _buildGrade()
   {
     return [
-      const _Label('Classe'),
+      _Label(tr('Classe', 'Class')),
       for (final grade in gradeOptionsForLevel(_choice.level))
         MobileSelectRow(
           title: grade,
@@ -380,10 +387,10 @@ class _YearSheetState extends State<_YearSheet>
 
     return _buildPick(
       search: offered.isEmpty ? null : _programSearch,
-      hintText: 'Cerca percorso...',
+      hintText: tr('Cerca percorso...', 'Search programme...'),
       empty: offered.isEmpty
           ? noProgramForChoice(_choice)
-          : 'Nessun percorso trovato per questa ricerca.',
+          : tr('Nessun percorso trovato per questa ricerca.', 'No programmes found for this search.'),
       tiles: _buildProgramRows(shown),
     );
   }
@@ -453,7 +460,7 @@ class _YearSheetState extends State<_YearSheet>
   List<Widget> _buildStep(SchoolYearStep step)
   {
     return [
-      _Guide(step: step),
+      _Guide(step: step, gender: widget.gender),
       const SizedBox(height: _blockGap),
       ...switch (step)
       {
@@ -514,7 +521,7 @@ class _YearSheetState extends State<_YearSheet>
 
   Widget _buildFooter()
   {
-    final String label = _last ? (widget.editing ? 'Salva' : 'Aggiungi') : 'Avanti';
+    final String label = _last ? (widget.editing ? tr('Salva', 'Save') : tr('Aggiungi', 'Add')) : tr('Avanti', 'Next');
 
     return Padding(
       padding: const EdgeInsets.only(top: _footerTop),
@@ -559,8 +566,8 @@ class _YearSheetState extends State<_YearSheet>
       behavior: HitTestBehavior.opaque,
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: MobileSheet(
-        eyebrow: 'Scuola',
-        title: widget.editing ? 'Modifica anno scolastico' : 'Aggiungi anno scolastico',
+        eyebrow: tr('Scuola', 'School'),
+        title: widget.editing ? tr('Modifica anno scolastico', 'Edit school year') : tr('Aggiungi anno scolastico', 'Add school year'),
         aboveKeyboard: true,
         unsaved: () => _answers == _opened ? MobileUnsaved.none : MobileUnsaved.choices,
         subhead: MobileWizardDots(count: _steps.length, position: _pages, fallback: _step),
@@ -574,8 +581,9 @@ class _YearSheetState extends State<_YearSheet>
 class _Guide extends StatelessWidget
 {
   final SchoolYearStep step;
+  final String? gender;
 
-  const _Guide({required this.step});
+  const _Guide({required this.step, required this.gender});
 
   @override
   Widget build(BuildContext context)
@@ -595,7 +603,7 @@ class _Guide extends StatelessWidget
         ),
         const SizedBox(height: 6),
         Text(
-          step.hint,
+          step.hintFor(gender),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -653,7 +661,7 @@ class _YearStepper extends StatelessWidget
       ),
       child: Row(
         children: [
-          _StepButton(icon: Icons.remove_rounded, label: 'Anno precedente', onTap: onLess),
+          _StepButton(icon: Icons.remove_rounded, label: tr('Anno precedente', 'Previous year'), onTap: onLess),
           Expanded(
             child: TextField(
               controller: controller,
@@ -677,7 +685,7 @@ class _YearStepper extends StatelessWidget
               ),
             ),
           ),
-          _StepButton(icon: Icons.add_rounded, label: 'Anno successivo', onTap: onMore),
+          _StepButton(icon: Icons.add_rounded, label: tr('Anno successivo', 'Next year'), onTap: onMore),
         ],
       ),
     );

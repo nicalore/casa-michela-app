@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../features/lessons/utils/booking_wizard_strings.dart' show bookingFinishTourText, kBandNoteTourText, teacherNotesTourText;
 import '../../../features/lessons/utils/opening_window.dart';
 import '../../shared/widgets/mobile_action_circle.dart';
@@ -10,7 +11,7 @@ import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_booking_day.dart';
 import 'widgets/mobile_booking_parts.dart';
 
-const String _title = 'Prenotazioni';
+String get _title => tr('Prenotazioni', 'Bookings');
 
 // Bump a version on every change to that tour.
 const String _slug = 'bookings.parent';
@@ -34,7 +35,7 @@ enum BookingTourPupil
     return self ? BookingTourPupil.self : (gender == 'F' ? daughter : son);
   }
 
-  String get yours => this == daughter ? 'tua figlia' : 'tuo figlio';
+  String get yours => this == daughter ? tr('tua figlia', 'your daughter') : tr('tuo figlio', 'your son');
 }
 
 // What a day card may show; each has a one-step tour for when the main one does not show it.
@@ -59,23 +60,45 @@ const String kBookingsTourInfo = 'bookings.info';
 const EdgeInsets kBookingsTourWeekInflate = EdgeInsets.all(12);
 const double kBookingsTourWeekRadius = 22;
 
-const String _toNextWeek = 'Tocca «Settimana prossima».';
-const String _nextWeek = 'Qui puoi prenotare le lezioni per la settimana prossima, che si sblocca il venerdì alle 20:00.';
-const String _info =
-    'In $kMobileTourGlyph trovi le scadenze entro cui effettuare o modificare le prenotazioni: toccalo per leggerle.';
+String get _toNextWeek => tr('Tocca «Settimana prossima».', 'Tap “Next week”.');
+String get _nextWeek => tr(
+  'Qui puoi prenotare le lezioni per la settimana prossima, che si sblocca il venerdì alle 20:00.',
+  'Here you can book lessons for next week, which opens on Friday at 20:00.',
+);
+String get _info => tr(
+  'In $kMobileTourGlyph trovi le scadenze entro cui effettuare o modificare le prenotazioni: toccalo per leggerle.',
+  'In $kMobileTourGlyph you will find the deadlines for making or changing bookings: tap it to read them.',
+);
 
-const Map<BookingMark, String> _markTexts = {
-  BookingMark.add: 'Con $kMobileTourGlyph e $kMobileTourGlyph puoi prenotare una lezione in presenza oppure online.',
-  BookingMark.lock: 'Il lucchetto indica che non è più possibile modificare la prenotazione.',
-  BookingMark.hours:
-      "Le lezioni in presenza sono contrassegnate dal colore verde e dall'icona di una casa, mentre quelle online sono "
-      "indicate in arancione e con l'icona di una videocamera.",
-  BookingMark.lesson: 'Tocca su una materia prenotata per visualizzarne i dettagli.',
-  BookingMark.addLesson:
-      "Puoi richiedere direttamente un'altra lezione nella stessa fascia oraria di una lezione già prenotata.",
-  BookingMark.edit:
-      "Con $kMobileTourGlyph puoi modificare gli orari, spostare o eliminare le prenotazioni dell'intera fascia oraria "
-      '(mattina, pomeriggio o sera).',
+Map<BookingMark, String> get _markTexts => {
+  BookingMark.add: tr(
+    'Con $kMobileTourGlyph e $kMobileTourGlyph puoi prenotare una lezione in presenza oppure online.',
+    'With $kMobileTourGlyph and $kMobileTourGlyph you can book a lesson in person or online.',
+  ),
+  BookingMark.lock: tr(
+    'Il lucchetto indica che non è più possibile modificare la prenotazione.',
+    'The padlock means that the booking can no longer be changed.',
+  ),
+  BookingMark.hours: tr(
+    "Le lezioni in presenza sono contrassegnate dal colore verde e dall'icona di una casa, mentre quelle online sono "
+        "indicate in arancione e con l'icona di una videocamera.",
+    'In-person lessons are marked in green with a house icon, while online ones are shown in orange with a video '
+        'camera icon.',
+  ),
+  BookingMark.lesson: tr(
+    'Tocca su una materia prenotata per visualizzarne i dettagli.',
+    'Tap a booked subject to see its details.',
+  ),
+  BookingMark.addLesson: tr(
+    "Puoi richiedere direttamente un'altra lezione nella stessa fascia oraria di una lezione già prenotata.",
+    'You can request another lesson straight away in the same time slot as a lesson already booked.',
+  ),
+  BookingMark.edit: tr(
+    "Con $kMobileTourGlyph puoi modificare gli orari, spostare o eliminare le prenotazioni dell'intera fascia oraria "
+        '(mattina, pomeriggio o sera).',
+    'With $kMobileTourGlyph you can change the times, move or delete the bookings of the whole time slot '
+        '(morning, afternoon or evening).',
+  ),
 };
 
 const Duration _pageBack = Duration(milliseconds: 320);
@@ -244,7 +267,7 @@ MobileTourStep _markStep(BookingMark mark, int page)
 
 (String, int) _markSeen(BookingMark mark) => ('$_slug.${mark.name}', _markVersions[mark]!);
 
-const String _closeSheet = 'Tocca la $kMobileTourGlyph per chiudere il menù.';
+String get _closeSheet => tr('Tocca la $kMobileTourGlyph per chiudere il menù.', 'Tap the $kMobileTourGlyph to close the menu.');
 
 // The touched lesson opens its sheet; with [closing], its close button ends it, the page goes on.
 // Closed otherwise, the page's steps go on too; stepping back into it opens it again.
@@ -353,8 +376,8 @@ MobileTour bookingsTour({
     ];
   }
 
-  final String child = genders.isNotEmpty && genders.every(_daughter) ? 'la figlia' : 'il figlio';
-  final String yours = _daughter(shown) ? 'tua figlia' : 'tuo figlio';
+  final String child = genders.isNotEmpty && genders.every(_daughter) ? tr('la figlia', 'daughter') : tr('il figlio', 'child');
+  final String yours = _daughter(shown) ? tr('tua figlia', 'your daughter') : tr('tuo figlio', 'your son');
 
   return MobileTour(
     slug: self ? (readOnly ? _readerSlug : _studentSlug) : _slug,
@@ -364,14 +387,23 @@ MobileTour bookingsTour({
     steps: [
       if (!self && genders.length > 1)
         MobileTourStep(
-          text: 'Da qui puoi selezionare $child di cui vuoi gestire le prenotazioni.',
+          text: tr(
+            'Da qui puoi selezionare $child di cui vuoi gestire le prenotazioni.',
+            'From here you can choose the $child whose bookings you want to manage.',
+          ),
           shown: const [kBookingsTourChildren],
           joined: true,
         ),
       MobileTourStep(
         text: self
-            ? 'Qui puoi vedere tutte le prenotazioni effettuate questa settimana.'
-            : 'Qui puoi vedere tutte le prenotazioni effettuate questa settimana per $yours.',
+            ? tr(
+                'Qui puoi vedere tutte le prenotazioni effettuate questa settimana.',
+                'Here you can see all the bookings made this week.',
+              )
+            : tr(
+                'Qui puoi vedere tutte le prenotazioni effettuate questa settimana per $yours.',
+                'Here you can see all the bookings made this week for $yours.',
+              ),
         shown: [bookingsTourWeek(0)],
       ),
       ...marks(thisWeek, 0),
@@ -498,11 +530,14 @@ const Map<LessonSheetMark, int> _lessonVersions = {
   LessonSheetMark.actions: 1,
 };
 
-const Map<LessonSheetMark, String> _lessonTexts = {
-  LessonSheetMark.details: 'Qui puoi vedere i dettagli della prenotazione.',
-  LessonSheetMark.actions:
-      'Puoi modificare la prenotazione della materia, eliminarla, oppure cambiare giorno, fascia oraria e/o modalità '
-      '(online o in presenza).',
+Map<LessonSheetMark, String> get _lessonTexts => {
+  LessonSheetMark.details: tr('Qui puoi vedere i dettagli della prenotazione.', 'Here you can see the details of the booking.'),
+  LessonSheetMark.actions: tr(
+    'Puoi modificare la prenotazione della materia, eliminarla, oppure cambiare giorno, fascia oraria e/o modalità '
+        '(online o in presenza).',
+    'You can change the booking of the subject, delete it, or change the day, time slot and/or mode '
+        '(online or in person).',
+  ),
 };
 
 String lessonSheetTourTarget(LessonSheetMark mark) => 'bookings.lesson.${mark.name}';
@@ -534,10 +569,14 @@ const int _modeSheetVersion = 2;
 
 const String kBookingsTourModeActions = 'bookings.mode.actions';
 
-const String _modeActions =
-    'Puoi modificare gli orari delle prenotazioni, aggiungere o modificare la nota sulla prenotazione, spostare tutte '
-    'le lezioni della fascia oraria selezionata (mattina, pomeriggio o sera), eliminare tutte le materie prenotate in '
-    "quella fascia oppure cancellare le prenotazioni dell'intera giornata.";
+String get _modeActions => tr(
+  'Puoi modificare gli orari delle prenotazioni, aggiungere o modificare la nota sulla prenotazione, spostare tutte '
+      'le lezioni della fascia oraria selezionata (mattina, pomeriggio o sera), eliminare tutte le materie prenotate in '
+      "quella fascia oppure cancellare le prenotazioni dell'intera giornata.",
+  'You can change the times of the bookings, add or edit the booking note, move all the lessons of the selected '
+      'time slot (morning, afternoon or evening), delete all the subjects booked in that slot or cancel the bookings '
+      'of the whole day.',
+);
 
 // Closed under it, it comes again the next time.
 Future<void> startModeSheetTour({required String taxCode})
@@ -548,7 +587,7 @@ Future<void> startModeSheetTour({required String taxCode})
       slug: _modeSheetSlug,
       title: _title,
       version: _modeSheetVersion,
-      steps: const [MobileTourStep(text: _modeActions, shown: [kBookingsTourModeActions])],
+      steps: [MobileTourStep(text: _modeActions, shown: const [kBookingsTourModeActions])],
       leave: MobileNavSheet.hidden,
       left: () => !MobileNavSheet.hidden.value,
     ),
@@ -567,17 +606,29 @@ const Map<MoveMark, int> _moveVersions = {
   MoveMark.confirm: 3,
 };
 
-const Map<MoveMark, String> _moveTexts = {
-  MoveMark.days:
-      'Puoi selezionare il giorno in cui vuoi spostare la prenotazione. Toccando una data barrata scopri perché non '
-      'è disponibile.',
-  MoveMark.options:
-      "Puoi scegliere con quale modalità e in quale fascia oraria vuoi spostare la lezione. Toccando un'opzione "
-      'barrata scopri perché non è disponibile.',
-  MoveMark.hours: "Con + e − cambi gli orari in cui vuoi prenotare. Toccando l'ora puoi anche scriverla direttamente.",
-  MoveMark.add: 'Puoi indicare più orari nella stessa fascia. Ad esempio, dalle 14:00 alle 15:00 e dalle 17:00 alle 18:00.',
-  MoveMark.bin: 'Puoi eliminare un orario toccando sul cestino.',
-  MoveMark.confirm: 'Quando hai finito, tocca «Sposta».',
+Map<MoveMark, String> get _moveTexts => {
+  MoveMark.days: tr(
+    'Puoi selezionare il giorno in cui vuoi spostare la prenotazione. Toccando una data barrata scopri perché non '
+        'è disponibile.',
+    'You can choose the day you want to move the booking to. Tap a struck-through date to find out why it is not '
+        'available.',
+  ),
+  MoveMark.options: tr(
+    "Puoi scegliere con quale modalità e in quale fascia oraria vuoi spostare la lezione. Toccando un'opzione "
+        'barrata scopri perché non è disponibile.',
+    'You can choose the mode and the time slot you want to move the lesson to. Tap a struck-through option to find '
+        'out why it is not available.',
+  ),
+  MoveMark.hours: tr(
+    "Con + e − cambi gli orari in cui vuoi prenotare. Toccando l'ora puoi anche scriverla direttamente.",
+    'With + and − you change the times you want to book. You can also tap the time to type it in.',
+  ),
+  MoveMark.add: tr(
+    'Puoi indicare più orari nella stessa fascia. Ad esempio, dalle 14:00 alle 15:00 e dalle 17:00 alle 18:00.',
+    'You can set more than one time range in the same slot. For example, from 14:00 to 15:00 and from 17:00 to 18:00.',
+  ),
+  MoveMark.bin: tr('Puoi eliminare un orario toccando sul cestino.', 'You can delete a time range by tapping the bin.'),
+  MoveMark.confirm: tr('Quando hai finito, tocca «Sposta».', 'When you have finished, tap “Move”.'),
 };
 
 String moveTourTarget(MoveMark mark) => 'bookings.move.${mark.name}';
@@ -749,45 +800,97 @@ String _wizardText(BookingWizardMark mark, {required bool online, required Booki
 {
   final bool self = pupil == BookingTourPupil.self;
   final String yours = pupil.yours;
-  final String presence = online ? 'presenza online' : 'presenza';
+  final String presence = online ? tr('presenza online', 'online presence') : tr('presenza', 'presence');
 
   return switch (mark)
   {
-    BookingWizardMark.days =>
+    BookingWizardMark.days => tr(
       'Puoi selezionare una data toccandola. Toccando una data barrata scopri perché non è disponibile.',
+      'You can choose a date by tapping it. Tap a struck-through date to find out why it is not available.',
+    ),
     BookingWizardMark.yesNo => self
-        ? 'Con il selettore aggiungi o rimuovi la tua $presence nella fascia oraria corrispondente '
-            '(mattina, pomeriggio o sera).'
-        : 'Con il selettore aggiungi o rimuovi la $presence di $yours nella fascia oraria corrispondente '
-            '(mattina, pomeriggio o sera).',
+        ? tr(
+            'Con il selettore aggiungi o rimuovi la tua $presence nella fascia oraria corrispondente '
+                '(mattina, pomeriggio o sera).',
+            'With the switch you add or remove your $presence in the matching time slot (morning, afternoon or '
+                'evening).',
+          )
+        : tr(
+            'Con il selettore aggiungi o rimuovi la $presence di $yours nella fascia oraria corrispondente '
+                '(mattina, pomeriggio o sera).',
+            'With the switch you add or remove the $presence of $yours in the matching time slot (morning, afternoon '
+                'or evening).',
+          ),
     BookingWizardMark.hours => _moveTexts[MoveMark.hours]!,
     BookingWizardMark.add => _moveTexts[MoveMark.add]!,
     BookingWizardMark.bin => _moveTexts[MoveMark.bin]!,
     BookingWizardMark.ministry => self
-        ? 'In «Materie» trovi solo le materie previste nel tuo indirizzo di studi.'
-        : "In «Materie» trovi solo le materie previste nell'indirizzo di studi di $yours.",
-    BookingWizardMark.disciplines => 'In «Discipline» trovi tutte le discipline che è possibile prenotare in Associazione.',
+        ? tr(
+            'In «Materie» trovi solo le materie previste nel tuo indirizzo di studi.',
+            'In “Subjects” you will only find the subjects of your course of study.',
+          )
+        : tr(
+            "In «Materie» trovi solo le materie previste nell'indirizzo di studi di $yours.",
+            "In “Subjects” you will only find the subjects of $yours's course of study.",
+          ),
+    BookingWizardMark.disciplines => tr(
+      'In «Discipline» trovi tutte le discipline che è possibile prenotare in Associazione.',
+      'In “Disciplines” you will find all the disciplines that can be booked at the Association.',
+    ),
     BookingWizardMark.services => self
-        ? "In «Servizi» trovi altri servizi che è possibile prenotare, come il supporto per la stesura della tesina "
-            "d'esame."
-        : 'In «Servizi» trovi altri servizi che è possibile prenotare per $yours, come il supporto per la stesura '
-            "della tesina d'esame.",
+        ? tr(
+            "In «Servizi» trovi altri servizi che è possibile prenotare, come il supporto per la stesura della tesina "
+                "d'esame.",
+            'In “Services” you will find other services you can book, such as help with writing the exam paper.',
+          )
+        : tr(
+            'In «Servizi» trovi altri servizi che è possibile prenotare per $yours, come il supporto per la stesura '
+                "della tesina d'esame.",
+            'In “Services” you will find other services you can book for $yours, such as help with writing the exam '
+                'paper.',
+          ),
     BookingWizardMark.band => self
-        ? "Qui trovi gli orari in cui hai indicato di essere presente${online ? ' online' : ''}: le lezioni prenotate "
-            "verranno organizzate all'interno di questo intervallo."
-        : "Qui trovi gli orari in cui hai indicato che $yours è presente${online ? ' online' : ''}: le lezioni "
-            "prenotate verranno organizzate all'interno di questo intervallo.",
-    BookingWizardMark.left =>
+        ? tr(
+            "Qui trovi gli orari in cui hai indicato di essere presente${online ? ' online' : ''}: le lezioni prenotate "
+                "verranno organizzate all'interno di questo intervallo.",
+            "Here you will find the times when you said you would be present${online ? ' online' : ''}: the booked "
+                'lessons will be arranged within this range.',
+          )
+        : tr(
+            "Qui trovi gli orari in cui hai indicato che $yours è presente${online ? ' online' : ''}: le lezioni "
+                "prenotate verranno organizzate all'interno di questo intervallo.",
+            "Here you will find the times when you said $yours would be present${online ? ' online' : ''}: the "
+                'booked lessons will be arranged within this range.',
+          ),
+    BookingWizardMark.left => tr(
       'A destra trovi il totale delle ore di lezione che puoi ancora richiedere, calcolato sottraendo le ore già '
           'prenotate dal totale delle ore di $presence indicate.',
-    BookingWizardMark.list => 'Da qui puoi selezionare le materie da prenotare.',
-    BookingWizardMark.open =>
+      'On the right you will find the total lesson hours you can still request, worked out by subtracting the hours '
+          'already booked from the total hours of $presence you gave.',
+    ),
+    BookingWizardMark.list => tr(
+      'Da qui puoi selezionare le materie da prenotare.',
+      'From here you can choose the subjects to book.',
+    ),
+    BookingWizardMark.open => tr(
       "Questa materia è articolata in più aree disciplinari. Seleziona l'area per cui desideri prenotare una lezione. "
           'Se hai bisogno di prenotare lezioni per più aree, puoi farlo separatamente, una alla volta.',
+      'This subject is divided into several disciplinary areas. Choose the area you want to book a lesson for. If '
+          'you need to book lessons for more than one area, you can do so separately, one at a time.',
+    ),
     BookingWizardMark.note => kBandNoteTourText,
-    BookingWizardMark.create => bookingFinishTourText('tocca', editing: false),
-    BookingWizardMark.save => bookingFinishTourText('tocca', editing: true),
-    BookingWizardMark.saveHours => 'Quando hai finito, tocca «Salva» per salvare i nuovi orari.',
+    BookingWizardMark.create => tr(
+      bookingFinishTourText('tocca', editing: false),
+      'When you have finished, tap “Create” to complete and save the booking.',
+    ),
+    BookingWizardMark.save => tr(
+      bookingFinishTourText('tocca', editing: true),
+      'When you have finished, tap “Save” to complete and save the booking.',
+    ),
+    BookingWizardMark.saveHours => tr(
+      'Quando hai finito, tocca «Salva» per salvare i nuovi orari.',
+      'When you have finished, tap “Save” to save the new times.',
+    ),
   };
 }
 
@@ -1000,25 +1103,55 @@ String _subjectText(SubjectFlowMark mark, BookingTourPupil pupil)
 {
   return switch (mark)
   {
-    SubjectFlowMark.intro =>
+    SubjectFlowMark.intro => tr(
       'Quando selezioni una materia, ti vengono chieste alcune informazioni aggiuntive, necessarie per organizzare '
           'al meglio le lezioni.',
-    SubjectFlowMark.kinds => 'Puoi selezionare uno o più tipi di lezione tra quelli indicati.',
-    SubjectFlowMark.topic =>
+      'When you choose a subject, you are asked for some extra information, needed to organise the lessons as well '
+          'as possible.',
+    ),
+    SubjectFlowMark.kinds => tr(
+      'Puoi selezionare uno o più tipi di lezione tra quelli indicati.',
+      'You can choose one or more of the lesson types shown.',
+    ),
+    SubjectFlowMark.topic => tr(
       "Puoi indicare l'argomento da affrontare durante la lezione. Il campo è facoltativo, ma ti invitiamo a "
           'compilarlo quando possibile: conoscere in anticipo gli argomenti da trattare aiuta il docente a preparare '
           'la lezione in modo più mirato ed efficace.',
-    SubjectFlowMark.next => 'Quando hai fatto, tocca «Avanti».',
-    SubjectFlowMark.durations =>
+      'You can say which topic to cover during the lesson. The field is optional, but we encourage you to fill it '
+          'in when you can: knowing the topics in advance helps the teacher prepare a more focused and effective '
+          'lesson.',
+    ),
+    SubjectFlowMark.next => tr('Quando hai fatto, tocca «Avanti».', 'When you are done, tap “Next”.'),
+    SubjectFlowMark.durations => tr(
       'Con + e − cambi la durata della lezione. Toccando un valore puoi anche scriverlo direttamente.',
-    SubjectFlowMark.count =>
+      'With + and − you change the length of the lesson. You can also tap a value to type it in.',
+    ),
+    SubjectFlowMark.count => tr(
       'Qui puoi vedere quante ore di lezione sono state prenotate rispetto al totale delle ore che puoi richiedere.',
-    SubjectFlowMark.teachers => 'Puoi selezionare fino a tre docenti preferiti per la lezione.',
-    SubjectFlowMark.search => 'Puoi cercare direttamente un docente tramite il suo nome e cognome.',
-    SubjectFlowMark.notes => teacherNotesTourText(pupil == BookingTourPupil.self ? null : pupil.yours),
-    SubjectFlowMark.add =>
+      'Here you can see how many lesson hours have been booked out of the total hours you can request.',
+    ),
+    SubjectFlowMark.teachers => tr(
+      'Puoi selezionare fino a tre docenti preferiti per la lezione.',
+      'You can choose up to three preferred teachers for the lesson.',
+    ),
+    SubjectFlowMark.search => tr(
+      'Puoi cercare direttamente un docente tramite il suo nome e cognome.',
+      'You can search for a teacher directly by their first and last name.',
+    ),
+    SubjectFlowMark.notes => tr(
+      teacherNotesTourText(pupil == BookingTourPupil.self ? null : pupil.yours),
+      pupil == BookingTourPupil.self
+          ? 'Here you can add any other information or directions for the teacher who will teach you.'
+          : 'Here you can add any other information or directions for the teacher who will teach ${pupil.yours}.',
+    ),
+    SubjectFlowMark.add => tr(
       'Quando hai finito, tocca «Aggiungi» per concludere e tornare alla selezione delle materie.',
-    SubjectFlowMark.save => 'Quando hai finito, tocca «Salva» per salvare le modifiche.',
+      'When you have finished, tap “Add” to finish and go back to choosing the subjects.',
+    ),
+    SubjectFlowMark.save => tr(
+      'Quando hai finito, tocca «Salva» per salvare le modifiche.',
+      'When you have finished, tap “Save” to save the changes.',
+    ),
   };
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
@@ -123,10 +124,10 @@ Future<void> showMobileLessonSheet({
   }
 
   final List<DetailRowData> rows = [
-    if (lesson.divided) fact('Materia', lesson.title),
+    if (lesson.divided) fact(tr('Materia', 'Subject'), lesson.title),
     fact(kDurationLabel, formatMinutes(lesson.booking.duration)),
     fact(kLessonKindLabel, lesson.tags.join(', ')),
-    fact('Argomento', lesson.topic),
+    fact(tr('Argomento', 'Topic'), lesson.topic),
     fact(
       preferredTeachersLabel(pupil.gender),
       lesson.teachers.map((teacher) => '${teacher.firstName} ${teacher.lastName}').join(', '),
@@ -143,7 +144,10 @@ Future<void> showMobileLessonSheet({
       final String? taxCode = tourFor;
 
       return MobileSheet(
-        eyebrow: 'Lezione ${modeLabel(lesson.slot.mode).toLowerCase()}',
+        eyebrow: tr(
+          'Lezione ${modeLabel(lesson.slot.mode).toLowerCase()}',
+          lesson.slot.mode == kOnlineMode ? 'Online lesson' : 'In-person lesson',
+        ),
         title: lesson.divided ? lesson.disciplines.join(', ') : lesson.title,
         subtitle: _whoAndWhen(pupil, day, named: named),
         body: [
@@ -176,7 +180,7 @@ Future<void> showMobileLessonSheet({
                   child: Column(
                     children: [
                       MobileGoldButton(
-                        label: 'Modifica',
+                        label: tr('Modifica', 'Edit'),
                         icon: Icons.edit_outlined,
                         onPressed: () => act(const MobileEditLesson()),
                       ),
@@ -186,7 +190,7 @@ Future<void> showMobileLessonSheet({
                           if (movable) ...[
                             Expanded(
                               child: MobileDismissButton(
-                                label: 'Sposta',
+                                label: tr('Sposta', 'Move'),
                                 icon: Icons.swap_horiz_rounded,
                                 onPressed: () => act(const MobileMoveLesson()),
                               ),
@@ -195,7 +199,7 @@ Future<void> showMobileLessonSheet({
                           ],
                           Expanded(
                             child: MobileDangerButton(
-                              label: 'Elimina',
+                              label: tr('Elimina', 'Delete'),
                               icon: Icons.delete_outline_rounded,
                               onPressed: () => act(const MobileDeleteLesson()),
                             ),
@@ -234,7 +238,7 @@ Future<void> showMobileModeSheet({
         if (mode.changeable)
           _ActionRow(
             icon: Icons.schedule_rounded,
-            label: 'Modifica gli orari',
+            label: tr('Modifica gli orari', 'Change the times'),
             onTap: () => act(MobileEditHours(mode.mode)),
           ),
         if (mode.changeable)
@@ -268,7 +272,7 @@ Future<void> showMobileModeSheet({
         if (day.modes.length > 1 && day.canDeleteDay)
           _ActionRow(
             icon: Icons.event_busy_rounded,
-            label: 'Elimina la giornata',
+            label: tr('Elimina la giornata', 'Delete the day'),
             danger: true,
             onTap: () => act(const MobileDeleteDay()),
           ),

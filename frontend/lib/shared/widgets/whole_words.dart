@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/utils/italian_syllables.dart';
 
 // Type gives way this far before a word is split at a syllable.
@@ -136,7 +137,8 @@ class _WordFitter
       return run.split(_noBreakSpace).map((word) => _fitted(word, style)).join(' ');
     }
 
-    if (dashes && _wordLike.hasMatch(run) && italianSyllableBreaks(run).isNotEmpty)
+    // Syllables follow Italian rules: English words stay whole.
+    if (dashes && !isEnglish && _wordLike.hasMatch(run) && italianSyllableBreaks(run).isNotEmpty)
     {
       return _dashed(run, style);
     }

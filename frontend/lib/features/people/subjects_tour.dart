@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/language/app_language.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
@@ -31,7 +32,7 @@ final ValueNotifier<bool> subjectsCatalogueOpen = ValueNotifier(false);
 // Set once a sector of the programmes window is opened: its tour asks for it with a click. Reset: that sector closes.
 final ValueNotifier<bool> programsSectorOpened = ValueNotifier(false);
 
-const String _title = 'Discipline';
+String get _title => tr('Discipline', 'Disciplines');
 
 // Bump a version on every change to that tour.
 const int _pageVersion = 3;
@@ -43,7 +44,7 @@ const List<DesktopTourSide> _belowFirst = [DesktopTourSide.below, DesktopTourSid
 const List<DesktopTourSide> _rightFirst = [DesktopTourSide.right, DesktopTourSide.left, DesktopTourSide.below];
 const List<DesktopTourSide> _besideFirst = [DesktopTourSide.right, DesktopTourSide.left, DesktopTourSide.above];
 
-const String _confirm = 'Quando hai finito, clicca «Conferma».';
+String get _confirm => tr('Quando hai finito, clicca «Conferma».', 'When you are done, click “Confirm”.');
 
 // The same windows serve an administrator on a teacher's record: only the teacher is shown around.
 void startSubjectsTour(BuildContext context, DesktopTour tour)
@@ -66,21 +67,24 @@ void startSubjectsTour(BuildContext context, DesktopTour tour)
 
 // Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
 // A teacher with no discipline yet has no pencil to show.
-final DesktopTour subjectsPageTour = DesktopTour(
+DesktopTour get subjectsPageTour => DesktopTour(
   slug: 'subjects',
   title: _title,
   version: _pageVersion,
   steps: [
-    const DesktopTourStep(
-      targets: [kTourSubjectsHeld],
-      text: 'Qui trovi le discipline che hai scelto di insegnare.',
+    DesktopTourStep(
+      targets: const [kTourSubjectsHeld],
+      text: tr('Qui trovi le discipline che hai scelto di insegnare.', 'Here you find the disciplines you chose to teach.'),
       sides: _belowFirst,
       pad: 8,
       radius: 34,
     ),
     DesktopTourStep(
       targets: const [kTourSubjectsTools],
-      text: 'Con la matita puoi modificare i percorsi di studio di una disciplina, con il cestino puoi rimuoverla.',
+      text: tr(
+        'Con la matita puoi modificare i percorsi di studio di una disciplina, con il cestino puoi rimuoverla.',
+        "With the pencil you can change a discipline's study programmes, with the bin you can remove it.",
+      ),
       sides: _rightFirst,
       pad: 4,
       radius: 12,
@@ -88,7 +92,7 @@ final DesktopTour subjectsPageTour = DesktopTour(
     ),
     DesktopTourStep(
       targets: const [kTourSubjectsAdd],
-      text: 'Clicca «Aggiungi discipline».',
+      text: tr('Clicca «Aggiungi discipline».', 'Click “Add disciplines”.'),
       sides: _besideFirst,
       pad: 6,
       radius: 17,
@@ -100,58 +104,72 @@ final DesktopTour subjectsPageTour = DesktopTour(
 );
 
 // Everything already held leaves no + to show.
-final DesktopTour subjectsCatalogueTour = DesktopTour(
+DesktopTour get subjectsCatalogueTour => DesktopTour(
   slug: 'subjects.catalogue',
   title: _title,
   version: _catalogueVersion,
   steps: [
-    const DesktopTourStep(
-      targets: [kTourSubjectsFilters],
-      text: 'Puoi filtrare le discipline disponibili per area (umanistica, linguistica, scientifica, servizi) oppure '
-          'cercarle direttamente tramite la barra in alto.',
+    DesktopTourStep(
+      targets: const [kTourSubjectsFilters],
+      text: tr(
+        'Puoi filtrare le discipline disponibili per area (umanistica, linguistica, scientifica, servizi) oppure '
+            'cercarle direttamente tramite la barra in alto.',
+        'You can filter the available disciplines by area (humanities, languages, sciences, services) or search for '
+            'them directly with the bar at the top.',
+      ),
       sides: _rightFirst,
       pad: 6,
       radius: 31,
     ),
-    const DesktopTourStep(
-      targets: [kTourSubjectsList],
-      text: 'Queste sono tutte le discipline che puoi decidere di insegnare in Associazione. Selezionandone una puoi '
-          'indicare gli indirizzi di studio in cui sei disponibile a tenere lezioni.',
+    DesktopTourStep(
+      targets: const [kTourSubjectsList],
+      text: tr(
+        'Queste sono tutte le discipline che puoi decidere di insegnare in Associazione. Selezionandone una puoi '
+            'indicare gli indirizzi di studio in cui sei disponibile a tenere lezioni.',
+        'These are all the disciplines you can choose to teach at the Association. When you select one you can say '
+            'which courses of study you are available to teach in.',
+      ),
       sides: _rightFirst,
       pad: 6,
       radius: 31,
     ),
     DesktopTourStep(
       targets: const [kTourSubjectsPlus],
-      text: 'Con il «+» selezioni direttamente la disciplina con tutti i percorsi di studio in cui è offerta.',
+      text: tr(
+        'Con il «+» selezioni direttamente la disciplina con tutti i percorsi di studio in cui è offerta.',
+        'With “+” you select the discipline straight away, with all the study programmes it is offered in.',
+      ),
       sides: _rightFirst,
       pad: 4,
       radius: 12,
       present: () => isDesktopTourTargetShown(kTourSubjectsPlus),
     ),
-    const DesktopTourStep(targets: [kTourSubjectsConfirm], text: _confirm, sides: _rightFirst, pad: 6, radius: 17),
+    DesktopTourStep(targets: const [kTourSubjectsConfirm], text: _confirm, sides: _rightFirst, pad: 6, radius: 17),
   ],
 );
 
 // The first time a discipline is chosen in the catalogue.
 // The bin is read only, removing is the person's own choice; the name opens the programmes, as on the page.
-const DesktopTour subjectsChosenTour = DesktopTour(
+DesktopTour get subjectsChosenTour => DesktopTour(
   slug: 'subjects.catalogue.chosen',
   title: _title,
   version: _chosenVersion,
   steps: [
     DesktopTourStep(
-      targets: [kTourSubjectsChosenBin],
-      text: 'Per rimuovere una disciplina selezionata, clicca sul cestino.',
+      targets: const [kTourSubjectsChosenBin],
+      text: tr('Per rimuovere una disciplina selezionata, clicca sul cestino.', 'To remove a selected discipline, click the bin.'),
       // Beside the bin it would hide the programmes count on the same row.
-      sides: [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.left],
+      sides: const [DesktopTourSide.below, DesktopTourSide.above, DesktopTourSide.left],
       pad: 4,
       radius: 12,
     ),
     DesktopTourStep(
-      targets: [kTourSubjectsChosenRow],
-      text: 'Per modificare i percorsi, clicca sul nome della disciplina.',
-      sides: [DesktopTourSide.right, DesktopTourSide.left, DesktopTourSide.below, DesktopTourSide.above],
+      targets: const [kTourSubjectsChosenRow],
+      text: tr(
+        'Per modificare i percorsi, clicca sul nome della disciplina.',
+        'To change the programmes, click the name of the discipline.',
+      ),
+      sides: const [DesktopTourSide.right, DesktopTourSide.left, DesktopTourSide.below, DesktopTourSide.above],
       pad: 4,
       radius: 18,
       clickEnds: true,
@@ -160,32 +178,40 @@ const DesktopTour subjectsChosenTour = DesktopTour(
 );
 
 // The group rows lit are those of the first level split further: its first cycle and that cycle's first sector.
-final DesktopTour subjectsProgramsTour = DesktopTour(
+DesktopTour get subjectsProgramsTour => DesktopTour(
   slug: 'subjects.programs',
   title: _title,
   version: _programsVersion,
   steps: [
-    const DesktopTourStep(
-      targets: [kTourProgramsList],
-      text: "L'elenco mostra tutti gli indirizzi in cui la disciplina viene studiata. Puoi selezionare quelli in cui "
-          'desideri insegnare.',
+    DesktopTourStep(
+      targets: const [kTourProgramsList],
+      text: tr(
+        "L'elenco mostra tutti gli indirizzi in cui la disciplina viene studiata. Puoi selezionare quelli in cui "
+            'desideri insegnare.',
+        'The list shows every course of study in which the discipline is taught. You can select the ones you want '
+            'to teach in.',
+      ),
       sides: _besideFirst,
       pad: 6,
       radius: 31,
     ),
-    const DesktopTourStep(
-      targets: [kTourProgramsAll],
-      text: 'Con «Seleziona tutto» selezioni immediatamente tutti i percorsi.',
+    DesktopTourStep(
+      targets: const [kTourProgramsAll],
+      text: tr('Con «Seleziona tutto» selezioni immediatamente tutti i percorsi.', 'With “Select all” you select every programme at once.'),
       sides: _belowFirst,
       pad: 6,
       radius: 13,
     ),
     // One hole round the three rows: apart, their holes overlapped.
-    const DesktopTourStep(
-      targets: [kTourProgramsLevel, kTourProgramsCycle, kTourProgramsSector],
+    DesktopTourStep(
+      targets: const [kTourProgramsLevel, kTourProgramsCycle, kTourProgramsSector],
       radius: 19,
-      text: 'Puoi selezionare direttamente un intero grado scolastico, un settore o un gruppo di anni (biennio, '
-          'triennio).',
+      text: tr(
+        'Puoi selezionare direttamente un intero grado scolastico, un settore o un gruppo di anni (biennio, '
+            'triennio).',
+        'You can select a whole school level, a sector or a group of years (first two years, last three years) '
+            'straight away.',
+      ),
       sides: _rightFirst,
       pad: 6,
       reveal: true,
@@ -193,7 +219,7 @@ final DesktopTour subjectsProgramsTour = DesktopTour(
     ),
     DesktopTourStep(
       targets: const [kTourProgramsSectors],
-      text: 'Clicca un settore per vedere i percorsi che lo compongono.',
+      text: tr('Clicca un settore per vedere i percorsi che lo compongono.', 'Click a sector to see the programmes in it.'),
       sides: _rightFirst,
       pad: 6,
       radius: 19,
@@ -206,7 +232,10 @@ final DesktopTour subjectsProgramsTour = DesktopTour(
     ),
     DesktopTourStep(
       targets: const [kTourProgramsSingle],
-      text: 'Puoi selezionare i singoli percorsi di studio in cui vuoi insegnare.',
+      text: tr(
+        'Puoi selezionare i singoli percorsi di studio in cui vuoi insegnare.',
+        'You can select the individual study programmes you want to teach in.',
+      ),
       sides: _rightFirst,
       pad: 4,
       radius: 16,
@@ -218,6 +247,6 @@ final DesktopTour subjectsProgramsTour = DesktopTour(
       present: () => programsSectorOpened.value || isDesktopTourTargetShown(kTourProgramsSingle),
       coming: () => isDesktopTourTargetShown(kTourProgramsSectors),
     ),
-    const DesktopTourStep(targets: [kTourProgramsConfirm], text: _confirm, sides: _rightFirst, pad: 6, radius: 17),
+    DesktopTourStep(targets: const [kTourProgramsConfirm], text: _confirm, sides: _rightFirst, pad: 6, radius: 17),
   ],
 );

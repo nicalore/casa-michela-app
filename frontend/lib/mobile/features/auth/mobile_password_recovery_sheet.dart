@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../shared/widgets/mobile_gold_button.dart';
@@ -40,7 +41,7 @@ class _RecoverySheetState extends State<_RecoverySheet>
 
     if (username.isEmpty)
     {
-      MobileNotice.show(context, 'Inserisci il tuo nome utente', error: true);
+      MobileNotice.show(context, tr('Inserisci il tuo nome utente', 'Enter your username'), error: true);
       return;
     }
 
@@ -53,7 +54,10 @@ class _RecoverySheetState extends State<_RecoverySheet>
       if (mounted)
       {
         // Non-committal on purpose: confirming the username exists would leak accounts.
-        MobileNotice.show(context, 'Se il nome utente è corretto, riceverai un link via email.');
+        MobileNotice.show(
+          context,
+          tr('Se il nome utente è corretto, riceverai un link via email.', 'If the username is correct, you will receive a link by email.'),
+        );
 
         finishMobileSheet(context);
       }
@@ -64,7 +68,7 @@ class _RecoverySheetState extends State<_RecoverySheet>
       {
         final message = isConnectionFailure(e)
             ? connectionFailureMessage
-            : "Errore durante l'invio. Riprova più tardi.";
+            : tr("Errore durante l'invio. Riprova più tardi.", "Couldn't send it. Please try again later.");
 
         MobileNotice.show(context, message, error: true);
       }
@@ -85,23 +89,27 @@ class _RecoverySheetState extends State<_RecoverySheet>
       behavior: HitTestBehavior.opaque,
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: MobileSheet(
-        eyebrow: 'Accesso',
-        title: 'Recupero password',
+        eyebrow: tr('Accesso', 'Sign-in'),
+        title: tr('Recupero password', 'Password recovery'),
         aboveKeyboard: true,
         unsaved: () => _usernameController.text.trim().isEmpty ? MobileUnsaved.none : MobileUnsaved.text,
         saving: _isSending,
         body: [
           const SizedBox(height: 12),
-          const MobileSheetText(
-            'Inserisci il nome utente associato al tuo account. Se esiste, ti '
-            "invieremo un link di recupero all'indirizzo email registrato.",
+          MobileSheetText(
+            tr(
+              'Inserisci il nome utente associato al tuo account. Se esiste, ti '
+                  "invieremo un link di recupero all'indirizzo email registrato.",
+              'Enter the username of your account. If it exists, we will send a recovery link to the email address '
+                  'on record.',
+            ),
           ),
           const SizedBox(height: 10),
-          const MobileSheetText("Se non ricordi il tuo nome utente, contatta l'Associazione."),
+          MobileSheetText(tr("Se non ricordi il tuo nome utente, contatta l'Associazione.", "If you don't remember your username, contact the Association.")),
           const SizedBox(height: 24),
           MobileTextField(
             controller: _usernameController,
-            label: 'Nome utente',
+            label: tr('Nome utente', 'Username'),
             icon: Icons.person_outline_rounded,
             textInputAction: TextInputAction.send,
             autofillHints: const [AutofillHints.username],
@@ -111,7 +119,7 @@ class _RecoverySheetState extends State<_RecoverySheet>
         footer: Padding(
           padding: const EdgeInsets.only(top: 24),
           child: MobileGoldButton(
-            label: 'Invia link',
+            label: tr('Invia link', 'Send link'),
             icon: Icons.send_rounded,
             busy: _isSending,
             onPressed: _handleSend,

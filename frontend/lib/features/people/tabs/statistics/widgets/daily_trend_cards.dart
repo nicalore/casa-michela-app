@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../core/language/app_language.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/utils/week_range.dart';
 import '../../../../../services/api_service.dart';
@@ -30,7 +31,7 @@ Color get _hoursColor => AppTheme.chartNavyText;
 
 const String _defaultResolution = kTrendByWeek;
 
-const String _averageSubtitle = 'Media giornaliera';
+String get _averageSubtitle => tr('Media giornaliera', 'Daily average');
 
 String _countAxis(int value) => '$value';
 
@@ -175,15 +176,15 @@ class TeacherActivityTrendCard extends StatefulWidget
 class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
     with _TrendFilters<TeacherActivityTrendCard, TeacherActivityDayItem>
 {
-  static const String _availableLabel = 'Docenti disponibili';
-  static const String _convenedLabel = 'Docenti convocati';
-  static const String _hoursLabel = 'Ore di lezione erogate';
+  static String get _availableLabel => tr('Docenti disponibili', 'Teachers available');
+  static String get _convenedLabel => tr('Docenti convocati', 'Teachers called in');
+  static String get _hoursLabel => tr('Ore di lezione erogate', 'Lesson hours given');
 
-  static const String _availableOne = 'Docente disponibile';
-  static const String _convenedOne = 'Docente convocato';
-  static const String _hoursOne = 'Ora di lezione erogata';
+  static String get _availableOne => tr('Docente disponibile', 'Teacher available');
+  static String get _convenedOne => tr('Docente convocato', 'Teacher called in');
+  static String get _hoursOne => tr('Ora di lezione erogata', 'Lesson hour given');
 
-  static const String _rankingTitle = '10 docenti con più ore di lezione';
+  static String get _rankingTitle => tr('10 docenti con più ore di lezione', '10 teachers with the most lesson hours');
 
   // Its own request, so a failure leaves the charts alone.
   List<PersonHoursItem>? _ranking;
@@ -322,7 +323,7 @@ class _TeacherActivityTrendCardState extends State<TeacherActivityTrendCard>
     }
 
     return AppCard(
-      title: 'Andamento convocazioni',
+      title: tr('Andamento convocazioni', 'Call-ins over time'),
       selectable: false,
       leading: const AppCardBadge(icon: Icons.timeline_rounded),
       trailingFit: AppCardTrailing.wrapping,
@@ -414,7 +415,7 @@ class _PresenceTrendCardState extends State<PresenceTrendCard>
     final students = [for (final bucket in buckets) bucket.valueOf(daily)];
 
     final series = [
-      TrendSeries(label: 'Studenti presenti', color: AppTheme.chartOcean, values: students, gradient: true),
+      TrendSeries(label: tr('Studenti presenti', 'Students present'), color: AppTheme.chartOcean, values: students, gradient: true),
     ];
 
     Widget tooltip(int index)
@@ -426,13 +427,13 @@ class _PresenceTrendCardState extends State<PresenceTrendCard>
         title: bucket.title,
         subtitle: bucket.isAverage ? _averageSubtitle : null,
         rows: [
-          (value: shown, label: trendCountLabel(shown, one: 'studente', many: 'studenti')),
+          (value: shown, label: trendCountLabel(shown, one: tr('studente', 'student'), many: tr('studenti', 'students'))),
         ],
       );
     }
 
     return AppCard(
-      title: 'Andamento presenze',
+      title: tr('Andamento presenze', 'Attendance over time'),
       selectable: false,
       leading: const AppCardBadge(icon: Icons.timeline_rounded),
       trailingFit: AppCardTrailing.wrapping,

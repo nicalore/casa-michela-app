@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -24,8 +25,8 @@ Future<void> showBookingHistoryLessonDialog({
     context: context,
     barrierLabel: 'BookingHistoryLesson',
     builder: (dialogContext) => AppDialogStack(
-      eyebrow: 'Lezione',
-      title: 'Dettagli lezione',
+      eyebrow: tr('Lezione', 'Lesson'),
+      title: tr('Dettagli lezione', 'Lesson details'),
       subtitle: Text(
         formatWeekdayColumnLabel(lesson.date),
         style: GoogleFonts.plusJakartaSans(
@@ -41,7 +42,7 @@ Future<void> showBookingHistoryLessonDialog({
           child: LessonVoicesTable(
             voices: [
               voices.first,
-              LessonVoice(label: 'Docente', value: lesson.teacher.fullName),
+              LessonVoice(label: tr('Docente', 'Teacher'), value: lesson.teacher.fullName),
               ...voices.skip(1),
             ],
           ),

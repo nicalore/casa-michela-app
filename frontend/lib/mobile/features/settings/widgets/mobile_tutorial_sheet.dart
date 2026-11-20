@@ -55,7 +55,7 @@ class _MobileSystemCardState extends State<MobileSystemCard>
       context: context,
       eyebrow: kSystemSection,
       title: kNotificationsSettingTitle,
-      choices: const [
+      choices: [
         MobileChoice(value: true, label: kNotificationsOn),
         MobileChoice(value: false, label: kNotificationsOff),
       ],
@@ -134,7 +134,7 @@ class _MobileSystemCardState extends State<MobileSystemCard>
             MobileGlassListRow(
               leading: MobileCardBadge(icon: Icons.school_rounded),
               title: kTutorialTitle,
-              subtitle: const Text(kTutorialSubtitle),
+              subtitle: Text(kTutorialSubtitle),
               trailing: MobileGlassListRow.chevron(),
               onTap: widget.onTutorial,
             ),
@@ -248,9 +248,9 @@ class _TutorialSheetState extends State<_TutorialSheet>
       saving: _busy,
       body: [
         const SizedBox(height: 12),
-        const MobileSheetText(kTutorialHint),
+        MobileSheetText(kTutorialHint),
         const SizedBox(height: 18),
-        const MobileSelectGroupHead(title: kTutorialSections),
+        MobileSelectGroupHead(title: kTutorialSections),
         const SizedBox(height: 4),
         for (final MobileDestination section in _sections)
           MobileSelectRow(

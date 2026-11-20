@@ -7,7 +7,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.labels import MONTH_NAMES
+from app.core.i18n import request_language, tr
+from app.core.labels import month_name
 from app.models.accounting_opening import (
     AccountingOpening,
     PupilOpening,
@@ -15,12 +16,13 @@ from app.models.accounting_opening import (
 )
 from app.models.administrator import Administrator
 from app.models.member import PaymentMethodEnum
-from app.models.person import Person
+from app.models.person import GenderEnum, Person
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.staff import CollaborationTypeEnum, Staff
 from app.models.student_payment import StudentPayment, StudentPaymentKindEnum
 from app.models.student_tariff import StudentTariff, TariffKindEnum
 from app.models.study_program import EducationLevelEnum, StudyProgram
+from app.repositories.person_repository import PersonRepository
 from app.schemas.accounting_opening import (
     OpeningAheadResponse,
     OpeningPaymentResponse,
@@ -32,6 +34,7 @@ from app.schemas.accounting_opening import (
     TeacherOpeningData,
 )
 from app.schemas.student_payments import PaymentData
+from app.services.bilingual import Bilingual
 from app.services.compensation import load_terms, set_terms
 from app.services.opening_state import (
     accounting_opening,
@@ -42,18 +45,47 @@ from app.services.role_service import RoleService
 from app.services.standard_tariffs import enabled_kinds, rates_of, standard_tariffs
 from app.services.student_payments import school_level
 
-_NOT_FOUND_ERROR: Final[str] = "Configurazione iniziale non trovata."
-_CLOSED_ERROR: Final[str] = "La configurazione iniziale è chiusa."
-_NOT_LISTED_ERROR: Final[str] = "Questa persona non è nella configurazione iniziale."
-_STILL_PENDING_ERROR: Final[str] = "Ci sono ancora docenti o studenti da configurare."
-_RATE_REQUIRED_ERROR: Final[str] = "Manca il compenso orario."
-_KIND_NOT_CHOSEN_ERROR: Final[str] = "Questa collaborazione non si sceglie qui."
-_GROSS_REQUIRED_ERROR: Final[str] = "Manca il compenso."
-_KIND_DISABLED_ERROR: Final[str] = (
-    "Questa tariffa è disattivata per il livello dello studente."
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Configurazione iniziale non trovata.",
+    "Initial setup not found.",
 )
-_OTHER_TARIFF_PAID_ERROR: Final[str] = (
-    "Dopo l'inizio della contabilità ci sono pagamenti con un'altra tariffa."
+_CLOSED_ERROR: Final[Bilingual] = Bilingual(
+    "La configurazione iniziale è chiusa.",
+    "The initial setup is closed.",
+)
+_NOT_LISTED_ERROR: Final[Bilingual] = Bilingual(
+    "Questa persona non è nella configurazione iniziale.",
+    "This person is not in the initial setup.",
+)
+_STILL_PENDING_ERROR: Final[Bilingual] = Bilingual(
+    "Ci sono ancora docenti o studenti da configurare.",
+    "There are still teachers or students to set up.",
+)
+_RATE_REQUIRED_ERROR: Final[Bilingual] = Bilingual(
+    "Manca il compenso orario.",
+    "The hourly pay is missing.",
+)
+_KIND_NOT_CHOSEN_ERROR: Final[Bilingual] = Bilingual(
+    "Questa collaborazione non si sceglie qui.",
+    "This collaboration is not chosen here.",
+)
+_GROSS_REQUIRED_ERROR: Final[Bilingual] = Bilingual(
+    "Manca il compenso.",
+    "The pay is missing.",
+)
+_KIND_DISABLED_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Questa tariffa è disattivata per il livello dello studente.",
+        "This rate is turned off for the student's level.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Questa tariffa è disattivata per il livello della studentessa.",
+        "This rate is turned off for the student's level.",
+    ),
+}
+_OTHER_TARIFF_PAID_ERROR: Final[Bilingual] = Bilingual(
+    "Dopo l'inizio della contabilità ci sono pagamenti con un'altra tariffa.",
+    "After the accounting starts there are payments with another rate.",
 )
 
 _PAID_KINDS: Final[dict[StudentPaymentKindEnum, TariffKindEnum]] = {
@@ -63,7 +95,7 @@ _PAID_KINDS: Final[dict[StudentPaymentKindEnum, TariffKindEnum]] = {
 }
 
 
-def _not_found(detail: str = _NOT_FOUND_ERROR) -> HTTPException:
+def _not_found(detail: str = _NOT_FOUND_ERROR.for_request()) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
@@ -86,13 +118,16 @@ async def opening_or_404(db: AsyncSession) -> AccountingOpening:
 
 def assert_open(opening: AccountingOpening) -> None:
     if opening.closed_at is not None:
-        raise _conflict(_CLOSED_ERROR)
+        raise _conflict(_CLOSED_ERROR.for_request())
 
 
 def _late_payment_error(last_day: date) -> str:
-    return (
-        "La data del pagamento è dopo il "
-        f"{last_day.day} {MONTH_NAMES[last_day.month - 1]}."
+    language = request_language()
+    day = f"{last_day.day} {month_name(last_day.month, language)}"
+
+    return tr(
+        f"La data del pagamento è dopo il {day}.",
+        f"The payment date is after {day}.",
     )
 
 
@@ -322,7 +357,7 @@ async def pupil_listed(
     found = await pupils_listed(db, opening, tax_code)
 
     if not found:
-        raise _not_found(_NOT_LISTED_ERROR)
+        raise _not_found(_NOT_LISTED_ERROR.for_request())
 
     return found[0]
 
@@ -345,7 +380,7 @@ async def confirm_teacher(
         or person is None
         or not await collaborating(db, [tax_code])
     ):
-        raise _not_found(_NOT_LISTED_ERROR)
+        raise _not_found(_NOT_LISTED_ERROR.for_request())
 
     month = opening.money_from.replace(day=1)
     terms = (await load_terms(db, tax_code)).of_month(month)
@@ -355,15 +390,15 @@ async def confirm_teacher(
         kind = CollaborationTypeEnum(data.collaboration_type)
 
         if kind == CollaborationTypeEnum.UNPAID:
-            raise _bad_request(_KIND_NOT_CHOSEN_ERROR)
+            raise _bad_request(_KIND_NOT_CHOSEN_ERROR.for_request())
 
         paid = kind == CollaborationTypeEnum.PAID
 
         if paid and data.gross_compensation is None:
-            raise _bad_request(_RATE_REQUIRED_ERROR)
+            raise _bad_request(_RATE_REQUIRED_ERROR.for_request())
 
         if paid and data.gross is None:
-            raise _bad_request(_GROSS_REQUIRED_ERROR)
+            raise _bad_request(_GROSS_REQUIRED_ERROR.for_request())
 
         rate = data.gross_compensation if paid else None
 
@@ -438,7 +473,7 @@ async def _opening_tariff(
     if len(held) > 1 or any(
         _PAID_KINDS.get(payment.kind) not in (None, data.kind) for payment in later
     ):
-        raise _conflict(_OTHER_TARIFF_PAID_ERROR)
+        raise _conflict(_OTHER_TARIFF_PAID_ERROR.for_request())
 
     kept = next((row for row in before if row.id in held), None)
 
@@ -485,7 +520,7 @@ async def confirm_pupil(
     row = await db.get(PupilOpening, tax_code)
 
     if row is None or not await collaborating(db, [tax_code]):
-        raise _not_found(_NOT_LISTED_ERROR)
+        raise _not_found(_NOT_LISTED_ERROR.for_request())
 
     money_from = opening.money_from
     last_day = day_before(money_from)
@@ -509,7 +544,9 @@ async def confirm_pupil(
     if data.kind not in enabled_kinds(of_level) and (
         current is None or current.kind != data.kind
     ):
-        raise _bad_request(_KIND_DISABLED_ERROR)
+        gender = await PersonRepository(db).gender(tax_code)
+
+        raise _bad_request(_KIND_DISABLED_ERRORS[gender].for_request())
 
     days = [last_day.replace(day=1)]
 
@@ -593,7 +630,7 @@ async def close_opening(
         )
 
         if await collaborating(db, list(waiting)):
-            raise _conflict(_STILL_PENDING_ERROR)
+            raise _conflict(_STILL_PENDING_ERROR.for_request())
 
     opening.closed_at = func.now()
     opening.closed_by_tax_code = admin_tax_code

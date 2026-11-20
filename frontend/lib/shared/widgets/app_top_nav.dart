@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/auth/models/me_response.dart';
@@ -28,7 +29,7 @@ const Duration _hoverFade = Duration(milliseconds: 150);
 const double _chevronSize = 19;
 const double _menuWidth = 230;
 
-const String kMoreEntry = 'Altro';
+String get kMoreEntry => tr('Altro', 'More');
 
 class AppDestination
 {
@@ -44,11 +45,12 @@ class AppDestination
   const AppDestination(this.label, this.route, {this.icon, this.path});
 }
 
+// By route: the titles change with the language.
 const Map<String, IconData> _moduleIcons = {
-  'Persone': Icons.groups_rounded,
-  'Lezioni': Icons.menu_book_rounded,
-  'Contabilità': Icons.account_balance_wallet_rounded,
-  'Associazione': Icons.domain_rounded,
+  '/people': Icons.groups_rounded,
+  '/lessons': Icons.menu_book_rounded,
+  '/accounting': Icons.account_balance_wallet_rounded,
+  '/association': Icons.domain_rounded,
 };
 
 // reports only for those who receive them, updates only for IT managers.
@@ -81,7 +83,7 @@ List<AppDestination> destinationsFor(MeResponse user, {String? role})
     return [
       const AppDestination('Home', adminHome, icon: Icons.home_rounded),
       for (final module in dashboardModules)
-        AppDestination(module.title, module.route, icon: _moduleIcons[module.title] ?? module.icon),
+        AppDestination(module.title, module.route, icon: _moduleIcons[module.route] ?? module.icon),
     ];
   }
 
@@ -113,7 +115,7 @@ MenuDestinations menuDestinationsFor(MeResponse user, {String? role, String? fro
 
   return (
     ownPage: AppDestination(user.firstName, _screenRoute(ownPageForRole(role), from)),
-    settings: AppDestination('Impostazioni', _screenRoute(settingsPageForRole(role), from)),
+    settings: AppDestination(tr('Impostazioni', 'Settings'), _screenRoute(settingsPageForRole(role), from)),
     reports: user.readsReports ? AppDestination(kReportsEntry, _screenRoute(reportsPageForRole(role), from)) : null,
     updates: user.managesUpdates ? AppDestination(kUpdatesEntry, _screenRoute(updatesPageForRole(role), from)) : null,
   );
@@ -577,7 +579,7 @@ class _NavEntryState extends State<_NavEntry>
     {
       return AppTooltip(
         waitDuration: const Duration(milliseconds: 400),
-        message: 'In arrivo',
+        message: tr('In arrivo', 'Coming soon'),
         child: entry,
       );
     }

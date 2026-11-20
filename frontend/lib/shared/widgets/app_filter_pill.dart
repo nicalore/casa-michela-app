@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
@@ -75,8 +76,8 @@ class AppSortPill extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppFilterPill<SortCriterion>.setting(
-      prefix: 'Ordina',
-      hint: 'Ordina per',
+      prefix: tr('Ordina', 'Sort'),
+      hint: tr('Ordina per', 'Sort by'),
       icon: Icons.swap_vert_rounded,
       value: value,
       menuWidth: _sortMenuWidth,
@@ -671,7 +672,7 @@ class _ClearButtonState extends State<_ClearButton>
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: AppTooltip(
-          message: 'Rimuovi il filtro',
+          message: tr('Rimuovi il filtro', 'Remove filter'),
           waitDuration: const Duration(milliseconds: 400),
           child: Padding(
             padding: const EdgeInsets.only(left: _clearGap, right: _clearHoverRoom),

@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import DbSession
 from app.api.rbac import require_role
+from app.core.i18n import tr
 from app.models.member import Member
 from app.schemas.person_collaboration import CollaborationUpdate
 from app.services.calendar_hours_sync import LOST_ERROR
@@ -21,9 +22,13 @@ router = APIRouter(
     dependencies=[Depends(require_role("ADMIN"))],
 )
 
-_MEMBER_NOT_FOUND_ERROR: Final[str] = "L'utente non possiede un profilo da associato."
-_NOT_ENROLLED_ERROR: Final[str] = (
-    "Impossibile impostare \"Collaboratore attivo\" senza un'iscrizione in corso."
+_MEMBER_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "L'utente non possiede un profilo da associato.",
+    "This user has no member profile.",
+)
+_NOT_ENROLLED_ERROR: Final[tuple[str, str]] = (
+    "Impossibile impostare \"Collaboratore attivo\" senza un'iscrizione in corso.",
+    "Can't set “Active collaborator” without a current enrolment.",
 )
 
 
@@ -37,7 +42,7 @@ async def _member_or_404(db: AsyncSession, tax_code: str) -> Member:
     if member is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_MEMBER_NOT_FOUND_ERROR,
+            detail=tr(*_MEMBER_NOT_FOUND_ERROR),
         )
 
     return member
@@ -60,7 +65,7 @@ async def set_collaboration(
         if not RoleService.is_enrolled(member):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_NOT_ENROLLED_ERROR,
+                detail=tr(*_NOT_ENROLLED_ERROR),
             )
 
         member.collaborating_active = True

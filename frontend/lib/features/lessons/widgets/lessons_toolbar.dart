@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
@@ -39,7 +40,7 @@ class LessonsToolbar extends StatelessWidget
   Widget _buildTabs(bool dense)
   {
     return AppSegmentedTabs(
-      labels: const ['Disponibilità', 'Prenotazioni'],
+      labels: [tr('Disponibilità', 'Availability'), tr('Prenotazioni', 'Bookings')],
       selectedIndex: view.index,
       onSelected: (index) => onViewSelected(LessonsDayView.values[index]),
       padding: EdgeInsets.zero,

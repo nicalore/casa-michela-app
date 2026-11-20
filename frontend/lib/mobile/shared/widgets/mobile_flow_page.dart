@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import 'mobile_entrance_motion.dart';
 import 'mobile_gold_button.dart';
 import 'mobile_info_button.dart';
@@ -232,7 +233,7 @@ class MobileFlowFooter extends StatelessWidget
 
 class MobileFlowCapsule extends StatelessWidget
 {
-  static const String label = 'Torna al login';
+  static String get label => tr('Torna al login', 'Back to sign-in');
 
   final VoidCallback onTap;
   final bool busy;

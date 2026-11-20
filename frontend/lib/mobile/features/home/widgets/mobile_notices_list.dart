@@ -479,7 +479,7 @@ class _NotificationLineState extends State<_NotificationLine> with SingleTickerP
                 Flexible(
                   child: MobileCardPillButton(
                     label: item.read ? kNotificationMarkUnread : kNotificationMarkRead,
-                    labels: const [kNotificationMarkRead, kNotificationMarkUnread],
+                    labels: [kNotificationMarkRead, kNotificationMarkUnread],
                     icon: item.read ? Icons.remove_done_rounded : Icons.done_all_rounded,
                     color: AppTheme.trialTealDeepText,
                     onPressed: () => NotificationBoard.instance.toggleRead(item),
@@ -601,8 +601,8 @@ class _NoticesCard extends StatelessWidget
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: _Head(eyebrow: kHomeNoticesEyebrow, title: kHomeNoticesTitle),
           ),
           const SizedBox(height: 8),

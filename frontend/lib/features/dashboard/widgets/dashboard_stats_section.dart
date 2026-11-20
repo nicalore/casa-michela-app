@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -30,22 +31,22 @@ List<DashboardStat> dashboardStats({
 {
   return [
     DashboardStat(
-      label: 'Iscritti',
+      label: tr('Iscritti', 'Enrolled'),
       value: general?.currentTotalMembers ?? 0,
       deltaMonth: general?.membersDeltaMonth ?? 0,
     ),
     DashboardStat(
-      label: 'Collaboratori',
+      label: tr('Collaboratori', 'Collaborators'),
       value: general?.currentActiveCollaborators ?? 0,
       deltaMonth: general?.collabDeltaMonth ?? 0,
     ),
     DashboardStat(
-      label: 'Docenti',
+      label: tr('Docenti', 'Teachers'),
       value: teachers?.currentActiveCollaborators ?? 0,
       deltaMonth: teachers?.collabDeltaMonth ?? 0,
     ),
     DashboardStat(
-      label: 'Studenti',
+      label: tr('Studenti', 'Students'),
       value: students?.currentActiveCollaborators ?? 0,
       deltaMonth: students?.collabDeltaMonth ?? 0,
     ),
@@ -215,7 +216,7 @@ class DashboardStatsSection extends StatelessWidget
   {
     return DashboardSectionCard(
       icon: Icons.groups_rounded,
-      title: 'Alcune statistiche',
+      title: tr('Alcune statistiche', 'Some statistics'),
       action: DashboardCardNote(formatMonthYear(romeNow())),
       minHeight: minHeight,
       fill: fill,
@@ -327,7 +328,7 @@ class _StatTile extends StatelessWidget
         SizedBox(width: scale.sideGap),
         Flexible(
           child: Text(
-            still ? 'Stabile' : '${up ? '+' : '−'}${stat.deltaMonth.abs()}',
+            still ? tr('Stabile', 'Steady') : '${up ? '+' : '−'}${stat.deltaMonth.abs()}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(

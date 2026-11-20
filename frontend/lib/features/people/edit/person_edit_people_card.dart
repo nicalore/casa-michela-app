@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/card_scroll_area.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -14,16 +15,25 @@ import '../widgets/person_detail_widgets.dart';
 
 enum PersonPickerSort
 {
-  surnameAsc('Cognome (A-Z)'),
-  surnameDesc('Cognome (Z-A)'),
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)'),
-  dateDesc('Più recente'),
-  dateAsc('Meno recente');
+  surnameAsc,
+  surnameDesc,
+  nameAsc,
+  nameDesc,
+  dateDesc,
+  dateAsc;
 
-  final String label;
-
-  const PersonPickerSort(this.label);
+  String get label
+  {
+    return switch (this)
+    {
+      PersonPickerSort.surnameAsc => tr('Cognome (A-Z)', 'Surname (A-Z)'),
+      PersonPickerSort.surnameDesc => tr('Cognome (Z-A)', 'Surname (Z-A)'),
+      PersonPickerSort.nameAsc => tr('Nome (A-Z)', 'First name (A-Z)'),
+      PersonPickerSort.nameDesc => tr('Nome (Z-A)', 'First name (Z-A)'),
+      PersonPickerSort.dateDesc => tr('Più recente', 'Newest'),
+      PersonPickerSort.dateAsc => tr('Meno recente', 'Oldest'),
+    };
+  }
 
   int compare(PersonItem a, PersonItem b)
   {
@@ -121,7 +131,7 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Un minore può avere al massimo due genitori o tutori.',
+        message: tr('Un minore può avere al massimo due genitori o tutori.', 'A minor can have at most two parents or guardians.'),
         isError: true,
       );
 
@@ -206,8 +216,8 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             AppFilterPill<PersonPickerSort>.setting(
-              prefix: 'Ordina',
-              hint: 'Ordina',
+              prefix: tr('Ordina', 'Sort'),
+              hint: tr('Ordina', 'Sort'),
               icon: Icons.sort_rounded,
               value: _sort,
               menuWidth: 200,

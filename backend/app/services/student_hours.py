@@ -12,7 +12,7 @@ from app.core.time_band import TimeBandEnum, band_bounds
 from app.models.booking import Booking
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
-from app.models.person import Person
+from app.models.person import GenderEnum, Person
 from app.models.presence import Presence
 from app.models.student import Student
 from app.models.student_hours import (
@@ -20,6 +20,8 @@ from app.models.student_hours import (
     StudentConfirmedHours,
     StudentHoursCorrection,
 )
+from app.repositories.person_repository import PersonRepository
+from app.services.bilingual import Bilingual
 from app.services.enrollment_spans import enrolled_on, hours_spans, is_enrolled_on
 from app.services.student_payments import (
     BandSituation,
@@ -44,24 +46,78 @@ from app.services.worked_hours import (
     time_of,
 )
 
-_CONFIRMED_ERROR: Final[str] = (
-    "La fascia è confermata: premi «MODIFICA ORE» per correggerla."
+_CONFIRMED_ERROR: Final[Bilingual] = Bilingual(
+    "La fascia è confermata: premi «MODIFICA ORE» per correggerla.",
+    "The time slot is confirmed: press “EDIT HOURS” to correct it.",
 )
-_NOT_CONFIRMED_ERROR: Final[str] = "La fascia non è confermata."
-_ALREADY_CONFIRMED_ERROR: Final[str] = "La fascia è già confermata."
-_NOTHING_TO_CONFIRM_ERROR: Final[str] = "Non ci sono ore da confermare."
-_NOT_IN_BAND_ERROR: Final[str] = "Lo studente non è nel riepilogo di questa fascia."
-_NOT_ARRIVED_ERROR: Final[str] = (
-    "Le ore dello studente si correggono quando finisce la sua ultima lezione."
+_NOT_CONFIRMED_ERROR: Final[Bilingual] = Bilingual(
+    "La fascia non è confermata.",
+    "The time slot is not confirmed.",
 )
-_NOT_ENROLLED_ERROR: Final[str] = "In questo giorno non risulta iscritto."
-_ALREADY_IN_BAND_ERROR: Final[str] = (
-    "Lo studente è già nel riepilogo di questa fascia."
+_ALREADY_CONFIRMED_ERROR: Final[Bilingual] = Bilingual(
+    "La fascia è già confermata.",
+    "The time slot is already confirmed.",
 )
-_STUDENT_NOT_FOUND_ERROR: Final[str] = "Studente non trovato"
-_NO_HOURS_ERROR: Final[str] = "Indica almeno un orario."
-_BAD_TIME_ERROR: Final[str] = "Gli orari vanno a quarti d'ora, dentro la fascia."
-_OVERLAP_ERROR: Final[str] = "Gli orari non possono sovrapporsi."
+_NOTHING_TO_CONFIRM_ERROR: Final[Bilingual] = Bilingual(
+    "Non ci sono ore da confermare.",
+    "There are no hours to confirm.",
+)
+_NOT_IN_BAND_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Lo studente non è nel riepilogo di questa fascia.",
+        "The student is not in this time slot's summary.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La studentessa non è nel riepilogo di questa fascia.",
+        "The student is not in this time slot's summary.",
+    ),
+}
+_NOT_ARRIVED_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Le ore dello studente si correggono quando finisce la sua ultima lezione.",
+        "The student's hours can be corrected once their last lesson ends.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Le ore della studentessa si correggono quando finisce la sua ultima lezione.",
+        "The student's hours can be corrected once their last lesson ends.",
+    ),
+}
+_NOT_ENROLLED_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "In questo giorno non risulta iscritto.",
+        "Not enrolled on this day.",
+    ),
+    GenderEnum.F: Bilingual(
+        "In questo giorno non risulta iscritta.",
+        "Not enrolled on this day.",
+    ),
+}
+_ALREADY_IN_BAND_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Lo studente è già nel riepilogo di questa fascia.",
+        "The student is already in this time slot's summary.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La studentessa è già nel riepilogo di questa fascia.",
+        "The student is already in this time slot's summary.",
+    ),
+}
+_STUDENT_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Studente non trovato",
+    "Student not found",
+)
+_NO_HOURS_ERROR: Final[Bilingual] = Bilingual(
+    "Indica almeno un orario.",
+    "Enter at least one time.",
+)
+_BAD_TIME_ERROR: Final[Bilingual] = Bilingual(
+    "Gli orari vanno a quarti d'ora, dentro la fascia.",
+    "Times go by quarter hours, within the time slot.",
+)
+_OVERLAP_ERROR: Final[Bilingual] = Bilingual(
+    "Gli orari non possono sovrapporsi.",
+    "Times cannot overlap.",
+)
 
 # A pupil's lesson in the calendar: its mode and times.
 PupilStretch = tuple[str, time, time]
@@ -452,7 +508,7 @@ async def _assert_editable(db: AsyncSession, day: date, band: str) -> None:
     confirmation = await db.get(StudentConfirmedBand, (day, band))
 
     if confirmation is not None and not confirmation.reopened:
-        raise _conflict(_CONFIRMED_ERROR)
+        raise _conflict(_CONFIRMED_ERROR.for_request())
 
 
 def _check_span(span: Span, band: str) -> None:
@@ -466,12 +522,12 @@ def _check_span(span: Span, band: str) -> None:
         or start < low
         or end > high
     ):
-        raise _bad_request(_BAD_TIME_ERROR)
+        raise _bad_request(_BAD_TIME_ERROR.for_request())
 
 
 def _check_work(work: Sequence[Span], band: str) -> list[Span]:
     if not work:
-        raise _bad_request(_NO_HOURS_ERROR)
+        raise _bad_request(_NO_HOURS_ERROR.for_request())
 
     for span in work:
         _check_span(span, band)
@@ -480,7 +536,7 @@ def _check_work(work: Sequence[Span], band: str) -> list[Span]:
 
     for before, after in zip(ordered, ordered[1:], strict=False):
         if after[0] < before[1]:
-            raise _bad_request(_OVERLAP_ERROR)
+            raise _bad_request(_OVERLAP_ERROR.for_request())
 
     return ordered
 
@@ -504,7 +560,9 @@ async def update_row(
         mode, planned = _planned_of(planned_rows)
 
         if not _arrived(day, max(end for _, end in planned), now):
-            raise _conflict(_NOT_ARRIVED_ERROR)
+            gender = await PersonRepository(db).gender(tax_code)
+
+            raise _conflict(_NOT_ARRIVED_ERRORS[gender].for_request())
 
         if correction is None:
             correction = StudentHoursCorrection(
@@ -518,9 +576,11 @@ async def update_row(
         correction.mode = mode
 
     if correction is None or (planned_rows is None and not correction.added):
+        gender = await PersonRepository(db).gender(tax_code)
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_NOT_IN_BAND_ERROR,
+            detail=_NOT_IN_BAND_ERRORS[gender].for_request(),
         )
 
     if not isinstance(absent, _Unset):
@@ -547,17 +607,21 @@ async def add_row(
     if await db.get(Student, tax_code) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_STUDENT_NOT_FOUND_ERROR,
+            detail=_STUDENT_NOT_FOUND_ERROR.for_request(),
         )
 
     if tax_code not in await enrolled_on(db, [tax_code], day):
-        raise _conflict(_NOT_ENROLLED_ERROR)
+        gender = await PersonRepository(db).gender(tax_code)
+
+        raise _conflict(_NOT_ENROLLED_ERRORS[gender].for_request())
 
     if tax_code in await pupil_band_rows(db, day, band) or await db.get(
         StudentHoursCorrection,
         (day, band, tax_code),
     ):
-        raise _conflict(_ALREADY_IN_BAND_ERROR)
+        gender = await PersonRepository(db).gender(tax_code)
+
+        raise _conflict(_ALREADY_IN_BAND_ERRORS[gender].for_request())
 
     db.add(
         StudentHoursCorrection(
@@ -635,7 +699,7 @@ async def confirm(
     summary = await band_summary(db, day, band, now)
 
     if summary.status == BandStatus.CONFIRMED:
-        raise _conflict(_ALREADY_CONFIRMED_ERROR)
+        raise _conflict(_ALREADY_CONFIRMED_ERROR.for_request())
 
     waiting = summary.status in (BandStatus.WAITING, BandStatus.LIVE)
 
@@ -643,7 +707,7 @@ async def confirm(
         raise _conflict(confirm_from_error(summary.last_end))
 
     if summary.status == BandStatus.EMPTY:
-        raise _conflict(_NOTHING_TO_CONFIRM_ERROR)
+        raise _conflict(_NOTHING_TO_CONFIRM_ERROR.for_request())
 
     # Emptied after confirming: the old confirmation goes and its hours with it.
     if not summary.rows:
@@ -664,7 +728,7 @@ async def reopen(db: AsyncSession, day: date, band: str) -> None:
     confirmation = await db.get(StudentConfirmedBand, (day, band))
 
     if confirmation is None or confirmation.reopened:
-        raise _conflict(_NOT_CONFIRMED_ERROR)
+        raise _conflict(_NOT_CONFIRMED_ERROR.for_request())
 
     confirmation.reopened = True
     await db.flush()

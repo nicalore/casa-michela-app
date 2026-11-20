@@ -14,15 +14,29 @@ from app.models.person import Person
 from app.models.teacher import Teacher
 from app.repositories.identity_repository import IdentityRepository
 from app.services.notification_kinds import holds_kind
-from app.services.notifications import dismissals, is_reachable, notify
+from app.services.notifications import (
+    Bilingual,
+    dismissals,
+    is_reachable,
+    notify,
+)
 from app.services.push import PushBatch, joined
 from app.services.role_service import RoleService
 
 _KIND: Final[NotificationKindEnum] = NotificationKindEnum.RATING_REMINDER
 
-_TITLE: Final[str] = "Sono passate due settimane dall'iscrizione di {name}"
-_BODY: Final[str] = "Tocca per aggiornare la sua valutazione"
-_WEB_BODY: Final[str] = "Clicca per aggiornare la sua valutazione"
+_TITLE: Final[Bilingual] = Bilingual(
+    "Sono passate due settimane dall'iscrizione di {name}",
+    "Two weeks have passed since {name} enrolled",
+)
+_BODY: Final[Bilingual] = Bilingual(
+    "Tocca per aggiornare la sua valutazione",
+    "Tap to update their rating",
+)
+_WEB_BODY: Final[Bilingual] = Bilingual(
+    "Clicca per aggiornare la sua valutazione",
+    "Click to update their rating",
+)
 
 _AFTER: Final[timedelta] = timedelta(days=14)
 
@@ -103,7 +117,10 @@ async def remind_ratings(db: AsyncSession, now: datetime) -> PushBatch:
                 db,
                 [president.tax_code],
                 kind=_KIND,
-                title=_TITLE.format(name=f"{teacher.first_name} {teacher.last_name}"),
+                title=Bilingual(
+                    _TITLE.it.format(name=f"{teacher.first_name} {teacher.last_name}"),
+                    _TITLE.en.format(name=f"{teacher.first_name} {teacher.last_name}"),
+                ),
                 body=_BODY,
                 web_body=_WEB_BODY,
                 teacher_tax_code=teacher.tax_code,

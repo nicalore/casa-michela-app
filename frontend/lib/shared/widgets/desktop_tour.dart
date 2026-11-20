@@ -9,6 +9,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
@@ -20,9 +21,9 @@ import 'shared_components.dart';
 import 'snackbar.dart';
 import 'tour_cues.dart';
 
-const String _backLabel = 'INDIETRO';
-const String _nextLabel = 'AVANTI';
-const String _endLabel = 'FINE';
+String get _backLabel => tr('INDIETRO', 'BACK');
+String get _nextLabel => tr('AVANTI', 'NEXT');
+String get _endLabel => tr('FINE', 'DONE');
 
 // As a dialog without blur: the page stays readable.
 const double _dimOpacity = 0.32;
@@ -71,7 +72,7 @@ const Duration _longestHold = Duration(seconds: 10);
 const Duration _longestWait = Duration(seconds: 8);
 const Duration _waitStep = Duration(milliseconds: 50);
 
-String _eyebrow(int index, int count) => 'TUTORIAL · $index DI $count';
+String _eyebrow(int index, int count) => tr('TUTORIAL · $index DI $count', 'TUTORIAL · $index OF $count');
 
 final Map<String, List<_DesktopTourTargetState>> _targets = {};
 
@@ -1743,7 +1744,7 @@ class _Bubble extends StatelessWidget
         ),
         Semantics(
           button: true,
-          label: 'Chiudi',
+          label: tr('Chiudi', 'Close'),
           child: FadeHoverIconButton(
             icon: Icons.close_rounded,
             color: AppTheme.surface,

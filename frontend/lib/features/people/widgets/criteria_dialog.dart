@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
@@ -58,7 +59,7 @@ class CriteriaDialog extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Informazioni',
+      eyebrow: tr('Informazioni', 'About'),
       title: kCriteriaTitle,
       maxWidth: _maxWidth,
       fillLast: true,

@@ -8,14 +8,22 @@ from app.models.notification import Notification, NotificationKindEnum
 from app.models.person import Person
 from app.repositories.identity_repository import IdentityRepository
 from app.services.notification_kinds import holds_kind
-from app.services.notifications import dismissals, is_reachable, notify
+from app.services.notifications import (
+    Bilingual,
+    dismissals,
+    is_reachable,
+    notify,
+)
 from app.services.push import PushBatch, joined
 
 _KIND: Final[NotificationKindEnum] = NotificationKindEnum.ADMINISTRATOR_NOTE_ADDED
 
-_TITLE: Final[str] = "{author} ha aggiunto una nuova osservazione per te"
-_BODY: Final[str] = "Tocca per leggerla"
-_WEB_BODY: Final[str] = "Clicca per leggerla"
+_TITLE: Final[Bilingual] = Bilingual(
+    "{author} ha aggiunto una nuova osservazione per te",
+    "{author} added a new observation about you",
+)
+_BODY: Final[Bilingual] = Bilingual("Tocca per leggerla", "Tap to read it")
+_WEB_BODY: Final[Bilingual] = Bilingual("Clicca per leggerla", "Click to read it")
 
 
 # The teacher, unless they wrote it; the caller commits, then delivers the pushes.
@@ -42,7 +50,10 @@ async def announce_administrator_note(
         db,
         [account.tax_code],
         kind=_KIND,
-        title=_TITLE.format(author=f"{author.first_name} {author.last_name}"),
+        title=Bilingual(
+            _TITLE.it.format(author=f"{author.first_name} {author.last_name}"),
+            _TITLE.en.format(author=f"{author.first_name} {author.last_name}"),
+        ),
         body=_BODY,
         web_body=_WEB_BODY,
         author_tax_code=author.tax_code,

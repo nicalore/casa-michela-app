@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_floating_panel.dart';
@@ -28,7 +29,7 @@ import 'calendar_search_fade.dart';
 import 'person_avatar.dart';
 
 
-const String kAddActivityLabel = 'AGGIUNGI ATTIVITÀ';
+String get kAddActivityLabel => tr('AGGIUNGI ATTIVITÀ', 'ADD ACTIVITY');
 
 const double _addHeight = 46;
 const double _denseAddHeight = 32;
@@ -114,9 +115,9 @@ class _StudentHeader extends StatelessWidget
 
     return switch (open)
     {
-      0 => 'Tutto pianificato',
-      1 => '1 prenotazione da pianificare',
-      _ => '$open prenotazioni da pianificare',
+      0 => tr('Tutto pianificato', 'All planned'),
+      1 => tr('1 prenotazione da pianificare', '1 booking to plan'),
+      _ => tr('$open prenotazioni da pianificare', '$open bookings to plan'),
     };
   }
 
@@ -303,10 +304,10 @@ class CalendarBookingPanel extends StatelessWidget
   {
     if (groups.isEmpty)
     {
-      return 'Nessuna prenotazione.';
+      return tr('Nessuna prenotazione.', 'No bookings.');
     }
 
-    return 'Tutte le lezioni sono pianificate.';
+    return tr('Tutte le lezioni sono pianificate.', 'All lessons are planned.');
   }
 
   // [add] sits by the close when the panel is wide: short and docked at the bottom, it leaves the cards their height.
@@ -315,7 +316,7 @@ class CalendarBookingPanel extends StatelessWidget
     final close = onClose;
 
     final Widget heading = PageHeading(
-      'Da pianificare',
+      tr('Da pianificare', 'To plan'),
       count: _openCount,
       trailing: add == null && close == null
           ? null
@@ -404,7 +405,7 @@ class CalendarBookingPanel extends StatelessWidget
     }
 
     return [
-      const PageHeading('Attività'),
+      PageHeading(tr('Attività', 'Activities')),
       _Columns(
         count: columns,
         children: [for (final activity in activities) _buildActivityCard(activity)],

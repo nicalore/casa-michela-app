@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/bookings/widgets/move_lesson_dialog.dart';
@@ -386,7 +387,7 @@ class _MoveSheetState extends State<_MoveSheet>
       unsaved: () => identical(_day, _openedOn) && _chosen == null ? MobileUnsaved.none : MobileUnsaved.choices,
       body: [
         const SizedBox(height: 18),
-        const MobileFieldHead(kMoveDayLabel),
+        MobileFieldHead(kMoveDayLabel),
         // Hugging the days, not the sheet's width.
         Align(
           alignment: AlignmentDirectional.centerStart,
@@ -412,7 +413,7 @@ class _MoveSheetState extends State<_MoveSheet>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 20),
-                    const MobileFieldHead(kMoveTargetLabel),
+                    MobileFieldHead(kMoveTargetLabel),
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: MobileTourTarget(
@@ -451,7 +452,7 @@ class _MoveSheetState extends State<_MoveSheet>
             id: moveTourTarget(MoveMark.confirm),
             inflate: _tourButtonInflate,
             radius: _tourButtonRadius,
-            child: MobileGoldButton(label: 'Sposta', icon: Icons.swap_horiz_rounded, onPressed: _confirm),
+            child: MobileGoldButton(label: tr('Sposta', 'Move'), icon: Icons.swap_horiz_rounded, onPressed: _confirm),
           ),
         ),
       ),

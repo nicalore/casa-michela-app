@@ -8,9 +8,11 @@ from app.api.rbac import IdentityContext
 from app.core.booking_close import bands_of
 from app.core.integrity import integrity_guard
 from app.models.lesson import Lesson
+from app.models.person import GenderEnum
 from app.models.room_supervision import RoomSupervision
 from app.models.teacher_room_assignment import MIDNIGHT, TeacherRoomAssignment
 from app.repositories.lesson_repository import LessonRepository
+from app.repositories.person_repository import PersonRepository
 from app.repositories.room_repository import RoomRepository
 from app.repositories.room_supervision_repository import RoomSupervisionRepository
 from app.repositories.teacher_room_assignment_repository import (
@@ -22,6 +24,7 @@ from app.schemas.teacher_room_assignment import (
     RoomStretch,
     TeacherRoomAssignmentCreate,
 )
+from app.services.bilingual import Bilingual
 from app.services.calendar_freeze import has_begun, refuse_begun_hours
 from app.services.lesson_guard import (
     assert_bands_claimed,
@@ -39,23 +42,52 @@ from app.services.room_occupancy import (
 )
 from app.services.room_supervision_service import (
     NOT_ASSIGNED_ERROR,
-    OVERLAPPING_SHIFT_ERROR,
+    OVERLAPPING_SHIFT_ERRORS,
     assert_within_presence,
 )
 
-_NOT_FOUND_ERROR: Final[str] = "Assegnazione non trovata"
-_ROOM_NOT_FOUND_ERROR: Final[str] = "Stanza non trovata"
-_CREATE_ERROR: Final[str] = "Errore durante l'assegnazione della stanza."
-_PLAN_ERROR: Final[str] = "Errore durante il salvataggio delle stanze."
-
-_NOT_CONVENED_ERROR: Final[str] = (
-    "Il docente non ha lezioni in sede in questa giornata: non gli va "
-    "assegnata una stanza."
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Assegnazione non trovata",
+    "Assignment not found",
+)
+_ROOM_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Stanza non trovata",
+    "Room not found",
+)
+_CREATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'assegnazione della stanza.",
+    "Something went wrong while assigning the room.",
+)
+_PLAN_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante il salvataggio delle stanze.",
+    "Something went wrong while saving the rooms.",
 )
 
-_ALREADY_ASSIGNED_ERROR: Final[str] = (
-    "Il docente ha già una stanza assegnata in questa giornata."
-)
+_NOT_CONVENED_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il docente non ha lezioni in sede in questa giornata: non gli va assegnata "
+        "una stanza.",
+        "The teacher has no on-site lessons on this day: no room should be assigned "
+        "to them.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La docente non ha lezioni in sede in questa giornata: non le va assegnata "
+        "una stanza.",
+        "The teacher has no on-site lessons on this day: no room should be assigned "
+        "to them.",
+    ),
+}
+
+_ALREADY_ASSIGNED_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il docente ha già una stanza assegnata in questa giornata.",
+        "The teacher already has a room assigned on this day.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La docente ha già una stanza assegnata in questa giornata.",
+        "The teacher already has a room assigned on this day.",
+    ),
+}
 
 
 class _Stretch(NamedTuple):
@@ -161,13 +193,18 @@ class TeacherRoomAssignmentService:
     def session(self):  # noqa: ANN201 - mirrors the other services
         return self.repository.session
 
+    async def _gender(self, teacher_tax_code: str) -> GenderEnum:
+        return await PersonRepository(self.session).gender(teacher_tax_code)
+
     async def _assert_convened(self, day: date, teacher_tax_code: str) -> None:
         lessons = await self.lessons.list_for_day(day)
 
         if teacher_tax_code not in teachers_in_building(lessons):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_NOT_CONVENED_ERROR,
+                detail=_NOT_CONVENED_ERRORS[
+                    await self._gender(teacher_tax_code)
+                ].for_request(),
             )
 
     # The teacher's rows span the day, so they belong to every band they teach in.
@@ -217,7 +254,7 @@ class TeacherRoomAssignmentService:
         if not rows:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return rows
@@ -226,7 +263,7 @@ class TeacherRoomAssignmentService:
         if len(await self.rooms.find_by_ids(sorted(room_ids))) != len(room_ids):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_ROOM_NOT_FOUND_ERROR,
+                detail=_ROOM_NOT_FOUND_ERROR.for_request(),
             )
 
     async def assign(
@@ -238,9 +275,11 @@ class TeacherRoomAssignmentService:
             payload.date,
             payload.teacher_tax_code,
         ):
+            gender = await self._gender(payload.teacher_tax_code)
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_ALREADY_ASSIGNED_ERROR,
+                detail=_ALREADY_ASSIGNED_ERRORS[gender].for_request(),
             )
 
         await self._assert_day_open_for(
@@ -267,7 +306,7 @@ class TeacherRoomAssignmentService:
             room_id=payload.room_id,
         )
 
-        async with integrity_guard(self.session, _CREATE_ERROR):
+        async with integrity_guard(self.session, _CREATE_ERROR.for_request()):
             await self.repository.create(assignment)
             await self.repository.commit()
 
@@ -324,7 +363,7 @@ class TeacherRoomAssignmentService:
 
         return shifts
 
-    def _shift_starts(
+    async def _shift_starts(
         self,
         wanted: dict[str, list[_Stretch]],
         shifts: Sequence[RoomPlanShift],
@@ -341,7 +380,7 @@ class TeacherRoomAssignmentService:
             if stretch is None or stretch.room_id != shift.room_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=NOT_ASSIGNED_ERROR,
+                    detail=NOT_ASSIGNED_ERROR.for_request(),
                 )
 
             starts.append(stretch.start_time)
@@ -357,9 +396,11 @@ class TeacherRoomAssignmentService:
 
             for before, after in zip(own, own[1:], strict=False):
                 if after.start_time < before.end_time:
+                    gender = await self._gender(after.teacher_tax_code)
+
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=OVERLAPPING_SHIFT_ERROR,
+                        detail=OVERLAPPING_SHIFT_ERRORS[gender].for_request(),
                     )
 
         return starts
@@ -415,10 +456,17 @@ class TeacherRoomAssignmentService:
             for teacher in payload.teachers
         }
 
-        if any(rows and code not in in_building for code, rows in wanted.items()):
+        not_convened = next(
+            (code for code, rows in wanted.items() if rows and code not in in_building),
+            None,
+        )
+
+        if not_convened is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_NOT_CONVENED_ERROR,
+                detail=_NOT_CONVENED_ERRORS[
+                    await self._gender(not_convened)
+                ].for_request(),
             )
 
         await self._rooms_or_404(
@@ -426,7 +474,7 @@ class TeacherRoomAssignmentService:
             | {shift.room_id for shift in payload.supervisions},
         )
 
-        starts = self._shift_starts(wanted, payload.supervisions)
+        starts = await self._shift_starts(wanted, payload.supervisions)
 
         for shift in payload.supervisions:
             await assert_within_presence(
@@ -474,7 +522,7 @@ class TeacherRoomAssignmentService:
             [(day, band) for band in sorted(moved | watched)],
         )
 
-        async with integrity_guard(self.session, _PLAN_ERROR):
+        async with integrity_guard(self.session, _PLAN_ERROR.for_request()):
             for shift in stored_shifts:
                 await self.session.delete(shift)
 

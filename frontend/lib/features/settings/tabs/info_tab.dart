@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -74,7 +75,7 @@ class _InfoTabState extends State<InfoTab>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Il browser ha bloccato la scheda: il documento è stato scaricato.',
+          message: tr('Il browser ha bloccato la scheda: il documento è stato scaricato.', 'The browser blocked the tab: the document has been downloaded.'),
           isError: false,
         );
       }
@@ -108,7 +109,7 @@ class _InfoTabState extends State<InfoTab>
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const PageHeading(kDocumentsHeading),
+            PageHeading(kDocumentsHeading),
             const SizedBox(height: kPageHeadingGap),
             LayoutBuilder(
               builder: (context, constraints)

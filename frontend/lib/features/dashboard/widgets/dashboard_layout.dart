@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
@@ -355,7 +356,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'Ciao, ${_currentUser?.firstName ?? ''}',
+          tr('Ciao, ${_currentUser?.firstName ?? ''}', 'Hi, ${_currentUser?.firstName ?? ''}'),
           style: TextStyle(
             color: AppTheme.trialOceanText,
             fontWeight: FontWeight.bold,
@@ -388,9 +389,9 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     return BottomNavigationBar(
       selectedItemColor: AppTheme.trialTealDeep,
       unselectedItemColor: Colors.grey,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-        BottomNavigationBarItem(icon: Icon(Icons.groups), label: 'Persone'),
+      items: [
+        const BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+        BottomNavigationBarItem(icon: const Icon(Icons.groups), label: tr('Persone', 'People')),
       ],
       onTap: (index)
       {

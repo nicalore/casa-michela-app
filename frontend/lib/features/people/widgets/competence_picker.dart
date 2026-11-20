@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_check_mark.dart';
@@ -36,7 +37,9 @@ class CompetenceScope
 
   bool get isAll => chosen >= total;
 
-  String get label => isAll ? 'Tutti i percorsi ($total)' : '$chosen di $total percorsi';
+  String get label => isAll
+      ? tr('Tutti i percorsi ($total)', 'All programmes ($total)')
+      : tr('$chosen di $total percorsi', '$chosen of $total programmes');
 }
 
 class CompetenceRow extends StatefulWidget
@@ -101,7 +104,7 @@ class _CompetenceRowState extends State<CompetenceRow>
     }
 
     return AppTooltip(
-      message: 'Aggiungi con tutti i percorsi',
+      message: tr('Aggiungi con tutti i percorsi', 'Add with all programmes'),
       waitDuration: const Duration(milliseconds: 400),
       child: button,
     );
@@ -253,7 +256,7 @@ String competencesFoundLabel(int count, {required bool onlyServices})
 {
   if (onlyServices)
   {
-    return count == 1 ? '1 servizio trovato' : '$count servizi trovati';
+    return count == 1 ? tr('1 servizio trovato', '1 service found') : tr('$count servizi trovati', '$count services found');
   }
 
   return subjectsFoundLabel(count);
@@ -316,14 +319,18 @@ final class ServiceEntry extends CompetenceEntry
 
 enum CompetenceSort
 {
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)'),
-  dateDesc('Più recente'),
-  dateAsc('Meno recente');
+  nameAsc,
+  nameDesc,
+  dateDesc,
+  dateAsc;
 
-  final String label;
-
-  const CompetenceSort(this.label);
+  String get label => switch (this)
+  {
+    CompetenceSort.nameAsc => tr('Nome (A-Z)', 'Name (A-Z)'),
+    CompetenceSort.nameDesc => tr('Nome (Z-A)', 'Name (Z-A)'),
+    CompetenceSort.dateDesc => tr('Più recente', 'Newest'),
+    CompetenceSort.dateAsc => tr('Meno recente', 'Oldest'),
+  };
 
   int compare(CompetenceEntry a, CompetenceEntry b)
   {
@@ -546,7 +553,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
       children: [
         AppSearchField(
           controller: _searchController,
-          hintText: 'Cerca disciplina o servizio...',
+          hintText: tr('Cerca disciplina o servizio...', 'Search for a discipline or service...'),
           onChanged: (value) => setState(() => _searchText = value),
         ),
         const SizedBox(height: 16),
@@ -556,8 +563,8 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             AppFilterPill<CompetenceSort>.setting(
-              prefix: 'Ordina',
-              hint: 'Ordina',
+              prefix: tr('Ordina', 'Sort'),
+              hint: tr('Ordina', 'Sort'),
               icon: Icons.sort_rounded,
               value: _sort,
               menuWidth: 190,
@@ -568,7 +575,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
             ),
             AppFilterPill<String>.filter(
               prefix: 'Area',
-              hint: 'Tutte le aree',
+              hint: tr('Tutte le aree', 'All areas'),
               icon: Icons.category_rounded,
               value: _filterArea,
               menuWidth: 220,
@@ -577,11 +584,11 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
               options: [
                 for (final area in subjectAreas)
                   FilterOption(value: area.value, label: area.label),
-                const FilterOption(value: kServicesFilterValue, label: 'Servizi'),
+                FilterOption(value: kServicesFilterValue, label: tr('Servizi', 'Services')),
               ],
             ),
             AppSelectableChip(
-              label: 'Solo selezionate ($_selectedCount)',
+              label: tr('Solo selezionate ($_selectedCount)', 'Selected only ($_selectedCount)'),
               selected: _onlySelected,
               onSelected: (value) => setState(() => _onlySelected = value),
             ),
@@ -612,7 +619,9 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
 
     if (widget.subjects.isEmpty && widget.services.isEmpty)
     {
-      return const PersonEmptyState(message: 'Nessuna disciplina o servizio da aggiungere.');
+      return PersonEmptyState(
+        message: tr('Nessuna disciplina o servizio da aggiungere.', 'No disciplines or services to add.'),
+      );
     }
 
     final List<CompetenceEntry> entries = _filteredEntries;
@@ -620,11 +629,12 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
     if (entries.isEmpty)
     {
       final String what = _showingOnlyServices ? 'servizio' : 'elemento';
+      final String english = _showingOnlyServices ? 'No service' : 'Nothing';
 
       return PersonEmptyState(
         message: _onlySelected
-            ? 'Nessun $what selezionato.'
-            : 'Nessun $what trovato per questa ricerca.',
+            ? tr('Nessun $what selezionato.', '$english selected.')
+            : tr('Nessun $what trovato per questa ricerca.', '$english found for this search.'),
       );
     }
 
@@ -659,7 +669,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
               ServiceEntry(:final service) => CompetenceRow(
                   key: ValueKey('service-${service.name}'),
                   name: service.name,
-                  subtitle: 'Servizio',
+                  subtitle: tr('Servizio', 'Service'),
                   hasPrograms: false,
                   selected: widget.selectedServices.contains(service.name),
                   scope: null,

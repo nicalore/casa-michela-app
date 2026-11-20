@@ -5,9 +5,10 @@ from typing import Final
 from fastapi import HTTPException, status
 from sqlalchemy import select
 
-from app.api.rbac import IdentityContext, assert_may_book_for
+from app.api.rbac import IdentityContext, assert_may_book_for, pupil_as_read
 from app.core.booking_close import assert_still_open, bands_of
 from app.core.booking_window import assert_within_booking_window
+from app.core.i18n import request_language
 from app.core.integrity import integrity_guard
 from app.core.labels import opening_mode_label
 from app.core.optimistic_concurrency import assert_not_stale
@@ -18,6 +19,7 @@ from app.models.presence import Presence
 from app.models.student import Student
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.presence import PresenceCreate, PresenceUpdate
+from app.services.bilingual import Bilingual
 from app.services.calendar_freeze import (
     assert_hours_not_begun,
     assert_only_ahead_moves,
@@ -38,62 +40,95 @@ from app.services.pupil_lock import (
 )
 from app.services.schedule_cascade import unschedule
 
-_ENTITY_LABEL: Final[str] = "la presenza"
-_NOT_FOUND_ERROR: Final[str] = "Presenza non trovata"
-_STUDENT_NOT_FOUND_ERROR: Final[str] = "Studente non trovato"
-_FORBIDDEN_STUDENT_TAX_CODE_ERROR: Final[str] = (
-    "Puoi gestire solo le presenze relative a te stesso o ai tuoi figli"
+_ENTITY_LABEL: Final[Bilingual] = Bilingual(
+    "la presenza",
+    "the attendance",
 )
-_FORBIDDEN_BOOKER_TAX_CODE_ERROR: Final[str] = "Puoi gestire solo le tue prenotazioni"
-_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Presenza non trovata",
+    "Attendance not found",
+)
+_STUDENT_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Studente non trovato",
+    "Student not found",
+)
+_FORBIDDEN_STUDENT_TAX_CODE_ERROR: Final[Bilingual] = Bilingual(
+    "Puoi gestire solo le tue presenze o quelle dei tuoi figli",
+    "You can only manage your own attendance or your children's",
+)
+_FORBIDDEN_BOOKER_TAX_CODE_ERROR: Final[Bilingual] = Bilingual(
+    "Puoi gestire solo le tue prenotazioni",
+    "You can only manage your own bookings",
+)
+_UPDATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'aggiornamento.",
+    "Something went wrong while saving.",
+)
 
-_OUTSIDE_OPENING_ERROR: Final[str] = (
-    "La presenza deve stare dentro l'apertura {mode}: {windows}."
+_OUTSIDE_OPENING_ERROR: Final[Bilingual] = Bilingual(
+    "La presenza deve stare dentro l'apertura {mode}: {windows}.",
+    "The attendance must fall within the {mode} opening: {windows}.",
 )
-_OVERLAP_ERROR: Final[str] = (
-    "Lo studente ha già una prenotazione {mode} che si sovrappone a questo orario."
+# Each pair: as the pupil reads it, then as a parent or an admin does.
+_OVERLAP_ERRORS: Final[tuple[Bilingual, Bilingual]] = (
+    Bilingual(
+        "Hai già una prenotazione {mode} che si sovrappone a questo orario.",
+        "You already have an {mode} booking overlapping this time.",
+    ),
+    Bilingual(
+        "{name} ha già una prenotazione {mode} che si sovrappone a questo orario.",
+        "{name} already has an {mode} booking overlapping this time.",
+    ),
 )
-_CROSS_MODE_OVERLAP_ERROR: Final[str] = (
-    "Lo studente è già {mode} in quelle ore: non può essere in due posti "
-    "nello stesso momento."
+_CROSS_MODE_OVERLAP_ERRORS: Final[tuple[Bilingual, Bilingual]] = (
+    Bilingual(
+        "Sei già {mode} in quelle ore: non puoi essere in due posti "
+        "nello stesso momento.",
+        "You are already {mode} at those hours: you cannot be in two places "
+        "at the same time.",
+    ),
+    Bilingual(
+        "{name} è già {mode} in quelle ore: non può essere in due posti "
+        "nello stesso momento.",
+        "{name} is already {mode} at those hours: they cannot be in two places "
+        "at the same time.",
+    ),
 )
-_MODE_TAKEN_IN_BAND_ERROR: Final[str] = (
-    "Lo studente ha già una prenotazione {mode} in questa fascia."
+_MODE_TAKEN_IN_BAND_ERRORS: Final[tuple[Bilingual, Bilingual]] = (
+    Bilingual(
+        "Hai già una prenotazione {mode} in questa fascia.",
+        "You already have an {mode} booking in this time slot.",
+    ),
+    Bilingual(
+        "{name} ha già una prenotazione {mode} in questa fascia.",
+        "{name} already has an {mode} booking in this time slot.",
+    ),
 )
 
 
 # No overlaps, and one mode per band: never in person and online in the same band.
-def _assert_apart(
+def _clash(
     mode: str,
     start_time: time,
     end_time: time,
     others: Sequence[tuple[str, time, time]],
-) -> None:
+) -> tuple[tuple[Bilingual, Bilingual], str] | None:
     for other_mode, other_start, other_end in others:
         if other_start >= end_time or other_end <= start_time:
             continue
 
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                _OVERLAP_ERROR.format(mode=opening_mode_label(mode))
-                if other_mode == mode
-                else _CROSS_MODE_OVERLAP_ERROR.format(
-                    mode=opening_mode_label(other_mode)
-                )
-            ),
-        )
+        if other_mode == mode:
+            return _OVERLAP_ERRORS, mode
+
+        return _CROSS_MODE_OVERLAP_ERRORS, other_mode
 
     band = band_of(start_time)
 
     for other_mode, other_start, _ in others:
         if other_mode != mode and band_of(other_start) == band:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_MODE_TAKEN_IN_BAND_ERROR.format(
-                    mode=opening_mode_label(other_mode),
-                ),
-            )
+            return _MODE_TAKEN_IN_BAND_ERRORS, other_mode
+
+    return None
 
 
 class PresenceService:
@@ -113,11 +148,43 @@ class PresenceService:
             mode=mode,
             start_time=start_time,
             end_time=end_time,
-            outside_opening_error=_OUTSIDE_OPENING_ERROR,
+            outside_opening_error=_OUTSIDE_OPENING_ERROR.for_request(),
+        )
+
+    async def _assert_apart(
+        self,
+        identity: IdentityContext,
+        student_tax_code: str,
+        mode: str,
+        start_time: time,
+        end_time: time,
+        others: Sequence[tuple[str, time, time]],
+    ) -> None:
+        clash = _clash(mode, start_time, end_time, others)
+
+        if clash is None:
+            return
+
+        (own, theirs), named_mode = clash
+        name, _ = await pupil_as_read(
+            self.repository.session,
+            identity,
+            student_tax_code,
+        )
+        label = opening_mode_label(named_mode, request_language())
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                own.for_request().format(mode=label)
+                if name is None
+                else theirs.for_request().format(name=name, mode=label)
+            ),
         )
 
     async def _assert_no_overlap(
         self,
+        identity: IdentityContext,
         student_tax_code: str,
         target_date: date,
         mode: str,
@@ -136,11 +203,20 @@ class PresenceService:
 
         others = (await self.repository.session.execute(stmt)).tuples().all()
 
-        _assert_apart(mode, start_time, end_time, others)
+        await self._assert_apart(
+            identity,
+            student_tax_code,
+            mode,
+            start_time,
+            end_time,
+            others,
+        )
 
     # `others` are the day's other stretches as they will be after the write.
     async def assert_fits(
         self,
+        identity: IdentityContext,
+        student_tax_code: str,
         target_date: date,
         mode: str,
         start_time: time,
@@ -149,8 +225,14 @@ class PresenceService:
         others: Sequence[tuple[str, time, time]],
     ) -> None:
         await self._assert_within_opening(target_date, mode, start_time, end_time)
-
-        _assert_apart(mode, start_time, end_time, others)
+        await self._assert_apart(
+            identity,
+            student_tax_code,
+            mode,
+            start_time,
+            end_time,
+            others,
+        )
 
     async def _assert_student_exists(self, student_tax_code: str) -> None:
         student = await self.repository.session.scalar(
@@ -160,15 +242,15 @@ class PresenceService:
         if student is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_STUDENT_NOT_FOUND_ERROR,
+                detail=_STUDENT_NOT_FOUND_ERROR.for_request(),
             )
 
-    def _resolve_student_tax_code_for_create(
+    async def _resolve_student_tax_code_for_create(
         self,
         identity: IdentityContext,
         requested: str,
     ) -> str:
-        assert_may_book_for(identity, requested)
+        await assert_may_book_for(self.repository.session, identity, requested)
 
         return requested
 
@@ -183,7 +265,7 @@ class PresenceService:
         if not identity.is_admin and payload_value != identity.tax_code:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=_FORBIDDEN_BOOKER_TAX_CODE_ERROR,
+                detail=_FORBIDDEN_BOOKER_TAX_CODE_ERROR.for_request(),
             )
 
         return payload_value
@@ -228,7 +310,7 @@ class PresenceService:
         if presence is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return presence
@@ -324,7 +406,7 @@ class PresenceService:
         notes: str | None = None,
     ) -> Presence:
         # Permission before closure, so a refusal is not masked by a closed day.
-        student_tax_code = self._resolve_student_tax_code_for_create(
+        student_tax_code = await self._resolve_student_tax_code_for_create(
             identity,
             payload.student_tax_code,
         )
@@ -356,6 +438,7 @@ class PresenceService:
             payload.end_time,
         )
         await self._assert_no_overlap(
+            identity,
             student_tax_code,
             payload.date,
             payload.mode,
@@ -395,7 +478,11 @@ class PresenceService:
             ],
         )
         presence = await self.get_owned_or_404(identity, presence_id)
-        assert_may_book_for(identity, presence.student_tax_code)
+        await assert_may_book_for(
+            self.repository.session,
+            identity,
+            presence.student_tax_code,
+        )
         await assert_admin_may_name(
             self.repository.session,
             identity,
@@ -405,7 +492,7 @@ class PresenceService:
         assert_not_stale(
             presence,
             payload.expected_updated_at,
-            entity_label=_ENTITY_LABEL,
+            entity_label=_ENTITY_LABEL.for_request(),
         )
 
         if (
@@ -426,7 +513,7 @@ class PresenceService:
             if not identity.is_admin:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=_FORBIDDEN_STUDENT_TAX_CODE_ERROR,
+                    detail=_FORBIDDEN_STUDENT_TAX_CODE_ERROR.for_request(),
                 )
 
             await self._assert_student_exists(payload.student_tax_code)
@@ -439,7 +526,7 @@ class PresenceService:
             if not identity.is_admin:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=_FORBIDDEN_BOOKER_TAX_CODE_ERROR,
+                    detail=_FORBIDDEN_BOOKER_TAX_CODE_ERROR.for_request(),
                 )
 
             presence.booker_tax_code = payload.booker_tax_code
@@ -477,6 +564,7 @@ class PresenceService:
             payload.end_time,
         )
         await self._assert_no_overlap(
+            identity,
             presence.student_tax_code,
             payload.date,
             payload.mode,
@@ -490,7 +578,10 @@ class PresenceService:
         presence.start_time = payload.start_time
         presence.end_time = payload.end_time
 
-        async with integrity_guard(self.repository.session, _UPDATE_ERROR):
+        async with integrity_guard(
+            self.repository.session,
+            _UPDATE_ERROR.for_request(),
+        ):
             await self.repository.commit()
             await self.repository.refresh(presence)
 
@@ -499,7 +590,11 @@ class PresenceService:
     async def delete(self, identity: IdentityContext, presence_id: int) -> None:
         await lock_pupil_of_presence(self.repository.session, presence_id)
         presence = await self.get_owned_or_404(identity, presence_id)
-        assert_may_book_for(identity, presence.student_tax_code)
+        await assert_may_book_for(
+            self.repository.session,
+            identity,
+            presence.student_tax_code,
+        )
 
         self._assert_still_theirs(
             identity,

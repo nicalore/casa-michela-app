@@ -4,7 +4,8 @@ from typing import Final, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core import field_lengths
-from app.core.labels import HIGH_SCHOOL_TRACK_LABELS
+from app.core.i18n import tr
+from app.core.labels import high_school_track_label
 from app.models.study_program import (
     YEARS_BY_TRACK,
     EducationLevelEnum,
@@ -13,24 +14,32 @@ from app.models.study_program import (
 from app.schemas.association_subject import AssociationSubjectOption
 from app.schemas.validators import OptionalCleanStr, StrippedStr
 
-_TRACK_REQUIRED_ERROR: Final[str] = (
-    "Per la scuola secondaria di II grado indica l'articolazione: biennio, "
-    "triennio o altro."
+_TRACK_REQUIRED_ERROR: Final[tuple[str, str]] = (
+    "Per la scuola secondaria di II grado indica l'articolazione: biennio, triennio o "
+    "altro.",
+    "For upper secondary school give the track: first two years, last three years or "
+    "other.",
 )
 
-_TRACK_ONLY_FOR_HIGH_SCHOOL_ERROR: Final[str] = (
-    "L'articolazione si indica solo per la scuola secondaria di II grado."
+_TRACK_ONLY_FOR_HIGH_SCHOOL_ERROR: Final[tuple[str, str]] = (
+    "L'articolazione si indica solo per la scuola secondaria di II grado.",
+    "The track applies only to upper secondary school.",
 )
 
-_YEARS_REQUIRED_ERROR: Final[str] = (
-    "Indica l'anno iniziale e l'anno finale del percorso."
+_YEARS_REQUIRED_ERROR: Final[tuple[str, str]] = (
+    "Indica l'anno iniziale e l'anno finale del percorso.",
+    "Give the programme's first and last year.",
 )
 
-_YEARS_OUT_OF_ORDER_ERROR: Final[str] = (
-    "L'anno iniziale non può essere successivo all'anno finale."
+_YEARS_OUT_OF_ORDER_ERROR: Final[tuple[str, str]] = (
+    "L'anno iniziale non può essere successivo all'anno finale.",
+    "The first year can't come after the last year.",
 )
 
-_YEARS_OF_A_FIXED_TRACK_ERROR: Final[str] = "Per gli anni {years} scegli {track}."
+_YEARS_OF_A_FIXED_TRACK_ERROR: Final[tuple[str, str]] = (
+    "Per gli anni {years} scegli {track}.",
+    "For years {years} choose {track}.",
+)
 
 
 class MinistrySubjectOption(BaseModel):
@@ -67,7 +76,7 @@ class StudyProgramWrite(StudyProgramBase):
     def _years_follow_the_track(self) -> Self:
         if self.level is EducationLevelEnum.HIGH_SCHOOL:
             if self.high_school_track is None:
-                raise ValueError(_TRACK_REQUIRED_ERROR)
+                raise ValueError(tr(*_TRACK_REQUIRED_ERROR))
 
             fixed_years = YEARS_BY_TRACK.get(self.high_school_track)
 
@@ -78,21 +87,21 @@ class StudyProgramWrite(StudyProgramBase):
                 return self
 
         elif self.high_school_track is not None:
-            raise ValueError(_TRACK_ONLY_FOR_HIGH_SCHOOL_ERROR)
+            raise ValueError(tr(*_TRACK_ONLY_FOR_HIGH_SCHOOL_ERROR))
 
         if self.min_year is None or self.max_year is None:
-            raise ValueError(_YEARS_REQUIRED_ERROR)
+            raise ValueError(tr(*_YEARS_REQUIRED_ERROR))
 
         if self.min_year > self.max_year:
-            raise ValueError(_YEARS_OUT_OF_ORDER_ERROR)
+            raise ValueError(tr(*_YEARS_OUT_OF_ORDER_ERROR))
 
         if self.high_school_track is HighSchoolTrackEnum.OTHER:
             for track, years in YEARS_BY_TRACK.items():
                 if years == (self.min_year, self.max_year):
                     raise ValueError(
-                        _YEARS_OF_A_FIXED_TRACK_ERROR.format(
+                        tr(*_YEARS_OF_A_FIXED_TRACK_ERROR).format(
                             years=f"{years[0]}-{years[1]}",
-                            track=HIGH_SCHOOL_TRACK_LABELS[track],
+                            track=high_school_track_label(track),
                         )
                     )
 

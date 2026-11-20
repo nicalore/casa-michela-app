@@ -1,40 +1,42 @@
+import '../../core/language/app_language.dart';
+
 export '../people/utils/student_notes_strings.dart';
 
-const String kStudentsModule = 'Studenti';
+String get kStudentsModule => tr('Studenti', 'Students');
 
-const String kStudentSearchHint = 'Cerca studente...';
+String get kStudentSearchHint => tr('Cerca studente...', 'Search students...');
 
-String studentsCount(int count) => count == 1 ? '1 studente' : '$count studenti';
+String studentsCount(int count) => count == 1 ? tr('1 studente', '1 student') : tr('$count studenti', '$count students');
 
-const String kBirthDateLabel = 'Data di nascita';
-const String kAgeLabel = 'Età';
+String get kBirthDateLabel => tr('Data di nascita', 'Date of birth');
+String get kAgeLabel => tr('Età', 'Age');
 
-String ageValue(int age) => '$age anni';
+String ageValue(int age) => tr('$age anni', '$age years old');
 
-const String kCertificationsTitle = 'Certificazioni';
-const String kCertificationField = 'Certificazione';
-const String kDsaDetailLabel = 'Tipo di DSA';
-const String kOtherDetailLabel = 'Altra certificazione';
+String get kCertificationsTitle => tr('Certificazioni', 'Certifications');
+String get kCertificationField => tr('Certificazione', 'Certification');
+String get kDsaDetailLabel => tr('Tipo di DSA', 'Type of SLD');
+String get kOtherDetailLabel => tr('Altra certificazione', 'Other certification');
 
-const String kSchoolTitle = 'Scuola';
-const String kCurrentSchoolYear = 'Anno scolastico attuale';
-const String kPastSchoolYears = 'Anni scolastici passati';
-const String kNoStudents = 'Nessuno studente registrato';
-const String kNoSchoolYears = 'Nessun anno scolastico registrato.';
+String get kSchoolTitle => tr('Scuola', 'School');
+String get kCurrentSchoolYear => tr('Anno scolastico attuale', 'Current school year');
+String get kPastSchoolYears => tr('Anni scolastici passati', 'Past school years');
+String get kNoStudents => tr('Nessuno studente registrato', 'No students recorded');
+String get kNoSchoolYears => tr('Nessun anno scolastico registrato.', 'No school years recorded.');
 
-const String kSchoolYearLabel = 'Anno scolastico';
-const String kSchoolLabel = 'Scuola';
-const String kProgrammeLabel = 'Percorso';
-const String kClassLabel = 'Classe';
-const String kRepeatingLabel = 'Ripetente';
+String get kSchoolYearLabel => tr('Anno scolastico', 'School year');
+String get kSchoolLabel => tr('Scuola', 'School');
+String get kProgrammeLabel => tr('Percorso', 'Programme');
+String get kClassLabel => tr('Classe', 'Class');
+String get kRepeatingLabel => tr('Ripetente', 'Repeating the year');
 
-const String kOtherInformationTitle = 'Altre informazioni';
+String get kOtherInformationTitle => tr('Altre informazioni', 'Other information');
 
-const String kEditLabel = 'MODIFICA';
+String get kEditLabel => tr('MODIFICA', 'EDIT');
 
-const String kCertificationsSaved = 'Certificazioni aggiornate con successo!';
-const String kOtherRequired = 'Specificare il tipo';
-const String kDsaRequired = 'Specificare il disturbo';
-const String kFormErrors = 'Ci sono errori nei dati inseriti. Correggi i campi.';
+String get kCertificationsSaved => tr('Certificazioni aggiornate con successo!', 'Certifications updated!');
+String get kOtherRequired => tr('Specificare il tipo', 'Specify the type');
+String get kDsaRequired => tr('Specificare il disturbo', 'Specify the disorder');
+String get kFormErrors => tr('Ci sono errori nei dati inseriti. Correggi i campi.', 'There are errors in the data entered. Correct the fields.');
 
-const String kLoadFailed = 'Impossibile caricare le anagrafiche dal server.';
+String get kLoadFailed => tr('Impossibile caricare le anagrafiche dal server.', "Couldn't load the personal details from the server.");

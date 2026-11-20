@@ -9,6 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.member import PaymentMethodEnum
+from app.models.person import GenderEnum
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.student_hours import StudentConfirmedHours
 from app.models.student_payment import (
@@ -19,6 +20,7 @@ from app.models.student_payment import (
 )
 from app.models.student_tariff import StudentTariff, TariffKindEnum
 from app.models.study_program import EducationLevelEnum, StudyProgram
+from app.repositories.person_repository import PersonRepository
 from app.schemas.student_payments import (
     AheadData,
     PaymentData,
@@ -27,6 +29,7 @@ from app.schemas.student_payments import (
     StudentTariffData,
     TariffChangeData,
 )
+from app.services.bilingual import Bilingual
 from app.services.enrollment_spans import EnrolledSpan, enrolled_days, enrolled_spans
 from app.services.opening_state import (
     PupilStart,
@@ -53,34 +56,93 @@ _SCHOOL_YEAR_FIRST_MONTH: Final[int] = 9
 
 _SCHOOL_YEAR_MONTHS: Final[int] = 10
 
-_KIND_DISABLED_ERROR: Final[str] = (
-    "Questa tariffa è disattivata per il livello dello studente."
+_KIND_DISABLED_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Questa tariffa è disattivata per il livello dello studente.",
+        "This rate is turned off for the student's level.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Questa tariffa è disattivata per il livello della studentessa.",
+        "This rate is turned off for the student's level.",
+    ),
+}
+_PACKAGE_HOURS_ERROR: Final[Bilingual] = Bilingual(
+    "Le ore si indicano solo per il pacchetto.",
+    "Hours are given only for the package.",
 )
-_PACKAGE_HOURS_ERROR: Final[str] = "Le ore si indicano solo per il pacchetto."
-_NO_TARIFF_ERROR: Final[str] = "Lo studente non ha una tariffa."
-_ALREADY_RENEWED_ERROR: Final[str] = "Il rinnovo è già fatto."
-_ALREADY_CHANGED_ERROR: Final[str] = "La tariffa è già cambiata."
-_HOURLY_NOT_RENEWED_ERROR: Final[str] = "La tariffa a ore non si rinnova."
-_SAME_KIND_ERROR: Final[str] = "È già la tariffa attuale."
-_MONTH_PAID_ERROR: Final[str] = "La quota di questo mese è già pagata."
-_DAY_REQUIRED_ERROR: Final[str] = "Manca il giorno."
-_DAY_TOO_EARLY_ERROR: Final[str] = (
-    "Il giorno è prima dell'inizio della tariffa attuale."
+_NO_TARIFF_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Lo studente non ha una tariffa.",
+        "The student has no rate.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La studentessa non ha una tariffa.",
+        "The student has no rate.",
+    ),
+}
+_ALREADY_RENEWED_ERROR: Final[Bilingual] = Bilingual(
+    "Il rinnovo è già fatto.",
+    "The renewal is already done.",
 )
-_PAYMENT_REQUIRED_ERROR: Final[str] = "Manca il pagamento."
-_PAID_IN_FUTURE_ERROR: Final[str] = "La data del pagamento è nel futuro."
-_NOTHING_TO_SETTLE_ERROR: Final[str] = "Non ci sono ore da saldare."
-_LINE_CHANGED_ERROR: Final[str] = (
-    "Le ore da saldare sono cambiate: chiudi la finestra e riaprila."
+_ALREADY_CHANGED_ERROR: Final[Bilingual] = Bilingual(
+    "La tariffa è già cambiata.",
+    "The rate has already changed.",
 )
-_AHEAD_HOURLY_ONLY_ERROR: Final[str] = (
-    "Le ore in anticipo si pagano solo con la tariffa a ore."
+_HOURLY_NOT_RENEWED_ERROR: Final[Bilingual] = Bilingual(
+    "La tariffa a ore non si rinnova.",
+    "The hourly rate is not renewed.",
 )
-_PAYMENT_NOT_FOUND_ERROR: Final[str] = "Pagamento non trovato."
-_DAY_IN_FUTURE_ERROR: Final[str] = "Il giorno è nel futuro."
-_DAY_TOO_FAR_ERROR: Final[str] = "Il giorno è troppo lontano."
-_BEFORE_ACCOUNTS_ERROR: Final[str] = (
-    "Il giorno è prima dell'inizio della contabilità."
+_SAME_KIND_ERROR: Final[Bilingual] = Bilingual(
+    "È già la tariffa attuale.",
+    "It is already the current rate.",
+)
+_MONTH_PAID_ERROR: Final[Bilingual] = Bilingual(
+    "La quota di questo mese è già pagata.",
+    "This month's fee is already paid.",
+)
+_DAY_REQUIRED_ERROR: Final[Bilingual] = Bilingual(
+    "Manca il giorno.",
+    "The day is missing.",
+)
+_DAY_TOO_EARLY_ERROR: Final[Bilingual] = Bilingual(
+    "Il giorno è prima dell'inizio della tariffa attuale.",
+    "The day is before the current rate starts.",
+)
+_PAYMENT_REQUIRED_ERROR: Final[Bilingual] = Bilingual(
+    "Manca il pagamento.",
+    "The payment is missing.",
+)
+_PAID_IN_FUTURE_ERROR: Final[Bilingual] = Bilingual(
+    "La data del pagamento è nel futuro.",
+    "The payment date is in the future.",
+)
+_NOTHING_TO_SETTLE_ERROR: Final[Bilingual] = Bilingual(
+    "Non ci sono ore da saldare.",
+    "There are no hours to settle.",
+)
+_LINE_CHANGED_ERROR: Final[Bilingual] = Bilingual(
+    "Le ore da saldare sono cambiate: chiudi la finestra e riaprila.",
+    "The hours to settle have changed: close the window and open it again.",
+)
+_AHEAD_HOURLY_ONLY_ERROR: Final[Bilingual] = Bilingual(
+    "Le ore in anticipo si pagano solo con la tariffa a ore.",
+    "Hours in advance can be paid only with the hourly rate.",
+)
+_PAYMENT_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Pagamento non trovato.",
+    "Payment not found.",
+)
+_DAY_IN_FUTURE_ERROR: Final[Bilingual] = Bilingual(
+    "Il giorno è nel futuro.",
+    "The day is in the future.",
+)
+_DAY_TOO_FAR_ERROR: Final[Bilingual] = Bilingual(
+    "Il giorno è troppo lontano.",
+    "The day is too far away.",
+)
+_BEFORE_ACCOUNTS_ERROR: Final[Bilingual] = Bilingual(
+    "Il giorno è prima dell'inizio della contabilità.",
+    "The day is before the accounting starts.",
 )
 
 # A change waiting to start cannot be taken back: a mistyped year would hold the
@@ -1546,6 +1608,12 @@ def _conflict(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
 
+async def _kind_disabled(db: AsyncSession, tax_code: str) -> HTTPException:
+    gender = await PersonRepository(db).gender(tax_code)
+
+    return _bad_request(_KIND_DISABLED_ERRORS[gender].for_request())
+
+
 def _payment(
     tax_code: str,
     data: PaymentData,
@@ -1553,7 +1621,7 @@ def _payment(
     **fields: object,
 ) -> StudentPayment:
     if data.paid_on > today:
-        raise _bad_request(_PAID_IN_FUTURE_ERROR)
+        raise _bad_request(_PAID_IN_FUTURE_ERROR.for_request())
 
     return StudentPayment(
         student_tax_code=tax_code,
@@ -1572,17 +1640,19 @@ async def _running(db: AsyncSession, tax_code: str, now: datetime) -> StudentPay
     payments = await student_payment_status(db, tax_code, now)
 
     if payments.status is None:
-        raise _bad_request(_NO_TARIFF_ERROR)
+        gender = await PersonRepository(db).gender(tax_code)
+
+        raise _bad_request(_NO_TARIFF_ERRORS[gender].for_request())
 
     return payments
 
 
 def _refuse_queued(current: PaymentStatus) -> None:
     if current.queued == "CHANGE":
-        raise _conflict(_ALREADY_CHANGED_ERROR)
+        raise _conflict(_ALREADY_CHANGED_ERROR.for_request())
 
     if current.queued is not None:
-        raise _conflict(_ALREADY_RENEWED_ERROR)
+        raise _conflict(_ALREADY_RENEWED_ERROR.for_request())
 
 
 def _month_to_buy(current: PaymentStatus, today: date, next_month: bool) -> date:
@@ -1592,7 +1662,7 @@ def _month_to_buy(current: PaymentStatus, today: date, next_month: bool) -> date
         return month_after(this_month)
 
     if current.month_paid:
-        raise _bad_request(_MONTH_PAID_ERROR)
+        raise _bad_request(_MONTH_PAID_ERROR.for_request())
 
     return this_month
 
@@ -1611,12 +1681,12 @@ async def renew(
     row = current.tariff
 
     if row.kind == TariffKindEnum.HOURLY:
-        raise _bad_request(_HOURLY_NOT_RENEWED_ERROR)
+        raise _bad_request(_HOURLY_NOT_RENEWED_ERROR.for_request())
 
     package = row.kind == TariffKindEnum.PACKAGE
 
     if package != (data.package_hours is not None):
-        raise _bad_request(_PACKAGE_HOURS_ERROR)
+        raise _bad_request(_PACKAGE_HOURS_ERROR.for_request())
 
     if package:
         payment = _payment(
@@ -1673,16 +1743,16 @@ def _starts_on(
         return max(today, row.starts_on), None
 
     if data.starts_on is None:
-        raise _bad_request(_DAY_REQUIRED_ERROR)
+        raise _bad_request(_DAY_REQUIRED_ERROR.for_request())
 
     if data.starts_on < current.started_on:
-        raise _bad_request(_DAY_TOO_EARLY_ERROR)
+        raise _bad_request(_DAY_TOO_EARLY_ERROR.for_request())
 
     if accounts_from is not None and data.starts_on < accounts_from:
-        raise _bad_request(_BEFORE_ACCOUNTS_ERROR)
+        raise _bad_request(_BEFORE_ACCOUNTS_ERROR.for_request())
 
     if data.starts_on > today + _LONGEST_WAIT:
-        raise _bad_request(_DAY_TOO_FAR_ERROR)
+        raise _bad_request(_DAY_TOO_FAR_ERROR.for_request())
 
     return data.starts_on, None
 
@@ -1696,12 +1766,12 @@ async def _first_tariff(
     today: date,
 ) -> StudentTariff:
     if data.kind not in enabled_kinds(await standard_tariff(db, level)):
-        raise _bad_request(_KIND_DISABLED_ERROR)
+        raise await _kind_disabled(db, tax_code)
 
     starts_on = data.starts_on or today
 
     if starts_on > today:
-        raise _bad_request(_DAY_IN_FUTURE_ERROR)
+        raise _bad_request(_DAY_IN_FUTURE_ERROR.for_request())
 
     tariff = StudentTariff(
         student_tax_code=tax_code,
@@ -1737,16 +1807,16 @@ async def change_tariff(
     standard = await standard_tariff(db, payments.level)
 
     if data.kind != row.kind and data.kind not in enabled_kinds(standard):
-        raise _bad_request(_KIND_DISABLED_ERROR)
+        raise await _kind_disabled(db, tax_code)
 
     if data.kind == row.kind and data.kind != TariffKindEnum.HOURLY:
-        raise _bad_request(_SAME_KIND_ERROR)
+        raise _bad_request(_SAME_KIND_ERROR.for_request())
 
     starts_on, month = _starts_on(current, data, today, await money_from(db))
     paid = data.kind != TariffKindEnum.HOURLY
 
     if paid and data.payment is None:
-        raise _bad_request(_PAYMENT_REQUIRED_ERROR)
+        raise _bad_request(_PAYMENT_REQUIRED_ERROR.for_request())
 
     tariff = StudentTariff(
         student_tax_code=tax_code,
@@ -1793,10 +1863,10 @@ async def settle(
     line = current.line(data.hours_kind)
 
     if line is None or line.minutes == 0:
-        raise _bad_request(_NOTHING_TO_SETTLE_ERROR)
+        raise _bad_request(_NOTHING_TO_SETTLE_ERROR.for_request())
 
     if data.expected_minutes is not None and data.expected_minutes != line.minutes:
-        raise _conflict(_LINE_CHANGED_ERROR)
+        raise _conflict(_LINE_CHANGED_ERROR.for_request())
 
     weekend = data.hours_kind == HoursKindEnum.WEEKEND_ONLINE
     rate = payments.rates.weekend_online_cents if weekend else data.cents_per_hour
@@ -1847,10 +1917,10 @@ async def pay_ahead(
     row = current.tariff
 
     if row.kind != TariffKindEnum.HOURLY:
-        raise _bad_request(_AHEAD_HOURLY_ONLY_ERROR)
+        raise _bad_request(_AHEAD_HOURLY_ONLY_ERROR.for_request())
 
     if current.queued == "CHANGE":
-        raise _conflict(_ALREADY_CHANGED_ERROR)
+        raise _conflict(_ALREADY_CHANGED_ERROR.for_request())
 
     payment = _payment(
         tax_code,
@@ -1875,7 +1945,7 @@ async def cancel_payment(db: AsyncSession, tax_code: str, payment_id: int) -> No
     if payment is None or payment.student_tax_code != tax_code:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PAYMENT_NOT_FOUND_ERROR,
+            detail=_PAYMENT_NOT_FOUND_ERROR.for_request(),
         )
 
     await db.execute(
@@ -1925,8 +1995,9 @@ async def first_tariffs(
             select(StudyProgram.level).where(StudyProgram.id == study_program_id),
         )
 
+        # The pupil is not named here, so the sentence stays masculine.
         if tariff.kind not in enabled_kinds(await standard_tariff(db, level)):
-            raise _bad_request(_KIND_DISABLED_ERROR)
+            raise _bad_request(_KIND_DISABLED_ERRORS[GenderEnum.M].for_request())
 
     return [
         StudentTariff(

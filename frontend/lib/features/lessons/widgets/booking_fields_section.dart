@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../association/models/ministry_subject_item.dart';
+import '../utils/booking_wizard_strings.dart' show kSingleDisciplineLabel;
 
 const int kLongestBookingMinutes = 300;
 
@@ -24,15 +26,15 @@ class BookingTagOption
   const BookingTagOption(this.value, this.label);
 }
 
-const List<BookingTagOption> bookingTagOptions = <BookingTagOption>[
-  BookingTagOption('STUDY', 'Studio'),
-  BookingTagOption('HOMEWORK', 'Compiti'),
-  BookingTagOption('ORAL_TEST', 'Preparazione interrogazione'),
-  BookingTagOption('WRITTEN_TEST', 'Preparazione verifica'),
-  BookingTagOption('ENRICHMENT', 'Potenziamento'),
-  BookingTagOption('OUTLINES', 'Schemi'),
-  BookingTagOption('EXAM_PREPARATION', 'Preparazione esami'),
-  BookingTagOption('CERTIFICATION', 'Preparazione certificazione'),
+List<BookingTagOption> get bookingTagOptions => <BookingTagOption>[
+  BookingTagOption('STUDY', tr('Studio', 'Study')),
+  BookingTagOption('HOMEWORK', tr('Compiti', 'Homework')),
+  BookingTagOption('ORAL_TEST', tr('Preparazione interrogazione', 'Oral test preparation')),
+  BookingTagOption('WRITTEN_TEST', tr('Preparazione verifica', 'Written test preparation')),
+  BookingTagOption('ENRICHMENT', tr('Potenziamento', 'Enrichment')),
+  BookingTagOption('OUTLINES', tr('Schemi', 'Outlines')),
+  BookingTagOption('EXAM_PREPARATION', tr('Preparazione esami', 'Exam preparation')),
+  BookingTagOption('CERTIFICATION', tr('Preparazione certificazione', 'Certification preparation')),
 ];
 
 // Labels in option order, not press order; unknown values are left out.
@@ -96,16 +98,19 @@ class BookingFieldsSection extends StatelessWidget
       children: [
         if (ministrySubjects.isEmpty)
           Text(
-            'Nessuna materia ministeriale disponibile per il percorso di studi dello studente.',
+            tr(
+              'Nessuna materia ministeriale disponibile per il percorso di studi dello studente.',
+              "No curriculum subjects available for the student's study programme.",
+            ),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               color: AppTheme.trialMutedText,
               fontStyle: FontStyle.italic,
             ),
           ),
-        _buildFieldLabel('Materia ministeriale', first: true),
+        _buildFieldLabel(tr('Materia ministeriale', 'Curriculum subject'), first: true),
         AppDropdownField<int?>(
-          hint: 'Seleziona una materia',
+          hint: tr('Seleziona una materia', 'Select a subject'),
           options: ministrySubjects
               .map((subject) => AppDropdownOption<int?>(value: subject.id, label: subject.name))
               .toList(),
@@ -122,10 +127,10 @@ class BookingFieldsSection extends StatelessWidget
           },
         ),
         if (selectedMinistrySubject != null) ...[
-          _buildFieldLabel('Discipline interne'),
+          _buildFieldLabel(tr('Discipline interne', 'Internal disciplines')),
           if (selectedMinistrySubject.associationSubjects.isEmpty)
             Text(
-              'Nessuna disciplina interna collegata a questa materia.',
+              tr('Nessuna disciplina interna collegata a questa materia.', 'No internal disciplines linked to this subject.'),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 color: AppTheme.trialMutedText,
@@ -134,7 +139,7 @@ class BookingFieldsSection extends StatelessWidget
             )
           else if (selectedMinistrySubject.associationSubjects.length == 1)
             Text(
-              'Disciplina: ${selectedMinistrySubject.associationSubjects.single.name}',
+              '$kSingleDisciplineLabel${selectedMinistrySubject.associationSubjects.single.name}',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -169,7 +174,7 @@ class BookingFieldsSection extends StatelessWidget
               }).toList(),
             ),
         ],
-        _buildFieldLabel('Durata'),
+        _buildFieldLabel(tr('Durata', 'Duration')),
         Wrap(
           spacing: 10,
           runSpacing: 10,

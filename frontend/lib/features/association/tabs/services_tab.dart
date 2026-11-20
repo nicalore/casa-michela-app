@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
@@ -84,20 +85,20 @@ class _ServicesTabState extends State<ServicesTab>
       header: entityTabHeader(
         searchController: _searchController,
         onSearchChanged: (value) => setState(() => _searchText = value),
-        searchHint: 'Cerca servizio...',
-        actionLabel: 'NUOVO SERVIZIO',
+        searchHint: tr('Cerca servizio...', 'Search services...'),
+        actionLabel: tr('NUOVO SERVIZIO', 'NEW SERVICE'),
         onAction: () => _showWizard(),
         sort: _sortBy,
         onSortChanged: (value) => setState(() => _sortBy = value),
         countLabel: services.length == 1
-            ? '1 servizio trovato'
-            : '${services.length} servizi trovati',
+            ? tr('1 servizio trovato', '1 service found')
+            : tr('${services.length} servizi trovati', '${services.length} services found'),
       ),
       empty: emptyListCard(
         shown: services.length,
         total: widget.services.length,
         icon: Icons.handshake_rounded,
-        none: 'Nessun servizio registrato',
+        none: tr('Nessun servizio registrato', 'No services recorded'),
       ),
       body: EntityCardGrid(
         children: services.map((service)
@@ -184,7 +185,7 @@ class _ServiceWizardDialogState extends State<_ServiceWizardDialog>
 
     if (name.isEmpty)
     {
-      showError('Il nome non può essere vuoto.');
+      showError(tr('Il nome non può essere vuoto.', 'The name cannot be empty.'));
 
       return;
     }
@@ -198,14 +199,14 @@ class _ServiceWizardDialogState extends State<_ServiceWizardDialog>
   Widget build(BuildContext context)
   {
     return buildSingleStepDialog(
-      eyebrow: 'Servizio',
-      title: isEditing ? 'Modifica servizio' : 'Nuovo servizio',
+      eyebrow: tr('Servizio', 'Service'),
+      title: isEditing ? tr('Modifica servizio', 'Edit service') : tr('Nuovo servizio', 'New service'),
       onSubmit: _save,
       fields: [
         AppTextField(
           controller: _nameController,
-          label: 'Nome',
-          hintText: 'Es. Metodo di studio',
+          label: tr('Nome', 'Name'),
+          hintText: tr('Es. Metodo di studio', 'E.g. Study method'),
           maxLength: FieldLimits.name,
           textCapitalization: TextCapitalization.sentences,
           nothingAbove: true,

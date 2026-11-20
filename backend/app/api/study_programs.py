@@ -11,6 +11,7 @@ from sqlalchemy.sql.base import ExecutableOption
 from app.api.dependencies import DbSession
 from app.api.queries import select_parents_left_without_children
 from app.api.rbac import get_current_identity, require_role
+from app.core.i18n import tr
 from app.models.ministry_subject import MinistrySubject
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
@@ -33,46 +34,72 @@ router = APIRouter(
     dependencies=[Depends(get_current_identity)],
 )
 
-_PROGRAM_NOT_FOUND_ERROR: Final[str] = "Indirizzo di studio non trovato."
-_NO_MINISTRY_SUBJECTS_ERROR: Final[str] = "Seleziona almeno una materia ministeriale."
-_MISSING_MINISTRY_SUBJECTS_ERROR: Final[str] = (
-    "Alcune materie ministeriali selezionate non esistono."
+_PROGRAM_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Indirizzo di studio non trovato.",
+    "Course of study not found.",
 )
-_LEVEL_MISMATCH_ERROR: Final[str] = (
-    "Tutte le materie ministeriali devono avere lo stesso livello del percorso."
+_NO_MINISTRY_SUBJECTS_ERROR: Final[tuple[str, str]] = (
+    "Seleziona almeno una materia ministeriale.",
+    "Select at least one curriculum subject.",
 )
-_DUPLICATE_PROGRAM_ERROR: Final[str] = (
+_MISSING_MINISTRY_SUBJECTS_ERROR: Final[tuple[str, str]] = (
+    "Alcune materie ministeriali selezionate non esistono.",
+    "Some of the selected curriculum subjects don't exist.",
+)
+_LEVEL_MISMATCH_ERROR: Final[tuple[str, str]] = (
+    "Tutte le materie ministeriali devono avere lo stesso livello del percorso.",
+    "All curriculum subjects must have the same level as the programme.",
+)
+_DUPLICATE_PROGRAM_ERROR: Final[tuple[str, str]] = (
     "Esiste già un percorso di studio con questo nome, livello, settore e "
-    "articolazione."
+    "articolazione.",
+    "A study programme with this name, level, sector and track already exists.",
 )
-_CREATE_ERROR: Final[str] = "Dati non validi (es. intervallo anni)."
-_UPDATE_ERROR: Final[str] = (
-    "Dati non validi o anni non coerenti per il livello selezionato."
+_CREATE_ERROR: Final[tuple[str, str]] = (
+    "Dati non validi (es. intervallo anni).",
+    "Invalid data (e.g. range of years).",
 )
-_STRANDED_ENROLLMENT_ERROR: Final[str] = (
+_UPDATE_ERROR: Final[tuple[str, str]] = (
+    "Dati non validi o anni non coerenti per il livello selezionato.",
+    "Invalid data, or years that don't fit the selected level.",
+)
+_STRANDED_ENROLLMENT_ERROR: Final[tuple[str, str]] = (
     "Impossibile modificare gli anni: il percorso ha studenti iscritti in classi "
-    "fuori dai nuovi anni."
+    "fuori dai nuovi anni.",
+    "Can't change the years: the programme has students enrolled in classes outside "
+    "the new years.",
 )
-_ATTENDED_PROGRAM_ERROR: Final[str] = (
-    "Impossibile eliminare il percorso di studi: è frequentato (o lo è stato) "
-    "da uno o più studenti."
+_ATTENDED_PROGRAM_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare il percorso di studi: è frequentato (o lo è stato) da uno "
+    "o più studenti.",
+    "Can't delete the study programme: one or more students attend it (or have "
+    "attended it).",
 )
-_ORPHAN_SCHOOL_ERROR: Final[str] = (
-    "Impossibile eliminare il percorso di studi: una o più scuole rimarrebbero "
-    "senza percorsi."
+_ORPHAN_SCHOOL_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare il percorso di studi: una o più scuole rimarrebbero senza "
+    "percorsi.",
+    "Can't delete the study programme: one or more schools would be left without "
+    "programmes.",
 )
-_ORPHAN_TEACHER_ERROR: Final[str] = (
-    "Impossibile eliminare il percorso di studi: uno o più docenti rimarrebbero "
-    "senza competenze associate."
+_ORPHAN_TEACHER_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare il percorso di studi: uno o più docenti rimarrebbero senza "
+    "competenze associate.",
+    "Can't delete the study programme: one or more teachers would be left with "
+    "nothing to teach.",
 )
-_ORPHAN_TEACHER_UPDATE_ERROR: Final[str] = (
-    "Impossibile salvare: un docente rimarrebbe senza competenze."
+_ORPHAN_TEACHER_UPDATE_ERROR: Final[tuple[str, str]] = (
+    "Impossibile salvare: un docente rimarrebbe senza competenze.",
+    "Can't save: a teacher would be left with nothing to teach.",
 )
-_DELETE_CONSTRAINT_ERROR: Final[str] = (
+_DELETE_CONSTRAINT_ERROR: Final[tuple[str, str]] = (
     "Impossibile eliminare il percorso di studi in quanto protetto da vincoli "
-    "referenziali."
+    "referenziali.",
+    "Can't delete the study programme because other data refers to it.",
 )
-_DELETE_SUCCESS_DETAIL: Final[str] = "Indirizzo di studio eliminato."
+_DELETE_SUCCESS_DETAIL: Final[tuple[str, str]] = (
+    "Indirizzo di studio eliminato.",
+    "Course of study deleted.",
+)
 
 
 def _subjects_load_option() -> ExecutableOption:
@@ -110,7 +137,7 @@ async def _get_program_or_404(
     if program is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PROGRAM_NOT_FOUND_ERROR,
+            detail=tr(*_PROGRAM_NOT_FOUND_ERROR),
         )
 
     return program
@@ -135,7 +162,7 @@ async def _assert_name_available(
     if (await db.execute(stmt)).scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DUPLICATE_PROGRAM_ERROR,
+            detail=tr(*_DUPLICATE_PROGRAM_ERROR),
         )
 
 
@@ -157,7 +184,7 @@ async def _assert_no_enrollment_outside(
     if (await db.execute(stmt)).scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_STRANDED_ENROLLMENT_ERROR,
+            detail=tr(*_STRANDED_ENROLLMENT_ERROR),
         )
 
 
@@ -174,13 +201,13 @@ async def _load_ministry_subjects(
     if len(subjects) != len(ministry_subject_ids):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_MISSING_MINISTRY_SUBJECTS_ERROR,
+            detail=tr(*_MISSING_MINISTRY_SUBJECTS_ERROR),
         )
 
     if any(subject.level != level for subject in subjects):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_LEVEL_MISMATCH_ERROR,
+            detail=tr(*_LEVEL_MISMATCH_ERROR),
         )
 
     return subjects
@@ -210,7 +237,7 @@ async def create_study_program(
     if not payload.ministry_subject_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_MINISTRY_SUBJECTS_ERROR,
+            detail=tr(*_NO_MINISTRY_SUBJECTS_ERROR),
         )
 
     min_year, max_year = payload.years
@@ -248,7 +275,7 @@ async def create_study_program(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_CREATE_ERROR,
+            detail=tr(*_CREATE_ERROR),
         ) from err
 
     return await _load_program_with_subjects(db, new_program.id)
@@ -267,7 +294,7 @@ async def update_study_program(
     if not payload.ministry_subject_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_MINISTRY_SUBJECTS_ERROR,
+            detail=tr(*_NO_MINISTRY_SUBJECTS_ERROR),
         )
 
     program = await _get_program_or_404(db, program_id, load_subjects=True)
@@ -308,13 +335,13 @@ async def update_study_program(
     program.ministry_subjects = list(subjects)
 
     try:
-        await close_stray_competences(db, refusal=_ORPHAN_TEACHER_UPDATE_ERROR)
+        await close_stray_competences(db, refusal=tr(*_ORPHAN_TEACHER_UPDATE_ERROR))
         await db.commit()
     except IntegrityError as err:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UPDATE_ERROR,
+            detail=tr(*_UPDATE_ERROR),
         ) from err
 
     return await _load_program_with_subjects(db, program_id)
@@ -336,7 +363,7 @@ async def delete_study_program(program_id: int, db: DbSession) -> dict[str, str]
     if enrolled_students.scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ATTENDED_PROGRAM_ERROR,
+            detail=tr(*_ATTENDED_PROGRAM_ERROR),
         )
 
     orphan_schools = await db.execute(
@@ -350,7 +377,7 @@ async def delete_study_program(program_id: int, db: DbSession) -> dict[str, str]
     if orphan_schools.scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ORPHAN_SCHOOL_ERROR,
+            detail=tr(*_ORPHAN_SCHOOL_ERROR),
         )
 
     orphan_teachers = await db.execute(
@@ -360,7 +387,7 @@ async def delete_study_program(program_id: int, db: DbSession) -> dict[str, str]
     if orphan_teachers.scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ORPHAN_TEACHER_ERROR,
+            detail=tr(*_ORPHAN_TEACHER_ERROR),
         )
 
     try:
@@ -370,7 +397,7 @@ async def delete_study_program(program_id: int, db: DbSession) -> dict[str, str]
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DELETE_CONSTRAINT_ERROR,
+            detail=tr(*_DELETE_CONSTRAINT_ERROR),
         ) from err
 
-    return {"detail": _DELETE_SUCCESS_DETAIL}
+    return {"detail": tr(*_DELETE_SUCCESS_DETAIL)}

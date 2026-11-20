@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -104,7 +105,7 @@ class _DevicesTabState extends State<DevicesTab>
   {
     _askConfirmation(
       eyebrow: kSessionsEyebrow,
-      message: const [TextSpan(text: kRevokeOthersWarning)],
+      message: [TextSpan(text: kRevokeOthersWarning)],
       onConfirm: _revokeOthers,
     );
   }
@@ -120,7 +121,7 @@ class _DevicesTabState extends State<DevicesTab>
       barrierLabel: 'ConfirmSessionRevocation',
       builder: (confirmContext) => AppDialogStack(
         eyebrow: eyebrow,
-        title: 'Confermi?',
+        title: tr('Confermi?', 'Are you sure?'),
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -262,7 +263,7 @@ class _DevicesTabState extends State<DevicesTab>
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const PageHeading(kOtherSessionsHeading),
+              PageHeading(kOtherSessionsHeading),
               const SizedBox(height: kPageHeadingGap),
               _OtherSessions(
                 sessions: others,

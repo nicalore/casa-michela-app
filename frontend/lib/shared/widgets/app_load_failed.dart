@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import 'app_empty_card.dart';
@@ -22,7 +23,7 @@ class LoadFailureText
   {
     if (error != null && isConnectionFailure(error))
     {
-      return const LoadFailureText._(Icons.wifi_off_rounded, kUnreachableTitle, kUnreachableDetail);
+      return LoadFailureText._(Icons.wifi_off_rounded, kUnreachableTitle, kUnreachableDetail);
     }
 
     return LoadFailureText._(Icons.error_outline_rounded, message, null);
@@ -134,7 +135,7 @@ class _AppLoadFailedPanelState extends State<AppLoadFailedPanel> with RetryRunne
           ],
           const SizedBox(height: 20),
           AppGradientButton(
-            label: 'RIPROVA',
+            label: tr('RIPROVA', 'TRY AGAIN'),
             icon: Icons.refresh_rounded,
             busy: retrying,
             height: 44,
@@ -178,7 +179,7 @@ class _AppLoadFailedRoomState extends State<AppLoadFailedRoom> with RetryRunner
       card: AppEmptyCard(icon: text.icon, message: text.message, detail: text.detail),
       below: [
         AppGradientButton(
-          label: 'RIPROVA',
+          label: tr('RIPROVA', 'TRY AGAIN'),
           icon: Icons.refresh_rounded,
           busy: retrying,
           onPressed: runRetry,

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
@@ -60,10 +61,11 @@ import 'widgets/room_assignment_wizard.dart' show PlannedRooms, PlannedShift;
 // Set and cleared after a frame, so that nothing listening rebuilds in the middle of another build.
 final ValueNotifier<_LessonsPageState?> _host = ValueNotifier(null);
 
+// Role values as the server sends them, not display text.
 const String _teacherRoleLabel = 'Docente';
 const String _studentRoleLabel = 'Studente';
 
-const String _loadFailed = 'Non è stato possibile caricare le lezioni.';
+String get _loadFailed => tr('Non è stato possibile caricare le lezioni.', "Couldn't load the lessons.");
 
 enum _WindowPart
 {
@@ -595,7 +597,7 @@ class _LessonsPageState extends State<LessonsPage>
         }
       },
       apply: () => _availabilities = _availabilities.where((a) => !removed.contains(a.id)).toList(),
-      done: 'Disponibilità eliminata con successo!',
+      done: tr('Disponibilità eliminata con successo!', 'Availability deleted successfully!'),
       cascade: () => _refreshDay(slots.first.date),
     );
   }
@@ -757,7 +759,7 @@ class _LessonsPageState extends State<LessonsPage>
 
     if (deleted && mounted)
     {
-      CustomSnackBar.show(context: context, message: 'Richiesta eliminata con successo!', isError: false);
+      CustomSnackBar.show(context: context, message: tr('Richiesta eliminata con successo!', 'Request deleted successfully!'), isError: false);
     }
   }
 
@@ -1388,13 +1390,19 @@ class _LessonsPageState extends State<LessonsPage>
 
     final said = [
       if (gone == 1)
-        'Un\'ora è uscita dal calendario: la disponibilità o la prenotazione su '
-            'cui stava non c\'è più.',
+        tr(
+          'Un\'ora è uscita dal calendario: la disponibilità o la prenotazione su '
+              'cui stava non c\'è più.',
+          'An hour has left the calendar: the availability or booking it was on is gone.',
+        ),
       if (gone > 1)
-        '$gone ore sono uscite dal calendario: le disponibilità o le '
-            'prenotazioni su cui stavano non ci sono più.',
-      if (arrived == 1) 'È arrivata una nuova prenotazione per questa giornata.',
-      if (arrived > 1) 'Sono arrivate $arrived nuove prenotazioni per questa giornata.',
+        tr(
+          '$gone ore sono uscite dal calendario: le disponibilità o le '
+              'prenotazioni su cui stavano non ci sono più.',
+          '$gone hours have left the calendar: the availability or bookings they were on are gone.',
+        ),
+      if (arrived == 1) tr('È arrivata una nuova prenotazione per questa giornata.', 'A new booking has arrived for this day.'),
+      if (arrived > 1) tr('Sono arrivate $arrived nuove prenotazioni per questa giornata.', '$arrived new bookings have arrived for this day.'),
     ];
 
     if (said.isEmpty)
@@ -2251,7 +2259,7 @@ class _LessonsPageState extends State<LessonsPage>
         Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.trialMutedText),
         const SizedBox(width: 5),
         Text(
-          'Non modificabile',
+          tr('Non modificabile', 'Not editable'),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -2328,14 +2336,14 @@ class _LessonsPageState extends State<LessonsPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Calendario', maxLines: 1, style: lessonsHeadingStyle),
+              Text(tr('Calendario', 'Calendar'), maxLines: 1, style: lessonsHeadingStyle),
               Text(shown, maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: lessonsHeadingNoteStyle),
             ],
           )
         : Text.rich(
             TextSpan(
               children: [
-                TextSpan(text: 'Calendario', style: lessonsHeadingStyle),
+                TextSpan(text: tr('Calendario', 'Calendar'), style: lessonsHeadingStyle),
                 const WidgetSpan(alignment: PlaceholderAlignment.middle, child: SizedBox(width: 16)),
                 TextSpan(text: shown, style: lessonsHeadingNoteStyle),
               ],
@@ -2348,7 +2356,7 @@ class _LessonsPageState extends State<LessonsPage>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppBackButton(tooltip: 'Torna indietro', onTap: () => context.go(kLessonsRoute), dense: size.isDense),
+        AppBackButton(tooltip: tr('Torna indietro', 'Go back'), onTap: () => context.go(kLessonsRoute), dense: size.isDense),
         SizedBox(width: _calendarTitleGap(size)),
         Flexible(child: title),
       ],

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
@@ -66,7 +67,7 @@ const double _denseFrameTop = 2 * 5 + 2 * _hoverBorder;
 
 const IconData kSharedLessonIcon = Icons.people_alt_outlined;
 
-const String kSharedLessonLabel = 'In compresenza con un altro studente';
+String get kSharedLessonLabel => tr('In compresenza con un altro studente', 'Shared with another student');
 
 TextStyle _hoursStyle(Color accent, {bool dense = false}) => GoogleFonts.plusJakartaSans(
       fontSize: dense ? 11.5 : 12.5,

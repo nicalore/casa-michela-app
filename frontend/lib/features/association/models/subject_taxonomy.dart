@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 // Values must stay aligned with the backend enums.
 
 class SubjectArea
@@ -10,10 +11,10 @@ class SubjectArea
   const SubjectArea(this.value, this.label, this.compactLabel);
 }
 
-const List<SubjectArea> subjectAreas = <SubjectArea>[
-  SubjectArea('HUMANITIES', 'Area Umanistica', 'Umanistica'),
-  SubjectArea('LINGUISTICS', 'Area Linguistica', 'Linguistica'),
-  SubjectArea('SCIENCES', 'Area Scientifica', 'Scientifica'),
+List<SubjectArea> get subjectAreas => <SubjectArea>[
+  SubjectArea('HUMANITIES', tr('Area Umanistica', 'Humanities'), tr('Umanistica', 'Humanities')),
+  SubjectArea('LINGUISTICS', tr('Area Linguistica', 'Languages'), tr('Linguistica', 'Languages')),
+  SubjectArea('SCIENCES', tr('Area Scientifica', 'Sciences'), tr('Scientifica', 'Sciences')),
 ];
 
 List<({String title, List<T> items})> groupByArea<T>(Iterable<T> items, String Function(T item) areaOf)
@@ -58,10 +59,25 @@ class SchoolLevel
   const SchoolLevel(this.value, this.label, this.compactLabel, this.shortLabel);
 }
 
-const List<SchoolLevel> schoolLevels = <SchoolLevel>[
-  SchoolLevel('PRIMARY_SCHOOL', 'Scuola Primaria', 'Primaria', 'Primaria'),
-  SchoolLevel('MIDDLE_SCHOOL', 'Scuola Secondaria di I Grado', 'Secondaria di I Grado', 'Secondaria I Grado'),
-  SchoolLevel('HIGH_SCHOOL', 'Scuola Secondaria di II Grado', 'Secondaria di II Grado', 'Secondaria II Grado'),
+List<SchoolLevel> get schoolLevels => <SchoolLevel>[
+  SchoolLevel(
+    'PRIMARY_SCHOOL',
+    tr('Scuola Primaria', 'Primary school'),
+    tr('Primaria', 'Primary school'),
+    tr('Primaria', 'Primary'),
+  ),
+  SchoolLevel(
+    'MIDDLE_SCHOOL',
+    tr('Scuola Secondaria di I Grado', 'Lower secondary school'),
+    tr('Secondaria di I Grado', 'Lower secondary'),
+    tr('Secondaria I Grado', 'Lower secondary'),
+  ),
+  SchoolLevel(
+    'HIGH_SCHOOL',
+    tr('Scuola Secondaria di II Grado', 'Upper secondary school'),
+    tr('Secondaria di II Grado', 'Upper secondary'),
+    tr('Secondaria II Grado', 'Upper secondary'),
+  ),
 ];
 
 String schoolLevelLabel(String value)
@@ -113,10 +129,10 @@ class HighSchoolTrack
   bool get hasFixedYears => minYear != null;
 }
 
-const List<HighSchoolTrack> highSchoolTracks = <HighSchoolTrack>[
-  HighSchoolTrack('BIENNIO', 'Biennio', 1, 2),
-  HighSchoolTrack('TRIENNIO', 'Triennio', 3, 5),
-  HighSchoolTrack('OTHER', 'Altro'),
+List<HighSchoolTrack> get highSchoolTracks => <HighSchoolTrack>[
+  HighSchoolTrack('BIENNIO', tr('Biennio', 'Years 1-2'), 1, 2),
+  HighSchoolTrack('TRIENNIO', tr('Triennio', 'Years 3-5'), 3, 5),
+  HighSchoolTrack('OTHER', tr('Altro', 'Other')),
 ];
 
 HighSchoolTrack? highSchoolTrackOf(String? value)
@@ -156,7 +172,7 @@ String? highSchoolTrackShortLabel(String? track, int minYear, int maxYear)
     return null;
   }
 
-  return cycle.hasFixedYears ? cycle.label : 'Anni $minYear-$maxYear';
+  return cycle.hasFixedYears ? cycle.label : tr('Anni $minYear-$maxYear', 'Years $minYear-$maxYear');
 }
 
 // The track is in the key, or "biennio" and "triennio" of a course merge into one group.

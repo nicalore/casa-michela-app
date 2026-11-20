@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -99,7 +100,7 @@ class _LessonDetailsDialog extends StatelessWidget
   {
     if (!_byStudent)
     {
-      return (label: 'Docente', value: lesson.teacher.fullName);
+      return (label: tr('Docente', 'Teacher'), value: lesson.teacher.fullName);
     }
 
     final students = [
@@ -107,7 +108,7 @@ class _LessonDetailsDialog extends StatelessWidget
     ];
 
     return (
-      label: students.length == 1 ? 'Alunno' : 'Alunni',
+      label: students.length == 1 ? tr('Alunno', 'Pupil') : tr('Alunni', 'Pupils'),
       value: students.isEmpty ? _empty : students.join(', '),
     );
   }
@@ -119,19 +120,19 @@ class _LessonDetailsDialog extends StatelessWidget
 
     return [
       LessonVoice(
-        label: 'Orario',
+        label: tr('Orario', 'Time'),
         value: '${formatTimeRange(lesson.startTime, lesson.endTime)} · ${formatMinutes(lesson.minutes)}',
       ),
       LessonVoice(label: _theOther.label, value: _theOther.value),
-      LessonVoice(label: 'Luogo', value: _where),
-      if (disciplines != null) LessonVoice(label: 'Disciplina', value: disciplines),
-      LessonVoice(label: 'Materia', value: _perBooking((booking) => bookingSubject(booking, ministrySubjects))),
+      LessonVoice(label: tr('Luogo', 'Place'), value: _where),
+      if (disciplines != null) LessonVoice(label: tr('Disciplina', 'Discipline'), value: disciplines),
+      LessonVoice(label: tr('Materia', 'Subject'), value: _perBooking((booking) => bookingSubject(booking, ministrySubjects))),
       LessonVoice(
-        label: 'Tipo di lezione',
+        label: tr('Tipo di lezione', 'Lesson type'),
         value: _perBooking((booking) => bookingTagLabels(booking.tags).join(', ')),
       ),
-      LessonVoice(label: 'Argomento', value: _perBooking((booking) => booking.topic ?? '')),
-      LessonVoice(label: 'Note per il docente', value: _perBooking((booking) => booking.notes ?? '')),
+      LessonVoice(label: tr('Argomento', 'Topic'), value: _perBooking((booking) => booking.topic ?? '')),
+      LessonVoice(label: tr('Note per il docente', 'Notes for the teacher'), value: _perBooking((booking) => booking.notes ?? '')),
     ];
   }
 
@@ -143,7 +144,7 @@ class _LessonDetailsDialog extends StatelessWidget
     final open = onOpenPerson;
 
     return AppDialogStack(
-      eyebrow: 'Lezione',
+      eyebrow: tr('Lezione', 'Lesson'),
       title: lessonTitle(lesson, view: view),
       leading: face == null ? null : PersonAvatar(person: face, size: PersonAvatar.titleSize),
       onTitleTap: face == null || open == null

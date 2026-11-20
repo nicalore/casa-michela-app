@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import DbSession
 from app.api.rbac import get_current_identity, require_role
+from app.core.i18n import tr
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
@@ -21,22 +22,35 @@ router = APIRouter(
     dependencies=[Depends(get_current_identity)],
 )
 
-_SCHOOL_NOT_FOUND_ERROR: Final[str] = "Scuola non trovata."
-_DUPLICATE_SCHOOL_ERROR: Final[str] = 'Esiste già una scuola "{name}" a {city}.'
-_CREATE_INTEGRITY_ERROR: Final[str] = (
-    "Errore di integrità durante la creazione della scuola."
+_SCHOOL_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Scuola non trovata.",
+    "School not found.",
 )
-_UPDATE_INTEGRITY_ERROR: Final[str] = (
-    "Errore di integrità durante l'aggiornamento della scuola."
+_DUPLICATE_SCHOOL_ERROR: Final[tuple[str, str]] = (
+    'Esiste già una scuola "{name}" a {city}.',
+    "A school “{name}” already exists in {city}.",
 )
-_ATTENDED_PROGRAM_ERROR: Final[str] = (
+_CREATE_INTEGRITY_ERROR: Final[tuple[str, str]] = (
+    "Errore di integrità durante la creazione della scuola.",
+    "Integrity error while creating the school.",
+)
+_UPDATE_INTEGRITY_ERROR: Final[tuple[str, str]] = (
+    "Errore di integrità durante l'aggiornamento della scuola.",
+    "Integrity error while updating the school.",
+)
+_ATTENDED_PROGRAM_ERROR: Final[tuple[str, str]] = (
     "Impossibile rimuovere percorsi di studio attualmente o precedentemente "
-    "frequentati da studenti."
+    "frequentati da studenti.",
+    "Can't remove study programmes that students attend or have attended.",
 )
-_DELETE_CONSTRAINT_ERROR: Final[str] = (
-    "Impossibile eliminare la scuola perché ci sono studenti iscritti."
+_DELETE_CONSTRAINT_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare la scuola perché ci sono studenti iscritti.",
+    "Can't delete the school because students are enrolled in it.",
 )
-_DELETE_SUCCESS_DETAIL: Final[str] = "Scuola eliminata"
+_DELETE_SUCCESS_DETAIL: Final[tuple[str, str]] = (
+    "Scuola eliminata",
+    "School deleted",
+)
 
 
 async def _load_school_with_programs(
@@ -68,7 +82,7 @@ async def _get_school_or_404(
     if school is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_SCHOOL_NOT_FOUND_ERROR,
+            detail=tr(*_SCHOOL_NOT_FOUND_ERROR),
         )
 
     return school
@@ -90,7 +104,7 @@ async def _assert_name_available(
     if (await db.execute(stmt)).scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_DUPLICATE_SCHOOL_ERROR.format(name=name, city=city),
+            detail=tr(*_DUPLICATE_SCHOOL_ERROR).format(name=name, city=city),
         )
 
 
@@ -107,7 +121,7 @@ async def _assert_programs_not_attended(
     if (await db.execute(stmt)).scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ATTENDED_PROGRAM_ERROR,
+            detail=tr(*_ATTENDED_PROGRAM_ERROR),
         )
 
 
@@ -154,7 +168,7 @@ async def create_school(payload: SchoolCreate, db: DbSession) -> School | None:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_CREATE_INTEGRITY_ERROR,
+            detail=tr(*_CREATE_INTEGRITY_ERROR),
         ) from err
 
     return await _load_school_with_programs(db, school_id)
@@ -213,7 +227,7 @@ async def update_school(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_UPDATE_INTEGRITY_ERROR,
+            detail=tr(*_UPDATE_INTEGRITY_ERROR),
         ) from err
 
     return await _load_school_with_programs(db, school_id)
@@ -233,7 +247,7 @@ async def delete_school(school_id: int, db: DbSession) -> dict[str, str]:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DELETE_CONSTRAINT_ERROR,
+            detail=tr(*_DELETE_CONSTRAINT_ERROR),
         ) from err
 
-    return {"detail": _DELETE_SUCCESS_DETAIL}
+    return {"detail": tr(*_DELETE_SUCCESS_DETAIL)}

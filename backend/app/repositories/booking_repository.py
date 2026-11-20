@@ -59,7 +59,7 @@ class BookingRepository(WritableRepository[Booking]):
 
         return (await self.session.execute(stmt)).scalars().all()
 
-    # Students of the band whose requests no lesson of the day teaches.
+    # Students of the band whose requests no lesson teaches, once per booking.
     async def find_unplanned_students(
         self,
         day: date,
@@ -80,8 +80,7 @@ class BookingRepository(WritableRepository[Booking]):
                 Presence.start_time < end_time,
                 Presence.end_time > start_time,
                 ~planned,
-            )
-            .distinct(),
+            ),
         )
 
         return list(rows)

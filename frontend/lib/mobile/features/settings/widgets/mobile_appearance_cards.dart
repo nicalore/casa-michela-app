@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/theme/theme_choice.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../features/settings/utils/settings_strings.dart';
 import '../../../../services/account_colour_theme.dart';
+import '../../../../services/account_language.dart';
 import '../../../shared/widgets/mobile_choice_tile.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_notice.dart';
@@ -206,7 +208,7 @@ class _ThemeChoices extends StatelessWidget
   }
 }
 
-// The first option is the one in force, but for palettes, which name their theme.
+// Palettes and languages: the one in force is ticked.
 class _Choices extends StatelessWidget
 {
   final AppearanceSetting setting;
@@ -234,6 +236,26 @@ class _Choices extends StatelessWidget
     }
   }
 
+  Future<void> _chooseLanguage(BuildContext context, AppLanguage language) async
+  {
+    if (language == AppLanguages.current.value)
+    {
+      return;
+    }
+
+    try
+    {
+      await AccountLanguage.choose(language);
+    }
+    catch (e)
+    {
+      if (context.mounted)
+      {
+        MobileNotice.show(context, readableApiError(e), error: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -242,22 +264,23 @@ class _Choices extends StatelessWidget
     Widget tile(int i)
     {
       final ColourTheme? theme = options[i].colourTheme;
+      final AppLanguage? language = options[i].language;
 
       final Widget choice = MobileChoiceTile(
         leading: leading(options[i]),
         label: options[i].label,
-        chosen: theme == null ? i == 0 : theme == ThemeColours.current.value,
+        chosen: theme != null ? theme == ThemeColours.current.value : language == AppLanguages.current.value,
         available: options[i].available,
       );
 
-      if (theme == null)
+      if (theme == null && language == null)
       {
         return choice;
       }
 
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => _choose(context, theme),
+        onTap: () => theme != null ? _choose(context, theme) : _chooseLanguage(context, language!),
         child: choice,
       );
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
@@ -55,16 +56,18 @@ const double _denseStackBelow = 560;
 
 const double _confirmWidth = 480;
 
-const String _updatedMessage = 'Discipline aggiornate con successo!';
+String get _updatedMessage => tr('Discipline aggiornate con successo!', 'Disciplines updated successfully!');
 
 enum _SubjectSort
 {
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)');
+  nameAsc,
+  nameDesc;
 
-  final String label;
-
-  const _SubjectSort(this.label);
+  String get label => switch (this)
+  {
+    nameAsc => tr('Nome (A-Z)', 'Name (A-Z)'),
+    nameDesc => tr('Nome (Z-A)', 'Name (Z-A)'),
+  };
 }
 
 List<FilterOption<String>> _areaPillOptions()
@@ -72,7 +75,7 @@ List<FilterOption<String>> _areaPillOptions()
   return [
     for (final area in subjectAreas)
       FilterOption(value: area.value, label: area.label),
-    const FilterOption(value: kServicesFilterValue, label: 'Servizi'),
+    FilterOption(value: kServicesFilterValue, label: tr('Servizi', 'Services')),
   ];
 }
 
@@ -295,13 +298,13 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
       context: context,
       barrierLabel: 'ConfirmCompetenceRemoval',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Rimozione',
-        title: 'Confermi?',
+        eyebrow: tr('Rimozione', 'Removal'),
+        title: tr('Confermi?', 'Are you sure?'),
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -310,7 +313,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'RIMUOVI',
+            label: tr('RIMUOVI', 'REMOVE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -358,9 +361,9 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   {
     _confirmRemoval(
       warning: _warning(
-        'La disciplina ',
+        tr('La disciplina ', 'The discipline '),
         subject.subjectName,
-        ' verrà rimossa.',
+        tr(' verrà rimossa.', ' will be removed.'),
       ),
       onConfirm: () => _removeSubject(subject),
     );
@@ -369,7 +372,11 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   void _confirmRemoveService(String service)
   {
     _confirmRemoval(
-      warning: _warning('Il servizio ', service, ' verrà rimosso da quelli seguiti.'),
+      warning: _warning(
+        tr('Il servizio ', 'The service '),
+        service,
+        tr(' verrà rimosso da quelli seguiti.', ' will be removed from the services followed.'),
+      ),
       onConfirm: () => _removeService(service),
     );
   }
@@ -394,8 +401,8 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
           _CompetenceCard(
             title: subject.subjectName,
             subtitle: subject.studyPrograms.length == 1
-                ? '1 percorso'
-                : '${subject.studyPrograms.length} percorsi',
+                ? tr('1 percorso', '1 programme')
+                : tr('${subject.studyPrograms.length} percorsi', '${subject.studyPrograms.length} programmes'),
             toolsTour: index == toolsAt ? kTourSubjectsTools : null,
             onEdit: () => _openScopeDialog(subject),
             onRemove: () => _confirmRemoveSubject(subject),
@@ -403,7 +410,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
         else
           _CompetenceCard(
             title: entry.name,
-            subtitle: 'Servizio',
+            subtitle: tr('Servizio', 'Service'),
             onRemove: () => _confirmRemoveService(entry.name),
           ),
     ];
@@ -426,7 +433,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
     return DesktopTourTarget(
       id: kTourSubjectsAdd,
       child: AppGradientButton(
-        label: 'AGGIUNGI DISCIPLINE',
+        label: tr('AGGIUNGI DISCIPLINE', 'ADD DISCIPLINES'),
         icon: Icons.add_rounded,
         onPressed: _openAddDialog,
       ),
@@ -437,7 +444,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   {
     return AppSearchField(
       controller: _searchController,
-      hintText: 'Cerca disciplina o servizio...',
+      hintText: tr('Cerca disciplina o servizio...', 'Search discipline or service...'),
       onChanged: (value) => setState(() => _searchText = value),
     );
   }
@@ -446,8 +453,8 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   {
     return [
       AppFilterPill<_SubjectSort>.setting(
-        prefix: 'Ordina',
-        hint: 'Ordina',
+        prefix: tr('Ordina', 'Sort'),
+        hint: tr('Ordina', 'Sort'),
         icon: Icons.sort_rounded,
         value: _sort,
         menuWidth: 190,
@@ -457,8 +464,8 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
             .toList(),
       ),
       AppFilterPill<String>.filter(
-        prefix: 'Area',
-        hint: 'Tutte le aree',
+        prefix: tr('Area', 'Area'),
+        hint: tr('Tutte le aree', 'All areas'),
         icon: Icons.category_rounded,
         value: _filterArea,
         menuWidth: 220,
@@ -497,7 +504,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
           search: _buildSearch(),
           action: DesktopTourTarget(
             id: kTourSubjectsAdd,
-            child: tabActionButton(label: 'AGGIUNGI DISCIPLINE', onPressed: _openAddDialog),
+            child: tabActionButton(label: tr('AGGIUNGI DISCIPLINE', 'ADD DISCIPLINES'), onPressed: _openAddDialog),
           ),
         ),
         const TabHeaderGap(wide: 16, dense: 10),
@@ -518,17 +525,17 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   {
     if (_subjects.isEmpty && _services.isEmpty)
     {
-      return const AppEmptyCard(
+      return AppEmptyCard(
         icon: Icons.auto_stories_rounded,
-        message: 'Nessuna disciplina o servizio a sistema.',
+        message: tr('Nessuna disciplina o servizio a sistema.', 'No discipline or service in the system.'),
       );
     }
 
     return AppEmptyCard(
       icon: Icons.search_off_rounded,
       message: _showingOnlyServices
-          ? 'Nessun servizio trovato per questa ricerca.'
-          : 'Nessuna disciplina trovata per questa ricerca.',
+          ? tr('Nessun servizio trovato per questa ricerca.', 'No service found for this search.')
+          : tr('Nessuna disciplina trovata per questa ricerca.', 'No discipline found for this search.'),
     );
   }
 
@@ -783,7 +790,7 @@ class _SubjectsAddDialogState extends State<_SubjectsAddDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Seleziona almeno una disciplina o un servizio per salvare.',
+        message: tr('Seleziona almeno una disciplina o un servizio per salvare.', 'Select at least one discipline or service to save.'),
         isError: true,
       );
 
@@ -835,15 +842,15 @@ class _SubjectsAddDialogState extends State<_SubjectsAddDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Discipline',
-      title: 'Aggiungi discipline',
+      eyebrow: tr('Discipline', 'Disciplines'),
+      title: tr('Aggiungi discipline', 'Add disciplines'),
       maxWidth: 860,
       fillLast: true,
       footer: AppDialogFooter.single(
         DesktopTourTarget(
           id: kTourSubjectsConfirm,
           child: AppGradientButton(
-            label: 'CONFERMA',
+            label: tr('CONFERMA', 'CONFIRM'),
             icon: Icons.check_rounded,
             busy: _isSubmitting,
             height: kPersonDialogButtonHeight,

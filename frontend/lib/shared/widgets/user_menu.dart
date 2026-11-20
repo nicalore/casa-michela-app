@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_menu.dart';
 import 'app_top_nav.dart';
 import 'overflow_tooltip_text.dart';
+import 'role_switch_dialog.dart';
 
 Color get _logoutColor => AppTheme.trialDangerText;
 
@@ -27,6 +29,7 @@ class UserMenu extends StatelessWidget
 
   // Given where the bar has no room to write the role: the menu heads with it.
   final String? role;
+  final bool feminine;
 
   final bool dense;
 
@@ -42,6 +45,7 @@ class UserMenu extends StatelessWidget
     required this.onLogout,
     this.unreadReports,
     this.role,
+    this.feminine = false,
     this.dense = false,
     this.bare = false,
   });
@@ -100,7 +104,7 @@ class UserMenu extends StatelessWidget
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'SEI AUTENTICATO COME',
+            signedInAsLabel(feminine: feminine).toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
@@ -144,7 +148,7 @@ class UserMenu extends StatelessWidget
       if (canChangeRole) ...[
         AppMenuItem(
           icon: Icons.swap_horiz_rounded,
-          text: 'Cambia ruolo',
+          text: tr('Cambia ruolo', 'Switch role'),
           dense: dense,
           onTap: onChangeRole,
         ),
@@ -152,7 +156,7 @@ class UserMenu extends StatelessWidget
       ],
       AppMenuItem(
         icon: Icons.logout_rounded,
-        text: 'Logout',
+        text: tr('Logout', 'Sign out'),
         color: _logoutColor,
         dense: dense,
         onTap: onLogout,

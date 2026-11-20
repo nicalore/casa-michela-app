@@ -11,9 +11,18 @@ from app.models.person import Person
 from app.repositories.identity_repository import IdentityRepository
 from app.services import change_notices
 from app.services.change_notices import Item, Scene, Texts, Topic
-from app.services.notifications import is_reachable
+from app.services.notifications import Bilingual, is_reachable
 from app.services.push import PushBatch, joined
 from app.services.role_service import RoleService
+
+_TAP_FOR_AVAILABILITY: Final[Bilingual] = Bilingual(
+    "Tocca per visualizzare le disponibilità",
+    "Tap to view the availability",
+)
+_CLICK_FOR_AVAILABILITY: Final[Bilingual] = Bilingual(
+    "Clicca per visualizzare le disponibilità",
+    "Click to view the availability",
+)
 
 _AVAILABILITIES: Final[Topic] = Topic(
     added=NotificationKindEnum.AVAILABILITY_ADDED,
@@ -21,28 +30,46 @@ _AVAILABILITIES: Final[Topic] = Topic(
     cancelled=NotificationKindEnum.AVAILABILITY_CANCELLED,
     texts={
         NotificationKindEnum.AVAILABILITY_ADDED: Texts(
-            one="{author} ha inserito una nuova disponibilità per te",
-            many="{author} ha inserito nuove disponibilità per te",
-            body_one="Tocca per visualizzarla",
-            web_body_one="Clicca per visualizzarla",
-            body_many="Tocca per visualizzarle",
-            web_body_many="Clicca per visualizzarle",
+            one=Bilingual(
+                "{author} ha inserito una nuova disponibilità per te",
+                "{author} added new availability for you",
+            ),
+            many=Bilingual(
+                "{author} ha inserito nuove disponibilità per te",
+                "{author} added new availability for you",
+            ),
+            body_one=Bilingual("Tocca per visualizzarla", "Tap to view it"),
+            web_body_one=Bilingual("Clicca per visualizzarla", "Click to view it"),
+            body_many=Bilingual("Tocca per visualizzarle", "Tap to view it"),
+            web_body_many=Bilingual("Clicca per visualizzarle", "Click to view it"),
         ),
         NotificationKindEnum.AVAILABILITY_CHANGED: Texts(
-            one="{author} ha modificato una tua disponibilità",
-            many="{author} ha modificato alcune tue disponibilità",
-            body_one="Tocca per visualizzarla",
-            web_body_one="Clicca per visualizzarla",
-            body_many="Tocca per visualizzarle",
-            web_body_many="Clicca per visualizzarle",
+            one=Bilingual(
+                "{author} ha modificato una tua disponibilità",
+                "{author} changed some of your availability",
+            ),
+            many=Bilingual(
+                "{author} ha modificato alcune tue disponibilità",
+                "{author} changed some of your availability",
+            ),
+            body_one=Bilingual("Tocca per visualizzarla", "Tap to view it"),
+            web_body_one=Bilingual("Clicca per visualizzarla", "Click to view it"),
+            body_many=Bilingual("Tocca per visualizzarle", "Tap to view it"),
+            web_body_many=Bilingual("Clicca per visualizzarle", "Click to view it"),
         ),
         NotificationKindEnum.AVAILABILITY_CANCELLED: Texts(
-            one="{author} ha cancellato una tua disponibilità",
-            many="{author} ha cancellato alcune tue disponibilità",
-            body_one="Tocca per visualizzare le disponibilità",
-            web_body_one="Clicca per visualizzare le disponibilità",
-            body_many="Tocca per visualizzare le disponibilità",
-            web_body_many="Clicca per visualizzare le disponibilità",
+            one=Bilingual(
+                "{author} ha cancellato una tua disponibilità",
+                "{author} cancelled some of your availability",
+            ),
+            many=Bilingual(
+                "{author} ha cancellato alcune tue disponibilità",
+                "{author} cancelled some of your availability",
+            ),
+            body_one=_TAP_FOR_AVAILABILITY,
+            web_body_one=_CLICK_FOR_AVAILABILITY,
+            body_many=_TAP_FOR_AVAILABILITY,
+            web_body_many=_CLICK_FOR_AVAILABILITY,
         ),
     },
 )

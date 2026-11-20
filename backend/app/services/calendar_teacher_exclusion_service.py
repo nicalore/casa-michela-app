@@ -20,12 +20,19 @@ from app.repositories.lesson_repository import LessonRepository
 from app.schemas.calendar_teacher_exclusion import (
     CalendarTeacherExclusionCreate,
 )
+from app.services.bilingual import Bilingual
 from app.services.lesson_guard import assert_band_claimed, assert_band_editable
 from app.services.schedule_cascade import unassign
 
-_EXCLUDE_ERROR: Final[str] = "Errore durante l'esclusione del docente."
+_EXCLUDE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'esclusione del docente.",
+    "Something went wrong while excluding the teacher.",
+)
 
-_TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato"
+_TEACHER_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Docente non trovato",
+    "Teacher not found",
+)
 
 
 class CalendarTeacherExclusionService:
@@ -59,7 +66,7 @@ class CalendarTeacherExclusionService:
         if found is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_TEACHER_NOT_FOUND_ERROR,
+                detail=_TEACHER_NOT_FOUND_ERROR.for_request(),
             )
 
     async def list_for_band(
@@ -116,7 +123,7 @@ class CalendarTeacherExclusionService:
             teacher_tax_code=payload.teacher_tax_code,
         )
 
-        async with integrity_guard(self.session, _EXCLUDE_ERROR):
+        async with integrity_guard(self.session, _EXCLUDE_ERROR.for_request()):
             await self.repository.create(exclusion)
             await self.repository.commit()
             await self.repository.refresh(exclusion)

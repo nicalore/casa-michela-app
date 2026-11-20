@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import 'notice_embeds.dart';
 import 'notice_markdown.dart';
@@ -99,7 +100,7 @@ class NoticeQuillLocalizations extends StatelessWidget
   {
     return Localizations.override(
       context: context,
-      locale: const Locale('it'),
+      locale: AppLanguages.current.value.locale,
       delegates: const [FlutterQuillLocalizations.delegate],
       child: child,
     );

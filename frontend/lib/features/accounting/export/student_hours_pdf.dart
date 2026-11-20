@@ -18,7 +18,7 @@ import '../utils/opening_strings.dart' show kOpeningPending;
 
 typedef StudentHoursPdfBand = ({TimeBucket band, StudentHoursBand data});
 
-const List<AccountingGroup> _groups = [
+List<AccountingGroup> get _groups => [
   AccountingGroup(parts: [(label: kStudentColumn, width: 0)], flexible: true, leading: true),
   AccountingGroup(
     title: kLessonsGroup,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/layout/app_breakpoints.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
@@ -366,13 +367,13 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       context: context,
       barrierLabel: 'ConfirmVariationDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Eliminazione',
-        title: 'Confermi?',
+        eyebrow: tr('Eliminazione', 'Deletion'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: 480,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -381,7 +382,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
             onPressed: () => Navigator.of(confirmContext).pop(false),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -394,8 +395,14 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
           AppDialogPill(
             child: Text(
               run.isSingleDay
-                  ? 'La variazione di ${run.dateLabel.toLowerCase()} verrà eliminata e il giorno tornerà all\'orario standard.'
-                  : 'La variazione "${run.dateLabel.toLowerCase()}" verrà eliminata e i giorni torneranno all\'orario standard.',
+                  ? tr(
+                      'La variazione di ${run.dateLabel.toLowerCase()} verrà eliminata e il giorno tornerà all\'orario standard.',
+                      'The schedule change on ${run.dateLabel} will be deleted and the day will go back to the standard hours.',
+                    )
+                  : tr(
+                      'La variazione "${run.dateLabel.toLowerCase()}" verrà eliminata e i giorni torneranno all\'orario standard.',
+                      'The schedule change “${run.dateLabel}” will be deleted and the days will go back to the standard hours.',
+                    ),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -414,7 +421,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
     }
 
     // Reverting can drop a published calendar; the server refuses until confirmed.
-    final confirmation = LossConfirmation(confirmLabel: 'ELIMINA COMUNQUE');
+    final confirmation = LossConfirmation(confirmLabel: tr('ELIMINA COMUNQUE', 'DELETE ANYWAY'));
 
     try
     {
@@ -446,7 +453,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       return;
     }
 
-    CustomSnackBar.show(context: context, message: 'Variazione eliminata.', isError: false);
+    CustomSnackBar.show(context: context, message: tr('Variazione eliminata.', 'Schedule change deleted.'), isError: false);
     unawaited(
       _apiService.announceOpeningHours(dateFrom: run.start, dateTo: run.end).catchError((Object _) {}),
     );
@@ -456,7 +463,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
   Widget _buildActions()
   {
     final edit = AppGradientButton(
-      label: 'MODIFICA ORARIO',
+      label: tr('MODIFICA ORARIO', 'EDIT HOURS'),
       icon: Icons.edit_rounded,
       height: kHoursActionButtonHeight,
       fontSize: 14,
@@ -464,7 +471,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
     );
 
     final extraordinary = AppGradientButton(
-      label: 'CHIUSURA/APERTURA STRAORDINARIA',
+      label: tr('CHIUSURA/APERTURA STRAORDINARIA', 'SPECIAL CLOSING/OPENING'),
       icon: kVariationIcon,
       height: kHoursActionButtonHeight,
       fontSize: 14,

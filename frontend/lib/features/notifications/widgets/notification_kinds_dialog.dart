@@ -145,7 +145,7 @@ class _KindRowState extends State<_KindRow>
   @override
   Widget build(BuildContext context)
   {
-    final (String title, String text) = kNotificationKindLabels[widget.kind] ?? ('', '');
+    final (String title, String text) = notificationKindLabel(widget.kind) ?? ('', '');
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,

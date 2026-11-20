@@ -18,6 +18,7 @@ from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
+from app.core.i18n import tr
 from app.core.time_step import minutes_between
 from app.db.base import Base
 from app.models.constraints import (
@@ -43,18 +44,23 @@ if TYPE_CHECKING:
     from app.models.service import Service
     from app.models.subject_requested import SubjectRequested
 
-_BOOKING_DURATION_EXCEEDS_PRESENCE_ERROR: Final[str] = (
+_BOOKING_DURATION_EXCEEDS_PRESENCE_ERROR: Final[tuple[str, str]] = (
     "La somma delle durate delle prenotazioni supera la presenza dello studente in "
-    "quella fascia oraria e in quella modalità"
+    "quella fascia oraria e in quella modalità",
+    "The bookings add up to more than the student's attendance in that time slot and "
+    "mode",
 )
 
-_SUBJECTS_ON_WRONG_KIND_ERROR: Final[str] = (
-    "Una richiesta di disciplina singola o di servizio non ha materie ministeriali"
+_SUBJECTS_ON_WRONG_KIND_ERROR: Final[tuple[str, str]] = (
+    "Una richiesta di disciplina singola o di servizio non ha materie ministeriali",
+    "A request for a single discipline or a service has no curriculum subjects",
 )
 
-_MINISTRY_REQUEST_WITHOUT_SUBJECTS_ERROR: Final[str] = (
-    "Seleziona la materia ministeriale e almeno una disciplina, oppure una "
-    "disciplina singola o un servizio"
+_MINISTRY_REQUEST_WITHOUT_SUBJECTS_ERROR: Final[tuple[str, str]] = (
+    "Seleziona la materia ministeriale e almeno una disciplina, oppure una disciplina "
+    "singola o un servizio",
+    "Select the curriculum subject and at least one discipline, or a single "
+    "discipline or a service",
 )
 
 # Session info key: stretches the association's own sweeps take away.
@@ -64,9 +70,11 @@ _SWEPT_KEY: Final[str] = "swept_presence_ids"
 # mode. The same discipline under two subjects takes five hours under each.
 _MAX_DISCIPLINE_MINUTES_PER_BAND: Final[int] = 300
 
-_DISCIPLINE_OVER_BAND_LIMIT_ERROR: Final[str] = (
+_DISCIPLINE_OVER_BAND_LIMIT_ERROR: Final[tuple[str, str]] = (
     "Nella stessa fascia oraria uno studente non può superare le cinque ore "
-    "complessive sulla stessa disciplina"
+    "complessive sulla stessa disciplina",
+    "In the same time slot a student can't go over five hours in total on the same "
+    "discipline",
 )
 
 
@@ -203,10 +211,10 @@ def _validate_booking_request_kind(
         )
 
         if is_ministry_request and count == 0:
-            raise ValueError(_MINISTRY_REQUEST_WITHOUT_SUBJECTS_ERROR)
+            raise ValueError(tr(*_MINISTRY_REQUEST_WITHOUT_SUBJECTS_ERROR))
 
         if not is_ministry_request and count > 0:
-            raise ValueError(_SUBJECTS_ON_WRONG_KIND_ERROR)
+            raise ValueError(tr(*_SUBJECTS_ON_WRONG_KIND_ERROR))
 
 
 def _resolve_presence(session: Session, booking: Booking) -> Presence | None:
@@ -378,7 +386,7 @@ def _validate_booking_duration_within_presence(
                 asked[band] = asked.get(band, 0) + booking.duration
 
         if any(minutes > offered.get(band, 0) for band, minutes in asked.items()):
-            raise ValueError(_BOOKING_DURATION_EXCEEDS_PRESENCE_ERROR)
+            raise ValueError(tr(*_BOOKING_DURATION_EXCEEDS_PRESENCE_ERROR))
 
 
 def _add_minutes(
@@ -509,4 +517,4 @@ def _validate_discipline_minutes_within_day(
             for totals in minutes_by_band.values()
             for minutes in totals.values()
         ):
-            raise ValueError(_DISCIPLINE_OVER_BAND_LIMIT_ERROR)
+            raise ValueError(tr(*_DISCIPLINE_OVER_BAND_LIMIT_ERROR))

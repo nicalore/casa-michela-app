@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/opening_day_item.dart';
@@ -10,7 +11,7 @@ import '../../association/models/opening_day_item.dart';
 const String kPresenceMode = 'presence';
 const String kOnlineMode = 'online';
 
-String modeLabel(String mode) => mode == kOnlineMode ? 'Online' : 'In presenza';
+String modeLabel(String mode) => mode == kOnlineMode ? 'Online' : tr('In presenza', 'In person');
 
 // When the association is open on one day, in one band, in one mode.
 class OpeningWindow
@@ -171,9 +172,9 @@ bool isOpenOn(List<OpeningDayItem> openingDays, DateTime day, String mode)
   return TimeBucket.values.any((bucket) => openingWindowFor(openingDays, day, mode, bucket) != null);
 }
 
-const String kInBuilding = 'in presenza';
+String get kInBuilding => tr('in presenza', 'in person');
 const String kOnScreen = 'online';
-const String kBothWays = 'in presenza e online';
+String get kBothWays => tr('in presenza e online', 'in person and online');
 
 class BandOpening
 {

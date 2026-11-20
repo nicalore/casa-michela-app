@@ -5,6 +5,7 @@ from typing import Final
 import resend
 
 from app.core.config import settings
+from app.core.i18n import tr_for
 from app.core.storage import EMAIL_LOGO
 
 resend.api_key = settings.resend_api_key
@@ -15,6 +16,7 @@ SENDER: Final[str] = "Associazione Casa Michela <supporto@app.casamichela.it>"
 CONTACT_ADDRESS: Final[str] = "nicolo.calore@casamichela.it"
 
 GREETING: Final[str] = "Ciao,"
+_ENGLISH_GREETING: Final[str] = "Hi,"
 
 LOGO_CONTENT_ID: Final[str] = "logo"
 
@@ -60,10 +62,19 @@ _TEMPLATE: Final[str] = """
 _SIGNATURE: Final[str] = f"""
         <p style="margin: 28px 0 0 0; padding-top: 24px; border-top: 1px solid {LINE};
                   color: {MUTED}; font-size: 14px;">
-            A presto,<br>
+            {{farewell}}<br>
             <strong style="color: {INK};">Associazione Casa Michela</strong>
         </p>
 """
+
+
+# The plain greeting in the recipient's language; None is Italian.
+def greeting_for(language: str | None) -> str:
+    return tr_for(language, GREETING, _ENGLISH_GREETING)
+
+
+def _signature_for(language: str | None) -> str:
+    return _SIGNATURE.format(farewell=tr_for(language, "A presto,", "See you soon,"))
 
 
 # An empty greeting leaves no blank paragraph: a notice opens with its own words.
@@ -81,12 +92,20 @@ def send_email(
     heading: str,
     body: str,
     reply_to: str | None = CONTACT_ADDRESS,
-    greeting: str = GREETING,
+    greeting: str | None = None,
     attachments: Sequence[resend.Attachment] = (),
     idempotency_key: str | None = None,
-    signature: str = _SIGNATURE,
+    signature: str | None = None,
     heading_size: int = 24,
+    language: str | None = None,
 ) -> None:
+    # Unset greeting and signature are the plain ones, in the recipient's language.
+    if greeting is None:
+        greeting = greeting_for(language)
+
+    if signature is None:
+        signature = _signature_for(language)
+
     params: resend.Emails.SendParams = {
         "from": SENDER,
         "to": recipient,

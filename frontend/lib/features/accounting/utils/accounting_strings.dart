@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/tabs/tariffs/tariffs_strings.dart'
@@ -5,170 +6,208 @@ import '../../association/tabs/tariffs/tariffs_strings.dart'
 import '../models/teacher_hours_items.dart';
 import '../models/volunteering_rule.dart';
 
-const String kAccountingTitle = 'Contabilità';
-const String kDailySummaryGroup = 'Riepilogo giornaliero';
-const String kMonthlySummaryGroup = 'Riepilogo mensile';
-const String kTeachersEntry = 'Docenti';
-const String kStudentsEntry = 'Studenti';
+String get kAccountingTitle => tr('Contabilità', 'Accounting');
+String get kDailySummaryGroup => tr('Riepilogo giornaliero', 'Daily summary');
+String get kMonthlySummaryGroup => tr('Riepilogo mensile', 'Monthly summary');
+String get kTeachersEntry => tr('Docenti', 'Teachers');
+String get kStudentsEntry => tr('Studenti', 'Students');
 
-const String kWorkGroup = 'Lavoro';
-const String kVolunteerGroup = 'Volontariato';
-const String kPayGroup = 'Paga';
-const String kTeacherColumn = 'Docente';
-const String kStartColumn = 'Inizio';
-const String kEndColumn = 'Fine';
-const String kHoursColumn = 'Ore';
-const String kGrossColumn = 'Lorda';
-const String kNetColumn = 'Netta';
-const String kWithholdingColumn = 'Ritenuta';
-const String kTotalRow = 'Totale';
+String get kWorkGroup => tr('Lavoro', 'Work');
+String get kVolunteerGroup => tr('Volontariato', 'Volunteering');
+String get kPayGroup => tr('Paga', 'Pay');
+String get kTeacherColumn => tr('Docente', 'Teacher');
+String get kStartColumn => tr('Inizio', 'Start');
+String get kEndColumn => tr('Fine', 'End');
+String get kHoursColumn => tr('Ore', 'Hours');
+String get kGrossColumn => tr('Lorda', 'Gross');
+String get kNetColumn => tr('Netta', 'Net');
+String get kWithholdingColumn => tr('Ritenuta', 'Withholding tax');
+String get kTotalRow => tr('Totale', 'Total');
 
-const String kLiveStatus = 'IN CORSO';
-const String kReadyStatus = 'DA CONFERMARE';
-const String kConfirmedStatus = 'CONFERMATO';
+String get kLiveStatus => tr('IN CORSO', 'IN PROGRESS');
+String get kReadyStatus => tr('DA CONFERMARE', 'TO CONFIRM');
+String get kConfirmedStatus => tr('CONFERMATO', 'CONFIRMED');
 
-const String kAbsentBadge = 'Assente';
+String get kAbsentBadge => tr('Assente', 'Absent');
 const String kOnlineBadge = 'Online';
 
-const String kConfirmHours = 'CONFERMA ORE';
-const String kEditHours = 'MODIFICA ORE';
-const String kAddTeacher = 'AGGIUNGI DOCENTE';
+String get kConfirmHours => tr('CONFERMA ORE', 'CONFIRM HOURS');
+String get kEditHours => tr('MODIFICA ORE', 'EDIT HOURS');
+String get kAddTeacher => tr('AGGIUNGI DOCENTE', 'ADD TEACHER');
 
-const String kAddStretch = 'Aggiungi orario';
-const String kDropLastStretch = 'Togli l\'ultimo orario';
-const String kMarkAbsent = 'Segna assente';
-const String kMarkPresent = 'Segna presente';
-const String kAlignToCalendar = 'Allinea al calendario';
-const String kTakeOut = 'Togli dal riepilogo';
+String get kAddStretch => tr('Aggiungi orario', 'Add a time');
+String get kDropLastStretch => tr('Togli l\'ultimo orario', 'Remove the last time');
+String get kMarkAbsent => tr('Segna assente', 'Mark absent');
+String get kMarkPresent => tr('Segna presente', 'Mark present');
+String get kAlignToCalendar => tr('Allinea al calendario', 'Align with the calendar');
+String get kTakeOut => tr('Togli dal riepilogo', 'Remove from the summary');
 
-const String kNothingPlanned = 'Nessuna lezione pianificata';
-const String kNothingOver = 'Nessuna lezione è ancora finita';
+String get kNothingPlanned => tr('Nessuna lezione pianificata', 'No lessons planned');
+String get kNothingOver => tr('Nessuna lezione è ancora finita', 'No lesson has ended yet');
 
-const String kAddTeacherTitle = 'Aggiungi docente';
-const String kTeacherLabel = 'Docente';
-const String kTeacherHint = 'Cerca docente...';
-const String kAlreadyInSummary = 'Già nel riepilogo';
-const String kModeLabel = 'Modalità';
-const String kNoneLabel = 'Nessuno';
-const String kAddStretchButton = 'AGGIUNGI ORARIO';
-const String kAddButton = 'AGGIUNGI';
+String get kAddTeacherTitle => tr('Aggiungi docente', 'Add teacher');
+String get kTeacherLabel => tr('Docente', 'Teacher');
+String get kTeacherHint => tr('Cerca docente...', 'Search for a teacher...');
+String get kAlreadyInSummary => tr('Già nel riepilogo', 'Already in the summary');
+String get kModeLabel => tr('Modalità', 'Mode');
+String get kNoneLabel => tr('Nessuno', 'None');
+String get kAddStretchButton => tr('AGGIUNGI ORARIO', 'ADD A TIME');
+String get kAddButton => tr('AGGIUNGI', 'ADD');
 
-const String kChooseTeacher = 'Scegli il docente.';
-const String kNoWork = 'Indica almeno un orario di lavoro.';
-const String kNoRoomForStretch = 'Non c\'è più spazio per un altro orario in questa fascia.';
+String get kChooseTeacher => tr('Scegli il docente.', 'Choose the teacher.');
+String get kNoWork => tr('Indica almeno un orario di lavoro.', 'Enter at least one working time.');
+String get kNoRoomForStretch => tr(
+  'Non c\'è più spazio per un altro orario in questa fascia.',
+  'There is no room left for another time in this time slot.',
+);
 
-String teachersCount(int count) => count == 1 ? '1 docente' : '$count docenti';
+String teachersCount(int count) => count == 1 ? tr('1 docente', '1 teacher') : tr('$count docenti', '$count teachers');
 
-String firstEndsAt(int minutes) => 'La prima finisce alle ${clockOf(minutes)}.';
+String firstEndsAt(int minutes) => tr('La prima finisce alle ${clockOf(minutes)}.', 'The first one ends at ${clockOf(minutes)}.');
 
-String confirmFrom(int minutes) => 'Si potrà confermare dalle ${clockOf(minutes)}, quando finirà l\'ultima lezione.';
+String confirmFrom(int minutes) => tr(
+  'Si potrà confermare dalle ${clockOf(minutes)}, quando finirà l\'ultima lezione.',
+  'It can be confirmed from ${clockOf(minutes)}, when the last lesson ends.',
+);
 
 // "Mancano ancora Anna Verdi e Marco Bianchi: l'ultima lezione finisce alle 18:30."
 String stillToCome(List<String> names, int lastEnd)
 {
+  final String and = tr('e', 'and');
   final String joined = names.length == 1
       ? names.single
-      : '${names.sublist(0, names.length - 1).join(', ')} e ${names.last}';
+      : '${names.sublist(0, names.length - 1).join(', ')} $and ${names.last}';
 
-  return 'Mancano ancora $joined: l\'ultima lezione finisce alle ${clockOf(lastEnd)}.';
+  return tr(
+    'Mancano ancora $joined: l\'ultima lezione finisce alle ${clockOf(lastEnd)}.',
+    'Still waiting for $joined: the last lesson ends at ${clockOf(lastEnd)}.',
+  );
 }
 
 // The monthly summary.
-const String kDaysGroup = 'Giorni';
-const String kHoursGroup = 'Ore';
-const String kAvailabilityGroup = 'Disponibilità';
-const String kRuleColumn = 'Un\'ora di volontariato';
-const String kTotalColumn = 'Totale';
-const String kPresenceColumn = 'In presenza';
+String get kDaysGroup => tr('Giorni', 'Days');
+String get kHoursGroup => tr('Ore', 'Hours');
+String get kAvailabilityGroup => tr('Disponibilità', 'Availability');
+String get kRuleColumn => tr('Un\'ora di volontariato', 'One volunteering hour');
+String get kTotalColumn => tr('Totale', 'Total');
+String get kPresenceColumn => tr('In presenza', 'In person');
 const String kOnlineColumn = 'Online';
-const String kVolunteerColumn = 'Volontariato';
-const String kPaidColumn = 'Pagate';
-const String kMonthColumn = 'Al mese';
-const String kWeekColumn = 'A settimana';
-const String kWeeklyRule = 'A settimana';
-const String kDailyRule = 'Al giorno';
-const String kNoRule = 'Nessuna';
+String get kVolunteerColumn => tr('Volontariato', 'Volunteering');
+String get kPaidColumn => tr('Pagate', 'Paid');
+String get kMonthColumn => tr('Al mese', 'Per month');
+String get kWeekColumn => tr('A settimana', 'Per week');
+String get kWeeklyRule => tr('A settimana', 'Per week');
+String get kDailyRule => tr('Al giorno', 'Per day');
+String get kNoRule => tr('Nessuna', 'None');
 
-const Map<VolunteeringRule, String> kMonthRuleNames = {
+Map<VolunteeringRule, String> get kMonthRuleNames => {
   VolunteeringRule.weekly: kWeeklyRule,
   VolunteeringRule.daily: kDailyRule,
   VolunteeringRule.none: kNoRule,
 };
 
-const Map<VolunteeringRule, String> _standingRuleNames = {
-  VolunteeringRule.weekly: "un'ora a settimana",
-  VolunteeringRule.daily: "un'ora al giorno",
-  VolunteeringRule.none: 'nessun volontariato',
+Map<VolunteeringRule, String> get _standingRuleNames => {
+  VolunteeringRule.weekly: tr("un'ora a settimana", 'one hour a week'),
+  VolunteeringRule.daily: tr("un'ora al giorno", 'one hour a day'),
+  VolunteeringRule.none: tr('nessun volontariato', 'no volunteering'),
 };
 
 // On a rule chosen for the month alone: what the teacher's Compensi say instead.
-String monthOnlyRuleTooltip(DateTime month, VolunteeringRule standing) =>
-    'Solo per ${formatMonthName(month)}. Nei Compensi: ${_standingRuleNames[standing]}.';
-const String kConfirmRule = 'Conferma modifica';
-const String kMonthFinished = 'MESE TERMINATO';
-const String kNoConfirmedHours = 'Nessuna ora confermata';
-const String kStillToConfirm = 'Ancora da confermare: ';
+String monthOnlyRuleTooltip(DateTime month, VolunteeringRule standing) => tr(
+  'Solo per ${formatMonthName(month)}. Nei Compensi: ${_standingRuleNames[standing]}.',
+  'Only for ${formatMonthName(month)}. Under Pay: ${_standingRuleNames[standing]}.',
+);
+String get kConfirmRule => tr('Conferma modifica', 'Confirm change');
+String get kMonthFinished => tr('MESE TERMINATO', 'MONTH CLOSED');
+String get kNoConfirmedHours => tr('Nessuna ora confermata', 'No confirmed hours');
+String get kStillToConfirm => tr('Ancora da confermare: ', 'Still to confirm: ');
 
-String availabilityShort(int given) => '$given\u00a0su\u00a09';
+String availabilityShort(int given) => tr('$given su 9', '$given of 9');
 
-String shortWeeks(int count) => count == 1 ? '1\u00a0settimana' : '$count\u00a0settimane';
+String shortWeeks(int count) => count == 1
+    ? tr('1 settimana', '1 week')
+    : tr('$count settimane', '$count weeks');
 
-String andOthers(int count) => 'e altre $count';
+String andOthers(int count) => tr('e altre $count', 'and $count more');
 
 // The PDF exports.
-const String kExportPdf = 'ESPORTA PDF';
-const String kPdfFailed = 'Non è stato possibile creare il PDF.';
-const String kPdfDownloaded = 'Il browser ha bloccato la scheda: il PDF è stato scaricato.';
-const String kSignatureColumn = 'Firma del docente';
-const String kCompensationPdfName = 'Compensi';
+String get kExportPdf => tr('ESPORTA PDF', 'EXPORT PDF');
+String get kPdfFailed => tr('Non è stato possibile creare il PDF.', 'The PDF could not be created.');
+String get kPdfDownloaded => tr(
+  'Il browser ha bloccato la scheda: il PDF è stato scaricato.',
+  'The browser blocked the tab: the PDF was downloaded.',
+);
+String get kSignatureColumn => tr('Firma del docente', 'Teacher\'s signature');
+String get kCompensationPdfName => tr('Compensi', 'Pay');
 
 String pdfDayOnItsOwn(DateTime day) => '${formatWeekdayColumnLabel(day)} ${day.year}';
 
-String _inSentence(String said) => '${said[0].toLowerCase()}${said.substring(1)}';
+// English keeps the capitals of weekdays and months.
+String _inSentence(String said) => isEnglish ? said : '${said[0].toLowerCase()}${said.substring(1)}';
 
-String _monthInSentence(DateTime month) => formatMonthYear(month).toLowerCase();
+String _monthInSentence(DateTime month) => isEnglish ? formatMonthYear(month) : formatMonthYear(month).toLowerCase();
 
 String exportedAt(DateTime moment)
 {
-  return 'Esportato ${_inSentence(pdfDayOnItsOwn(moment))} alle ${clockOf(moment.hour * 60 + moment.minute)}';
+  final String clock = clockOf(moment.hour * 60 + moment.minute);
+
+  return tr(
+    'Esportato ${_inSentence(pdfDayOnItsOwn(moment))} alle $clock',
+    'Exported on ${_inSentence(pdfDayOnItsOwn(moment))} at $clock',
+  );
 }
 
-String dailyPdfTitle(DateTime day) => 'Riepilogo di ${_inSentence(pdfDayOnItsOwn(day))}';
+String dailyPdfTitle(DateTime day) => tr(
+  'Riepilogo di ${_inSentence(pdfDayOnItsOwn(day))}',
+  'Summary of ${_inSentence(pdfDayOnItsOwn(day))}',
+);
 
 String dailyPdfFooter(DateTime day) => '$kDailySummaryGroup · $kTeachersEntry · ${pdfDayOnItsOwn(day)}';
 
 String dailyPdfTab(DateTime day) => '$kDailySummaryGroup · ${pdfDayOnItsOwn(day)}';
 
-String dailyPdfFile(DateTime day) => 'Riepilogo giornaliero docenti ${formatDayMonthFull(day)} ${day.year}.pdf';
+String dailyPdfFile(DateTime day) => tr(
+  'Riepilogo giornaliero docenti ${formatDayMonthFull(day)} ${day.year}.pdf',
+  'Teachers daily summary ${formatDayMonthFull(day)} ${day.year}.pdf',
+);
 
-String monthlyPdfTitle(DateTime month) => 'Riepilogo di ${_monthInSentence(month)}';
+String monthlyPdfTitle(DateTime month) => tr(
+  'Riepilogo di ${_monthInSentence(month)}',
+  'Summary of ${_monthInSentence(month)}',
+);
 
 String monthlyPdfFooter(DateTime month) => '$kMonthlySummaryGroup · $kTeachersEntry · ${formatMonthYear(month)}';
 
 String monthlyPdfTab(DateTime month) => '$kMonthlySummaryGroup · ${formatMonthYear(month)}';
 
-String monthlyPdfFile(DateTime month) => 'Riepilogo mensile docenti ${_monthInSentence(month)}.pdf';
+String monthlyPdfFile(DateTime month) => tr(
+  'Riepilogo mensile docenti ${_monthInSentence(month)}.pdf',
+  'Teachers monthly summary ${_monthInSentence(month)}.pdf',
+);
 
-String compensationPdfTitle(String name) => '$kCompensationPdfName di $name';
+String compensationPdfTitle(String name) => tr('$kCompensationPdfName di $name', '$kCompensationPdfName for $name');
 
 String compensationPdfFooter(String name, DateTime month) => '$kCompensationPdfName · $name · ${formatMonthYear(month)}';
 
 String compensationPdfFile(String name, DateTime month) => '$kCompensationPdfName $name ${_monthInSentence(month)}.pdf';
 
 // The bank transfer receipts of the monthly summary.
-const String kReceiptColumn = 'Ricevuta';
-const String kUploadReceipt = 'Carica la ricevuta del bonifico';
-const String kOpenReceipt = 'Apri';
-const String kReplaceReceipt = 'Sostituisci';
-const String kDeleteReceipt = 'Elimina';
-const String kDeleteReceiptQuestion = 'La ricevuta verrà eliminata.';
-const String kReceiptUploaded = 'Ricevuta caricata.';
-const String kReceiptReplaced = 'Ricevuta sostituita.';
-const String kReceiptDeleted = 'Ricevuta eliminata.';
-const String kReceiptDownloaded = 'Il browser ha bloccato la scheda: la ricevuta è stata scaricata.';
-const String kReceiptWaiting = 'Apertura della ricevuta…';
-const String kReceiptTooLarge = 'La ricevuta supera i 15 MB.';
-const String kReceiptNotRead = 'Impossibile leggere il file.';
+String get kReceiptColumn => tr('Ricevuta', 'Receipt');
+String get kUploadReceipt => tr('Carica la ricevuta del bonifico', 'Upload the bank transfer receipt');
+String get kOpenReceipt => tr('Apri', 'Open');
+String get kReplaceReceipt => tr('Sostituisci', 'Replace');
+String get kDeleteReceipt => tr('Elimina', 'Delete');
+String get kDeleteReceiptQuestion => tr('La ricevuta verrà eliminata.', 'The receipt will be deleted.');
+String get kReceiptUploaded => tr('Ricevuta caricata.', 'Receipt uploaded.');
+String get kReceiptReplaced => tr('Ricevuta sostituita.', 'Receipt replaced.');
+String get kReceiptDeleted => tr('Ricevuta eliminata.', 'Receipt deleted.');
+String get kReceiptDownloaded => tr(
+  'Il browser ha bloccato la scheda: la ricevuta è stata scaricata.',
+  'The browser blocked the tab: the receipt was downloaded.',
+);
+String get kReceiptWaiting => tr('Apertura della ricevuta…', 'Opening the receipt…');
+String get kReceiptTooLarge => tr('La ricevuta supera i 15 MB.', 'The receipt is larger than 15 MB.');
+String get kReceiptNotRead => tr('Impossibile leggere il file.', 'The file could not be read.');
 
 // Mirrored by the server's MAX_RECEIPT_BYTES.
 const int kReceiptMaxBytes = 15 * 1024 * 1024;
@@ -177,57 +216,73 @@ const List<String> kReceiptExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
 
 String receiptUploadedOn(DateTime when)
 {
-  final String day = formatWeekdayColumnLabel(when);
+  final String day = _inSentence(formatWeekdayColumnLabel(when));
 
-  return 'Caricata ${day[0].toLowerCase()}${day.substring(1)}';
+  return tr('Caricata $day', 'Uploaded on $day');
 }
 
 // "6 su 8": receipts in, of the teachers paid that month.
-String receiptsCount(int done, int of) => '$done su $of';
+String receiptsCount(int done, int of) => tr('$done su $of', '$done of $of');
 
-String dropReceiptFor(String name) => 'Rilascia per caricare la ricevuta di $name';
+String dropReceiptFor(String name) => tr('Rilascia per caricare la ricevuta di $name', 'Drop to upload $name\'s receipt');
 
 // "Ricevuta · Giulia Rossi · Ottobre 2026": the tab it opens in.
-String receiptTabTitle(String name, DateTime month) => 'Ricevuta · $name · ${formatMonthYear(month)}';
+String receiptTabTitle(String name, DateTime month) => '$kReceiptColumn · $name · ${formatMonthYear(month)}';
 
 // The daily summary of pupils.
-const String kStudentColumn = 'Studente';
-const String kLessonsGroup = 'Lezioni';
-const String kPaymentGroup = 'Pagamento';
-const String kTariffColumn = 'Tariffa';
-const String kSituationColumn = 'Situazione';
+String get kStudentColumn => tr('Studente', 'Student');
+String get kLessonsGroup => tr('Lezioni', 'Lessons');
+String get kPaymentGroup => tr('Pagamento', 'Payment');
+String get kTariffColumn => tr('Tariffa', 'Rate');
+String get kSituationColumn => tr('Situazione', 'Status');
 
-const String kAddStudent = 'AGGIUNGI STUDENTE';
-const String kAddStudentTitle = 'Aggiungi studente';
-const String kStudentLabel = 'Studente';
-const String kStudentHint = 'Cerca studente...';
-const String kTimesLabel = 'Orario';
-const String kChooseStudent = 'Scegli lo studente.';
-const String kNoTimes = 'Indica almeno un orario.';
+String get kAddStudent => tr('AGGIUNGI STUDENTE', 'ADD STUDENT');
+String get kAddStudentTitle => tr('Aggiungi studente', 'Add student');
+String get kStudentLabel => tr('Studente', 'Student');
+String get kStudentHint => tr('Cerca studente...', 'Search for a student...');
+String get kTimesLabel => tr('Orario', 'Times');
+String get kChooseStudent => tr('Scegli lo studente.', 'Choose the student.');
+String get kNoTimes => tr('Indica almeno un orario.', 'Enter at least one time.');
 
 // The fee of the month the summary speaks of: the band's, or the month's.
-String monthPaidSituation(DateTime month) => 'Quota di ${formatMonthName(month)} pagata';
-String monthUnpaidSituation(DateTime month) => 'Quota di ${formatMonthName(month)} non pagata';
-const String kToSettleSituation = 'Da saldare';
-const String kRenewalBadge = 'Rinnovo';
-const String kAheadBadge = 'Anticipo';
+String monthPaidSituation(DateTime month) => tr(
+  'Quota di ${formatMonthName(month)} pagata',
+  '${formatMonthName(month)} fee paid',
+);
+String monthUnpaidSituation(DateTime month) => tr(
+  'Quota di ${formatMonthName(month)} non pagata',
+  '${formatMonthName(month)} fee not paid',
+);
+String get kToSettleSituation => tr('Da saldare', 'Due');
+String get kRenewalBadge => tr('Rinnovo', 'Renewal');
+String get kAheadBadge => tr('Anticipo', 'Advance');
 
-String studentsCount(int count) => count == 1 ? '1 studente' : '$count studenti';
+String studentsCount(int count) => count == 1 ? tr('1 studente', '1 student') : tr('$count studenti', '$count students');
 
 String dailyStudentsPdfFooter(DateTime day) => '$kDailySummaryGroup · $kStudentsEntry · ${pdfDayOnItsOwn(day)}';
 
 String dailyStudentsPdfTab(DateTime day) => '$kDailySummaryGroup · $kStudentsEntry · ${pdfDayOnItsOwn(day)}';
 
-String dailyStudentsPdfFile(DateTime day) => 'Riepilogo giornaliero studenti ${formatDayMonthFull(day)} ${day.year}.pdf';
+String dailyStudentsPdfFile(DateTime day) => tr(
+  'Riepilogo giornaliero studenti ${formatDayMonthFull(day)} ${day.year}.pdf',
+  'Students daily summary ${formatDayMonthFull(day)} ${day.year}.pdf',
+);
 
 // The monthly summary of pupils.
-const String kSituationNow = 'Situazione attuale';
-const String kNothingToSettle = 'Nulla da saldare';
+String get kSituationNow => tr('Situazione attuale', 'Current status');
+String get kNothingToSettle => tr('Nulla da saldare', 'Nothing due');
 
 // "Situazione al 31 ottobre": the month is over, the situation stands at its last day.
 // The day keeps its month on its line.
-String situationAt(DateTime day) =>
-    'Situazione ${toDayInSentence(day).replaceFirst(' ${formatMonthName(day)}', '\u00a0${formatMonthName(day)}')}';
+String situationAt(DateTime day)
+{
+  if (isEnglish)
+  {
+    return 'Status at ${day.day} ${formatMonthName(day)}';
+  }
+
+  return 'Situazione ${toDayInSentence(day).replaceFirst(' ${formatMonthName(day)}', ' ${formatMonthName(day)}')}';
+}
 
 // "Da saldare € 78,00".
 String toSettleAmount(int cents) => '$kToSettleSituation ${formatAmount(cents)}';
@@ -236,6 +291,22 @@ String toSettleAmount(int cents) => '$kToSettleSituation ${formatAmount(cents)}'
 String tariffSpan(DateTime month, DateTime? starts, DateTime? ends)
 {
   bool inMonth(DateTime day) => day.year == month.year && day.month == month.month;
+
+  if (isEnglish)
+  {
+    // "until 11", "from 12", "from 1 December", "from 12 to 20".
+    final String? from = starts == null
+        ? null
+        : 'from ${inMonth(starts) ? '${starts.day}' : formatDayMonthFull(starts)}';
+    final String? to = ends == null ? null : (inMonth(ends) ? '${ends.day}' : formatDayMonthFull(ends));
+
+    if (from != null)
+    {
+      return to == null ? from : '$from to $to';
+    }
+
+    return to == null ? '' : 'until $to';
+  }
 
   final String? from = starts == null
       ? null
@@ -256,48 +327,51 @@ String monthlyStudentsPdfFooter(DateTime month) => '$kMonthlySummaryGroup · $kS
 
 String monthlyStudentsPdfTab(DateTime month) => '$kMonthlySummaryGroup · $kStudentsEntry · ${formatMonthYear(month)}';
 
-String monthlyStudentsPdfFile(DateTime month) => 'Riepilogo mensile studenti ${_monthInSentence(month)}.pdf';
+String monthlyStudentsPdfFile(DateTime month) => tr(
+  'Riepilogo mensile studenti ${_monthInSentence(month)}.pdf',
+  'Students monthly summary ${_monthInSentence(month)}.pdf',
+);
 
 // Every payment of a month, from anyone.
-const String kPaymentsEntry = 'Pagamenti';
-const String kRoleFilterPrefix = 'Ruolo';
-const String kAllRolesHint = 'Tutti i ruoli';
-const String kPaymentDayColumn = 'Giorno';
-const String kPaymentWhatColumn = 'Pagamento';
-const String kPaymentMethodColumn = 'Modalità';
-const String kNoPaymentsInMonth = 'Nessun pagamento nel mese';
-const String kNoPaymentsFiltered = 'Nessun pagamento con questi filtri';
-const String kTariffFilterPrefix = 'Tariffa';
-const String kAllTariffsHint = 'Tutte le tariffe';
-const String kAmountFilterPrefix = 'Importo';
-const String kAmountFilterTitle = 'Filtra per importo';
-const String kLeastAmountLabel = 'Minimo';
-const String kMostAmountLabel = 'Massimo';
-const String kLeastAmountHint = 'Es. 20,00';
-const String kMostAmountHint = 'Es. 200,00';
+String get kPaymentsEntry => tr('Pagamenti', 'Payments');
+String get kRoleFilterPrefix => tr('Ruolo', 'Role');
+String get kAllRolesHint => tr('Tutti i ruoli', 'All roles');
+String get kPaymentDayColumn => tr('Giorno', 'Day');
+String get kPaymentWhatColumn => tr('Pagamento', 'Payment');
+String get kPaymentMethodColumn => tr('Modalità', 'Method');
+String get kNoPaymentsInMonth => tr('Nessun pagamento nel mese', 'No payments this month');
+String get kNoPaymentsFiltered => tr('Nessun pagamento con questi filtri', 'No payments with these filters');
+String get kTariffFilterPrefix => tr('Tariffa', 'Rate');
+String get kAllTariffsHint => tr('Tutte le tariffe', 'All rates');
+String get kAmountFilterPrefix => tr('Importo', 'Amount');
+String get kAmountFilterTitle => tr('Filtra per importo', 'Filter by amount');
+String get kLeastAmountLabel => tr('Minimo', 'Minimum');
+String get kMostAmountLabel => tr('Massimo', 'Maximum');
+String get kLeastAmountHint => tr('Es. 20,00', 'E.g. 20.00');
+String get kMostAmountHint => tr('Es. 200,00', 'E.g. 200.00');
 
 // The amount filter's window, worded as the other filter windows.
-const String kFilterEyebrow = 'Filtro';
-const String kResetFilterLabel = 'AZZERA';
-const String kApplyFilterLabel = 'APPLICA';
+String get kFilterEyebrow => tr('Filtro', 'Filter');
+String get kResetFilterLabel => tr('AZZERA', 'RESET');
+String get kApplyFilterLabel => tr('APPLICA', 'APPLY');
 
 // Refusals of «APPLICA».
-const String kLeastAmountInvalid = 'Il minimo non è un importo valido.';
-const String kMostAmountInvalid = 'Il massimo non è un importo valido.';
-const String kAmountRangeReversed = 'Il minimo supera il massimo.';
+String get kLeastAmountInvalid => tr('Il minimo non è un importo valido.', 'The minimum is not a valid amount.');
+String get kMostAmountInvalid => tr('Il massimo non è un importo valido.', 'The maximum is not a valid amount.');
+String get kAmountRangeReversed => tr('Il minimo supera il massimo.', 'The minimum is greater than the maximum.');
 
 // The roles a payment can be filtered by, as the server names them.
-const Map<String, String> kPaymentRoleFilters = {
-  'STUDENTE': 'Studenti',
-  'DOCENTE': 'Docenti',
-  'CORSISTA': 'Corsisti',
-  'GENITORE': 'Genitori',
-  'AMMINISTRATORE': 'Amministratori',
-  'PSICOLOGO': 'Psicologi',
+Map<String, String> get kPaymentRoleFilters => {
+  'STUDENTE': tr('Studenti', 'Students'),
+  'DOCENTE': tr('Docenti', 'Teachers'),
+  'CORSISTA': tr('Corsisti', 'Course participants'),
+  'GENITORE': tr('Genitori', 'Parents'),
+  'AMMINISTRATORE': tr('Amministratori', 'Administrators'),
+  'PSICOLOGO': tr('Psicologi', 'Psychologists'),
 };
 
 // The tariffs a payment can be filtered by, as the Tariffe tab lists them.
-const Map<String, String> kPaymentTariffFilters = {
+Map<String, String> get kPaymentTariffFilters => {
   'HOURLY': kHourlyColumn,
   'PACKAGE': kPackageColumn,
   'MONTHLY': kMonthlyColumn,
@@ -306,123 +380,145 @@ const Map<String, String> kPaymentTariffFilters = {
   'INSURANCE_FEE': kInsuranceFee,
 };
 
-String paymentsCount(int count) => count == 1 ? '1 pagamento' : '$count pagamenti';
+String paymentsCount(int count) => count == 1 ? tr('1 pagamento', '1 payment') : tr('$count pagamenti', '$count payments');
 
 String monthlyPaymentsPdfFooter(DateTime month) => '$kMonthlySummaryGroup · $kPaymentsEntry · ${formatMonthYear(month)}';
 
 String monthlyPaymentsPdfTab(DateTime month) => '$kMonthlySummaryGroup · $kPaymentsEntry · ${formatMonthYear(month)}';
 
-String monthlyPaymentsPdfFile(DateTime month) => 'Riepilogo mensile pagamenti ${_monthInSentence(month)}.pdf';
+String monthlyPaymentsPdfFile(DateTime month) => tr(
+  'Riepilogo mensile pagamenti ${_monthInSentence(month)}.pdf',
+  'Payments monthly summary ${_monthInSentence(month)}.pdf',
+);
 
 // «da € 20,00», «fino a € 200,00», «€ 20,00 – € 200,00»; null with no bound.
 String? amountRange(int? least, int? most) => switch ((least, most))
 {
   (final int from, final int to) => '${formatAmount(from)} – ${formatAmount(to)}',
-  (final int from, null) => 'da ${formatAmount(from)}',
-  (null, final int to) => 'fino a ${formatAmount(to)}',
+  (final int from, null) => tr('da ${formatAmount(from)}', 'from ${formatAmount(from)}'),
+  (null, final int to) => tr('fino a ${formatAmount(to)}', 'up to ${formatAmount(to)}'),
   _ => null,
 };
 
 // Whoever owes something today.
-const String kToSettleEntry = 'Da saldare';
-const String kDebtorColumn = 'Persona';
-const String kOwedColumn = 'Da saldare';
-const String kSinceColumn = 'Dal';
-const String kOwedAmountColumn = 'Importo';
-const String kNotEnrolledNow = 'Nessuna iscrizione in corso';
-const String kNothingOwed = 'Nessuno ha qualcosa da saldare';
-const String kNoDebtorsFiltered = 'Nessuna persona con questi filtri';
+String get kToSettleEntry => tr('Da saldare', 'Due');
+String get kDebtorColumn => tr('Persona', 'Person');
+String get kOwedColumn => tr('Da saldare', 'Due');
+String get kSinceColumn => tr('Dal', 'Since');
+String get kOwedAmountColumn => tr('Importo', 'Amount');
+String get kNotEnrolledNow => tr('Nessuna iscrizione in corso', 'No current enrolment');
+String get kNothingOwed => tr('Nessuno ha qualcosa da saldare', 'Nobody has anything due');
+String get kNoDebtorsFiltered => tr('Nessuna persona con questi filtri', 'No people with these filters');
 
-String debtorsCount(int count) => count == 1 ? '1 persona' : '$count persone';
+String debtorsCount(int count) => count == 1 ? tr('1 persona', '1 person') : tr('$count persone', '$count people');
 
-const String kOwedInAll = 'Totale';
+String get kOwedInAll => tr('Totale', 'Total');
 
 // "3 novembre", with the year when it is not this one.
 String owedSince(DateTime day, int thisYear) =>
     day.year == thisYear ? formatDayMonthFull(day) : '${formatDayMonthFull(day)} ${day.year}';
 
 // The statistics.
-const String kStatisticsEntry = 'Statistiche';
-const String kPeriodPrefix = 'Periodo';
-const String kThisMonthPeriod = 'Questo mese';
+String get kStatisticsEntry => tr('Statistiche', 'Statistics');
+String get kPeriodPrefix => tr('Periodo', 'Period');
+String get kThisMonthPeriod => tr('Questo mese', 'This month');
 
-String lastMonthsPeriod(int months) => 'Ultimi $months mesi';
+String lastMonthsPeriod(int months) => tr('Ultimi $months mesi', 'Last $months months');
 
-String yearPeriod(int year) => 'Anno $year';
+String yearPeriod(int year) => tr('Anno $year', 'Year $year');
 
-const String kFlowsTitle = 'Entrate e uscite';
-const String kIncomeInPeriod = 'Incassi nel periodo';
-const String kGrossInPeriod = 'Compensi lordi nel periodo';
-const String kBalanceInPeriod = 'Saldo del periodo';
-const String kFlowsChart = 'Incassi e compensi lordi per mese';
-const String kIncomeSeries = 'Incassi';
-const String kGrossSeries = 'Compensi lordi';
-const String kBalanceSeries = 'Saldo';
-const String kBalanceChart = 'Saldo per mese';
+String get kFlowsTitle => tr('Entrate e uscite', 'Income and expenses');
+String get kIncomeInPeriod => tr('Incassi nel periodo', 'Income in the period');
+String get kGrossInPeriod => tr('Compensi lordi nel periodo', 'Gross pay in the period');
+String get kBalanceInPeriod => tr('Saldo del periodo', 'Balance for the period');
+String get kFlowsChart => tr('Incassi e compensi lordi per mese', 'Income and gross pay by month');
+String get kIncomeSeries => tr('Incassi', 'Income');
+String get kGrossSeries => tr('Compensi lordi', 'Gross pay');
+String get kBalanceSeries => tr('Saldo', 'Balance');
+String get kBalanceChart => tr('Saldo per mese', 'Balance by month');
 
-const String kPerHourTitle = 'Costo e ricavo per ora';
-const String kIncomePerHour = 'Incasso per ora di studente';
-const String kPayPerHour = 'Compenso lordo per ora di docente';
-const String kPayPerHourInfo = 'Compensi lordi divisi per le ore pagate ai docenti nel periodo.';
-const String kCostPerHour = 'Costo per ora di studente';
-const String kCostPerHourInfo = 'Compensi lordi divisi per le ore di lezione fatte dagli studenti nel periodo.';
+String get kPerHourTitle => tr('Costo e ricavo per ora', 'Cost and revenue per hour');
+String get kIncomePerHour => tr('Incasso per ora di studente', 'Income per student hour');
+String get kPayPerHour => tr('Compenso lordo per ora di docente', 'Gross pay per teacher hour');
+String get kPayPerHourInfo => tr(
+  'Compensi lordi divisi per le ore pagate ai docenti nel periodo.',
+  'Gross pay divided by the hours paid to teachers in the period.',
+);
+String get kCostPerHour => tr('Costo per ora di studente', 'Cost per student hour');
+String get kCostPerHourInfo => tr(
+  'Compensi lordi divisi per le ore di lezione fatte dagli studenti nel periodo.',
+  'Gross pay divided by the lesson hours students had in the period.',
+);
 
-const String kPayersTitle = '10 studenti che hanno pagato di più';
+String get kPayersTitle => tr('10 studenti che hanno pagato di più', 'Top 10 paying students');
 
-const String kFeesTitle = 'Quote mensili';
-const String kFeesPaidFigure = 'Quote incassate';
-const String kFeesCostFigure = 'Costo delle ore con quota mensile';
-const String kFeesMarginFigure = 'Margine';
-const String kFeesLosingFigure = 'Studenti in perdita';
-const String kBreakEvenTitle = 'Pareggio per quota';
-const String kMarginChart = 'Margine per studente: quote pagate meno il costo delle ore';
-const String kNoFeePupils = 'Nessuno studente con quota mensile nel periodo.';
-const String kNoLessonCost = 'Mancano ore di lezione confermate nel periodo per calcolare il costo.';
+String get kFeesTitle => tr('Quote mensili', 'Monthly fees');
+String get kFeesPaidFigure => tr('Quote incassate', 'Fees collected');
+String get kFeesCostFigure => tr('Costo delle ore con quota mensile', 'Cost of monthly-fee hours');
+String get kFeesMarginFigure => tr('Margine', 'Margin');
+String get kFeesLosingFigure => tr('Studenti in perdita', 'Students at a loss');
+String get kBreakEvenTitle => tr('Pareggio per quota', 'Break-even by fee');
+String get kMarginChart => tr(
+  'Margine per studente: quote pagate meno il costo delle ore',
+  'Margin per student: fees paid minus the cost of the hours',
+);
+String get kNoFeePupils => tr(
+  'Nessuno studente con quota mensile nel periodo.',
+  'No students with a monthly fee in the period.',
+);
+String get kNoLessonCost => tr(
+  'Mancano ore di lezione confermate nel periodo per calcolare il costo.',
+  'There are no confirmed lesson hours in the period to work out the cost.',
+);
 
-String losingOf(int losing, int all) => '$losing su $all';
+String losingOf(int losing, int all) => tr('$losing su $all', '$losing of $all');
 
-String breakEvenLabel(String fee, String level) => 'In pari con $fee ($level)';
+String breakEvenLabel(String fee, String level) => tr('In pari con $fee ($level)', 'Break-even at $fee ($level)');
 
-String perMonth(String hours) => '$hours al mese';
+String perMonth(String hours) => tr('$hours al mese', '$hours a month');
 
 // The tooltip of a pupil's margin bar: a figure, then what it is.
-const String kFeeRow = 'Quota al mese';
-const String kPaidMonthsRow = 'Mesi pagati';
-const String kPaidMonthRow = 'Mese pagato';
-const String kLessonHoursRow = 'Ore di lezione';
-const String kHoursPerMonthRow = 'Ore al mese';
-const String kFeesPaidRow = 'Quote pagate';
-const String kHoursCostRow = 'Costo delle ore';
-const String kMarginRow = 'Margine';
-const String kEvenRow = 'Pareggio al mese';
+String get kFeeRow => tr('Quota al mese', 'Fee per month');
+String get kPaidMonthsRow => tr('Mesi pagati', 'Months paid');
+String get kPaidMonthRow => tr('Mese pagato', 'Month paid');
+String get kLessonHoursRow => tr('Ore di lezione', 'Lesson hours');
+String get kHoursPerMonthRow => tr('Ore al mese', 'Hours per month');
+String get kFeesPaidRow => tr('Quote pagate', 'Fees paid');
+String get kHoursCostRow => tr('Costo delle ore', 'Cost of the hours');
+String get kMarginRow => tr('Margine', 'Margin');
+String get kEvenRow => tr('Pareggio al mese', 'Break-even per month');
 
-const String kPayTitle = 'Compensi ai docenti';
-const String kGrossFigure = 'Lordo nel periodo';
-const String kNetFigure = 'Netto nel periodo';
-const String kWithheldFigure = 'Ritenute nel periodo';
-const List<String> kPayViews = ['Lordo', 'Netto', 'Ritenute'];
-const List<String> kPayCharts = ['Compensi lordi per mese', 'Compensi netti per mese', 'Ritenute per mese'];
+String get kPayTitle => tr('Compensi ai docenti', 'Teachers\' pay');
+String get kGrossFigure => tr('Lordo nel periodo', 'Gross in the period');
+String get kNetFigure => tr('Netto nel periodo', 'Net in the period');
+String get kWithheldFigure => tr('Ritenute nel periodo', 'Withholding tax in the period');
+List<String> get kPayViews => [tr('Lordo', 'Gross'), tr('Netto', 'Net'), tr('Ritenute', 'Withholding tax')];
+List<String> get kPayCharts => [
+  tr('Compensi lordi per mese', 'Gross pay by month'),
+  tr('Compensi netti per mese', 'Net pay by month'),
+  tr('Ritenute per mese', 'Withholding tax by month'),
+];
 
-const String kIncomeTitle = 'Incassi dagli studenti';
-const String kCollectedFigure = 'Incassato nel periodo';
-const String kMonthlyMeanFigure = 'Media al mese';
-const String kPayersFigure = 'Studenti che hanno pagato';
-const String kIncomeChart = 'Incassi per mese';
+String get kIncomeTitle => tr('Incassi dagli studenti', 'Income from students');
+String get kCollectedFigure => tr('Incassato nel periodo', 'Collected in the period');
+String get kMonthlyMeanFigure => tr('Media al mese', 'Monthly average');
+String get kPayersFigure => tr('Studenti che hanno pagato', 'Students who paid');
+String get kIncomeChart => tr('Incassi per mese', 'Income by month');
 
-const String kKindsTitle = 'Incassi per tipo';
-const String kKindsChart = 'Incassi per mese, per tipo';
+String get kKindsTitle => tr('Incassi per tipo', 'Income by type');
+String get kKindsChart => tr('Incassi per mese, per tipo', 'Income by month and type');
 
-const Map<String, String> kIncomeKindLabels = {
-  'PACKAGE': 'Pacchetti',
-  'MONTH': 'Quote mensili',
-  'HOURLY': 'Pagamenti a ore',
-  'AHEAD': 'Ore in anticipo',
-  'WEEKEND_ONLINE': 'Online nel weekend',
-  'FEES': 'Iscrizione e assicurazione',
+Map<String, String> get kIncomeKindLabels => {
+  'PACKAGE': tr('Pacchetti', 'Packages'),
+  'MONTH': tr('Quote mensili', 'Monthly fees'),
+  'HOURLY': tr('Pagamenti a ore', 'Hourly payments'),
+  'AHEAD': tr('Ore in anticipo', 'Hours in advance'),
+  'WEEKEND_ONLINE': tr('Online nel weekend', 'Weekend online'),
+  'FEES': tr('Iscrizione e assicurazione', 'Enrolment and insurance'),
 };
 
-const String kVolunteerTitle = 'Volontariato';
-const String kVolunteerHoursFigure = 'Ore di volontariato';
-const String kVolunteerValueFigure = 'Valore al compenso orario';
-const String kVolunteersFigure = 'Docenti';
-const String kVolunteerChart = 'Ore di volontariato per mese';
+String get kVolunteerTitle => tr('Volontariato', 'Volunteering');
+String get kVolunteerHoursFigure => tr('Ore di volontariato', 'Volunteering hours');
+String get kVolunteerValueFigure => tr('Valore al compenso orario', 'Value at the hourly pay');
+String get kVolunteersFigure => tr('Docenti', 'Teachers');
+String get kVolunteerChart => tr('Ore di volontariato per mese', 'Volunteering hours by month');

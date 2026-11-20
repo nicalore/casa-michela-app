@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -43,7 +44,7 @@ import 'widgets/mobile_teachers_tab.dart';
 import 'widgets/mobile_variation_card.dart';
 import 'widgets/mobile_week_ribbon.dart';
 
-const String _title = 'Associazione';
+String get _title => tr('Associazione', 'Association');
 
 const String _teacherRole = 'TEACHER';
 const String _parentRole = 'PARENT';
@@ -84,14 +85,18 @@ const double _settled = 0.001;
 
 enum _Tab
 {
-  hours(kAssociationHoursLabel),
-  subjects(kAssociationSubjectsLabel),
-  teachers(kAssociationTeachersLabel),
-  notices(kAssociationNoticesLabel);
+  hours,
+  subjects,
+  teachers,
+  notices;
 
-  final String label;
-
-  const _Tab(this.label);
+  String get label => switch (this)
+  {
+    _Tab.hours => kAssociationHoursLabel,
+    _Tab.subjects => kAssociationSubjectsLabel,
+    _Tab.teachers => kAssociationTeachersLabel,
+    _Tab.notices => kAssociationNoticesLabel,
+  };
 }
 
 class MobileAssociationPage extends StatefulWidget
@@ -713,7 +718,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _Heading(kStandardHoursTitle, tablet: false, first: true),
+            _Heading(kStandardHoursTitle, tablet: false, first: true),
             MobileLoadSwitcher(
               child: _loadingOutlook
                   ? const MobileWaiting()
@@ -816,7 +821,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
                   id: kAssociationTourStandard,
                   inflate: _tourHeadingInflate,
                   radius: _tourHeadingRadius,
-                  child: const _Heading(kStandardHoursTitle, tablet: true, first: true, bottom: 0),
+                  child: _Heading(kStandardHoursTitle, tablet: true, first: true, bottom: 0),
                 ),
               ),
             ),

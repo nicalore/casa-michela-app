@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
@@ -432,13 +433,13 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
       barrierLabel: 'ConfirmAvailabilityDeletion',
       builder: (confirmContext) => AppDialogStack(
         eyebrow: formatAvailableDayLabel(day),
-        title: 'Confermi?',
+        title: tr('Confermi?', 'Are you sure?'),
         shrinkTitle: true,
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -447,7 +448,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -624,7 +625,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
   Widget _buildWeekNav({required bool compact, bool dense = false})
   {
     final Widget label = Text(
-      _weekIndex == 0 ? 'Questa settimana' : 'Settimana prossima',
+      _weekIndex == 0 ? tr('Questa settimana', 'This week') : tr('Settimana prossima', 'Next week'),
       maxLines: 1,
       softWrap: false,
       overflow: TextOverflow.ellipsis,
@@ -775,7 +776,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
                                 child: _failed && !_isLoading
                                     ? AppLoadFailedRoom(
                                         error: _loadFailure,
-                                        message: 'Non è stato possibile caricare le disponibilità.',
+                                        message: tr('Non è stato possibile caricare le disponibilità.', "Couldn't load your availability."),
                                         onRetry: _loadData,
                                       )
                                     : DesktopTourTarget(

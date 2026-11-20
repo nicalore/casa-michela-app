@@ -11,6 +11,7 @@ from app.api.rbac import IdentityContext, assert_may_book_for
 from app.core import booking_close
 from app.core.booking_close import assert_still_open, has_closed
 from app.core.booking_window import assert_within_booking_window
+from app.core.i18n import tr
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale, stale_conflict
 from app.core.time_band import TimeBandEnum, band_of, presence_band
@@ -20,15 +21,16 @@ from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.presence import Presence
 from app.schemas.lesson_request import (
-    NO_LESSON_ERROR,
     LessonRequestBandNoteUpdate,
     LessonRequestCreate,
     LessonRequestReplace,
     LessonRequestReplaceMode,
     LessonRequestReplaceSubject,
     LessonRequestSubject,
+    no_lesson_error,
 )
 from app.schemas.presence import PresenceCreate
+from app.services.bilingual import Bilingual
 from app.services.booking_service import BookingService
 from app.services.calendar_freeze import (
     assert_hours_not_begun,
@@ -45,10 +47,22 @@ from app.services.presence_service import PresenceService
 from app.services.pupil_lock import lock_pupil
 from app.services.schedule_cascade import unschedule
 
-_CREATE_ERROR: Final[str] = "Errore durante la creazione della richiesta."
-_REPLACE_ERROR: Final[str] = "Errore durante l'aggiornamento della richiesta."
-_BOOKING_NOT_FOUND_ERROR: Final[str] = "Prenotazione non trovata"
-_DAY_LABEL: Final[str] = "la giornata"
+_CREATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante la creazione della richiesta.",
+    "Something went wrong while creating the request.",
+)
+_REPLACE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'aggiornamento della richiesta.",
+    "Something went wrong while saving the request.",
+)
+_BOOKING_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Prenotazione non trovata",
+    "Booking not found",
+)
+_DAY_LABEL: Final[Bilingual] = Bilingual(
+    "la giornata",
+    "the day",
+)
 
 
 # First fit in clock order within the band; if none fits, the roomiest stretch.
@@ -121,9 +135,9 @@ def _assert_version(
     versions: Mapping[int, datetime],
 ) -> None:
     if row.id not in versions:
-        raise stale_conflict(_DAY_LABEL)
+        raise stale_conflict(_DAY_LABEL.for_request())
 
-    assert_not_stale(row, versions[row.id], entity_label=_DAY_LABEL)
+    assert_not_stale(row, versions[row.id], entity_label=_DAY_LABEL.for_request())
 
 
 # Refuses named rows whose band closed after the writer read them.
@@ -191,7 +205,7 @@ def _assert_hours_have_lessons(plans: list["_ModePlan"]) -> None:
             if slot.band not in taught and not stays_bare:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=NO_LESSON_ERROR,
+                    detail=no_lesson_error(),
                 )
 
 
@@ -251,7 +265,7 @@ class LessonRequestService:
     ) -> list[Presence]:
         presences: list[Presence] = []
 
-        async with integrity_guard(self.session, _CREATE_ERROR):
+        async with integrity_guard(self.session, _CREATE_ERROR.for_request()):
             try:
                 await lock_pupil(self.session, payload.student_tax_code)
 
@@ -281,6 +295,7 @@ class LessonRequestService:
                         # back_populates fills presence.bookings: no IO later.
                         self.session.add(
                             await self.booking_service.build_for_presence(
+                                identity,
                                 presence,
                                 subject,
                             )
@@ -313,10 +328,10 @@ class LessonRequestService:
         payloads: Sequence[LessonRequestReplace],
     ) -> list[Presence]:
         student_tax_code = payloads[0].student_tax_code
-        assert_may_book_for(identity, student_tax_code)
+        await assert_may_book_for(self.session, identity, student_tax_code)
         await assert_admin_may_name(self.session, identity, student_tax_code)
 
-        async with integrity_guard(self.session, _REPLACE_ERROR):
+        async with integrity_guard(self.session, _REPLACE_ERROR.for_request()):
             try:
                 await lock_pupil(self.session, student_tax_code)
 
@@ -329,7 +344,7 @@ class LessonRequestService:
                         for block in payload.modes
                     ]
 
-                    await self._check_hours(payload, day_plans, stored)
+                    await self._check_hours(identity, payload, day_plans, stored)
                     plans.extend(day_plans)
 
                 self._claim(identity, plans)
@@ -343,7 +358,7 @@ class LessonRequestService:
                         self._lay(identity, plan)
 
                     for plan in plans:
-                        await self._fill(plan)
+                        await self._fill(identity, plan)
 
                     for plan in plans:
                         for presence in plan.dropped:
@@ -369,10 +384,10 @@ class LessonRequestService:
         identity: IdentityContext,
         payload: LessonRequestBandNoteUpdate,
     ) -> list[Presence]:
-        assert_may_book_for(identity, payload.student_tax_code)
+        await assert_may_book_for(self.session, identity, payload.student_tax_code)
         await assert_admin_may_name(self.session, identity, payload.student_tax_code)
 
-        async with integrity_guard(self.session, _REPLACE_ERROR):
+        async with integrity_guard(self.session, _REPLACE_ERROR.for_request()):
             try:
                 await lock_pupil(self.session, payload.student_tax_code)
 
@@ -385,7 +400,7 @@ class LessonRequestService:
                 if not band:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail=_BOOKING_NOT_FOUND_ERROR,
+                        detail=_BOOKING_NOT_FOUND_ERROR.for_request(),
                     )
 
                 assert_still_open(
@@ -485,12 +500,12 @@ class LessonRequestService:
             if presence is None:
                 _assert_not_frozen(identity, [plan], {slot.presence_id}, ())
 
-                raise stale_conflict(_DAY_LABEL)
+                raise stale_conflict(_DAY_LABEL.for_request())
 
             assert_not_stale(
                 presence,
                 slot.expected_updated_at,
-                entity_label="la presenza",
+                entity_label=tr("la presenza", "the attendance"),
             )
             plan.kept[presence.id] = presence
 
@@ -517,13 +532,13 @@ class LessonRequestService:
                 if owner is None and subject.booking_id in claimed:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail=_BOOKING_NOT_FOUND_ERROR,
+                        detail=_BOOKING_NOT_FOUND_ERROR.for_request(),
                     )
 
                 if owner is None:
                     _assert_not_frozen(identity, plans, (), {subject.booking_id})
 
-                    raise stale_conflict(_DAY_LABEL)
+                    raise stale_conflict(_DAY_LABEL.for_request())
 
                 claimed.add(subject.booking_id)
 
@@ -532,7 +547,7 @@ class LessonRequestService:
                 assert_not_stale(
                     booking,
                     subject.expected_updated_at,
-                    entity_label="la prenotazione",
+                    entity_label=tr("la prenotazione", "the booking"),
                 )
 
                 # Over, it stays where it is and as it is.
@@ -553,6 +568,7 @@ class LessonRequestService:
 
     async def _check_hours(
         self,
+        identity: IdentityContext,
         payload: LessonRequestReplace,
         plans: list[_ModePlan],
         stored: list[Presence],
@@ -598,6 +614,8 @@ class LessonRequestService:
                 rest.remove(row)
 
                 await self.presence_service.assert_fits(
+                    identity,
+                    payload.student_tax_code,
                     payload.date,
                     plan.mode,
                     slot.start_time,
@@ -717,7 +735,7 @@ class LessonRequestService:
 
         plan.final.sort(key=lambda presence: presence.start_time)
 
-    async def _fill(self, plan: _ModePlan) -> None:
+    async def _fill(self, identity: IdentityContext, plan: _ModePlan) -> None:
         final = plan.final
 
         for booking in plan.gone:
@@ -740,7 +758,7 @@ class LessonRequestService:
                 has_begun(lesson.date, lesson.start_time)
                 for lesson in await find_booking_lessons(self.session, booking.id)
             ):
-                await self.booking_service.fill(booking, subject)
+                await self.booking_service.fill(identity, booking, subject)
 
             if booking.presence not in final or _band(booking.presence) != subject.band:
                 booking.presence = next(
@@ -752,5 +770,9 @@ class LessonRequestService:
 
         for presence, subject in assign_presences(final, new_subjects, taken=taken):
             self.session.add(
-                await self.booking_service.build_for_presence(presence, subject),
+                await self.booking_service.build_for_presence(
+                    identity,
+                    presence,
+                    subject,
+                ),
             )

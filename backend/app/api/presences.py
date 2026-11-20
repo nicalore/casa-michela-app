@@ -12,6 +12,7 @@ from app.api.booking_presentation import (
 )
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, IdentityContext, require_role
+from app.core.i18n import tr
 from app.models.person import Person
 from app.models.presence import Presence
 from app.repositories.presence_repository import PresenceRepository
@@ -181,4 +182,4 @@ async def delete_presence(
         await db.commit()
         background.add_task(push.deliver, told)
 
-    return {"detail": "Presenza eliminata"}
+    return {"detail": tr("Presenza eliminata", "Attendance deleted")}

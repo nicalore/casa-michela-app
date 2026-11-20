@@ -8,19 +8,21 @@ from app.core.booking_window import week_unlocks_at
 from app.models.notification import Notification, NotificationKindEnum
 from app.models.opening_day import OpeningDay
 from app.services.notification_kinds import holds_kind
-from app.services.notifications import notify, reachable_identities
+from app.services.notifications import Bilingual, notify, reachable_identities
 from app.services.push import PushBatch, joined
 
-_TITLES: Final[dict[NotificationKindEnum, str]] = {
-    NotificationKindEnum.AVAILABILITY_OPENED: (
-        "Da adesso è possibile inserire le disponibilità per la settimana prossima"
+_TITLES: Final[dict[NotificationKindEnum, Bilingual]] = {
+    NotificationKindEnum.AVAILABILITY_OPENED: Bilingual(
+        "Da adesso è possibile inserire le disponibilità per la settimana prossima",
+        "You can now enter your availability for next week",
     ),
-    NotificationKindEnum.BOOKINGS_OPENED: (
-        "Da adesso è possibile prenotare le lezioni per la settimana prossima"
+    NotificationKindEnum.BOOKINGS_OPENED: Bilingual(
+        "Da adesso è possibile prenotare le lezioni per la settimana prossima",
+        "You can now book lessons for next week",
     ),
 }
-_BODY: Final[str] = "Tocca per inserirle"
-_WEB_BODY: Final[str] = "Clicca per inserirle"
+_BODY: Final[Bilingual] = Bilingual("Tocca per inserirle", "Tap to add them")
+_WEB_BODY: Final[Bilingual] = Bilingual("Clicca per inserirle", "Click to add them")
 
 _WEEK: Final[timedelta] = timedelta(days=7)
 

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
@@ -84,29 +85,29 @@ Color get kAvoidedTeacherColor => AppTheme.trialDeepWaterText;
 
 Color get kSupervisorColor => AppTheme.trialTealDeepText;
 
-const String kLessonDoneLabel = 'Lezione svolta';
+String get kLessonDoneLabel => tr('Lezione svolta', 'Lesson held');
 
 // Blocks shorter than this carry a tooltip with the full account.
 const int kTooltipBelowMinutes = 60;
 
-const String kRemoveFromCalendarLabel = 'RIMUOVI DAL CALENDARIO';
+String get kRemoveFromCalendarLabel => tr('RIMUOVI DAL CALENDARIO', 'REMOVE FROM CALENDAR');
 
-const String kRemoveFromCalendarAwayLabel = 'Rimuovi dal calendario';
+String get kRemoveFromCalendarAwayLabel => tr('Rimuovi dal calendario', 'Remove from calendar');
 
 const double _markGap = 4;
 
-const String kSupervisorLabel = 'Responsabile di stanza';
+String get kSupervisorLabel => tr('Responsabile di stanza', 'Room supervisor');
 
-const String kSupervisorsLabel = 'Responsabili di stanza';
+String get kSupervisorsLabel => tr('Responsabili di stanza', 'Room supervisors');
 
 const Duration kCalendarTooltipWait = Duration(milliseconds: 300);
 
 // Longer: the pointer crosses the face column on its way to a row.
 const Duration kTeacherExclusionTooltipWait = Duration(milliseconds: 600);
 
-const String kExcludeTeacherLabel = 'Escludi dal calendario';
+String get kExcludeTeacherLabel => tr('Escludi dal calendario', 'Exclude from calendar');
 
-const String kReadmitTeacherLabel = 'Riaggiungi al calendario';
+String get kReadmitTeacherLabel => tr('Riaggiungi al calendario', 'Add back to calendar');
 
 const double kExcludedLaneOpacity = 0.42;
 
@@ -141,7 +142,7 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
 
   if (students.isEmpty)
   {
-    return 'Lezione';
+    return tr('Lezione', 'Lesson');
   }
 
   if (students.length == 1)
@@ -149,7 +150,7 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
     return students.single.fullName;
   }
 
-  return '${students.length} alunni';
+  return tr('${students.length} alunni', '${students.length} pupils');
 }
 
 ({String subject, String? disciplines}) lessonAbout(
@@ -170,7 +171,7 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
   final disciplines = {...lesson.disciplineNames, ...lone};
 
   return (
-    subject: subjects.isEmpty ? 'Lezione' : subjects.join(' · '),
+    subject: subjects.isEmpty ? tr('Lezione', 'Lesson') : subjects.join(' · '),
     disciplines: disciplines.isEmpty ? null : disciplines.join(', '),
   );
 }
@@ -186,7 +187,7 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
 
   if (disciplines.isEmpty)
   {
-    return (discipline: subjects.isEmpty ? 'Lezione' : subjects.join(' · '), subject: null);
+    return (discipline: subjects.isEmpty ? tr('Lezione', 'Lesson') : subjects.join(' · '), subject: null);
   }
 
   return (discipline: disciplines.join(', '), subject: subjects.isEmpty ? null : subjects.join(' · '));
@@ -1710,7 +1711,7 @@ class _CalendarBlockHandleState extends State<CalendarBlockHandle>
   }
 }
 
-const String _currentLabel = 'In corso';
+String get _currentLabel => tr('In corso', 'In progress');
 
 const double kCurrentBadgeFrame = 2 * 3 + 2 * 1;
 

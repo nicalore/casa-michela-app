@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Final
 from sqlalchemy import ForeignKey, event, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
+from app.core.i18n import tr
 from app.core.time_band import band_of
 from app.core.time_step import MINIMUM_LESSON_MINUTES, minutes_between
 from app.db.base import Base
@@ -25,23 +26,30 @@ if TYPE_CHECKING:
 
 _MAX_LESSON_PARTS: Final[int] = 2
 
-_TOO_MANY_LESSON_PARTS_ERROR: Final[str] = (
-    "Una prenotazione può essere divisa in al massimo due lezioni"
+_TOO_MANY_LESSON_PARTS_ERROR: Final[tuple[str, str]] = (
+    "Una prenotazione può essere divisa in al massimo due lezioni",
+    "A booking can be split into at most two lessons",
 )
 
-_LESSON_PARTS_EXCEED_BOOKING_ERROR: Final[str] = (
-    "Le lezioni collegate a una prenotazione non possono durare complessivamente "
-    "più della prenotazione stessa"
+_LESSON_PARTS_EXCEED_BOOKING_ERROR: Final[tuple[str, str]] = (
+    "Le lezioni collegate a una prenotazione non possono durare complessivamente più "
+    "della prenotazione stessa",
+    "The lessons linked to a booking can't last longer in total than the booking "
+    "itself",
 )
 
-_SHORT_PART_OF_A_LONGER_BOOKING_ERROR: Final[str] = (
+_SHORT_PART_OF_A_LONGER_BOOKING_ERROR: Final[tuple[str, str]] = (
     "Una lezione dura almeno mezz'ora: un quarto d'ora solo quando è l'intera "
-    "prenotazione"
+    "prenotazione",
+    "A lesson lasts at least half an hour: a quarter of an hour only when it is the "
+    "whole booking",
 )
 
-_LESSON_PARTS_ACROSS_BANDS_ERROR: Final[str] = (
+_LESSON_PARTS_ACROSS_BANDS_ERROR: Final[tuple[str, str]] = (
     "Le lezioni di una prenotazione devono stare nella stessa parte della giornata: "
-    "mattino, pomeriggio e sera si pubblicano separatamente"
+    "mattino, pomeriggio e sera si pubblicano separatamente",
+    "A booking's lessons must be in the same part of the day: morning, afternoon and "
+    "evening are published separately",
 )
 
 
@@ -193,16 +201,16 @@ def _validate_lesson_parts(
             parts[lesson_key] = _span(lesson)
 
         if len(parts) > _MAX_LESSON_PARTS:
-            raise ValueError(_TOO_MANY_LESSON_PARTS_ERROR)
+            raise ValueError(tr(*_TOO_MANY_LESSON_PARTS_ERROR))
 
         if sum(minutes for minutes, _ in parts.values()) > duration:
-            raise ValueError(_LESSON_PARTS_EXCEED_BOOKING_ERROR)
+            raise ValueError(tr(*_LESSON_PARTS_EXCEED_BOOKING_ERROR))
 
         if len({band for _, band in parts.values()}) > 1:
-            raise ValueError(_LESSON_PARTS_ACROSS_BANDS_ERROR)
+            raise ValueError(tr(*_LESSON_PARTS_ACROSS_BANDS_ERROR))
 
         # Hours that run backwards are the database's to refuse.
         if duration >= MINIMUM_LESSON_MINUTES and any(
             0 < minutes < MINIMUM_LESSON_MINUTES for minutes, _ in parts.values()
         ):
-            raise ValueError(_SHORT_PART_OF_A_LONGER_BOOKING_ERROR)
+            raise ValueError(tr(*_SHORT_PART_OF_A_LONGER_BOOKING_ERROR))

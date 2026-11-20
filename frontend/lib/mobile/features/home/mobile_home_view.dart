@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/halloween.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -37,7 +38,11 @@ const double _wideBandHeight = 196;
 
 class MobileHomeFrame extends StatelessWidget
 {
-  static const List<String> pageNames = ['Oggi', 'Questo mese', 'Notifiche e avvisi'];
+  static List<String> get pageNames => [
+    tr('Oggi', 'Today'),
+    tr('Questo mese', 'This month'),
+    tr('Notifiche e avvisi', 'Notifications and notices'),
+  ];
 
   static const double columnGap = 24;
   static const double sectionGap = 26;
@@ -49,7 +54,8 @@ class MobileHomeFrame extends StatelessWidget
   final Future<void> Function() onRefresh;
   final PageController pageController;
 
-  final List<String> names;
+  // Null: the three home pages.
+  final List<String>? names;
 
   // Phones: one per page name.
   final List<Widget> Function() pages;
@@ -74,7 +80,7 @@ class MobileHomeFrame extends StatelessWidget
     required this.pageController,
     required this.pages,
     required this.tabletBody,
-    this.names = pageNames,
+    this.names,
     this.tourTabs = kHomeTourTabs,
     this.tourPages = kHomeTourPages,
     this.scrollingNames = false,
@@ -210,7 +216,7 @@ class MobileHomeFrame extends StatelessWidget
         Padding(
           padding: EdgeInsets.symmetric(horizontal: scrollingNames ? 0 : margin),
           child: MobilePageStrip(
-            labels: names,
+            labels: names ?? pageNames,
             controller: pageController,
             scrollMargin: scrollingNames ? margin : null,
             tourTargets: tourTabs,
@@ -318,7 +324,7 @@ class MobileHomeView extends StatelessWidget
 
     if (today == null)
     {
-      return const MobileHomeStatus(kMobileDayUnavailable);
+      return MobileHomeStatus(kMobileDayUnavailable);
     }
 
     if (today.isClosed)
@@ -341,13 +347,13 @@ class MobileHomeView extends StatelessWidget
       return const MobileWaiting();
     }
 
-    return month ?? const MobileHomeStatus(kMobileMonthUnavailable);
+    return month ?? MobileHomeStatus(kMobileMonthUnavailable);
   }
 
   @override
   Widget build(BuildContext context)
   {
-    const List<String> names = MobileHomeFrame.pageNames;
+    final List<String> names = MobileHomeFrame.pageNames;
 
     return MobileHomeFrame(
       firstName: firstName,
@@ -409,9 +415,9 @@ class MobileHomeView extends StatelessWidget
   }
 }
 
-const String kMobileDayUnavailable = 'Gli orari di oggi non sono disponibili.';
-const String kMobileMonthUnavailable = 'Il riepilogo del mese non è disponibile.';
-const String kMobileClosedTitle = "L'Associazione è chiusa";
+String get kMobileDayUnavailable => tr('Gli orari di oggi non sono disponibili.', "Today's hours are not available.");
+String get kMobileMonthUnavailable => tr('Il riepilogo del mese non è disponibile.', "The month's summary is not available.");
+String get kMobileClosedTitle => tr("L'Associazione è chiusa", 'The Association is closed');
 
 class MobileHomeStatus extends StatelessWidget
 {

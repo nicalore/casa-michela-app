@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../mobile_palette.dart';
 import 'mobile_text_menu.dart';
@@ -127,7 +128,7 @@ class _MobileTextFieldState extends State<MobileTextField>
           size: 22,
           color: MobilePalette.mutedText.withValues(alpha: 0.8),
         ),
-        tooltip: _obscured ? 'Mostra password' : 'Nascondi password',
+        tooltip: _obscured ? tr('Mostra password', 'Show password') : tr('Nascondi password', 'Hide password'),
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
         splashColor: Colors.transparent,

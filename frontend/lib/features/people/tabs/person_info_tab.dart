@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
@@ -63,13 +64,13 @@ class PersonInfoTab extends StatelessWidget
                     runSpacing: 16,
                     children: [
                       AppGradientButton(
-                        label: 'MODIFICA ANAGRAFICA',
+                        label: tr('MODIFICA ANAGRAFICA', 'EDIT PERSONAL DETAILS'),
                         icon: Icons.edit_rounded,
                         onPressed: onEdit,
                       ),
                       if (onGenerateForm case final VoidCallback generate)
                         AppGradientButton(
-                          label: 'GENERA DOCUMENTI DI ISCRIZIONE',
+                          label: tr('GENERA DOCUMENTI DI ISCRIZIONE', 'CREATE ENROLMENT DOCUMENTS'),
                           icon: Icons.picture_as_pdf_outlined,
                           busy: isGeneratingForm,
                           onPressed: generate,

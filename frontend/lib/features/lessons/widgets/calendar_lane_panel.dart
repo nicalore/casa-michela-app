@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_text_link.dart';
@@ -237,7 +238,7 @@ class CalendarLaneEmpty extends StatelessWidget
   {
     return Center(
       child: Text(
-        'Nessuna lezione.',
+        tr('Nessuna lezione.', 'No lessons.'),
         textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 12,

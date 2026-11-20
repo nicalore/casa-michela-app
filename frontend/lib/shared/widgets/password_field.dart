@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_text_field.dart';
 import 'app_tooltip.dart';
@@ -36,7 +37,7 @@ class _PasswordFieldState extends State<PasswordField>
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: AppTooltip(
-        message: _isObscured ? 'Mostra password' : 'Nascondi password',
+        message: _isObscured ? tr('Mostra password', 'Show password') : tr('Nascondi password', 'Hide password'),
         child: IconButton(
           icon: Icon(
             _isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,

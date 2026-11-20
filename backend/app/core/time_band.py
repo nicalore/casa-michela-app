@@ -2,16 +2,21 @@ from datetime import time
 from enum import StrEnum
 from typing import Final
 
-_OUTSIDE_DAY_ERROR: Final[str] = (
-    "L'orario deve essere compreso fra le 06:00 e le 23:00."
+from app.core.i18n import tr
+
+_OUTSIDE_DAY_ERROR: Final[tuple[str, str]] = (
+    "L'orario deve essere compreso fra le 06:00 e le 23:00.",
+    "The time must be between 06:00 and 23:00.",
 )
 
-_ACROSS_BANDS_ERROR: Final[str] = (
-    "Una lezione non può essere separata in fasce orarie diverse."
+_ACROSS_BANDS_ERROR: Final[tuple[str, str]] = (
+    "Una lezione non può essere separata in fasce orarie diverse.",
+    "A lesson can't be split across different time slots.",
 )
 
-_PRESENCE_ACROSS_BANDS_ERROR: Final[str] = (
-    "Un orario di presenza non può stare a cavallo di due fasce orarie."
+_PRESENCE_ACROSS_BANDS_ERROR: Final[tuple[str, str]] = (
+    "Un orario di presenza non può stare a cavallo di due fasce orarie.",
+    "Attendance hours can't straddle two time slots.",
 )
 
 
@@ -38,7 +43,7 @@ _BAND_BOUNDS: Final[dict[TimeBandEnum, tuple[time, time]]] = {
 
 def band_of(moment: time) -> TimeBandEnum:
     if moment < DAY_START or moment >= DAY_END:
-        raise ValueError(_OUTSIDE_DAY_ERROR)
+        raise ValueError(tr(*_OUTSIDE_DAY_ERROR))
 
     if moment < AFTERNOON_START:
         return TimeBandEnum.MORNING
@@ -57,7 +62,7 @@ def assert_within_single_band(
     start_time: time,
     end_time: time,
     *,
-    error: str = _ACROSS_BANDS_ERROR,
+    error: str = tr(*_ACROSS_BANDS_ERROR),
 ) -> TimeBandEnum:
     band = band_of(start_time)
     _, band_end = band_bounds(band)
@@ -73,5 +78,5 @@ def presence_band(start_time: time, end_time: time) -> TimeBandEnum:
     return assert_within_single_band(
         start_time,
         end_time,
-        error=_PRESENCE_ACROSS_BANDS_ERROR,
+        error=tr(*_PRESENCE_ACROSS_BANDS_ERROR),
     )

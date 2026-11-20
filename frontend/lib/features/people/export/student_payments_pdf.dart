@@ -14,13 +14,13 @@ import '../utils/payments_strings.dart';
 // Over this a payment's lessons may run on to the next page; under it they move there whole.
 const int _wholeBlockLessons = 30;
 
-const AccountingGroup _paymentGroup = AccountingGroup(
+AccountingGroup get _paymentGroup => AccountingGroup(
   parts: [(label: kPaymentColumn, width: 0)],
   flexible: true,
   leading: true,
 );
 
-const AccountingGroup _paymentFigures = AccountingGroup(
+AccountingGroup get _paymentFigures => AccountingGroup(
   parts: [
     (label: kHoursColumn, width: 50),
     (label: kAmountColumn, width: 62),
@@ -29,9 +29,9 @@ const AccountingGroup _paymentFigures = AccountingGroup(
   ],
 );
 
-const List<AccountingGroup> _paymentGroups = [_paymentGroup, _paymentFigures];
+List<AccountingGroup> get _paymentGroups => [_paymentGroup, _paymentFigures];
 
-const AccountingGroup _dayGroup = AccountingGroup(
+AccountingGroup get _dayGroup => AccountingGroup(
   parts: [(label: kDayColumn, width: 0)],
   flexible: true,
   leading: true,

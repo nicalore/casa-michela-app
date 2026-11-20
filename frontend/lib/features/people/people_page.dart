@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_page_container.dart';
@@ -17,17 +18,17 @@ import 'tabs/statistics/general_statistics_tab.dart';
 import 'tabs/statistics/role_specific_statistics_view.dart';
 
 // Order matches the IndexedStack below.
-const List<RailGroup> _sections = [
-  RailGroup(entries: ['Ricerca']),
+List<RailGroup> get _sections => [
+  RailGroup(entries: [tr('Ricerca', 'Search')]),
   RailGroup(
-    title: 'Statistiche',
+    title: tr('Statistiche', 'Statistics'),
     entries: [
-      'Generali',
-      'Amministratori',
-      'Psicologi',
-      'Docenti',
-      'Studenti',
-      'Corsisti',
+      tr('Generali', 'General'),
+      tr('Amministratori', 'Administrators'),
+      tr('Psicologi', 'Psychologists'),
+      tr('Docenti', 'Teachers'),
+      tr('Studenti', 'Students'),
+      tr('Corsisti', 'Course participants'),
     ],
   ),
 ];
@@ -158,7 +159,7 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
                             child: PageTransitionItem(
                               slot: PageTransitionItem.frame,
                               child: AppSectionRail(
-                                title: 'Persone',
+                                title: tr('Persone', 'People'),
                                 groups: _sections,
                                 selectedIndex: _selectedSection,
                                 onSelected: _selectSection,
@@ -175,7 +176,7 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
                                 PageTransitionItem(
                                   slot: PageTransitionItem.frame,
                                   child: AppSectionTabs(
-                                    title: 'Persone',
+                                    title: tr('Persone', 'People'),
                                     groups: _sections,
                                     selectedIndex: _selectedSection,
                                     onSelected: _selectSection,

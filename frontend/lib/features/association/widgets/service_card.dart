@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_catalogue_card.dart';
 import '../../../shared/widgets/app_field_label.dart';
@@ -78,13 +79,13 @@ class _ServiceDetailsDialogContent extends StatelessWidget
       context: context,
       barrierLabel: 'ConfirmDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Eliminazione',
-        title: 'Confermi?',
+        eyebrow: tr('Eliminazione', 'Deletion'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -93,7 +94,7 @@ class _ServiceDetailsDialogContent extends StatelessWidget
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -112,12 +113,12 @@ class _ServiceDetailsDialogContent extends StatelessWidget
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: 'Il servizio '),
+                  TextSpan(text: tr('Il servizio ', 'The service ')),
                   TextSpan(
                     text: service.name,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                   ),
-                  const TextSpan(text: ' verrà eliminato definitivamente.'),
+                  TextSpan(text: tr(' verrà eliminato definitivamente.', ' will be deleted permanently.')),
                 ],
               ),
               style: GoogleFonts.plusJakartaSans(
@@ -147,12 +148,12 @@ class _ServiceDetailsDialogContent extends StatelessWidget
     final hasDescription = service.description != null && service.description!.isNotEmpty;
 
     return AppDialogStack(
-      eyebrow: 'Servizio',
+      eyebrow: tr('Servizio', 'Service'),
       title: service.name,
       maxWidth: _detailsWidth,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ELIMINA',
+          label: tr('ELIMINA', 'DELETE'),
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -161,7 +162,7 @@ class _ServiceDetailsDialogContent extends StatelessWidget
           onPressed: () => _showDeleteConfirmation(context),
         ),
         primary: AppGradientButton(
-          label: 'MODIFICA',
+          label: tr('MODIFICA', 'EDIT'),
           icon: Icons.edit_outlined,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -176,9 +177,9 @@ class _ServiceDetailsDialogContent extends StatelessWidget
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFieldLabel('Descrizione', first: true),
+                _buildFieldLabel(tr('Descrizione', 'Description'), first: true),
                 Text(
-                  hasDescription ? service.description! : 'Nessuna descrizione fornita.',
+                  hasDescription ? service.description! : tr('Nessuna descrizione fornita.', 'No description given.'),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,

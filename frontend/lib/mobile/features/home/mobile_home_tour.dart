@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../features/home/home_tour_texts.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_tour.dart';
@@ -26,11 +27,14 @@ const String kHomeTourNotices = 'home.notices';
 const EdgeInsets kHomeTourSectionInflate = EdgeInsets.all(12);
 const double kHomeTourSectionRadius = 22;
 
-const String _sections = "Qui trovi tutte le sezioni dell'applicazione: toccane una per aprirla.";
+String get _sections => tr(
+  "Qui trovi tutte le sezioni dell'applicazione: toccane una per aprirla.",
+  'Here you will find all the sections of the app: tap one to open it.',
+);
 
-const String _toMonth = 'Tocca «Questo mese».';
-const String _toNotices = 'Tocca «Notifiche e avvisi».';
-const String _toMenu = 'Tocca la barra in basso per aprire il menù.';
+String get _toMonth => tr('Tocca «Questo mese».', 'Tap “This month”.');
+String get _toNotices => tr('Tocca «Notifiche e avvisi».', 'Tap “Notifications and notices”.');
+String get _toMenu => tr('Tocca la barra in basso per aprire il menù.', 'Tap the bar at the bottom to open the menu.');
 
 const Duration _pageBack = Duration(milliseconds: 320);
 
@@ -126,7 +130,7 @@ MobileTour _homeTour({
       steps: [
         MobileTourStep(text: today, shown: const [kHomeTourToday], reveal: kHomeTourToday),
         MobileTourStep(text: month, shown: const [kHomeTourMonth], reveal: kHomeTourMonth),
-        const MobileTourStep(text: kHomeNoticesTourText, shown: [kHomeTourNotices], reveal: kHomeTourNotices),
+        MobileTourStep(text: kHomeNoticesTourText, shown: const [kHomeTourNotices], reveal: kHomeTourNotices),
         ...menu,
       ],
     );

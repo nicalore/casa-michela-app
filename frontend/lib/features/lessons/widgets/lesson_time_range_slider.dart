@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_range_slider.dart';
@@ -55,7 +56,7 @@ class LessonTimeRangeSlider extends StatelessWidget
   Widget _buildValue()
   {
     return Text(
-      _isSet ? formatTimeRange(startTime!, endTime!) : 'Da scegliere',
+      _isSet ? formatTimeRange(startTime!, endTime!) : tr('Da scegliere', 'To choose'),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.plusJakartaSans(

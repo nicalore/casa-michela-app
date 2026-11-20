@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/birthday.dart';
 import '../../../core/utils/halloween.dart';
@@ -14,32 +15,32 @@ String greetingLineFor({required String firstName, DateTime? birthDate, required
 {
   if (isBirthdayToday(birthDate, now))
   {
-    return 'Buon compleanno, $firstName!';
+    return tr('Buon compleanno, $firstName!', 'Happy birthday, $firstName!');
   }
 
   if (isHalloweenToday(now))
   {
-    return 'Dolcetto o scherzetto, $firstName?';
+    return tr('Dolcetto o scherzetto, $firstName?', 'Trick or treat, $firstName?');
   }
 
   final hour = now.hour;
 
   if (hour < _morningStart)
   {
-    return 'È tardi, $firstName. Non dimenticarti di riposare.';
+    return tr('È tardi, $firstName. Non dimenticarti di riposare.', "It's late, $firstName. Don't forget to rest.");
   }
 
   if (hour < _afternoonStart)
   {
-    return 'Buongiorno, $firstName';
+    return tr('Buongiorno, $firstName', 'Good morning, $firstName');
   }
 
   if (hour < _eveningStart)
   {
-    return 'Buon pomeriggio, $firstName';
+    return tr('Buon pomeriggio, $firstName', 'Good afternoon, $firstName');
   }
 
-  return 'Buonasera, $firstName';
+  return tr('Buonasera, $firstName', 'Good evening, $firstName');
 }
 
 class DashboardGreeting extends StatelessWidget

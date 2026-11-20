@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
@@ -154,9 +155,9 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
               .where((subject) => subject.id == _booking.ministrySubjectId)
               .map((subject) => subject.name)
               .firstOrNull ??
-          'Materia',
-      BookingRequestKind.associationSubject => _booking.associationSubject?.name ?? 'Disciplina',
-      BookingRequestKind.service => _booking.serviceName ?? 'Servizio',
+          tr('Materia', 'Subject'),
+      BookingRequestKind.associationSubject => _booking.associationSubject?.name ?? tr('Disciplina', 'Discipline'),
+      BookingRequestKind.service => _booking.serviceName ?? tr('Servizio', 'Service'),
     };
   }
 
@@ -356,7 +357,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
     if (!placement.isValid)
     {
-      return placement.refusal ?? kOutsideAvailabilityRefusal;
+      return placement.refusal ?? outsideAvailabilityRefusal(feminine: _index.isFemale(teacherTaxCode));
     }
 
     var total = endMinutes - startMinutes;
@@ -365,7 +366,10 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     {
       if (spansOverlap(startMinutes, endMinutes, sibling.startMinutes, sibling.endMinutes))
       {
-        return 'Due lezioni dello stesso alunno si sovrappongono.';
+        return tr(
+          'Due lezioni di ${_entry.presence.student.fullName} si sovrappongono.',
+          "Two of ${_entry.presence.student.fullName}'s lessons overlap.",
+        );
       }
 
       total += sibling.minutes;
@@ -373,8 +377,11 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
     if (total > _booking.duration)
     {
-      return 'Le lezioni coprono ${formatMinutes(total)} delle ${formatMinutes(_booking.duration)} '
-          'richieste.';
+      return tr(
+        'Le lezioni coprono ${formatMinutes(total)} delle ${formatMinutes(_booking.duration)} '
+            'richieste.',
+        'The lessons cover ${formatMinutes(total)} of the ${formatMinutes(_booking.duration)} requested.',
+      );
     }
 
     return null;
@@ -779,7 +786,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
         color: AppTheme.trialMutedText,
       );
 
-  String _partName(int index) => index == 0 ? 'Prima parte' : 'Seconda parte';
+  String _partName(int index) => index == 0 ? tr('Prima parte', 'First part') : tr('Seconda parte', 'Second part');
 
   bool get _canSplit => _booking.duration >= 2 * kMinimumLessonMinutes;
 
@@ -796,7 +803,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
               mainAxisSize: MainAxisSize.min,
               children: [
                 AppSegmentedTabs(
-                  labels: const ['Una', 'Due'],
+                  labels: [tr('Una', 'One'), tr('Due', 'Two')],
                   selectedIndex: _parts.length > 1 ? 1 : 0,
                   onSelected: _canSplit && !_isLocked ? (index) => _setPartCount(index + 1) : (_) {},
                   height: 38,
@@ -807,8 +814,12 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
                 if (!_canSplit) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'È stata prenotata meno di un\'ora: non è possibile dividere la materia in due '
-                        'lezioni poiché ognuna deve durare almeno mezz\'ora.',
+                    tr(
+                      'È stata prenotata meno di un\'ora: non è possibile dividere la materia in due '
+                          'lezioni poiché ognuna deve durare almeno mezz\'ora.',
+                      'Less than an hour was booked: the subject cannot be split into two lessons, '
+                          'since each must last at least half an hour.',
+                    ),
                     style: _noteStyle,
                   ),
                 ],
@@ -824,7 +835,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _label('Discipline e ore'),
+                _label(tr('Discipline e ore', 'Disciplines and hours')),
                 for (final id in disciplines) _buildDisciplineRow(id),
               ],
             ),
@@ -845,7 +856,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
           for (var part = 0; part < _parts.length; part++) ...[
             if (part > 0) const SizedBox(width: 8),
             AppSelectableChip(
-              label: '${part + 1}ª lezione',
+              label: tr('${part + 1}ª lezione', part == 0 ? '1st lesson' : '${part + 1}nd lesson'),
               selected: _parts[part].disciplineIds.contains(id),
               onSelected: _isLocked ? (_) {} : (selected) => _setDisciplineIn(part, id, selected),
             ),
@@ -861,10 +872,10 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
     if (hours == 0)
     {
-      return 'Assegnati';
+      return tr('Assegnati', 'Assigned');
     }
 
-    return hours == 1 ? 'Assegnata' : 'Assegnate';
+    return hours == 1 ? tr('Assegnata', 'Assigned') : tr('Assegnate', 'Assigned');
   }
 
   Widget _buildTotals()
@@ -878,13 +889,16 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
         children: [
           Expanded(
             child: Text(
-              '${_assignedWord(assigned)} ${formatMinutes(assigned)} di ${formatMinutes(_booking.duration)}',
+              tr(
+                '${_assignedWord(assigned)} ${formatMinutes(assigned)} di ${formatMinutes(_booking.duration)}',
+                '${_assignedWord(assigned)} ${formatMinutes(assigned)} of ${formatMinutes(_booking.duration)}',
+              ),
               style: _valueStyle,
             ),
           ),
           if (left > 0)
             Text(
-              '${formatMinutes(left)} da pianificare successivamente',
+              tr('${formatMinutes(left)} da pianificare successivamente', '${formatMinutes(left)} to plan later'),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -904,7 +918,10 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       return AppDialogPill(
         expand: true,
         child: Text(
-          'Confermando, la materia verrà tolta dal calendario e dovrà essere nuovamente pianificata.',
+          tr(
+            'Confermando, la materia verrà tolta dal calendario e dovrà essere nuovamente pianificata.',
+            'If you confirm, the subject will be removed from the calendar and will need planning again.',
+          ),
           style: _valueStyle,
         ),
       );
@@ -951,18 +968,21 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
             ),
             const SizedBox(height: 14),
           ],
-          _label('Docente e ore libere'),
+          _label(tr('Docente e ore libere', 'Teacher and free hours')),
           if (part.isLocked)
             Text(
-              'Pubblicata: ${formatMinutesRange(part.startMinutes, part.endMinutes)}. Non può '
-                  'essere modificata.',
+              tr(
+                'Pubblicata: ${formatMinutesRange(part.startMinutes, part.endMinutes)}. Non può '
+                    'essere modificata.',
+                'Published: ${formatMinutesRange(part.startMinutes, part.endMinutes)}. It cannot be changed.',
+              ),
               style: _valueStyle,
             )
           else if (slot == null)
             Text(refusal ?? noTeacherReason(_index, _entry, part.disciplineIds), style: _valueStyle.copyWith(color: AppTheme.trialDangerText))
           else ...[
             AppDropdownField<int>(
-              hint: 'Scegli il docente',
+              hint: tr('Scegli il docente', 'Choose the teacher'),
               value: slot.availability.id,
               options: [
                 for (final offered in slots)
@@ -981,7 +1001,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
                 }
               },
             ),
-            _label('Quando', first: false),
+            _label(tr('Quando', 'When'), first: false),
             BandTimeRangeSlider(
               bucket: _index.band,
               startTime: timeOfDayFromMinutes(part.startMinutes),
@@ -1068,7 +1088,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       );
     }
 
-    final presenceLabel = mode == kOnlineMode ? 'Online' : 'Presente';
+    final presenceLabel = mode == kOnlineMode ? 'Online' : tr('Presente', 'Present');
     final String? discipline = subjectDisciplineName(
       widget.ministrySubjects,
       _booking.ministrySubjectId,
@@ -1080,7 +1100,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       runSpacing: 6,
       children: [
         if (discipline != null) fact(Icons.menu_book_rounded, AppTheme.trialTealDeepText, discipline),
-        fact(Icons.schedule_rounded, AppTheme.trialTealDeepText, '${formatMinutes(_booking.duration)} da pianificare'),
+        fact(Icons.schedule_rounded, AppTheme.trialTealDeepText, tr('${formatMinutes(_booking.duration)} da pianificare', '${formatMinutes(_booking.duration)} to plan')),
         fact(
           lessonModeIcon(mode),
           lessonAccent(mode),
@@ -1114,7 +1134,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
   {
     if (_requestedDisciplines.isNotEmpty && _parts.any((part) => part.disciplineIds.isEmpty))
     {
-      return 'Ogni lezione deve avere almeno una disciplina.';
+      return tr('Ogni lezione deve avere almeno una disciplina.', 'Each lesson must have at least one discipline.');
     }
 
     return null;
@@ -1125,13 +1145,16 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return switch (_stepIndex)
     {
       0 => (
-        question: 'In quante lezioni deve essere svolta la materia?',
-        hint: 'Una materia può essere divisa in due lezioni diverse e le discipline possono essere '
-            'spartite liberamente tra esse.',
+        question: tr('In quante lezioni deve essere svolta la materia?', 'In how many lessons should the subject be taught?'),
+        hint: tr(
+          'Una materia può essere divisa in due lezioni diverse e le discipline possono essere '
+              'spartite liberamente tra esse.',
+          'A subject can be split into two different lessons, and the disciplines can be shared freely between them.',
+        ),
       ),
       _ => (
-        question: 'Chi svolge le lezioni?',
-        hint: 'Scegli il docente o i docenti che devono effettuare le lezioni.',
+        question: tr('Chi svolge le lezioni?', 'Who teaches the lessons?'),
+        hint: tr('Scegli il docente o i docenti che devono effettuare le lezioni.', 'Choose the teacher or teachers who will give the lessons.'),
       ),
     };
   }
@@ -1162,7 +1185,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     final hasRoomForStep = MediaQuery.sizeOf(context).width >= _stepCountMin;
 
     return AppDialogStack(
-      eyebrow: hasRoomForStep ? 'Passo ${_stepIndex + 1} di 2 · $name' : name,
+      eyebrow: hasRoomForStep ? tr('Passo ${_stepIndex + 1} di 2 · $name', 'Step ${_stepIndex + 1} of 2 · $name') : name,
       title: _requestName,
       leading: PersonAvatar(person: _entry.presence.student, size: PersonAvatar.titleSize),
       subtitle: _buildFacts(),
@@ -1171,7 +1194,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
           ? AppDialogFooter.single(
               maxWidth: _dialogFooterWidth,
               AppGradientButton(
-                label: 'CONFERMA',
+                label: tr('CONFERMA', 'CONFIRM'),
                 icon: Icons.check_rounded,
                 busy: _isSaving,
                 height: _dialogButtonHeight,
@@ -1194,7 +1217,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
                 onPressed: _unplanEverything,
               ),
               primary: AppGradientButton(
-                label: 'CONFERMA',
+                label: tr('CONFERMA', 'CONFIRM'),
                 icon: Icons.check_rounded,
                 busy: _isSaving,
                 height: _dialogButtonHeight,
@@ -1256,7 +1279,7 @@ Future<void> showLessonPlanWizard({
 {
   return showBlurredDialog<void>(
     context: context,
-    barrierLabel: 'Pianifica una materia',
+    barrierLabel: tr('Pianifica una materia', 'Plan a subject'),
     builder: (dialogContext) => LessonPlanWizard(
       entry: entry,
       index: index,

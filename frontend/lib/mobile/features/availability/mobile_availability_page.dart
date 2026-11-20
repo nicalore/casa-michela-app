@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -39,9 +40,9 @@ import 'widgets/mobile_availability_day_card.dart';
 import 'widgets/mobile_availability_day_sheet.dart';
 import 'widgets/mobile_availability_wizard.dart';
 
-const String _title = 'Disponibilità';
+String get _title => tr('Disponibilità', 'Availability');
 
-const List<String> _pages = ['Questa settimana', 'Settimana prossima'];
+List<String> get _pages => [tr('Questa settimana', 'This week'), tr('Settimana prossima', 'Next week')];
 
 const Duration _pageTurn = Duration(milliseconds: 320);
 
@@ -428,9 +429,9 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
     final bool confirmed = await showMobileConfirmSheet(
       context: sheet,
       eyebrow: formatAvailableDayLabel(day.date),
-      title: 'Confermi?',
+      title: tr('Confermi?', 'Are you sure?'),
       message: TextSpan(text: availabilityDeletionWarning(day.date, slots, band: band, wholeDay: wholeDay)),
-      confirmLabel: 'Elimina',
+      confirmLabel: tr('Elimina', 'Delete'),
       confirmIcon: Icons.delete_outline_rounded,
     );
 
@@ -519,7 +520,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
             onTap: () => showMobileInfoSheet(
               context: context,
               title: _title,
-              paragraphs: const [kAvailabilityDeadlines],
+              paragraphs: [kAvailabilityDeadlines],
             ),
           ),
         ),
@@ -585,7 +586,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
     {
       return MobileLoadFailed(
         error: _loadFailure,
-        message: 'Non è stato possibile caricare le disponibilità.',
+        message: tr('Non è stato possibile caricare le disponibilità.', 'Your availability could not be loaded.'),
         onRetry: _load,
         tablet: tablet,
       );

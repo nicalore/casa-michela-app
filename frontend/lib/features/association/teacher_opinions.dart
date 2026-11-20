@@ -1,3 +1,4 @@
+import '../../core/language/app_language.dart';
 import '../../services/api_service.dart';
 import '../people/models/person_face.dart';
 import '../people/models/person_item.dart';
@@ -5,17 +6,21 @@ import '../people/models/teacher_subject_item.dart';
 
 const String _parentRole = 'PARENT';
 
-const String kTeachersSearchHint = 'Cerca docente...';
-const String kTeachersSortHint = 'Ordina per';
-const String kSubjectsFilterLabel = 'Discipline';
-const String kSubjectsFilterTitle = 'Filtra per disciplina';
-const String kSubjectsFilterHint = 'Es. Algebra';
-const String kOnlyDislikedLabel = 'Solo non graditi';
+String get kTeachersSearchHint => tr('Cerca docente...', 'Search teachers...');
+String get kTeachersSortHint => tr('Ordina per', 'Sort by');
+String get kSubjectsFilterLabel => tr('Discipline', 'Disciplines');
+String get kSubjectsFilterTitle => tr('Filtra per disciplina', 'Filter by discipline');
+String get kSubjectsFilterHint => tr('Es. Algebra', 'E.g. Algebra');
+String get kOnlyDislikedLabel => tr('Solo non graditi', 'Only those not liked');
 
-const String kTeachersOpinionNote =
-    'Questa informazione verrà tenuta in considerazione nella stesura del '
-    'calendario delle lezioni, non sarà visibile ai docenti e rimarrà valida '
-    'fino a quando non deciderai di rimuoverla.';
+String get kTeachersOpinionNote => tr(
+  'Questa informazione verrà tenuta in considerazione nella stesura del '
+      'calendario delle lezioni, non sarà visibile ai docenti e rimarrà valida '
+      'fino a quando non deciderai di rimuoverla.',
+  'This information will be taken into account when drawing up the '
+      'lesson calendar, will not be visible to teachers and will remain valid '
+      'until you decide to remove it.',
+);
 
 bool canSpeakFor(String role)
 {
@@ -58,42 +63,68 @@ String _pronounFor(String? gender)
 
 String _gotOn(String? gender) => gender == 'F' ? 'trovata' : 'trovato';
 
-String opinionQuestion(PersonItem teacher)
+String _englishPronounFor(String? gender)
 {
-  return 'Chi non si è trovato bene con ${_pronounFor(teacher.gender)}?';
+  return switch (gender)
+  {
+    'F' => 'her',
+    'M' => 'him',
+    _ => 'them',
+  };
+}
+
+// Asked of several pupils: feminine only when all are girls.
+String opinionQuestion(PersonItem teacher, List<OpinionPupil> pupils)
+{
+  final String gotOn = pupils.every((pupil) => pupil.gender == 'F') ? 'trovata' : 'trovato';
+
+  return tr(
+    'Chi non si è $gotOn bene con ${_pronounFor(teacher.gender)}?',
+    "Who didn't get on well with ${_englishPronounFor(teacher.gender)}?",
+  );
 }
 
 String opinionSentence(OpinionPupil pupil, PersonItem teacher, {required bool forSelf})
 {
   final String pronoun = _pronounFor(teacher.gender);
+  final String englishPronoun = _englishPronounFor(teacher.gender);
 
   return forSelf
-      ? 'Non mi sono ${_gotOn(pupil.gender)} bene con $pronoun'
-      : '${pupil.firstName} non si è ${_gotOn(pupil.gender)} bene con $pronoun';
+      ? tr('Non mi sono ${_gotOn(pupil.gender)} bene con $pronoun', "I didn't get on well with $englishPronoun")
+      : tr(
+          '${pupil.firstName} non si è ${_gotOn(pupil.gender)} bene con $pronoun',
+          "${pupil.firstName} didn't get on well with $englishPronoun",
+        );
 }
 
 String taughtSubjectsLabel(int count)
 {
   return switch (count)
   {
-    0 => 'Nessuna disciplina insegnata.',
-    1 => '1 disciplina insegnata',
-    _ => '$count discipline insegnate',
+    0 => tr('Nessuna disciplina insegnata.', 'No disciplines taught.'),
+    1 => tr('1 disciplina insegnata', '1 discipline taught'),
+    _ => tr('$count discipline insegnate', '$count disciplines taught'),
   };
 }
 
-String teachersFoundLabel(int count) => count == 1 ? '1 docente trovato' : '$count docenti trovati';
+String teachersFoundLabel(int count) => count == 1
+    ? tr('1 docente trovato', '1 teacher found')
+    : tr('$count docenti trovati', '$count teachers found');
 
 enum TeacherSort
 {
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)'),
-  surnameAsc('Cognome (A-Z)'),
-  surnameDesc('Cognome (Z-A)');
+  nameAsc,
+  nameDesc,
+  surnameAsc,
+  surnameDesc;
 
-  final String label;
-
-  const TeacherSort(this.label);
+  String get label => switch (this)
+  {
+    TeacherSort.nameAsc => tr('Nome (A-Z)', 'First name (A-Z)'),
+    TeacherSort.nameDesc => tr('Nome (Z-A)', 'First name (Z-A)'),
+    TeacherSort.surnameAsc => tr('Cognome (A-Z)', 'Surname (A-Z)'),
+    TeacherSort.surnameDesc => tr('Cognome (Z-A)', 'Surname (Z-A)'),
+  };
 
   int compare(PersonItem a, PersonItem b)
   {

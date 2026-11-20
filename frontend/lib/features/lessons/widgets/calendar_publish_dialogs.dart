@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -93,7 +94,10 @@ Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                one ? 'Verrà in sede solo per lezioni online' : 'Verranno in sede solo per lezioni online',
+                tr(
+                  one ? 'Verrà in sede solo per lezioni online' : 'Verranno in sede solo per lezioni online',
+                  'On site for online lessons only',
+                ),
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -108,8 +112,14 @@ Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
           padding: const EdgeInsets.only(left: 30, top: 6, bottom: 4),
           child: Text(
             one
-                ? 'Ha dato disponibilità solo in presenza: si collegherà dai computer dell\'Associazione.'
-                : 'Hanno dato disponibilità solo in presenza: si collegheranno dai computer dell\'Associazione.',
+                ? tr(
+                    'Ha dato disponibilità solo in presenza: si collegherà dai computer dell\'Associazione.',
+                    "They gave in-person availability only: they will connect from the Association's computers.",
+                  )
+                : tr(
+                    'Hanno dato disponibilità solo in presenza: si collegheranno dai computer dell\'Associazione.',
+                    "They gave in-person availability only: they will connect from the Association's computers.",
+                  ),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -145,7 +155,7 @@ Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
                         ),
                         Text(
                           '${formatMinutesRange(teacher.startMinutes, teacher.endMinutes)} · '
-                          '${teacher.lessons == 1 ? '1 lezione' : '${teacher.lessons} lezioni'}',
+                          '${teacher.lessons == 1 ? tr('1 lezione', '1 lesson') : tr('${teacher.lessons} lezioni', '${teacher.lessons} lessons')}',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -167,7 +177,7 @@ Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
 AppGradientButton _dismiss(BuildContext context)
 {
   return AppGradientButton(
-    label: 'ANNULLA',
+    label: tr('ANNULLA', 'CANCEL'),
     icon: Icons.close_rounded,
     gradient: AppTheme.dismissGradient,
     accent: AppTheme.trialVioletText,
@@ -187,14 +197,14 @@ Future<bool?> showPublishConfirmation({
     context: context,
     barrierLabel: 'ConfirmPublish',
     builder: (dialogContext) => AppDialogStack(
-      eyebrow: 'Pubblicazione',
-      title: 'Confermi?',
+      eyebrow: tr('Pubblicazione', 'Publication'),
+      title: tr('Confermi?', 'Confirm?'),
       showClose: false,
       maxWidth: _confirmWidth,
       footer: AppDialogFooter(
         secondary: _dismiss(dialogContext),
         primary: AppGradientButton(
-          label: 'PUBBLICA',
+          label: tr('PUBBLICA', 'PUBLISH'),
           icon: Icons.send_rounded,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -202,7 +212,7 @@ Future<bool?> showPublishConfirmation({
         ),
       ),
       children: [
-        _question('Il calendario verrà inviato a docenti, genitori e studenti.'),
+        _question(tr('Il calendario verrà inviato a docenti, genitori e studenti.', 'The calendar will be sent to teachers, parents and students.')),
         if (onlineOnly.isNotEmpty) _onlineOnly(onlineOnly),
         if (warnings.isNotEmpty) _caution(warnings),
       ],
@@ -216,14 +226,14 @@ Future<bool?> showDraftConfirmation({required BuildContext context})
     context: context,
     barrierLabel: 'ConfirmDraft',
     builder: (dialogContext) => AppDialogStack(
-      eyebrow: 'Ritorno in bozza',
-      title: 'Confermi?',
+      eyebrow: tr('Ritorno in bozza', 'Back to draft'),
+      title: tr('Confermi?', 'Confirm?'),
       showClose: false,
       maxWidth: _confirmWidth,
       footer: AppDialogFooter(
         secondary: _dismiss(dialogContext),
         primary: AppGradientButton(
-          label: 'MODIFICA',
+          label: tr('MODIFICA', 'EDIT'),
           icon: Icons.edit_outlined,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -231,10 +241,11 @@ Future<bool?> showDraftConfirmation({required BuildContext context})
         ),
       ),
       children: [
-        _question(
+        _question(tr(
           'Il calendario attuale resterà visibile a docenti, genitori e studenti. '
               'Le modifiche saranno inviate solo se confermate.',
-        ),
+          'The current calendar will stay visible to teachers, parents and students. Changes will be sent only if confirmed.',
+        )),
       ],
     ),
   );
@@ -246,14 +257,14 @@ Future<bool?> showDiscardDraftConfirmation({required BuildContext context})
     context: context,
     barrierLabel: 'ConfirmDiscardDraft',
     builder: (dialogContext) => AppDialogStack(
-      eyebrow: 'Uscita dalla bozza',
-      title: 'Confermi?',
+      eyebrow: tr('Uscita dalla bozza', 'Leaving the draft'),
+      title: tr('Confermi?', 'Confirm?'),
       showClose: false,
       maxWidth: _confirmWidth,
       footer: AppDialogFooter(
         secondary: _dismiss(dialogContext),
         primary: AppGradientButton(
-          label: 'ESCI',
+          label: tr('ESCI', 'LEAVE'),
           icon: Icons.undo_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -263,7 +274,7 @@ Future<bool?> showDiscardDraftConfirmation({required BuildContext context})
         ),
       ),
       children: [
-        _question('Le modifiche effettuate verranno annullate.'),
+        _question(tr('Le modifiche effettuate verranno annullate.', 'The changes made will be discarded.')),
       ],
     ),
   );
@@ -279,14 +290,14 @@ Future<bool?> showPublishChangesConfirmation({
     context: context,
     barrierLabel: 'ConfirmPublishChanges',
     builder: (dialogContext) => AppDialogStack(
-      eyebrow: 'Modifiche',
-      title: 'Confermi?',
+      eyebrow: tr('Modifiche', 'Changes'),
+      title: tr('Confermi?', 'Confirm?'),
       showClose: false,
       maxWidth: _confirmWidth,
       footer: AppDialogFooter(
         secondary: _dismiss(dialogContext),
         primary: AppGradientButton(
-          label: 'PUBBLICA',
+          label: tr('PUBBLICA', 'PUBLISH'),
           icon: Icons.send_rounded,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -294,9 +305,10 @@ Future<bool?> showPublishChangesConfirmation({
         ),
       ),
       children: [
-        _question(
+        _question(tr(
           'Il calendario aggiornato verrà inviato a docenti, genitori e studenti.',
-        ),
+          'The updated calendar will be sent to teachers, parents and students.',
+        )),
         if (onlineOnly.isNotEmpty) _onlineOnly(onlineOnly),
         if (warnings.isNotEmpty) _caution(warnings),
       ],

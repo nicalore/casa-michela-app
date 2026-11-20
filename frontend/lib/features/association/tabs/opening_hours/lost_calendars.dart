@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
@@ -65,7 +66,7 @@ class LostHours
 
   bool get any => availabilities > 0 || presences > 0 || lessons > 0;
 
-  // Italian verb agreement: singular only when exactly one thing is lost.
+  // Verb agreement: singular only when exactly one thing is lost.
   bool get isSingle => availabilities + presences + lessons == 1;
 
   static String _counted(int value, String singular, String plural) =>
@@ -75,9 +76,10 @@ class LostHours
   String get said
   {
     final List<String> parts = [
-      if (availabilities > 0) _counted(availabilities, 'disponibilità', 'disponibilità'),
-      if (presences > 0) _counted(presences, 'prenotazione', 'prenotazioni'),
-      if (lessons > 0) _counted(lessons, 'lezione', 'lezioni'),
+      if (availabilities > 0)
+        _counted(availabilities, tr('disponibilità', 'availability'), tr('disponibilità', 'availabilities')),
+      if (presences > 0) _counted(presences, tr('prenotazione', 'booking'), tr('prenotazioni', 'bookings')),
+      if (lessons > 0) _counted(lessons, tr('lezione', 'lesson'), tr('lezioni', 'lessons')),
     ];
 
     if (parts.length == 1)
@@ -85,7 +87,9 @@ class LostHours
       return parts.single;
     }
 
-    return '${parts.sublist(0, parts.length - 1).join(', ')} e ${parts.last}';
+    final String head = parts.sublist(0, parts.length - 1).join(', ');
+
+    return tr('$head e ${parts.last}', '$head and ${parts.last}');
   }
 }
 
@@ -107,7 +111,7 @@ class WriteWouldTakeAway implements Exception
   factory WriteWouldTakeAway.fromJson(Map<String, dynamic> json)
   {
     return WriteWouldTakeAway(
-      message: json['message'] as String? ?? 'La modifica eliminerebbe delle ore.',
+      message: json['message'] as String? ?? tr('La modifica eliminerebbe delle ore.', 'The change would delete some hours.'),
       lost: [
         for (final row in (json['lost'] as List? ?? const []))
           LostCalendar.fromJson((row as Map).cast<String, dynamic>()),
@@ -127,7 +131,7 @@ class LossConfirmation
 {
   final String confirmLabel;
 
-  LossConfirmation({this.confirmLabel = 'SALVA COMUNQUE'});
+  LossConfirmation({String? confirmLabel}) : confirmLabel = confirmLabel ?? tr('SALVA COMUNQUE', 'SAVE ANYWAY');
 
   bool _confirmed = false;
   bool _declined = false;
@@ -193,9 +197,10 @@ Future<bool?> showLostCalendarsConfirmation({
   required BuildContext context,
   List<LostCalendar> lost = const [],
   LostHours hours = const LostHours(),
-  String confirmLabel = 'SALVA COMUNQUE',
+  String? confirmLabel,
 })
 {
+  final String confirmText = confirmLabel ?? tr('SALVA COMUNQUE', 'SAVE ANYWAY');
   final List<LostCalendar> ordered = [...lost]
     ..sort((a, b) => a.date.compareTo(b.date) != 0
         ? a.date.compareTo(b.date)
@@ -210,13 +215,13 @@ Future<bool?> showLostCalendarsConfirmation({
     context: context,
     barrierLabel: 'ConfirmLostCalendars',
     builder: (confirmContext) => AppDialogStack(
-      eyebrow: ordered.isEmpty ? 'Ore utilizzate' : 'Calendario pubblicato',
-      title: 'Confermi?',
+      eyebrow: ordered.isEmpty ? tr('Ore utilizzate', 'Hours in use') : tr('Calendario pubblicato', 'Published calendar'),
+      title: tr('Confermi?', 'Confirm?'),
       showClose: false,
       maxWidth: 520,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ANNULLA',
+          label: tr('ANNULLA', 'CANCEL'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
           accent: AppTheme.trialVioletText,
@@ -225,7 +230,7 @@ Future<bool?> showLostCalendarsConfirmation({
           onPressed: () => Navigator.of(confirmContext).pop(false),
         ),
         primary: AppGradientButton(
-          label: confirmLabel,
+          label: confirmText,
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -242,16 +247,22 @@ Future<bool?> showLostCalendarsConfirmation({
             children: [
               if (ordered.isEmpty)
                 Text(
-                  '${hours.said} '
-                  '${hours.isSingle ? 'non rientra' : 'non rientrano'} '
-                  'nei nuovi orari.',
+                  hours.isSingle
+                      ? tr('${hours.said} non rientra nei nuovi orari.', "${hours.said} doesn't fit into the new hours.")
+                      : tr('${hours.said} non rientrano nei nuovi orari.', "${hours.said} don't fit into the new hours."),
                   style: _prose,
                 )
               else ...[
               Text(
                 ordered.length == 1
-                    ? 'Il calendario è già stato pubblicato per questa fascia oraria:'
-                    : 'Il calendario è già stato pubblicato per queste fasce orarie:',
+                    ? tr(
+                        'Il calendario è già stato pubblicato per questa fascia oraria:',
+                        'The calendar has already been published for this time slot:',
+                      )
+                    : tr(
+                        'Il calendario è già stato pubblicato per queste fasce orarie:',
+                        'The calendar has already been published for these time slots:',
+                      ),
                 style: _prose,
               ),
               const SizedBox(height: 10),
@@ -270,7 +281,7 @@ Future<bool?> showLostCalendarsConfirmation({
                 ),
               if (hidden > 0)
                 Text(
-                  hidden == 1 ? 'e un\'altra' : 'e altre $hidden',
+                  hidden == 1 ? tr('e un\'altra', 'and one more') : tr('e altre $hidden', 'and $hidden more'),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -282,14 +293,26 @@ Future<bool?> showLostCalendarsConfirmation({
               Text(
                 [
                   if (anyWhole)
-                    'Il calendario e le lezioni che docenti, studenti e genitori '
-                        'hanno già ricevuto vengono eliminati.',
+                    tr(
+                      'Il calendario e le lezioni che docenti, studenti e genitori '
+                          'hanno già ricevuto vengono eliminati.',
+                      'The calendar and the lessons that teachers, students and parents '
+                          'have already received are deleted.',
+                    ),
                   if (anyPartial)
-                    'Le lezioni già pubblicate nella modalità che chiude vengono '
-                        'eliminate e il calendario torna da pubblicare.',
+                    tr(
+                      'Le lezioni già pubblicate nella modalità che chiude vengono '
+                          'eliminate e il calendario torna da pubblicare.',
+                      'The lessons already published in the mode that closes are '
+                          'deleted and the calendar has to be published again.',
+                    ),
                   if (hours.any)
-                    'Il nuovo orario non permette di calendarizzare '
-                        '${hours.said}.',
+                    tr(
+                      'Il nuovo orario non permette di calendarizzare '
+                          '${hours.said}.',
+                      'The new hours leave no room to schedule '
+                          '${hours.said}.',
+                    ),
                 ].join(' '),
                 style: _prose,
               ),
@@ -300,10 +323,10 @@ Future<bool?> showLostCalendarsConfirmation({
                 // already declared deleted above; hours alone are feminine and
                 // still need their own deletion sentence.
                 ordered.isNotEmpty
-                    ? 'Non potranno essere recuperati.'
+                    ? tr('Non potranno essere recuperati.', 'They cannot be recovered.')
                     : hours.isSingle
-                        ? 'Verrà eliminata e non potrà essere recuperata.'
-                        : 'Verranno eliminate e non potranno essere recuperate.',
+                        ? tr('Verrà eliminata e non potrà essere recuperata.', 'It will be deleted and cannot be recovered.')
+                        : tr('Verranno eliminate e non potranno essere recuperate.', 'They will be deleted and cannot be recovered.'),
                 style: _prose,
               ),
             ],

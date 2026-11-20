@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/phone_number.dart';
@@ -25,7 +26,7 @@ import '../widgets/authorized_pickup_dialog.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/relative_card.dart';
 
-const String _peopleLoadFailed = 'Impossibile caricare le anagrafiche dal server.';
+String get _peopleLoadFailed => tr('Impossibile caricare le anagrafiche dal server.', "Couldn't load the people from the server.");
 
 const int _adultAge = 18;
 const int _maxParentsPerPerson = 2;
@@ -35,16 +36,22 @@ const String _parentRoleLabel = 'GENITORE';
 
 enum _ParentSort
 {
-  surnameAsc('Cognome (A-Z)'),
-  surnameDesc('Cognome (Z-A)'),
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)'),
-  dateDesc('Più recente'),
-  dateAsc('Meno recente');
+  surnameAsc,
+  surnameDesc,
+  nameAsc,
+  nameDesc,
+  dateDesc,
+  dateAsc;
 
-  final String label;
-
-  const _ParentSort(this.label);
+  String get label => switch (this)
+  {
+    surnameAsc => tr('Cognome (A-Z)', 'Surname (A-Z)'),
+    surnameDesc => tr('Cognome (Z-A)', 'Surname (Z-A)'),
+    nameAsc => tr('Nome (A-Z)', 'Name (A-Z)'),
+    nameDesc => tr('Nome (Z-A)', 'Name (Z-A)'),
+    dateDesc => tr('Più recente', 'Most recent'),
+    dateAsc => tr('Meno recente', 'Least recent'),
+  };
 
   int compare(PersonItem a, PersonItem b)
   {
@@ -186,7 +193,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
 
       CustomSnackBar.show(
         context: context,
-        message: 'Associazioni aggiornate con successo!',
+        message: tr('Associazioni aggiornate con successo!', 'Links updated successfully!'),
         isError: false,
       );
 
@@ -217,7 +224,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
 
       CustomSnackBar.show(
         context: context,
-        message: 'Responsabilità rimosse con successo.',
+        message: tr('Responsabilità rimosse con successo.', 'Responsibility removed successfully.'),
         isError: false,
       );
 
@@ -239,13 +246,13 @@ class _PersonParentsTabState extends State<PersonParentsTab>
       context: context,
       barrierLabel: 'ConfirmParentalRemoval',
       builder: (dialogContext) => AppDialogStack(
-        eyebrow: 'Responsabilità genitoriali',
-        title: 'Confermi?',
+        eyebrow: tr('Responsabilità genitoriali', 'Parental responsibility'),
+        title: tr('Confermi?', 'Are you sure?'),
         showClose: false,
         maxWidth: 520,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -254,7 +261,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
             onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
           primary: AppGradientButton(
-            label: 'RIMUOVI',
+            label: tr('RIMUOVI', 'REMOVE'),
             icon: Icons.gavel_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -266,9 +273,13 @@ class _PersonParentsTabState extends State<PersonParentsTab>
         children: [
           AppDialogPill(
             child: Text(
-              'Dopo la rimozione delle responsabilità genitoriali, questa persona '
-              "gestirà autonomamente il proprio rapporto con l'Associazione. "
-              "L'operazione è irreversibile.",
+              tr(
+                'Dopo la rimozione delle responsabilità genitoriali, questa persona '
+                    "gestirà autonomamente il proprio rapporto con l'Associazione. "
+                    "L'operazione è irreversibile.",
+                'Once parental responsibility is removed, this person will manage their own relationship with the '
+                    'Association. This cannot be undone.',
+              ),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -336,9 +347,9 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     if (parents.isEmpty)
     {
       return AppEmptyRoom(
-        card: const AppEmptyCard(
+        card: AppEmptyCard(
           icon: Icons.family_restroom_rounded,
-          message: 'Nessun genitore associato a questa anagrafica',
+          message: tr('Nessun genitore associato a questa anagrafica', 'No parent linked to this record'),
         ),
         below: [actions],
       );
@@ -378,7 +389,7 @@ class _ResponsiveParentActionButtonsRow extends StatelessWidget
   Widget build(BuildContext context)
   {
     final Widget manage = AppGradientButton(
-      label: 'GESTISCI GENITORI',
+      label: tr('GESTISCI GENITORI', 'MANAGE PARENTS'),
       icon: Icons.family_restroom_rounded,
       onPressed: onManage,
     );
@@ -395,7 +406,7 @@ class _ResponsiveParentActionButtonsRow extends StatelessWidget
       children: [
         manage,
         AppGradientButton(
-          label: 'RIMUOVI RESPONSABILITÀ',
+          label: tr('RIMUOVI RESPONSABILITÀ', 'REMOVE RESPONSIBILITY'),
           icon: Icons.gavel_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -500,7 +511,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Massimo $_maxParentsPerPerson genitori selezionabili.',
+        message: tr('Massimo $_maxParentsPerPerson genitori selezionabili.', 'You can select at most $_maxParentsPerPerson parents.'),
         isError: true,
       );
 
@@ -541,7 +552,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Seleziona almeno un genitore per procedere.',
+        message: tr('Seleziona almeno un genitore per procedere.', 'Select at least one parent to go on.'),
         isError: true,
       );
 
@@ -558,7 +569,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
       children: [
         AppSearchField(
           controller: _searchController,
-          hintText: 'Cerca genitore...',
+          hintText: tr('Cerca genitore...', 'Search parent...'),
           onChanged: (value) => setState(() => _searchText = value),
         ),
         const SizedBox(height: 16),
@@ -567,8 +578,8 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
           runSpacing: 12,
           children: [
             AppFilterPill<_ParentSort>.setting(
-              prefix: 'Ordina',
-              hint: 'Ordina',
+              prefix: tr('Ordina', 'Sort'),
+              hint: tr('Ordina', 'Sort'),
               icon: Icons.sort_rounded,
               value: _sort,
               menuWidth: 200,
@@ -600,7 +611,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
 
     if (candidates.isEmpty)
     {
-      return const PersonEmptyState(message: 'Nessun genitore disponibile trovato.');
+      return PersonEmptyState(message: tr('Nessun genitore disponibile trovato.', 'No available parent found.'));
     }
 
     return ScrollEdgeFade(
@@ -633,13 +644,13 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Genitori',
-      title: 'Gestisci genitori',
+      eyebrow: tr('Genitori', 'Parents'),
+      title: tr('Gestisci genitori', 'Manage parents'),
       maxWidth: 1160,
       fillLast: true,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           height: kPersonDialogButtonHeight,
           fontSize: kPersonDialogButtonFontSize,

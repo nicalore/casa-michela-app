@@ -153,9 +153,9 @@ class _NoticeDetailsState extends State<_NoticeDetails>
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: kDeleteOpening),
+                  TextSpan(text: kDeleteOpening),
                   TextSpan(text: _notice.title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
-                  const TextSpan(text: kDeleteClosing),
+                  TextSpan(text: kDeleteClosing),
                 ],
               ),
               style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, height: 1.45, color: AppTheme.trialInk),
@@ -256,7 +256,7 @@ class _NoticeDetailsState extends State<_NoticeDetails>
               NoticeMessageView(message: _notice.message, images: widget.images),
               if (_notice.attachments.isNotEmpty) ...[
                 _divider(),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(bottom: 10),
                   child: AppFieldLabel(kAttachmentsLabel),
                 ),

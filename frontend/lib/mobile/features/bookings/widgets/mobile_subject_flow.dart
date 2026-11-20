@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/constants/field_limits.dart';
+import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
@@ -147,7 +148,7 @@ class MobileSubjectFlow
     search.dispose();
   }
 
-  String get eyebrow => '${draft.displayName} · ${modeLabel(mode).toLowerCase()}';
+  String get eyebrow => '${draft.displayName} · ${tr(modeLabel(mode).toLowerCase(), modeLabel(mode))}';
 
   // The title names the discipline, even a subject's only one.
   String? get discipline => subjectDisciplineName(ministrySubjects, draft.ministrySubjectId, draft.associationSubjectIds);
@@ -285,7 +286,7 @@ class MobileSubjectFlow
   List<Widget> _what(VoidCallback onChanged)
   {
     return [
-      const MobileFieldHead(kLessonKindLabel),
+      MobileFieldHead(kLessonKindLabel),
       _lit(
         SubjectFlowMark.kinds,
         Wrap(
@@ -330,7 +331,12 @@ class MobileSubjectFlow
     return [
       MobileFieldHead(
         kDurationLabel,
-        count: available == null ? null : '${formatMinutes(minutesTaken)} di ${formatMinutes(available)}',
+        count: available == null
+            ? null
+            : tr(
+                '${formatMinutes(minutesTaken)} di ${formatMinutes(available)}',
+                '${formatMinutes(minutesTaken)} of ${formatMinutes(available)}',
+              ),
         over: exceeds,
         countTourTarget: subjectFlowTourTarget(SubjectFlowMark.count),
       ),
@@ -414,7 +420,7 @@ class MobileSubjectFlow
     {
       return [
         MobileFieldHead(preferredTeachersLabel(pupil.gender)),
-        const MobileQuietLine(kNoTeachers),
+        MobileQuietLine(kNoTeachers),
       ];
     }
 
@@ -423,7 +429,10 @@ class MobileSubjectFlow
     return [
       MobileFieldHead(
         preferredTeachersLabel(pupil.gender),
-        count: '${chosen.length} di ${SubjectRequestDraft.maxPreferredTeachers}',
+        count: tr(
+          '${chosen.length} di ${SubjectRequestDraft.maxPreferredTeachers}',
+          '${chosen.length} of ${SubjectRequestDraft.maxPreferredTeachers}',
+        ),
       ),
       _lit(
         SubjectFlowMark.search,
@@ -570,7 +579,7 @@ MobileSheet mobileSubjectFlowSheet({
                   inflate: const EdgeInsets.all(4),
                   radius: 22,
                   child: MobileGoldButton(
-                    label: last ? (flow.isEditing ? 'Salva' : 'Aggiungi') : 'Avanti',
+                    label: last ? (flow.isEditing ? tr('Salva', 'Save') : tr('Aggiungi', 'Add')) : tr('Avanti', 'Next'),
                     icon: last ? Icons.check_rounded : Icons.arrow_forward_rounded,
                     busy: busy,
                     onPressed: next,

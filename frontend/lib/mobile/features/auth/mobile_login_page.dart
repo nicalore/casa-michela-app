@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -126,7 +127,11 @@ class _MobileLoginPageState extends State<MobileLoginPage>
 
     if (username.isEmpty || password.isEmpty)
     {
-      MobileNotice.show(context, 'Inserisci nome utente e password per accedere.', error: true);
+      MobileNotice.show(
+        context,
+        tr('Inserisci nome utente e password per accedere.', 'Enter your username and password to sign in.'),
+        error: true,
+      );
       return;
     }
 
@@ -140,7 +145,7 @@ class _MobileLoginPageState extends State<MobileLoginPage>
 
       if (mounted && _apiService.authState.value == AuthState.unauthenticated)
       {
-        MobileNotice.show(context, 'Errore imprevisto. Riprova più tardi.', error: true);
+        MobileNotice.show(context, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'), error: true);
       }
     }
     on DioException catch (e)
@@ -155,9 +160,15 @@ class _MobileLoginPageState extends State<MobileLoginPage>
           ? connectionFailureMessage
           : switch (e.response?.statusCode)
             {
-              401 || 423 => "Nome utente o password non validi. Dopo 5 tentativi errati, l'account verrà bloccato per 20 minuti.",
-              403 => "Account disabilitato. Se ritieni ci sia un errore, contatta l'Associazione.",
-              _ => 'Errore imprevisto. Riprova più tardi.',
+              401 || 423 => tr(
+                "Nome utente o password non validi. Dopo 5 tentativi errati, l'account verrà bloccato per 20 minuti.",
+                'Invalid username or password. After 5 failed attempts, the account will be locked for 20 minutes.',
+              ),
+              403 => tr(
+                "Account disabilitato. Se ritieni ci sia un errore, contatta l'Associazione.",
+                'Account disabled. If you think this is a mistake, contact the Association.',
+              ),
+              _ => tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'),
             };
 
       MobileNotice.show(context, message, error: true);
@@ -201,7 +212,7 @@ class _MobileLoginPageState extends State<MobileLoginPage>
           children: [
             MobileTextField(
               controller: _usernameController,
-              label: 'Nome utente',
+              label: tr('Nome utente', 'Username'),
               icon: Icons.person_outline_rounded,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.username],
@@ -224,7 +235,7 @@ class _MobileLoginPageState extends State<MobileLoginPage>
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                   child: Text(
-                    'Password dimenticata?',
+                    tr('Password dimenticata?', 'Forgot your password?'),
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
@@ -236,7 +247,7 @@ class _MobileLoginPageState extends State<MobileLoginPage>
             ),
             const SizedBox(height: 12),
             MobileGoldButton(
-              label: 'Accedi',
+              label: tr('Accedi', 'Sign in'),
               icon: Icons.arrow_forward_rounded,
               busy: _spinning,
               onPressed: _login,
@@ -284,9 +295,12 @@ class _MobileLoginPageState extends State<MobileLoginPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const MobileDevelopmentWarning(
-          'ATTENZIONE: applicazione attualmente in sviluppo. '
-          'Potrebbero verificarsi comportamenti inaspettati.',
+        MobileDevelopmentWarning(
+          tr(
+            'ATTENZIONE: applicazione attualmente in sviluppo. '
+                'Potrebbero verificarsi comportamenti inaspettati.',
+            'WARNING: this app is still in development. Unexpected behaviour may occur.',
+          ),
         ),
         const SizedBox(height: 12),
         Text(

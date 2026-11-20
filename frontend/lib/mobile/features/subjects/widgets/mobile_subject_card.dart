@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_action_circle.dart';
@@ -71,7 +72,7 @@ class MobileSubjectCard extends StatelessWidget
       radius: _addSize / 2 + _tourAddInflate.left,
       child: Semantics(
         button: true,
-        label: 'Tutti i percorsi',
+        label: tr('Tutti i percorsi', 'All programmes'),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onAdd,

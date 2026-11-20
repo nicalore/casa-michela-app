@@ -49,7 +49,7 @@ class OwnObservationsTab extends StatelessWidget
           constraints: const BoxConstraints(maxWidth: _cardsWidth),
           child: Stack(
             children: [
-              const AppEmptyRoom(
+              AppEmptyRoom(
                 card: AppEmptyCard(icon: Icons.speaker_notes_off_rounded, message: kNoObservations),
                 tourId: kTourOwnObservations,
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -16,16 +17,16 @@ import '../psychologist_strings.dart';
 
 const double _dialogWidth = 760;
 
-const String _noneOption = 'No';
+String get _noneOption => tr('No', 'None');
 const String _otherCode = 'OTHER';
 const String _dsaCode = 'DSA';
 
 // In the order the administrator's form offers them.
-const Map<String, String> kCertificationLabels = {
-  'DSA': 'DSA',
-  'BES': 'BES',
+Map<String, String> get kCertificationLabels => {
+  'DSA': tr('DSA', 'SLD'),
+  'BES': tr('BES', 'SEN'),
   'ADHD': 'ADHD',
-  _otherCode: 'Altro',
+  _otherCode: tr('Altro', 'Other'),
 };
 
 // True once saved.
@@ -75,7 +76,7 @@ class _CertificationsDialogState extends State<_CertificationsDialog>
   }
 
   Set<String> get _chosenLabels =>
-      _codes.isEmpty ? const {_noneOption} : {for (final code in _codes) kCertificationLabels[code]!};
+      _codes.isEmpty ? {_noneOption} : {for (final code in _codes) kCertificationLabels[code]!};
 
   void _toggle(String label)
   {
@@ -186,7 +187,7 @@ class _CertificationsDialogState extends State<_CertificationsDialog>
                 AppTextField(
                   controller: _dsaController,
                   label: kDsaDetailLabel,
-                  hintText: 'Es. Dislessia e discalculia',
+                  hintText: tr('Es. Dislessia e discalculia', 'E.g. Dyslexia and dyscalculia'),
                   maxLength: FieldLimits.dsaDetail,
                   errorText: _dsaError,
                   onChanged: (_) => setState(() => _dsaError = null),
@@ -195,7 +196,7 @@ class _CertificationsDialogState extends State<_CertificationsDialog>
                 AppTextField(
                   controller: _otherController,
                   label: kOtherDetailLabel,
-                  hintText: 'Es. Autismo livello 1',
+                  hintText: tr('Es. Autismo livello 1', 'E.g. Autism level 1'),
                   maxLength: FieldLimits.otherDetail,
                   errorText: _otherError,
                   onChanged: (_) => setState(() => _otherError = null),

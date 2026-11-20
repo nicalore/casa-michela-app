@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../features/reports/report_strings.dart';
 import '../../../routing/role_sections.dart';
 
@@ -60,9 +61,9 @@ List<MobileDestination> mobileUserDestinationsFor(String firstName, {ValueListen
       icon: Icons.person_rounded,
       available: true,
     ),
-    const MobileDestination(
+    MobileDestination(
       slug: kMobileSettingsSlug,
-      label: 'Impostazioni',
+      label: tr('Impostazioni', 'Settings'),
       icon: Icons.settings_rounded,
       available: true,
     ),

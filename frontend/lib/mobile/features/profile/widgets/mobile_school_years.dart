@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../../features/people/models/school_enrollment_item.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart';
@@ -34,15 +35,18 @@ class MobileSchoolYears extends StatelessWidget
 
     final Widget card = MobileDetailCard(
       icon: current ? Icons.school_rounded : Icons.history_rounded,
-      eyebrow: current ? 'Anno scolastico attuale' : null,
-      title: 'Anno scolastico ${year.startYear}/${year.startYear + 1}',
+      eyebrow: current ? tr('Anno scolastico attuale', 'Current school year') : null,
+      title: tr(
+        'Anno scolastico ${year.startYear}/${year.startYear + 1}',
+        'School year ${year.startYear}/${year.startYear + 1}',
+      ),
       rows: [
-        DetailRowData('Scuola', year.schoolName),
-        DetailRowData('Percorso', year.studyProgramNameOnly),
-        DetailRowData('Classe', gradeLabel(year.grade)),
+        DetailRowData(tr('Scuola', 'School'), year.schoolName),
+        DetailRowData(tr('Percorso', 'Programme'), year.studyProgramNameOnly),
+        DetailRowData(tr('Classe', 'Class'), gradeLabel(year.grade)),
       ],
       onEdit: onEdit == null ? null : () => onEdit(year),
-      editLabel: onEdit == null ? null : 'Modifica anno scolastico',
+      editLabel: onEdit == null ? null : tr('Modifica anno scolastico', 'Edit school year'),
     );
 
     if (!current)
@@ -67,7 +71,7 @@ class MobileSchoolYears extends StatelessWidget
       return Center(
         child: MobileEmptyCard(
           icon: Icons.school_rounded,
-          message: 'Nessun anno scolastico registrato.',
+          message: tr('Nessun anno scolastico registrato.', 'No school years recorded.'),
           tablet: MobileBreakpoints.of(context).isTablet,
         ),
       );

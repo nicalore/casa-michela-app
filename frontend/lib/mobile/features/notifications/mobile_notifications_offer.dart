@@ -84,8 +84,8 @@ Future<bool> askMobileNotifications(BuildContext context) async
         ),
         child: Icon(Icons.notifications_active_rounded, size: 30, color: AppTheme.trialTealDeepText),
       ),
-      body: const [
-        SizedBox(height: 16),
+      body: [
+        const SizedBox(height: 16),
         MobileSheetCard(child: MobileSheetText(kNotificationsOfferMessage)),
       ],
       footer: Padding(

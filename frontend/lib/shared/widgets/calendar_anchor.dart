@@ -348,7 +348,7 @@ class _CalendarTodayButtonState extends State<CalendarTodayButton>
                   ? AppTheme.trialMutedText.withValues(alpha: 0.5)
                   : (lit ? Colors.white : AppTheme.trialTealDeepText),
             ),
-            child: const Text(kTodayLabel, maxLines: 1),
+            child: Text(kTodayLabel, maxLines: 1),
           ),
         ),
       ),

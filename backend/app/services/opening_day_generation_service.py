@@ -10,11 +10,13 @@ from app.models.opening_day import OpeningDay
 from app.models.weekly_template import WeeklyTemplate
 from app.repositories.opening_day_repository import OpeningDayRepository
 from app.repositories.weekly_template_repository import WeeklyTemplateRepository
+from app.services.bilingual import Bilingual
 
 _MODES: Final[tuple[str, ...]] = ("presence", "online")
 
-_INVALID_RANGE_ERROR: Final[str] = (
-    "end_date deve essere successiva o uguale a start_date."
+_INVALID_RANGE_ERROR: Final[Bilingual] = Bilingual(
+    "end_date deve essere successiva o uguale a start_date.",
+    "end_date must be on or after start_date.",
 )
 
 # What identifies a row within a day: an all-day closure has no start time.
@@ -111,7 +113,7 @@ class OpeningDayGenerationService:
         end_date: date,
     ) -> GenerationResult:
         if end_date < start_date:
-            raise ValueError(_INVALID_RANGE_ERROR)
+            raise ValueError(_INVALID_RANGE_ERROR.for_request())
 
         existing = await self.opening_day_repository.existing_slot_keys(
             start_date,

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 
-const String kShowAllLabel = 'Mostra tutte';
-const String kShowFewerLabel = 'Mostra meno';
+String get kShowAllLabel => tr('Mostra tutte', 'Show all');
+String get kShowFewerLabel => tr('Mostra meno', 'Show fewer');
 
 // Lengthens a list in place, and shortens it again.
 class ShowMoreButton extends StatefulWidget

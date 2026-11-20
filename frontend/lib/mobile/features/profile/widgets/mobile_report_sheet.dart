@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/field_limits.dart';
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../features/people/models/person_item.dart';
@@ -17,12 +18,12 @@ Future<void> showMobileReportSheet({
   required BuildContext context,
   required PersonItem person,
   required List<String> fields,
-  String eyebrow = 'I tuoi dati',
+  String? eyebrow,
 })
 {
   return showMobileSheet<void>(
     context: context,
-    builder: (context) => _ReportSheet(person: person, fields: fields, eyebrow: eyebrow),
+    builder: (context) => _ReportSheet(person: person, fields: fields, eyebrow: eyebrow ?? tr('I tuoi dati', 'Your details')),
   );
 }
 
@@ -79,14 +80,18 @@ class _ReportSheetState extends State<_ReportSheet>
   {
     if (_chosen.isEmpty)
     {
-      MobileNotice.show(context, 'Seleziona almeno un campo da modificare.', error: true);
+      MobileNotice.show(context, tr('Seleziona almeno un campo da modificare.', 'Choose at least one field to change.'), error: true);
 
       return;
     }
 
     if (_chosen.any((field) => _controllers[field]!.text.trim().isEmpty))
     {
-      MobileNotice.show(context, 'Compila i dettagli per tutti i campi selezionati.', error: true);
+      MobileNotice.show(
+        context,
+        tr('Compila i dettagli per tutti i campi selezionati.', 'Fill in the details for all the selected fields.'),
+        error: true,
+      );
 
       return;
     }
@@ -101,7 +106,7 @@ class _ReportSheetState extends State<_ReportSheet>
 
       if (mounted)
       {
-        MobileNotice.show(context, 'Segnalazione inviata con successo!');
+        MobileNotice.show(context, tr('Segnalazione inviata con successo!', 'Report sent successfully!'));
         finishMobileSheet(context);
       }
     }
@@ -123,14 +128,14 @@ class _ReportSheetState extends State<_ReportSheet>
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: MobileSheet(
         eyebrow: widget.eyebrow,
-        title: 'Segnala errore',
+        title: tr('Segnala errore', 'Report an error'),
         aboveKeyboard: true,
         unsaved: () => _chosen.isEmpty ? MobileUnsaved.none : MobileUnsaved.choices,
         saving: _busy,
         body: [
           const SizedBox(height: 18),
           Text(
-            'Quali dati sono sbagliati?',
+            tr('Quali dati sono sbagliati?', 'Which details are wrong?'),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -157,7 +162,7 @@ class _ReportSheetState extends State<_ReportSheet>
               key: ValueKey(field),
               controller: _controllers[field]!,
               label: field,
-              hintText: 'Valore corretto',
+              hintText: tr('Valore corretto', 'Correct value'),
               maxLength: FieldLimits.reportValue,
               textCapitalization: TextCapitalization.sentences,
             ),
@@ -166,7 +171,7 @@ class _ReportSheetState extends State<_ReportSheet>
         footer: Padding(
           padding: const EdgeInsets.only(top: 24),
           child: MobileGoldButton(
-            label: 'Invia segnalazione',
+            label: tr('Invia segnalazione', 'Send report'),
             icon: Icons.send_rounded,
             busy: _busy,
             onPressed: _send,

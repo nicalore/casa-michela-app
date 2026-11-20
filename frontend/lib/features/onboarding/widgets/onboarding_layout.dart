@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
@@ -218,8 +219,8 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
         .any((enrollment) => enrollment.startYear == current);
   }
 
-  static const String _currentYearReason =
-      "Inserisci l'anno scolastico in corso per proseguire.";
+  static String get _currentYearReason =>
+      tr("Inserisci l'anno scolastico in corso per proseguire.", 'Enter the current school year to go on.');
 
   // On the pinned buttons: the shown step's, keyed so a message can be raised above them.
   final GlobalKey _footerKey = GlobalKey();
@@ -393,11 +394,15 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       _subject,
       fields: [
         ...kPersonalReportableFields,
-        ...associationReportableFields(_subject.roles, forOwner: !_step.isAboutAChild),
+        ...associationReportableFields(
+          _subject.roles,
+          forOwner: !_step.isAboutAChild,
+          feminine: _subject.gender == 'F',
+        ),
       ],
       eyebrow: _step.isAboutAChild
-          ? 'Dati di ${_step.childName}'
-          : 'I tuoi dati',
+          ? tr('Dati di ${_step.childName}', "${_step.childName}'s details")
+          : tr('I tuoi dati', 'Your details'),
     );
   }
 
@@ -454,6 +459,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
           key: ValueKey('school-${_subject.fiscalCode}'),
           person: _subject,
           onUpdate: () => _reload(_subject.fiscalCode),
+          atLeastOne: onboardingAtLeastOneSchoolYear(_step),
         );
 
       case OnboardingStepKind.teacherSubjects:
@@ -477,7 +483,9 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   {
     final DateTime? update = _termsUpdate;
 
-    return update == null ? 'PASSO ${_shown + 1} DI ${_steps.length}' : termsUpdateEyebrow(update).toUpperCase();
+    return update == null
+        ? tr('PASSO ${_shown + 1} DI ${_steps.length}', 'STEP ${_shown + 1} OF ${_steps.length}')
+        : termsUpdateEyebrow(update).toUpperCase();
   }
 
   String get _title => _termsUpdate == null ? onboardingStepTitle(_step) : kTermsUpdateTitle;
@@ -577,7 +585,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   Widget get _exitButton
   {
     return AppGradientButton(
-      label: 'TORNA AL LOGIN',
+      label: tr('TORNA AL LOGIN', 'BACK TO SIGN-IN'),
       icon: Icons.logout_rounded,
       gradient: AppTheme.dismissGradient,
       accent: AppTheme.trialVioletText,
@@ -592,7 +600,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   {
     return _shown > 0
         ? AppGradientButton(
-            label: 'INDIETRO',
+            label: tr('INDIETRO', 'BACK'),
             icon: Icons.chevron_left_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -613,7 +621,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   Widget get _reportButton
   {
     return AppGradientButton(
-      label: 'SEGNALA ERRORE',
+      label: tr('SEGNALA ERRORE', 'REPORT AN ERROR'),
       icon: Icons.flag_rounded,
       gradient: AppTheme.dismissGradient,
       accent: AppTheme.trialVioletText,
@@ -626,7 +634,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   Widget get _forwardButton
   {
     return AppGradientButton(
-      label: _isLast ? 'CONCLUDI' : 'AVANTI',
+      label: _isLast ? tr('CONCLUDI', 'FINISH') : tr('AVANTI', 'NEXT'),
       icon: _isLast
           ? Icons.done_all_rounded
           : Icons.chevron_right_rounded,
@@ -762,7 +770,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     {
       return AppLoadFailedRoom(
         error: _loadFailure,
-        message: 'Non è stato possibile aprire il primo accesso.',
+        message: tr('Non è stato possibile aprire il primo accesso.', "Couldn't open the first sign-in."),
         onRetry: _load,
       );
     }

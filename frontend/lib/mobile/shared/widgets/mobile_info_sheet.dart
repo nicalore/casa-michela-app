@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../services/account_keys.dart';
 import 'mobile_sheet.dart';
 
@@ -17,7 +18,7 @@ Future<void> showMobileInfoSheet({
   return showMobileSheet<void>(
     context: context,
     builder: (context) => MobileSheet(
-      eyebrow: 'Informazioni',
+      eyebrow: tr('Informazioni', 'Information'),
       title: title,
       body: [
         for (var i = 0; i < paragraphs.length; i++) ...[

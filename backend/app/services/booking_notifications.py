@@ -17,12 +17,21 @@ from app.models.subject_requested import SubjectRequested
 from app.repositories.identity_repository import IdentityRepository
 from app.services import change_notices
 from app.services.change_notices import Days, Item, Scene, Texts, Topic
-from app.services.notifications import is_reachable
+from app.services.notifications import Bilingual, is_reachable
 from app.services.push import PushBatch, joined
 from app.services.role_service import RoleService
 
 # A lesson as its pupil and parents see it.
 Lesson = Item
+
+_TAP_FOR_BOOKINGS: Final[Bilingual] = Bilingual(
+    "Tocca per visualizzare le prenotazioni",
+    "Tap to view the bookings",
+)
+_CLICK_FOR_BOOKINGS: Final[Bilingual] = Bilingual(
+    "Clicca per visualizzare le prenotazioni",
+    "Click to view the bookings",
+)
 
 _BOOKINGS: Final[Topic] = Topic(
     added=NotificationKindEnum.BOOKING_ADDED,
@@ -30,34 +39,70 @@ _BOOKINGS: Final[Topic] = Topic(
     cancelled=NotificationKindEnum.BOOKING_CANCELLED,
     texts={
         NotificationKindEnum.BOOKING_ADDED: Texts(
-            one="{author} ha aggiunto una nuova prenotazione per te",
-            many="{author} ha aggiunto nuove prenotazioni per te",
-            body_one="Tocca per visualizzarla",
-            web_body_one="Clicca per visualizzarla",
-            body_many="Tocca per visualizzarle",
-            web_body_many="Clicca per visualizzarle",
-            others_one="{author} ha aggiunto una nuova prenotazione",
-            others_many="{author} ha aggiunto nuove prenotazioni",
+            one=Bilingual(
+                "{author} ha aggiunto una nuova prenotazione per te",
+                "{author} added a new booking for you",
+            ),
+            many=Bilingual(
+                "{author} ha aggiunto nuove prenotazioni per te",
+                "{author} added new bookings for you",
+            ),
+            body_one=Bilingual("Tocca per visualizzarla", "Tap to view it"),
+            web_body_one=Bilingual("Clicca per visualizzarla", "Click to view it"),
+            body_many=Bilingual("Tocca per visualizzarle", "Tap to view them"),
+            web_body_many=Bilingual("Clicca per visualizzarle", "Click to view them"),
+            others_one=Bilingual(
+                "{author} ha aggiunto una nuova prenotazione",
+                "{author} added a new booking",
+            ),
+            others_many=Bilingual(
+                "{author} ha aggiunto nuove prenotazioni",
+                "{author} added new bookings",
+            ),
         ),
         NotificationKindEnum.BOOKING_CANCELLED: Texts(
-            one="{author} ha cancellato una tua prenotazione",
-            many="{author} ha cancellato alcune tue prenotazioni",
-            body_one="Tocca per visualizzare le prenotazioni",
-            web_body_one="Clicca per visualizzare le prenotazioni",
-            body_many="Tocca per visualizzare le prenotazioni",
-            web_body_many="Clicca per visualizzare le prenotazioni",
-            others_one="{author} ha cancellato una prenotazione",
-            others_many="{author} ha cancellato alcune prenotazioni",
+            one=Bilingual(
+                "{author} ha cancellato una tua prenotazione",
+                "{author} cancelled one of your bookings",
+            ),
+            many=Bilingual(
+                "{author} ha cancellato alcune tue prenotazioni",
+                "{author} cancelled some of your bookings",
+            ),
+            body_one=_TAP_FOR_BOOKINGS,
+            web_body_one=_CLICK_FOR_BOOKINGS,
+            body_many=_TAP_FOR_BOOKINGS,
+            web_body_many=_CLICK_FOR_BOOKINGS,
+            others_one=Bilingual(
+                "{author} ha cancellato una prenotazione",
+                "{author} cancelled a booking",
+            ),
+            others_many=Bilingual(
+                "{author} ha cancellato alcune prenotazioni",
+                "{author} cancelled some bookings",
+            ),
         ),
         NotificationKindEnum.BOOKING_CHANGED: Texts(
-            one="{author} ha modificato una tua prenotazione",
-            many="{author} ha modificato alcune tue prenotazioni",
-            body_one="Tocca per visualizzarla",
-            web_body_one="Clicca per visualizzarla",
-            body_many="Tocca per visualizzarle",
-            web_body_many="Clicca per visualizzarle",
-            others_one="{author} ha modificato una prenotazione",
-            others_many="{author} ha modificato alcune prenotazioni",
+            one=Bilingual(
+                "{author} ha modificato una tua prenotazione",
+                "{author} changed one of your bookings",
+            ),
+            many=Bilingual(
+                "{author} ha modificato alcune tue prenotazioni",
+                "{author} changed some of your bookings",
+            ),
+            body_one=Bilingual("Tocca per visualizzarla", "Tap to view it"),
+            web_body_one=Bilingual("Clicca per visualizzarla", "Click to view it"),
+            body_many=Bilingual("Tocca per visualizzarle", "Tap to view them"),
+            web_body_many=Bilingual("Clicca per visualizzarle", "Click to view them"),
+            others_one=Bilingual(
+                "{author} ha modificato una prenotazione",
+                "{author} changed a booking",
+            ),
+            others_many=Bilingual(
+                "{author} ha modificato alcune prenotazioni",
+                "{author} changed some bookings",
+            ),
         ),
     },
 )

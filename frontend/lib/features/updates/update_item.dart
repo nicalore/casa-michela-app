@@ -1,19 +1,28 @@
+import '../../core/language/app_language.dart';
 import '../../core/utils/json_parsing.dart';
 import '../association/notices/notice_item.dart';
 
 // Mirrors AppUpdateRoleEnum in backend/app/models/app_update.py, in the composer's order.
 enum UpdateRole
 {
-  admin('ADMIN', 'Amministratori'),
-  teacher('TEACHER', 'Docenti'),
-  psychologist('PSYCHOLOGIST', 'Psicologi'),
-  parent('PARENT', 'Genitori'),
-  student('STUDENT', 'Studenti');
+  admin('ADMIN'),
+  teacher('TEACHER'),
+  psychologist('PSYCHOLOGIST'),
+  parent('PARENT'),
+  student('STUDENT');
 
   final String code;
-  final String plural;
 
-  const UpdateRole(this.code, this.plural);
+  const UpdateRole(this.code);
+
+  String get plural => switch (this)
+  {
+    UpdateRole.admin => tr('Amministratori', 'Administrators'),
+    UpdateRole.teacher => tr('Docenti', 'Teachers'),
+    UpdateRole.psychologist => tr('Psicologi', 'Psychologists'),
+    UpdateRole.parent => tr('Genitori', 'Parents'),
+    UpdateRole.student => tr('Studenti', 'Students'),
+  };
 
   static List<UpdateRole> parse(Object? value)
   {

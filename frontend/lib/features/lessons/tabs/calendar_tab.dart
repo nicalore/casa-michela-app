@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -143,16 +144,18 @@ class _LeftCalendar
   }
 }
 
-const String _kDraftPillTooltip = 'Le modifiche saranno inviate una volta confermate.';
+String get _kDraftPillTooltip => tr('Le modifiche saranno inviate una volta confermate.', 'Changes will be sent once confirmed.');
 
-const String _kDraftDiscarded = 'Modifiche annullate.';
+String get _kDraftDiscarded => tr('Modifiche annullate.', 'Changes discarded.');
 
-const String kLockedBandNotice =
-    'Puoi seguire il lavoro mentre procede, ma non modificarlo. Quando avrà '
-    'finito, il calendario tornerà disponibile.';
+String get kLockedBandNotice => tr(
+  'Puoi seguire il lavoro mentre procede, ma non modificarlo. Quando avrà '
+      'finito, il calendario tornerà disponibile.',
+  "You can follow the work as it goes, but not change it. When they've finished, the calendar will be available again.",
+);
 
 // Shown when discard cannot restore hours: availability withdrawn or request cancelled meanwhile.
-const String _kDraftRestoreFailed = 'Errore durante il ripristino del calendario.';
+String get _kDraftRestoreFailed => tr('Errore durante il ripristino del calendario.', "Couldn't restore the calendar.");
 
 // The actions sit in the header, as tall as its other controls.
 const double _actionButtonHeight = 44;
@@ -627,8 +630,11 @@ class _CalendarTabState extends State<CalendarTab>
       return null;
     }
 
-    return 'Il calendario potrà essere pubblicato alla chiusura delle prenotazioni, '
-        'che avverrà alle ${bookingsCloseLabel(_day, _band)}.';
+    return tr(
+      'Il calendario potrà essere pubblicato alla chiusura delle prenotazioni, '
+          'che avverrà alle ${bookingsCloseLabel(_day, _band)}.',
+      'The calendar can be published when bookings close, at ${bookingsCloseLabel(_day, _band)}.',
+    );
   }
 
   Map<String, LaneRoomLabel> _roomLabelsFor(List<CalendarLane> lanes)
@@ -1003,6 +1009,7 @@ class _CalendarTabState extends State<CalendarTab>
             payload: payload,
             competentTeachers: teachersWhoCouldTeach(index, payload),
             windows: dragWindows(index, payload),
+            femaleTaxCodes: index.femaleTaxCodes,
           );
 
     if (payload == null)
@@ -1066,7 +1073,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     // Checked before the write, against the board as it currently stands.
     final crowding = overlapsACertifiedStudent(index, placement)
-        ? const [kCertifiedOverlapWarning]
+        ? [kCertifiedOverlapWarning]
         : const <String>[];
 
     final create = widget.onCreateLesson;
@@ -1192,7 +1199,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     CustomSnackBar.show(
       context: context,
-      message: said.length == 1 ? said.single : 'Lezione salvata.',
+      message: said.length == 1 ? said.single : tr('Lezione salvata.', 'Lesson saved.'),
       tone: SnackBarTone.warning,
     );
   }
@@ -1270,7 +1277,7 @@ class _CalendarTabState extends State<CalendarTab>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Attività da assegnare.',
+        message: tr('Attività da assegnare.', 'Activity to be assigned.'),
         isError: false,
       );
     }
@@ -1345,7 +1352,7 @@ class _CalendarTabState extends State<CalendarTab>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Lezione tolta dal calendario.',
+        message: tr('Lezione tolta dal calendario.', 'Lesson removed from the calendar.'),
         isError: false,
       );
     }
@@ -1361,7 +1368,7 @@ class _CalendarTabState extends State<CalendarTab>
     final button = insertAnyway == null
         ? null
         : SnackBarButton(
-            label: 'Inserisci comunque',
+            label: tr('Inserisci comunque', 'Insert anyway'),
             onPressed: ()
             {
               if (mounted)
@@ -1421,7 +1428,7 @@ class _CalendarTabState extends State<CalendarTab>
     {
       if (mounted)
       {
-        CustomSnackBar.show(context: context, message: failure ?? 'Non è stato possibile unire le lezioni.', isError: true);
+        CustomSnackBar.show(context: context, message: failure ?? tr('Non è stato possibile unire le lezioni.', "Couldn't merge the lessons."), isError: true);
       }
 
       return;
@@ -1447,15 +1454,18 @@ class _CalendarTabState extends State<CalendarTab>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Le lezioni sono state separate ma non è stato possibile estendere la lezione: '
-            '${failure ?? 'errore imprevisto'}.',
+        message: tr(
+          'Le lezioni sono state separate ma non è stato possibile estendere la lezione: '
+              '${failure ?? 'errore imprevisto'}.',
+          "The lessons were split but the lesson couldn't be extended: ${failure ?? 'unexpected error'}.",
+        ),
         isError: true,
       );
 
       return;
     }
 
-    CustomSnackBar.show(context: context, message: 'Le due lezioni sono state unite.', isError: false);
+    CustomSnackBar.show(context: context, message: tr('Le due lezioni sono state unite.', 'The two lessons have been merged.'), isError: false);
   }
 
   ({Set<int> warned, Set<int> preferred}) _markedLessons(List<CalendarLane> lanes)
@@ -1531,10 +1541,10 @@ class _CalendarTabState extends State<CalendarTab>
     final pupils = lessons.expand((lesson) => lesson.studentTaxCodes).toSet();
 
     final parts = [
-      _count(called.length, 'docente convocato', 'docenti convocati'),
-      _count(pupils.length, 'studente', 'studenti'),
-      _count(lessons.length, 'lezione', 'lezioni'),
-      if (given.isNotEmpty) _count(given.length, 'attività', 'attività'),
+      _count(called.length, tr('docente convocato', 'teacher called in'), tr('docenti convocati', 'teachers called in')),
+      _count(pupils.length, tr('studente', 'student'), tr('studenti', 'students')),
+      _count(lessons.length, tr('lezione', 'lesson'), tr('lezioni', 'lessons')),
+      if (given.isNotEmpty) _count(given.length, tr('attività', 'activity'), tr('attività', 'activities')),
     ];
 
     final Widget counts = Text(
@@ -1637,8 +1647,8 @@ class _CalendarTabState extends State<CalendarTab>
   Widget _buildSortPicker()
   {
     return AppFilterPill<CalendarSort>.setting(
-      prefix: 'Ordina',
-      hint: 'Ordina per',
+      prefix: tr('Ordina', 'Sort'),
+      hint: tr('Ordina per', 'Sort by'),
       icon: Icons.swap_vert_rounded,
       value: _shownSort,
       maxLabelWidth: _pillLabelMaxWidth,
@@ -1655,8 +1665,8 @@ class _CalendarTabState extends State<CalendarTab>
   Widget _buildLayoutPicker()
   {
     return AppFilterPill<CalendarLayout>.setting(
-      prefix: 'Disposizione',
-      hint: 'Disposizione',
+      prefix: tr('Disposizione', 'Layout'),
+      hint: tr('Disposizione', 'Layout'),
       icon: Icons.view_agenda_outlined,
       value: _layout,
       maxLabelWidth: _pillLabelMaxWidth,
@@ -1672,8 +1682,8 @@ class _CalendarTabState extends State<CalendarTab>
   Widget _buildViewPicker()
   {
     return AppFilterPill<CalendarView>.setting(
-      prefix: 'Vista',
-      hint: 'Vista',
+      prefix: tr('Vista', 'View'),
+      hint: tr('Vista', 'View'),
       icon: Icons.groups_outlined,
       value: _view,
       maxLabelWidth: _pillLabelMaxWidth,
@@ -1716,7 +1726,7 @@ class _CalendarTabState extends State<CalendarTab>
             ),
             const SizedBox(width: 5),
             Text(
-              draft ? 'IN BOZZA' : 'PUBBLICATO',
+              draft ? tr('IN BOZZA', 'DRAFT') : tr('PUBBLICATO', 'PUBLISHED'),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -1740,17 +1750,17 @@ class _CalendarTabState extends State<CalendarTab>
   {
     if (!_isSettled)
     {
-      return 'Nessun docente disponibile';
+      return tr('Nessun docente disponibile', 'No teachers available');
     }
 
     return _view == CalendarView.byStudent
-        ? 'Nessuno studente in calendario'
-        : 'Nessun docente convocato';
+        ? tr('Nessuno studente in calendario', 'No students in the calendar')
+        : tr('Nessun docente convocato', 'No teachers called in');
   }
 
   Widget _buildClosedBand()
   {
-    return const Center(child: AppEmptyCard(icon: Icons.event_busy_rounded, message: kAssociationClosedTitle));
+    return Center(child: AppEmptyCard(icon: Icons.event_busy_rounded, message: kAssociationClosedTitle));
   }
 
   Widget _buildEmptyBand({required String message})
@@ -2358,6 +2368,10 @@ class _CalendarTabState extends State<CalendarTab>
       rooms: widget.rooms,
       assignments: plan.assignments,
       supervisions: plan.supervisions,
+      femaleTeachers: {
+        for (final person in widget.people)
+          if (person.gender == 'F') person.fiscalCode,
+      },
       onSave: widget.onSaveRoomPlan,
     );
 
@@ -2366,7 +2380,7 @@ class _CalendarTabState extends State<CalendarTab>
       return;
     }
 
-    CustomSnackBar.show(context: context, message: 'Stanze e responsabili salvati.');
+    CustomSnackBar.show(context: context, message: tr('Stanze e responsabili salvati.', 'Rooms and supervisors saved.'));
 
     await _ensureRoomPlan(force: true);
   }
@@ -2426,7 +2440,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     CustomSnackBar.show(
       context: context,
-      message: warnings.isEmpty ? 'Calendario pubblicato!' : warnings.join(' · '),
+      message: warnings.isEmpty ? tr('Calendario pubblicato!', 'Calendar published!') : warnings.join(' · '),
       tone: warnings.isEmpty ? SnackBarTone.info : SnackBarTone.warning,
       isError: false,
     );
@@ -2470,7 +2484,10 @@ class _CalendarTabState extends State<CalendarTab>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Calendario in bozza: le modifiche saranno inviate una volta confermate.',
+        message: tr(
+          'Calendario in bozza: le modifiche saranno inviate una volta confermate.',
+          'Calendar in draft: changes will be sent once confirmed.',
+        ),
         isError: false,
       );
     }
@@ -2514,8 +2531,11 @@ class _CalendarTabState extends State<CalendarTab>
 
     if (tabs.isEmpty)
     {
-      _reportRefusal('Il browser ha bloccato le nuove schede: consenti i popup '
-          'per questo sito e riprova.');
+      _reportRefusal(tr(
+        'Il browser ha bloccato le nuove schede: consenti i popup '
+            'per questo sito e riprova.',
+        'The browser blocked the new tabs: allow pop-ups for this site and try again.',
+      ));
 
       return;
     }
@@ -2535,11 +2555,11 @@ class _CalendarTabState extends State<CalendarTab>
     }
     catch (error)
     {
-      failCalendarPdfTabs(tabs, 'Non è stato possibile creare il PDF.');
+      failCalendarPdfTabs(tabs, tr('Non è stato possibile creare il PDF.', "Couldn't create the PDF."));
 
       if (mounted)
       {
-        _reportRefusal('Non è stato possibile creare il PDF.');
+        _reportRefusal(tr('Non è stato possibile creare il PDF.', "Couldn't create the PDF."));
       }
     }
     finally
@@ -2646,8 +2666,8 @@ class _CalendarTabState extends State<CalendarTab>
     CustomSnackBar.show(
       context: context,
       message: resent
-          ? 'Modifiche inviate a docenti, genitori e studenti.'
-          : 'Bozza chiusa senza modifiche.',
+          ? tr('Modifiche inviate a docenti, genitori e studenti.', 'Changes sent to teachers, parents and students.')
+          : tr('Bozza chiusa senza modifiche.', 'Draft closed without changes.'),
       isError: false,
     );
   }
@@ -2720,7 +2740,7 @@ class _CalendarTabState extends State<CalendarTab>
         runSpacing: _isDense ? 8 : 12,
         children: [
           AppGradientButton(
-            label: 'ESCI DALLA BOZZA',
+            label: tr('ESCI DALLA BOZZA', 'LEAVE DRAFT'),
             icon: Icons.undo_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -2734,7 +2754,7 @@ class _CalendarTabState extends State<CalendarTab>
           if (rooms) _buildRoomsButton(),
           if (changed)
             AppGradientButton(
-              label: 'PUBBLICA MODIFICHE',
+              label: tr('PUBBLICA MODIFICHE', 'PUBLISH CHANGES'),
               icon: Icons.send_rounded,
               busy: _isPublishing,
               width: _actionWidth,
@@ -2755,7 +2775,7 @@ class _CalendarTabState extends State<CalendarTab>
         runSpacing: _isDense ? 8 : 12,
         children: [
           AppGradientButton(
-            label: 'MODIFICA CALENDARIO',
+            label: tr('MODIFICA CALENDARIO', 'EDIT CALENDAR'),
             icon: Icons.edit_outlined,
             busy: _isPublishing,
             width: _isDense ? null : _publishedActionWidth,
@@ -2765,10 +2785,10 @@ class _CalendarTabState extends State<CalendarTab>
             onPressed: _returnToDraft,
           ),
           AppGradientButton(
-            label: 'ESPORTA PDF',
+            label: tr('ESPORTA PDF', 'EXPORT PDF'),
             icon: Icons.picture_as_pdf_outlined,
             busy: _isExporting,
-            iconOnlyTooltip: _isDense ? 'Esporta PDF' : null,
+            iconOnlyTooltip: _isDense ? tr('Esporta PDF', 'Export PDF') : null,
             width: _isDense ? _actionHeight : _publishedActionWidth,
             height: _actionHeight,
             fontSize: _actionFontSize,
@@ -2789,7 +2809,7 @@ class _CalendarTabState extends State<CalendarTab>
     if (teachersInBuilding(_lanes).isEmpty)
     {
       return AppGradientButton(
-        label: 'PUBBLICA CALENDARIO',
+        label: tr('PUBBLICA CALENDARIO', 'PUBLISH CALENDAR'),
         icon: Icons.send_rounded,
         busy: _isPublishing,
         disabledReason: _tooEarlyReason,
@@ -2824,7 +2844,7 @@ class _CalendarTabState extends State<CalendarTab>
       children: [
         rooms,
         AppGradientButton(
-          label: 'PUBBLICA CALENDARIO',
+          label: tr('PUBBLICA CALENDARIO', 'PUBLISH CALENDAR'),
           icon: Icons.send_rounded,
           busy: _isPublishing,
           disabledReason: _tooEarlyReason,
@@ -2843,7 +2863,7 @@ class _CalendarTabState extends State<CalendarTab>
     final plan = _roomPlan;
 
     return AppGradientButton(
-      label: _hasRoomPlan && plan!.assignments.isNotEmpty ? 'MODIFICA STANZE' : 'ASSEGNA STANZE',
+      label: _hasRoomPlan && plan!.assignments.isNotEmpty ? tr('MODIFICA STANZE', 'EDIT ROOMS') : tr('ASSEGNA STANZE', 'ASSIGN ROOMS'),
       icon: Icons.meeting_room_outlined,
       busy: _isLoadingRoomPlan,
       width: _actionWidth,
@@ -2877,7 +2897,7 @@ class _CalendarTabState extends State<CalendarTab>
     return AppSearchField(
       controller: _searchController,
       onChanged: (value) => _search.value = CalendarSearch.of(value, widget.ministrySubjects),
-      hintText: 'Cerca nel calendario...',
+      hintText: tr('Cerca nel calendario...', 'Search the calendar...'),
     );
   }
 
@@ -2896,7 +2916,7 @@ class _CalendarTabState extends State<CalendarTab>
     return ValueListenableBuilder<bool>(
       valueListenable: _panelOpen,
       builder: (context, shown, child) => AppGradientButton(
-        label: 'DA PIANIFICARE',
+        label: tr('DA PIANIFICARE', 'TO PLAN'),
         icon: Icons.pending_actions_rounded,
         badge: '$open',
         selected: shown,
@@ -3094,7 +3114,7 @@ class _CalendarTabState extends State<CalendarTab>
         PageTransitionItem(
           slot: PageTransitionItem.list,
           child: AppSegmentedTabs(
-            labels: ['Da pianificare ($open)', 'In calendario ($planned)'],
+            labels: [tr('Da pianificare ($open)', 'To plan ($open)'), tr('In calendario ($planned)', 'In the calendar ($planned)')],
             selectedIndex: _compactView.index,
             onSelected: (selected) => setState(() => _compactView = CalendarCompactView.values[selected]),
             height: 40,

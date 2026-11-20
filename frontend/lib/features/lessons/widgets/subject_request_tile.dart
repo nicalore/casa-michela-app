@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
@@ -26,7 +27,7 @@ import 'subject_pick_row.dart';
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-String ministrySubjectName(List<MinistrySubjectItem> subjects, int? id, {String fallback = 'Materia da scegliere'})
+String ministrySubjectName(List<MinistrySubjectItem> subjects, int? id, {String? fallback})
 {
   for (final subject in subjects)
   {
@@ -36,7 +37,7 @@ String ministrySubjectName(List<MinistrySubjectItem> subjects, int? id, {String 
     }
   }
 
-  return fallback;
+  return fallback ?? tr('Materia da scegliere', 'Subject to choose');
 }
 
 List<String> teacherNames(List<PersonItem> teachers, List<String> taxCodes)
@@ -69,7 +70,9 @@ class SubjectRequestList extends StatelessWidget
 
   final List<PersonItem> teachers;
 
-  final String emptyLabel;
+  final String? studentGender;
+
+  final String? emptyLabel;
 
   final VoidCallback? onAdd;
 
@@ -86,9 +89,10 @@ class SubjectRequestList extends StatelessWidget
     required this.requests,
     required this.ministrySubjects,
     required this.teachers,
+    this.studentGender,
     this.onRemove,
     this.offeredSubjects,
-    this.emptyLabel = 'Nessuna materia richiesta.',
+    this.emptyLabel,
     this.onAdd,
     this.onEdit,
     this.isLocked,
@@ -105,7 +109,7 @@ class SubjectRequestList extends StatelessWidget
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              emptyLabel,
+              emptyLabel ?? tr('Nessuna materia richiesta.', 'No subjects requested.'),
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
@@ -122,12 +126,13 @@ class SubjectRequestList extends StatelessWidget
             ministrySubjects: ministrySubjects,
             offeredSubjects: offeredSubjects,
             teachers: teachers,
+            studentGender: studentGender,
             onDelete: onRemove == null || (isLocked?.call(index) ?? false) ? null : () => onRemove!(index),
             onEdit: onEdit == null || (isLocked?.call(index) ?? false) ? null : () => onEdit!(index),
           ),
         if (onAdd != null) ...[
           const SizedBox(height: 4),
-          AppAddRowButton(label: 'AGGIUNGI MATERIA', dense: true, onTap: onAdd!),
+          AppAddRowButton(label: tr('AGGIUNGI MATERIA', 'ADD SUBJECT'), dense: true, onTap: onAdd!),
         ],
       ],
     );
@@ -140,6 +145,7 @@ class SubjectRequestTile extends StatefulWidget
   final List<MinistrySubjectItem> ministrySubjects;
   final List<MinistrySubjectItem>? offeredSubjects;
   final List<PersonItem> teachers;
+  final String? studentGender;
 
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
@@ -149,6 +155,7 @@ class SubjectRequestTile extends StatefulWidget
     required this.draft,
     required this.ministrySubjects,
     required this.teachers,
+    this.studentGender,
     this.onDelete,
     this.offeredSubjects,
     this.onEdit,
@@ -199,6 +206,7 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
         draft: widget.draft,
         ministrySubjects: widget.ministrySubjects,
         teachers: widget.teachers,
+        studentGender: widget.studentGender,
         onEdit: widget.onEdit == null
             ? null
             : ()
@@ -315,6 +323,7 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
   final SubjectRequestDraft draft;
   final List<MinistrySubjectItem> ministrySubjects;
   final List<PersonItem> teachers;
+  final String? studentGender;
 
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
@@ -324,6 +333,7 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
     required this.draft,
     required this.ministrySubjects,
     required this.teachers,
+    required this.studentGender,
     required this.onDelete,
     this.onEdit,
   });
@@ -336,12 +346,12 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
         subjectDisciplineName(ministrySubjects, draft.ministrySubjectId, draft.associationSubjectIds) != null;
 
     return [
-      if (named) ('Materia', ministrySubjectName(ministrySubjects, draft.ministrySubjectId)),
-      ('Durata', draft.duration == null ? _empty : formatMinutes(draft.duration!)),
-      ('Tipo di lezione', said(bookingTagLabels(draft.tags).join(', '))),
-      ('Argomento', said(draft.topic)),
-      ('Mi sono trovato meglio con...', said(teacherNames(teachers, draft.preferredTeacherTaxCodes).join(', '))),
-      ('Note per il docente', said(draft.notes)),
+      if (named) (tr('Materia', 'Subject'), ministrySubjectName(ministrySubjects, draft.ministrySubjectId)),
+      (kDurationLabel, draft.duration == null ? _empty : formatMinutes(draft.duration!)),
+      (kLessonKindLabel, said(bookingTagLabels(draft.tags).join(', '))),
+      (tr('Argomento', 'Topic'), said(draft.topic)),
+      (preferredTeachersLabel(studentGender), said(teacherNames(teachers, draft.preferredTeacherTaxCodes).join(', '))),
+      (kTeacherNotesLabel, said(draft.notes)),
     ];
   }
 
@@ -379,7 +389,7 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
     final Widget? deleteButton = delete == null
         ? null
         : AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -391,7 +401,7 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
     final voices = _voices;
 
     return AppDialogStack(
-      eyebrow: 'Disciplina richiesta',
+      eyebrow: tr('Disciplina richiesta', 'Discipline requested'),
       title: title,
       maxWidth: _maxWidth,
       footer: deleteButton == null
@@ -401,7 +411,7 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
           : AppDialogFooter(
               secondary: deleteButton,
               primary: AppGradientButton(
-                label: 'MODIFICA',
+                label: tr('MODIFICA', 'EDIT'),
                 icon: Icons.edit_outlined,
                 height: _dialogButtonHeight,
                 fontSize: _dialogButtonFontSize,
@@ -435,7 +445,7 @@ class TeacherPicker extends StatefulWidget
   final String? label;
   final IconData icon;
 
-  final String hint;
+  final String? hint;
 
   final List<String> chosen;
 
@@ -457,7 +467,7 @@ class TeacherPicker extends StatefulWidget
     required this.offered,
     required this.onChanged,
     this.max,
-    this.hint = kSearchTeacher,
+    this.hint,
     this.searchTour,
   });
 
@@ -535,7 +545,7 @@ class _TeacherPickerState extends State<TeacherPicker>
                 if (widget.max case final int max) ...[
                   const SizedBox(width: 8),
                   Text(
-                    '${widget.chosen.length} di $max',
+                    tr('${widget.chosen.length} di $max', '${widget.chosen.length} of $max'),
                     style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.trialTealDeepText,
                       fontWeight: FontWeight.w700,
@@ -564,7 +574,7 @@ class _TeacherPickerState extends State<TeacherPicker>
             id: widget.searchTour,
             child: AppSearchField(
               controller: _controller,
-              hintText: _full ? kTeachersFull : widget.hint,
+              hintText: _full ? kTeachersFull : widget.hint ?? kSearchTeacher,
               onChanged: (value) => setState(() => _query = value),
             ),
           ),

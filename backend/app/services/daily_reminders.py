@@ -14,7 +14,12 @@ from app.models.opening_day import OpeningDay
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.presence import Presence
 from app.services.notification_kinds import books_alone, holds_kind
-from app.services.notifications import dismissals, notify, reachable_identities
+from app.services.notifications import (
+    Bilingual,
+    dismissals,
+    notify,
+    reachable_identities,
+)
 from app.services.push import PushBatch, joined
 from app.services.role_service import RoleService
 
@@ -23,11 +28,20 @@ _ROME: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 _AVAILABILITY: Final[NotificationKindEnum] = NotificationKindEnum.AVAILABILITY_REMINDER
 _BOOKING: Final[NotificationKindEnum] = NotificationKindEnum.BOOKING_REMINDER
 
-_AVAILABILITY_TITLE: Final[str] = "Non hai dato alcuna disponibilità per domani"
-_BOOKING_TITLE: Final[str] = "Non hai prenotato alcuna lezione per domani"
-_NAMED_TITLE: Final[str] = "{names} non {verb} alcuna lezione prenotata per domani"
-_BODY: Final[str] = "Tocca per inserirne una"
-_WEB_BODY: Final[str] = "Clicca per inserirne una"
+_AVAILABILITY_TITLE: Final[Bilingual] = Bilingual(
+    "Non hai dato alcuna disponibilità per domani",
+    "You haven't given any availability for tomorrow",
+)
+_BOOKING_TITLE: Final[Bilingual] = Bilingual(
+    "Non hai prenotato alcuna lezione per domani",
+    "You haven't booked any lessons for tomorrow",
+)
+_NAMED_TITLE: Final[Bilingual] = Bilingual(
+    "{names} non {verb} alcuna lezione prenotata per domani",
+    "{names} {verb} no lessons booked for tomorrow",
+)
+_BODY: Final[Bilingual] = Bilingual("Tocca per inserirne una", "Tap to add one")
+_WEB_BODY: Final[Bilingual] = Bilingual("Clicca per inserirne una", "Click to add one")
 
 _AT: Final[time] = time(19)
 
@@ -66,11 +80,11 @@ async def _told(db: AsyncSession, kind: NotificationKindEnum, ends: datetime) ->
     )
 
 
-def _named(names: list[str]) -> str:
+def _named(names: list[str], conjunction: str) -> str:
     if len(names) == 1:
         return names[0]
 
-    return f"{', '.join(names[:-1])} e {names[-1]}"
+    return f"{', '.join(names[:-1])} {conjunction} {names[-1]}"
 
 
 # A parent's children by name; a pupil booking alone stands for themself.
@@ -90,7 +104,7 @@ def _pupils_of(account: Account) -> dict[str, str]:
 
 
 # Nothing booked for any of their pupils, or only for some, who are named.
-def _family_title(account: Account, booked: set[str]) -> str | None:
+def _family_title(account: Account, booked: set[str]) -> Bilingual | None:
     pupils = _pupils_of(account)
     waiting = sorted(name for code, name in pupils.items() if code not in booked)
 
@@ -100,9 +114,17 @@ def _family_title(account: Account, booked: set[str]) -> str | None:
     if len(waiting) == len(pupils):
         return _BOOKING_TITLE
 
-    return _NAMED_TITLE.format(
-        names=_named(waiting),
-        verb="ha" if len(waiting) == 1 else "hanno",
+    one = len(waiting) == 1
+
+    return Bilingual(
+        _NAMED_TITLE.it.format(
+            names=_named(waiting, "e"),
+            verb="ha" if one else "hanno",
+        ),
+        _NAMED_TITLE.en.format(
+            names=_named(waiting, "and"),
+            verb="has" if one else "have",
+        ),
     )
 
 
@@ -156,7 +178,7 @@ async def remind_tomorrow(db: AsyncSession, now: datetime) -> PushBatch:
                 select(Presence.student_tax_code).where(Presence.date == tomorrow)
             )
         )
-        groups: dict[str, list[str]] = defaultdict(list)
+        groups: dict[Bilingual, list[str]] = defaultdict(list)
 
         for account in accounts:
             if not holds_kind(account, _BOOKING):

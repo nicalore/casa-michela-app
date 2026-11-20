@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import DbSession
 from app.api.rbac import IdentityContext, require_role
 from app.core.booking_window import now_in_rome
+from app.core.i18n import tr
 from app.models.student import Student
 from app.schemas.booking_history import BookingHistoryMonthResponse
 from app.services.booking_history import booked_months, month_history
@@ -15,8 +16,14 @@ router = APIRouter(prefix="/people", tags=["booking-history"])
 
 Admin = Annotated[IdentityContext, Depends(require_role("ADMIN"))]
 
-_STUDENT_NOT_FOUND_ERROR: Final[str] = "Studente non trovato"
-_FUTURE_MONTH_ERROR: Final[str] = "Il mese non è ancora iniziato"
+_STUDENT_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Studente non trovato",
+    "Student not found",
+)
+_FUTURE_MONTH_ERROR: Final[tuple[str, str]] = (
+    "Il mese non è ancora iniziato",
+    "The month hasn't started yet",
+)
 
 
 async def _student_or_404(db: AsyncSession, tax_code: str) -> str:
@@ -25,7 +32,7 @@ async def _student_or_404(db: AsyncSession, tax_code: str) -> str:
     if await db.get(Student, code) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_STUDENT_NOT_FOUND_ERROR,
+            detail=tr(*_STUDENT_NOT_FOUND_ERROR),
         )
 
     return code
@@ -49,7 +56,7 @@ async def booking_history(
     if first > today.replace(day=1):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_FUTURE_MONTH_ERROR,
+            detail=tr(*_FUTURE_MONTH_ERROR),
         )
 
     return await month_history(db, code, first, today)

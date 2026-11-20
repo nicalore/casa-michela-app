@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routing/app_router.dart';
@@ -23,14 +24,14 @@ import 'settings_jump.dart';
 import 'settings_tour.dart';
 import 'utils/settings_strings.dart';
 
-const String _appearance = kAppearanceSection;
-const String _access = kAccessSection;
-const String _devices = kDevicesSection;
-const String _system = kSystemSection;
-const String _info = kInfoSection;
+String get _appearance => kAppearanceSection;
+String get _access => kAccessSection;
+String get _devices => kDevicesSection;
+String get _system => kSystemSection;
+String get _info => kInfoSection;
 
 // Order matches the PageSections below; the constants under it index both.
-const List<RailGroup> _groups = [
+List<RailGroup> get _groups => [
   RailGroup(entries: [_appearance]),
   RailGroup(title: kAccountGroup, entries: [_access, _devices]),
   RailGroup(entries: [_system]),
@@ -38,7 +39,7 @@ const List<RailGroup> _groups = [
 ];
 
 // The tabs have no groups: the same entries, flat.
-const List<String> _sections = [_appearance, _access, _devices, _system, _info];
+List<String> get _sections => [_appearance, _access, _devices, _system, _info];
 
 const int _appearanceIndex = 0;
 const int _accessIndex = 1;
@@ -120,7 +121,7 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
   Widget _buildBackButton({bool dense = false})
   {
     return AppBackButton(
-      tooltip: 'Torna indietro',
+      tooltip: tr('Torna indietro', 'Go back'),
       onTap: () => context.go(_origin),
       dense: dense,
     );
@@ -182,7 +183,7 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
                     child: _buildBackButton(dense: true),
                   ),
                   leadingWidth: AppBackButton.denseWidth + _afterBack,
-                  groups: const [RailGroup(entries: _sections)],
+                  groups: [RailGroup(entries: _sections)],
                   selectedIndex: _selectedSection,
                   onSelected: _selectSection,
                 ),

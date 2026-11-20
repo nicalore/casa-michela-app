@@ -439,7 +439,7 @@ class CalendarEmptyBand extends StatelessWidget
 
 class CalendarClosedBand extends CalendarEmptyBand
 {
-  const CalendarClosedBand({super.key}) : super(icon: Icons.event_busy_rounded, title: kAssociationClosedTitle);
+  CalendarClosedBand({super.key}) : super(icon: Icons.event_busy_rounded, title: kAssociationClosedTitle);
 }
 
 class CalendarUnpublishedBand extends CalendarEmptyBand

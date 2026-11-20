@@ -2,10 +2,11 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Final
 
-from sqlalchemy import ColumnElement, delete, or_, select
+from sqlalchemy import ColumnElement, delete, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.core.i18n import ENGLISH, ITALIAN
 from app.models.member import Member
 from app.models.notice import Notice, NoticeExclusion, NoticeRoleEnum
 from app.models.parent import Parent
@@ -71,6 +72,7 @@ async def _candidates(db: AsyncSession) -> list[Person]:
     people = await db.scalars(
         select(Person)
         .options(
+            joinedload(Person.account),
             child_member.joinedload(Member.student_profile),
             child_member.selectinload(Member.memberships),
             member.joinedload(Member.student_profile),
@@ -197,18 +199,39 @@ def not_excluding(tax_code: str) -> ColumnElement[bool]:
     )
 
 
+@dataclass(frozen=True)
+class MailAddress:
+    email: str
+    # None for Italian.
+    language: str | None = None
+
+
+def _chosen_language(person: Person) -> str | None:
+    if "account" in inspect(person).unloaded or person.account is None:
+        return None
+
+    return person.account.language
+
+
+# A shared mailbox reads English only if someone behind it chose English and
+# nobody chose Italian: an explicit Italian, or a clash, keeps Italian.
+def _mailbox_language(chosen: Iterable[str | None]) -> str | None:
+    languages = {language for language in chosen if language is not None}
+
+    return ENGLISH if ENGLISH in languages and ITALIAN not in languages else None
+
+
 # One address per mailbox: relatives often share one, in any capitalisation.
-def unique_addresses(people: Sequence[Person]) -> list[str]:
-    seen: set[str] = set()
-    addresses: list[str] = []
+def unique_addresses(people: Sequence[Person]) -> list[MailAddress]:
+    first: dict[str, str] = {}
+    chosen: dict[str, list[str | None]] = {}
 
     for person in people:
         key = person.email.casefold()
+        first.setdefault(key, person.email)
+        chosen.setdefault(key, []).append(_chosen_language(person))
 
-        if key in seen:
-            continue
-
-        seen.add(key)
-        addresses.append(person.email)
-
-    return addresses
+    return [
+        MailAddress(email, _mailbox_language(chosen[key]))
+        for key, email in first.items()
+    ]

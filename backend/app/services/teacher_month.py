@@ -26,6 +26,7 @@ from app.models.staff import CollaborationTypeEnum
 from app.models.teacher import Teacher
 from app.models.volunteering import VolunteeringMonth, VolunteeringRule
 from app.services.availability_weeks import days_given, opening_weeks, weeks_of
+from app.services.bilingual import Bilingual
 from app.services.compensation import (
     allot_volunteering,
     amount,
@@ -50,9 +51,13 @@ from app.services.worked_hours import (
     span_minutes,
 )
 
-_TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato."
-_NOT_PAID_ERROR: Final[str] = (
-    "L'ora di volontariato si conta solo a chi è retribuito in quel mese."
+_TEACHER_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Docente non trovato.",
+    "Teacher not found.",
+)
+_NOT_PAID_ERROR: Final[Bilingual] = Bilingual(
+    "L'ora di volontariato si conta solo a chi è retribuito in quel mese.",
+    "The volunteering hour counts only for those paid in that month.",
 )
 
 
@@ -482,7 +487,7 @@ async def set_month_volunteering(
     if await db.get(Teacher, tax_code) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_TEACHER_NOT_FOUND_ERROR,
+            detail=_TEACHER_NOT_FOUND_ERROR.for_request(),
         )
 
     timeline = await load_terms(db, tax_code)
@@ -490,7 +495,7 @@ async def set_month_volunteering(
     if not timeline.of_month(month).is_paid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NOT_PAID_ERROR,
+            detail=_NOT_PAID_ERROR.for_request(),
         )
 
     before = timeline.rule(month)

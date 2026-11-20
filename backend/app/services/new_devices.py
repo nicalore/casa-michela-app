@@ -9,17 +9,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.known_device import KnownDevice
 from app.models.notification import Notification, NotificationKindEnum
 from app.models.person import GenderEnum, Person
-from app.services.notifications import dismissals, notify
+from app.services.notifications import Bilingual, dismissals, notify
 from app.services.push import PushBatch, joined
 
 _KIND: Final[NotificationKindEnum] = NotificationKindEnum.NEW_DEVICE
 
-_TITLE: Final[str] = "Nuovo accesso da {device}"
-_UNNAMED: Final[str] = "un dispositivo sconosciuto"
+_TITLE: Final[Bilingual] = Bilingual(
+    "Nuovo accesso da {device}",
+    "New sign-in from {device}",
+)
+_UNNAMED: Final[Bilingual] = Bilingual(
+    "un dispositivo sconosciuto",
+    "an unknown device",
+)
 _BODIES: Final[dict[GenderEnum, str]] = {
     GenderEnum.M: "Se non sei stato tu, blocca il dispositivo",
     GenderEnum.F: "Se non sei stata tu, blocca il dispositivo",
 }
+_ENGLISH_BODY: Final[str] = "If it wasn't you, block the device"
 
 # Codes longer than this are no codes the apps send.
 _KEY_LENGTH: Final[int] = 128
@@ -59,13 +66,16 @@ async def device_seen(
 
     person = await db.get(Person, tax_code)
     gender = person.gender if person is not None else GenderEnum.M
-    body = _BODIES.get(gender, _BODIES[GenderEnum.M])
+    body = Bilingual(_BODIES.get(gender, _BODIES[GenderEnum.M]), _ENGLISH_BODY)
 
     return await notify(
         db,
         [tax_code],
         kind=_KIND,
-        title=_TITLE.format(device=device_name or _UNNAMED),
+        title=Bilingual(
+            _TITLE.it.format(device=device_name or _UNNAMED.it),
+            _TITLE.en.format(device=device_name or _UNNAMED.en),
+        ),
         body=body,
         known={"session": session_id},
     )

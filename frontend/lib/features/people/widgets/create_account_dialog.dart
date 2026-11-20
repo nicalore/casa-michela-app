@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -22,18 +23,24 @@ const double _wizardContentWidth = 600;
 const double _choiceGap = 18;
 const double _chipGap = 10;
 
-const String _creationNotice =
-    "Verrà creato l'account e verrà inviata una email all'indirizzo inserito in anagrafica "
-    'con le istruzioni per accedere.';
+String get _creationNotice => tr(
+  "Verrà creato l'account e verrà inviata una email all'indirizzo inserito in anagrafica "
+      'con le istruzioni per accedere.',
+  'The account will be created and an email with sign-in instructions will be sent to the address '
+      'in the personal details.',
+);
 
-const String _creationsNotice =
-    'Verranno creati gli account e verranno inviate le email agli indirizzi inseriti '
-    'in anagrafica con le istruzioni per accedere.';
+String get _creationsNotice => tr(
+  'Verranno creati gli account e verranno inviate le email agli indirizzi inseriti '
+      'in anagrafica con le istruzioni per accedere.',
+  'The accounts will be created and emails with sign-in instructions will be sent to the addresses '
+      'in the personal details.',
+);
 
-const String _parentsQuestion = "A quali genitori vuoi creare l'account?";
+String get _parentsQuestion => tr("A quali genitori vuoi creare l'account?", 'Which parents do you want to create an account for?');
 
-const String _accountCreated = 'Account creato!';
-const String _accountsCreated = 'Account creati!';
+String get _accountCreated => tr('Account creato!', 'Account created!');
+String get _accountsCreated => tr('Account creati!', 'Accounts created!');
 
 class CreateAccountRequest
 {
@@ -140,12 +147,12 @@ class _CreateAccountConfirmation extends StatelessWidget
   {
     return AppDialogStack(
       eyebrow: 'Account',
-      title: 'Confermi?',
+      title: tr('Confermi?', 'Confirm?'),
       showClose: false,
       maxWidth: _confirmWidth,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ANNULLA',
+          label: tr('ANNULLA', 'CANCEL'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
           accent: AppTheme.trialVioletText,
@@ -154,7 +161,7 @@ class _CreateAccountConfirmation extends StatelessWidget
           onPressed: () => Navigator.of(context).pop(),
         ),
         primary: AppGradientButton(
-          label: 'CREA ACCOUNT',
+          label: tr('CREA ACCOUNT', 'CREATE ACCOUNT'),
           icon: Icons.person_add_alt_1_rounded,
           height: kPersonDialogButtonHeight,
           fontSize: kPersonDialogButtonFontSize,
@@ -253,7 +260,10 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
   Widget _buildAutonomousBookings()
   {
     return _buildQuestion(
-      'Vuoi permettere a ${widget.person.firstName} di prenotare autonomamente le lezioni?',
+      tr(
+        'Vuoi permettere a ${widget.person.firstName} di prenotare autonomamente le lezioni?',
+        'Do you want to let ${widget.person.firstName} book lessons on their own?',
+      ),
       AppSegmentedSwitch(
         value: _autonomousBookings,
         hugContent: true,
@@ -270,7 +280,10 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
       final ParentItem parent = _parents.single;
 
       return _buildQuestion(
-        "Vuoi creare l'account anche per il genitore ${_fullName(parent)}?",
+        tr(
+          "Vuoi creare l'account anche per il genitore ${_fullName(parent)}?",
+          'Do you also want to create an account for the parent ${_fullName(parent)}?',
+        ),
         AppSegmentedSwitch(
           value: _chosenParents.contains(parent.fiscalCode),
           hugContent: true,
@@ -278,7 +291,10 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
         ),
         hint: _parentsWithAccount.isEmpty
             ? null
-            : 'Il genitore ${_fullName(_parentsWithAccount.first)} ha già un account.',
+            : tr(
+                'Il genitore ${_fullName(_parentsWithAccount.first)} ha già un account.',
+                'The parent ${_fullName(_parentsWithAccount.first)} already has an account.',
+              ),
       );
     }
 
@@ -322,12 +338,12 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Passo ${_step + 1} di $_stepCount',
-      title: 'Nuovo account',
+      eyebrow: tr('Passo ${_step + 1} di $_stepCount', 'Step ${_step + 1} of $_stepCount'),
+      title: tr('Nuovo account', 'New account'),
       maxWidth: _wizardContentWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap),
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'CREA ACCOUNT',
+          label: tr('CREA ACCOUNT', 'CREATE ACCOUNT'),
           icon: Icons.person_add_alt_1_rounded,
           height: kPersonDialogButtonHeight,
           fontSize: kPersonDialogButtonFontSize,

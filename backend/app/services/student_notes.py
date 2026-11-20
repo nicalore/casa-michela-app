@@ -20,14 +20,30 @@ from app.models.technical_note import TechnicalNote
 from app.repositories.lesson_repository import LessonRepository
 from app.schemas.student_note import StudentNoteImageResponse, StudentNoteResponse
 from app.schemas.validators import CleanStr
+from app.services.bilingual import Bilingual
 from app.services.notices import Upload, read_uploads, settle_images
 from app.services.role_service import RoleService
 
-_PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
-_NOTE_NOT_FOUND_ERROR: Final[str] = "Osservazione non trovata"
-_IMAGE_NOT_FOUND_ERROR: Final[str] = "Immagine non trovata"
-_FORBIDDEN_ERROR: Final[str] = "Non hai accesso ai dati di questa persona."
-_TOO_LARGE_ERROR: Final[str] = "Le immagini superano i 15 MB totali."
+_PERSON_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Persona non trovata",
+    "Person not found",
+)
+_NOTE_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Osservazione non trovata",
+    "Observation not found",
+)
+_IMAGE_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Immagine non trovata",
+    "Image not found",
+)
+_FORBIDDEN_ERROR: Final[Bilingual] = Bilingual(
+    "Non hai accesso ai dati di questa persona.",
+    "You don't have access to this person's data.",
+)
+_TOO_LARGE_ERROR: Final[Bilingual] = Bilingual(
+    "Le immagini superano i 15 MB totali.",
+    "The images exceed 15 MB in total.",
+)
 
 StudentNote = MethodologicalNote | TechnicalNote
 
@@ -84,7 +100,7 @@ async def student_or_404(db: AsyncSession, tax_code: str) -> Student:
     if student is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            detail=_PERSON_NOT_FOUND_ERROR.for_request(),
         )
 
     return student
@@ -96,7 +112,7 @@ async def teacher_or_404(db: AsyncSession, tax_code: str) -> Teacher:
     if teacher is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            detail=_PERSON_NOT_FOUND_ERROR.for_request(),
         )
 
     return teacher
@@ -113,7 +129,7 @@ async def note_of_teacher(
     if note is None or note.teacher_tax_code != teacher_tax_code:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_NOTE_NOT_FOUND_ERROR,
+            detail=_NOTE_NOT_FOUND_ERROR.for_request(),
         )
 
     return note
@@ -131,7 +147,7 @@ async def note_of_student[N: AnyNote](
     if note is None or note.student_tax_code != student_tax_code:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_NOTE_NOT_FOUND_ERROR,
+            detail=_NOTE_NOT_FOUND_ERROR.for_request(),
         )
 
     return note
@@ -169,7 +185,7 @@ async def settle_note_images(
     kept, added = settle_images(
         note.text,
         {image.image_key: image for image in note.images},
-        await read_uploads(uploads, too_large=_TOO_LARGE_ERROR),
+        await read_uploads(uploads, too_large=_TOO_LARGE_ERROR.for_request()),
         _stored,
     )
     note.images = [*kept, *added]
@@ -204,7 +220,7 @@ async def check_note_reader(
     if methodological and not consented:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_FORBIDDEN_ERROR,
+            detail=_FORBIDDEN_ERROR.for_request(),
         )
 
     if methodological and "PSYCHOLOGIST" in identity.roles and is_followed(member):
@@ -222,7 +238,7 @@ async def check_note_reader(
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail=_FORBIDDEN_ERROR,
+        detail=_FORBIDDEN_ERROR.for_request(),
     )
 
 
@@ -280,7 +296,7 @@ async def _image(
     if image is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_IMAGE_NOT_FOUND_ERROR,
+            detail=_IMAGE_NOT_FOUND_ERROR.for_request(),
         )
 
     return image

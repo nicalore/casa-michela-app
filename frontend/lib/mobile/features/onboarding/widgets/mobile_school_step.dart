@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../features/association/models/school_item.dart';
 import '../../../../features/association/models/study_program_item.dart';
@@ -17,9 +18,11 @@ import '../../../shared/widgets/mobile_notice.dart';
 import '../../profile/widgets/mobile_school_years.dart';
 import 'mobile_school_year_sheet.dart';
 
-const String _saved = 'Anni scolastici aggiornati con successo!';
-const String _atLeastOne = 'Lo studente deve avere almeno un anno scolastico.';
-const String _loadFailed = 'Non è stato possibile caricare le scuole. Riprova più tardi.';
+String get _saved => tr('Anni scolastici aggiornati con successo!', 'School years updated successfully!');
+String get _loadFailed => tr(
+  'Non è stato possibile caricare le scuole. Riprova più tardi.',
+  'The schools could not be loaded. Please try again later.',
+);
 
 // Each change saves as its sheet closes, so the step has nothing left to save.
 class MobileSchoolStep extends StatefulWidget
@@ -31,11 +34,14 @@ class MobileSchoolStep extends StatefulWidget
 
   final double margin;
 
+  final String atLeastOne;
+
   const MobileSchoolStep({
     super.key,
     required this.person,
     required this.onChanged,
     required this.margin,
+    required this.atLeastOne,
   });
 
   @override
@@ -135,6 +141,7 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
         initial: index < 0 ? previousSchoolYearOf(rows) : SchoolYearChoice.ofRow(rows[index]),
         editing: index >= 0,
         confirmRemoval: (sheet) => _confirmRemoval(sheet, rows, index),
+        gender: widget.person.gender,
       );
 
       if (outcome == null || !mounted)
@@ -174,7 +181,7 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
   {
     if (rows.length == 1)
     {
-      MobileNotice.show(context, _atLeastOne, error: true);
+      MobileNotice.show(context, widget.atLeastOne, error: true);
 
       return Future<bool>.value(false);
     }
@@ -183,19 +190,19 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
 
     return showMobileConfirmSheet(
       context: sheet,
-      eyebrow: 'Rimozione',
-      title: 'Confermi?',
+      eyebrow: tr('Rimozione', 'Removal'),
+      title: tr('Confermi?', 'Are you sure?'),
       message: TextSpan(
         children: [
-          const TextSpan(text: "L'anno scolastico "),
+          TextSpan(text: tr("L'anno scolastico ", 'The school year ')),
           TextSpan(
             text: '$start/${start + 1}',
             style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
           ),
-          const TextSpan(text: ' verrà rimosso.'),
+          TextSpan(text: tr(' verrà rimosso.', ' will be removed.')),
         ],
       ),
-      confirmLabel: 'Rimuovi',
+      confirmLabel: tr('Rimuovi', 'Remove'),
       confirmIcon: Icons.delete_outline_rounded,
     );
   }

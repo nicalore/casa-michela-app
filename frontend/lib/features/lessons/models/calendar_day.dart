@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' show TimeOfDay;
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../people/models/person_face.dart';
@@ -13,38 +14,48 @@ import 'presence_item.dart';
 
 enum CalendarView
 {
-  byTeacher('Per docente'),
-  byStudent('Per studente');
+  byTeacher,
+  byStudent;
 
-  final String label;
-
-  const CalendarView(this.label);
+  String get label => switch (this)
+  {
+    CalendarView.byTeacher => tr('Per docente', 'By teacher'),
+    CalendarView.byStudent => tr('Per studente', 'By student'),
+  };
 }
 
 enum CalendarSort
 {
-  room('Stanza'),
+  room,
 
-  firstName('Nome (A-Z)'),
-  firstNameDesc('Nome (Z-A)'),
-  lastName('Cognome (A-Z)'),
-  lastNameDesc('Cognome (Z-A)'),
+  firstName,
+  firstNameDesc,
+  lastName,
+  lastNameDesc,
 
-  arrival('Orario di arrivo');
+  arrival;
 
-  final String label;
-
-  const CalendarSort(this.label);
+  String get label => switch (this)
+  {
+    CalendarSort.room => tr('Stanza', 'Room'),
+    CalendarSort.firstName => tr('Nome (A-Z)', 'First name (A-Z)'),
+    CalendarSort.firstNameDesc => tr('Nome (Z-A)', 'First name (Z-A)'),
+    CalendarSort.lastName => tr('Cognome (A-Z)', 'Surname (A-Z)'),
+    CalendarSort.lastNameDesc => tr('Cognome (Z-A)', 'Surname (Z-A)'),
+    CalendarSort.arrival => tr('Orario di arrivo', 'Arrival time'),
+  };
 }
 
 enum CalendarLayout
 {
-  byHour('Per orario'),
-  byLesson('Per lezioni');
+  byHour,
+  byLesson;
 
-  final String label;
-
-  const CalendarLayout(this.label);
+  String get label => switch (this)
+  {
+    CalendarLayout.byHour => tr('Per orario', 'By time'),
+    CalendarLayout.byLesson => tr('Per lezioni', 'By lesson'),
+  };
 }
 
 abstract class CalendarLane
@@ -220,7 +231,7 @@ String laneWhenLabel(
 }
 
 String whenNothingLabel(CalendarView view) =>
-    view == CalendarView.byStudent ? 'Nessuna presenza' : 'Nessuna disponibilità';
+    view == CalendarView.byStudent ? tr('Nessuna presenza', 'No attendance') : tr('Nessuna disponibilità', 'No availability');
 
 // Includes teachers with only activities, not just those who teach.
 List<TeacherLane> convokedTeachers(List<TeacherLane> lanes)

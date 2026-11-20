@@ -4,6 +4,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
@@ -38,20 +39,24 @@ Color get _inactiveHoverSurface => ThemeColours.fixed(0xFFDFE5EA);
 String collaborationStatusLabel({required bool isActive, required bool isFemale})
 {
   return isActive
-      ? (isFemale ? 'Collaboratrice attiva' : 'Collaboratore attivo')
-      : 'Non collaborante';
+      ? tr(isFemale ? 'Collaboratrice attiva' : 'Collaboratore attivo', 'Active collaborator')
+      : tr('Non collaborante', 'Non-collaborating');
 }
 
 String _clickTip({required bool isActive, required bool isFemale})
 {
   if (isActive)
   {
-    return isFemale ? 'Clicca per renderla non collaborante.' : 'Clicca per renderlo non collaborante.';
+    return tr(
+      isFemale ? 'Clicca per renderla non collaborante.' : 'Clicca per renderlo non collaborante.',
+      'Click to make them non-collaborating.',
+    );
   }
 
-  return isFemale
-      ? 'Clicca per renderla collaboratrice attiva.'
-      : 'Clicca per renderlo collaboratore attivo.';
+  return tr(
+    isFemale ? 'Clicca per renderla collaboratrice attiva.' : 'Clicca per renderlo collaboratore attivo.',
+    'Click to make them an active collaborator.',
+  );
 }
 
 // Why a badge that cannot change stays as it is.
@@ -60,8 +65,8 @@ String collaborationLockedTip({required bool isRevoked, required bool isFemale})
   final String active = isFemale ? 'collaboratrice attiva' : 'collaboratore attivo';
 
   return isRevoked
-      ? "Con l'iscrizione revocata non può diventare $active."
-      : "Senza un'iscrizione in corso non può essere $active.";
+      ? tr("Con l'iscrizione revocata non può diventare $active.", 'With the enrolment revoked, they cannot become an active collaborator.')
+      : tr("Senza un'iscrizione in corso non può essere $active.", 'Without a current enrolment, they cannot be an active collaborator.');
 }
 
 // The sentence on lessons only when some would go; pupils' lessons go with their bookings.
@@ -73,21 +78,35 @@ String _stopConsequences(LostHours hours)
 
   if (teaches && attends)
   {
-    return ' diventerà non collaborante e le sue disponibilità e presenze non ancora iniziate '
-        'verranno eliminate definitivamente, insieme alle prenotazioni.'
-        '${lessons ? ' Le lezioni già pianificate verranno tolte dal calendario.' : ''}';
+    return tr(
+      ' diventerà non collaborante e le sue disponibilità e presenze non ancora iniziate '
+          'verranno eliminate definitivamente, insieme alle prenotazioni.'
+          '${lessons ? ' Le lezioni già pianificate verranno tolte dal calendario.' : ''}',
+      ' will become non-collaborating: their availability and attendance not yet started '
+          'will be permanently deleted, along with the bookings.'
+          '${lessons ? ' Lessons already planned will be removed from the calendar.' : ''}',
+    );
   }
 
   if (attends)
   {
-    return ' diventerà non collaborante e le sue presenze non ancora iniziate verranno eliminate '
-        'definitivamente, insieme alle prenotazioni${lessons ? ' e alle lezioni già pianificate' : ''}.';
+    return tr(
+      ' diventerà non collaborante e le sue presenze non ancora iniziate verranno eliminate '
+          'definitivamente, insieme alle prenotazioni${lessons ? ' e alle lezioni già pianificate' : ''}.',
+      ' will become non-collaborating: their attendance not yet started will be permanently deleted, '
+          'along with the bookings${lessons ? ' and the lessons already planned' : ''}.',
+    );
   }
 
-  return ' diventerà non collaborante e le sue disponibilità non ancora iniziate verranno eliminate '
-      'definitivamente.'
-      '${lessons ? ' Le lezioni già pianificate verranno tolte dal calendario e dovranno essere '
-          'nuovamente pianificate.' : ''}';
+  return tr(
+    ' diventerà non collaborante e le sue disponibilità non ancora iniziate verranno eliminate '
+        'definitivamente.'
+        '${lessons ? ' Le lezioni già pianificate verranno tolte dal calendario e dovranno essere '
+            'nuovamente pianificate.' : ''}',
+    ' will become non-collaborating: their availability not yet started will be permanently deleted.'
+        '${lessons ? ' Lessons already planned will be removed from the calendar and will have to be '
+            'planned again.' : ''}',
+  );
 }
 
 // Shows and toggles the collaboration; with [lockedTip] it only shows it and says why.
@@ -211,7 +230,7 @@ class _CollaborationBadgeState extends State<CollaborationBadge> with TickerProv
   {
     return askPersonConfirmation(
       context,
-      eyebrow: 'Collaborazione',
+      eyebrow: tr('Collaborazione', 'Collaboration'),
       message: [
         TextSpan(
           text: '${widget.person.firstName} ${widget.person.lastName}',
@@ -219,7 +238,7 @@ class _CollaborationBadgeState extends State<CollaborationBadge> with TickerProv
         ),
         TextSpan(text: _stopConsequences(hours)),
       ],
-      confirmLabel: 'DISATTIVA',
+      confirmLabel: tr('DISATTIVA', 'TURN OFF'),
       confirmIcon: Icons.work_off_rounded,
       danger: true,
     );
@@ -280,7 +299,9 @@ class _CollaborationBadgeState extends State<CollaborationBadge> with TickerProv
 
       CustomSnackBar.show(
         context: context,
-        message: target ? 'Collaborazione attivata!' : 'Collaborazione disattivata!',
+        message: target
+            ? tr('Collaborazione attivata!', 'Collaboration turned on!')
+            : tr('Collaborazione disattivata!', 'Collaboration turned off!'),
         isError: false,
       );
 

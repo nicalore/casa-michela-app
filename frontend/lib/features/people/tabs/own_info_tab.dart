@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../services/api_service.dart';
@@ -74,7 +75,7 @@ class OwnInfoTab extends StatelessWidget
                     runSpacing: 16,
                     children: [
                       AppGradientButton(
-                        label: 'MODIFICA CONTATTI',
+                        label: tr('MODIFICA CONTATTI', 'EDIT CONTACTS'),
                         icon: Icons.edit_rounded,
                         onPressed: () => _edit(context),
                       ),
@@ -156,7 +157,7 @@ class _EditContactsDialogState extends State<_EditContactsDialog>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Contatti aggiornati con successo!',
+          message: tr('Contatti aggiornati con successo!', 'Contacts updated successfully!'),
           isError: false,
         );
 
@@ -184,12 +185,12 @@ class _EditContactsDialogState extends State<_EditContactsDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Contatti',
-      title: 'Modifica contatti',
+      eyebrow: tr('Contatti', 'Contacts'),
+      title: tr('Modifica contatti', 'Edit contacts'),
       maxWidth: _dialogWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _isSaving,
           height: kPersonDialogButtonHeight,
@@ -207,13 +208,13 @@ class _EditContactsDialogState extends State<_EditContactsDialog>
               AppTextField(
                 controller: _email,
                 label: 'Email',
-                hintText: 'nome@esempio.it',
+                hintText: tr('nome@esempio.it', 'name@example.com'),
                 nothingAbove: true,
                 maxLength: FieldLimits.email,
               ),
               AppTextField(
                 controller: _phone,
-                label: 'Telefono',
+                label: tr('Telefono', 'Phone'),
                 hintText: '+39 …',
                 maxLength: FieldLimits.phone,
                 inputFormatters: const [PhoneInputFormatter()],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../features/dashboard/widgets/dashboard_birthdays_section.dart';
 import '../../../features/home/widgets/home_month_section.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
@@ -11,10 +12,15 @@ import 'widgets/mobile_notices_list.dart';
 
 const String _adminRole = 'ADMIN';
 
-const List<String> kAdminHomePages = ['Oggi', 'Questo mese', 'Compleanni', 'Notifiche e avvisi'];
+List<String> get kAdminHomePages => [
+  tr('Oggi', 'Today'),
+  tr('Questo mese', 'This month'),
+  tr('Compleanni', 'Birthdays'),
+  tr('Notifiche e avvisi', 'Notifications and notices'),
+];
 
 // The desktop card's wording.
-const String _noBirthdays = 'Nessun compleanno in arrivo.';
+String get _noBirthdays => tr('Nessun compleanno in arrivo.', 'No upcoming birthdays.');
 
 // Tablets: as many as the desktop card, beside the month.
 const int _besideBirthdays = 4;
@@ -66,7 +72,7 @@ class MobileAdminHomeView extends StatelessWidget
     final List<MobileAdminBand>? bands = day;
 
     return bands == null
-        ? const MobileHomeStatus(kMobileDayUnavailable)
+        ? MobileHomeStatus(kMobileDayUnavailable)
         : MobileAdminDayCards(bands: bands, roomy: roomy);
   }
 
@@ -80,7 +86,7 @@ class MobileAdminHomeView extends StatelessWidget
     final List<HomeFigure>? figures = month;
 
     return figures == null
-        ? const MobileHomeStatus(kMobileMonthUnavailable)
+        ? MobileHomeStatus(kMobileMonthUnavailable)
         : MobileAssociationMonthFigures(figures: figures, compact: compact);
   }
 
@@ -95,8 +101,8 @@ class MobileAdminHomeView extends StatelessWidget
     {
       // Beside the month on tablets, a whole page on phones.
       return compact
-          ? const MobileHomeStatus(_noBirthdays)
-          : const Center(child: MobileEmptyCard(icon: Icons.cake_rounded, message: _noBirthdays, tablet: false));
+          ? MobileHomeStatus(_noBirthdays)
+          : Center(child: MobileEmptyCard(icon: Icons.cake_rounded, message: _noBirthdays, tablet: false));
     }
 
     return MobileBirthdayCards(
@@ -108,7 +114,7 @@ class MobileAdminHomeView extends StatelessWidget
   // Today on the left, as tall as the month and the birthdays stacked beside it.
   Widget _buildTablet()
   {
-    const List<String> names = kAdminHomePages;
+    final List<String> names = kAdminHomePages;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

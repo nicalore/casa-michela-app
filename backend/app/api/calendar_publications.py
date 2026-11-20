@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
+from app.core.i18n import tr
 from app.core.time_band import TimeBandEnum
 from app.models.calendar_publication import CalendarPublication
 from app.models.notification import NotificationKindEnum
@@ -311,4 +312,4 @@ async def unpublish_band(
     await db.commit()
     background.add_task(push.deliver, batch)
 
-    return {"detail": "Calendario in modifica"}
+    return {"detail": tr("Calendario in modifica", "Calendar being edited")}

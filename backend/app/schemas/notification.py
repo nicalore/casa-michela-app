@@ -5,13 +5,23 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
 
+from app.core.i18n import tr
 from app.core.time_band import TimeBandEnum
 from app.models.notification import NotificationKindEnum
 from app.models.push_device import PUSH_ADDRESS_LENGTH, PUSH_KEY_LENGTH
 
-_WEB_KEYS_ERROR: Final[str] = "Le chiavi della sottoscrizione sono obbligatorie."
-_PUSH_SERVICE_ERROR: Final[str] = "Servizio di notifiche non riconosciuto."
-_APP_TOKEN_ERROR: Final[str] = "Token del dispositivo non valido."
+_WEB_KEYS_ERROR: Final[tuple[str, str]] = (
+    "Le chiavi della sottoscrizione sono obbligatorie.",
+    "The subscription keys are required.",
+)
+_PUSH_SERVICE_ERROR: Final[tuple[str, str]] = (
+    "Servizio di notifiche non riconosciuto.",
+    "Notification service not recognised.",
+)
+_APP_TOKEN_ERROR: Final[tuple[str, str]] = (
+    "Token del dispositivo non valido.",
+    "Invalid device token.",
+)
 
 # FCM and APNs tokens are plain: letters, digits, colons, dashes and underscores.
 _APP_TOKEN: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9_:-]+")
@@ -96,15 +106,15 @@ class PushDeviceWrite(BaseModel):
     def _address_fits_platform(self) -> Self:
         if self.platform != "web":
             if not _APP_TOKEN.fullmatch(self.address):
-                raise ValueError(_APP_TOKEN_ERROR)
+                raise ValueError(tr(*_APP_TOKEN_ERROR))
 
             return self
 
         if self.p256dh is None or self.auth is None:
-            raise ValueError(_WEB_KEYS_ERROR)
+            raise ValueError(tr(*_WEB_KEYS_ERROR))
 
         if not _is_push_service(self.address):
-            raise ValueError(_PUSH_SERVICE_ERROR)
+            raise ValueError(tr(*_PUSH_SERVICE_ERROR))
 
         return self
 

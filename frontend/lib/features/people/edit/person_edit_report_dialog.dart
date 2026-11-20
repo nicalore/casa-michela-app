@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -19,24 +20,28 @@ import '../widgets/person_detail_widgets.dart';
 const double _footerWidth = 576;
 
 // Everything else on the edit wizard is a field the administrator simply changes.
-const List<String> kAnagraphicReportableFields = [
-  'Nome',
-  'Cognome',
-  'Sesso',
-  'Codice fiscale',
-  'Data di nascita',
-  'Città di nascita',
-  'Provincia',
-  'Nazione di nascita',
+List<String> get kAnagraphicReportableFields => [
+  tr('Nome', 'First name'),
+  tr('Cognome', 'Surname'),
+  tr('Sesso', 'Sex'),
+  tr('Codice fiscale', 'Tax code'),
+  tr('Data di nascita', 'Date of birth'),
+  tr('Città di nascita', 'City of birth'),
+  tr('Provincia', 'Province'),
+  tr('Nazione di nascita', 'Country of birth'),
 ];
 
-const List<String> kSchoolReportableFields = ['Scuola', 'Classe', 'Percorso di studi'];
+List<String> get kSchoolReportableFields => [
+  tr('Scuola', 'School'),
+  tr('Classe', 'Class'),
+  tr('Percorso di studi', 'Study programme'),
+];
 
 Future<void> showAnagraphicErrorReportDialog(
   BuildContext context,
   PersonItem person, {
-  List<String> fields = kAnagraphicReportableFields,
-  String eyebrow = 'Anagrafica',
+  List<String>? fields,
+  String? eyebrow,
 })
 {
   return showBlurredDialog<void>(
@@ -44,8 +49,8 @@ Future<void> showAnagraphicErrorReportDialog(
     barrierLabel: 'AnagraphicErrorReport',
     builder: (dialogContext) => AnagraphicErrorReportDialog(
       person: person,
-      fields: fields,
-      eyebrow: eyebrow,
+      fields: fields ?? kAnagraphicReportableFields,
+      eyebrow: eyebrow ?? tr('Anagrafica', 'Personal details'),
     ),
   );
 }
@@ -60,8 +65,8 @@ class AnagraphicErrorReportDialog extends StatefulWidget
   const AnagraphicErrorReportDialog({
     super.key,
     required this.person,
-    this.fields = kAnagraphicReportableFields,
-    this.eyebrow = 'Anagrafica',
+    required this.fields,
+    required this.eyebrow,
   });
 
   @override
@@ -108,7 +113,7 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Seleziona almeno un campo da modificare.',
+        message: tr('Seleziona almeno un campo da modificare.', 'Select at least one field to change.'),
         isError: true,
       );
 
@@ -122,7 +127,7 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Compila i dettagli per tutti i campi selezionati.',
+        message: tr('Compila i dettagli per tutti i campi selezionati.', 'Fill in the details for every selected field.'),
         isError: true,
       );
 
@@ -146,7 +151,7 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
 
       CustomSnackBar.show(
         context: context,
-        message: 'Segnalazione inviata con successo!',
+        message: tr('Segnalazione inviata con successo!', 'Report sent successfully!'),
         isError: false,
       );
       Navigator.of(context).pop();
@@ -175,11 +180,11 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
 
     return AppDialogStack(
       eyebrow: widget.eyebrow,
-      title: 'Segnala errore',
+      title: tr('Segnala errore', 'Report an error'),
       maxWidth: 620,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'INVIA SEGNALAZIONE',
+          label: tr('INVIA SEGNALAZIONE', 'SEND REPORT'),
           icon: Icons.send_rounded,
           busy: _isSaving,
           height: kPersonDialogButtonHeight,
@@ -196,7 +201,7 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Quali dati sono sbagliati?',
+                tr('Quali dati sono sbagliati?', 'Which details are wrong?'),
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -231,7 +236,7 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
                   AppTextField(
                     controller: _controllers[field]!,
                     label: field,
-                    hintText: 'Valore corretto',
+                    hintText: tr('Valore corretto', 'Correct value'),
                     maxLength: FieldLimits.reportValue,
                     textCapitalization: TextCapitalization.sentences,
                     onChanged: (_) => setState(() {}),

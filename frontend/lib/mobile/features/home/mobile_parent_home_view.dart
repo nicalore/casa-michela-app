@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../features/home/home_link.dart';
 import '../../../features/people/models/person_face.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
@@ -12,7 +13,7 @@ import 'widgets/mobile_child_cards.dart';
 import 'widgets/mobile_notices_list.dart';
 
 const String _parentRole = 'PARENT';
-const String _noPupils = 'Nessuno studente associato.';
+String get _noPupils => tr('Nessuno studente associato.', 'No students linked.');
 
 const double _cardGap = 12;
 const double _rowGap = 14;
@@ -85,7 +86,7 @@ class MobileParentHomeView extends StatelessWidget
 
     if (today == null)
     {
-      return const MobileHomeStatus(kMobileDayUnavailable);
+      return MobileHomeStatus(kMobileDayUnavailable);
     }
 
     if (today.isClosed)
@@ -95,7 +96,7 @@ class MobileParentHomeView extends StatelessWidget
 
     if (today.children.isEmpty)
     {
-      return const Center(
+      return Center(
         child: MobileEmptyCard(icon: Icons.family_restroom_rounded, message: _noPupils, tablet: false),
       );
     }
@@ -117,12 +118,12 @@ class MobileParentHomeView extends StatelessWidget
 
     if (months == null)
     {
-      return const MobileHomeStatus(kMobileMonthUnavailable);
+      return MobileHomeStatus(kMobileMonthUnavailable);
     }
 
     if (months.isEmpty)
     {
-      return const Center(
+      return Center(
         child: MobileEmptyCard(icon: Icons.family_restroom_rounded, message: _noPupils, tablet: false),
       );
     }
@@ -155,26 +156,26 @@ class MobileParentHomeView extends StatelessWidget
     {
       if (today == null && months == null)
       {
-        return const Column(
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [MobileHomeStatus(kMobileDayUnavailable), MobileHomeStatus(kMobileMonthUnavailable)],
         );
       }
 
-      return const Center(
+      return Center(
         child: MobileEmptyCard(icon: Icons.family_restroom_rounded, message: _noPupils, tablet: true),
       );
     }
 
     final MobileCardNote? dayNote = switch (today)
     {
-      null => const MobileCardNote(kMobileDayUnavailable),
+      null => MobileCardNote(kMobileDayUnavailable),
       MobileParentDay(isClosed: true) =>
-        const MobileCardNote(kMobileClosedTitle, icon: Icons.event_busy_rounded),
+        MobileCardNote(kMobileClosedTitle, icon: Icons.event_busy_rounded),
       _ => null,
     };
 
-    final MobileCardNote? monthNote = months == null ? const MobileCardNote(kMobileMonthUnavailable) : null;
+    final MobileCardNote? monthNote = months == null ? MobileCardNote(kMobileMonthUnavailable) : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -199,7 +200,7 @@ class MobileParentHomeView extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    const List<String> names = MobileHomeFrame.pageNames;
+    final List<String> names = MobileHomeFrame.pageNames;
 
     return MobileHomeFrame(
       firstName: firstName,

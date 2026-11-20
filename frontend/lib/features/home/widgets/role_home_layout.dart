@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -49,12 +50,14 @@ const String kPsychologistRole = 'PSYCHOLOGIST';
 
 String scheduleTitleFor(String role)
 {
-  return role == kTeacherRole ? 'Orari e disponibilità' : 'Orari e prenotazioni';
+  return role == kTeacherRole
+      ? tr('Orari e disponibilità', 'Hours and availability')
+      : tr('Orari e prenotazioni', 'Hours and bookings');
 }
 
 String emptyBandLabelFor(String role)
 {
-  return role == kTeacherRole ? 'Nessuna disponibilità' : 'Nessuna prenotazione';
+  return role == kTeacherRole ? tr('Nessuna disponibilità', 'No availability') : tr('Nessuna prenotazione', 'No bookings');
 }
 
 String? unconvenedLabelFor(String role, {required bool feminine})
@@ -64,20 +67,22 @@ String? unconvenedLabelFor(String role, {required bool feminine})
     return null;
   }
 
-  return feminine ? 'Non sei stata convocata' : 'Non sei stato convocato';
+  return feminine
+      ? tr('Non sei stata convocata', "You haven't been called in")
+      : tr('Non sei stato convocato', "You haven't been called in");
 }
 
 String ownHeadingFor(String role)
 {
-  return role == kTeacherRole ? 'Disponibilità' : 'Prenotazioni';
+  return role == kTeacherRole ? tr('Disponibilità', 'Availability') : tr('Prenotazioni', 'Bookings');
 }
 
 String? convenedHeadingFor(String role)
 {
-  return role == kTeacherRole ? 'Convocazione' : null;
+  return role == kTeacherRole ? tr('Convocazione', 'Call-in') : null;
 }
 
-String monthTitleFor(String role) => 'Presenze e lezioni';
+String monthTitleFor(String role) => tr('Presenze e lezioni', 'Attendance and lessons');
 
 // Failures become null so one bad call does not fail the whole day.
 Future<T?> _quiet<T>(Future<T> future)
@@ -675,10 +680,13 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
                   SizedBox(height: size.isDense ? _denseGreetingBottomGap : _greetingBottomGap),
                   Expanded(
                     child: widget.role == kPsychologistRole
-                        ? const Center(
+                        ? Center(
                             child: PageTransitionItem(
                               slot: PageTransitionItem.header,
-                              child: AppEmptyCard(icon: Icons.construction_rounded, message: 'In arrivo'),
+                              child: AppEmptyCard(
+                                icon: Icons.construction_rounded,
+                                message: tr('In arrivo', 'Coming soon'),
+                              ),
                             ),
                           )
                         : PageTransitionScrollView(

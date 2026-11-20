@@ -1,3 +1,4 @@
+import '../../core/language/app_language.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import 'home_tour_texts.dart';
@@ -30,17 +31,24 @@ void _closeMenu() => AppTopBar.userMenuOpen.value = false;
 List<DesktopTourStep> homeBarTourSteps({required bool manyRoles})
 {
   return [
-    const DesktopTourStep(
-      targets: [kTourTopBar],
-      text: "Attraverso questa barra puoi raggiungere tutti i menù dell'applicazione.",
+    DesktopTourStep(
+      targets: const [kTourTopBar],
+      text: tr(
+        "Attraverso questa barra puoi raggiungere tutti i menù dell'applicazione.",
+        'Through this bar you can reach all the menus of the app.',
+      ),
       sides: _below,
       pad: 6,
       radius: 46,
     ),
     DesktopTourStep(
       targets: const [kTourTopBarRole],
-      text: "Qui puoi vedere il ruolo con cui stai utilizzando l'applicazione, che determina le funzionalità a "
-          'cui puoi accedere e le voci di menù che visualizzi. Cliccaci sopra.',
+      text: tr(
+        "Qui puoi vedere il ruolo con cui stai utilizzando l'applicazione, che determina le funzionalità a "
+            'cui puoi accedere e le voci di menù che visualizzi. Cliccaci sopra.',
+        'Here you can see the role you are using the app with, which decides the features you can access '
+            'and the menu items you see. Click on it.',
+      ),
       sides: _below,
       radius: 16,
       listen: AppTopBar.userMenuOpen,
@@ -48,15 +56,29 @@ List<DesktopTourStep> homeBarTourSteps({required bool manyRoles})
     ),
     DesktopTourStep(
       targets: const [kTourTopBarMenu],
-      text: "Da qui puoi accedere alle tue informazioni personali e alle impostazioni dell'app. "
-          '${manyRoles ? 'Puoi inoltre cambiare ruolo e uscire dal tuo account.' : 'Puoi inoltre uscire dal tuo account.'}',
+      text: manyRoles
+          ? tr(
+              "Da qui puoi accedere alle tue informazioni personali e alle impostazioni dell'app. "
+                  'Puoi inoltre cambiare ruolo e uscire dal tuo account.',
+              'From here you can reach your personal information and the app settings. '
+                  'You can also switch role and sign out of your account.',
+            )
+          : tr(
+              "Da qui puoi accedere alle tue informazioni personali e alle impostazioni dell'app. "
+                  'Puoi inoltre uscire dal tuo account.',
+              'From here you can reach your personal information and the app settings. '
+                  'You can also sign out of your account.',
+            ),
       sides: const [DesktopTourSide.left, DesktopTourSide.below],
       radius: 24,
       undo: _closeMenu,
     ),
-    const DesktopTourStep(
-      targets: [kTourTopBarSections],
-      text: "Qui trovi tutte le sezioni dell'applicazione: cliccane una per aprirla.",
+    DesktopTourStep(
+      targets: const [kTourTopBarSections],
+      text: tr(
+        "Qui trovi tutte le sezioni dell'applicazione: cliccane una per aprirla.",
+        'Here you find all the sections of the app: click one to open it.',
+      ),
       sides: _below,
       pad: 12,
       radius: 18,
@@ -132,8 +154,8 @@ DesktopTour _homeTour({
         reveal: true,
       ),
       // One hole round both cards would light part of the day's card too.
-      const DesktopTourStep(
-        targets: [kTourHomeNotifications, kTourHomeNotices],
+      DesktopTourStep(
+        targets: const [kTourHomeNotifications, kTourHomeNotices],
         apart: true,
         text: kHomeNoticesTourText,
         sides: _over,

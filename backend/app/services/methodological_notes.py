@@ -8,10 +8,17 @@ from sqlalchemy.orm import joinedload
 from app.models.member import Member
 from app.models.methodological_note import MethodologicalNote
 from app.models.student import Student
+from app.services.bilingual import Bilingual
 from app.services.student_notes import is_followed, note_of_student
 
-_PERSON_FORBIDDEN_ERROR: Final[str] = "Non hai accesso ai dati di questa persona."
-_NOT_THE_AUTHOR_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
+_PERSON_FORBIDDEN_ERROR: Final[Bilingual] = Bilingual(
+    "Non hai accesso ai dati di questa persona.",
+    "You don't have access to this person's data.",
+)
+_NOT_THE_AUTHOR_ERROR: Final[Bilingual] = Bilingual(
+    "Non hai i permessi per accedere a questa risorsa",
+    "You don't have permission to access this resource",
+)
 
 
 async def followed_student(db: AsyncSession, tax_code: str) -> Student:
@@ -29,7 +36,7 @@ async def followed_student(db: AsyncSession, tax_code: str) -> Student:
     if student is None or not is_followed(student.member):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_PERSON_FORBIDDEN_ERROR,
+            detail=_PERSON_FORBIDDEN_ERROR.for_request(),
         )
 
     return student
@@ -53,7 +60,7 @@ async def own_note(
     if note.author_tax_code != author_tax_code:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_NOT_THE_AUTHOR_ERROR,
+            detail=_NOT_THE_AUTHOR_ERROR.for_request(),
         )
 
     return note

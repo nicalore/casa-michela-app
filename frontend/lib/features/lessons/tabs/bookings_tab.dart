@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../shared/widgets/app_empty_card.dart';
@@ -254,15 +255,15 @@ class _BookingsTabState extends State<BookingsTab>
   {
     if (_hasFilters)
     {
-      return const AppEmptyCard(icon: Icons.filter_alt_off_rounded, message: 'Nessuna richiesta corrisponde ai filtri scelti.');
+      return AppEmptyCard(icon: Icons.filter_alt_off_rounded, message: tr('Nessuna richiesta corrisponde ai filtri scelti.', 'No requests match the chosen filters.'));
     }
 
     if (_searchText.isNotEmpty)
     {
-      return const AppEmptyCard(icon: Icons.search_off_rounded, message: 'Nessuno studente trovato in questa giornata.');
+      return AppEmptyCard(icon: Icons.search_off_rounded, message: tr('Nessuno studente trovato in questa giornata.', 'No students found on this day.'));
     }
 
-    return const AppEmptyCard(icon: Icons.edit_calendar_rounded, message: 'Nessuna richiesta in questa giornata.');
+    return AppEmptyCard(icon: Icons.edit_calendar_rounded, message: tr('Nessuna richiesta in questa giornata.', 'No requests on this day.'));
   }
 
   Widget _buildFilters()
@@ -272,8 +273,8 @@ class _BookingsTabState extends State<BookingsTab>
     return TabFiltersRow(
       filters: [
         AppFilterPill<String>.filter(
-          prefix: 'Modalità',
-          hint: 'Presenza e online',
+          prefix: tr('Modalità', 'Mode'),
+          hint: tr('Presenza e online', 'In person and online'),
           icon: Icons.devices_outlined,
           value: _filterMode,
           menuWidth: 190,
@@ -285,8 +286,8 @@ class _BookingsTabState extends State<BookingsTab>
           ],
         ),
         AppFilterPill<TimeBucket>.filter(
-          prefix: 'Quando',
-          hint: 'Tutta la giornata',
+          prefix: tr('Quando', 'When'),
+          hint: tr('Tutta la giornata', 'All day'),
           icon: Icons.schedule_rounded,
           value: _filterBucket,
           menuWidth: 190,
@@ -299,7 +300,7 @@ class _BookingsTabState extends State<BookingsTab>
         ),
         if (subjects.isNotEmpty)
           AppCountFilterPill(
-            label: 'Discipline',
+            label: tr('Discipline', 'Disciplines'),
             icon: Icons.auto_stories_outlined,
             count: _filterSubjects.length,
             onOpen: () => _showSubjectFilterDialog(subjects),
@@ -315,8 +316,8 @@ class _BookingsTabState extends State<BookingsTab>
       context: context,
       barrierLabel: 'SubjectFilterDialog',
       builder: (context) => MultiSelectFilterDialog<String>(
-        title: 'Filtra per disciplina interna',
-        hint: 'Es. Aritmetica',
+        title: tr('Filtra per disciplina interna', 'Filter by internal discipline'),
+        hint: tr('Es. Aritmetica', 'E.g. Arithmetic'),
         options: [
           for (final subject in subjects)
             MultiSelectFilterOption(value: subject, label: subject),
@@ -381,8 +382,8 @@ class _BookingsTabState extends State<BookingsTab>
           onViewSelected: widget.onViewSelected,
           searchController: _searchController,
           onSearchChanged: (value) => setState(() => _searchText = value),
-          searchHint: 'Cerca studente o prenotante...',
-          actionLabel: 'NUOVA RICHIESTA',
+          searchHint: tr('Cerca studente o prenotante...', 'Search student or booker...'),
+          actionLabel: tr('NUOVA RICHIESTA', 'NEW REQUEST'),
           onAction: widget.readOnly ? null : _showPresenceWizard,
         ),
         const TabHeaderGap(wide: 20, dense: 10),
@@ -420,7 +421,7 @@ class _BookingsTabState extends State<BookingsTab>
   {
     showBandNoteDeletion(
       context: context,
-      eyebrow: 'Eliminazione',
+      eyebrow: tr('Eliminazione', 'Deletion'),
       warning: bandNoteDeletionWarning(group.date, pupil: group.student.fullName),
       onConfirmed: () => widget.onWriteBandNotes(
         group.studentTaxCode,

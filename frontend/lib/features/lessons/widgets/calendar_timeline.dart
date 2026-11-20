@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
@@ -522,6 +523,9 @@ class _MarkedAvatar extends StatelessWidget
   final PersonOptionItem person;
   final ({bool preferred, bool avoided}) standing;
 
+  final bool feminine;
+  final bool femalePupil;
+
   final bool isExcluded;
 
   final VoidCallback? onToggleExcluded;
@@ -532,6 +536,8 @@ class _MarkedAvatar extends StatelessWidget
   const _MarkedAvatar({
     required this.person,
     required this.standing,
+    this.feminine = false,
+    this.femalePupil = false,
     this.isExcluded = false,
     this.onToggleExcluded,
     this.size = _size,
@@ -550,7 +556,10 @@ class _MarkedAvatar extends StatelessWidget
       return (
         accent: kPreferredTeacherColor,
         icon: Icons.star_rounded,
-        message: 'Docente richiesto dall\'alunno',
+        message: tr(
+          'Docente ${feminine ? 'richiesta' : 'richiesto'} ${femalePupil ? "dall'alunna" : "dall'alunno"}',
+          'Teacher requested by the pupil',
+        ),
       );
     }
 
@@ -559,7 +568,10 @@ class _MarkedAvatar extends StatelessWidget
       return (
         accent: kAvoidedTeacherColor,
         icon: Icons.do_not_disturb_on_rounded,
-        message: 'Docente che l\'alunno preferirebbe evitare',
+        message: tr(
+          'Docente che ${femalePupil ? "l'alunna" : "l'alunno"} preferirebbe evitare',
+          'Teacher the pupil would rather avoid',
+        ),
       );
     }
 
@@ -965,7 +977,7 @@ class _LaneHeader extends StatelessWidget
 
     return ValueListenableBuilder<CarriedRequest?>(
       valueListenable: listenable,
-      builder: (context, carried, _) => _buildHeader(_standingFor(carried?.payload), dense),
+      builder: (context, carried, _) => _buildHeader(_standingFor(carried?.payload), dense, carried: carried),
     );
   }
 
@@ -1047,7 +1059,7 @@ class _LaneHeader extends StatelessWidget
     return open == null ? write(style) : AppTextLink(text: name, style: style, onTap: open, write: write);
   }
 
-  Widget _buildHeader(({bool preferred, bool avoided}) standing, bool dense)
+  Widget _buildHeader(({bool preferred, bool avoided}) standing, bool dense, {CarriedRequest? carried})
   {
     final double gap = dense ? _denseHeaderGap : _headerGap;
 
@@ -1056,6 +1068,8 @@ class _LaneHeader extends StatelessWidget
         _MarkedAvatar(
           person: lane.person,
           standing: standing,
+          feminine: carried?.femaleTaxCodes.contains(lane.personTaxCode) ?? false,
+          femalePupil: carried?.femalePupils ?? false,
           isExcluded: isExcluded,
           onToggleExcluded: onToggleExcluded,
           size: dense ? _MarkedAvatar._denseSize : _MarkedAvatar._size,
@@ -1082,7 +1096,7 @@ class _LaneHeader extends StatelessWidget
                 ..._buildWhere(room!)
               else if (_offered.isEmpty)
                 Text(
-                  view == CalendarView.byStudent ? 'Nessuna presenza' : 'Nessuna disponibilità',
+                  whenNothingLabel(view),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1792,7 +1806,10 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     {
       _setPreview(null);
       widget.onRefused?.call(
-        placement.refusal ?? kOutsideAvailabilityRefusal,
+        placement.refusal ??
+            outsideAvailabilityRefusal(
+              feminine: widget.carried?.value?.femaleTaxCodes.contains(placement.teacherTaxCode) ?? false,
+            ),
         insertAnyway: _insertAnyway(details.data, placement),
       );
       _carriedAt.value = CarriedPlacement.idle;
@@ -2348,7 +2365,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                   top: metrics.topOfRow(row) + _ghostTop(row, _ghostSubLane(lanes[row], placement)),
                   height: _blockHeightOf(row),
                   child: CalendarGhostBlock(
-                    label: preview.isSaving ? 'Salvataggio…' : _ghostLabel(placement),
+                    label: preview.isSaving ? tr('Salvataggio…', 'Saving…') : _ghostLabel(placement),
                     width: metrics.widthOf(placement.startMinutes, placement.endMinutes),
                     isSaving: preview.isSaving,
                     isAlongside: covers,

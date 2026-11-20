@@ -177,12 +177,13 @@ List<MobilePupilStay> _staysIn(
   return stays..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 }
 
-// [presences] must be the student's own.
+// [presences] must be the student's own; [gender] is theirs too.
 MobileHomeDay pupilHomeDay({
   required DateTime day,
   required List<OpeningDayItem> openingDays,
   required List<CalendarPublicationItem> publications,
   required List<PresenceItem> presences,
+  String? gender,
 })
 {
   final List<HomeSlot> slots = presenceSlots(presences, named: false);
@@ -191,7 +192,7 @@ MobileHomeDay pupilHomeDay({
     day: day,
     bands: [
       for (final status in _statuses(day, openingDays, publications, slots))
-        _lineBand(status, day: day, openingDays: openingDays, slots: slots),
+        _lineBand(status, day: day, openingDays: openingDays, slots: slots, gender: gender),
     ],
   );
 }
@@ -201,6 +202,7 @@ MobileLineBand _lineBand(
   required DateTime day,
   required List<OpeningDayItem> openingDays,
   required List<HomeSlot> slots,
+  String? gender,
 })
 {
   final Map<String, OpeningWindow> openings = _openingsIn(openingDays, day, status.band);
@@ -216,7 +218,7 @@ MobileLineBand _lineBand(
             for (final stay in stays)
               // The line's icon names the mode.
               MobileLineEntry(
-                '$kBookedLead ${homeLineRange(stay.startMinutes, stay.endMinutes)}',
+                '${bookedLeadFor(gender)} ${homeLineRange(stay.startMinutes, stay.endMinutes)}',
                 mode: stay.mode,
                 detail: stay.subjects > 0 ? homeSubjectsLabel(stay.subjects) : null,
               ),

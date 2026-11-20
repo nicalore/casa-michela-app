@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import 'notice_strings.dart';
@@ -29,12 +30,14 @@ String noticeLongDay(DateTime instant, {required DateTime today}) =>
 String noticeSentLong(DateTime instant) =>
     noticeSentLabel('${formatWeekdayColumnLabel(instant)} ${instant.year}', noticeHour(instant));
 
-// Decimal comma, one figure after it.
+// One figure after the decimal mark.
 String fileSizeLabel(int bytes)
 {
   if (bytes >= _megabyte)
   {
-    return '${(bytes / _megabyte).toStringAsFixed(1).replaceAll('.', ',')} MB';
+    final String megabytes = (bytes / _megabyte).toStringAsFixed(1);
+
+    return tr('${megabytes.replaceAll('.', ',')} MB', '$megabytes MB');
   }
 
   return '${(bytes / _kilobyte).ceil()} KB';

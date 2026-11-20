@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
 import 'dart:async';
 
@@ -60,14 +61,14 @@ import 'widgets/mobile_booking_wizard.dart';
 import 'widgets/mobile_move_sheet.dart';
 import 'widgets/mobile_subject_flow.dart';
 
-const String _title = 'Prenotazioni';
+String get _title => tr('Prenotazioni', 'Bookings');
 
 const String _parentRole = 'PARENT';
 
 const Duration _pageTurn = Duration(milliseconds: 320);
 const String _pupilRole = 'Studente';
 
-const List<String> _weeks = ['Questa settimana', 'Settimana prossima'];
+List<String> get _weeks => [tr('Questa settimana', 'This week'), tr('Settimana prossima', 'Next week')];
 
 const double _phoneMargin = 20;
 const double _tabletMargin = 44;
@@ -734,14 +735,14 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
     final bool confirmed = await showMobileConfirmSheet(
       context: sheet,
       eyebrow: formatAvailableDayLabel(day.date),
-      title: 'Confermi?',
+      title: tr('Confermi?', 'Are you sure?'),
       message: TextSpan(
         children: [
           if (bold != null) TextSpan(text: bold, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800)),
           TextSpan(text: warning),
         ],
       ),
-      confirmLabel: 'Elimina',
+      confirmLabel: tr('Elimina', 'Delete'),
       confirmIcon: Icons.delete_outline_rounded,
     );
 
@@ -919,7 +920,12 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
       title: title,
       subtitle: _named(pupil),
       count: move.bookings.length,
-      days: _planner.moveDays(day.date, pupil.fiscalCode, move),
+      days: _planner.moveDays(
+        day.date,
+        pupil.fiscalCode,
+        move,
+        who: (isSelf: !_isParent, name: _named(pupil), gender: pupil.gender),
+      ),
       tourFor: _tourFor,
     );
 
@@ -988,7 +994,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
             inflate: _tourInfoInflate,
             radius: _tourInfoRadius,
             child: MobileInfoButton(
-              onTap: () => showMobileInfoSheet(context: context, title: _title, paragraphs: const [kBookingDeadlines]),
+              onTap: () => showMobileInfoSheet(context: context, title: _title, paragraphs: [kBookingDeadlines]),
             ),
           ),
         ],

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/language/app_language.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 import 'calendar_tour.dart';
@@ -8,7 +9,7 @@ import 'calendar_tour.dart';
 const String kTourPupilCalendarCards = 'calendar.pupil.cards';
 const String kTourPupilCalendarLayout = 'calendar.pupil.layout';
 
-const String _title = 'Calendario';
+String get _title => tr('Calendario', 'Calendar');
 
 const String _parentRole = 'PARENT';
 const String _studentRole = 'STUDENT';
@@ -31,8 +32,9 @@ const Map<PupilLessonMark, int> _markVersions = {
 
 (String, int) _markSeen(PupilLessonMark mark) => ('calendar.pupil.lesson.${mark.name}', _markVersions[mark]!);
 
-// Whom the lit lesson is for (own, son or daughter); set by the page before a window opens.
-({bool self, String? gender}) pupilCalendarLessonFor = (self: false, gender: null);
+// Whom the lit lesson is for (own, son or daughter), and its teacher; set by the page before a window opens.
+({bool self, String? gender, String? teacherGender}) pupilCalendarLessonFor =
+    (self: false, gender: null, teacherGender: null);
 
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.right, DesktopTourSide.above];
 const List<DesktopTourSide> _leftFirst = [DesktopTourSide.left, DesktopTourSide.below, DesktopTourSide.above];
@@ -98,6 +100,22 @@ Future<bool> isPupilCalendarBandDue() async
 // [genders]: the children whose summary the page shows; [online]: theirs is online only.
 String _summary({required List<String?> genders, required bool online})
 {
+  if (isEnglish)
+  {
+    final String attendance = online ? 'online attendance' : 'attendance';
+
+    if (_self)
+    {
+      return 'your $attendance';
+    }
+
+    final String whose = genders.length > 1
+        ? (genders.every(_daughter) ? "your daughters'" : "your children's")
+        : (genders.isNotEmpty && _daughter(genders.first) ? "your daughter's" : "your son's");
+
+    return '$whose $attendance';
+  }
+
   final String presence = online ? 'presenza online' : 'presenza';
 
   if (_self)
@@ -120,8 +138,12 @@ List<DesktopTourStep> _bandSteps({required List<String?> genders, required bool 
   return [
     DesktopTourStep(
       targets: const [kTourPupilCalendarCards],
-      text: 'Qui puoi consultare un riepilogo ${_summary(genders: genders, online: online)}, con orario di inizio e '
-          'fine, il numero di lezioni e il totale delle ore previste.',
+      text: tr(
+        'Qui puoi consultare un riepilogo ${_summary(genders: genders, online: online)}, con orario di inizio e '
+            'fine, il numero di lezioni e il totale delle ore previste.',
+        'Here you can see a summary of ${_summary(genders: genders, online: online)}, with the start and end '
+            'times, the number of lessons and the total hours planned.',
+      ),
       sides: _below,
       pad: 6,
       radius: 21,
@@ -131,8 +153,12 @@ List<DesktopTourStep> _bandSteps({required List<String?> genders, required bool 
     ),
     DesktopTourStep(
       targets: const [kTourPupilCalendarLayout],
-      text: 'Con «Disposizione» puoi cambiare la visualizzazione del calendario: quella per orario organizza le '
-          "lezioni su una linea del tempo, mentre quella per lezioni le presenta in un elenco, una sotto l'altra.",
+      text: tr(
+        'Con «Disposizione» puoi cambiare la visualizzazione del calendario: quella per orario organizza le '
+            "lezioni su una linea del tempo, mentre quella per lezioni le presenta in un elenco, una sotto l'altra.",
+        'With “Layout” you can change how the calendar is shown: the time layout arranges the lessons on a '
+            'timeline, while the lesson layout lists them one below the other.',
+      ),
       sides: _leftFirst,
       pad: 6,
       radius: 25,
@@ -141,7 +167,7 @@ List<DesktopTourStep> _bandSteps({required List<String?> genders, required bool 
     ),
     DesktopTourStep(
       targets: const [kTourCalendarLesson],
-      text: 'Clicca una lezione per vederne i dettagli.',
+      text: tr('Clicca una lezione per vederne i dettagli.', 'Click a lesson to see its details.'),
       sides: _beside,
       pad: 4,
       radius: 12,
@@ -155,19 +181,30 @@ List<DesktopTourStep> _bandSteps({required List<String?> genders, required bool 
 }
 
 // [undo]: first window step inside the page's tour. [coming]: counted before the window is up.
-DesktopTourStep _lessonStep(PupilLessonMark mark, {VoidCallback? undo, bool Function()? coming})
+DesktopTourStep _lessonStep(PupilLessonMark mark, {VoidCallback? undo, bool Function()? coming, String? teacherGender})
 {
-  final ({bool self, String? gender}) whom = pupilCalendarLessonFor;
+  final ({bool self, String? gender, String? teacherGender}) whom = pupilCalendarLessonFor;
+  final String teacher = teacherGender == 'F' ? 'sulla docente' : 'sul docente';
 
   final (String target, String text) = switch (mark)
   {
-    PupilLessonMark.details => (kTourLessonDetails, 'Qui trovi tutte le informazioni sulla lezione.'),
+    PupilLessonMark.details => (
+        kTourLessonDetails,
+        tr('Qui trovi tutte le informazioni sulla lezione.', 'Here you find all the information about the lesson.'),
+      ),
     PupilLessonMark.teacher => (
         kTourLessonStudent,
         whom.self
-            ? 'Queste sono alcune informazioni sul docente che ti seguirà per la lezione.'
-            : 'Queste sono alcune informazioni sul docente che seguirà ${_daughter(whom.gender) ? 'tua figlia' : 'tuo figlio'} '
-                'per la lezione.',
+            ? tr(
+                'Queste sono alcune informazioni $teacher che ti seguirà per la lezione.',
+                'This is some information about the teacher who will teach you in the lesson.',
+              )
+            : tr(
+                'Queste sono alcune informazioni $teacher che seguirà ${_daughter(whom.gender) ? 'tua figlia' : 'tuo figlio'} '
+                    'per la lezione.',
+                'This is some information about the teacher who will teach '
+                    '${_daughter(whom.gender) ? 'your daughter' : 'your son'} in the lesson.',
+              ),
       ),
   };
 
@@ -197,8 +234,12 @@ Future<List<PupilLessonMark>> _unseenMarks(String taxCode) async
 }
 
 // Page, published band and lesson window as one tour (a click opens it); null if none is due.
-// [genders], [online]: the summary's children and mode.
-Future<DesktopTour?> pupilCalendarPageTour({required List<String?> genders, required bool online}) async
+// [genders], [online]: the summary's children and mode. [teacherGender]: read only if a step names them.
+Future<DesktopTour?> pupilCalendarPageTour({
+  required List<String?> genders,
+  required bool online,
+  Future<String?> Function()? teacherGender,
+}) async
 {
   final String? taxCode = _reader;
 
@@ -220,6 +261,7 @@ Future<DesktopTour?> pupilCalendarPageTour({required List<String?> genders, requ
   }
 
   final List<PupilLessonMark> marks = band && lesson ? await _unseenMarks(taxCode) : const [];
+  final String? teacher = marks.contains(PupilLessonMark.teacher) ? await teacherGender?.call() : null;
   final (String slug, int version) = main ? mainSeen : bandSeen;
 
   return DesktopTour(
@@ -234,6 +276,7 @@ Future<DesktopTour?> pupilCalendarPageTour({required List<String?> genders, requ
           mark,
           undo: index == 0 ? () => calendarLessonCloser?.call() : null,
           coming: () => true,
+          teacherGender: teacher,
         ),
     ],
   );
@@ -254,6 +297,8 @@ Future<DesktopTour?> pupilCalendarLessonTour() async
   return dueDesktopTour(
     taxCode: taxCode,
     title: _title,
-    steps: [for (final PupilLessonMark mark in marks) _lessonStep(mark)],
+    steps: [
+      for (final PupilLessonMark mark in marks) _lessonStep(mark, teacherGender: pupilCalendarLessonFor.teacherGender),
+    ],
   );
 }

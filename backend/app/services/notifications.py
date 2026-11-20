@@ -9,11 +9,12 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time_band import TimeBandEnum
-from app.models.account import Account, AccountStatusEnum
+from app.models.account import Account, AccountStatusEnum, LanguageEnum
 from app.models.notification import Notification, NotificationKindEnum
 from app.models.push_device import PushDevice, PushPlatformEnum
 from app.repositories.identity_repository import IdentityRepository
 from app.repositories.refresh_token_repository import live_session
+from app.services.bilingual import Bilingual
 from app.services.fcm import AppDismissal, AppPush
 from app.services.notification_kinds import wanting
 from app.services.push import PushBatch, WebPush
@@ -21,6 +22,35 @@ from app.services.role_service import RoleService
 
 # Safari drops a subscription after three pushes that show nothing.
 _SILENT_REFUSED_HOST: Final[str] = "push.apple.com"
+
+
+# A text told to others: a Bilingual reaches each recipient in their language.
+Words = str | Bilingual
+
+
+def worded(text: Words, language: str | None) -> str:
+    return text if isinstance(text, str) else text.to(language)
+
+
+def worded_optional(text: Words | None, language: str | None) -> str | None:
+    return None if text is None else worded(text, language)
+
+
+# Each account's chosen language; None (Italian) for those who never chose.
+async def languages_of(
+    db: AsyncSession,
+    tax_codes: Sequence[str],
+) -> dict[str, LanguageEnum | None]:
+    if not tax_codes:
+        return {}
+
+    rows = await db.execute(
+        select(Account.tax_code, Account.language).where(
+            Account.tax_code.in_(list(tax_codes))
+        )
+    )
+
+    return {tax_code: language for tax_code, language in rows.tuples()}
 
 
 # Short and stable, to tell later whether something came back as it was.
@@ -81,9 +111,9 @@ async def notify(
     tax_codes: Sequence[str],
     *,
     kind: NotificationKindEnum,
-    title: str,
-    body: str,
-    web_body: str | None = None,
+    title: Words,
+    body: Words,
+    web_body: Words | None = None,
     calendar: tuple[date, TimeBandEnum] | date | None = None,
     expires_at: datetime | None = None,
     notice_id: int | None = None,
@@ -100,13 +130,15 @@ async def notify(
         (calendar, None) if isinstance(calendar, date) else calendar or (None, None)
     )
     recipients = await wanting(db, list(dict.fromkeys(tax_codes)), kind)
+    bilingual = any(isinstance(text, Bilingual) for text in (title, body, web_body))
+    languages = await languages_of(db, recipients) if bilingual else {}
     notifications = [
         Notification(
             account_tax_code=tax_code,
             kind=kind,
-            title=title,
-            body=body,
-            web_body=web_body,
+            title=worded(title, languages.get(tax_code)),
+            body=worded(body, languages.get(tax_code)),
+            web_body=worded_optional(web_body, languages.get(tax_code)),
             calendar_date=calendar_date,
             calendar_band=calendar_band,
             expires_at=expires_at,

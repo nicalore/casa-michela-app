@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'close_on_resize.dart';
@@ -24,14 +25,21 @@ double filterMenuLeft(Offset button, double buttonWidth, double menuWidth, doubl
 
 enum SortCriterion
 {
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)'),
-  dateDesc('Più recente'),
-  dateAsc('Meno recente');
+  nameAsc,
+  nameDesc,
+  dateDesc,
+  dateAsc;
 
-  final String label;
-
-  const SortCriterion(this.label);
+  String get label
+  {
+    return switch (this)
+    {
+      SortCriterion.nameAsc => tr('Nome (A-Z)', 'Name (A-Z)'),
+      SortCriterion.nameDesc => tr('Nome (Z-A)', 'Name (Z-A)'),
+      SortCriterion.dateDesc => tr('Più recente', 'Most recent'),
+      SortCriterion.dateAsc => tr('Meno recente', 'Least recent'),
+    };
+  }
 }
 
 class FilterOption<T>

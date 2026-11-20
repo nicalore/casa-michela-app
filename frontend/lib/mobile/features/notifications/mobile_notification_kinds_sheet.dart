@@ -81,12 +81,12 @@ class _KindsSheetState extends State<_KindsSheet>
         title: kNotificationKindsTitle,
         body: [
           const SizedBox(height: 12),
-          const MobileSheetText(kNotificationKindsHint),
+          MobileSheetText(kNotificationKindsHint),
           const SizedBox(height: 18),
           for (final choice in NotificationKinds.instance.choices ?? const <NotificationKindChoice>[])
             MobileSelectRow(
-              title: kNotificationKindLabels[choice.kind]?.$1 ?? '',
-              subtitle: kNotificationKindLabels[choice.kind]?.$2,
+              title: notificationKindLabel(choice.kind)?.$1 ?? '',
+              subtitle: notificationKindLabel(choice.kind)?.$2,
               leading: MobileCardBadge(
                 icon: NotificationLook.of(choice.kind).icon,
                 tint: choice.enabled ? AppTheme.surface : AppTheme.trialTealDeepText,

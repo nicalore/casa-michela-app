@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
@@ -35,7 +36,7 @@ import '../profile/widgets/mobile_school_years.dart';
 import '../../shared/widgets/mobile_avatar.dart';
 import 'widgets/mobile_child_tiles.dart';
 
-const String _title = 'Figli';
+String get _title => tr('Figli', 'Children');
 
 const String _pupilRole = 'STUDENTE';
 
@@ -397,7 +398,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
                           ? Center(
                               child: MobileLoadFailed(
                                 error: _loadFailure,
-                                message: 'Non è stato possibile caricare i dati dei figli.',
+                                message: tr('Non è stato possibile caricare i dati dei figli.', "Your children's details could not be loaded."),
                                 onRetry: _load,
                                 tablet: tablet,
                               ),
@@ -405,7 +406,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
                           : Center(
                               child: MobileEmptyCard(
                                 icon: Icons.family_restroom_rounded,
-                                message: 'Nessun figlio collegato al tuo profilo.',
+                                message: tr('Nessun figlio collegato al tuo profilo.', 'No children linked to your profile.'),
                                 tablet: tablet,
                               ),
                             ),
@@ -635,7 +636,7 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
                 ? Center(
                     child: MobileEmptyCard(
                       icon: Icons.info_outline_rounded,
-                      message: 'Nessuna informazione aggiuntiva.',
+                      message: tr('Nessuna informazione aggiuntiva.', 'No additional information.'),
                       tablet: tablet,
                     ),
                   )
@@ -666,7 +667,9 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
               child: MobilePupilStats(controller: _statsOf(child), margin: margin, tourFilters: kChildrenTourFilters),
             )
           else
-            inset(Center(child: MobileEmptyCard(icon: Icons.insights_rounded, message: 'Nessun dato', tablet: tablet))),
+            inset(
+              Center(child: MobileEmptyCard(icon: Icons.insights_rounded, message: tr('Nessun dato', 'No data'), tablet: tablet)),
+            ),
         ];
 
       // Not among the sections above.
@@ -691,7 +694,7 @@ class _ReportButton extends StatelessWidget
       id: kChildrenTourReport,
       radius: MobileDismissButton.radius,
       child: MobileDismissButton(
-        label: 'Segnala dato mancante / errato',
+        label: tr('Segnala dato mancante / errato', 'Report missing / wrong details'),
         icon: Icons.flag_rounded,
         onPressed: onTap,
       ),

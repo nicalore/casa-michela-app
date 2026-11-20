@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/whole_words.dart';
@@ -47,11 +48,11 @@ const double _closeAt = 0.5;
 // What leaving a page would throw away; it decides the words of the question asked first.
 enum MobileUnsaved { none, choices, text }
 
-const String _unsavedEyebrow = 'Modifiche non salvate';
-const String _unsavedTitle = 'Confermi?';
-const String _choicesLost = 'Le scelte fatte finora andranno perse.';
-const String _textLost = 'Il testo scritto andrà perso.';
-const String _leaveLabel = 'Esci senza salvare';
+String get _unsavedEyebrow => tr('Modifiche non salvate', 'Unsaved changes');
+String get _unsavedTitle => tr('Confermi?', 'Are you sure?');
+String get _choicesLost => tr('Le scelte fatte finora andranno perse.', 'The choices made so far will be lost.');
+String get _textLost => tr('Il testo scritto andrà perso.', 'The text you have written will be lost.');
+String get _leaveLabel => tr('Esci senza salvare', 'Leave without saving');
 
 // From inside a sheet, turns that sheet to the new page instead of raising another.
 Future<T?> showMobileSheet<T>({
@@ -1529,7 +1530,7 @@ class MobileSheetCloseButton extends StatelessWidget
   {
     return Semantics(
       button: true,
-      label: 'Chiudi',
+      label: tr('Chiudi', 'Close'),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,

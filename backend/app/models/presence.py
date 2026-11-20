@@ -16,6 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
+from app.core.i18n import tr
 from app.db.base import Base
 from app.models.constraints import (
     no_surrounding_whitespace_constraints,
@@ -29,13 +30,16 @@ if TYPE_CHECKING:
     from app.models.person import Person
     from app.models.student import Student
 
-_BOOKER_MUST_BE_STUDENT_ERROR: Final[str] = (
-    "Lo studente non ha genitori associati: il prenotante deve essere lo "
-    "studente stesso"
+_BOOKER_MUST_BE_STUDENT_ERROR: Final[tuple[str, str]] = (
+    "Lo studente non ha genitori associati: il prenotante deve essere lo studente "
+    "stesso",
+    "The student has no linked parents: the person booking must be the student "
+    "themselves",
 )
 
-_BOOKER_MUST_BE_A_PARENT_OF_STUDENT_ERROR: Final[str] = (
-    "Il prenotante deve essere uno dei genitori associati allo studente"
+_BOOKER_MUST_BE_A_PARENT_OF_STUDENT_ERROR: Final[tuple[str, str]] = (
+    "Il prenotante deve essere uno dei genitori associati allo studente",
+    "The person booking must be one of the student's linked parents",
 )
 
 
@@ -172,6 +176,6 @@ def _validate_presence_booker(
             continue
 
         if not parent_tax_codes:
-            raise ValueError(_BOOKER_MUST_BE_STUDENT_ERROR)
+            raise ValueError(tr(*_BOOKER_MUST_BE_STUDENT_ERROR))
 
-        raise ValueError(_BOOKER_MUST_BE_A_PARENT_OF_STUDENT_ERROR)
+        raise ValueError(tr(*_BOOKER_MUST_BE_A_PARENT_OF_STUDENT_ERROR))

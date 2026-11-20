@@ -16,7 +16,7 @@ import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
-import '../../people/edit/person_edit_form.dart' show kCollaborationTypes;
+import '../../people/edit/person_edit_form.dart' show collaborationOf, kCollaborationTypes;
 import '../../people/tabs/person_account_shared.dart' show askPersonConfirmation;
 import '../../people/widgets/person_card.dart';
 import '../models/opening_items.dart';
@@ -64,6 +64,7 @@ class _OpeningTabState extends State<OpeningTab>
   String _tagOfTeacher(OpeningTeacher teacher)
   {
     final int? rate = teacher.grossRateCents;
+    final bool feminine = teacher.gender == 'F';
 
     if (teacher.missing)
     {
@@ -72,14 +73,15 @@ class _OpeningTabState extends State<OpeningTab>
 
     if (teacher.isPaid && rate != null)
     {
-      return paidTag(rate);
+      return paidTag(rate, feminine: feminine);
     }
 
-    return kCollaborationTypes.entries
-            .where((entry) => entry.value == teacher.collaborationType)
-            .map((entry) => entry.key)
-            .firstOrNull ??
-        teacher.collaborationType;
+    final String? label = kCollaborationTypes.entries
+        .where((entry) => entry.value == teacher.collaborationType)
+        .map((entry) => entry.key)
+        .firstOrNull;
+
+    return label == null ? teacher.collaborationType : collaborationOf(label, feminine: feminine);
   }
 
   bool _matches(String name)
@@ -103,7 +105,7 @@ class _OpeningTabState extends State<OpeningTab>
     }
 
     widget.onChanged(widget.opening.withTeacher(saved));
-    CustomSnackBar.show(context: context, message: kTeacherConfirmed);
+    CustomSnackBar.show(context: context, message: teacherConfirmed(feminine: saved.gender == 'F'));
   }
 
   Future<void> _openPupil(OpeningPupil pupil) async
@@ -120,7 +122,7 @@ class _OpeningTabState extends State<OpeningTab>
     }
 
     widget.onChanged(widget.opening.withPupil(saved));
-    CustomSnackBar.show(context: context, message: kPupilConfirmed);
+    CustomSnackBar.show(context: context, message: pupilConfirmed(feminine: saved.gender == 'F'));
   }
 
   Future<void> _close() async

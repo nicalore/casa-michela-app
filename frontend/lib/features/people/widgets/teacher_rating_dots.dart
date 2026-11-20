@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 
@@ -19,9 +20,11 @@ class TeacherRatingDots extends StatefulWidget
   // One duration for the whole row, not one per dot.
   static const Duration _sweep = Duration(milliseconds: 260);
 
-  static const String _hint =
-      'Clicca i pallini per valutare. Clicca due volte il primo mezzo pallino '
-      'per azzerare.';
+  static String get _hint => tr(
+    'Clicca i pallini per valutare. Clicca due volte il primo mezzo pallino '
+        'per azzerare.',
+    'Click the dots to rate. Click the first half dot twice to reset.',
+  );
 
   final double value;
 

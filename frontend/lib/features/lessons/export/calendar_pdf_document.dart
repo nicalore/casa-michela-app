@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../models/activity_item.dart';
@@ -27,9 +28,9 @@ final PdfPageFormat _listFormat = PdfPageFormat.a4.copyWith(
 
 String calendarPdfFileName(CalendarExportData data)
 {
-  final who = data.isByStudent ? 'studenti' : 'docenti';
+  final who = data.isByStudent ? tr('studenti', 'students') : tr('docenti', 'teachers');
 
-  return 'Calendario $who ${formatDayMonthFull(data.day)} ${data.day.year} '
+  return '${tr('Calendario', 'Calendar')} $who ${formatDayMonthFull(data.day)} ${data.day.year} '
       '- ${bandLabel(data.band).toLowerCase()}.pdf';
 }
 
@@ -41,15 +42,15 @@ String calendarPdfTitle(CalendarExportData data)
 // The tab holding both views is named after the band alone.
 String calendarPdfBandTitle(CalendarExportData data)
 {
-  return 'Calendario · ${_dayOnItsOwn(data.day)} · ${bandLabel(data.band)}';
+  return '${tr('Calendario', 'Calendar')} · ${_dayOnItsOwn(data.day)} · ${bandLabel(data.band)}';
 }
 
 String calendarPdfViewLabel(CalendarExportData data)
 {
-  return data.isByStudent ? 'Vista studenti' : 'Vista docenti';
+  return data.isByStudent ? tr('Vista studenti', 'Students view') : tr('Vista docenti', 'Teachers view');
 }
 
-String _rowNoun(CalendarExportData data) => data.isByStudent ? 'Studente' : 'Docente';
+String _rowNoun(CalendarExportData data) => data.isByStudent ? tr('Studente', 'Student') : tr('Docente', 'Teacher');
 
 String _dayOnItsOwn(DateTime day) => '${formatWeekdayColumnLabel(day)} ${day.year}';
 
@@ -57,7 +58,7 @@ String _dayInSentence(DateTime day)
 {
   final said = _dayOnItsOwn(day);
 
-  return '${said[0].toLowerCase()}${said.substring(1)}';
+  return isEnglish ? said : '${said[0].toLowerCase()}${said.substring(1)}';
 }
 
 String _count(int value, String singular, String plural)
@@ -147,7 +148,7 @@ pw.Widget _titleWords(CalendarExportData data, _Styles styles)
     children: [
       pw.Text(kPdfAssociation, style: styles.eyebrow),
       pw.SizedBox(height: 3),
-      pdfGradientTitle('Calendario di ${_dayInSentence(data.day)}', styles.title),
+      pdfGradientTitle(tr('Calendario di ${_dayInSentence(data.day)}', 'Calendar for ${_dayInSentence(data.day)}'), styles.title),
       pw.SizedBox(height: 5),
       pw.Row(
         children: [
@@ -161,10 +162,10 @@ pw.Widget _titleWords(CalendarExportData data, _Styles styles)
       pw.SizedBox(height: 3),
       pw.Text(
         [
-          _count(counts.teachers, 'docente convocato', 'docenti convocati'),
-          _count(counts.students, 'studente', 'studenti'),
-          _count(counts.lessons, 'lezione', 'lezioni'),
-          if (counts.activities > 0) _count(counts.activities, 'attività', 'attività'),
+          _count(counts.teachers, tr('docente convocato', 'teacher called in'), tr('docenti convocati', 'teachers called in')),
+          _count(counts.students, tr('studente', 'student'), tr('studenti', 'students')),
+          _count(counts.lessons, tr('lezione', 'lesson'), tr('lezioni', 'lessons')),
+          if (counts.activities > 0) _count(counts.activities, tr('attività', 'activity'), tr('attività', 'activities')),
         ].join(' · '),
         style: styles.meta,
       ),
@@ -179,7 +180,7 @@ pw.Widget _publicationLine(CalendarExportData data, _Styles styles)
 
   if (publication == null)
   {
-    return pw.Text('Non ancora pubblicato', style: styles.meta);
+    return pw.Text(tr('Non ancora pubblicato', 'Not published yet'), style: styles.meta);
   }
 
   final said = publishedSentence(publication);
@@ -194,7 +195,7 @@ pw.Widget _publicationLine(CalendarExportData data, _Styles styles)
       style: styles.meta,
       children: [
         pw.TextSpan(text: said),
-        pw.TextSpan(text: ' · IN BOZZA', style: styles.draft),
+        pw.TextSpan(text: tr(' · IN BOZZA', ' · DRAFT'), style: styles.draft),
       ],
     ),
   );
@@ -268,8 +269,8 @@ String _doorIn(PdfColor colour)
 }
 
 // The list's legend words for hours held together and for a room's supervisor.
-const String _togetherLegend = 'Compresenza';
-const String _supervisorLegend = 'Responsabile di stanza';
+String get _togetherLegend => tr('Compresenza', 'Shared lesson');
+String get _supervisorLegend => tr('Responsabile di stanza', 'Room supervisor');
 
 const double _nameColumn = 108;
 
@@ -315,7 +316,7 @@ pw.MultiPage _listPages(CalendarExportData data, _Styles styles)
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
-            pw.Text('Elenco completo delle lezioni', style: styles.tableHead),
+            pw.Text(tr('Elenco completo delle lezioni', 'Full list of lessons'), style: styles.tableHead),
             _legend(styles, withTogether: tracks > 0, withSupervisor: _supervising(data)),
           ],
         ),
@@ -364,7 +365,7 @@ double _heightOf(pw.Context context, pw.Widget widget, double width)
 double _rowRoom(pw.Context context, CalendarExportData data, _Styles styles, double gutter)
 {
   final head = _heightOf(context, _lessonsHeadCell(data, styles, gutter), _lessonsColumn);
-  final footer = _heightOf(context, pw.Text('Pagina', style: styles.caption), _lessonsColumn) + 4.4;
+  final footer = _heightOf(context, pw.Text(tr('Pagina', 'Page'), style: styles.caption), _lessonsColumn) + 4.4;
 
   return _listFormat.availableHeight - head - footer - 3 * _peopleRule - 4;
 }
@@ -487,10 +488,10 @@ pw.Widget _lessonsHeadCell(CalendarExportData data, _Styles styles, double gutte
   return pw.Padding(
     padding: pw.EdgeInsets.fromLTRB(5 + gutter + _stripLead, 4, 5 + _stripTrail, 4),
     child: _columns(
-      hours: pw.Text('Orario', style: styles.tableHead),
-      who: pw.Text(data.isByStudent ? 'Docente' : 'Studente', style: styles.tableHead),
-      topic: pw.Text('Materia', style: styles.tableHead),
-      place: pw.Text('Luogo', style: styles.tableHead),
+      hours: pw.Text(tr('Orario', 'Time'), style: styles.tableHead),
+      who: pw.Text(data.isByStudent ? tr('Docente', 'Teacher') : tr('Studente', 'Student'), style: styles.tableHead),
+      topic: pw.Text(tr('Materia', 'Subject'), style: styles.tableHead),
+      place: pw.Text(tr('Luogo', 'Place'), style: styles.tableHead),
     ),
   );
 }
@@ -614,7 +615,7 @@ pw.Widget _lessonsCell(_Styles styles, List<pw.Widget> strips, double gutter)
   {
     return pw.Padding(
       padding: pw.EdgeInsets.fromLTRB(5 + gutter + _stripLead, 5, 5, 5),
-      child: pw.Text('Nessuna lezione', style: styles.cellQuiet),
+      child: pw.Text(tr('Nessuna lezione', 'No lessons'), style: styles.cellQuiet),
     );
   }
 
@@ -822,11 +823,13 @@ pw.Page _emptyPage(CalendarExportData data, _Styles styles)
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
                 pw.Text(
-                  data.isByStudent ? 'Nessuno studente in calendario' : 'Nessun docente convocato',
+                  data.isByStudent
+                      ? tr('Nessuno studente in calendario', 'No students in the calendar')
+                      : tr('Nessun docente convocato', 'No teachers called in'),
                   style: styles.title,
                 ),
                 pw.SizedBox(height: 6),
-                pw.Text('Nessuna lezione in calendario per questa fascia.', style: styles.note),
+                pw.Text(tr('Nessuna lezione in calendario per questa fascia.', 'No lessons in the calendar for this time slot.'), style: styles.note),
               ],
             ),
           ),

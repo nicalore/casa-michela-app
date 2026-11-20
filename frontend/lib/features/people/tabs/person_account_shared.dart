@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -195,12 +196,12 @@ Future<bool> askPersonConfirmation(
     barrierLabel: 'ConfirmPersonAction',
     builder: (dialogContext) => AppDialogStack(
       eyebrow: eyebrow,
-      title: 'Confermi?',
+      title: tr('Confermi?', 'Are you sure?'),
       showClose: false,
       maxWidth: _confirmWidth,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ANNULLA',
+          label: tr('ANNULLA', 'CANCEL'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
           accent: AppTheme.trialVioletText,
@@ -248,7 +249,7 @@ Future<bool> confirmPersonLosses(
     context,
     eyebrow: eyebrow,
     message: [TextSpan(text: refusal.message)],
-    confirmLabel: 'SALVA',
+    confirmLabel: tr('SALVA', 'SAVE'),
     confirmIcon: Icons.check_rounded,
     danger: true,
   );

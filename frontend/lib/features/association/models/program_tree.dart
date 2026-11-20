@@ -1,13 +1,14 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import 'study_program_item.dart';
 import 'subject_taxonomy.dart';
 
 enum ProgramGroupKind { level, cycle, sector }
 
-const Map<String, String> _cycleTitles = {
-  'BIENNIO': 'Biennio',
-  'TRIENNIO': 'Triennio',
-  'OTHER': 'Altri percorsi',
+Map<String, String> get _cycleTitles => {
+  'BIENNIO': tr('Biennio', 'Years 1-2'),
+  'TRIENNIO': tr('Triennio', 'Years 3-5'),
+  'OTHER': tr('Altri percorsi', 'Other programmes'),
 };
 
 // The percorsi windows' groups: school level, then high school cycle, then sector.

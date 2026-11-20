@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/week_range.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../utils/calendar_strings.dart';
@@ -25,8 +26,10 @@ class PresenceCard extends StatelessWidget
       return kOnlineLessonsTitle;
     }
 
-    return '$kPresentWord dalle ${formatTimeOfDayShort(timeOfDayFromMinutes(inBuilding.startMinutes))} '
-        'alle ${formatTimeOfDayShort(timeOfDayFromMinutes(inBuilding.endMinutes))}';
+    final String from = formatTimeOfDayShort(timeOfDayFromMinutes(inBuilding.startMinutes));
+    final String to = formatTimeOfDayShort(timeOfDayFromMinutes(inBuilding.endMinutes));
+
+    return tr('$kPresentWord dalle $from alle $to', '$kPresentWord from $from to $to');
   }
 
   @override

@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/rome_clock.dart';
 import 'calendar_anchor.dart';
 import 'carousel_arrow_button.dart';
 
-const String kPickMonthLabel = 'Scegli il mese';
+String get kPickMonthLabel => tr('Scegli il mese', 'Pick the month');
 
-const List<String> _monthNames = [
-  'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
-  'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic',
-];
+List<String> get _monthNames => isEnglish
+    ? const [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ]
+    : const [
+        'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
+        'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic',
+      ];
 
 const int _monthsPerRow = 4;
 

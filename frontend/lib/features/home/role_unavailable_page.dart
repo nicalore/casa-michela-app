@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/utils/role_label_mapper.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_load_failed.dart';
@@ -29,7 +30,7 @@ class RoleUnavailablePage extends StatelessWidget
               showNavigation: false,
               content: AppLoadFailedRoom(
                 error: failure,
-                message: 'Non è stato possibile caricare i tuoi dati.',
+                message: tr('Non è stato possibile caricare i tuoi dati.', "Couldn't load your data."),
                 onRetry: api.retryIdentity,
               ),
             ),
@@ -41,7 +42,7 @@ class RoleUnavailablePage extends StatelessWidget
         return SectionPlaceholderPage(
           currentRoute: '',
           title: RoleLabelMapper.toLabel(role, feminine: user.gender == 'F'),
-          description: "L'area dedicata al tuo ruolo non è ancora disponibile.",
+          description: tr("L'area dedicata al tuo ruolo non è ancora disponibile.", "Your role's area isn't available yet."),
           showNavigation: false,
         );
       },

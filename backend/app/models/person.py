@@ -13,6 +13,7 @@ from sqlalchemy import (
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
+from app.core.i18n import tr
 from app.db.base import Base
 from app.models.constraints import (
     no_surrounding_whitespace_constraints,
@@ -82,8 +83,9 @@ _TAX_CODE_EVEN_POSITION_VALUES: Final[dict[str, int]] = {
     **{letter: index for index, letter in enumerate(string.ascii_uppercase)},
 }
 
-_INVALID_TAX_CODE_ERROR: Final[str] = (
-    "Il codice fiscale ha un carattere di controllo non valido"
+_INVALID_TAX_CODE_ERROR: Final[tuple[str, str]] = (
+    "Il codice fiscale ha un carattere di controllo non valido",
+    "The tax code has an invalid check character",
 )
 
 # The registry's own code for a birthplace outside Italy.
@@ -251,6 +253,6 @@ class Person(CreatedAtMixin, UpdatedAtMixin, Base):
     @validates("tax_code")
     def validate_tax_code(self, _key: str, tax_code: str) -> str:
         if not _has_valid_tax_code_check_character(tax_code):
-            raise ValueError(_INVALID_TAX_CODE_ERROR)
+            raise ValueError(tr(*_INVALID_TAX_CODE_ERROR))
 
         return tax_code

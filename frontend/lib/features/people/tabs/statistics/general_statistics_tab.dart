@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../services/api_service.dart';
@@ -259,27 +260,27 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   String _membersRetentionSentence(RetentionRateItem data)
   {
     final subject = data.retainedMembers == 1
-        ? '1 iscritto mantenuto'
-        : '${data.retainedMembers} iscritti mantenuti';
+        ? tr('1 iscritto mantenuto', '1 member retained')
+        : tr('${data.retainedMembers} iscritti mantenuti', '${data.retainedMembers} members retained');
 
-    return "$subject su ${data.previousYearMembers} dell'anno precedente.";
+    return tr("$subject su ${data.previousYearMembers} dell'anno precedente.", '$subject out of ${data.previousYearMembers} from the previous year.');
   }
 
   String _collaboratorsRetentionSentence(RetentionRateItem data)
   {
     final subject = data.retainedMembers == 1
-        ? '1 collaboratore mantenuto'
-        : '${data.retainedMembers} collaboratori mantenuti';
+        ? tr('1 collaboratore mantenuto', '1 collaborator retained')
+        : tr('${data.retainedMembers} collaboratori mantenuti', '${data.retainedMembers} collaborators retained');
 
-    final period = _collabRetentionType == 'year' ? "nell'anno precedente" : 'nel mese precedente';
+    final period = _collabRetentionType == 'year' ? tr("nell'anno precedente", 'in the previous year') : tr('nel mese precedente', 'in the previous month');
 
-    return '$subject rispetto ai ${data.previousYearMembers} attivi $period.';
+    return '$subject ${comparedToActive(data.previousYearMembers)} $period.';
   }
 
   Widget _buildMembersRetentionCard(double width, bool matched)
   {
     return RetentionCard(
-      title: 'Fidelizzazione iscritti',
+      title: tr('Fidelizzazione iscritti', 'Member retention'),
       icon: Icons.favorite_rounded,
       width: width,
       matched: matched,
@@ -298,7 +299,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     final filters = StatFilterRow(
       children: [
         resolutionPill(
-          prefix: 'Tipo',
+          prefix: tr('Tipo', 'Type'),
           value: _collabRetentionType,
           onChanged: (value) => _reloadCollabRetention(()
           {
@@ -324,7 +325,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     );
 
     return RetentionCard(
-      title: 'Fidelizzazione collaboratori attivi',
+      title: tr('Fidelizzazione collaboratori attivi', 'Active collaborator retention'),
       icon: Icons.volunteer_activism_rounded,
       width: width,
       matched: matched,
@@ -351,7 +352,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     final filters = StatFilterRow(
       children: [
         resolutionPill(
-          prefix: 'Vista',
+          prefix: tr('Vista', 'View'),
           value: resolution,
           onChanged: onResolutionChanged,
         ),
@@ -373,7 +374,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   Widget _buildMembersTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Andamento iscritti totali',
+      title: tr('Andamento iscritti totali', 'Total members over time'),
       icon: Icons.show_chart_rounded,
       data: _trendData,
       isLoading: _isTrendLoading,
@@ -405,7 +406,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   Widget _buildCollabTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Andamento collaboratori attivi',
+      title: tr('Andamento collaboratori attivi', 'Active collaborators over time'),
       icon: Icons.stacked_line_chart_rounded,
       data: _collabTrendData,
       isLoading: _isCollabTrendLoading,
@@ -448,14 +449,14 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
             ResponsiveCardPair(
               minCardWidth: SummaryStatCard.rowWidth(context),
               first: SummaryStatCard(
-                title: 'Iscritti totali',
+                title: tr('Iscritti totali', 'Total members'),
                 icon: Icons.groups_rounded,
                 count: _currentTotals?.currentTotalMembers ?? 0,
                 deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
                 deltaYear: _currentTotals?.membersDeltaYear ?? 0,
               ),
               second: SummaryStatCard(
-                title: 'Collaboratori attivi',
+                title: tr('Collaboratori attivi', 'Active collaborators'),
                 icon: Icons.handshake_rounded,
                 count: _currentTotals?.currentActiveCollaborators ?? 0,
                 deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,

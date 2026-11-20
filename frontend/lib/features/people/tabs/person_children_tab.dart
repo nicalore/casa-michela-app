@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/phone_number.dart';
@@ -29,7 +30,7 @@ import '../widgets/person_detail_widgets.dart';
 import '../widgets/authorized_pickup_dialog.dart';
 import '../widgets/relative_card.dart';
 
-const String _peopleLoadFailed = 'Impossibile caricare le anagrafiche dal server.';
+String get _peopleLoadFailed => tr('Impossibile caricare le anagrafiche dal server.', "Couldn't load the people from the server.");
 
 const int _adultAge = 18;
 const int _maxParentsPerMinor = 2;
@@ -44,16 +45,22 @@ final String _memberOnlyFilterValue = RoleLabelMapper.memberLabel.toUpperCase();
 
 enum _MinorSort
 {
-  surnameAsc('Cognome (A-Z)'),
-  surnameDesc('Cognome (Z-A)'),
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)'),
-  dateDesc('Più recente'),
-  dateAsc('Meno recente');
+  surnameAsc,
+  surnameDesc,
+  nameAsc,
+  nameDesc,
+  dateDesc,
+  dateAsc;
 
-  final String label;
-
-  const _MinorSort(this.label);
+  String get label => switch (this)
+  {
+    surnameAsc => tr('Cognome (A-Z)', 'Surname (A-Z)'),
+    surnameDesc => tr('Cognome (Z-A)', 'Surname (Z-A)'),
+    nameAsc => tr('Nome (A-Z)', 'Name (A-Z)'),
+    nameDesc => tr('Nome (Z-A)', 'Name (Z-A)'),
+    dateDesc => tr('Più recente', 'Most recent'),
+    dateAsc => tr('Meno recente', 'Least recent'),
+  };
 
   int compare(PersonItem a, PersonItem b)
   {
@@ -116,13 +123,13 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
   Widget _buildEmptyState()
   {
     return AppEmptyRoom(
-      card: const AppEmptyCard(
+      card: AppEmptyCard(
         icon: Icons.family_restroom_rounded,
-        message: 'Nessun figlio associato a questa anagrafica genitore.',
+        message: tr('Nessun figlio associato a questa anagrafica genitore.', "No children linked to this parent's record."),
       ),
       below: [
         PersonLoneButton(
-          label: 'AGGIUNGI FIGLI',
+          label: tr('AGGIUNGI FIGLI', 'ADD CHILDREN'),
           icon: Icons.family_restroom_rounded,
           onPressed: _openChildrenEditDialog,
         ),
@@ -134,9 +141,9 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
   {
     if (expiration == null)
     {
-      return const RelativeFact(
+      return RelativeFact(
         Icons.medical_information_rounded,
-        'Certificato non consegnato',
+        tr('Certificato non consegnato', 'Certificate not handed in'),
         isWarning: true,
       );
     }
@@ -148,12 +155,12 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
     {
       return RelativeFact(
         Icons.medical_information_rounded,
-        'Certificato scaduto il $date',
+        tr('Certificato scaduto il $date', 'Certificate expired on $date'),
         isWarning: true,
       );
     }
 
-    return RelativeFact(Icons.medical_information_rounded, 'Certificato valido fino al $date');
+    return RelativeFact(Icons.medical_information_rounded, tr('Certificato valido fino al $date', 'Certificate valid until $date'));
   }
 
   // Teachers never get here: their parents are paperwork.
@@ -236,7 +243,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
               children: pageTransitionBlocks([
                 RelativeCardGrid(cards: [for (final child in children) _buildCard(child)]),
                 const SizedBox(height: 48),
-                _buildManageButton('GESTISCI FIGLI'),
+                _buildManageButton(tr('GESTISCI FIGLI', 'MANAGE CHILDREN')),
               ]),
             ),
           ),
@@ -417,7 +424,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
   // A minor left with no parent is refused; an adult child only warns.
   String? _validateRemovals()
   {
-    var hasAdultRemoval = false;
+    final List<PersonItem> adultRemovals = [];
 
     for (final child in widget.person.children ?? <ChildItem>[])
     {
@@ -435,28 +442,48 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
 
       if (minor.age == null || minor.age! >= _adultAge)
       {
-        hasAdultRemoval = true;
+        adultRemovals.add(minor);
         continue;
       }
 
       if (minor.parents != null && _otherParentsOf(minor).isEmpty)
       {
-        return 'Impossibile rimuovere il figlio: ${minor.firstName} ${minor.lastName} '
-            'rimarrebbe senza genitori.';
+        return tr(
+          'Impossibile rimuovere ${minor.gender == 'F' ? 'la figlia' : 'il figlio'}: '
+              '${minor.firstName} ${minor.lastName} rimarrebbe senza genitori.',
+          "Can't remove ${minor.gender == 'F' ? 'the daughter' : 'the son'}: "
+              '${minor.firstName} ${minor.lastName} would be left without parents.',
+        );
       }
     }
 
-    if (hasAdultRemoval)
+    if (adultRemovals.isNotEmpty)
     {
-      CustomSnackBar.show(
-        context: context,
-        message: 'Attenzione: rimuovendo il figlio si perdono le responsabilità '
-            'genitoriali su un figlio maggiorenne.',
-        isError: false,
-      );
+      CustomSnackBar.show(context: context, message: _adultRemovalWarning(adultRemovals), isError: false);
     }
 
     return null;
+  }
+
+  String _adultRemovalWarning(List<PersonItem> adults)
+  {
+    final List<String> names = [for (final adult in adults) '${adult.firstName} ${adult.lastName}'];
+    final String listed = names.length == 1
+        ? names.single
+        : tr(
+          '${names.sublist(0, names.length - 1).join(', ')} e ${names.last}',
+          '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}',
+        );
+    final bool allGirls = adults.every((adult) => adult.gender == 'F');
+
+    final String whom = adults.length == 1
+        ? (allGirls ? tr('una figlia maggiorenne', 'an adult daughter') : tr('un figlio maggiorenne', 'an adult son'))
+        : (allGirls ? tr('figlie maggiorenni', 'adult daughters') : tr('figli maggiorenni', 'adult children'));
+
+    return tr(
+      'Attenzione: rimuovendo $listed si perdono le responsabilità genitoriali su $whom.',
+      'Warning: removing $listed gives up parental responsibility for $whom.',
+    );
   }
 
   // A minor cannot have more than two parents.
@@ -473,8 +500,12 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
 
       if (_otherParentsOf(minor).length >= _maxParentsPerMinor)
       {
-        return 'Impossibile aggiungere ${minor.firstName} ${minor.lastName}: '
-            'ha già due genitori associati.';
+        return tr(
+          'Impossibile aggiungere ${minor.firstName} ${minor.lastName}: '
+              'ha già due genitori associati.',
+          "Can't add ${minor.firstName} ${minor.lastName}: "
+              'they already have two parents linked.',
+        );
       }
     }
 
@@ -550,7 +581,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Figli aggiornati con successo!',
+          message: tr('Figli aggiornati con successo!', 'Children updated successfully!'),
           isError: false,
         );
 
@@ -580,7 +611,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
       children: [
         AppSearchField(
           controller: _searchController,
-          hintText: 'Cerca minore...',
+          hintText: tr('Cerca minore...', 'Search minor...'),
           onChanged: (value) => setState(() => _searchText = value),
         ),
         const SizedBox(height: 16),
@@ -589,8 +620,8 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
           runSpacing: 12,
           children: [
             AppFilterPill<_MinorSort>.setting(
-              prefix: 'Ordina',
-              hint: 'Ordina',
+              prefix: tr('Ordina', 'Sort'),
+              hint: tr('Ordina', 'Sort'),
               icon: Icons.sort_rounded,
               value: _sort,
               menuWidth: 200,
@@ -600,18 +631,18 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
                   .toList(),
             ),
             AppFilterPill<String>.filter(
-              prefix: 'Ruolo',
-              hint: 'Tutti i ruoli',
+              prefix: tr('Ruolo', 'Role'),
+              hint: tr('Tutti i ruoli', 'All roles'),
               icon: Icons.badge_rounded,
               value: _filterRole,
               menuWidth: 220,
               onChanged: (value) => setState(() => _filterRole = value),
               onClear: () => setState(() => _filterRole = null),
               options: [
-                const FilterOption(value: 'STUDENTE', label: 'Studente'),
-                const FilterOption(value: 'CORSISTA', label: 'Corsista'),
-                const FilterOption(value: 'DOCENTE', label: 'Docente'),
-                FilterOption(value: _memberOnlyFilterValue, label: 'Solo associato'),
+                FilterOption(value: 'STUDENTE', label: tr('Studente', 'Student')),
+                FilterOption(value: 'CORSISTA', label: tr('Corsista', 'Course participant')),
+                FilterOption(value: 'DOCENTE', label: tr('Docente', 'Teacher')),
+                FilterOption(value: _memberOnlyFilterValue, label: tr('Solo associato', 'Member only')),
               ],
             ),
           ],
@@ -637,7 +668,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
 
     if (minors.isEmpty)
     {
-      return const PersonEmptyState(message: 'Nessun minore trovato per questa ricerca.');
+      return PersonEmptyState(message: tr('Nessun minore trovato per questa ricerca.', 'No minor found for this search.'));
     }
 
     return ScrollEdgeFade(
@@ -670,13 +701,13 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Figli',
-      title: 'Gestisci figli',
+      eyebrow: tr('Figli', 'Children'),
+      title: tr('Gestisci figli', 'Manage children'),
       maxWidth: 1160,
       fillLast: true,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _isSubmitting,
           height: kPersonDialogButtonHeight,

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/time_bucket.dart';
@@ -393,7 +394,7 @@ class _BandBody extends StatelessWidget
                 color: Colors.white.withValues(alpha: 0.65),
               ),
             ),
-            if (band.showsPublished) const MobilePill('Pubblicato'),
+            if (band.showsPublished) MobilePill(tr('Pubblicato', 'Published')),
           ],
         ),
         const SizedBox(height: 4),

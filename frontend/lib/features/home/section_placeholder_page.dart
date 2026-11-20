@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_empty_card.dart';
@@ -60,7 +61,7 @@ class RoleSectionPage extends StatelessWidget
     return SectionPlaceholderPage(
       currentRoute: '${homeForRole(role)}/${section.slug}',
       title: section.label,
-      description: 'Questa sezione non è ancora disponibile.',
+      description: tr('Questa sezione non è ancora disponibile.', "This section isn't available yet."),
     );
   }
 }

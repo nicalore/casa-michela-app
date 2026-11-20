@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/date_input_formatters.dart';
 
@@ -61,7 +62,7 @@ class HoursDateField extends StatelessWidget
     return AppTextField(
       controller: controller,
       label: label,
-      hintText: 'gg/mm/aaaa',
+      hintText: tr('gg/mm/aaaa', 'dd/mm/yyyy'),
       inputFormatters: [DateInputFormatter()],
       onChanged: onChanged,
     );

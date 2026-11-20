@@ -3,17 +3,39 @@ from dataclasses import dataclass
 from typing import Annotated, Final
 
 from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.current_account import CurrentAccount
 from app.core.audit import AUDIT_ACTOR_KEY, AuditActor
+from app.core.i18n import tr
 from app.core.person_refs import KEPT_TAX_CODES_STATE_KEY, keep_for_reader
+from app.models.parental_responsibility import ParentalResponsibility
+from app.models.person import GenderEnum, Person
 from app.services.role_service import RoleService
 
-_FORBIDDEN_ROLE_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
-_FORBIDDEN_PUPIL_ERROR: Final[str] = (
-    "Puoi gestire solo le presenze relative a te stesso o ai tuoi figli"
+_FORBIDDEN_ROLE_ERROR: Final[tuple[str, str]] = (
+    "Non hai i permessi per accedere a questa risorsa",
+    "You don't have permission to access this resource",
 )
-_PARENTS_BOOK_ERROR: Final[str] = "Le tue prenotazioni sono gestite dai tuoi genitori"
+_FORBIDDEN_PUPIL_ERROR: Final[tuple[str, str]] = (
+    "Puoi gestire solo le tue presenze o quelle dei tuoi figli",
+    "You can only manage your own attendance or your children's",
+)
+_PARENTS_BOOK_ERROR: Final[tuple[str, str]] = (
+    "Le tue prenotazioni sono gestite dai tuoi genitori",
+    "Your bookings are managed by your parents",
+)
+_PARENT_BOOKS_ERRORS: Final[dict[GenderEnum, tuple[str, str]]] = {
+    GenderEnum.M: (
+        "Le tue prenotazioni sono gestite da tuo padre",
+        "Your bookings are managed by your father",
+    ),
+    GenderEnum.F: (
+        "Le tue prenotazioni sono gestite da tua madre",
+        "Your bookings are managed by your mother",
+    ),
+}
 
 _ADMIN_ROLE: Final[str] = "ADMIN"
 _ACTIVE_ROLE_HEADER: Final[str] = "X-Active-Role"
@@ -149,7 +171,7 @@ def require_role(*roles: str) -> Callable[[CurrentIdentity], IdentityContext]:
         if identity.roles.isdisjoint(allowed):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=_FORBIDDEN_ROLE_ERROR,
+                detail=tr(*_FORBIDDEN_ROLE_ERROR),
             )
 
         return identity
@@ -158,7 +180,11 @@ def require_role(*roles: str) -> Callable[[CurrentIdentity], IdentityContext]:
 
 
 # Writes only: an answered-for pupil still reads every booking of theirs.
-def assert_may_book_for(identity: IdentityContext, student_tax_code: str) -> None:
+async def assert_may_book_for(
+    session: AsyncSession,
+    identity: IdentityContext,
+    student_tax_code: str,
+) -> None:
     if identity.is_admin or student_tax_code in identity.bookable_student_tax_codes:
         return
 
@@ -166,5 +192,46 @@ def assert_may_book_for(identity: IdentityContext, student_tax_code: str) -> Non
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail=_PARENTS_BOOK_ERROR if themself else _FORBIDDEN_PUPIL_ERROR,
+        detail=(
+            await _who_books_for(session, student_tax_code)
+            if themself
+            else tr(*_FORBIDDEN_PUPIL_ERROR)
+        ),
     )
+
+
+async def _who_books_for(session: AsyncSession, student_tax_code: str) -> str:
+    genders = list(
+        await session.scalars(
+            select(Person.gender)
+            .join(
+                ParentalResponsibility,
+                ParentalResponsibility.parent_tax_code == Person.tax_code,
+            )
+            .where(ParentalResponsibility.child_tax_code == student_tax_code)
+        )
+    )
+
+    if len(genders) != 1:
+        return tr(*_PARENTS_BOOK_ERROR)
+
+    return tr(*_PARENT_BOOKS_ERRORS[genders[0] or GenderEnum.M])
+
+
+# For sentences about a pupil: no name when the reader is the pupil, else the
+# first name for their parent and the full name for anybody else.
+async def pupil_as_read(
+    session: AsyncSession,
+    identity: IdentityContext,
+    student_tax_code: str,
+) -> tuple[str | None, GenderEnum]:
+    person = await session.get_one(Person, student_tax_code)
+    gender = person.gender or GenderEnum.M
+
+    if student_tax_code == identity.tax_code:
+        return None, gender
+
+    if student_tax_code in identity.child_tax_codes:
+        return person.first_name, gender
+
+    return f"{person.first_name} {person.last_name}", gender

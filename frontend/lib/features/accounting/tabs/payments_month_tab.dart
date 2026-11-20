@@ -368,7 +368,7 @@ class _PaymentsMonthTabState extends State<PaymentsMonthTab> with DestinationRef
           Text.rich(
             TextSpan(
               children: [
-                const TextSpan(text: '$kOwedInAll  '),
+                TextSpan(text: '$kOwedInAll  '),
                 TextSpan(
                   text: formatAmount(total),
                   style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: AppTheme.trialTealDeepText),

@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../features/availability/utils/availability_strings.dart';
@@ -482,7 +483,7 @@ class _WizardState extends State<_Wizard>
   {
     final int count = pages.length;
     final bool last = _isLast(count);
-    final String label = last ? (_draft.isEditing ? 'Salva' : 'Crea') : 'Avanti';
+    final String label = last ? (_draft.isEditing ? tr('Salva', 'Save') : tr('Crea', 'Create')) : tr('Avanti', 'Next');
     final WizardMark done = _draft.isEditing ? WizardMark.save : WizardMark.create;
 
     final VoidCallback? back = _step > 0 ? () => _turnTo(_step - 1) : null;
@@ -517,7 +518,7 @@ class _WizardState extends State<_Wizard>
     final DateTime? edited = _draft.editedDay;
 
     return MobileSheet(
-      eyebrow: edited == null ? 'Disponibilità' : formatAvailableDayLabel(edited),
+      eyebrow: edited == null ? tr('Disponibilità', 'Availability') : formatAvailableDayLabel(edited),
       title: _draft.isEditing ? kEditAvailabilityTitle : kNewAvailabilityTitle,
       aboveKeyboard: true,
       unsaved: () => _draft.fingerprint == _opened ? MobileUnsaved.none : MobileUnsaved.choices,

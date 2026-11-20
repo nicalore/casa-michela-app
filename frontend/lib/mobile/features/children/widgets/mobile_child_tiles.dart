@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../../shared/widgets/descender_room.dart';
 import '../../../../shared/widgets/whole_words.dart';
@@ -26,7 +27,7 @@ const double _bleed = 8;
 // Clear of the current tile's rim, which stands outside it.
 const EdgeInsets _tourInflate = EdgeInsets.all(6);
 
-const String _sheetTitle = 'Figli';
+String get _sheetTitle => tr('Figli', 'Children');
 const double _sheetFace = 40;
 
 TextStyle _nameStyle()

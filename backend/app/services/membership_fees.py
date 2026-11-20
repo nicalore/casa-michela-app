@@ -10,11 +10,24 @@ from app.models.member import PaymentMethodEnum
 from app.models.membership_fee import MembershipFee, MembershipFeeKindEnum
 from app.schemas.membership_fees import WizardFeesData
 from app.schemas.student_payments import PaymentData
+from app.services.bilingual import Bilingual
 
-_FEE_NOT_FOUND_ERROR: Final[str] = "Quota non trovata."
-_FEE_PAID_ERROR: Final[str] = "Questa quota è già pagata."
-_FEE_NOT_PAID_ERROR: Final[str] = "Questa quota non è pagata."
-_PAID_IN_FUTURE_ERROR: Final[str] = "La data del pagamento è nel futuro."
+_FEE_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Quota non trovata.",
+    "Fee not found.",
+)
+_FEE_PAID_ERROR: Final[Bilingual] = Bilingual(
+    "Questa quota è già pagata.",
+    "This fee is already paid.",
+)
+_FEE_NOT_PAID_ERROR: Final[Bilingual] = Bilingual(
+    "Questa quota non è pagata.",
+    "This fee is not paid.",
+)
+_PAID_IN_FUTURE_ERROR: Final[Bilingual] = Bilingual(
+    "La data del pagamento è nel futuro.",
+    "The payment date is in the future.",
+)
 
 # The order the history and the wizard list them in.
 FEE_KINDS: Final[tuple[MembershipFeeKindEnum, ...]] = (
@@ -93,7 +106,7 @@ async def _fee_of(db: AsyncSession, tax_code: str, fee_id: int) -> MembershipFee
     if fee is None or fee.member_tax_code != tax_code:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_FEE_NOT_FOUND_ERROR,
+            detail=_FEE_NOT_FOUND_ERROR.for_request(),
         )
 
     return fee
@@ -111,13 +124,13 @@ async def settle_fee(
     if fee.paid_on is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_FEE_PAID_ERROR,
+            detail=_FEE_PAID_ERROR.for_request(),
         )
 
     if data.paid_on > today:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_PAID_IN_FUTURE_ERROR,
+            detail=_PAID_IN_FUTURE_ERROR.for_request(),
         )
 
     fee.paid_on = data.paid_on
@@ -143,7 +156,7 @@ async def cancel_fee_payment(
     if fee.paid_on is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_FEE_NOT_PAID_ERROR,
+            detail=_FEE_NOT_PAID_ERROR.for_request(),
         )
 
     fee.paid_on = None

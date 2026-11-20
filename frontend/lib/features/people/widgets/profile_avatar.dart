@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/profile_photo.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
 import '../../../services/profile_photo_image.dart';
@@ -96,7 +97,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Errore durante il caricamento dell\'immagine.',
+          message: tr('Errore durante il caricamento dell\'immagine.', 'Couldn\'t upload the image.'),
           isError: true,
         );
       }
@@ -116,13 +117,13 @@ class ProfileAvatarState extends State<ProfileAvatar>
       context: context,
       barrierLabel: 'ConfirmProfileImageRemoval',
       builder: (dialogContext) => AppDialogStack(
-        eyebrow: 'Foto profilo',
-        title: 'Confermi?',
+        eyebrow: tr('Foto profilo', 'Profile photo'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: 520,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label:     'ANNULLA',
+            label:     tr('ANNULLA', 'CANCEL'),
             icon:      Icons.close_rounded,
             gradient:  AppTheme.dismissGradient,
             accent:    AppTheme.trialVioletText,
@@ -131,7 +132,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
             onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
           primary: AppGradientButton(
-            label:     'RIMUOVI',
+            label:     tr('RIMUOVI', 'REMOVE'),
             icon:      Icons.delete_outline_rounded,
             gradient:  AppTheme.dangerGradient,
             accent:    AppTheme.trialDangerText,
@@ -143,8 +144,12 @@ class ProfileAvatarState extends State<ProfileAvatar>
         children: [
           AppDialogPill(
             child: Text(
-              'La foto verrà eliminata definitivamente. '
-              'Potrai sempre caricarne una nuova in seguito.',
+              tr(
+                'La foto verrà eliminata definitivamente. '
+                    'Potrai sempre caricarne una nuova in seguito.',
+                'The photo will be permanently deleted. '
+                    'You can always upload a new one later.',
+              ),
               style: GoogleFonts.plusJakartaSans(
                 fontSize:   16,
                 fontWeight: FontWeight.w500,
@@ -184,7 +189,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Errore durante la rimozione dell\'immagine.',
+          message: tr('Errore durante la rimozione dell\'immagine.', 'Couldn\'t remove the image.'),
           isError: true,
         );
       }

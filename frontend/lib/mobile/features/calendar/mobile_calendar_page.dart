@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -45,7 +46,7 @@ import 'widgets/mobile_convocation_card.dart';
 import 'widgets/mobile_lesson_card.dart';
 import 'widgets/mobile_lesson_sheet.dart';
 
-const String _title = 'Calendario';
+String get _title => tr('Calendario', 'Calendar');
 
 const double _phoneMargin = 20;
 const double _tabletMargin = 44;

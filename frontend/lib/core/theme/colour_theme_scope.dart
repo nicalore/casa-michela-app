@@ -5,11 +5,12 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../language/app_language.dart';
 import '../platform/visual_effects.dart';
 import 'theme_colours.dart';
 
-// Redoes the whole app when the theme or the light/dark mode changes: colours are read while building and painting,
-// so const widgets and painters that would otherwise keep their old ones are redone too.
+// Redoes the whole app when the theme, the light/dark mode or the language changes: colours and texts are read while
+// building and painting, so const widgets and painters that would otherwise keep their old ones are redone too.
 class ColourThemeScope extends StatefulWidget
 {
   final WidgetBuilder builder;
@@ -63,6 +64,7 @@ class _ColourThemeScopeState extends State<ColourThemeScope> with SingleTickerPr
     ColourThemeScope._inForce = this;
     ThemeColours.current.addListener(_changed);
     ThemeColours.dark.addListener(_changed);
+    AppLanguages.current.addListener(_changed);
   }
 
   @override
@@ -75,6 +77,7 @@ class _ColourThemeScopeState extends State<ColourThemeScope> with SingleTickerPr
 
     ThemeColours.current.removeListener(_changed);
     ThemeColours.dark.removeListener(_changed);
+    AppLanguages.current.removeListener(_changed);
     _fade.dispose();
     _picture?.dispose();
     super.dispose();

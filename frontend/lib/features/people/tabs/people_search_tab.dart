@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/alphabetical_order.dart';
@@ -26,22 +27,28 @@ import '../widgets/person_card.dart';
 
 enum _PeopleSort
 {
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)'),
-  surnameAsc('Cognome (A-Z)'),
-  surnameDesc('Cognome (Z-A)'),
-  dateDesc('Più recente'),
-  dateAsc('Meno recente');
+  nameAsc,
+  nameDesc,
+  surnameAsc,
+  surnameDesc,
+  dateDesc,
+  dateAsc;
 
-  final String label;
-
-  const _PeopleSort(this.label);
+  String get label => switch (this)
+  {
+    nameAsc => tr('Nome (A-Z)', 'Name (A-Z)'),
+    nameDesc => tr('Nome (Z-A)', 'Name (Z-A)'),
+    surnameAsc => tr('Cognome (A-Z)', 'Surname (A-Z)'),
+    surnameDesc => tr('Cognome (Z-A)', 'Surname (Z-A)'),
+    dateDesc => tr('Più recente', 'Most recent'),
+    dateAsc => tr('Meno recente', 'Least recent'),
+  };
 }
 
 const int _maxColumns = 4;
 const double _cardGap = 16;
 
-const String _loadFailed = 'Impossibile caricare le anagrafiche dal server.';
+String get _loadFailed => tr('Impossibile caricare le anagrafiche dal server.', "Couldn't load the people from the server.");
 
 class PeopleSearchTab extends StatefulWidget
 {
@@ -282,7 +289,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
       shown: people.length,
       total: _people.length,
       icon: Icons.group_off_rounded,
-      none: 'Nessuna persona registrata',
+      none: tr('Nessuna persona registrata', 'No people registered'),
     );
 
     if (empty != null)
@@ -362,10 +369,10 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
                 _searchText = value;
                 _savedSearchText = value;
               }),
-              hintText: 'Cerca persona...',
+              hintText: tr('Cerca persona...', 'Search person...'),
             ),
             action: tabActionButton(
-              label: 'NUOVA PERSONA',
+              label: tr('NUOVA PERSONA', 'NEW PERSON'),
               icon: Icons.person_add_alt_1_rounded,
               onPressed: _openCreationDialog,
             ),
@@ -376,11 +383,11 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
           slot: PageTransitionItem.header,
           child: TabFiltersRow(
             countGap: 36,
-            countLabel: people.length == 1 ? '1 persona trovata' : '${people.length} persone trovate',
+            countLabel: people.length == 1 ? tr('1 persona trovata', '1 person found') : tr('${people.length} persone trovate', '${people.length} people found'),
             filters: [
               AppFilterPill<_PeopleSort>.setting(
-                prefix: 'Ordina',
-                hint: 'Ordina per',
+                prefix: tr('Ordina', 'Sort'),
+                hint: tr('Ordina per', 'Sort by'),
                 icon: Icons.swap_vert_rounded,
                 value: _sort,
                 menuWidth: 220,
@@ -395,7 +402,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
               ),
               const FilterGroupDivider(),
               AppCountFilterPill(
-                label: 'Filtri',
+                label: tr('Filtri', 'Filters'),
                 icon: Icons.tune_rounded,
                 count: _filterState.activeFiltersCount,
                 onOpen: _showFilterDialog,

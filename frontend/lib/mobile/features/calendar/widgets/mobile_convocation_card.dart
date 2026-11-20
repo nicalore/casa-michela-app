@@ -210,10 +210,10 @@ class _RoomSupervisors extends StatelessWidget
         text: supervisor.person.fullName,
         children: [
           if (supervisor.isSelf)
-            const WidgetSpan(
+            WidgetSpan(
               alignment: PlaceholderAlignment.middle,
               child: Padding(
-                padding: EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.only(left: 8),
                 child: MobilePill(kSelfMark, tone: MobilePillTone.teal),
               ),
             ),

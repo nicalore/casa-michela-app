@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
@@ -93,19 +94,19 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
       header: entityTabHeader(
         searchController: _searchController,
         onSearchChanged: (value) => setState(() => _searchText = value),
-        searchHint: 'Cerca disciplina...',
-        actionLabel: 'NUOVA DISCIPLINA',
+        searchHint: tr('Cerca disciplina...', 'Search disciplines...'),
+        actionLabel: tr('NUOVA DISCIPLINA', 'NEW DISCIPLINE'),
         onAction: () => _showWizard(),
         sort: _sortBy,
         onSortChanged: (value) => setState(() => _sortBy = value),
         countLabel: subjects.length == 1
-            ? '1 disciplina trovata'
-            : '${subjects.length} discipline trovate',
+            ? tr('1 disciplina trovata', '1 discipline found')
+            : tr('${subjects.length} discipline trovate', '${subjects.length} disciplines found'),
         filters: [
           const FilterGroupDivider(),
           AppFilterPill<String>.filter(
-            prefix: 'Area',
-            hint: 'Tutte le aree',
+            prefix: tr('Area', 'Area'),
+            hint: tr('Tutte le aree', 'All areas'),
             icon: Icons.category_outlined,
             value: _filterArea,
             menuWidth: 210,
@@ -212,7 +213,7 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
 
     if (name.isEmpty)
     {
-      showError('Il nome non può essere vuoto.');
+      showError(tr('Il nome non può essere vuoto.', 'The name cannot be empty.'));
 
       return;
     }
@@ -221,7 +222,7 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
 
     if (area == null)
     {
-      showError("Seleziona un'area di appartenenza.");
+      showError(tr("Seleziona un'area di appartenenza.", 'Select the area it belongs to.'));
 
       return;
     }
@@ -240,19 +241,19 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
   Widget build(BuildContext context)
   {
     return buildSingleStepDialog(
-      eyebrow: 'Disciplina interna',
-      title: isEditing ? 'Modifica disciplina' : 'Nuova disciplina',
+      eyebrow: tr('Disciplina interna', 'Internal discipline'),
+      title: isEditing ? tr('Modifica disciplina', 'Edit discipline') : tr('Nuova disciplina', 'New discipline'),
       onSubmit: _save,
       fields: [
         AppTextField(
           controller: _nameController,
-          label: 'Nome',
-          hintText: 'Es. Grammatica latina',
+          label: tr('Nome', 'Name'),
+          hintText: tr('Es. Grammatica latina', 'E.g. Latin grammar'),
           maxLength: FieldLimits.name,
           textCapitalization: TextCapitalization.sentences,
           nothingAbove: true,
         ),
-        const WizardFieldLabel('Area'),
+        WizardFieldLabel(tr('Area', 'Area')),
         Wrap(
           spacing: 10,
           runSpacing: 10,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/settings/utils/settings_strings.dart';
 import '../../../services/api_service.dart';
@@ -14,8 +15,8 @@ import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_password_fields.dart';
 import '../../shared/widgets/mobile_sheet.dart';
 
-const String _invalidLink = 'Il link non è più valido. Richiedine uno nuovo.';
-const String _done = 'Password reimpostata con successo! Ora puoi accedere.';
+String get _invalidLink => tr('Il link non è più valido. Richiedine uno nuovo.', 'The link is no longer valid. Request a new one.');
+String get _done => tr('Password reimpostata con successo! Ora puoi accedere.', 'Password reset successfully! You can now sign in.');
 
 // App-link target; a spent or expired link leaves as cancelling does.
 class MobileResetPasswordPage extends StatefulWidget
@@ -191,8 +192,8 @@ class _MobileResetPasswordPageState extends State<MobileResetPasswordPage>
           tablet: tablet,
           children: [
             MobileFlowHead(
-              eyebrow: 'Recupero',
-              title: 'Nuova password',
+              eyebrow: tr('Recupero', 'Recovery'),
+              title: tr('Nuova password', 'New password'),
               tablet: tablet,
               capsule: MobileFlowCapsule(onTap: _backToLogin, busy: _leaving),
             ),

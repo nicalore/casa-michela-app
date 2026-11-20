@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/role_label_mapper.dart';
@@ -483,7 +484,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
                           ? Center(
                               child: MobileLoadFailed(
                                 error: _loadFailure,
-                                message: 'Non è stato possibile caricare i tuoi dati.',
+                                message: tr('Non è stato possibile caricare i tuoi dati.', 'Your details could not be loaded.'),
                                 onRetry: _load,
                                 tablet: tablet,
                               ),
@@ -686,7 +687,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
         final Widget contacts = MobileDetailCard.of(
           contactsCard(person),
           onEdit: () => _editContacts(person),
-          editLabel: 'Modifica contatti',
+          editLabel: tr('Modifica contatti', 'Edit contacts'),
         );
 
         return [
@@ -841,7 +842,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
       child: MobileDetailCard.of(
         card,
         onEdit: studies ? () => _editStudies(person) : null,
-        editLabel: studies ? 'Modifica studi' : null,
+        editLabel: studies ? tr('Modifica studi', 'Edit studies') : null,
       ),
     );
   }
@@ -863,7 +864,7 @@ class _ReportButton extends StatelessWidget
       id: tourId,
       radius: MobileDismissButton.radius,
       child: MobileDismissButton(
-        label: 'Segnala dato mancante / errato',
+        label: tr('Segnala dato mancante / errato', 'Report missing / wrong details'),
         icon: Icons.flag_rounded,
         onPressed: onTap,
       ),

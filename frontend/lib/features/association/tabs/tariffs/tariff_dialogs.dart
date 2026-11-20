@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/money.dart';
@@ -54,7 +55,7 @@ Widget _amountField(TextEditingController controller, String label, {required bo
       controller: controller,
       label: label,
       showLabel: false,
-      hintText: on ? 'Es. 10,00' : '',
+      hintText: on ? tr('Es. 10,00', 'E.g. 10.00') : '',
       keyboardType: TextInputType.number,
       enabled: on,
     ),
@@ -314,7 +315,7 @@ class _LevelDialogState extends State<_LevelDialog>
                       controller: _hours,
                       label: kPackageHoursSuffix,
                       showLabel: false,
-                      hintText: _packageOn ? 'Es. 18' : '',
+                      hintText: _packageOn ? tr('Es. 18', 'E.g. 18') : '',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -452,7 +453,7 @@ class _FeeDialogState extends State<_FeeDialog>
               child: AppTextField(
                 controller: _amount,
                 label: kFeeFieldLabel,
-                hintText: 'Es. 15,00',
+                hintText: tr('Es. 15,00', 'E.g. 15.00'),
                 keyboardType: TextInputType.number,
                 onSubmitted: (_) => _save(),
               ),

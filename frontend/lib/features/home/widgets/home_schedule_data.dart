@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/opening_day_item.dart';
@@ -97,12 +98,14 @@ class HomeBandStatus
   bool get showsPublished => isPublished && (offered || !isEmpty);
 }
 
-String homeSubjectsLabel(int count) => count == 1 ? '1 materia' : '$count materie';
+String homeSubjectsLabel(int count) => count == 1 ? tr('1 materia', '1 subject') : tr('$count materie', '$count subjects');
 
-const String kAvailableLead = 'Disponibile';
-const String kBookedLead = 'Prenotato';
-const String kConvenedLead = 'Convocato';
-const String kLessonLead = 'Lezione';
+String get kAvailableLead => tr('Disponibile', 'Available');
+String get kBookedLead => tr('Prenotato', 'Booked');
+String get kConvenedLead => tr('Convocato', 'Called in');
+String get kLessonLead => tr('Lezione', 'Lesson');
+
+String bookedLeadFor(String? gender) => gender == 'F' ? tr('Prenotata', 'Booked') : kBookedLead;
 
 List<HomeSlot> presenceSlots(List<PresenceItem> presences, {required bool named})
 {

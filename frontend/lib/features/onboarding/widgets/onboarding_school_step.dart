@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/page_density.dart';
@@ -19,11 +20,13 @@ class OnboardingSchoolStep extends StatefulWidget
 {
   final PersonItem person;
   final VoidCallback onUpdate;
+  final String atLeastOne;
 
   const OnboardingSchoolStep({
     super.key,
     required this.person,
     required this.onUpdate,
+    required this.atLeastOne,
   });
 
   @override
@@ -48,10 +51,13 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
   {
     if (years.isEmpty)
     {
-      return const Padding(
-        padding: EdgeInsets.only(top: 32),
+      return Padding(
+        padding: const EdgeInsets.only(top: 32),
         child: Center(
-          child: AppEmptyCard(icon: Icons.school_rounded, message: 'Nessun anno scolastico registrato.'),
+          child: AppEmptyCard(
+            icon: Icons.school_rounded,
+            message: tr('Nessun anno scolastico registrato.', 'No school years recorded.'),
+          ),
         ),
       );
     }
@@ -69,7 +75,7 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
       onBack: () => _turn(index - 1),
       onForward: () => _turn(index + 1),
       header: PageHeading(
-        isCurrent ? 'Anno scolastico attuale' : 'Anno scolastico passato',
+        isCurrent ? tr('Anno scolastico attuale', 'Current school year') : tr('Anno scolastico passato', 'Past school year'),
         large: !AppPageDensity.of(context),
       ),
       headerSpacing: kPageHeadingGap,
@@ -96,12 +102,13 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
             SizedBox(height: personSectionGap(context)),
             Center(
               child: AppGradientButton(
-                label: 'MODIFICA ANNI SCOLASTICI',
+                label: tr('MODIFICA ANNI SCOLASTICI', 'EDIT SCHOOL YEARS'),
                 icon: Icons.edit_rounded,
                 onPressed: () => showEditSchoolsDialog(
                   context,
                   person: widget.person,
                   onUpdate: widget.onUpdate,
+                  atLeastOne: widget.atLeastOne,
                 ),
               ),
             ),

@@ -7,12 +7,15 @@ from app.models.lesson import Lesson
 from app.models.room import Room
 from app.models.room_supervision import RoomSupervision
 from app.models.teacher_room_assignment import TeacherRoomAssignment
+from app.services.bilingual import Bilingual
 
 _Span = tuple[time, time]
 
-_OVER_CAPACITY_WARNING: Final[str] = (
-    "La stanza {room} arriva a {peak} persone contemporaneamente, oltre la "
-    "capienza dichiarata di {capacity}."
+_OVER_CAPACITY_WARNING: Final[Bilingual] = Bilingual(
+    "La stanza {room} arriva a {peak} persone contemporaneamente, oltre la capienza "
+    "dichiarata di {capacity}.",
+    "Room {room} reaches {peak} people at the same time, over its stated capacity of "
+    "{capacity}.",
 )
 
 
@@ -175,7 +178,7 @@ def capacity_warnings(
 
         if peak > room.capacity:
             warnings.append(
-                _OVER_CAPACITY_WARNING.format(
+                _OVER_CAPACITY_WARNING.for_request().format(
                     room=room.name,
                     peak=peak,
                     capacity=room.capacity,

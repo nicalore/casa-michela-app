@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
 from app.api.rbac import get_current_identity, require_role
+from app.core.i18n import tr
 from app.models.service import Service
 from app.schemas.service import ServiceCreate, ServiceResponse, ServiceUpdate
 
@@ -18,14 +19,30 @@ router = APIRouter(
     dependencies=[Depends(get_current_identity)],
 )
 
-_SERVICE_NOT_FOUND_ERROR: Final[str] = "Servizio non trovato."
-_DUPLICATE_SERVICE_ERROR: Final[str] = 'Esiste già il servizio "{name}"'
-_CREATE_ERROR: Final[str] = "Errore durante la creazione del servizio."
-_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
-_DELETE_CONSTRAINT_ERROR: Final[str] = (
-    "Impossibile eliminare il servizio in quanto protetto da vincoli referenziali."
+_SERVICE_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Servizio non trovato.",
+    "Service not found.",
 )
-_DELETE_SUCCESS_DETAIL: Final[str] = "Servizio eliminato"
+_DUPLICATE_SERVICE_ERROR: Final[tuple[str, str]] = (
+    'Esiste già il servizio "{name}"',
+    "The service “{name}” already exists",
+)
+_CREATE_ERROR: Final[tuple[str, str]] = (
+    "Errore durante la creazione del servizio.",
+    "Error while creating the service.",
+)
+_UPDATE_ERROR: Final[tuple[str, str]] = (
+    "Errore durante l'aggiornamento.",
+    "Error while updating.",
+)
+_DELETE_CONSTRAINT_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare il servizio in quanto protetto da vincoli referenziali.",
+    "Can't delete the service because other data refers to it.",
+)
+_DELETE_SUCCESS_DETAIL: Final[tuple[str, str]] = (
+    "Servizio eliminato",
+    "Service deleted",
+)
 
 
 async def _get_service_or_404(db: AsyncSession, name: str) -> Service:
@@ -36,7 +53,7 @@ async def _get_service_or_404(db: AsyncSession, name: str) -> Service:
     if service is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_SERVICE_NOT_FOUND_ERROR,
+            detail=tr(*_SERVICE_NOT_FOUND_ERROR),
         )
 
     return service
@@ -52,7 +69,7 @@ async def _assert_name_available(db: AsyncSession, name: str) -> None:
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DUPLICATE_SERVICE_ERROR.format(name=name),
+            detail=tr(*_DUPLICATE_SERVICE_ERROR).format(name=name),
         )
 
 
@@ -78,7 +95,7 @@ async def create_service(payload: ServiceCreate, db: DbSession) -> Service:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_CREATE_ERROR,
+            detail=tr(*_CREATE_ERROR),
         ) from err
 
     return service
@@ -115,7 +132,7 @@ async def update_service(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UPDATE_ERROR,
+            detail=tr(*_UPDATE_ERROR),
         ) from err
 
     return service
@@ -135,7 +152,7 @@ async def delete_service(name: str, db: DbSession) -> dict[str, str]:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DELETE_CONSTRAINT_ERROR,
+            detail=tr(*_DELETE_CONSTRAINT_ERROR),
         ) from err
 
-    return {"detail": _DELETE_SUCCESS_DETAIL}
+    return {"detail": tr(*_DELETE_SUCCESS_DETAIL)}

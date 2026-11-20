@@ -19,6 +19,7 @@ from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, IdentityContext, require_role
 from app.core import field_lengths
 from app.core.downloads import inline_disposition
+from app.core.i18n import tr
 from app.core.optimistic_concurrency import assert_not_stale
 from app.models.notice import Notice, NoticePin, NoticeRoleEnum
 from app.schemas.notice import (
@@ -63,7 +64,10 @@ from app.services.notices import (
     summary_response,
 )
 
-_NOTICE_LABEL: Final[str] = "la comunicazione"
+_NOTICE_LABEL: Final[tuple[str, str]] = (
+    "la comunicazione",
+    "the announcement",
+)
 
 # Written by administrators, each editing and deleting their own but pinning anyone's;
 # read by everyone they were sent to.
@@ -292,7 +296,7 @@ async def update_notice(
     attachments: Attachments = None,
 ) -> NoticeResponse:
     notice = await own_notice(db, notice_id, author_tax_code=identity.tax_code)
-    assert_not_stale(notice, expected_updated_at, entity_label=_NOTICE_LABEL)
+    assert_not_stale(notice, expected_updated_at, entity_label=tr(*_NOTICE_LABEL))
 
     kept_ids = set(kept_attachment_ids or ())
     kept_images, new_images = settle_images(

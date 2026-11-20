@@ -4,40 +4,52 @@ from typing import Final, Self
 from pydantic import BaseModel, Field, model_validator
 
 from app.core import field_lengths
+from app.core.i18n import tr
 from app.core.time_band import TimeBandEnum, presence_band
 from app.schemas.booking import BookingBase
 from app.schemas.opening_day import OpeningModeEnum
 from app.schemas.validators import OptionalCleanStr, TimeBandMixin
 
-_OVERLAPPING_SLOTS_ERROR: Final[str] = (
-    "Gli orari di presenza indicati si sovrappongono fra loro."
+_OVERLAPPING_SLOTS_ERROR: Final[tuple[str, str]] = (
+    "Gli orari di presenza indicati si sovrappongono fra loro.",
+    "The attendance hours given overlap each other.",
 )
 
-_DUPLICATE_MODE_ERROR: Final[str] = (
-    "Ogni modalità va indicata una volta sola nella stessa richiesta."
+_DUPLICATE_MODE_ERROR: Final[tuple[str, str]] = (
+    "Ogni modalità va indicata una volta sola nella stessa richiesta.",
+    "Each mode can be given only once in the same request.",
 )
 
-_BAND_MISSING_ERROR: Final[str] = (
-    "Indica la fascia di ogni materia: ci sono orari in più fasce."
+_BAND_MISSING_ERROR: Final[tuple[str, str]] = (
+    "Indica la fascia di ogni materia: ci sono orari in più fasce.",
+    "Give the time slot of each subject: there are hours in more than one slot.",
 )
 
-_BAND_WITHOUT_HOURS_ERROR: Final[str] = (
-    "Una materia è indicata per una fascia in cui non ci sono orari di presenza."
+_BAND_WITHOUT_HOURS_ERROR: Final[tuple[str, str]] = (
+    "Una materia è indicata per una fascia in cui non ci sono orari di presenza.",
+    "A subject is given for a time slot with no attendance hours.",
 )
 
-_DUPLICATE_BAND_NOTE_ERROR: Final[str] = (
-    "Ogni fascia va indicata una volta sola nelle note sulla prenotazione."
+_DUPLICATE_BAND_NOTE_ERROR: Final[tuple[str, str]] = (
+    "Ogni fascia va indicata una volta sola nelle note sulla prenotazione.",
+    "Each time slot can be given only once in the booking notes.",
 )
 
-_NOTE_WITHOUT_HOURS_ERROR: Final[str] = (
-    "Una nota è indicata per una fascia in cui non ci sono orari di presenza."
+_NOTE_WITHOUT_HOURS_ERROR: Final[tuple[str, str]] = (
+    "Una nota è indicata per una fascia in cui non ci sono orari di presenza.",
+    "A note is given for a time slot with no attendance hours.",
 )
 
-_DUPLICATE_DAY_ERROR: Final[str] = (
-    "Ogni giornata va indicata una volta sola nella stessa richiesta."
+_DUPLICATE_DAY_ERROR: Final[tuple[str, str]] = (
+    "Ogni giornata va indicata una volta sola nella stessa richiesta.",
+    "Each day can be given only once in the same request.",
 )
 
 NO_LESSON_ERROR: Final[str] = "Seleziona almeno una materia."
+
+
+def no_lesson_error() -> str:
+    return tr(NO_LESSON_ERROR, "Select at least one subject.")
 
 
 class LessonRequestSlot(TimeBandMixin):
@@ -77,10 +89,10 @@ class _ModeHours(BaseModel):
         noted = [note.band for note in self.notes or []]
 
         if len(set(noted)) != len(noted):
-            raise ValueError(_DUPLICATE_BAND_NOTE_ERROR)
+            raise ValueError(tr(*_DUPLICATE_BAND_NOTE_ERROR))
 
         if any(band not in bands for band in noted):
-            raise ValueError(_NOTE_WITHOUT_HOURS_ERROR)
+            raise ValueError(tr(*_NOTE_WITHOUT_HOURS_ERROR))
 
         return self
 
@@ -93,7 +105,7 @@ class _ModeHours(BaseModel):
 
         for earlier, later in zip(ordered, ordered[1:], strict=False):
             if later.start_time < earlier.end_time:
-                raise ValueError(_OVERLAPPING_SLOTS_ERROR)
+                raise ValueError(tr(*_OVERLAPPING_SLOTS_ERROR))
 
         return self
 
@@ -104,15 +116,15 @@ class _ModeHours(BaseModel):
         for subject in self.subjects:
             if subject.band is None:
                 if len(bands) > 1:
-                    raise ValueError(_BAND_MISSING_ERROR)
+                    raise ValueError(tr(*_BAND_MISSING_ERROR))
 
                 if not bands:
-                    raise ValueError(_BAND_WITHOUT_HOURS_ERROR)
+                    raise ValueError(tr(*_BAND_WITHOUT_HOURS_ERROR))
 
                 subject.band = next(iter(bands))
 
             elif subject.band not in bands:
-                raise ValueError(_BAND_WITHOUT_HOURS_ERROR)
+                raise ValueError(tr(*_BAND_WITHOUT_HOURS_ERROR))
 
         return self
 
@@ -127,7 +139,7 @@ class LessonRequestMode(_ModeHours):
         taught = {subject.band for subject in self.subjects}
 
         if any(slot.band not in taught for slot in self.slots):
-            raise ValueError(NO_LESSON_ERROR)
+            raise ValueError(no_lesson_error())
 
         return self
 
@@ -172,7 +184,7 @@ class LessonRequestCreate(BaseModel):
         seen = {block.mode for block in self.modes}
 
         if len(seen) != len(self.modes):
-            raise ValueError(_DUPLICATE_MODE_ERROR)
+            raise ValueError(tr(*_DUPLICATE_MODE_ERROR))
 
         return self
 
@@ -186,7 +198,7 @@ class LessonRequestReplaceDay(BaseModel):
         seen = {block.mode for block in self.modes}
 
         if len(seen) != len(self.modes):
-            raise ValueError(_DUPLICATE_MODE_ERROR)
+            raise ValueError(tr(*_DUPLICATE_MODE_ERROR))
 
         return self
 
@@ -208,7 +220,7 @@ class LessonRequestReplaceDays(BaseModel):
         seen = {day.date for day in self.days}
 
         if len(seen) != len(self.days):
-            raise ValueError(_DUPLICATE_DAY_ERROR)
+            raise ValueError(tr(*_DUPLICATE_DAY_ERROR))
 
         return self
 

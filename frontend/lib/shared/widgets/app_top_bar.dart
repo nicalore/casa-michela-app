@@ -362,7 +362,7 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'SEI AUTENTICATO COME',
+                      signedInAsLabel(feminine: _user?.gender == 'F').toUpperCase(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
@@ -587,6 +587,7 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
                   unreadReports: ReportsBoard.instance.unread,
                   // Only where the bar has no room to write it.
                   role: size.isNarrow ? _activeRoleLabel : null,
+                  feminine: _user?.gender == 'F',
                   dense: dense,
                 ),
               )
@@ -676,6 +677,7 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
       },
       unreadReports: ReportsBoard.instance.unread,
       role: _activeRoleLabel,
+      feminine: _user?.gender == 'F',
       dense: true,
       bare: true,
     );

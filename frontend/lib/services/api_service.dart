@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show AppLifecycleListener, TimeOfDay;
 
 import '../core/config/api_config.dart';
+import '../core/language/app_language.dart';
 import '../core/theme/theme_choice.dart';
 import '../core/theme/theme_colours.dart';
 import '../core/utils/alphabetical_order.dart';
@@ -289,8 +290,10 @@ class ApiService
   // Mirrored by backend/app/api/auth.py.
   static const String _passwordChangeExpiredCode = 'PASSWORD_CHANGE_EXPIRED';
 
-  static const String _passwordChangeExpiredNotice =
-      'Per scegliere la nuova password, accedi di nuovo con quella provvisoria.';
+  static String get _passwordChangeExpiredNotice => tr(
+    'Per scegliere la nuova password, accedi di nuovo con quella provvisoria.',
+    'To choose your new password, sign in again with the temporary one.',
+  );
 
   void _dropPeople()
   {
@@ -504,9 +507,11 @@ class ApiService
     unawaited(SessionService.saveRole(role));
   }
 
-  // Login and refresh name the device for the sessions list.
+  // Login and refresh name the device for the sessions list; every request names the language for the server's texts.
   void _describeClient(RequestOptions options)
   {
+    options.headers['Accept-Language'] = AppLanguages.current.value.key;
+
     if (options.path != '/auth/login' && options.path != '/auth/refresh')
     {
       return;
@@ -1044,7 +1049,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare le sessioni.');
+      _refused(e, tr('Impossibile caricare le sessioni.', "Couldn't load the sessions."));
     }
   }
 
@@ -1056,7 +1061,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile disattivare la sessione.');
+      _refused(e, tr('Impossibile disattivare la sessione.', "Couldn't sign out the session."));
     }
   }
 
@@ -1069,7 +1074,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile disattivare le altre sessioni.');
+      _refused(e, tr('Impossibile disattivare le altre sessioni.', "Couldn't sign out the other sessions."));
     }
   }
 
@@ -1094,7 +1099,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il cambio password. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il cambio password. Riprova più tardi.',
+          "Couldn't change the password. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1112,7 +1123,13 @@ class ApiService
         rethrow;
       }
 
-      _refused(e, 'Errore durante la richiesta di recupero password. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la richiesta di recupero password. Riprova più tardi.',
+          "Couldn't request password recovery. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1127,7 +1144,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la reimpostazione della password. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la reimpostazione della password. Riprova più tardi.',
+          "Couldn't reset the password. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1143,7 +1166,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Token non valido o scaduto.');
+      _refused(e, tr('Token non valido o scaduto.', 'Invalid or expired token.'));
     }
   }
 
@@ -1199,7 +1222,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione dell\'orario. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la creazione dell\'orario. Riprova più tardi.',
+          "Couldn't create the hours. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1223,7 +1252,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica dell\'orario. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica dell\'orario. Riprova più tardi.',
+          "Couldn't change the hours. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1241,7 +1276,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione dell\'orario. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione dell\'orario. Riprova più tardi.',
+          "Couldn't delete the hours. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1266,7 +1307,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione dell\'apertura. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la creazione dell\'apertura. Riprova più tardi.',
+          "Couldn't create the opening. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1288,7 +1335,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'aggiornamento dell\'apertura. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'aggiornamento dell\'apertura. Riprova più tardi.',
+          "Couldn't update the opening. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1321,7 +1374,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio degli orari. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio degli orari. Riprova più tardi.',
+          "Couldn't save the hours. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1336,7 +1395,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione dell\'apertura. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione dell\'apertura. Riprova più tardi.',
+          "Couldn't delete the opening. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1358,7 +1423,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il ripristino dell\'orario standard. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il ripristino dell\'orario standard. Riprova più tardi.',
+          "Couldn't restore the standard hours. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1382,7 +1453,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione. Riprova più tardi.');
+      _refused(e, tr('Errore durante la creazione. Riprova più tardi.', "Couldn't create it. Please try again later."));
     }
     finally
     {
@@ -1402,7 +1473,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica.');
+      _refused(e, tr('Errore durante la modifica.', "Couldn't save the changes."));
     }
     finally
     {
@@ -1418,7 +1489,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione.');
+      _refused(e, tr('Errore durante l\'eliminazione.', "Couldn't delete it."));
     }
     finally
     {
@@ -1437,7 +1508,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile inviare la segnalazione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile inviare la segnalazione. Riprova più tardi.',
+          "Couldn't send the report. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1449,7 +1526,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile inviare la segnalazione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile inviare la segnalazione. Riprova più tardi.',
+          "Couldn't send the report. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1464,7 +1547,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare le segnalazioni.');
+      _refused(e, tr('Impossibile caricare le segnalazioni.', "Couldn't load the reports."));
     }
   }
 
@@ -1480,7 +1563,7 @@ class ApiService
     on DioException catch (e)
     {
       _throwIfResolved(e);
-      _refused(e, 'Impossibile aprire la segnalazione.');
+      _refused(e, tr('Impossibile aprire la segnalazione.', "Couldn't open the report."));
     }
   }
 
@@ -1493,7 +1576,7 @@ class ApiService
     on DioException catch (e)
     {
       _throwIfResolved(e);
-      _refused(e, 'Impossibile segnare la segnalazione come risolta.');
+      _refused(e, tr('Impossibile segnare la segnalazione come risolta.', "Couldn't mark the report as resolved."));
     }
   }
 
@@ -1528,7 +1611,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione della richiesta.');
+      _refused(e, tr('Errore durante la creazione della richiesta.', "Couldn't create the request."));
     }
   }
 
@@ -1554,7 +1637,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Errore durante l'aggiornamento della richiesta.");
+      _refused(e, tr("Errore durante l'aggiornamento della richiesta.", "Couldn't update the request."));
     }
   }
 
@@ -1582,7 +1665,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Errore durante l'aggiornamento della richiesta.");
+      _refused(e, tr("Errore durante l'aggiornamento della richiesta.", "Couldn't update the request."));
     }
   }
 
@@ -1606,7 +1689,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Errore durante l'aggiornamento della richiesta.");
+      _refused(e, tr("Errore durante l'aggiornamento della richiesta.", "Couldn't update the request."));
     }
   }
 
@@ -1633,7 +1716,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione. Riprova più tardi.');
+      _refused(e, tr('Errore durante la creazione. Riprova più tardi.', "Couldn't create it. Please try again later."));
     }
     finally
     {
@@ -1653,7 +1736,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica.');
+      _refused(e, tr('Errore durante la modifica.', "Couldn't save the changes."));
     }
     finally
     {
@@ -1669,7 +1752,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione.');
+      _refused(e, tr('Errore durante l\'eliminazione.', "Couldn't delete it."));
     }
     finally
     {
@@ -1700,7 +1783,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione. Riprova più tardi.');
+      _refused(e, tr('Errore durante la creazione. Riprova più tardi.', "Couldn't create it. Please try again later."));
     }
     finally
     {
@@ -1720,7 +1803,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica.');
+      _refused(e, tr('Errore durante la modifica.', "Couldn't save the changes."));
     }
     finally
     {
@@ -1736,7 +1819,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione.');
+      _refused(e, tr('Errore durante l\'eliminazione.', "Couldn't delete it."));
     }
     finally
     {
@@ -1767,7 +1850,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione della stanza. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la creazione della stanza. Riprova più tardi.',
+          "Couldn't create the room. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -1788,7 +1877,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica della stanza.');
+      _refused(e, tr('Errore durante la modifica della stanza.', "Couldn't change the room."));
     }
     finally
     {
@@ -1804,7 +1893,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione della stanza.');
+      _refused(e, tr('Errore durante l\'eliminazione della stanza.', "Couldn't delete the room."));
     }
     finally
     {
@@ -1822,7 +1911,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare le comunicazioni.');
+      _refused(e, tr('Impossibile caricare le comunicazioni.', "Couldn't load the announcements."));
     }
   }
 
@@ -1837,7 +1926,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare le comunicazioni.');
+      _refused(e, tr('Impossibile caricare le comunicazioni.', "Couldn't load the announcements."));
     }
   }
 
@@ -1852,7 +1941,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare le comunicazioni.');
+      _refused(e, tr('Impossibile caricare le comunicazioni.', "Couldn't load the announcements."));
     }
   }
 
@@ -1867,7 +1956,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare la comunicazione.');
+      _refused(e, tr('Impossibile caricare la comunicazione.', "Couldn't load the announcement."));
     }
   }
 
@@ -1881,7 +1970,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare la comunicazione.');
+      _refused(e, tr('Impossibile caricare la comunicazione.', "Couldn't load the announcement."));
     }
   }
 
@@ -1899,7 +1988,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile contare i destinatari.');
+      _refused(e, tr('Impossibile contare i destinatari.', "Couldn't count the recipients."));
     }
   }
 
@@ -1947,7 +2036,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'invio della comunicazione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'invio della comunicazione. Riprova più tardi.',
+          "Couldn't send the announcement. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1965,7 +2060,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica della comunicazione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica della comunicazione. Riprova più tardi.',
+          "Couldn't change the announcement. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -1983,7 +2084,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile fissare la comunicazione.');
+      _refused(e, tr('Impossibile fissare la comunicazione.', "Couldn't pin the announcement."));
     }
   }
 
@@ -1995,7 +2096,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile togliere la comunicazione dalla cima.');
+      _refused(e, tr('Impossibile togliere la comunicazione dalla cima.', "Couldn't unpin the announcement."));
     }
   }
 
@@ -2007,7 +2108,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione della comunicazione.');
+      _refused(e, tr('Errore durante l\'eliminazione della comunicazione.', "Couldn't delete the announcement."));
     }
   }
 
@@ -2024,7 +2125,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Impossibile scaricare l\'allegato.');
+      _refusedBytes(e, tr('Impossibile scaricare l\'allegato.', "Couldn't download the attachment."));
     }
   }
 
@@ -2041,7 +2142,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Impossibile caricare l\'immagine.');
+      _refusedBytes(e, tr('Impossibile caricare l\'immagine.', "Couldn't load the image."));
     }
   }
 
@@ -2055,7 +2156,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare gli aggiornamenti.');
+      _refused(e, tr('Impossibile caricare gli aggiornamenti.', "Couldn't load the updates."));
     }
   }
 
@@ -2069,7 +2170,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare l\'aggiornamento.');
+      _refused(e, tr('Impossibile caricare l\'aggiornamento.', "Couldn't load the update."));
     }
   }
 
@@ -2088,7 +2189,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile contare i destinatari.');
+      _refused(e, tr('Impossibile contare i destinatari.', "Couldn't count the recipients."));
     }
   }
 
@@ -2123,7 +2224,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la pubblicazione dell\'aggiornamento. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la pubblicazione dell\'aggiornamento. Riprova più tardi.',
+          "Couldn't publish the update. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2141,7 +2248,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica dell\'aggiornamento. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica dell\'aggiornamento. Riprova più tardi.',
+          "Couldn't change the update. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2153,7 +2266,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione dell\'aggiornamento.');
+      _refused(e, tr('Errore durante l\'eliminazione dell\'aggiornamento.', "Couldn't delete the update."));
     }
   }
 
@@ -2166,7 +2279,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Non è stato possibile richiedere la nuova accettazione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Non è stato possibile richiedere la nuova accettazione. Riprova più tardi.',
+          "Couldn't ask for the new acceptance. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2181,7 +2300,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare gli aggiornamenti.');
+      _refused(e, tr('Impossibile caricare gli aggiornamenti.', "Couldn't load the updates."));
     }
   }
 
@@ -2193,7 +2312,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile segnare gli aggiornamenti come letti.');
+      _refused(e, tr('Impossibile segnare gli aggiornamenti come letti.', "Couldn't mark the updates as read."));
     }
   }
 
@@ -2210,7 +2329,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Impossibile caricare l\'immagine.');
+      _refusedBytes(e, tr('Impossibile caricare l\'immagine.', "Couldn't load the image."));
     }
   }
 
@@ -2260,7 +2379,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio delle stanze.');
+      _refused(e, tr('Errore durante il salvataggio delle stanze.', "Couldn't save the rooms."));
     }
   }
 
@@ -2325,7 +2444,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il completamento del primo accesso. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il completamento del primo accesso. Riprova più tardi.',
+          "Couldn't complete the first sign-in. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2342,7 +2467,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Non è stato possibile registrare l'accettazione. Riprova più tardi.");
+      _refused(
+        e,
+        tr(
+          "Non è stato possibile registrare l'accettazione. Riprova più tardi.",
+          "Couldn't record the acceptance. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2359,7 +2490,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il cambio di ruolo. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il cambio di ruolo. Riprova più tardi.',
+          "Couldn't switch role. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2376,7 +2513,36 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il cambio dei colori. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il cambio dei colori. Riprova più tardi.',
+          "Couldn't change the colours. Please try again later.",
+        ),
+      );
+    }
+  }
+
+  Future<MeResponse> setLanguage(AppLanguage language) async
+  {
+    try
+    {
+      final response = await _dio.put('/auth/language', data: {'language': language.key});
+      final me = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
+
+      identity.value = me;
+
+      return me;
+    }
+    on DioException catch (e)
+    {
+      _refused(
+        e,
+        tr(
+          'Errore durante il cambio della lingua. Riprova più tardi.',
+          "Couldn't change the language. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2393,7 +2559,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il cambio del tema. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il cambio del tema. Riprova più tardi.',
+          "Couldn't change the theme. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2412,7 +2584,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio dei contatti. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio dei contatti. Riprova più tardi.',
+          "Couldn't save the contacts. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -2448,7 +2626,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio del pagamento. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio del pagamento. Riprova più tardi.',
+          "Couldn't save the payment. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2462,7 +2646,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la revoca del pagamento. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la revoca del pagamento. Riprova più tardi.',
+          "Couldn't revoke the payment. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2574,7 +2764,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio delle tariffe. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio delle tariffe. Riprova più tardi.',
+          "Couldn't save the rates. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2622,7 +2818,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio dell\'IBAN. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio dell\'IBAN. Riprova più tardi.',
+          "Couldn't save the IBAN. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2648,7 +2850,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio del compenso. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio del compenso. Riprova più tardi.',
+          "Couldn't save the pay. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2668,7 +2876,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio del volontariato. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio del volontariato. Riprova più tardi.',
+          "Couldn't save the volunteering. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2693,7 +2907,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio delle ore. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio delle ore. Riprova più tardi.',
+          "Couldn't save the hours. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2780,7 +3000,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio delle ore. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio delle ore. Riprova più tardi.',
+          "Couldn't save the hours. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2934,7 +3160,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio delle ore. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio delle ore. Riprova più tardi.',
+          "Couldn't save the hours. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2955,7 +3187,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il caricamento della ricevuta. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il caricamento della ricevuta. Riprova più tardi.',
+          "Couldn't upload the receipt. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -2972,7 +3210,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile aprire la ricevuta.');
+      _refused(e, tr('Impossibile aprire la ricevuta.', "Couldn't open the receipt."));
     }
   }
 
@@ -2986,7 +3224,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Errore durante l'eliminazione della ricevuta. Riprova più tardi.");
+      _refused(
+        e,
+        tr(
+          "Errore durante l'eliminazione della ricevuta. Riprova più tardi.",
+          "Couldn't delete the receipt. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -3022,7 +3266,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il salvataggio degli studi. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante il salvataggio degli studi. Riprova più tardi.',
+          "Couldn't save the education details. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3066,7 +3316,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il caricamento dell\'immagine.');
+      _refused(e, tr('Errore durante il caricamento dell\'immagine.', "Couldn't upload the image."));
     }
     finally
     {
@@ -3084,7 +3334,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la rimozione dell\'immagine.');
+      _refused(e, tr('Errore durante la rimozione dell\'immagine.', "Couldn't remove the image."));
     }
     finally
     {
@@ -3121,7 +3371,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione della scuola. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la creazione della scuola. Riprova più tardi.',
+          "Couldn't create the school. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3148,7 +3404,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica della scuola. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica della scuola. Riprova più tardi.',
+          "Couldn't change the school. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3164,7 +3426,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione della scuola. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione della scuola. Riprova più tardi.',
+          "Couldn't delete the school. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3205,7 +3473,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione del percorso. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la creazione del percorso. Riprova più tardi.',
+          "Couldn't create the programme. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3236,7 +3510,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica del percorso. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica del percorso. Riprova più tardi.',
+          "Couldn't change the programme. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3252,7 +3532,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione del percorso. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione del percorso. Riprova più tardi.',
+          "Couldn't delete the programme. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3289,7 +3575,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione della materia. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la creazione della materia. Riprova più tardi.',
+          "Couldn't create the subject. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3316,7 +3608,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica della materia. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica della materia. Riprova più tardi.',
+          "Couldn't change the subject. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3332,7 +3630,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione della materia. Riprova più tardi.',
+          "Couldn't delete the subject. Please try again later.",
+        ),
+      );
     }
     finally
     {
@@ -3394,7 +3698,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
   }
 
@@ -3426,7 +3730,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
   }
 
@@ -3448,7 +3752,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
   }
 
@@ -3465,7 +3769,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Impossibile caricare l\'immagine.');
+      _refusedBytes(e, tr('Impossibile caricare l\'immagine.', "Couldn't load the image."));
     }
   }
 
@@ -3478,7 +3782,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
   }
 
@@ -3490,7 +3794,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
   }
 
@@ -3527,7 +3831,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare le notifiche.');
+      _refused(e, tr('Impossibile caricare le notifiche.', "Couldn't load the notifications."));
     }
   }
 
@@ -3593,7 +3897,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile caricare i tipi di notifica.');
+      _refused(e, tr('Impossibile caricare i tipi di notifica.', "Couldn't load the notification types."));
     }
   }
 
@@ -3610,7 +3914,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile salvare i tipi di notifica.');
+      _refused(e, tr('Impossibile salvare i tipi di notifica.', "Couldn't save the notification types."));
     }
   }
 
@@ -3662,7 +3966,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile creare l'account.");
+      _refused(e, tr("Impossibile creare l'account.", "Couldn't create the account."));
     }
     finally
     {
@@ -3680,7 +3984,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile caricare l'account.");
+      _refused(e, tr("Impossibile caricare l'account.", "Couldn't load the account."));
     }
   }
 
@@ -3693,7 +3997,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile richiedere il cambio password.');
+      _refused(e, tr('Impossibile richiedere il cambio password.', "Couldn't request the password change."));
     }
   }
 
@@ -3705,7 +4009,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile inviare l'email di recupero.");
+      _refused(e, tr("Impossibile inviare l'email di recupero.", "Couldn't send the recovery email."));
     }
   }
 
@@ -3720,7 +4024,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile modificare le prenotazioni autonome.');
+      _refused(e, tr('Impossibile modificare le prenotazioni autonome.', "Couldn't change self-booking."));
     }
   }
 
@@ -3733,7 +4037,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile sospendere l'account.");
+      _refused(e, tr("Impossibile sospendere l'account.", "Couldn't suspend the account."));
     }
   }
 
@@ -3745,7 +4049,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile riattivare l'account.");
+      _refused(e, tr("Impossibile riattivare l'account.", "Couldn't reactivate the account."));
     }
   }
 
@@ -3757,7 +4061,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile sbloccare l'account.");
+      _refused(e, tr("Impossibile sbloccare l'account.", "Couldn't unlock the account."));
     }
   }
 
@@ -3769,7 +4073,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile disattivare la sessione.');
+      _refused(e, tr('Impossibile disattivare la sessione.', "Couldn't sign out the session."));
     }
   }
 
@@ -3782,7 +4086,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile disattivare le sessioni.');
+      _refused(e, tr('Impossibile disattivare le sessioni.', "Couldn't sign out the sessions."));
     }
   }
 
@@ -3816,7 +4120,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto durante l\'aggiornamento. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore imprevisto durante l\'aggiornamento. Riprova più tardi.',
+          'Unexpected error while updating. Please try again later.',
+        ),
+      );
     }
     finally
     {
@@ -3853,7 +4163,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto durante la creazione della persona. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore imprevisto durante la creazione della persona. Riprova più tardi.',
+          'Unexpected error while creating the person. Please try again later.',
+        ),
+      );
     }
     finally
     {
@@ -3876,7 +4192,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Errore imprevisto durante la generazione del modulo. Riprova più tardi.');
+      _refusedBytes(
+        e,
+        tr(
+          'Errore imprevisto durante la generazione del modulo. Riprova più tardi.',
+          'Unexpected error while generating the form. Please try again later.',
+        ),
+      );
     }
   }
 
@@ -3894,7 +4216,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Errore imprevisto durante la generazione del modulo. Riprova più tardi.');
+      _refusedBytes(
+        e,
+        tr(
+          'Errore imprevisto durante la generazione del modulo. Riprova più tardi.',
+          'Unexpected error while generating the form. Please try again later.',
+        ),
+      );
     }
   }
 
@@ -3913,7 +4241,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Errore imprevisto durante la generazione del modulo. Riprova più tardi.');
+      _refusedBytes(
+        e,
+        tr(
+          'Errore imprevisto durante la generazione del modulo. Riprova più tardi.',
+          'Unexpected error while generating the form. Please try again later.',
+        ),
+      );
     }
   }
 
@@ -3933,7 +4267,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Errore imprevisto durante il recupero del documento. Riprova più tardi.');
+      _refusedBytes(
+        e,
+        tr(
+          'Errore imprevisto durante il recupero del documento. Riprova più tardi.',
+          'Unexpected error while fetching the document. Please try again later.',
+        ),
+      );
     }
   }
 
@@ -3950,7 +4290,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refusedBytes(e, 'Errore imprevisto durante la generazione del modulo. Riprova più tardi.');
+      _refusedBytes(
+        e,
+        tr(
+          'Errore imprevisto durante la generazione del modulo. Riprova più tardi.',
+          'Unexpected error while generating the form. Please try again later.',
+        ),
+      );
     }
   }
 
@@ -3965,7 +4311,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile inviare la segnalazione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile inviare la segnalazione. Riprova più tardi.',
+          "Couldn't send the report. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -3990,7 +4342,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto durante l\'aggiornamento delle iscrizioni. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore imprevisto durante l\'aggiornamento delle iscrizioni. Riprova più tardi.',
+          'Unexpected error while updating the enrolments. Please try again later.',
+        ),
+      );
     }
     finally
     {
@@ -4007,7 +4365,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto durante il rinnovo dell\'iscrizione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore imprevisto durante il rinnovo dell\'iscrizione. Riprova più tardi.',
+          'Unexpected error while renewing the enrolment. Please try again later.',
+        ),
+      );
     }
     finally
     {
@@ -4027,7 +4391,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
     finally
     {
@@ -4054,7 +4418,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
     finally
     {
@@ -4076,7 +4440,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto durante la revoca dell\'iscrizione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore imprevisto durante la revoca dell\'iscrizione. Riprova più tardi.',
+          'Unexpected error while revoking the enrolment. Please try again later.',
+        ),
+      );
     }
     finally
     {
@@ -4104,7 +4474,13 @@ class ApiService
   }
   on DioException catch (e)
   {
-    _refused(e, 'Errore imprevisto durante l\'aggiornamento degli anni scolastici. Riprova più tardi.');
+    _refused(
+      e,
+      tr(
+        'Errore imprevisto durante l\'aggiornamento degli anni scolastici. Riprova più tardi.',
+        'Unexpected error while updating the school years. Please try again later.',
+      ),
+    );
   }
 }
 
@@ -4128,7 +4504,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
     finally
     {
@@ -4157,7 +4533,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
     finally
     {
@@ -4173,7 +4549,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
     finally
     {
@@ -4190,7 +4566,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare i totali attuali. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare i totali attuali. Riprova più tardi.',
+          "Couldn't get the current totals. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4210,7 +4592,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare il trend degli iscritti. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare il trend degli iscritti. Riprova più tardi.',
+          "Couldn't get the enrolment trend. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4230,7 +4618,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare il trend dei collaboratori. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare il trend dei collaboratori. Riprova più tardi.',
+          "Couldn't get the collaborators trend. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4243,7 +4637,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare il tasso di fidelizzazione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare il tasso di fidelizzazione. Riprova più tardi.',
+          "Couldn't get the retention rate. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4256,7 +4656,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare il tasso di fidelizzazione collaboratori. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare il tasso di fidelizzazione collaboratori. Riprova più tardi.',
+          "Couldn't get the collaborators retention rate. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4269,7 +4675,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare i totali del ruolo. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare i totali del ruolo. Riprova più tardi.',
+          "Couldn't get the role totals. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4290,7 +4702,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare il trend del ruolo. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare il trend del ruolo. Riprova più tardi.',
+          "Couldn't get the role trend. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4311,7 +4729,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare il trend collaboratori del ruolo. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare il trend collaboratori del ruolo. Riprova più tardi.',
+          "Couldn't get the role collaborators trend. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4324,7 +4748,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare la fidelizzazione del ruolo. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare la fidelizzazione del ruolo. Riprova più tardi.',
+          "Couldn't get the role retention. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4337,7 +4767,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare la fidelizzazione collaboratori. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare la fidelizzazione collaboratori. Riprova più tardi.',
+          "Couldn't get the collaborators retention. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4350,7 +4786,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare la distribuzione per città. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare la distribuzione per città. Riprova più tardi.',
+          "Couldn't get the breakdown by city. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4363,7 +4805,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare la distribuzione per età. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare la distribuzione per età. Riprova più tardi.',
+          "Couldn't get the breakdown by age. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4387,7 +4835,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
     finally
     {
@@ -4414,7 +4862,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'));
     }
     finally
     {
@@ -4431,7 +4879,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare la distribuzione scolastica. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare la distribuzione scolastica. Riprova più tardi.',
+          "Couldn't get the breakdown by school. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4444,7 +4898,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare la distribuzione delle certificazioni. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare la distribuzione delle certificazioni. Riprova più tardi.',
+          "Couldn't get the breakdown of certifications. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4457,7 +4917,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare le statistiche sulle materie dei docenti. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare le statistiche sulle materie dei docenti. Riprova più tardi.',
+          "Couldn't get the statistics on teachers' subjects. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4477,7 +4943,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare il gradimento dei docenti. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare il gradimento dei docenti. Riprova più tardi.',
+          "Couldn't get the teachers' ratings. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4503,7 +4975,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare le statistiche sulle disponibilità. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare le statistiche sulle disponibilità. Riprova più tardi.',
+          "Couldn't get the availability statistics. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4529,7 +5007,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare le statistiche sulle presenze. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare le statistiche sulle presenze. Riprova più tardi.',
+          "Couldn't get the attendance statistics. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4542,7 +5026,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile recuperare l'andamento. Riprova più tardi.");
+      _refused(
+        e,
+        tr(
+          "Impossibile recuperare l'andamento. Riprova più tardi.",
+          "Couldn't get the trend. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4569,7 +5059,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare le ore di lezione dei docenti. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare le ore di lezione dei docenti. Riprova più tardi.',
+          "Couldn't get the teachers' lesson hours. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4595,7 +5091,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile recuperare l'andamento dei docenti. Riprova più tardi.");
+      _refused(
+        e,
+        tr(
+          "Impossibile recuperare l'andamento dei docenti. Riprova più tardi.",
+          "Couldn't get the teachers' trend. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4621,7 +5123,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile recuperare l'andamento delle presenze. Riprova più tardi.");
+      _refused(
+        e,
+        tr(
+          "Impossibile recuperare l'andamento delle presenze. Riprova più tardi.",
+          "Couldn't get the attendance trend. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4648,7 +5156,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare le statistiche personali. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare le statistiche personali. Riprova più tardi.',
+          "Couldn't get the personal statistics. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4668,7 +5182,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare il gradimento del docente. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare il gradimento del docente. Riprova più tardi.',
+          "Couldn't get the teacher's rating. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4688,7 +5208,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare gli studenti. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare gli studenti. Riprova più tardi.',
+          "Couldn't get the students. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4715,7 +5241,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare le statistiche personali. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare le statistiche personali. Riprova più tardi.',
+          "Couldn't get the personal statistics. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4732,7 +5264,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, "Impossibile recuperare l'andamento della disciplina. Riprova più tardi.");
+      _refused(
+        e,
+        tr(
+          "Impossibile recuperare l'andamento della disciplina. Riprova più tardi.",
+          "Couldn't get the discipline trend. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4745,7 +5283,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Impossibile recuperare la distribuzione dei corsi. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Impossibile recuperare la distribuzione dei corsi. Riprova più tardi.',
+          "Couldn't get the breakdown of courses. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4762,7 +5306,13 @@ class ApiService
       {
         return false;
       }
-      _refused(e, 'Errore durante la verifica del codice fiscale. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la verifica del codice fiscale. Riprova più tardi.',
+          "Couldn't check the tax code. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4803,7 +5353,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione della disponibilità. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la creazione della disponibilità. Riprova più tardi.',
+          "Couldn't create the availability. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4834,7 +5390,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica della disponibilità. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica della disponibilità. Riprova più tardi.',
+          "Couldn't change the availability. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4846,7 +5408,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione della disponibilità. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione della disponibilità. Riprova più tardi.',
+          "Couldn't delete the availability. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4896,7 +5464,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica della richiesta. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica della richiesta. Riprova più tardi.',
+          "Couldn't change the request. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4908,7 +5482,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione della richiesta. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione della richiesta. Riprova più tardi.',
+          "Couldn't delete the request. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4929,7 +5509,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'aggiunta della materia. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'aggiunta della materia. Riprova più tardi.',
+          "Couldn't add the subject. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4951,7 +5537,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica della materia. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica della materia. Riprova più tardi.',
+          "Couldn't change the subject. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -4963,7 +5555,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione della materia. Riprova più tardi.',
+          "Couldn't delete the subject. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -5015,7 +5613,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione della lezione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la creazione della lezione. Riprova più tardi.',
+          "Couldn't create the lesson. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -5049,7 +5653,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica della lezione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica della lezione. Riprova più tardi.',
+          "Couldn't change the lesson. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -5061,7 +5671,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione della lezione. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione della lezione. Riprova più tardi.',
+          "Couldn't delete the lesson. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -5104,7 +5720,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione dell\'attività. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la creazione dell\'attività. Riprova più tardi.',
+          "Couldn't create the activity. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -5140,7 +5762,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica dell\'attività. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante la modifica dell\'attività. Riprova più tardi.',
+          "Couldn't change the activity. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -5152,7 +5780,13 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione dell\'attività. Riprova più tardi.');
+      _refused(
+        e,
+        tr(
+          'Errore durante l\'eliminazione dell\'attività. Riprova più tardi.',
+          "Couldn't delete the activity. Please try again later.",
+        ),
+      );
     }
   }
 
@@ -5210,7 +5844,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la pubblicazione del calendario.');
+      _refused(e, tr('Errore durante la pubblicazione del calendario.', "Couldn't publish the calendar."));
     }
   }
 
@@ -5227,7 +5861,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il ritorno in bozza.');
+      _refused(e, tr('Errore durante il ritorno in bozza.', "Couldn't go back to draft."));
     }
   }
 
@@ -5249,7 +5883,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'uscita dalla bozza.');
+      _refused(e, tr('Errore durante l\'uscita dalla bozza.', "Couldn't leave the draft."));
     }
   }
 
@@ -5271,7 +5905,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la pubblicazione delle modifiche.');
+      _refused(e, tr('Errore durante la pubblicazione delle modifiche.', "Couldn't publish the changes."));
     }
   }
 
@@ -5318,7 +5952,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'esclusione del docente.');
+      _refused(e, tr('Errore durante l\'esclusione del docente.', "Couldn't exclude the teacher."));
     }
   }
 
@@ -5337,7 +5971,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante il reinserimento del docente.');
+      _refused(e, tr('Errore durante il reinserimento del docente.', "Couldn't bring the teacher back."));
     }
   }
 

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_tour.dart';
 
-const String _title = 'Associazione';
+String get _title => tr('Associazione', 'Association');
 
 // Bump a version on every change to that tour.
 const String _slug = 'association.teacher';
@@ -47,29 +48,60 @@ const String kAssociationTourTeacherOpinion = 'association.teacher.opinion';
 
 String associationTourMark(AssociationMark mark) => 'association.${mark.name}';
 
-const String _day = "Qui puoi consultare gli orari di apertura dell'Associazione, giorno per giorno.";
-const String _week =
-    'Puoi scorrere tra le settimane con le frecce, oppure toccare le date al centro per scegliere una settimana '
-    'qualsiasi.';
-const String _days =
-    'Toccando un giorno ne visualizzi gli orari. I pallini indicano le modalità previste per le lezioni di quel '
-    'giorno: verde per le lezioni in presenza, arancione per quelle online.';
-const String _standard = "Questi sono gli orari di apertura ufficiali dell'Associazione, senza eventuali variazioni.";
-const String _variations =
-    "Queste sono le prossime variazioni rispetto all'orario standard, previste in occasione di festività o per altre "
-    'esigenze.';
-const String _toNotices = 'Tocca «Comunicazioni e avvisi».';
-const String _notices = "Qui puoi leggere tutti i messaggi inviati dal Direttivo dell'Associazione.";
-const String _top =
-    'Puoi ordinare i messaggi dal più recente al meno recente o viceversa, filtrare gli avvisi per una data specifica '
-    'oppure cercarli in base al titolo o al contenuto.';
-const String _picker = 'Il pallino sotto una data indica la presenza di un messaggio inviato in quel giorno.';
-const String _toSubjects = 'Tocca «Discipline».';
-const String _subjects = 'In questa pagina trovi tutte le discipline che vengono insegnate in Associazione.';
-const String _report = 'Se manca una disciplina che ti interessa, puoi segnalarlo tramite questo bottone.';
-const String _toTeachers = 'Tocca «Docenti».';
-const String _teacherFacts =
-    'Da qui puoi vedere la formazione del docente e le discipline che insegna in Associazione.';
+String get _day => tr(
+  "Qui puoi consultare gli orari di apertura dell'Associazione, giorno per giorno.",
+  "Here you can see the Association's opening hours, day by day.",
+);
+String get _week => tr(
+  'Puoi scorrere tra le settimane con le frecce, oppure toccare le date al centro per scegliere una settimana '
+      'qualsiasi.',
+  'You can move between weeks with the arrows, or tap the dates in the middle to choose any week.',
+);
+String get _days => tr(
+  'Toccando un giorno ne visualizzi gli orari. I pallini indicano le modalità previste per le lezioni di quel '
+      'giorno: verde per le lezioni in presenza, arancione per quelle online.',
+  'Tap a day to see its hours. The dots show the modes planned for the lessons of that day: green for in-person '
+      'lessons, orange for online ones.',
+);
+String get _standard => tr(
+  "Questi sono gli orari di apertura ufficiali dell'Associazione, senza eventuali variazioni.",
+  "These are the Association's official opening hours, without any schedule changes.",
+);
+String get _variations => tr(
+  "Queste sono le prossime variazioni rispetto all'orario standard, previste in occasione di festività o per altre "
+      'esigenze.',
+  'These are the upcoming changes to the standard hours, planned for holidays or other needs.',
+);
+String get _toNotices => tr('Tocca «Comunicazioni e avvisi».', 'Tap “Announcements and notices”.');
+String get _notices => tr(
+  "Qui puoi leggere tutti i messaggi inviati dal Direttivo dell'Associazione.",
+  "Here you can read all the messages sent by the Association's Board.",
+);
+String get _top => tr(
+  'Puoi ordinare i messaggi dal più recente al meno recente o viceversa, filtrare gli avvisi per una data specifica '
+      'oppure cercarli in base al titolo o al contenuto.',
+  'You can sort the messages from newest to oldest or the other way round, filter the notices by a specific date '
+      'or search them by title or content.',
+);
+String get _picker => tr(
+  'Il pallino sotto una data indica la presenza di un messaggio inviato in quel giorno.',
+  'The dot under a date means that a message was sent on that day.',
+);
+String get _toSubjects => tr('Tocca «Discipline».', 'Tap “Disciplines”.');
+String get _subjects => tr(
+  'In questa pagina trovi tutte le discipline che vengono insegnate in Associazione.',
+  'On this page you will find all the disciplines taught at the Association.',
+);
+String get _report => tr(
+  'Se manca una disciplina che ti interessa, puoi segnalarlo tramite questo bottone.',
+  'If a discipline you are interested in is missing, you can let us know with this button.',
+);
+String get _toTeachers => tr('Tocca «Docenti».', 'Tap “Teachers”.');
+String _teacherFacts(bool she) => tr(
+  'Da qui puoi vedere la formazione ${she ? 'della docente' : 'del docente'} e le discipline che insegna in '
+      'Associazione.',
+  "From here you can see the teacher's education and the disciplines they teach at the Association.",
+);
 
 bool _daughter(String? gender) => gender == 'F';
 
@@ -87,14 +119,29 @@ class AssociationReader
 
 String _teachers(AssociationReader reader)
 {
-  const String intro = "In questa pagina trovi tutti i docenti che collaborano con l'Associazione. "
-      'Toccando su ciascuno di essi puoi visualizzarne alcune informazioni';
+  final String intro = tr(
+    "In questa pagina trovi tutti i docenti che collaborano con l'Associazione. "
+        'Toccando su ciascuno di essi puoi visualizzarne alcune informazioni',
+    'On this page you will find all the teachers who work with the Association. Tap any of them to see some '
+        'information about them',
+  );
 
   final List<String?> opinions = reader.opinions;
 
   if (opinions.isEmpty)
   {
     return '$intro.';
+  }
+
+  if (isEnglish)
+  {
+    final String who = reader.self
+        ? 'you'
+        : opinions.length == 1
+            ? (_daughter(opinions.single) ? 'your daughter' : 'your son')
+            : (opinions.every(_daughter) ? 'your daughters' : 'your children');
+
+    return '$intro and, if you wish, say whether $who did not get on well with them.';
   }
 
   final String gotOn = reader.self
@@ -112,7 +159,22 @@ String _teachersTop(AssociationReader reader)
 
   if (opinions.isEmpty)
   {
-    return 'Puoi ordinare i docenti per nome o cognome e filtrarli per disciplina insegnata.';
+    return tr(
+      'Puoi ordinare i docenti per nome o cognome e filtrarli per disciplina insegnata.',
+      'You can sort the teachers by first or last name and filter them by the discipline they teach.',
+    );
+  }
+
+  if (isEnglish)
+  {
+    final String who = reader.self
+        ? 'you'
+        : opinions.length == 1
+            ? (_daughter(opinions.single) ? 'your daughter' : 'your son')
+            : (opinions.every(_daughter) ? 'your daughters' : 'your children');
+
+    return 'You can sort the teachers by first or last name, filter them by the discipline they teach, or show only '
+        'the ones $who would rather not have.';
   }
 
   final String whose = reader.self
@@ -125,27 +187,44 @@ String _teachersTop(AssociationReader reader)
       'non graditi$whose.';
 }
 
-String _teacherOpinion(AssociationReader reader)
+String _teacherOpinion(AssociationReader reader, {required bool she})
 {
   final List<String?> opinions = reader.opinions;
+  final String teacher = she ? 'la docente' : 'il docente';
 
   if (reader.self)
   {
-    return 'Puoi segnalare se preferisci non fare lezione con il docente.';
+    return tr(
+      'Puoi segnalare se preferisci non fare lezione con $teacher.',
+      'You can say if you would rather not have lessons with the teacher.',
+    );
+  }
+
+  if (isEnglish)
+  {
+    final String who = opinions.length == 1
+        ? (_daughter(opinions.single) ? 'your daughter would' : 'your son would')
+        : (opinions.every(_daughter) ? 'your daughters would' : 'your children would');
+
+    return 'You can say if $who rather not have lessons with the teacher.';
   }
 
   final String who = opinions.length == 1
       ? (_daughter(opinions.single) ? 'tua figlia preferisce' : 'tuo figlio preferisce')
       : (opinions.every(_daughter) ? 'le tue figlie preferiscono' : 'i tuoi figli preferiscono');
 
-  return 'Puoi segnalare se $who non fare lezione con il docente.';
+  return 'Puoi segnalare se $who non fare lezione con $teacher.';
 }
 
-const Map<AssociationMark, String> _markTexts = {
-  AssociationMark.variation:
-      "Questo simbolo indica che l'orario per questo giorno è diverso rispetto all'orario standard.",
-  AssociationMark.pinned:
-      'I messaggi fissati in alto sono particolarmente importanti: ti preghiamo di leggerli con attenzione.',
+Map<AssociationMark, String> get _markTexts => {
+  AssociationMark.variation: tr(
+    "Questo simbolo indica che l'orario per questo giorno è diverso rispetto all'orario standard.",
+    'This symbol means that the hours for this day are different from the standard hours.',
+  ),
+  AssociationMark.pinned: tr(
+    'I messaggi fissati in alto sono particolarmente importanti: ti preghiamo di leggerli con attenzione.',
+    'The messages pinned at the top are particularly important: please read them carefully.',
+  ),
 };
 
 const Duration _pageBack = Duration(milliseconds: 320);
@@ -201,7 +280,7 @@ MobileTour associationTour({
     version: reader == null ? _version : (reader.self ? _studentVersion : _parentVersion),
     prepare: () => turnMobileTourPages(pages, 0),
     steps: [
-      const MobileTourStep(text: _day, shown: [kAssociationTourDay], reveal: kAssociationTourDay),
+      MobileTourStep(text: _day, shown: const [kAssociationTourDay], reveal: kAssociationTourDay),
       MobileTourStep(
         text: _markTexts[AssociationMark.variation]!,
         shown: [associationTourMark(AssociationMark.variation)],
@@ -209,17 +288,17 @@ MobileTour associationTour({
         present: () => onPage(0) && isMobileTourTargetShown(associationTourMark(AssociationMark.variation)),
         seen: _markSeen(AssociationMark.variation),
       ),
-      const MobileTourStep(text: _week, shown: [kAssociationTourWeek], reveal: kAssociationTourWeek),
-      if (!tablet) const MobileTourStep(text: _days, shown: [kAssociationTourDays], reveal: kAssociationTourDays),
+      MobileTourStep(text: _week, shown: const [kAssociationTourWeek], reveal: kAssociationTourWeek),
+      if (!tablet) MobileTourStep(text: _days, shown: const [kAssociationTourDays], reveal: kAssociationTourDays),
       // On the tablet its heading stands apart from the table: both lit as one.
-      const MobileTourStep(
+      MobileTourStep(
         text: _standard,
-        shown: [kAssociationTourStandard],
+        shown: const [kAssociationTourStandard],
         reveal: kAssociationTourStandard,
         joined: true,
       ),
       if (variations)
-        const MobileTourStep(text: _variations, shown: [kAssociationTourVariations], reveal: kAssociationTourVariations),
+        MobileTourStep(text: _variations, shown: const [kAssociationTourVariations], reveal: kAssociationTourVariations),
       if (reader != null) ...[
         toTab(_toSubjects, 1, 0),
         MobileTourStep(text: _subjects, lightsAll: true, present: () => onPage(1), coming: () => true),
@@ -287,28 +366,30 @@ MobileTour associationPickerTour()
     slug: _pickerSlug,
     title: _title,
     version: _pickerVersion,
-    steps: const [MobileTourStep(text: _picker, shown: [kAssociationTourPickerDays])],
+    steps: [MobileTourStep(text: _picker, shown: const [kAssociationTourPickerDays])],
     leave: MobileNavSheet.hidden,
     left: () => !MobileNavSheet.hidden.value,
   );
 }
 
 // A parent's or a student's; with no opinions to give, no opinion card to light.
-MobileTour associationTeacherSheetTour(AssociationReader reader)
+MobileTour associationTeacherSheetTour(AssociationReader reader, {String? teacherGender})
 {
+  final bool she = teacherGender == 'F';
+
   return MobileTour(
     slug: _teacherSheetSlug,
     title: _title,
     version: _teacherSheetVersion,
     steps: [
-      const MobileTourStep(
-        text: _teacherFacts,
-        shown: [kAssociationTourTeacherProfile, kAssociationTourTeacherSubjects],
+      MobileTourStep(
+        text: _teacherFacts(she),
+        shown: const [kAssociationTourTeacherProfile, kAssociationTourTeacherSubjects],
         joined: true,
       ),
       if (reader.opinions.isNotEmpty)
         MobileTourStep(
-          text: _teacherOpinion(reader),
+          text: _teacherOpinion(reader, she: she),
           shown: const [kAssociationTourTeacherOpinion],
           reveal: kAssociationTourTeacherOpinion,
         ),

@@ -5,6 +5,7 @@ from typing import Final
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.rbac import IdentityContext
@@ -14,7 +15,9 @@ from app.core.optimistic_concurrency import assert_not_stale
 from app.core.time_band import band_of
 from app.models.availability import Availability
 from app.models.lesson import Lesson
+from app.models.person import GenderEnum
 from app.models.room_supervision import RoomSupervision
+from app.repositories.person_repository import PersonRepository
 from app.repositories.room_supervision_repository import RoomSupervisionRepository
 from app.repositories.teacher_room_assignment_repository import (
     TeacherRoomAssignmentRepository,
@@ -23,6 +26,7 @@ from app.schemas.room_supervision import (
     RoomSupervisionCreate,
     RoomSupervisionUpdate,
 )
+from app.services.bilingual import Bilingual
 from app.services.calendar_freeze import (
     assert_not_confirmed,
     assert_not_started,
@@ -31,25 +35,57 @@ from app.services.calendar_freeze import (
 from app.services.lesson_guard import assert_bands_claimed
 from app.services.room_occupancy import StayKey, stretch_at, watched_stays
 
-_ENTITY_LABEL: Final[str] = "il turno"
-_NOT_FOUND_ERROR: Final[str] = "Turno da responsabile non trovato"
-_CREATE_ERROR: Final[str] = (
-    "Il docente non ha questa stanza assegnata in questa giornata."
+_ENTITY_LABEL: Final[Bilingual] = Bilingual(
+    "il turno",
+    "the shift",
 )
-_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Turno da responsabile non trovato",
+    "Supervisor shift not found",
+)
+_CREATE_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il docente non ha questa stanza assegnata in questa giornata.",
+        "The teacher does not have this room assigned on this day.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La docente non ha questa stanza assegnata in questa giornata.",
+        "The teacher does not have this room assigned on this day.",
+    ),
+}
+_UPDATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'aggiornamento.",
+    "Something went wrong while saving.",
+)
 
-NOT_ASSIGNED_ERROR: Final[str] = (
-    "Solo un docente assegnato a questa stanza può esserne responsabile."
+NOT_ASSIGNED_ERROR: Final[Bilingual] = Bilingual(
+    "Solo un docente assegnato a questa stanza può esserne responsabile.",
+    "Only a teacher assigned to this room can supervise it.",
 )
 
-_OUTSIDE_AVAILABILITY_ERROR: Final[str] = (
-    "Il turno deve rientrare nelle disponibilità in presenza del docente in "
-    "questa giornata."
-)
+_OUTSIDE_AVAILABILITY_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il turno deve rientrare nelle disponibilità in presenza del docente in "
+        "questa giornata.",
+        "The shift must fall within the teacher's in-person availability on this day.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Il turno deve rientrare nelle disponibilità in presenza della docente in "
+        "questa giornata.",
+        "The shift must fall within the teacher's in-person availability on this day.",
+    ),
+}
 
-OVERLAPPING_SHIFT_ERROR: Final[str] = (
-    "Il docente ha già un turno da responsabile sovrapposto a quest'orario."
-)
+OVERLAPPING_SHIFT_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il docente ha già un turno da responsabile sovrapposto a quest'orario.",
+        "The teacher already has a supervisor shift overlapping this time.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La docente ha già un turno da responsabile sovrapposto a quest'orario.",
+        "The teacher already has a supervisor shift overlapping this time.",
+    ),
+}
 
 
 # The shift must fall inside the union of the teacher's in-person stretches.
@@ -83,9 +119,11 @@ async def assert_within_presence(
         if reached >= end_time:
             return
 
+    gender = await PersonRepository(session).gender(teacher_tax_code)
+
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail=_OUTSIDE_AVAILABILITY_ERROR,
+        detail=_OUTSIDE_AVAILABILITY_ERRORS[gender].for_request(),
     )
 
 
@@ -203,7 +241,7 @@ class RoomSupervisionService:
         if stretch is None or stretch.room_id != room_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=NOT_ASSIGNED_ERROR,
+                detail=NOT_ASSIGNED_ERROR.for_request(),
             )
 
         return stretch.start_time
@@ -242,9 +280,11 @@ class RoomSupervisionService:
         )
 
         if clash is not None:
+            gender = await PersonRepository(self.session).gender(teacher_tax_code)
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=OVERLAPPING_SHIFT_ERROR,
+                detail=OVERLAPPING_SHIFT_ERRORS[gender].for_request(),
             )
 
     async def list_for_day(
@@ -261,7 +301,7 @@ class RoomSupervisionService:
         if supervision is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return supervision
@@ -307,9 +347,20 @@ class RoomSupervisionService:
             end_time=payload.end_time,
         )
 
-        async with integrity_guard(self.session, _CREATE_ERROR):
+        try:
             await self.repository.create(supervision)
             await self.repository.commit()
+
+        except IntegrityError as err:
+            await self.session.rollback()
+            gender = await PersonRepository(self.session).gender(
+                payload.teacher_tax_code
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_CREATE_ERRORS[gender].for_request(),
+            ) from err
 
         return supervision
 
@@ -324,7 +375,7 @@ class RoomSupervisionService:
         assert_not_stale(
             supervision,
             payload.expected_updated_at,
-            entity_label=_ENTITY_LABEL,
+            entity_label=_ENTITY_LABEL.for_request(),
         )
 
         # Both the old and the new position are affected bands.
@@ -365,7 +416,7 @@ class RoomSupervisionService:
         supervision.start_time = payload.start_time
         supervision.end_time = payload.end_time
 
-        async with integrity_guard(self.session, _UPDATE_ERROR):
+        async with integrity_guard(self.session, _UPDATE_ERROR.for_request()):
             await self.repository.commit()
             await self.repository.refresh(supervision)
 

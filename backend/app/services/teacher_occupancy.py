@@ -4,6 +4,7 @@ from typing import Final
 
 from app.models.lesson import Lesson
 from app.models.study_program import EducationLevelEnum
+from app.services.bilingual import Bilingual
 
 # The limit counts people, not lessons: a group hour of two fills the teacher.
 MAX_CONCURRENT_STUDENTS: Final[int] = 2
@@ -13,13 +14,15 @@ UNCAPPED_LEVELS: Final[frozenset[EducationLevelEnum]] = frozenset(
     {EducationLevelEnum.PRIMARY_SCHOOL, EducationLevelEnum.MIDDLE_SCHOOL},
 )
 
-_TOO_MANY_STUDENTS_ERROR: Final[str] = (
-    "Non è possibile sovrapporre più di due lezioni con gli studenti delle superiori."
+_TOO_MANY_STUDENTS_ERROR: Final[Bilingual] = Bilingual(
+    "Non è possibile sovrapporre più di due lezioni con gli studenti delle superiori.",
+    "No more than two lessons with upper secondary students can overlap.",
 )
 
 # A remote hour is exclusive for its whole length.
-_ONLINE_CANNOT_OVERLAP_ERROR: Final[str] = (
-    "Le lezioni online non possono avere sovrapposizioni."
+_ONLINE_CANNOT_OVERLAP_ERROR: Final[Bilingual] = Bilingual(
+    "Le lezioni online non possono avere sovrapposizioni.",
+    "Online lessons cannot overlap.",
 )
 
 # (start, end, how many pupils it carries, how many of them keep the limit).
@@ -31,11 +34,11 @@ def students_of(lesson: Lesson) -> set[str]:
 
 
 def too_many_students_error() -> str:
-    return _TOO_MANY_STUDENTS_ERROR
+    return _TOO_MANY_STUDENTS_ERROR.for_request()
 
 
 def online_cannot_overlap_error() -> str:
-    return _ONLINE_CANNOT_OVERLAP_ERROR
+    return _ONLINE_CANNOT_OVERLAP_ERROR.for_request()
 
 
 # Summing weights is safe: a pupil cannot overlap themselves (checked

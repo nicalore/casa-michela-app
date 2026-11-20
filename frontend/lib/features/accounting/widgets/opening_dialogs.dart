@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
 import '../../../services/api_service.dart';
@@ -14,7 +15,7 @@ import '../../../shared/widgets/snackbar.dart';
 import '../../association/tabs/opening_hours/hours_date_field.dart' show formatDateString;
 import '../../association/tabs/tariffs/tariffs_strings.dart' show tariffOffFor;
 import '../../people/edit/homework_tariffs.dart';
-import '../../people/edit/person_edit_form.dart' show kCollaborationChoices, kCollaborationTypes;
+import '../../people/edit/person_edit_form.dart' show collaborationOf, kCollaborationChoices, kCollaborationTypes;
 import '../../people/edit/widgets/person_chip_group_field.dart';
 import '../../people/utils/payments_strings.dart'
     show currentTariff, feePaymentBlock, kAheadHoursHint, kAheadHoursLabel, kInvalidAmountMessage, kInvalidNumber,
@@ -274,8 +275,16 @@ class _TeacherDialogState extends State<_TeacherDialog>
     }
 
     final int? rate = teacher.grossRateCents;
+    final bool feminine = teacher.gender == 'F';
 
-    return teacher.isPaid && rate != null ? paidOnFile(rate) : _labelOf(kCollaborationTypes, teacher.collaborationType);
+    if (teacher.isPaid && rate != null)
+    {
+      return paidOnFile(rate, feminine: feminine);
+    }
+
+    final String? label = _labelOf(kCollaborationTypes, teacher.collaborationType);
+
+    return label == null ? null : collaborationOf(label, feminine: feminine);
   }
 
   Future<void> _save() async
@@ -330,7 +339,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
             child: AppTextField(
               controller: _rate,
               label: kGrossRateLabel,
-              hintText: 'Es. 15,00',
+              hintText: tr('Es. 15,00', 'E.g. 15.00'),
               keyboardType: TextInputType.number,
               errorText: _rateError,
               onChanged: (_)
@@ -353,7 +362,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
             child: AppTextField(
               controller: _gross,
               label: kGrossLabel,
-              hintText: 'Es. 120,00',
+              hintText: tr('Es. 120,00', 'E.g. 120.00'),
               keyboardType: TextInputType.number,
               errorText: _grossError,
               onChanged: (_)
@@ -404,7 +413,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
                     _collaborationError = null;
                   }),
                 ),
-              if (editable && _paid) ..._paidFields() else const PaymentNote(kNothingToPay),
+              if (editable && _paid) ..._paidFields() else PaymentNote(kNothingToPay),
             ],
           ),
         ),
@@ -727,7 +736,7 @@ class _PupilDialogState extends State<_PupilDialog>
       _Choice(
         label: kHoursState,
         child: AppSegmentedTabs(
-          labels: const [kNoHoursChoice, kDueChoice, kAheadChoice],
+          labels: [kNoHoursChoice, kDueChoice, kAheadChoice],
           selectedIndex: _hours.index,
           onSelected: (index) => setState(() => _hours = _HoursState.values[index]),
           padding: EdgeInsets.zero,
@@ -744,7 +753,7 @@ class _PupilDialogState extends State<_PupilDialog>
         AppTextField(
           controller: _aheadRate,
           label: kAheadRateLabel,
-          hintText: 'Es. 13,00',
+          hintText: tr('Es. 13,00', 'E.g. 13.00'),
           keyboardType: TextInputType.number,
           errorText: _aheadRateError,
           onChanged: (_)

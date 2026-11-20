@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
@@ -64,26 +65,28 @@ Color get _revokedRowSurface => ThemeColours.fixed(0xFFFDF4F2);
 Color get _tableHeadSurface => ThemeColours.of(0xFFF5F8F8);
 Color get _tableRule => ThemeColours.of(0xFFEDF2F1);
 
-const Map<String, String> _revocationLabels = {
-  MembershipItem.revocationExpulsion: 'Espulsione',
-  MembershipItem.revocationResignation: 'Dimissioni',
+Map<String, String> get _revocationLabels => {
+  MembershipItem.revocationExpulsion: tr('Espulsione', 'Expulsion'),
+  MembershipItem.revocationResignation: tr('Dimissioni', 'Resignation'),
 };
 
 final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 final DateFormat _dayMonthFormat = DateFormat('dd/MM');
 
-const String kNoMembershipsMessage = 'Nessuna iscrizione registrata.';
+String get kNoMembershipsMessage => tr('Nessuna iscrizione registrata.', 'No enrolments recorded.');
 
 String membershipStatusLabel({required bool isEnrolled, required bool isFemale})
 {
   return isEnrolled
-      ? (isFemale ? 'Iscritta' : 'Iscritto')
-      : (isFemale ? 'Non iscritta' : 'Non iscritto');
+      ? (isFemale ? tr('Iscritta', 'Enrolled') : tr('Iscritto', 'Enrolled'))
+      : (isFemale ? tr('Non iscritta', 'Not enrolled') : tr('Non iscritto', 'Not enrolled'));
 }
 
 String revokedMembershipLabel(MembershipItem membership)
 {
-  return 'Iscrizione revocata (${_revocationLabels[membership.revocation] ?? membership.revocation})';
+  final String reason = _revocationLabels[membership.revocation] ?? membership.revocation;
+
+  return tr('Iscrizione revocata ($reason)', 'Enrolment revoked ($reason)');
 }
 
 TextStyle _labelStyle(double size)
@@ -171,7 +174,7 @@ class PersonMembershipsTab extends StatelessWidget
     }
 
     final Widget edit = AppGradientButton(
-      label: 'MODIFICA ISCRIZIONI',
+      label: tr('MODIFICA ISCRIZIONI', 'EDIT ENROLMENTS'),
       icon: Icons.edit_rounded,
       onPressed: () => _showEditDialog(context),
     );
@@ -196,14 +199,14 @@ class PersonMembershipsTab extends StatelessWidget
       children: [
         if (renewable)
           AppGradientButton(
-            label: 'RINNOVA ISCRIZIONE',
+            label: tr('RINNOVA ISCRIZIONE', 'RENEW ENROLMENT'),
             icon: Icons.autorenew_rounded,
             onPressed: () => _showReEnrollDialog(context),
           ),
         edit,
         if (revocable)
           AppGradientButton(
-            label: 'REVOCA ISCRIZIONE',
+            label: tr('REVOCA ISCRIZIONE', 'REVOKE ENROLMENT'),
             icon: Icons.gavel_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -336,10 +339,10 @@ class PersonMembershipsTab extends StatelessWidget
     final deadline = membership.renewalDeadline;
 
     final List<(String, String, bool)> facts = [
-      ('Anno', '${membership.year}', true),
-      ('Data inizio', _dateFormat.format(membership.startDate), false),
-      ('Data fine', _dateFormat.format(membership.endDate), false),
-      ('Rinnovo entro', _dateFormat.format(deadline), false),
+      (tr('Anno', 'Year'), '${membership.year}', true),
+      (tr('Data inizio', 'Start date'), _dateFormat.format(membership.startDate), false),
+      (tr('Data fine', 'End date'), _dateFormat.format(membership.endDate), false),
+      (tr('Rinnovo entro', 'Renew by'), _dateFormat.format(deadline), false),
     ];
 
     TextStyle label() => _labelStyle(dense ? 12.5 : 14);
@@ -496,9 +499,9 @@ class PersonMembershipsTab extends StatelessWidget
               ),
               child: Row(
                 children: [
-                  cell(Text('Anno', style: head)),
-                  cell(Text('Data inizio', style: head)),
-                  cell(Text('Data fine', style: head)),
+                  cell(Text(tr('Anno', 'Year'), style: head)),
+                  cell(Text(tr('Data inizio', 'Start date'), style: head)),
+                  cell(Text(tr('Data fine', 'End date'), style: head)),
                 ],
               ),
             ),
@@ -541,15 +544,15 @@ class PersonMembershipsTab extends StatelessWidget
               child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             ),
             if (currentMembership != null) ...[
-              _buildEyebrow('Iscrizione attuale', dense),
+              _buildEyebrow(tr('Iscrizione attuale', 'Current enrolment'), dense),
               _buildCurrent(currentMembership, dense),
               if (pastMemberships.isNotEmpty) SizedBox(height: dense ? 18 : 24),
             ],
             if (pastMemberships.isNotEmpty) ...[
-              _buildEyebrow('Iscrizioni passate', dense),
+              _buildEyebrow(tr('Iscrizioni passate', 'Past enrolments'), dense),
               _buildPastTable(pastMemberships, dense),
             ],
-            if (latest == null) const PersonEmptyState(message: kNoMembershipsMessage),
+            if (latest == null) PersonEmptyState(message: kNoMembershipsMessage),
           ],
         ),
       ),
@@ -652,7 +655,7 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Iscrizione revocata con successo.',
+          message: tr('Iscrizione revocata con successo.', 'Enrolment revoked successfully.'),
           isError: false,
         );
 
@@ -690,9 +693,14 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
           const SizedBox(width: 14),
           Expanded(
             child: Text(
-              "L'operazione è irreversibile: l'iscrizione terminerà in data odierna "
-              'e lo stato di collaborazione verrà disattivato.'
-              "${widget.person.hasAccount ? " L'account verrà sospeso definitivamente." : ''}",
+              tr(
+                "L'operazione è irreversibile: l'iscrizione terminerà in data odierna "
+                    'e lo stato di collaborazione verrà disattivato.'
+                    "${widget.person.hasAccount ? " L'account verrà sospeso definitivamente." : ''}",
+                'This cannot be undone: the enrolment will end today '
+                    'and the collaboration will be turned off.'
+                    "${widget.person.hasAccount ? ' The account will be suspended for good.' : ''}",
+              ),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -710,12 +718,12 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Iscrizione',
-      title: 'Revoca iscrizione',
+      eyebrow: tr('Iscrizione', 'Enrolment'),
+      title: tr('Revoca iscrizione', 'Revoke enrolment'),
       maxWidth: 560,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'CONFERMA REVOCA',
+          label: tr('CONFERMA REVOCA', 'CONFIRM REVOCATION'),
           icon: Icons.gavel_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -734,7 +742,7 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
             children: [
               _buildWarning(),
               const SizedBox(height: 22),
-              const AppFieldLabel('Motivazione della revoca'),
+              AppFieldLabel(tr('Motivazione della revoca', 'Reason for revocation')),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 10,
@@ -920,11 +928,11 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
 
       if (!RegExp(r'^\d{4}$').hasMatch(yearText))
       {
-        _errors['year_$i'] = 'Anno non valido';
+        _errors['year_$i'] = tr('Anno non valido', 'Invalid year');
       }
       else if (!seenYears.add(int.parse(yearText)))
       {
-        _errors['year_$i'] = 'Anno già inserito';
+        _errors['year_$i'] = tr('Anno già inserito', 'Year already entered');
       }
       else if (_newestSaved != null && int.parse(yearText) > _newestSaved!)
       {
@@ -937,15 +945,15 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
 
       if (dayMonthText.isEmpty)
       {
-        _errors['start_$i'] = 'Campo obbligatorio';
+        _errors['start_$i'] = tr('Campo obbligatorio', 'Required field');
       }
       else if (isYearValid && !_isRealDate(dayMonthText, yearText))
       {
-        _errors['start_$i'] = 'Data non valida';
+        _errors['start_$i'] = tr('Data non valida', 'Invalid date');
       }
       else if (!isYearValid && !RegExp(r'^\d{2}/\d{2}$').hasMatch(dayMonthText))
       {
-        _errors['start_$i'] = 'Formato gg/mm';
+        _errors['start_$i'] = tr('Formato gg/mm', 'Format dd/mm');
       }
       else if (isYearValid)
       {
@@ -990,7 +998,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: "Deve esserci almeno un'iscrizione.",
+        message: tr("Deve esserci almeno un'iscrizione.", 'There must be at least one enrolment.'),
         isError: true,
       );
 
@@ -1002,7 +1010,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       setState(() {});
       CustomSnackBar.show(
         context: context,
-        message: 'Correggi gli errori prima di salvare.',
+        message: tr('Correggi gli errori prima di salvare.', 'Fix the errors before saving.'),
         isError: true,
       );
 
@@ -1033,7 +1041,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
         // No spinner behind the question: nothing is being saved meanwhile.
         setState(() => _isSaving = false);
 
-        if (!await confirmPersonLosses(context, refusal, eyebrow: 'Iscrizioni') || !mounted)
+        if (!await confirmPersonLosses(context, refusal, eyebrow: tr('Iscrizioni', 'Enrolments')) || !mounted)
         {
           return;
         }
@@ -1052,7 +1060,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Iscrizioni aggiornate con successo!',
+          message: tr('Iscrizioni aggiornate con successo!', 'Enrolments updated successfully!'),
           isError: false,
         );
 
@@ -1080,12 +1088,12 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Iscrizioni',
-      title: 'Modifica iscrizioni',
+      eyebrow: tr('Iscrizioni', 'Enrolments'),
+      title: tr('Modifica iscrizioni', 'Edit enrolments'),
       maxWidth: 720,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _isSaving,
           height: kPersonDialogButtonHeight,
@@ -1100,7 +1108,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AppFieldLabel('Storico iscrizioni'),
+              AppFieldLabel(tr('Storico iscrizioni', 'Enrolment history')),
               const SizedBox(height: 12),
               CardScrollArea(
                 child: Column(
@@ -1123,7 +1131,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                 ),
               ),
               const SizedBox(height: 6),
-              AppAddRowButton(label: 'AGGIUNGI ISCRIZIONE', onTap: _addEmptyRow),
+              AppAddRowButton(label: tr('AGGIUNGI ISCRIZIONE', 'ADD ENROLMENT'), onTap: _addEmptyRow),
             ],
           ),
         ),

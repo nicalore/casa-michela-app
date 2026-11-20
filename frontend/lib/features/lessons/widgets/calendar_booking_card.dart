@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/descender_room.dart';
@@ -104,14 +105,14 @@ class _TeacherPreferences extends StatelessWidget
           _line(
             icon: Icons.star_rounded,
             color: kPreferredTeacherColor,
-            label: 'Preferiti:',
+            label: tr('Preferiti:', 'Preferred:'),
             names: preferred,
           ),
         if (notPreferred.isNotEmpty)
           _line(
             icon: Icons.do_not_disturb_on_outlined,
             color: kAvoidedTeacherColor,
-            label: 'Da evitare:',
+            label: tr('Da evitare:', 'To avoid:'),
             names: notPreferred,
           ),
       ],
@@ -191,30 +192,30 @@ class _CalendarBookingCardState extends State<CalendarBookingCard> with Calendar
 
     if (entry.isFullyCovered)
     {
-      return 'Pianificata interamente';
+      return tr('Pianificata interamente', 'Fully planned');
     }
 
     if (entry.isLocked)
     {
-      return 'Calendario pubblicato: riportalo in bozza';
+      return tr('Calendario pubblicato: riportalo in bozza', 'Calendar published: put it back into draft');
     }
 
     final parts = <String>[];
 
     if (entry.remainingMinutes > 0)
     {
-      parts.add('${formatMinutes(entry.remainingMinutes)} da pianificare');
+      parts.add(tr('${formatMinutes(entry.remainingMinutes)} da pianificare', '${formatMinutes(entry.remainingMinutes)} to plan'));
     }
 
     if (entry.uncoveredDisciplineIds.isNotEmpty && entry.scheduledMinutes > 0)
     {
       final missing = entry.uncoveredDisciplineIds.length;
-      parts.add(missing == 1 ? '1 disciplina scoperta' : '$missing discipline scoperte');
+      parts.add(missing == 1 ? tr('1 disciplina scoperta', '1 discipline uncovered') : tr('$missing discipline scoperte', '$missing disciplines uncovered'));
     }
 
     if (parts.isEmpty)
     {
-      return 'Minuti terminati, ma qualcosa resta scoperto';
+      return tr('Minuti terminati, ma qualcosa resta scoperto', 'No minutes left, but something is still uncovered');
     }
 
     return parts.join(' · ');
@@ -231,31 +232,55 @@ class _CalendarBookingCardState extends State<CalendarBookingCard> with Calendar
 
     if (entry.isFull && entry.uncoveredDisciplineIds.isNotEmpty)
     {
-      final names = _uncoveredNames.join(' e ');
+      final uncovered = _uncoveredNames;
+      final names = _listed(uncovered);
 
-      return 'Sono già state pianificate entrambe le ore: trascina $names su una lezione valida '
-          'per unirla.';
+      return tr(
+        'Sono già state pianificate entrambe le ore: trascina $names su una lezione valida '
+            'per ${uncovered.length > 1 ? 'unirle' : 'unirla'}.',
+        'Both parts have already been planned: drag $names onto a valid lesson to merge '
+            '${uncovered.length > 1 ? 'them' : 'it'}.',
+      );
     }
 
     if (entry.isFull && entry.remainingMinutes > 0)
     {
-      return 'Sono già state pianificate due lezioni. Allungane una per pianificare i minuti rimanenti.';
+      return tr(
+        'Sono già state pianificate due lezioni. Allungane una per pianificare i minuti rimanenti.',
+        'Two lessons have already been planned. Lengthen one to plan the remaining minutes.',
+      );
     }
 
     if (entry.remainingMinutes > 0 && entry.remainingMinutes < minimumLessonMinutes(_booking.duration))
     {
-      return 'Restano ${formatMinutes(entry.remainingMinutes)}. Una lezione dura almeno mezz\'ora: allunga una delle due '
-          'già presenti.';
+      return tr(
+        'Restano ${formatMinutes(entry.remainingMinutes)}. Una lezione dura almeno mezz\'ora: allunga una delle due '
+            'già presenti.',
+        '${formatMinutes(entry.remainingMinutes)} left. A lesson lasts at least half an hour: lengthen one of the two '
+            'already there.',
+      );
     }
 
     if (entry.parts.length + 1 >= kMaxLessonParts && entry.uncoveredDisciplineIds.length > 1)
     {
-      final names = _uncoveredNames.join(' e ');
+      final List<String> uncovered = _uncoveredNames;
+      final names = _listed(uncovered);
 
-      return 'Restano $names: l\'ultima ora disponibile deve averle entrambe.';
+      return tr(
+        'Restano $names: l\'ultima ora disponibile deve averle ${uncovered.length > 2 ? 'tutte' : 'entrambe'}.',
+        '$names are still left: the last available hour must include ${uncovered.length > 2 ? 'all of them' : 'both'}.',
+      );
     }
 
     return null;
+  }
+
+  // "A, B e C".
+  static String _listed(List<String> names)
+  {
+    final String and = tr(' e ', ' and ');
+
+    return names.length < 3 ? names.join(and) : '${names.sublist(0, names.length - 1).join(', ')}$and${names.last}';
   }
 
   List<String> get _uncoveredNames

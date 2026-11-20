@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../features/lessons/widgets/calendar_lesson_block.dart';
 import 'mobile_baseline_hang.dart';
 
@@ -53,7 +54,7 @@ class MobileOpeningHours extends StatelessWidget
       children: [
         Transform.translate(
           offset: Offset(0, shift),
-          child: Text('Apertura'.toUpperCase(), style: labelStyle),
+          child: Text(tr('Apertura', 'Opening').toUpperCase(), style: labelStyle),
         ),
         SizedBox(width: gap),
         Expanded(

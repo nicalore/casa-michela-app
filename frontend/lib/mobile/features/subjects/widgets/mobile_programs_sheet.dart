@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colours.dart';
 import '../../../../features/association/models/program_tree.dart';
@@ -49,7 +50,9 @@ typedef _Branch = ({ProgramGroup level, ProgramGroup? cycle, ProgramGroup? secto
 // Worded as on the desktop.
 String programsSummary(int chosen, int total)
 {
-  return chosen == total ? 'Tutti i percorsi ($total)' : '$chosen di $total percorsi';
+  return chosen == total
+      ? tr('Tutti i percorsi ($total)', 'All programmes ($total)')
+      : tr('$chosen di $total percorsi', '$chosen of $total programmes');
 }
 
 // Null when dismissed; confirming none gives a held discipline up.
@@ -323,7 +326,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
               children: [
                 const SizedBox(width: 10),
                 Text(
-                  'Seleziona tutto',
+                  tr('Seleziona tutto', 'Select all'),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -469,7 +472,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
     final int? single = _singleRow(tree);
 
     return MobileSheet(
-      eyebrow: 'Percorsi',
+      eyebrow: tr('Percorsi', 'Programmes'),
       title: widget.subjectName,
       unsaved: () => setEquals(_selected, widget.initialSelected) ? MobileUnsaved.none : MobileUnsaved.choices,
       body: [
@@ -483,7 +486,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
           const SizedBox(height: 8),
           MobileSearchField(
             controller: _searchController,
-            hintText: 'Cerca percorso...',
+            hintText: tr('Cerca percorso...', 'Search programme...'),
             onChanged: _onQuery,
             onGlass: true,
           ),
@@ -493,7 +496,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
             padding: const EdgeInsets.only(top: 24),
             child: Center(
               child: Text(
-                'Nessun percorso trovato.',
+                tr('Nessun percorso trovato.', 'No programmes found.'),
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14.5,
@@ -528,7 +531,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
             inflate: _tourButtonInflate,
             radius: _tourButtonRadius,
             child: MobileGoldButton(
-              label: 'Conferma',
+              label: tr('Conferma', 'Confirm'),
               icon: Icons.check_rounded,
               onPressed: ()
               {
@@ -560,7 +563,7 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
               inflate: _tourButtonInflate,
               radius: _tourButtonRadius,
               child: MobileDangerButton(
-                label: 'Rimuovi disciplina',
+                label: tr('Rimuovi disciplina', 'Remove discipline'),
                 icon: Icons.delete_outline_rounded,
                 onPressed: () => widget.onRemove!(context),
               ),

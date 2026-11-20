@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -102,7 +103,7 @@ class OwnOtherInfoTab extends StatelessWidget
                           DesktopTourTarget(
                             id: kTourOwnStudiesEdit,
                             child: AppGradientButton(
-                              label: 'MODIFICA STUDI',
+                              label: tr('MODIFICA STUDI', 'EDIT STUDIES'),
                               icon: Icons.edit_rounded,
                               onPressed: () => _editEducation(context),
                             ),
@@ -183,7 +184,7 @@ class _EditEducationDialogState extends State<_EditEducationDialog>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Studi aggiornati con successo!',
+          message: tr('Studi aggiornati con successo!', 'Studies updated successfully!'),
           isError: false,
         );
 
@@ -211,12 +212,12 @@ class _EditEducationDialogState extends State<_EditEducationDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Studi',
-      title: 'Modifica studi',
+      eyebrow: tr('Studi', 'Studies'),
+      title: tr('Modifica studi', 'Edit studies'),
       maxWidth: _dialogWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _isSaving,
           height: kPersonDialogButtonHeight,
@@ -233,8 +234,8 @@ class _EditEducationDialogState extends State<_EditEducationDialog>
             children: [
               AppTextField(
                 controller: _school,
-                label: 'Studi scolastici',
-                hintText: 'Es. Liceo scientifico',
+                label: tr('Studi scolastici', 'School studies'),
+                hintText: tr('Es. Liceo scientifico', 'E.g. Science high school'),
                 nothingAbove: true,
                 maxLength: FieldLimits.education,
                 textCapitalization: TextCapitalization.sentences,
@@ -242,8 +243,8 @@ class _EditEducationDialogState extends State<_EditEducationDialog>
               if (!_atSchool)
                 AppTextField(
                   controller: _university,
-                  label: 'Studi universitari',
-                  hintText: 'Es. Ingegneria informatica',
+                  label: tr('Studi universitari', 'University studies'),
+                  hintText: tr('Es. Ingegneria informatica', 'E.g. Computer engineering'),
                   maxLength: FieldLimits.education,
                   textCapitalization: TextCapitalization.sentences,
                 ),

@@ -8,15 +8,23 @@ from app.models.notice import Notice
 from app.models.notification import Notification, NotificationKindEnum
 from app.services.notice_recipients import excluded_from, reached_roles
 from app.services.notification_kinds import holds_kind
-from app.services.notifications import dismissals, notify, reachable_identities
+from app.services.notifications import (
+    Bilingual,
+    dismissals,
+    notify,
+    reachable_identities,
+)
 from app.services.push import PushBatch, joined
 from app.services.role_service import RoleService
 
 _KIND: Final[NotificationKindEnum] = NotificationKindEnum.NOTICE_RECEIVED
 
-_TITLE: Final[str] = "C'è una nuova comunicazione per te"
-_BODY: Final[str] = "Tocca per leggerla"
-_WEB_BODY: Final[str] = "Clicca per leggerla"
+_TITLE: Final[Bilingual] = Bilingual(
+    "C'è una nuova comunicazione per te",
+    "There's a new announcement for you",
+)
+_BODY: Final[Bilingual] = Bilingual("Tocca per leggerla", "Tap to read it")
+_WEB_BODY: Final[Bilingual] = Bilingual("Clicca per leggerla", "Click to read it")
 
 
 async def _forget(

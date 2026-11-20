@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
@@ -65,9 +66,9 @@ String _deleteAllLabel(TimeBucket band)
 {
   return switch (band)
   {
-    TimeBucket.morning => 'Elimina tutta la mattina',
-    TimeBucket.afternoon => 'Elimina tutto il pomeriggio',
-    TimeBucket.evening => 'Elimina tutta la sera',
+    TimeBucket.morning => tr('Elimina tutta la mattina', 'Delete the whole morning'),
+    TimeBucket.afternoon => tr('Elimina tutto il pomeriggio', 'Delete the whole afternoon'),
+    TimeBucket.evening => tr('Elimina tutta la sera', 'Delete the whole evening'),
   };
 }
 
@@ -108,7 +109,7 @@ Future<void> showMobileAvailabilityDaySheet({
   return showMobileSheet<void>(
     context: context,
     builder: (context) => MobileSheet(
-      eyebrow: 'Disponibilità',
+      eyebrow: tr('Disponibilità', 'Availability'),
       title: formatAvailableDayLabel(day.date),
       body: [
         MobileTourOnRise(
@@ -133,7 +134,7 @@ Future<void> showMobileAvailabilityDaySheet({
                   lit(
                     DaySheetMark.edit,
                     MobileGoldButton(
-                      label: 'Modifica',
+                      label: tr('Modifica', 'Edit'),
                       icon: Icons.edit_outlined,
                       onPressed: () => onAction(context, const MobileEditDay()),
                     ),
@@ -143,7 +144,7 @@ Future<void> showMobileAvailabilityDaySheet({
                     lit(
                       DaySheetMark.day,
                       MobileDangerButton(
-                        label: 'Elimina la giornata',
+                        label: tr('Elimina la giornata', 'Delete the day'),
                         icon: Icons.delete_outline_rounded,
                         onPressed: () => onAction(context, const MobileDeleteDay()),
                       ),
@@ -382,7 +383,7 @@ class _Empty extends StatelessWidget
   {
     return Align(
       child: Text(
-        'Nessuna disponibilità',
+        tr('Nessuna disponibilità', 'No availability'),
         textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 13.5,

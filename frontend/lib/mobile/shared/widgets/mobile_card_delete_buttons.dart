@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import 'mobile_button_label.dart';
 
@@ -40,7 +41,7 @@ class MobileCardBinButton extends StatelessWidget
   {
     return Semantics(
       button: true,
-      label: 'Elimina',
+      label: tr('Elimina', 'Delete'),
       child: _Pressable(
         onTap: onPressed,
         pressedScale: _binPressedScale,

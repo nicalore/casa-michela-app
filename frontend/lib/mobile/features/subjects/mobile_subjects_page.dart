@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
@@ -38,15 +39,17 @@ import 'widgets/mobile_removable_row.dart';
 import 'widgets/mobile_service_sheet.dart';
 import 'widgets/mobile_subject_card.dart';
 
-const String _title = 'Discipline';
+String get _title => tr('Discipline', 'Disciplines');
 
 // Mobile-only copy: the swipe has no desktop counterpart.
-const String kMobileSlideToRemove =
-    'Per rimuovere una disciplina, fai scorrere la sua riga verso destra.';
+String get kMobileSlideToRemove => tr(
+  'Per rimuovere una disciplina, fai scorrere la sua riga verso destra.',
+  'To remove a discipline, swipe its row to the right.',
+);
 
-const String _updatedMessage = 'Discipline aggiornate con successo!';
+String get _updatedMessage => tr('Discipline aggiornate con successo!', 'Disciplines updated successfully!');
 
-const List<String> _pages = ['Scelte', 'Da scegliere'];
+List<String> get _pages => [tr('Scelte', 'Chosen'), tr('Da scegliere', 'To choose')];
 
 const double _phoneMargin = 20;
 const double _tabletMargin = 44;
@@ -445,7 +448,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
           subjectId: subject.subjectId,
           area: subject.subjectArea,
         ),
-      for (final service in _heldServices) _Entry(name: service, detail: 'Servizio'),
+      for (final service in _heldServices) _Entry(name: service, detail: tr('Servizio', 'Service')),
     ];
 
     return entries..sort((a, b) => compareAlphabetically(a.name, b.name));
@@ -466,7 +469,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
             area: subject.area,
           ),
       for (final service in _services)
-        if (!_heldServices.contains(service.name)) _Entry(name: service.name, detail: 'Servizio'),
+        if (!_heldServices.contains(service.name)) _Entry(name: service.name, detail: tr('Servizio', 'Service')),
     ];
 
     return entries..sort((a, b) => compareAlphabetically(a.name, b.name));
@@ -704,12 +707,16 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
     return showMobileConfirmSheet(
       context: from,
-      eyebrow: 'Rimozione',
-      title: 'Confermi?',
+      eyebrow: tr('Rimozione', 'Removal'),
+      title: tr('Confermi?', 'Are you sure?'),
       message: entry.isService
-          ? _warning('Il servizio ', entry.name, ' verrà rimosso da quelli seguiti.')
-          : _warning('La disciplina ', entry.name, ' verrà rimossa.'),
-      confirmLabel: 'Rimuovi',
+          ? _warning(
+              tr('Il servizio ', 'The service '),
+              entry.name,
+              tr(' verrà rimosso da quelli seguiti.', ' will be removed from those you follow.'),
+            )
+          : _warning(tr('La disciplina ', 'The discipline '), entry.name, tr(' verrà rimossa.', ' will be removed.')),
+      confirmLabel: tr('Rimuovi', 'Remove'),
       confirmIcon: Icons.delete_outline_rounded,
     );
   }
@@ -803,7 +810,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     {
       return MobileLoadFailed(
         error: _loadFailure,
-        message: 'Non è stato possibile caricare le discipline.',
+        message: tr('Non è stato possibile caricare le discipline.', 'The disciplines could not be loaded.'),
         onRetry: _load,
         tablet: MobileBreakpoints.of(context).isTablet,
       );
@@ -821,8 +828,8 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
         return MobileEmptyCard(
           icon: Icons.auto_stories_rounded,
           message: held
-              ? 'Nessuna disciplina o servizio a sistema.'
-              : 'Nessuna disciplina o servizio da aggiungere.',
+              ? tr('Nessuna disciplina o servizio a sistema.', 'No disciplines or services in the system.')
+              : tr('Nessuna disciplina o servizio da aggiungere.', 'No disciplines or services to add.'),
           tablet: tablet,
         );
       }
@@ -884,9 +891,9 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   List<MobileChoice<String?>> get _areaChoices
   {
     return [
-      const MobileChoice(value: null, label: 'Tutte le aree'),
+      MobileChoice(value: null, label: tr('Tutte le aree', 'All areas')),
       for (final area in subjectAreas) MobileChoice(value: area.value, label: area.label),
-      const MobileChoice(value: kServicesFilterValue, label: 'Servizi'),
+      MobileChoice(value: kServicesFilterValue, label: tr('Servizi', 'Services')),
     ];
   }
 
@@ -895,7 +902,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     final MobileChoice<String?>? picked = await showMobileChoiceSheet(
       context: context,
       eyebrow: _title,
-      title: 'Filtra per area',
+      title: tr('Filtra per area', 'Filter by area'),
       choices: _areaChoices,
       value: _filters.area,
     );
@@ -910,7 +917,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   {
     return MobileSearchField(
       controller: _filters.controller,
-      hintText: 'Cerca disciplina o servizio...',
+      hintText: tr('Cerca disciplina o servizio...', 'Search discipline or service...'),
       onChanged: (value) => setState(() => _filters.query = value),
     );
   }

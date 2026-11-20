@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import 'person_edit_form.dart';
 
 enum PersonEditPurpose
@@ -90,25 +91,29 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
   final List<PersonEditCard> cards = [];
   final List<String> roles = form.activeRoles;
   final bool onlyParent = form.isOnlyParentNotMember;
+  final bool feminine = form.genderValue == 'F';
 
   if (!onlyParent)
   {
-    cards.add(const PersonEditCard(PersonEditCardId.memberships, label: 'Iscrizioni'));
+    cards.add(PersonEditCard(PersonEditCardId.memberships, label: tr('Iscrizioni', 'Enrolments')));
   }
 
   if (roles.contains('AMMINISTRATORE'))
   {
-    cards.add(const PersonEditCard(PersonEditCardId.admin, label: 'Amministratore'));
+    cards.add(PersonEditCard(
+      PersonEditCardId.admin,
+      label: feminine ? tr('Amministratrice', 'Administrator') : tr('Amministratore', 'Administrator'),
+    ));
   }
 
   if (roles.contains('DOCENTE'))
   {
-    cards.add(const PersonEditCard(PersonEditCardId.teacher, label: 'Docente'));
+    cards.add(PersonEditCard(PersonEditCardId.teacher, label: tr('Docente', 'Teacher')));
   }
 
   if (roles.contains('CORSISTA'))
   {
-    cards.add(const PersonEditCard(PersonEditCardId.courseParticipant, label: 'Corsista'));
+    cards.add(PersonEditCard(PersonEditCardId.courseParticipant, label: tr('Corsista', 'Course participant')));
   }
 
   if (roles.contains('STUDENTE'))
@@ -116,16 +121,16 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
     // Leaving early is a minor's question only, so the tab goes with it.
     if (form.isMinor)
     {
-      cards.add(const PersonEditCard(PersonEditCardId.earlyExit, label: 'Uscita anticipata'));
+      cards.add(PersonEditCard(PersonEditCardId.earlyExit, label: tr('Uscita anticipata', 'Early departure')));
     }
 
     // Later they change only in the pupil's «Osservazioni».
     if (form.isCreation)
     {
-      cards.add(const PersonEditCard(PersonEditCardId.certifications, label: 'Certificazioni'));
+      cards.add(PersonEditCard(PersonEditCardId.certifications, label: tr('Certificazioni', 'Certifications')));
     }
 
-    cards.add(const PersonEditCard(PersonEditCardId.schoolEnrollments, label: 'Anni scolastici'));
+    cards.add(PersonEditCard(PersonEditCardId.schoolEnrollments, label: tr('Anni scolastici', 'School years')));
   }
 
   // After the administrative role: president, vice president and treasurer cannot be paid, which overrides this.
@@ -135,25 +140,28 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
 
   if (isStaff && !form.collaborationInCompensi)
   {
-    cards.add(const PersonEditCard(PersonEditCardId.staff, label: 'Collaborazione'));
+    cards.add(PersonEditCard(PersonEditCardId.staff, label: tr('Collaborazione', 'Collaboration')));
   }
 
   if (form.isCreation && !onlyParent && !roles.contains('PSICOLOGO'))
   {
-    cards.add(const PersonEditCard(
+    cards.add(PersonEditCard(
       PersonEditCardId.psychologicalSupport,
-      label: 'Sostegno psicologico',
+      label: tr('Sostegno psicologico', 'Psychological support'),
     ));
   }
 
   if (!onlyParent && form.isMinor)
   {
-    cards.add(const PersonEditCard(PersonEditCardId.minorSafety, label: 'Sicurezza del minore'));
+    cards.add(PersonEditCard(
+      PersonEditCardId.minorSafety,
+      label: feminine ? tr('Sicurezza della minore', 'Minor’s safety') : tr('Sicurezza del minore', 'Minor’s safety'),
+    ));
   }
 
   if (!onlyParent)
   {
-    cards.add(const PersonEditCard(PersonEditCardId.consents, label: 'Consensi'));
+    cards.add(PersonEditCard(PersonEditCardId.consents, label: tr('Consensi', 'Consents')));
   }
 
   return cards;
@@ -163,18 +171,26 @@ PersonEditStep _personalInfoStep(PersonEditForm form, {required bool revoked})
 {
   return PersonEditStep(
     id: PersonEditStepId.personalInfo,
-    question: 'Chi è?',
+    question: tr('Chi è?', 'Who is this person?'),
     hint: form.isCreation
-            ? 'Compila i dati anagrafici e di contatto della persona. Dopo la creazione, '
-                'sarà possibile modificare solo la residenza e i contatti.'
-            : 'Per motivi di sicurezza, le informazioni personali principali ' 
-            'non possono essere modificate manualmente.\n'
-            'Se hai riscontrato un errore, puoi richiederne la correzione utilizzando il pulsante in basso.',
-    cards: const [
-      PersonEditCard(PersonEditCardId.identity, label: 'Identità'),
-      PersonEditCard(PersonEditCardId.birthData, label: 'Dati anagrafici'),
-      PersonEditCard(PersonEditCardId.residence, label: 'Residenza'),
-      PersonEditCard(PersonEditCardId.contacts, label: 'Contatti'),
+            ? tr(
+                'Compila i dati anagrafici e di contatto della persona. Dopo la creazione, '
+                'sarà possibile modificare solo la residenza e i contatti.',
+                'Fill in the person’s personal and contact details. After creation, '
+                'only the residence and the contacts can be changed.',
+              )
+            : tr(
+                'Per motivi di sicurezza, le informazioni personali principali '
+                'non possono essere modificate manualmente.\n'
+                'Se hai riscontrato un errore, puoi richiederne la correzione utilizzando il pulsante in basso.',
+                'For security reasons, the main personal details cannot be changed by hand.\n'
+                'If you have found an error, you can ask for it to be corrected with the button below.',
+              ),
+    cards: [
+      PersonEditCard(PersonEditCardId.identity, label: tr('Identità', 'Identity')),
+      PersonEditCard(PersonEditCardId.birthData, label: tr('Dati anagrafici', 'Personal details')),
+      PersonEditCard(PersonEditCardId.residence, label: tr('Residenza', 'Residence')),
+      PersonEditCard(PersonEditCardId.contacts, label: tr('Contatti', 'Contacts')),
     ],
   );
 }
@@ -185,20 +201,26 @@ List<PersonEditStep> _reEnrollmentSteps(PersonEditForm form)
   return [
     PersonEditStep(
       id: PersonEditStepId.reEnrollment,
-      question: 'Da quando vale la nuova iscrizione?',
-      hint: 'È l\'iscrizione del ${form.reEnrollYearCtrl.text}: indica il giorno da cui parte.',
+      question: tr('Da quando vale la nuova iscrizione?', 'When does the new enrolment start?'),
+      hint: tr(
+        'È l\'iscrizione del ${form.reEnrollYearCtrl.text}: indica il giorno da cui parte.',
+        'This is the ${form.reEnrollYearCtrl.text} enrolment: set the day it starts.',
+      ),
       cards: const [PersonEditCard(PersonEditCardId.reEnrollment)],
     ),
     if (form.asksSchoolYear)
-      const PersonEditStep(
+      PersonEditStep(
         id: PersonEditStepId.schoolYear,
-        question: 'Che classe frequenta quest\'anno?',
-        hint: 'Aggiungi l\'anno scolastico in corso: la tariffa dipende dal livello.',
-        cards: [PersonEditCard(PersonEditCardId.schoolEnrollments)],
+        question: tr('Che classe frequenta quest\'anno?', 'Which class are they in this year?'),
+        hint: tr(
+          'Aggiungi l\'anno scolastico in corso: la tariffa dipende dal livello.',
+          'Add the current school year: the rate depends on the level.',
+        ),
+        cards: const [PersonEditCard(PersonEditCardId.schoolEnrollments)],
       ),
     PersonEditStep(
       id: PersonEditStepId.payment,
-      question: 'Come avvengono i pagamenti?',
+      question: tr('Come avvengono i pagamenti?', 'How are payments made?'),
       hint: _paymentHint(form),
       cards: const [PersonEditCard(PersonEditCardId.payment)],
     ),
@@ -222,37 +244,55 @@ List<PersonEditStep> buildEditSteps(
   }
 
   final List<PersonEditStep> steps = [];
+  final bool feminine = form.genderValue == 'F';
 
   final bool asksType = purpose == PersonEditPurpose.edit ||
       purpose == PersonEditPurpose.create;
 
   if (asksType)
   {
-    steps.add(const PersonEditStep(
+    steps.add(PersonEditStep(
       id: PersonEditStepId.type,
-      question: 'Qual è il rapporto di questa persona con l\'Associazione?',
-      hint: 'Scegli la categoria che descrive meglio la sua posizione.',
-      cards: [PersonEditCard(PersonEditCardId.involvement)],
+      question: tr(
+        'Qual è il rapporto di questa persona con l\'Associazione?',
+        'What is this person’s relationship with the Association?',
+      ),
+      hint: tr(
+        'Scegli la categoria che descrive meglio la sua posizione.',
+        'Choose the category that best describes their position.',
+      ),
+      cards: const [PersonEditCard(PersonEditCardId.involvement)],
     ));
   }
 
   if (form.involvementType == 0 && purpose != PersonEditPurpose.createParent)
   {
-    steps.add(const PersonEditStep(
+    steps.add(PersonEditStep(
       id: PersonEditStepId.roles,
-      question: 'Quali ruoli ricopre all\'interno dell\'Associazione?',
-      hint: 'Puoi sceglierne più di uno.',
-      cards: [PersonEditCard(PersonEditCardId.roleChoice)],
+      question: tr(
+        'Quali ruoli ricopre all\'interno dell\'Associazione?',
+        'Which roles do they hold in the Association?',
+      ),
+      hint: tr('Puoi sceglierne più di uno.', 'You can choose more than one.'),
+      cards: const [PersonEditCard(PersonEditCardId.roleChoice)],
     ));
   }
 
   if (form.asksAssociationQuestion)
   {
-    steps.add(const PersonEditStep(
+    steps.add(PersonEditStep(
       id: PersonEditStepId.association,
-      question: 'Vuole iscriversi anche personalmente?',
-      hint: 'Il genitore può iscrivere il proprio figlio senza diventare socio.',
-      cards: [PersonEditCard(PersonEditCardId.associationChoice)],
+      question: tr('Vuole iscriversi anche personalmente?', 'Do they also want to enrol themselves?'),
+      hint: feminine
+          ? tr(
+              'Il genitore può iscrivere il proprio figlio senza diventare socia.',
+              'A parent can enrol their child without becoming a member.',
+            )
+          : tr(
+              'Il genitore può iscrivere il proprio figlio senza diventare socio.',
+              'A parent can enrol their child without becoming a member.',
+            ),
+      cards: const [PersonEditCard(PersonEditCardId.associationChoice)],
     ));
   }
 
@@ -264,8 +304,8 @@ List<PersonEditStep> buildEditSteps(
   {
     steps.add(PersonEditStep(
       id: PersonEditStepId.associativeInfo,
-      question: 'Che cosa serve sapere per i suoi ruoli?',
-      hint: 'Compila i dati richiesti dai ruoli selezionati.',
+      question: tr('Che cosa serve sapere per i suoi ruoli?', 'What do we need to know for their roles?'),
+      hint: tr('Compila i dati richiesti dai ruoli selezionati.', 'Fill in the details the selected roles require.'),
       cards: associative,
     ));
   }
@@ -275,7 +315,7 @@ List<PersonEditStep> buildEditSteps(
   {
     steps.add(PersonEditStep(
       id: PersonEditStepId.payment,
-      question: 'Come avvengono i pagamenti?',
+      question: tr('Come avvengono i pagamenti?', 'How are payments made?'),
       hint: _paymentHint(form),
       cards: const [PersonEditCard(PersonEditCardId.payment)],
     ));
@@ -286,33 +326,43 @@ List<PersonEditStep> buildEditSteps(
 
   if (asksRelations && form.isMinor)
   {
-    steps.add(const PersonEditStep(
+    steps.add(PersonEditStep(
       id: PersonEditStepId.parents,
-      question: 'Chi sono i suoi genitori o tutori legali?',
-      hint: 'Almeno uno, al massimo due.',
-      cards: [PersonEditCard(PersonEditCardId.parents)],
+      question: tr('Chi sono i suoi genitori o tutori legali?', 'Who are their parents or legal guardians?'),
+      hint: tr('Almeno uno, al massimo due.', 'At least one, at most two.'),
+      cards: const [PersonEditCard(PersonEditCardId.parents)],
     ));
   }
 
   if (asksRelations && form.selectedRoles.contains('GENITORE'))
   {
-    steps.add(const PersonEditStep(
+    steps.add(PersonEditStep(
       id: PersonEditStepId.minors,
-      question: 'Di quali minori è genitore o tutore?',
-      hint: 'Seleziona le persone di cui è responsabile legale.',
-      cards: [PersonEditCard(PersonEditCardId.minors)],
+      question: feminine
+          ? tr('Di quali minori è genitore o tutrice?', 'Which minors are they the parent or guardian of?')
+          : tr('Di quali minori è genitore o tutore?', 'Which minors are they the parent or guardian of?'),
+      hint: tr(
+        'Seleziona le persone di cui è responsabile legale.',
+        'Select the people they are legally responsible for.',
+      ),
+      cards: const [PersonEditCard(PersonEditCardId.minors)],
     ));
   }
 
   if (form.asksSubjects)
   {
-    steps.add(const PersonEditStep(
+    steps.add(PersonEditStep(
       id: PersonEditStepId.subjects,
-      question: 'Cosa insegna?',
-      hint: 'Seleziona le discipline in cui il docente è competente. Per ognuna '
-            'di esse è possibile indicare i percorsi di studio in cui è disponibile a insegnare.\n'
-            'È inoltre possibile selezionare i servizi offerti dall\'Associazione.',
-      cards: [PersonEditCard(PersonEditCardId.subjects)],
+      question: tr('Cosa insegna?', 'What do they teach?'),
+      hint: tr(
+        'Seleziona le discipline in cui ${feminine ? 'la' : 'il'} docente è competente. Per ognuna '
+        'di esse è possibile indicare i percorsi di studio in cui è disponibile a insegnare.\n'
+        'È inoltre possibile selezionare i servizi offerti dall\'Associazione.',
+        'Select the disciplines the teacher is competent in. For each one you can set '
+        'the study programmes they are available to teach.\n'
+        'You can also select the services the Association offers.',
+      ),
+      cards: const [PersonEditCard(PersonEditCardId.subjects)],
     ));
   }
 
@@ -325,21 +375,35 @@ String _paymentHint(PersonEditForm form)
   // A member on file becoming a pupil: the method is already in the «Pagamenti» tab.
   if (!form.asksPaymentStep)
   {
-    return 'Seleziona la tariffa scelta per il servizio di aiuto compiti.';
+    return tr(
+      'Seleziona la tariffa scelta per il servizio di aiuto compiti.',
+      'Select the rate chosen for the Homework Help service.',
+    );
   }
 
   if (form.asksFees)
   {
     return form.asksTariff
-        ? 'Seleziona la modalità di pagamento preferita e, per gli studenti, la tariffa scelta per il '
-          'servizio di aiuto compiti, l’iscrizione e l’assicurazione.'
-        : 'Seleziona la modalità di pagamento preferita, l’iscrizione e l’assicurazione.';
+        ? tr(
+            'Seleziona la modalità di pagamento preferita e, per gli studenti, la tariffa scelta per il '
+            'servizio di aiuto compiti, l’iscrizione e l’assicurazione.',
+            'Select the preferred payment method and, for students, the rate chosen for the '
+            'Homework Help service, the enrolment and the insurance.',
+          )
+        : tr(
+            'Seleziona la modalità di pagamento preferita, l’iscrizione e l’assicurazione.',
+            'Select the preferred payment method, the enrolment and the insurance.',
+          );
   }
 
   return form.asksTariff
-      ? 'Seleziona la modalità di pagamento preferita e, per gli studenti, '
-        'la tariffa scelta per il servizio di aiuto compiti.'
-      : 'Seleziona la modalità di pagamento preferita.';
+      ? tr(
+          'Seleziona la modalità di pagamento preferita e, per gli studenti, '
+          'la tariffa scelta per il servizio di aiuto compiti.',
+          'Select the preferred payment method and, for students, '
+          'the rate chosen for the Homework Help service.',
+        )
+      : tr('Seleziona la modalità di pagamento preferita.', 'Select the preferred payment method.');
 }
 
 // Field steps answer true: they are validated when the forward arrow is pressed.
@@ -353,11 +417,17 @@ String? stepBlockedReason(PersonEditStepId id, PersonEditForm form)
   return switch (id)
   {
     PersonEditStepId.type when form.involvementType < 0 =>
-      'Scegli il rapporto con l\'Associazione per andare avanti.',
+      tr(
+        'Scegli il rapporto con l\'Associazione per andare avanti.',
+        'Choose the relationship with the Association to go on.',
+      ),
     PersonEditStepId.roles when form.activeRoles.isEmpty =>
-      'Seleziona almeno un ruolo per andare avanti.',
+      tr('Seleziona almeno un ruolo per andare avanti.', 'Select at least one role to go on.'),
     PersonEditStepId.association when form.parentIsMember == null =>
-      'Indica se vuole iscriversi anche personalmente per andare avanti.',
+      tr(
+        'Indica se vuole iscriversi anche personalmente per andare avanti.',
+        'Say whether they also want to enrol themselves to go on.',
+      ),
     _ => null,
   };
 }

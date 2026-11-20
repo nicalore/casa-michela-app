@@ -21,14 +21,30 @@ from app.services.availability_cleanup import (
     PurgedHours,
     purge_hours_outside_openings,
 )
+from app.services.bilingual import Bilingual
 from app.services.calendar_hours_sync import CalendarHoursWatch
 from app.services.started_hours import StartedHoursGuard
 
-_ENTITY_LABEL: Final[str] = "le aperture"
-_NOT_FOUND_ERROR: Final[str] = "Apertura non trovata"
-_CREATE_ERROR: Final[str] = "Errore durante la creazione dell'apertura."
-_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
-_RESTORE_ERROR: Final[str] = "Errore durante il ripristino dell'orario standard."
+_ENTITY_LABEL: Final[Bilingual] = Bilingual(
+    "le aperture",
+    "the openings",
+)
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Apertura non trovata",
+    "Opening not found",
+)
+_CREATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante la creazione dell'apertura.",
+    "Something went wrong while creating the opening.",
+)
+_UPDATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'aggiornamento.",
+    "Something went wrong while saving.",
+)
+_RESTORE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante il ripristino dell'orario standard.",
+    "Something went wrong while restoring the standard hours.",
+)
 
 
 class OpeningDayService:
@@ -59,7 +75,7 @@ class OpeningDayService:
         if opening_day is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return opening_day
@@ -75,7 +91,13 @@ class OpeningDayService:
             note=payload.note,
         )
 
-        async with integrity_guard(self.repository.session, _CREATE_ERROR):
+        async with integrity_guard(
+
+            self.repository.session,
+
+            _CREATE_ERROR.for_request(),
+
+        ):
             guard = await self._guard([opening_day.date], opening_day.mode)
             watch = await self._watch([opening_day.date])
 
@@ -114,7 +136,13 @@ class OpeningDayService:
             )
         ]
 
-        async with integrity_guard(self.repository.session, _CREATE_ERROR):
+        async with integrity_guard(
+
+            self.repository.session,
+
+            _CREATE_ERROR.for_request(),
+
+        ):
             guard = await self._guard([day], mode)
             watch = await self._watch([day])
 
@@ -141,7 +169,7 @@ class OpeningDayService:
         assert_not_stale(
             opening_day,
             payload.expected_updated_at,
-            entity_label=_ENTITY_LABEL,
+            entity_label=_ENTITY_LABEL.for_request(),
         )
 
         # Read before the row is touched: a later query would autoflush the new hours.
@@ -153,7 +181,13 @@ class OpeningDayService:
         opening_day.note = payload.note
         opening_day.is_override = True
 
-        async with integrity_guard(self.repository.session, _UPDATE_ERROR):
+        async with integrity_guard(
+
+            self.repository.session,
+
+            _UPDATE_ERROR.for_request(),
+
+        ):
             await self.repository.session.flush()
             await guard.settle()
             purged = await self._purge_closed([opening_day.date], opening_day.mode)
@@ -284,7 +318,13 @@ class OpeningDayService:
 
         to_create = await self._standard_rows_for(restored_dates, mode)
 
-        async with integrity_guard(self.repository.session, _RESTORE_ERROR):
+        async with integrity_guard(
+
+            self.repository.session,
+
+            _RESTORE_ERROR.for_request(),
+
+        ):
             await self.repository.create_many(to_create)
             await guard.settle()
 

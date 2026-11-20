@@ -23,15 +23,25 @@ from app.schemas.app_update import (
     AppUpdateResponse,
     AppUpdateSummaryResponse,
 )
+from app.services.bilingual import Bilingual
 from app.services.notice_markdown import preview
 from app.services.notice_recipients import recipients_of
 from app.services.notices import MAX_FILES_BYTES, Upload, read_uploads, settle_images
 from app.services.report_readers import reader_role
 from app.services.role_service import RoleService
 
-_UPDATE_NOT_FOUND_ERROR: Final[str] = "Aggiornamento non trovato"
-_IMAGE_NOT_FOUND_ERROR: Final[str] = "Immagine non trovata"
-_TOO_LARGE_ERROR: Final[str] = "Le immagini superano i 15 MB totali."
+_UPDATE_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Aggiornamento non trovato",
+    "Update not found",
+)
+_IMAGE_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Immagine non trovata",
+    "Image not found",
+)
+_TOO_LARGE_ERROR: Final[Bilingual] = Bilingual(
+    "Le immagini superano i 15 MB totali.",
+    "The images exceed 15 MB in total.",
+)
 
 
 # Only while the administrator's role holds, as for the reports.
@@ -106,7 +116,7 @@ async def load_update(db: AsyncSession, update_id: int) -> AppUpdate:
     if update is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_UPDATE_NOT_FOUND_ERROR,
+            detail=_UPDATE_NOT_FOUND_ERROR.for_request(),
         )
 
     return update
@@ -129,7 +139,7 @@ async def settle_update_images(
     kept, added = settle_images(
         update.message,
         {image.image_key: image for image in update.images},
-        await read_uploads(uploads, too_large=_TOO_LARGE_ERROR),
+        await read_uploads(uploads, too_large=_TOO_LARGE_ERROR.for_request()),
         _stored,
     )
     images = [*kept, *added]
@@ -137,7 +147,7 @@ async def settle_update_images(
     if sum(image.size for image in images) > MAX_FILES_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=_TOO_LARGE_ERROR,
+            detail=_TOO_LARGE_ERROR.for_request(),
         )
 
     update.images = images
@@ -215,7 +225,7 @@ async def update_image(
     if not manages_updates(person) and not await readable_ids(db, person, [update_id]):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_UPDATE_NOT_FOUND_ERROR,
+            detail=_UPDATE_NOT_FOUND_ERROR.for_request(),
         )
 
     image = await db.scalar(
@@ -230,7 +240,7 @@ async def update_image(
     if image is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_IMAGE_NOT_FOUND_ERROR,
+            detail=_IMAGE_NOT_FOUND_ERROR.for_request(),
         )
 
     return image

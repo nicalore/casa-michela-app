@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
@@ -305,7 +306,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
           slot: PageTransitionItem.header,
           child: ScreenHeading(
             title: kUpdatesTitle,
-            backTooltip: 'Torna indietro',
+            backTooltip: tr('Torna indietro', 'Go back'),
             onBack: () => context.go(_origin),
             // Nothing published: the line in the middle says it instead.
             count: !_loaded ? '' : (_updates.isNotEmpty ? updateCountLabel(_updates.length) : null),
@@ -356,7 +357,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
 
     if (_loaded && _updates.isEmpty)
     {
-      return const Center(
+      return Center(
         child: PageTransitionItem(slot: PageTransitionItem.list, child: AppEmptyCard(icon: Icons.update_rounded, message: kNoUpdates)),
       );
     }
@@ -499,7 +500,7 @@ class _UpdatesPageState extends State<UpdatesPage> with EntityWrites
                           Align(
                             alignment: Alignment.topLeft,
                             child: AppBackButton(
-                              tooltip: 'Torna indietro',
+                              tooltip: tr('Torna indietro', 'Go back'),
                               onTap: () => context.go(_origin),
                             ),
                           ),

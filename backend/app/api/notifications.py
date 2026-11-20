@@ -15,6 +15,7 @@ from sqlalchemy import func, or_, select
 from app.api.current_account import CurrentAccount, CurrentSessionId
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity
+from app.core.i18n import tr
 from app.core.time_band import TimeBandEnum
 from app.models.notice import Notice, NoticeRoleEnum
 from app.models.notification import Notification, NotificationKindEnum
@@ -30,7 +31,10 @@ from app.services.notifications import dismissals, withdraw
 from app.services.teacher_note_notifications import teacher_notes_seen
 from app.services.volunteering_notifications import compensation_seen
 
-_NOTIFICATION_NOT_FOUND_ERROR: Final[str] = "Notifica non trovata."
+_NOTIFICATION_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Notifica non trovata.",
+    "Notification not found.",
+)
 
 # Withdrawn on read: these open what they tell of, or a new device needs nothing.
 _GONE_ONCE_READ: Final[frozenset[NotificationKindEnum]] = frozenset(
@@ -116,7 +120,7 @@ async def _own_notification(
     if notification is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_NOTIFICATION_NOT_FOUND_ERROR,
+            detail=tr(*_NOTIFICATION_NOT_FOUND_ERROR),
         )
 
     return notification

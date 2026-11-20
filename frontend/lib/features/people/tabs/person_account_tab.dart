@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -10,6 +11,7 @@ import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../settings/utils/settings_strings.dart';
+import '../models/child_item.dart';
 import '../models/person_account_item.dart';
 import '../models/person_item.dart';
 import '../widgets/create_account_dialog.dart';
@@ -23,35 +25,43 @@ const double _labelWidth = 185;
 // Two cards whose value column still fits "Richiesto al prossimo accesso" (~261 px) on one line.
 const double _pairBreakpoint = 1056;
 
-const String _statusLabel = 'Stato';
-const String _active = 'Attivo';
-const String _suspended = 'Sospeso';
-const String _revokedMembership = 'Iscrizione revocata';
-const String _expiredMembership = 'Iscrizione scaduta';
-const String _noEnrolledChild = 'Nessun figlio iscritto';
+String get _statusLabel => tr('Stato', 'Status');
+String get _active => tr('Attivo', 'Active');
+String get _suspended => tr('Sospeso', 'Suspended');
+String get _revokedMembership => tr('Iscrizione revocata', 'Enrolment revoked');
+String get _expiredMembership => tr('Iscrizione scaduta', 'Enrolment expired');
 
-const String _securityTitle = 'Sicurezza';
-const String _passwordChangeLabel = 'Cambio password';
-const String _passwordChangeNotRequired = 'Non richiesto';
-const String _passwordChangeRequired = 'Richiesto al prossimo accesso';
-const String _lockLabel = 'Blocco';
-const String _noLock = 'Nessuno';
+String _noEnrolledChild(List<ChildItem>? children)
+{
+  final bool daughters = children != null &&
+      children.isNotEmpty &&
+      children.every((child) => child.gender == 'F');
 
-const String _autonomousBookingsTitle = 'Prenotazioni autonome';
+  return daughters ? tr('Nessuna figlia iscritta', 'No enrolled daughter') : tr('Nessun figlio iscritto', 'No enrolled child');
+}
 
-const String _forceChangeLabel = 'Forza cambio password';
-const String _recoveryEmailLabel = 'Invia email di recupero password';
-const String _unlockLabel = 'Sblocca account';
-const String _suspendLabel = 'Sospendi account';
-const String _reactivateLabel = 'Riattiva account';
+String get _securityTitle => tr('Sicurezza', 'Security');
+String get _passwordChangeLabel => tr('Cambio password', 'Password change');
+String get _passwordChangeNotRequired => tr('Non richiesto', 'Not required');
+String get _passwordChangeRequired => tr('Richiesto al prossimo accesso', 'Required at next sign-in');
+String get _lockLabel => tr('Blocco', 'Lock');
+String get _noLock => tr('Nessuno', 'None');
 
-const String _passwordChangeRequested = 'Cambio password richiesto!';
-const String _recoveryEmailSent = 'Email di recupero inviata!';
-const String _accountUnlocked = 'Account sbloccato!';
-const String _autonomousBookingsOn = 'Prenotazioni autonome attivate!';
-const String _autonomousBookingsOff = 'Prenotazioni autonome disattivate!';
-const String _accountSuspended = 'Account sospeso!';
-const String _accountReactivated = 'Account riattivato!';
+String get _autonomousBookingsTitle => tr('Prenotazioni autonome', 'Self-booking');
+
+String get _forceChangeLabel => tr('Forza cambio password', 'Force password change');
+String get _recoveryEmailLabel => tr('Invia email di recupero password', 'Send password recovery email');
+String get _unlockLabel => tr('Sblocca account', 'Unlock account');
+String get _suspendLabel => tr('Sospendi account', 'Suspend account');
+String get _reactivateLabel => tr('Riattiva account', 'Reactivate account');
+
+String get _passwordChangeRequested => tr('Cambio password richiesto!', 'Password change requested!');
+String get _recoveryEmailSent => tr('Email di recupero inviata!', 'Recovery email sent!');
+String get _accountUnlocked => tr('Account sbloccato!', 'Account unlocked!');
+String get _autonomousBookingsOn => tr('Prenotazioni autonome attivate!', 'Self-booking turned on!');
+String get _autonomousBookingsOff => tr('Prenotazioni autonome disattivate!', 'Self-booking turned off!');
+String get _accountSuspended => tr('Account sospeso!', 'Account suspended!');
+String get _accountReactivated => tr('Account riattivato!', 'Account reactivated!');
 
 final DateFormat _clock = DateFormat('HH:mm');
 
@@ -139,13 +149,16 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     final confirmed = await askAccountConfirmation(
       eyebrow: 'Password',
       message: [
-        const TextSpan(text: 'Al prossimo accesso '),
+        TextSpan(text: tr('Al prossimo accesso ', '')),
         boldSpan(personFullName),
-        const TextSpan(
-          text: ' dovrà scegliere una nuova password. Tutte le sue sessioni verranno interrotte.',
+        TextSpan(
+          text: tr(
+            ' dovrà scegliere una nuova password. Tutte le sue sessioni verranno interrotte.',
+            ' will have to choose a new password at the next sign-in. All their sessions will be ended.',
+          ),
         ),
       ],
-      confirmLabel: 'FORZA CAMBIO',
+      confirmLabel: tr('FORZA CAMBIO', 'FORCE CHANGE'),
       confirmIcon: Icons.lock_reset_rounded,
       danger: true,
     );
@@ -163,13 +176,18 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
   Future<void> _confirmRecoveryEmail() async
   {
     final confirmed = await askAccountConfirmation(
-      eyebrow: 'Recupero password',
+      eyebrow: tr('Recupero password', 'Password recovery'),
       message: [
-        const TextSpan(text: 'Invieremo a '),
+        TextSpan(text: tr('Invieremo a ', 'We will send ')),
         boldSpan(widget.person.email ?? ''),
-        const TextSpan(text: ' il link per reimpostare la password, valido per 1 ora.'),
+        TextSpan(
+          text: tr(
+            ' il link per reimpostare la password, valido per 1 ora.',
+            ' the link to reset the password, valid for 1 hour.',
+          ),
+        ),
       ],
-      confirmLabel: 'INVIA',
+      confirmLabel: tr('INVIA', 'SEND'),
       confirmIcon: Icons.forward_to_inbox_rounded,
       danger: false,
     );
@@ -189,13 +207,16 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     final confirmed = await askAccountConfirmation(
       eyebrow: 'Account',
       message: [
-        const TextSpan(text: "L'account di "),
+        TextSpan(text: tr("L'account di ", '')),
         boldSpan(personFullName),
-        const TextSpan(
-          text: ' verrà sospeso: non potrà più accedere e tutte le sue sessioni verranno interrotte.',
+        TextSpan(
+          text: tr(
+            ' verrà sospeso: non potrà più accedere e tutte le sue sessioni verranno interrotte.',
+            "'s account will be suspended: they will no longer be able to sign in and all their sessions will be ended.",
+          ),
         ),
       ],
-      confirmLabel: 'SOSPENDI',
+      confirmLabel: tr('SOSPENDI', 'SUSPEND'),
       confirmIcon: Icons.block_rounded,
       danger: true,
     );
@@ -255,7 +276,7 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
       child: PageTransitionItem(
         slot: PageTransitionItem.header,
         child: PersonLoneButton(
-          label: 'CREA ACCOUNT',
+          label: tr('CREA ACCOUNT', 'CREATE ACCOUNT'),
           icon: Icons.person_add_alt_1_rounded,
           busy: _creating,
           onPressed: _createAccount,
@@ -275,7 +296,7 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     return switch (account.lapse)
     {
       'MEMBERSHIP' => _expiredMembership,
-      'CHILDREN' => _noEnrolledChild,
+      'CHILDREN' => _noEnrolledChild(widget.person.children),
       _ => null,
     };
   }
@@ -318,10 +339,12 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
 
   String _failedAttemptsText(PersonAccountItem account)
   {
-    final String attempts = '${account.failedLoginAttempts} tentativi falliti';
+    final String attempts = tr('${account.failedLoginAttempts} tentativi falliti', '${account.failedLoginAttempts} failed attempts');
     final DateTime? last = account.lastFailedLoginAttempt;
 
-    return last == null ? attempts : "$attempts, l'ultimo alle ${_clock.format(last)}";
+    return last == null
+        ? attempts
+        : tr("$attempts, l'ultimo alle ${_clock.format(last)}", '$attempts, the last at ${_clock.format(last)}');
   }
 
   Widget _buildCards(PersonAccountItem account)
@@ -363,7 +386,7 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
             lockedUntil == null
                 ? _buildValue(_noLock)
                 : _buildValue(
-                    'Fino alle ${_clock.format(lockedUntil)}',
+                    tr('Fino alle ${_clock.format(lockedUntil)}', 'Until ${_clock.format(lockedUntil)}'),
                     detail: _failedAttemptsText(account),
                   ),
           ),
@@ -384,8 +407,11 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
         children: [
           Expanded(
             child: Text(
-              'Vuoi permettere a ${widget.person.firstName} '
-              'di prenotare autonomamente le lezioni?',
+              tr(
+                'Vuoi permettere a ${widget.person.firstName} '
+                    'di prenotare autonomamente le lezioni?',
+                'Do you want to let ${widget.person.firstName} book lessons on their own?',
+              ),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,

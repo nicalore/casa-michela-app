@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
@@ -39,6 +40,7 @@ import '../lessons/models/presence_group.dart';
 import '../lessons/models/presence_item.dart';
 import '../lessons/models/subject_request.dart';
 import '../lessons/utils/booking_window.dart';
+import '../lessons/utils/booking_wizard_strings.dart' show BookingPupil;
 import '../lessons/utils/opening_window.dart';
 import '../lessons/utils/study_program_lookup.dart';
 import '../lessons/widgets/band_note_parts.dart';
@@ -709,7 +711,7 @@ class _BookingsPageState extends State<BookingsPage>
       group,
       move,
       title: bookingTitle(held.booking, _ministrySubjects),
-      days: _planner.moveDays(day, lane.pupil.fiscalCode, move),
+      days: _planner.moveDays(day, lane.pupil.fiscalCode, move, who: _whoMoves(lane)),
     );
   }
 
@@ -735,7 +737,7 @@ class _BookingsPageState extends State<BookingsPage>
       group,
       move,
       title: allLessonsTitle(mode, band: band),
-      days: _planner.moveDays(day, lane.pupil.fiscalCode, move),
+      days: _planner.moveDays(day, lane.pupil.fiscalCode, move, who: _whoMoves(lane)),
     );
   }
 
@@ -822,13 +824,13 @@ class _BookingsPageState extends State<BookingsPage>
       barrierLabel: 'ConfirmBookingDeletion',
       builder: (confirmContext) => AppDialogStack(
         eyebrow: formatAvailableDayLabel(day),
-        title: 'Confermi?',
+        title: tr('Confermi?', 'Are you sure?'),
         shrinkTitle: true,
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -837,7 +839,7 @@ class _BookingsPageState extends State<BookingsPage>
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -873,6 +875,8 @@ class _BookingsPageState extends State<BookingsPage>
   }
 
   String? _named(BookingLane lane) => _isParent ? lane.pupil.firstName : null;
+
+  BookingPupil _whoMoves(BookingLane lane) => (isSelf: !_isParent, name: _named(lane), gender: lane.pupil.gender);
 
   // A null [band] clears every band of [modes]; one write either way.
   Future<void> _clear(PresenceGroup group, Iterable<String> modes, {TimeBucket? band, required String done}) async
@@ -1011,17 +1015,17 @@ class _BookingsPageState extends State<BookingsPage>
       return pupilBookedDays(pupil.firstName, _bookedDays(pupil), thisWeek: thisWeek);
     }
 
-    final String week = thisWeek ? 'questa settimana' : 'la settimana prossima';
+    final String week = thisWeek ? tr('questa settimana', 'this week') : tr('la settimana prossima', 'next week');
     final String counts = _pupils.map((pupil) => '${pupil.firstName} ${_bookedDays(pupil)}').join(', ');
 
-    return 'Giorni prenotati $week: $counts';
+    return tr('Giorni prenotati $week: $counts', 'Days booked $week: $counts');
   }
 
   String get _summaryLine
   {
     return [
       if (!_isLoading && !_failed && _pupils.isNotEmpty) _summary,
-      if (!_isNextWeekUnlocked && !_isReadOnly) 'La settimana prossima si sblocca venerdì alle 20:00',
+      if (!_isNextWeekUnlocked && !_isReadOnly) tr('La settimana prossima si sblocca venerdì alle 20:00', 'Next week unlocks on Friday at 20:00'),
     ].join(' · ');
   }
 
@@ -1118,7 +1122,7 @@ class _BookingsPageState extends State<BookingsPage>
   Widget _buildWeekNav({required bool compact, bool dense = false})
   {
     final Widget label = Text(
-      _weekIndex == 0 ? 'Questa settimana' : 'Settimana prossima',
+      _weekIndex == 0 ? tr('Questa settimana', 'This week') : tr('Settimana prossima', 'Next week'),
       maxLines: 1,
       softWrap: false,
       overflow: TextOverflow.ellipsis,
@@ -1313,7 +1317,7 @@ class _BookingsPageState extends State<BookingsPage>
                                 child: DesktopTourTarget(
                                   id: kTourBookingsDays,
                                   child: _hasNoPupils
-                                      ? const Center(
+                                      ? Center(
                                           child: PageTransitionItem(
                                             slot: PageTransitionItem.list,
                                             child: AppEmptyCard(icon: Icons.family_restroom_rounded, message: kNoPupils),

@@ -11,14 +11,20 @@ from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_publication import CalendarPublication
 from app.models.lesson import Lesson
 from app.models.notification import Notification, NotificationKindEnum
-from app.services.notifications import notify, reachable_identities, withdraw
+from app.services.notifications import (
+    Bilingual,
+    notify,
+    reachable_identities,
+    withdraw,
+)
 from app.services.push import PushBatch, joined
 from app.services.role_service import RoleService
 
-_TITLE: Final[str] = (
-    "Ricordati di indossare il braccialetto e di timbrare l'entrata e l'uscita"
+_TITLE: Final[Bilingual] = Bilingual(
+    "Ricordati di indossare il braccialetto e di timbrare l'entrata e l'uscita",
+    "Remember to wear your wristband and to clock in and out",
 )
-_BODY: Final[str] = "Buon lavoro!"
+_BODY: Final[Bilingual] = Bilingual("Buon lavoro!", "Have a good shift!")
 
 _AHEAD: Final[timedelta] = timedelta(minutes=30)
 

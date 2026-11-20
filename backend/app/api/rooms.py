@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import require_role
+from app.core.i18n import tr
 from app.repositories.room_repository import RoomRepository
 from app.schemas.room import RoomCreate, RoomResponse, RoomUpdate
 from app.services.room_service import RoomService
@@ -54,4 +55,4 @@ async def update_room(
 async def delete_room(room_id: int, db: DbSession) -> dict[str, str]:
     await _service(db).delete(room_id)
 
-    return {"detail": "Stanza eliminata"}
+    return {"detail": tr("Stanza eliminata", "Room deleted")}

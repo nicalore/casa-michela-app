@@ -1,3 +1,4 @@
+import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/week_range.dart';
 
@@ -36,6 +37,9 @@ bool isLastCalendarWeek(DateTime weekStart, [DateTime? now])
   return addDays(weekStart, 7).isAfter(calendarHorizon(now));
 }
 
-String beyondHorizonError(DateTime horizon) =>
-    'La data non può essere successiva al 31/12/${horizon.year}: gli orari del prossimo anno si '
-        'potranno impostare da dicembre.';
+String beyondHorizonError(DateTime horizon) => tr(
+  'La data non può essere successiva al 31/12/${horizon.year}: gli orari del prossimo anno si '
+      'potranno impostare da dicembre.',
+  "The date cannot be later than 31/12/${horizon.year}: next year's hours can be set "
+      'from December.',
+);

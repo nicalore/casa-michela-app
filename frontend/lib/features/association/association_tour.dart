@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/language/app_language.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
@@ -35,7 +36,7 @@ final ValueNotifier<bool> associationNoticesShown = ValueNotifier(false);
 final ValueNotifier<String?> associationSection = ValueNotifier(null);
 final ValueNotifier<bool> associationPickerOpen = ValueNotifier(false);
 
-const String _title = 'Associazione';
+String get _title => tr('Associazione', 'Association');
 
 // Bump a version on every change to that tour.
 const Map<String, (String, int)> _mainSeen = {
@@ -73,12 +74,27 @@ bool get _self => ApiService().lastKnownIdentity?.activeRole == 'STUDENT';
 // [opinions]: genders of those the reader gives teacher opinions for; empty if none.
 String _teachersText(List<String?> opinions)
 {
-  const String intro = "In questa pagina trovi tutti i docenti che collaborano con l'Associazione. "
-      'Cliccando su ciascuno di essi puoi visualizzarne alcune informazioni';
+  final String intro = tr(
+    "In questa pagina trovi tutti i docenti che collaborano con l'Associazione. "
+        'Cliccando su ciascuno di essi puoi visualizzarne alcune informazioni',
+    "On this page you'll find all the teachers who work with the Association. "
+        'Click any of them to view some information about them',
+  );
 
   if (opinions.isEmpty)
   {
     return '$intro.';
+  }
+
+  if (isEnglish)
+  {
+    final String who = _self
+        ? 'you'
+        : opinions.length == 1
+            ? (_daughter(opinions.single) ? 'your daughter' : 'your son')
+            : (opinions.every(_daughter) ? 'your daughters' : 'your children');
+
+    return "$intro and, if you wish, say whether $who didn't get on well with them.";
   }
 
   final String gotOn = _self
@@ -94,7 +110,22 @@ String _teachersTopText(List<String?> opinions)
 {
   if (opinions.isEmpty)
   {
-    return 'Puoi ordinare i docenti per nome o cognome e filtrarli per disciplina insegnata.';
+    return tr(
+      'Puoi ordinare i docenti per nome o cognome e filtrarli per disciplina insegnata.',
+      'You can sort the teachers by first name or surname and filter them by the discipline they teach.',
+    );
+  }
+
+  if (isEnglish)
+  {
+    final String byWhom = _self
+        ? ''
+        : opinions.length == 1
+            ? (_daughter(opinions.single) ? ' by your daughter' : ' by your son')
+            : (opinions.every(_daughter) ? ' by your daughters' : ' by your children');
+
+    return 'You can sort the teachers by first name or surname, filter them by the discipline they teach, or show only '
+        'those not liked$byWhom.';
   }
 
   final String whose = _self
@@ -107,18 +138,30 @@ String _teachersTopText(List<String?> opinions)
       'non graditi$whose.';
 }
 
-String _opinionText(List<String?> opinions)
+String _opinionText(List<String?> opinions, String teacher)
 {
   if (_self)
   {
-    return 'Puoi segnalare se preferisci non fare lezione con il docente.';
+    return tr(
+      'Puoi segnalare se preferisci non fare lezione con $teacher.',
+      "You can let us know if you'd rather not have lessons with this teacher.",
+    );
+  }
+
+  if (isEnglish)
+  {
+    final String who = opinions.length == 1
+        ? (_daughter(opinions.single) ? 'your daughter' : 'your son')
+        : (opinions.every(_daughter) ? 'your daughters' : 'your children');
+
+    return "You can let us know if $who would rather not have lessons with this teacher.";
   }
 
   final String who = opinions.length == 1
       ? (_daughter(opinions.single) ? 'tua figlia preferisce' : 'tuo figlio preferisce')
       : (opinions.every(_daughter) ? 'le tue figlie preferiscono' : 'i tuoi figli preferiscono');
 
-  return 'Puoi segnalare se $who non fare lezione con il docente.';
+  return 'Puoi segnalare se $who non fare lezione con $teacher.';
 }
 
 // Tax code of a reading role; null for the administrator, who edits instead.
@@ -151,9 +194,12 @@ void startAssociationTour(BuildContext context, DesktopTour tour)
 }
 
 // Radius = the part's corner + pad / 2; the hole adds the other half, so it stays concentric.
-final DesktopTourStep _variationStep = DesktopTourStep(
+DesktopTourStep get _variationStep => DesktopTourStep(
   targets: const [kTourAssociationVariation],
-  text: "Questo simbolo indica che l'orario per questo giorno è diverso rispetto all'orario standard.",
+  text: tr(
+    "Questo simbolo indica che l'orario per questo giorno è diverso rispetto all'orario standard.",
+    'This symbol means the hours for this day differ from the standard hours.',
+  ),
   sides: _beside,
   // The bare symbol: a round hole.
   pad: 8,
@@ -163,9 +209,12 @@ final DesktopTourStep _variationStep = DesktopTourStep(
   seen: _variationSeen,
 );
 
-final DesktopTourStep _pinnedStep = DesktopTourStep(
+DesktopTourStep get _pinnedStep => DesktopTourStep(
   targets: const [kTourAssociationPinned],
-  text: 'I messaggi fissati in alto sono particolarmente importanti: ti preghiamo di leggerli con attenzione.',
+  text: tr(
+    'I messaggi fissati in alto sono particolarmente importanti: ti preghiamo di leggerli con attenzione.',
+    'The messages pinned at the top are especially important: please read them carefully.',
+  ),
   sides: _below,
   pad: 6,
   radius: 27,
@@ -210,24 +259,33 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
     steps: [
       DesktopTourStep(
         targets: const [kTourAssociationDays],
-        text: "Qui puoi consultare gli orari di apertura dell'Associazione, giorno per giorno.",
+        text: tr(
+          "Qui puoi consultare gli orari di apertura dell'Associazione, giorno per giorno.",
+          "Here you can check the Association's opening hours, day by day.",
+        ),
         sides: _below,
         pad: 8,
         radius: 24,
         reveal: true,
       ),
       _variationStep,
-      const DesktopTourStep(
-        targets: [kTourAssociationWeek],
-        text: 'Puoi scorrere tra le settimane con le frecce, oppure cliccare il calendario per scegliere una settimana '
-            'qualsiasi.',
+      DesktopTourStep(
+        targets: const [kTourAssociationWeek],
+        text: tr(
+          'Puoi scorrere tra le settimane con le frecce, oppure cliccare il calendario per scegliere una settimana '
+              'qualsiasi.',
+          'You can move between weeks with the arrows, or click the calendar to pick any week.',
+        ),
         sides: _belowLeft,
         pad: 6,
         radius: 25,
       ),
-      const DesktopTourStep(
-        targets: [kTourAssociationStandard],
-        text: "Questi sono gli orari di apertura ufficiali dell'Associazione, senza eventuali variazioni.",
+      DesktopTourStep(
+        targets: const [kTourAssociationStandard],
+        text: tr(
+          "Questi sono gli orari di apertura ufficiali dell'Associazione, senza eventuali variazioni.",
+          "These are the Association's official opening hours, without any schedule changes.",
+        ),
         sides: _over,
         pad: 6,
         radius: 35,
@@ -235,8 +293,11 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
       ),
       DesktopTourStep(
         targets: const [kTourAssociationVariations],
-        text: "Queste sono le prossime variazioni rispetto all'orario standard, previste in occasione di festività o "
-            'per altre esigenze.',
+        text: tr(
+          "Queste sono le prossime variazioni rispetto all'orario standard, previste in occasione di festività o "
+              'per altre esigenze.',
+          'These are the upcoming changes to the standard hours, planned for holidays or other needs.',
+        ),
         sides: _over,
         pad: 6,
         radius: 35,
@@ -244,11 +305,14 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
         present: () => _shown(kTourAssociationVariations),
       ),
       if (reader) ...[
-        _click(kTourAssociationToSubjects, 'Clicca «Discipline».', 'subjects'),
+        _click(kTourAssociationToSubjects, tr('Clicca «Discipline».', 'Click “Disciplines”.'), 'subjects'),
         // The cards' list, read once the section opens: the hole waits for it.
         DesktopTourStep(
           targets: const [kTourAssociationSubjects],
-          text: 'In questa pagina trovi tutte le discipline che vengono insegnate in Associazione.',
+          text: tr(
+            'In questa pagina trovi tutte le discipline che vengono insegnate in Associazione.',
+            "On this page you'll find all the disciplines taught at the Association.",
+          ),
           sides: _beside,
           pad: 6,
           radius: 27,
@@ -258,7 +322,10 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
         ),
         DesktopTourStep(
           targets: const [kTourAssociationReport],
-          text: 'Se manca una disciplina che ti interessa, puoi segnalarlo tramite questo bottone.',
+          text: tr(
+            'Se manca una disciplina che ti interessa, puoi segnalarlo tramite questo bottone.',
+            "If a discipline you're interested in is missing, you can report it with this button.",
+          ),
           sides: _over,
           pad: 6,
           radius: 28,
@@ -266,7 +333,7 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
           present: () => _on('subjects'),
           coming: () => true,
         ),
-        _click(kTourAssociationToTeachers, 'Clicca «Docenti».', 'teachers'),
+        _click(kTourAssociationToTeachers, tr('Clicca «Docenti».', 'Click “Teachers”.'), 'teachers'),
         DesktopTourStep(
           targets: const [kTourAssociationTeachers],
           text: _teachersText(opinions),
@@ -289,7 +356,7 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
       ],
       DesktopTourStep(
         targets: const [kTourAssociationToNotices],
-        text: 'Clicca «Comunicazioni e avvisi».',
+        text: tr('Clicca «Comunicazioni e avvisi».', 'Click “Announcements and notices”.'),
         sides: _beside,
         pad: 0,
         radius: 12,
@@ -298,7 +365,10 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
       ),
       DesktopTourStep(
         targets: const [kTourAssociationNotices],
-        text: "Qui puoi leggere tutti i messaggi inviati dal Direttivo dell'Associazione.",
+        text: tr(
+          "Qui puoi leggere tutti i messaggi inviati dal Direttivo dell'Associazione.",
+          "Here you can read all the messages sent by the Association's Board.",
+        ),
         sides: _beside,
         pad: 6,
         radius: 27,
@@ -309,8 +379,12 @@ DesktopTour? associationTour({required ValueChanged<String> show, List<String?> 
       _pinnedStep,
       DesktopTourStep(
         targets: const [kTourAssociationSearch, kTourAssociationFilters],
-        text: 'Puoi ordinare i messaggi dal più recente al meno recente o viceversa, filtrare gli avvisi per una data '
-            'specifica oppure cercarli in base al titolo o al contenuto.',
+        text: tr(
+          'Puoi ordinare i messaggi dal più recente al meno recente o viceversa, filtrare gli avvisi per una data '
+              'specifica oppure cercarli in base al titolo o al contenuto.',
+          'You can sort the messages from newest to oldest or the other way round, filter the notices by a specific '
+              'date or search them by title or content.',
+        ),
         sides: _below,
         pad: 6,
         radius: 28,
@@ -339,14 +413,17 @@ Future<DesktopTour?> associationLateTour() async
 }
 
 // Over the notices' picker; a click on a day picks it and ends the tour.
-final DesktopTour associationPickerTour = DesktopTour(
+DesktopTour get associationPickerTour => DesktopTour(
   slug: 'association.picker',
   title: _title,
   version: _pickerVersion,
   steps: [
     DesktopTourStep(
       targets: const [kTourAssociationPickerDays],
-      text: 'Il pallino sotto una data indica la presenza di un messaggio inviato in quel giorno.',
+      text: tr(
+        'Il pallino sotto una data indica la presenza di un messaggio inviato in quel giorno.',
+        'The dot under a date means a message was sent on that day.',
+      ),
       sides: _beside,
       pad: 6,
       radius: 12,
@@ -358,16 +435,23 @@ final DesktopTour associationPickerTour = DesktopTour(
 );
 
 // First time a parent or student opens a teacher's window; [opinions] as for the page's tour.
-DesktopTour associationTeacherTour({required List<String?> opinions})
+DesktopTour associationTeacherTour({required List<String?> opinions, String? teacherGender})
 {
+  final bool she = teacherGender == 'F';
+  final String theyTeach = switch (teacherGender) { 'F' => 'she teaches', 'M' => 'he teaches', _ => 'they teach' };
+
   return DesktopTour(
     slug: _teacherWindowSeen.$1,
     title: _title,
     version: _teacherWindowSeen.$2,
     steps: [
-      const DesktopTourStep(
-        targets: [kTourAssociationTeacherProfile, kTourAssociationTeacherSubjects],
-        text: 'Da qui puoi vedere la formazione del docente e le discipline che insegna in Associazione.',
+      DesktopTourStep(
+        targets: const [kTourAssociationTeacherProfile, kTourAssociationTeacherSubjects],
+        text: tr(
+          'Da qui puoi vedere la formazione ${she ? 'della docente' : 'del docente'} e le discipline che insegna '
+              'in Associazione.',
+          "From here you can see the teacher's education and the disciplines $theyTeach at the Association.",
+        ),
         sides: _beside,
         pad: 6,
         radius: 31,
@@ -375,7 +459,7 @@ DesktopTour associationTeacherTour({required List<String?> opinions})
       if (opinions.isNotEmpty)
         DesktopTourStep(
           targets: const [kTourAssociationTeacherOpinion],
-          text: _opinionText(opinions),
+          text: _opinionText(opinions, she ? 'la docente' : 'il docente'),
           sides: _beside,
           pad: 6,
           radius: 31,

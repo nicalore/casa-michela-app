@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
@@ -82,15 +83,27 @@ class DashboardBandStatus
     if (isPublished)
     {
       return [
-        DashboardBandFigure(teachers, 'docente convocato', 'docenti convocati'),
-        DashboardBandFigure(students, 'studente', 'studenti'),
-        DashboardBandFigure(lessons, 'lezione', 'lezioni'),
+        DashboardBandFigure(
+          teachers,
+          tr('docente convocato', 'teacher called in'),
+          tr('docenti convocati', 'teachers called in'),
+        ),
+        DashboardBandFigure(students, tr('studente', 'student'), tr('studenti', 'students')),
+        DashboardBandFigure(lessons, tr('lezione', 'lesson'), tr('lezioni', 'lessons')),
       ];
     }
 
     return [
-      DashboardBandFigure(teachers, 'docente disponibile', 'docenti disponibili'),
-      DashboardBandFigure(students, 'studente prenotato', 'studenti prenotati'),
+      DashboardBandFigure(
+        teachers,
+        tr('docente disponibile', 'teacher available'),
+        tr('docenti disponibili', 'teachers available'),
+      ),
+      DashboardBandFigure(
+        students,
+        tr('studente prenotato', 'student booked'),
+        tr('studenti prenotati', 'students booked'),
+      ),
     ];
   }
 }
@@ -215,7 +228,7 @@ class DashboardTodaySection extends StatelessWidget
   {
     return DashboardSectionCard(
       icon: Icons.today_rounded,
-      title: 'Orari e prenotazioni',
+      title: tr('Orari e prenotazioni', 'Hours and bookings'),
       action: DashboardCardNote(formatWeekdayColumnLabel(day)),
       child: LayoutBuilder(
         builder: (context, constraints) => _buildBody(stacked: constraints.maxWidth < kStripStackedBelow),
@@ -240,7 +253,7 @@ class DashboardTodaySection extends StatelessWidget
     if (open == null)
     {
       return Text(
-        'Gli orari di oggi non sono disponibili.',
+        tr('Gli orari di oggi non sono disponibili.', "Today's hours aren't available."),
         textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14.5,

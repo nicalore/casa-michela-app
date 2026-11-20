@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
@@ -106,7 +107,7 @@ class _LoginLayoutState extends State<LoginLayout>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Inserisci nome utente e password per accedere.',
+        message: tr('Inserisci nome utente e password per accedere.', 'Enter your username and password to sign in.'),
         isError: true,
       );
 
@@ -135,9 +136,15 @@ class _LoginLayoutState extends State<LoginLayout>
       // 401 and 423 share a message: revealing a lock would confirm the username exists.
       final message = switch (e.response?.statusCode)
       {
-        401 || 423 => "Nome utente o password non validi. Dopo 5 tentativi errati, l'account verrà bloccato per 20 minuti.",
-        403 => "Account disabilitato. Se ritieni ci sia un errore, contatta l'Associazione.",
-        _ => 'Errore imprevisto. Riprova più tardi.',
+        401 || 423 => tr(
+          "Nome utente o password non validi. Dopo 5 tentativi errati, l'account verrà bloccato per 20 minuti.",
+          'Invalid username or password. After 5 failed attempts the account will be locked for 20 minutes.',
+        ),
+        403 => tr(
+          "Account disabilitato. Se ritieni ci sia un errore, contatta l'Associazione.",
+          'Account disabled. If you think this is a mistake, contact the Association.',
+        ),
+        _ => tr('Errore imprevisto. Riprova più tardi.', 'Unexpected error. Please try again later.'),
       };
 
       CustomSnackBar.show(context: context, message: message, isError: true);
@@ -230,7 +237,7 @@ class _LoginLayoutState extends State<LoginLayout>
   Widget _buildCredentials(bool isNarrow)
   {
     final Widget forgotten = AppGradientButton(
-      label: 'PASSWORD DIMENTICATA?',
+      label: tr('PASSWORD DIMENTICATA?', 'FORGOT PASSWORD?'),
       icon: Icons.lock_reset_rounded,
       gradient: AppTheme.dismissGradient,
       accent: AppTheme.trialVioletText,
@@ -241,7 +248,7 @@ class _LoginLayoutState extends State<LoginLayout>
     );
 
     final Widget enter = AppGradientButton(
-      label: 'ACCEDI',
+      label: tr('ACCEDI', 'SIGN IN'),
       icon: Icons.login_rounded,
       height: _authButtonHeight,
       fontSize: _authButtonFontSize,
@@ -256,10 +263,10 @@ class _LoginLayoutState extends State<LoginLayout>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _labelledField(
-            'Nome utente',
+            tr('Nome utente', 'Username'),
             AppTextField(
               controller: _usernameController,
-              label: 'Nome utente',
+              label: tr('Nome utente', 'Username'),
               showLabel: false,
               hintText: '',
               onSubmitted: (_) => _login(),
@@ -301,15 +308,18 @@ class _LoginLayoutState extends State<LoginLayout>
           TextSpan(
             children: [
               TextSpan(
-                text: 'ATTENZIONE: ',
+                text: tr('ATTENZIONE: ', 'WARNING: '),
                 style: GoogleFonts.plusJakartaSans(
                   fontWeight: FontWeight.w800,
                   color: AppTheme.modifiedAccent,
                 ),
               ),
-              const TextSpan(
-                text: 'applicazione attualmente in sviluppo. '
-                    'Potrebbero verificarsi comportamenti inaspettati.',
+              TextSpan(
+                text: tr(
+                  'applicazione attualmente in sviluppo. '
+                      'Potrebbero verificarsi comportamenti inaspettati.',
+                  'the app is currently in development. Unexpected behaviour may occur.',
+                ),
               ),
             ],
           ),
@@ -377,7 +387,7 @@ class _LoginLayoutState extends State<LoginLayout>
   Widget _buildDenseCredentials(bool minimal)
   {
     final Widget forgotten = AppGradientButton(
-      label: 'PASSWORD DIMENTICATA?',
+      label: tr('PASSWORD DIMENTICATA?', 'FORGOT PASSWORD?'),
       icon: Icons.lock_reset_rounded,
       gradient: AppTheme.dismissGradient,
       accent: AppTheme.trialVioletText,
@@ -388,7 +398,7 @@ class _LoginLayoutState extends State<LoginLayout>
     );
 
     final Widget enter = AppGradientButton(
-      label: 'ACCEDI',
+      label: tr('ACCEDI', 'SIGN IN'),
       icon: Icons.login_rounded,
       height: _denseButtonHeight,
       fontSize: _denseButtonFontSize,
@@ -403,10 +413,10 @@ class _LoginLayoutState extends State<LoginLayout>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _labelledField(
-            'Nome utente',
+            tr('Nome utente', 'Username'),
             AppTextField(
               controller: _usernameController,
-              label: 'Nome utente',
+              label: tr('Nome utente', 'Username'),
               showLabel: false,
               hintText: '',
               onSubmitted: (_) => _login(),
@@ -543,7 +553,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
 
     if (username.isEmpty)
     {
-      CustomSnackBar.show(context: context, message: 'Inserisci il tuo nome utente', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Inserisci il tuo nome utente', 'Enter your username'), isError: true);
       return;
     }
 
@@ -558,7 +568,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
         // Non-committal on purpose: confirming the username exists would leak accounts.
         CustomSnackBar.show(
           context: context,
-          message: 'Se il nome utente è corretto, riceverai un link via email.',
+          message: tr('Se il nome utente è corretto, riceverai un link via email.', "If the username is correct, you'll receive a link by email."),
           isError: false,
         );
 
@@ -571,7 +581,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
       {
         CustomSnackBar.show(
           context: context,
-          message: "Errore durante l'invio. Riprova più tardi.",
+          message: tr("Errore durante l'invio. Riprova più tardi.", "Couldn't send it. Please try again later."),
           isError: true,
         );
       }
@@ -589,12 +599,12 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Accesso',
-      title: 'Recupero password',
+      eyebrow: tr('Accesso', 'Sign-in'),
+      title: tr('Recupero password', 'Password recovery'),
       maxWidth: 560,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'INVIA LINK',
+          label: tr('INVIA LINK', 'SEND LINK'),
           icon: Icons.send_rounded,
           busy: _isSending,
           height: _authButtonHeight,
@@ -606,9 +616,14 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
         AppDialogPill(
           expand: true,
           child: Text(
-            'Inserisci il nome utente associato al tuo account. Se esiste, ti '
-            "invieremo un link di recupero all'indirizzo email registrato.\n\n"
-            "Se non ricordi il tuo nome utente, contatta l'Associazione.",
+            tr(
+              'Inserisci il nome utente associato al tuo account. Se esiste, ti '
+                  "invieremo un link di recupero all'indirizzo email registrato.\n\n"
+                  "Se non ricordi il tuo nome utente, contatta l'Associazione.",
+              "Enter the username linked to your account. If it exists, we'll send a recovery link to the "
+                  'registered email address.\n\n'
+                  "If you don't remember your username, contact the Association.",
+            ),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14.5,
               fontWeight: FontWeight.w500,
@@ -621,7 +636,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
           expand: true,
           child: AppTextField(
             controller: _usernameController,
-            label: 'Nome utente',
+            label: tr('Nome utente', 'Username'),
             hintText: '',
             onSubmitted: (_) => _handleSend(),
             nothingAbove: true,

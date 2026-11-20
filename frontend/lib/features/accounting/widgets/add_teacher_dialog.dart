@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/time_bucket.dart';
@@ -308,7 +309,7 @@ class _AddTeacherDialogState extends State<_AddTeacherDialog>
       endTime: span == null ? null : timeOfDayFromMinutes(span.end),
       windowStartMinutes: start,
       windowEndMinutes: end,
-      trueLabel: 'Sì',
+      trueLabel: tr('Sì', 'Yes'),
       falseLabel: 'No',
       offLabel: kNoneLabel,
       trailing: trailing,
@@ -390,7 +391,7 @@ class _AddTeacherDialogState extends State<_AddTeacherDialog>
                 onCleared: () => _selectTeacher(null),
               ),
               const SizedBox(height: _fieldGap),
-              const AppFieldLabel(kModeLabel),
+              AppFieldLabel(kModeLabel),
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,

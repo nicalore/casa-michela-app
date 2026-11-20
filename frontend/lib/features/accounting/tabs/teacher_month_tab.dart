@@ -531,7 +531,7 @@ class _TeacherMonthTabState extends State<TeacherMonthTab> with DestinationRefre
     if (data.rows.isEmpty)
     {
       return AppEmptyRoom(
-        card: const AppEmptyCard(icon: Icons.event_note_rounded, message: kNoConfirmedHours),
+        card: AppEmptyCard(icon: Icons.event_note_rounded, message: kNoConfirmedHours),
         below: [
           if (data.pending.isNotEmpty)
             ConstrainedBox(

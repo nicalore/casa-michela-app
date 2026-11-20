@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -47,7 +48,7 @@ Widget schoolEnrollmentCard(
       final bool compact = !AppPageDensity.of(context);
 
       return AppCard(
-        title: 'Anno scolastico ${item.startYear}/${item.startYear + 1}',
+        title: tr('Anno scolastico ${item.startYear}/${item.startYear + 1}', 'School year ${item.startYear}/${item.startYear + 1}'),
         compact: compact,
         leading: AppCardBadge(
           icon: isCurrent ? Icons.school_rounded : Icons.history_rounded,
@@ -55,11 +56,11 @@ Widget schoolEnrollmentCard(
         ),
         child: PersonFactsRow(
           facts: [
-            PersonFact('Scuola', item.schoolName, flex: 5),
-            PersonFact('Percorso', item.studyProgramNameOnly, flex: 5),
-            PersonFact('Classe', gradeLabel(item.grade)),
+            PersonFact(tr('Scuola', 'School'), item.schoolName, flex: 5),
+            PersonFact(tr('Percorso', 'Programme'), item.studyProgramNameOnly, flex: 5),
+            PersonFact(tr('Classe', 'Class'), gradeLabel(item.grade)),
             if (showRepeating)
-              PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
+              PersonFact(tr('Ripetente', 'Repeating the year'), repeating ? tr('Sì', 'Yes') : 'No', highlight: repeating),
           ],
         ),
       );
@@ -67,16 +68,18 @@ Widget schoolEnrollmentCard(
   );
 }
 
+// [atLeastOne] replaces the admin's refusal for removing the last year.
 void showEditSchoolsDialog(
   BuildContext context, {
   required PersonItem person,
   required VoidCallback onUpdate,
+  String? atLeastOne,
 })
 {
   showBlurredDialog(
     context: context,
     barrierLabel: 'EditSchools',
-    builder: (context) => _EditSchoolsDialog(person: person, onUpdate: onUpdate),
+    builder: (context) => _EditSchoolsDialog(person: person, onUpdate: onUpdate, atLeastOne: atLeastOne),
   );
 }
 
@@ -115,12 +118,12 @@ class PersonSchoolsTab extends StatelessWidget
     if (current == null && past.isEmpty)
     {
       return AppEmptyRoom(
-        card: const AppEmptyCard(icon: Icons.school_rounded, message: 'Nessun anno scolastico registrato.'),
+        card: AppEmptyCard(icon: Icons.school_rounded, message: tr('Nessun anno scolastico registrato.', 'No school year recorded.')),
         gap: personSectionGap(context),
         below: [
           if (onUpdate case final VoidCallback update)
             AppGradientButton(
-              label: 'MODIFICA ANNI SCOLASTICI',
+              label: tr('MODIFICA ANNI SCOLASTICI', 'EDIT SCHOOL YEARS'),
               icon: Icons.edit_rounded,
               onPressed: () => showEditSchoolsDialog(context, person: person, onUpdate: update),
             ),
@@ -139,7 +142,7 @@ class PersonSchoolsTab extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
                 if (current != null) ...[
-                  const PageHeading('Anno scolastico attuale', large: true),
+                  PageHeading(tr('Anno scolastico attuale', 'Current school year'), large: true),
                   const SizedBox(height: kPageHeadingGap),
                   schoolEnrollmentCard(
                     current,
@@ -150,7 +153,7 @@ class PersonSchoolsTab extends StatelessWidget
                   SizedBox(height: personSectionGap(context)),
                 ],
                 if (past.isNotEmpty) ...[
-                  const PageHeading('Anni scolastici passati', large: true),
+                  PageHeading(tr('Anni scolastici passati', 'Past school years'), large: true),
                   const SizedBox(height: kPageHeadingGap),
                   for (var i = 0; i < past.length; i++) ...[
                     if (i > 0) SizedBox(height: personCardGap(context)),
@@ -166,7 +169,7 @@ class PersonSchoolsTab extends StatelessWidget
                   SizedBox(height: personSectionGap(context)),
                   Center(
                     child: AppGradientButton(
-                      label: 'MODIFICA ANNI SCOLASTICI',
+                      label: tr('MODIFICA ANNI SCOLASTICI', 'EDIT SCHOOL YEARS'),
                       icon: Icons.edit_rounded,
                       onPressed: () => showEditSchoolsDialog(context, person: person, onUpdate: update),
                     ),
@@ -192,8 +195,9 @@ class _EditSchoolsDialog extends StatefulWidget
 {
   final PersonItem person;
   final VoidCallback onUpdate;
+  final String? atLeastOne;
 
-  const _EditSchoolsDialog({required this.person, required this.onUpdate});
+  const _EditSchoolsDialog({required this.person, required this.onUpdate, this.atLeastOne});
 
   @override
   State<_EditSchoolsDialog> createState() => _EditSchoolsDialogState();
@@ -292,6 +296,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
       allPrograms: _allPrograms,
       takenYears: takenSchoolYears(_rows, except: index),
       isEditing: index != null,
+      gender: widget.person.gender,
       initial: index == null
           ? previousSchoolYearOf(_rows)
           : SchoolYearChoice.ofRow(_rows[index]),
@@ -337,7 +342,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
 
       if (!RegExp(r'^\d{4}$').hasMatch(yearText))
       {
-        _errors['year_$i'] = 'Errore';
+        _errors['year_$i'] = tr('Errore', 'Error');
       }
       else
       {
@@ -345,34 +350,34 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
 
         if (year > currentYear)
         {
-          _errors['year_$i'] = 'Anno futuro';
+          _errors['year_$i'] = tr('Anno futuro', 'Future year');
         }
         else if (!seenYears.add(year))
         {
-          _errors['year_$i'] = 'Duplicato';
+          _errors['year_$i'] = tr('Duplicato', 'Duplicate');
         }
       }
 
       if (!row.hasSchool)
       {
-        _errors['school_$i'] = 'Obbligatorio';
+        _errors['school_$i'] = tr('Obbligatorio', 'Required');
       }
 
       if (row.program == null)
       {
-        _errors['program_$i'] = 'Obbligatorio';
+        _errors['program_$i'] = tr('Obbligatorio', 'Required');
       }
 
       if (row.grade == null)
       {
-        _errors['grade_$i'] = 'Obbligatorio';
+        _errors['grade_$i'] = tr('Obbligatorio', 'Required');
       }
     }
 
     return _errors.isEmpty;
   }
 
-  bool get _hasFutureYearError => _errors.values.contains('Anno futuro');
+  bool get _hasFutureYearError => _errors.values.contains(tr('Anno futuro', 'Future year'));
 
   List<Map<String, dynamic>> _buildPayload()
   {
@@ -409,7 +414,10 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Lo studente deve avere almeno un anno scolastico.',
+        message: widget.atLeastOne ??
+            (widget.person.gender == 'F'
+                ? tr('La studentessa deve avere almeno un anno scolastico.', 'The student must have at least one school year.')
+                : tr('Lo studente deve avere almeno un anno scolastico.', 'The student must have at least one school year.')),
         isError: true,
       );
 
@@ -422,8 +430,8 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
       CustomSnackBar.show(
         context: context,
         message: _hasFutureYearError
-            ? 'Non è possibile inserire iscrizioni per anni scolastici futuri.'
-            : 'Correggi gli errori prima di salvare.',
+            ? tr('Non è possibile inserire iscrizioni per anni scolastici futuri.', "You can't enter enrolments for future school years.")
+            : tr('Correggi gli errori prima di salvare.', 'Fix the errors before saving.'),
         isError: true,
       );
 
@@ -445,7 +453,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Anni scolastici aggiornati con successo!',
+          message: tr('Anni scolastici aggiornati con successo!', 'School years updated successfully!'),
           isError: false,
         );
 
@@ -488,12 +496,12 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Scuola',
-      title: 'Modifica anni scolastici',
+      eyebrow: tr('Scuola', 'School'),
+      title: tr('Modifica anni scolastici', 'Edit school years'),
       maxWidth: kSchoolYearsDialogWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _isSaving,
           height: kPersonDialogButtonHeight,
@@ -519,7 +527,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const AppFieldLabel('Anni scolastici'),
+                    AppFieldLabel(tr('Anni scolastici', 'School years')),
                     const SizedBox(height: 12),
                     CardScrollArea(
                       child: Column(
@@ -531,7 +539,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    AppAddRowButton(label: 'AGGIUNGI ANNO', onTap: () => _openWizard()),
+                    AppAddRowButton(label: tr('AGGIUNGI ANNO', 'ADD YEAR'), onTap: () => _openWizard()),
                   ],
                 ),
         ),

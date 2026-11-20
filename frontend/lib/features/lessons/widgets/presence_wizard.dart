@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -169,7 +170,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   final Map<String, _Answers> _answersByGroup = {};
 
-  static const List<String> _subjectCategoryLabels = kSubjectCategoryLabels;
+  static List<String> get _subjectCategoryLabels => kSubjectCategoryLabels;
 
   static const int _ministryCategory = 0;
   static const int _disciplineCategory = 1;
@@ -303,11 +304,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   String get _whose
   {
-    return switch (_selectedStudent)
-    {
-      final student? => 'di ${student.firstName}',
-      null => 'dello studente',
-    };
+    return whoseLabel(_selectedStudent?.firstName);
   }
 
   List<MinistrySubjectItem> get _filteredMinistrySubjects
@@ -883,7 +880,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       case _Step.who:
         if (_selectedStudentTaxCode == null)
         {
-          return 'Scegli lo studente per andare avanti.';
+          return tr('Scegli lo studente per andare avanti.', 'Choose the student to continue.');
         }
 
         if (_days.isEmpty)
@@ -894,7 +891,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       case _Step.modes:
         if (_effectiveModes(card.group!).isEmpty)
         {
-          return 'Scegli almeno una modalità per andare avanti.';
+          return tr('Scegli almeno una modalità per andare avanti.', 'Choose at least one mode to continue.');
         }
 
       case _Step.hours:
@@ -1014,7 +1011,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   {
     if (_selectedStudentTaxCode == null)
     {
-      return 'Seleziona uno studente.';
+      return tr('Seleziona uno studente.', 'Select a student.');
     }
 
     if (_days.isEmpty)
@@ -1399,8 +1396,8 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AutocompleteField<String>(
-          label: 'Studente',
-          hint: 'Cerca studente per nome...',
+          label: tr('Studente', 'Student'),
+          hint: tr('Cerca studente per nome...', 'Search student by name...'),
           icon: null,
           options: studentOptions,
           value: _selectedStudentTaxCode,
@@ -1426,7 +1423,10 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.students.length > 1 && student != null) ...[
-          WizardFact(label: 'Studente', value: '${student.firstName} ${student.lastName}'),
+          WizardFact(
+            label: tr(student.gender == 'F' ? 'Studentessa' : 'Studente', 'Student'),
+            value: '${student.firstName} ${student.lastName}',
+          ),
           const SizedBox(height: 20),
         ],
         _buildDayField(),
@@ -1441,9 +1441,15 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(flex: 3, child: WizardFact(label: 'Studente', value: presence.student.fullName)),
+        Expanded(
+          flex: 3,
+          child: WizardFact(
+            label: tr(_selectedStudent?.gender == 'F' ? 'Studentessa' : 'Studente', 'Student'),
+            value: presence.student.fullName,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(flex: 2, child: WizardFact(label: 'Giornata', value: formatAvailableDayLabel(presence.date))),
+        Expanded(flex: 2, child: WizardFact(label: tr('Giornata', 'Day'), value: formatAvailableDayLabel(presence.date))),
       ],
     );
   }
@@ -1460,7 +1466,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     return AppDialogPill(
       expand: true,
       child: WizardFact(
-        label: group.days.length == 1 ? 'Giornata' : 'Giornate',
+        label: group.days.length == 1 ? tr('Giornata', 'Day') : tr('Giornate', 'Days'),
         value: group.days.map(formatAvailableDayLabel).join(', '),
         maxLines: null,
       ),
@@ -1531,7 +1537,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   {
     if (_selectedStudentTaxCode == null)
     {
-      return _buildHint('Scegli prima lo studente.');
+      return _buildHint(tr('Scegli prima lo studente.', 'Choose the student first.'));
     }
 
     final category = _subjectCategory[mode] ?? _ministryCategory;
@@ -1599,7 +1605,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           ),
           const SizedBox(height: 18),
         ],
-        const Padding(padding: EdgeInsets.only(bottom: 8), child: AppFieldLabel(kBandNotesLabel)),
+        Padding(padding: const EdgeInsets.only(bottom: 8), child: AppFieldLabel(kBandNotesLabel)),
         AppTextField(
           controller: _bandNoteController(group, mode, band),
           label: kBandNotesLabel,
@@ -2221,9 +2227,12 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       _Step.who => _isOwn || _isSelf
           ? kOwnBookingDaysGuide
           : (
-              question: 'Per chi e quando?',
-              hint: 'Indica lo studente per cui stai effettuando la prenotazione e i giorni '
-                  'da prenotare. Puoi indicare anche più giornate.',
+              question: tr('Per chi e quando?', 'For whom and when?'),
+              hint: tr(
+                'Indica lo studente per cui stai effettuando la prenotazione e i giorni '
+                    'da prenotare. Puoi indicare anche più giornate.',
+                "Choose the student you're booking for and the days to book. You can choose more than one.",
+              ),
             ),
       _Step.modes => presenceModesGuide(isSelf: _isSelf, name: name, named: named),
       _Step.hours => presenceHoursGuide(card.mode!, isSelf: _isSelf, name: name, named: named, female: female),
@@ -2271,18 +2280,18 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
     return AppDialogStack(
       eyebrow: cards.length > 1
-          ? 'Passo ${_cardIndex + 1} di ${cards.length}'
+          ? tr('Passo ${_cardIndex + 1} di ${cards.length}', 'Step ${_cardIndex + 1} of ${cards.length}')
           : (_isEditing ? formatAvailableDayLabel(widget.defaultDate) : ''),
       title: _isOwn
           ? (_isEditing ? kEditBookingTitle : kNewBookingTitle)
-          : (_isEditing ? 'Modifica richiesta' : 'Nuova richiesta'),
+          : (_isEditing ? tr('Modifica richiesta', 'Edit request') : tr('Nuova richiesta', 'New request')),
       onClose: _closeDialog,
       maxWidth: _stackMaxWidth,
       footer: AppDialogFooter.single(
         DesktopTourTarget(
           id: _toured ? kTourBookingsWizardSave : null,
           child: AppGradientButton(
-            label: _isEditing ? 'SALVA' : 'CREA',
+            label: _isEditing ? tr('SALVA', 'SAVE') : tr('CREA', 'CREATE'),
             icon: Icons.check_rounded,
             busy: _isSaving,
             height: _dialogButtonHeight,

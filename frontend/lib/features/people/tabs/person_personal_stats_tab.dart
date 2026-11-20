@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart' show formatAmount;
@@ -44,18 +45,18 @@ const double _appreciationWrapBelow = 400;
 const int kRankingLimit = 10;
 
 // Shared with the mobile cards.
-const String kPupilStatsTitle = 'Presenze e lezioni';
-const String kTeacherStatsTitle = 'Disponibilità e lezioni';
-const String kTopTeachersTitle = '$kRankingLimit docenti con più ore';
-const String kTaughtDisciplinesTitle = '$kRankingLimit discipline più insegnate';
-const String kTopStudentsTitle = '$kRankingLimit studenti più seguiti';
-const String kAvailabilityTotalLabel = 'Disponibilità nel periodo';
-const String kLessonHoursLabel = 'Ore di lezione nel periodo';
-const String kAvailabilityTrendTitle = 'Disponibilità per mese, ultimi 12 mesi';
-const String kLessonTrendTitle = 'Ore di lezione per mese, ultimi 12 mesi';
-const String kGrossPayLabel = 'Paga lorda nel periodo';
-const String kPaidHoursLabel = 'Ore pagate nel periodo';
-const String kPayTrendTitle = 'Paga lorda per mese, ultimi 12 mesi';
+String get kPupilStatsTitle => tr('Presenze e lezioni', 'Attendance and lessons');
+String get kTeacherStatsTitle => tr('Disponibilità e lezioni', 'Availability and lessons');
+String get kTopTeachersTitle => tr('$kRankingLimit docenti con più ore', '$kRankingLimit teachers with the most hours');
+String get kTaughtDisciplinesTitle => tr('$kRankingLimit discipline più insegnate', '$kRankingLimit most taught disciplines');
+String get kTopStudentsTitle => tr('$kRankingLimit studenti più seguiti', '$kRankingLimit most followed students');
+String get kAvailabilityTotalLabel => tr('Disponibilità nel periodo', 'Availability in the period');
+String get kLessonHoursLabel => tr('Ore di lezione nel periodo', 'Lesson hours in the period');
+String get kAvailabilityTrendTitle => tr('Disponibilità per mese, ultimi 12 mesi', 'Availability per month, last 12 months');
+String get kLessonTrendTitle => tr('Ore di lezione per mese, ultimi 12 mesi', 'Lesson hours per month, last 12 months');
+String get kGrossPayLabel => tr('Paga lorda nel periodo', 'Gross pay in the period');
+String get kPaidHoursLabel => tr('Ore pagate nel periodo', 'Paid hours in the period');
+String get kPayTrendTitle => tr('Paga lorda per mese, ultimi 12 mesi', 'Gross pay per month, last 12 months');
 
 // Each chart of the teacher card with its scale; pay only for who was paid some month.
 List<({List<MemberTrendItem> data, TrendScale scale})> teacherTrends(TeacherPersonalStatisticsItem statistics)
@@ -81,6 +82,25 @@ String paidHoursText(TeacherPersonalStatisticsItem statistics)
 }
 
 String subjectHoursTitle(RequestedSubjectKind kind) => '$kRankingLimit ${kind.hoursTitle}';
+
+// 1st, 2nd, 3rd, 4th... 11th, 12th, 13th.
+String _ordinal(int rank)
+{
+  final int lastTwo = rank % 100;
+
+  if (lastTwo >= 11 && lastTwo <= 13)
+  {
+    return '${rank}th';
+  }
+
+  return switch (rank % 10)
+  {
+    1 => '${rank}st',
+    2 => '${rank}nd',
+    3 => '${rank}rd',
+    _ => '${rank}th',
+  };
+}
 
 class PersonPersonalStatsTab extends StatefulWidget
 {
@@ -356,7 +376,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
     if (cards.isEmpty)
     {
       return AppEmptyRoom(
-        card: const AppEmptyCard(icon: Icons.insights_rounded, message: 'Nessun dato'),
+        card: AppEmptyCard(icon: Icons.insights_rounded, message: tr('Nessun dato', 'No data')),
         below: [?footer],
       );
     }
@@ -403,23 +423,23 @@ class _Figure extends StatelessWidget
 
 String presenceDaysPerWeekLabel({required bool online})
 {
-  return online ? 'Giorni di presenza online a settimana' : 'Giorni di presenza a settimana';
+  return online ? tr('Giorni di presenza online a settimana', 'Online attendance days per week') : tr('Giorni di presenza a settimana', 'Attendance days per week');
 }
 
 String presenceTrendTitle({required bool online})
 {
-  return online ? 'Presenze online per mese, ultimi 12 mesi' : 'Presenze per mese, ultimi 12 mesi';
+  return online ? tr('Presenze online per mese, ultimi 12 mesi', 'Online attendance per month, last 12 months') : tr('Presenze per mese, ultimi 12 mesi', 'Attendance per month, last 12 months');
 }
 
 // The pupil card names the online mode, as its presence figures do.
 String pupilLessonHoursLabel({required bool online})
 {
-  return online ? 'Ore di lezione online nel periodo' : kLessonHoursLabel;
+  return online ? tr('Ore di lezione online nel periodo', 'Online lesson hours in the period') : kLessonHoursLabel;
 }
 
 String pupilLessonTrendTitle({required bool online})
 {
-  return online ? 'Ore di lezione online per mese, ultimi 12 mesi' : kLessonTrendTitle;
+  return online ? tr('Ore di lezione online per mese, ultimi 12 mesi', 'Online lesson hours per month, last 12 months') : kLessonTrendTitle;
 }
 
 List<({List<MemberTrendItem> data, TrendScale scale})> pupilTrends(StudentPersonalStatisticsItem statistics)
@@ -459,10 +479,14 @@ List<String> availabilityShortfalls(TeacherPersonalStatisticsItem statistics, {r
 {
   return [
     if (statistics.shortWeekCount > 0)
-      'Settimane con meno di 2 disponibilità: ${statistics.shortWeekCount}.',
+      tr('Settimane con meno di 2 disponibilità: ${statistics.shortWeekCount}.', 'Weeks with fewer than 2 availabilities: ${statistics.shortWeekCount}.'),
     if (statistics.isBelowMonthlyThreshold)
-      'Nel mese selezionato ${forOwner ? 'hai' : 'ha'} dato meno di 9 disponibilità '
-          '(${statistics.totalAvailabilities}).',
+      tr(
+        'Nel mese selezionato ${forOwner ? 'hai' : 'ha'} dato meno di 9 disponibilità '
+            '(${statistics.totalAvailabilities}).',
+        'In the selected month ${forOwner ? 'you' : 'they'} gave fewer than 9 availabilities '
+            '(${statistics.totalAvailabilities}).',
+      ),
   ];
 }
 
@@ -596,7 +620,7 @@ class PersonalAvailabilityCard extends StatelessWidget
               Row(
                 children: [
                   _Figure(
-                    label: 'Disponibilità a settimana',
+                    label: tr('Disponibilità a settimana', 'Availability per week'),
                     value: statistics.weeklyAverage.toStringAsFixed(1),
                   ),
                   const StatDivider(),
@@ -612,11 +636,11 @@ class PersonalAvailabilityCard extends StatelessWidget
                 ],
               ),
               StatPartDivider(color: _sectionDivider),
-              const StatSectionTitle(kAvailabilityTrendTitle),
+              StatSectionTitle(kAvailabilityTrendTitle),
               SizedBox(height: metrics.titleGap),
               _personalTrend(context, period, statistics.monthlyTrend, TrendScale.count, axis),
               StatPartDivider(color: _sectionDivider),
-              const StatSectionTitle(kLessonTrendTitle),
+              StatSectionTitle(kLessonTrendTitle),
               SizedBox(height: metrics.titleGap),
               _personalTrend(context, period, statistics.monthlyLessonMinutes, TrendScale.minutes, axis),
               if (statistics.hasPay) ...[
@@ -629,7 +653,7 @@ class PersonalAvailabilityCard extends StatelessWidget
                   ],
                 ),
                 StatPartDivider(color: _sectionDivider),
-                const StatSectionTitle(kPayTrendTitle),
+                StatSectionTitle(kPayTrendTitle),
                 SizedBox(height: metrics.titleGap),
                 _personalTrend(context, period, statistics.monthlyPay, TrendScale.cents, axis, bars: true),
               ],
@@ -684,7 +708,7 @@ class PersonalAppreciationCard extends StatelessWidget
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        rank == null ? 'Non in classifica' : '$rank° in classifica',
+        rank == null ? tr('Non in classifica', 'Not ranked') : tr('$rank° in classifica', '${_ordinal(rank)} in the ranking'),
         maxLines: 1,
         style: GoogleFonts.plusJakartaSans(
           fontSize: dense ? 13 : 14,
@@ -709,7 +733,7 @@ class PersonalAppreciationCard extends StatelessWidget
   // Dense, the score and two centred thirds while they fit; then place and thumbs at their own width, then under the score.
   Widget _denseFigures(BuildContext context)
   {
-    final Widget score = StatFigure(label: 'Punteggio', value: formatAppreciationScore(statistics.score));
+    final Widget score = StatFigure(label: tr('Punteggio', 'Score'), value: formatAppreciationScore(statistics.score));
 
     return LayoutBuilder(
       builder: (context, constraints)
@@ -761,7 +785,7 @@ class PersonalAppreciationCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppCard(
-      title: 'Gradimento',
+      title: tr('Gradimento', 'Appreciation'),
       selectable: false,
       leading: const AppCardBadge(icon: Icons.emoji_events_rounded),
       trailingFit: AppCardTrailing.wrapping,
@@ -774,7 +798,7 @@ class PersonalAppreciationCard extends StatelessWidget
             : Row(
                 children: [
                   _Figure(
-                    label: 'Punteggio',
+                    label: tr('Punteggio', 'Score'),
                     value: formatAppreciationScore(statistics.score),
                   ),
                   const StatDivider(),
@@ -866,7 +890,7 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
                 ),
                 const StatDivider(),
                 _Figure(
-                  label: 'Giorni totali nel periodo',
+                  label: tr('Giorni totali nel periodo', 'Total days in the period'),
                   value: '${statistics.totalPresenceDays}',
                 ),
                 const StatDivider(),

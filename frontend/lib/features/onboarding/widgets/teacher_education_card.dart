@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../people/models/person_item.dart';
@@ -80,23 +81,23 @@ class _TeacherEducationCardState extends State<TeacherEducationCard>
   Widget build(BuildContext context)
   {
     return AppCard(
-      title: 'I tuoi studi',
+      title: tr('I tuoi studi', 'Your education'),
       leading: const AppCardBadge(icon: Icons.school_rounded),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppTextField(
             controller: _school,
-            label: 'Studi scolastici',
-            hintText: 'Es. Liceo scientifico',
+            label: tr('Studi scolastici', 'School education'),
+            hintText: tr('Es. Liceo scientifico', 'E.g. Scientific high school'),
             maxLength: FieldLimits.education,
             textCapitalization: TextCapitalization.sentences,
           ),
           if (!_atSchool)
             AppTextField(
               controller: _university,
-              label: 'Studi universitari',
-              hintText: 'Es. Ingegneria informatica',
+              label: tr('Studi universitari', 'University education'),
+              hintText: tr('Es. Ingegneria informatica', 'E.g. Computer engineering'),
               maxLength: FieldLimits.education,
               textCapitalization: TextCapitalization.sentences,
             ),

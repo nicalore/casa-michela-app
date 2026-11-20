@@ -3,12 +3,14 @@ from typing import Final
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.api.current_account import CurrentAccount
 from app.api.dependencies import DbSession
+from app.core.i18n import tr
 from app.core.labels import role_label
 from app.models.administrator import AdministratorRoleEnum
-from app.models.person import Person
+from app.models.person import GenderEnum, Person
 from app.models.report import Report, ReportRead
 from app.schemas.report import ReportCorrection, ReportResponse
 from app.services import push
@@ -20,11 +22,21 @@ from app.services.reports import (
     resolved_mail,
 )
 
-_NOT_A_READER_ERROR: Final[str] = "Non ricevi segnalazioni."
-_REPORT_NOT_FOUND_ERROR: Final[str] = "Segnalazione non trovata."
-_REPORT_RESOLVED_ERROR: Final[str] = "Questa segnalazione è già stata risolta."
-_REPORT_RESOLVED_BY_ERROR: Final[str] = (
-    "Questa segnalazione è già stata risolta da {full_name}."
+_NOT_A_READER_ERROR: Final[tuple[str, str]] = (
+    "Non ricevi segnalazioni.",
+    "You don't receive reports.",
+)
+_REPORT_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Segnalazione non trovata.",
+    "Report not found.",
+)
+_REPORT_RESOLVED_ERROR: Final[tuple[str, str]] = (
+    "Questa segnalazione è già stata risolta.",
+    "This report has already been resolved.",
+)
+_REPORT_RESOLVED_BY_ERROR: Final[tuple[str, str]] = (
+    "Questa segnalazione è già stata risolta da {full_name}.",
+    "This report has already been resolved by {full_name}.",
 )
 
 # The reports a member sent in, for those who receive them by email.
@@ -37,7 +49,7 @@ def _role_or_403(account: CurrentAccount) -> AdministratorRoleEnum:
     if role is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_NOT_A_READER_ERROR,
+            detail=tr(*_NOT_A_READER_ERROR),
         )
 
     return role
@@ -81,7 +93,12 @@ async def _responses(
             reporter_name=_full_name(people[report.reporter_tax_code]) or "",
             reporter_email=people[report.reporter_tax_code].email,
             reporter_role=(
-                role_label(report.reporter_role) if report.reporter_role else None
+                role_label(
+                    report.reporter_role,
+                    feminine=people[report.reporter_tax_code].gender == GenderEnum.F,
+                )
+                if report.reporter_role
+                else None
             ),
             person_tax_code=report.person_tax_code,
             person_name=_full_name(people.get(report.person_tax_code or "")),
@@ -115,7 +132,7 @@ async def _unresolved_report(
     if report is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_REPORT_NOT_FOUND_ERROR,
+            detail=tr(*_REPORT_NOT_FOUND_ERROR),
         )
 
     if report.resolved_at is not None:
@@ -128,9 +145,9 @@ async def _unresolved_report(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                _REPORT_RESOLVED_ERROR
+                tr(*_REPORT_RESOLVED_ERROR)
                 if resolver is None
-                else _REPORT_RESOLVED_BY_ERROR.format(full_name=resolver)
+                else tr(*_REPORT_RESOLVED_BY_ERROR).format(full_name=resolver)
             ),
         )
 
@@ -188,7 +205,12 @@ async def resolve(
         _role_or_403(current_account),
         lock=True,
     )
-    reporter = await db.get_one(Person, report.reporter_tax_code)
+    # With the account, so the mail is worded in the reporter's language.
+    reporter = await db.get_one(
+        Person,
+        report.reporter_tax_code,
+        options=[selectinload(Person.account)],
+    )
     mail = resolved_mail(report, reporter)
     batch = await resolve_report(db, report, current_account.tax_code)
     await db.commit()

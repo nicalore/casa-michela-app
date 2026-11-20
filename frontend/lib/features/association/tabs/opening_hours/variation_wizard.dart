@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/field_limits.dart';
+import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/time_bucket.dart';
@@ -36,7 +37,11 @@ const double _stackMaxWidth = _wizardMaxWidth + 2 * (AppCarouselFrame.arrowSize 
 // In the order the tabs show them.
 enum _Change { unchanged, closed, varied }
 
-const List<String> _changeLabels = ['Invariato', 'Chiuso', 'Orari diversi'];
+List<String> get _changeLabels => [
+  tr('Invariato', 'Unchanged'),
+  tr('Chiuso', 'Closed'),
+  tr('Orari diversi', 'Different hours'),
+];
 
 class VariationWizard extends StatefulWidget
 {
@@ -255,13 +260,13 @@ class _VariationWizardState extends State<VariationWizard>
 
     if (!isValidDateString(fromDate))
     {
-      CustomSnackBar.show(context: context, message: 'Inserisci una data di inizio valida.', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Inserisci una data di inizio valida.', 'Enter a valid start date.'), isError: true);
       return false;
     }
 
     if (!isValidDateString(toDate))
     {
-      CustomSnackBar.show(context: context, message: 'Inserisci una data di fine valida.', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Inserisci una data di fine valida.', 'Enter a valid end date.'), isError: true);
       return false;
     }
 
@@ -269,7 +274,10 @@ class _VariationWizardState extends State<VariationWizard>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'La data di fine deve essere uguale o successiva alla data di inizio.',
+        message: tr(
+          'La data di fine deve essere uguale o successiva alla data di inizio.',
+          'The end date must be the same as or later than the start date.',
+        ),
         isError: true,
       );
       return false;
@@ -306,8 +314,11 @@ class _VariationWizardState extends State<VariationWizard>
       CustomSnackBar.show(
         context: context,
         message: _dates.length == 1
-            ? 'Questi sono già gli orari standard del giorno scelto.'
-            : 'Questi sono già gli orari standard di tutti i giorni scelti.',
+            ? tr('Questi sono già gli orari standard del giorno scelto.', 'These are already the standard hours of the chosen day.')
+            : tr(
+                'Questi sono già gli orari standard di tutti i giorni scelti.',
+                'These are already the standard hours of all the chosen days.',
+              ),
         isError: true,
       );
 
@@ -405,7 +416,9 @@ class _VariationWizardState extends State<VariationWizard>
     final closes = varied.values.any((bands) => bands.isEmpty);
 
     // Asked once for the whole save.
-    final confirmation = LossConfirmation(confirmLabel: closes ? 'CHIUDI COMUNQUE' : 'SALVA COMUNQUE');
+    final confirmation = LossConfirmation(
+      confirmLabel: closes ? tr('CHIUDI COMUNQUE', 'CLOSE ANYWAY') : tr('SALVA COMUNQUE', 'SAVE ANYWAY'),
+    );
 
     for (final (mode, from, to) in _restorations(dates.first, dates.last))
     {
@@ -433,7 +446,10 @@ class _VariationWizardState extends State<VariationWizard>
           setState(() => _isSaving = false);
           CustomSnackBar.show(
             context: context,
-            message: 'Impossibile aggiornare i giorni rimossi dalla variazione. Riprova.',
+            message: tr(
+              'Impossibile aggiornare i giorni rimossi dalla variazione. Riprova.',
+              "Couldn't update the days removed from the schedule change. Try again.",
+            ),
             isError: true,
           );
         }
@@ -508,18 +524,32 @@ class _VariationWizardState extends State<VariationWizard>
 
     if (errors.isNotEmpty)
     {
-      message = '${written.length}/${dates.length} giorni salvati, ${errors.length} operazioni non riuscite.';
+      message = tr(
+        '${written.length}/${dates.length} giorni salvati, ${errors.length} operazioni non riuscite.',
+        '${written.length}/${dates.length} days saved, ${errors.length} operations failed.',
+      );
     }
     else if (varied.isEmpty)
     {
-      message = 'Variazione eliminata.';
+      message = tr('Variazione eliminata.', 'Schedule change deleted.');
     }
     else
     {
       final closesAll = varied.values.every((bands) => bands.isEmpty);
-      final action = _isEditing ? 'Variazione' : (closesAll ? 'Chiusura' : 'Apertura');
+      final int days = written.length;
 
-      message = '$action applicata a ${written.length} giorn${written.length == 1 ? 'o' : 'i'}.';
+      if (isEnglish)
+      {
+        final action = _isEditing ? 'Schedule change' : (closesAll ? 'Closing' : 'Opening');
+
+        message = '$action applied to $days ${days == 1 ? 'day' : 'days'}.';
+      }
+      else
+      {
+        final action = _isEditing ? 'Variazione' : (closesAll ? 'Chiusura' : 'Apertura');
+
+        message = '$action applicata a $days giorn${days == 1 ? 'o' : 'i'}.';
+      }
     }
 
     CustomSnackBar.show(context: context, message: message, isError: errors.isNotEmpty);
@@ -542,19 +572,19 @@ class _VariationWizardState extends State<VariationWizard>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: HoursDateField(label: 'Dal', controller: _fromCtrl, onChanged: _onFromChanged),
+              child: HoursDateField(label: tr('Dal', 'From'), controller: _fromCtrl, onChanged: _onFromChanged),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: HoursDateField(label: 'Al', controller: _toCtrl, onChanged: (_) => _toTouched = true),
+              child: HoursDateField(label: tr('Al', 'To'), controller: _toCtrl, onChanged: (_) => _toTouched = true),
             ),
           ],
         ),
         const SizedBox(height: 8),
         AppTextField(
           controller: _noteCtrl,
-          label: 'Motivazione (opzionale)',
-          hintText: 'Es. Riunione',
+          label: tr('Motivazione (opzionale)', 'Reason (optional)'),
+          hintText: tr('Es. Riunione', 'E.g. Meeting'),
           maxLength: FieldLimits.notes,
           textCapitalization: TextCapitalization.sentences,
         ),
@@ -596,7 +626,7 @@ class _VariationWizardState extends State<VariationWizard>
     return AppDialogPill(
       expand: true,
       child: WizardFact(
-        label: dates.length == 1 ? 'Giornata' : 'Giornate',
+        label: dates.length == 1 ? tr('Giornata', 'Day') : tr('Giornate', 'Days'),
         value: dates.length == 1 ? formatWeekdayColumnLabel(dates.first) : formatDateSpan(dates.first, dates.last),
       ),
     );
@@ -606,14 +636,19 @@ class _VariationWizardState extends State<VariationWizard>
   {
     if (_onAskedCard)
     {
-      return const PersonEditGuide(
-        question: 'Quando e perché?',
-        hint: 'Indica il giorno o i giorni della variazione e, se vuoi, il motivo.',
+      return PersonEditGuide(
+        question: tr('Quando e perché?', 'When and why?'),
+        hint: tr(
+          'Indica il giorno o i giorni della variazione e, se vuoi, il motivo.',
+          'Give the day or days of the schedule change and, if you like, the reason.',
+        ),
       );
     }
 
     return PersonEditGuide(
-      question: _shownMode == kPresenceMode ? 'Cosa cambia in presenza?' : 'Cosa cambia online?',
+      question: _shownMode == kPresenceMode
+          ? tr('Cosa cambia in presenza?', 'What changes in person?')
+          : tr('Cosa cambia online?', 'What changes online?'),
     );
   }
 
@@ -621,14 +656,14 @@ class _VariationWizardState extends State<VariationWizard>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: _isEditing ? 'Variazione' : 'Chiusura o apertura straordinaria',
-      title: _isEditing ? 'Modifica variazione' : 'Crea variazione',
+      eyebrow: _isEditing ? tr('Variazione', 'Schedule change') : tr('Chiusura o apertura straordinaria', 'Special closing or opening'),
+      title: _isEditing ? tr('Modifica variazione', 'Edit schedule change') : tr('Crea variazione', 'Create schedule change'),
       shrinkTitle: true,
       onClose: () => Navigator.of(context).pop(),
       maxWidth: _stackMaxWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _isSaving,
           height: _dialogButtonHeight,

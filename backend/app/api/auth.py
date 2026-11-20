@@ -25,6 +25,7 @@ from app.core.client_device import (
     ClientDevice,
     describe_client,
 )
+from app.core.i18n import tr
 from app.core.password_policy import PasswordPolicyError
 from app.core.storage import discard_profile_image, store_profile_image
 from app.models.account import Account
@@ -34,6 +35,7 @@ from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.schemas.auth.active_role_request import ActiveRoleRequest
 from app.schemas.auth.change_password_request import ChangePasswordRequest
 from app.schemas.auth.colour_theme_request import ColourThemeRequest
+from app.schemas.auth.language_request import LanguageRequest
 from app.schemas.auth.login_request import LoginRequest
 from app.schemas.auth.login_response import LoginResponse
 from app.schemas.auth.logout_request import LogoutRequest
@@ -80,39 +82,78 @@ _ALLOWED_IMAGE_TYPES: Final[frozenset[str]] = frozenset(
     }
 )
 
-_INVALID_CREDENTIALS_ERROR: Final[str] = "Nome utente o password non validi"
-_ACCOUNT_DISABLED_ERROR: Final[str] = "Account disabilitato"
-_ACCOUNT_LOCKED_ERROR: Final[str] = (
-    "Account temporaneamente bloccato fino al {locked_until}"
+_INVALID_CREDENTIALS_ERROR: Final[tuple[str, str]] = (
+    "Nome utente o password non validi",
+    "Invalid username or password",
 )
-_INVALID_REFRESH_TOKEN_ERROR: Final[str] = "Token di sessione non valido"
+_ACCOUNT_DISABLED_ERROR: Final[tuple[str, str]] = (
+    "Account disabilitato",
+    "Account disabled",
+)
+_ACCOUNT_LOCKED_ERROR: Final[tuple[str, str]] = (
+    "Account temporaneamente bloccato fino al {locked_until}",
+    "Account temporarily locked until {locked_until}",
+)
+_INVALID_REFRESH_TOKEN_ERROR: Final[tuple[str, str]] = (
+    "Token di sessione non valido",
+    "Invalid session token",
+)
 # Mirrored by frontend/lib/services/api_service.dart.
 _PASSWORD_CHANGE_EXPIRED_CODE: Final[str] = "PASSWORD_CHANGE_EXPIRED"
-_CURRENT_SESSION_ERROR: Final[str] = "La sessione in uso si chiude con l'uscita"
-_SESSION_NOT_FOUND_ERROR: Final[str] = "Sessione non trovata o già disattivata"
-_UNKNOWN_CURRENT_SESSION_ERROR: Final[str] = (
-    "Sessione in uso non riconosciuta: esci e accedi di nuovo"
+_CURRENT_SESSION_ERROR: Final[tuple[str, str]] = (
+    "La sessione in uso si chiude con l'uscita",
+    "The current session is closed by signing out",
+)
+_SESSION_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Sessione non trovata o già disattivata",
+    "Session not found or already turned off",
+)
+_UNKNOWN_CURRENT_SESSION_ERROR: Final[tuple[str, str]] = (
+    "Sessione in uso non riconosciuta: esci e accedi di nuovo",
+    "Current session not recognised: sign out and sign in again",
 )
 
-_ROLE_NOT_AVAILABLE_ERROR: Final[str] = "Ruolo non disponibile per questo account"
-_ROLE_WITHOUT_UI_ERROR: Final[str] = (
-    "L'area dedicata a questo ruolo non è ancora disponibile"
+_ROLE_NOT_AVAILABLE_ERROR: Final[tuple[str, str]] = (
+    "Ruolo non disponibile per questo account",
+    "Role not available for this account",
 )
-_CURRENT_PASSWORD_ERROR: Final[str] = "La password attuale non è corretta"
-_PASSWORD_REUSE_ERROR: Final[str] = (
-    "La nuova password non può coincidere con quella attuale."
+_ROLE_WITHOUT_UI_ERROR: Final[tuple[str, str]] = (
+    "L'area dedicata a questo ruolo non è ancora disponibile",
+    "The area for this role isn't available yet",
 )
-_INVALID_IMAGE_TYPE_ERROR: Final[str] = "Sono ammesse solo immagini JPEG, PNG e WEBP"
-_MISSING_FILENAME_ERROR: Final[str] = "Nome del file mancante"
-_NO_PROFILE_IMAGE_ERROR: Final[str] = "Nessuna immagine del profilo da rimuovere"
-_INVALID_RESET_TOKEN_ERROR: Final[str] = (
-    "Token di reimpostazione non valido o scaduto"
+_CURRENT_PASSWORD_ERROR: Final[tuple[str, str]] = (
+    "La password attuale non è corretta",
+    "The current password is incorrect",
+)
+_PASSWORD_REUSE_ERROR: Final[tuple[str, str]] = (
+    "La nuova password non può coincidere con quella attuale.",
+    "The new password can't be the same as the current one.",
+)
+_INVALID_IMAGE_TYPE_ERROR: Final[tuple[str, str]] = (
+    "Sono ammesse solo immagini JPEG, PNG e WEBP",
+    "Only JPEG, PNG and WEBP images are allowed",
+)
+_MISSING_FILENAME_ERROR: Final[tuple[str, str]] = (
+    "Nome del file mancante",
+    "File name missing",
+)
+_NO_PROFILE_IMAGE_ERROR: Final[tuple[str, str]] = (
+    "Nessuna immagine del profilo da rimuovere",
+    "No profile picture to remove",
+)
+_INVALID_RESET_TOKEN_ERROR: Final[tuple[str, str]] = (
+    "Token di reimpostazione non valido o scaduto",
+    "Reset token invalid or expired",
 )
 
-_PASSWORD_RESET_REQUESTED_MESSAGE: Final[str] = (
-    "Se l'indirizzo email esiste, è stato inviato un link di recupero."
+_PASSWORD_RESET_REQUESTED_MESSAGE: Final[tuple[str, str]] = (
+    "Se l'indirizzo email esiste, è stato inviato un link di recupero.",
+    "If the email address exists, a recovery link has been sent.",
 )
-_PASSWORD_RESET_DONE_MESSAGE: Final[str] = "Password reimpostata correttamente."
+_PASSWORD_RESET_DONE_MESSAGE: Final[tuple[str, str]] = (
+    "Password reimpostata correttamente.",
+    "Password reset successfully.",
+)
 
 
 def _build_auth_service(db: AsyncSession) -> AuthService:
@@ -166,17 +207,17 @@ async def login(
     except AuthenticationError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_INVALID_CREDENTIALS_ERROR,
+            detail=tr(*_INVALID_CREDENTIALS_ERROR),
         ) from None
     except AccountDisabledError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_ACCOUNT_DISABLED_ERROR,
+            detail=tr(*_ACCOUNT_DISABLED_ERROR),
         ) from None
     except AccountLockedError as err:
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail=_ACCOUNT_LOCKED_ERROR.format(locked_until=err.locked_until),
+            detail=tr(*_ACCOUNT_LOCKED_ERROR).format(locked_until=err.locked_until),
         ) from None
 
 
@@ -210,7 +251,7 @@ async def refresh(
     except InvalidRefreshTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_INVALID_REFRESH_TOKEN_ERROR,
+            detail=tr(*_INVALID_REFRESH_TOKEN_ERROR),
         ) from None
     except PasswordChangeExpiredError:
         raise HTTPException(
@@ -228,7 +269,7 @@ async def logout(request: LogoutRequest, db: DbSession) -> None:
     except InvalidRefreshTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_INVALID_REFRESH_TOKEN_ERROR,
+            detail=tr(*_INVALID_REFRESH_TOKEN_ERROR),
         ) from None
 
 
@@ -268,7 +309,7 @@ async def revoke_other_sessions(
     if current_session_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UNKNOWN_CURRENT_SESSION_ERROR,
+            detail=tr(*_UNKNOWN_CURRENT_SESSION_ERROR),
         )
 
     await _build_auth_service(db).revoke_other_sessions(
@@ -296,7 +337,7 @@ async def revoke_session(
     if session_id == current_session_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_CURRENT_SESSION_ERROR,
+            detail=tr(*_CURRENT_SESSION_ERROR),
         )
 
     try:
@@ -307,7 +348,7 @@ async def revoke_session(
     except SessionNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_SESSION_NOT_FOUND_ERROR,
+            detail=tr(*_SESSION_NOT_FOUND_ERROR),
         ) from None
 
     told = await sessions_ended(db, current_account.tax_code, sessions=[session_id])
@@ -368,6 +409,8 @@ def _identity_payload(
         "autonomous_bookings": account.autonomous_bookings,
         "colour_theme": account.colour_theme.value,
         "theme_mode": account.theme_mode.value,
+        # Null until chosen: each device keeps its own until then.
+        "language": account.language.value if account.language else None,
         "board_role": _board_role(person),
         # The kinds of report they receive; their menu lists them if any.
         "report_kinds": [kind.value for kind in kinds_read_by(person)],
@@ -415,13 +458,13 @@ async def set_active_role(
     if role not in RoleService.get_available_roles(account.person):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ROLE_NOT_AVAILABLE_ERROR,
+            detail=tr(*_ROLE_NOT_AVAILABLE_ERROR),
         )
 
     if role not in RoleService.ROLES_WITH_UI:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ROLE_WITHOUT_UI_ERROR,
+            detail=tr(*_ROLE_WITHOUT_UI_ERROR),
         )
 
     account.last_active_role = role
@@ -461,6 +504,26 @@ async def set_theme_mode(
 ) -> dict[str, Any]:
     account = current_account
     account.theme_mode = payload.theme_mode
+
+    await db.commit()
+
+    return _identity_payload(
+        account,
+        await latest_terms_request(db),
+        worn_role(request),
+    )
+
+
+# Like the colours: every device follows; sign-in pages keep the device's last one.
+@router.put("/language")
+async def set_language(
+    payload: LanguageRequest,
+    request: Request,
+    current_account: CurrentAccount,
+    db: DbSession,
+) -> dict[str, Any]:
+    account = current_account
+    account.language = payload.language
 
     await db.commit()
 
@@ -518,13 +581,13 @@ async def upload_profile_image(
     if file.content_type not in _ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_INVALID_IMAGE_TYPE_ERROR,
+            detail=tr(*_INVALID_IMAGE_TYPE_ERROR),
         )
 
     if file.filename is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_MISSING_FILENAME_ERROR,
+            detail=tr(*_MISSING_FILENAME_ERROR),
         )
 
     profile_image_url = store_profile_image(
@@ -549,7 +612,7 @@ async def delete_profile_image(
     if profile_image_url is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_NO_PROFILE_IMAGE_ERROR,
+            detail=tr(*_NO_PROFILE_IMAGE_ERROR),
         )
 
     person.profile_image_url = None
@@ -577,12 +640,12 @@ async def change_password(
     except AuthenticationError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_CURRENT_PASSWORD_ERROR,
+            detail=tr(*_CURRENT_PASSWORD_ERROR),
         ) from None
     except PasswordReuseError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_PASSWORD_REUSE_ERROR,
+            detail=tr(*_PASSWORD_REUSE_ERROR),
         ) from None
     except PasswordPolicyError as err:
         raise HTTPException(
@@ -592,7 +655,7 @@ async def change_password(
     except InvalidRefreshTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_INVALID_REFRESH_TOKEN_ERROR,
+            detail=tr(*_INVALID_REFRESH_TOKEN_ERROR),
         ) from None
     except PasswordChangeExpiredError:
         raise HTTPException(
@@ -610,7 +673,7 @@ async def request_password_reset(
 
     await auth_service.request_password_reset(username=request.username)
 
-    return {"message": _PASSWORD_RESET_REQUESTED_MESSAGE}
+    return {"message": tr(*_PASSWORD_RESET_REQUESTED_MESSAGE)}
 
 
 @router.post("/reset-password")
@@ -636,7 +699,7 @@ async def reset_password(
             detail=str(err),
         ) from None
 
-    return {"message": _PASSWORD_RESET_DONE_MESSAGE}
+    return {"message": tr(*_PASSWORD_RESET_DONE_MESSAGE)}
 
 
 # A POST body, not a query: request lines end up in access logs.
@@ -652,7 +715,7 @@ async def validate_reset_token(
     except AuthenticationError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_INVALID_RESET_TOKEN_ERROR,
+            detail=tr(*_INVALID_RESET_TOKEN_ERROR),
         ) from None
 
     return {"valid": True}

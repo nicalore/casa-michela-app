@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -394,7 +395,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
         _buildLabel(kTopicLabel),
         AppTextField(
           controller: _topicController,
-          label: 'Argomento',
+          label: tr('Argomento', 'Topic'),
           showLabel: false,
           hintText: kTopicHint,
           maxLength: FieldLimits.topic,
@@ -433,7 +434,9 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     return DurationSlider(
       minutes: _draft.duration ?? 0,
       longest: _longestDuration,
-      count: available == null ? null : '${durationText(_minutesTaken)} di ${formatMinutes(available)}',
+      count: available == null
+          ? null
+          : tr('${durationText(_minutesTaken)} di ${formatMinutes(available)}', '${durationText(_minutesTaken)} of ${formatMinutes(available)}'),
       over: _exceeds,
       onChanged: (minutes) => setState(() => _draft.duration = minutes),
       trackTour: _tour(kTourBookingsSubjectDurations),
@@ -473,7 +476,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
         _buildLabel(kTeacherNotesLabel, first: true),
         AppTextField(
           controller: _notesController,
-          label: 'Note',
+          label: tr('Note', 'Notes'),
           showLabel: false,
           hintText: kTeacherNotesHint,
           maxLength: FieldLimits.notes,
@@ -504,12 +507,12 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       barrierLabel: 'ConfirmSubjectRemoval',
       builder: (confirmContext) => AppDialogStack(
         eyebrow: kRemovalEyebrow,
-        title: 'Confermi?',
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -518,7 +521,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'RIMUOVI',
+            label: tr('RIMUOVI', 'REMOVE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -543,15 +546,15 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
                         text: disciplineLabel(_draft.displayName, discipline),
                         style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                       ),
-                      const TextSpan(text: kDisciplineRemovalAfter),
+                      TextSpan(text: kDisciplineRemovalAfter),
                     ],
                   null => [
-                      const TextSpan(text: kSubjectRemovalBefore),
+                      TextSpan(text: kSubjectRemovalBefore),
                       TextSpan(
                         text: _draft.displayName,
                         style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                       ),
-                      const TextSpan(text: kSubjectRemovalAfter),
+                      TextSpan(text: kSubjectRemovalAfter),
                     ],
                 },
               ),
@@ -574,7 +577,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     final Widget save = DesktopTourTarget(
       id: _tour(kTourBookingsSubjectSave),
       child: AppGradientButton(
-        label: widget.isEditing ? 'SALVA' : 'AGGIUNGI',
+        label: widget.isEditing ? tr('SALVA', 'SAVE') : tr('AGGIUNGI', 'ADD'),
         icon: Icons.check_rounded,
         busy: _isSaving,
         height: _dialogButtonHeight,
@@ -588,7 +591,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     // A named discipline is the title, its subject goes in the eyebrow.
     return AppDialogStack(
       eyebrow: [
-        'Passo ${_step + 1} di $_steps',
+        tr('Passo ${_step + 1} di $_steps', 'Step ${_step + 1} of $_steps'),
         if (discipline != null) _draft.displayName,
         modeLabel(widget.mode).toLowerCase(),
       ].join(' · '),
@@ -598,7 +601,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
           ? AppDialogFooter.single(save)
           : AppDialogFooter(
               secondary: AppGradientButton(
-                label: 'RIMUOVI',
+                label: tr('RIMUOVI', 'REMOVE'),
                 icon: Icons.delete_outline_rounded,
                 gradient: AppTheme.dangerGradient,
                 accent: AppTheme.trialDangerText,

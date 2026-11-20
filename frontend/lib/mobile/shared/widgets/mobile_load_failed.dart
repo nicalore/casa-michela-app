@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/app_load_failed.dart';
 import 'mobile_empty_card.dart';
 import 'mobile_gold_button.dart';
@@ -45,7 +46,7 @@ class _MobileLoadFailedState extends State<MobileLoadFailed> with RetryRunner
         MobileEmptyCard(icon: text.icon, message: text.message, detail: text.detail, tablet: widget.tablet),
         const SizedBox(height: 20),
         MobileGoldButton(
-          label: 'Riprova',
+          label: tr('Riprova', 'Try again'),
           icon: Icons.refresh_rounded,
           busy: retrying,
           onPressed: runRetry,

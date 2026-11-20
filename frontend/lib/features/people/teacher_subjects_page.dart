@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
@@ -102,7 +103,7 @@ class _TeacherSubjectsPageState extends State<TeacherSubjectsPage> with Destinat
     {
       return AppLoadFailedRoom(
         error: _loadFailure,
-        message: 'Non è stato possibile caricare le discipline.',
+        message: tr('Non è stato possibile caricare le discipline.', "Couldn't load the disciplines."),
         onRetry: _load,
       );
     }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
@@ -83,13 +84,13 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 
     if (newPassword.isEmpty || confirmPassword.isEmpty)
     {
-      CustomSnackBar.show(context: context, message: 'Compila tutti i campi', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Compila tutti i campi', 'Fill in all the fields'), isError: true);
       return;
     }
 
     if (newPassword != confirmPassword)
     {
-      CustomSnackBar.show(context: context, message: 'Le password non coincidono', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Le password non coincidono', "Passwords don't match"), isError: true);
       return;
     }
 
@@ -97,7 +98,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'La password non rispetta i criteri di sicurezza',
+        message: tr('La password non rispetta i criteri di sicurezza', 'The password does not meet the security criteria'),
         isError: true,
       );
 
@@ -119,7 +120,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 
       CustomSnackBar.show(
         context: context,
-        message: 'Password aggiornata con successo!',
+        message: tr('Password aggiornata con successo!', 'Password updated successfully!'),
         isError: false,
       );
 
@@ -153,8 +154,11 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
         SizedBox(width: line ? 12 : 16),
         Expanded(
           child: Text(
-            'Al primo accesso, o in particolari situazioni, è obbligatorio '
-            'impostare una nuova password.',
+            tr(
+              'Al primo accesso, o in particolari situazioni, è obbligatorio '
+                  'impostare una nuova password.',
+              'On your first sign-in, or in particular situations, you must set a new password.',
+            ),
             style: GoogleFonts.plusJakartaSans(
               fontSize: line ? 13.5 : 15,
               fontWeight: FontWeight.w500,
@@ -182,18 +186,21 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
         {
           CustomSnackBar.show(
             context: context,
-            message: 'Devi cambiare la password per procedere, oppure torna alla schermata di login.',
+            message: tr(
+              'Devi cambiare la password per procedere, oppure torna alla schermata di login.',
+              'You need to change the password to go on, or go back to the sign-in screen.',
+            ),
             isError: true,
           );
         }
       },
       child: AuthPillPage(
-        eyebrow: 'Nuovo accesso',
-        title: 'Aggiorna password',
+        eyebrow: tr('Nuovo accesso', 'New sign-in'),
+        title: tr('Aggiorna password', 'Update password'),
         maxWidth: 560,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'TORNA AL LOGIN',
+            label: tr('TORNA AL LOGIN', 'BACK TO SIGN-IN'),
             icon: Icons.logout_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -203,7 +210,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
             onPressed: _isBusy ? () {} : _handleCancel,
           ),
           primary: AppGradientButton(
-            label: 'SALVA E ACCEDI',
+            label: tr('SALVA E ACCEDI', 'SAVE AND SIGN IN'),
             icon: Icons.login_rounded,
             busy: _isSaving,
             height: _buttonHeight,
@@ -228,16 +235,16 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
                 ],
                 PasswordField(
                   controller: _newPasswordController,
-                  label: 'Nuova password',
-                  hintText: 'Inserisci nuova password',
+                  label: tr('Nuova password', 'New password'),
+                  hintText: tr('Inserisci nuova password', 'Enter new password'),
                   nothingAbove: true,
                 ),
                 const SizedBox(height: 16),
                 PasswordPolicyChecklist(status: _policyStatus),
                 PasswordField(
                   controller: _confirmPasswordController,
-                  label: 'Conferma password',
-                  hintText: 'Ripeti nuova password',
+                  label: tr('Conferma password', 'Confirm password'),
+                  hintText: tr('Ripeti nuova password', 'Repeat new password'),
                 ),
               ],
             ),

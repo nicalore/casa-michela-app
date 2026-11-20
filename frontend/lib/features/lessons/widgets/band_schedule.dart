@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
@@ -345,8 +346,8 @@ class BandScheduleField<T> extends StatelessWidget
   final OpeningWindow? Function(TimeBucket bucket) windowFor;
 
   // disabledLabel: association shut; offLabel: open but unanswered.
-  final String disabledLabel;
-  final String offLabel;
+  final String? disabledLabel;
+  final String? offLabel;
 
   // Per-band shut wording; disabledLabel when null.
   final String Function(TimeBucket bucket)? disabledLabelFor;
@@ -354,7 +355,7 @@ class BandScheduleField<T> extends StatelessWidget
   // Rows in a shut band: shown, never edited or dropped.
   final Map<TimeBucket, List<BandStretch<T>>> frozen;
 
-  final String addLabel;
+  final String? addLabel;
 
   final VoidCallback onChanged;
 
@@ -374,11 +375,11 @@ class BandScheduleField<T> extends StatelessWidget
     required this.windowFor,
     this.minimumMinutes = kMinimumBandMinutes,
     required this.onChanged,
-    this.disabledLabel = 'Associazione chiusa',
-    this.offLabel = 'Non indicato',
+    this.disabledLabel,
+    this.offLabel,
     this.disabledLabelFor,
     this.frozen = const {},
-    this.addLabel = 'AGGIUNGI ORARIO',
+    this.addLabel,
     this.bands,
     this.fixed = false,
     this.tour,
@@ -461,7 +462,7 @@ class BandScheduleField<T> extends StatelessWidget
         if (gap != null) ...[
           const SizedBox(height: 10),
           AppAddRowButton(
-            label: addLabel,
+            label: addLabel ?? tr('AGGIUNGI ORARIO', 'ADD TIME'),
             dense: true,
             tour: addTour,
             onTap: () => _report(() => schedule.addStretch(bucket, window)),
@@ -501,7 +502,7 @@ class BandScheduleField<T> extends StatelessWidget
       startTime: stretch?.startTime,
       endTime: stretch?.endTime,
       enabled: false,
-      disabledLabel: disabledLabelFor?.call(bucket) ?? disabledLabel,
+      disabledLabel: disabledLabelFor?.call(bucket) ?? disabledLabel ?? tr('Associazione chiusa', 'Association closed'),
       onChanged: (_, _) {},
     );
   }
@@ -531,8 +532,8 @@ class BandScheduleField<T> extends StatelessWidget
         endTime: null,
         windowStartMinutes: window.startMinutes,
         windowEndMinutes: window.endMinutes,
-        offLabel: offLabel,
-        trueLabel: 'Sì',
+        offLabel: offLabel ?? tr('Non indicato', 'Not given'),
+        trueLabel: tr('Sì', 'Yes'),
         falseLabel: 'No',
         switchTour: switchTour,
         onChanged: (start, end) => _report(() => schedule.toggle(bucket, start, end)),
@@ -548,7 +549,7 @@ class BandScheduleField<T> extends StatelessWidget
       endTime: stretches[index].endTime,
       windowStartMinutes: window.startMinutes,
       windowEndMinutes: window.endMinutes,
-      trueLabel: 'Sì',
+      trueLabel: tr('Sì', 'Yes'),
       falseLabel: 'No',
       switchTour: switchTour,
       trackTour: hoursTour,

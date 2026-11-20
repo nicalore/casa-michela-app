@@ -1,0 +1,3 @@
+void setDocumentLanguageImpl(String key)
+{
+}

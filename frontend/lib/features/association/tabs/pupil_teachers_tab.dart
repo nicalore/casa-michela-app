@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/alphabetical_order.dart';
@@ -205,7 +206,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
   Widget _buildSortPill()
   {
     return AppFilterPill<TeacherSort>.setting(
-      prefix: 'Ordina',
+      prefix: tr('Ordina', 'Sort'),
       hint: kTeachersSortHint,
       icon: Icons.swap_vert_rounded,
       value: _sort,
@@ -332,7 +333,10 @@ class _TeacherDialogState extends State<_TeacherDialog>
 
     startAssociationTour(
       context,
-      associationTeacherTour(opinions: [for (final pupil in widget.pupils) pupil.gender]),
+      associationTeacherTour(
+        opinions: [for (final pupil in widget.pupils) pupil.gender],
+        teacherGender: widget.teacher.gender,
+      ),
     );
   }
 
@@ -416,11 +420,11 @@ class _TeacherDialogState extends State<_TeacherDialog>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildVoice('Età', age == null ? null : '$age anni'),
+            _buildVoice(tr('Età', 'Age'), age == null ? null : tr('$age anni', '$age years old')),
             const SizedBox(height: _voiceGap),
-            _buildVoice('Studi scolastici', widget.teacher.schoolEducation),
+            _buildVoice(tr('Studi scolastici', 'School education'), widget.teacher.schoolEducation),
             const SizedBox(height: _voiceGap),
-            _buildVoice('Studi universitari', widget.teacher.universityEducation),
+            _buildVoice(tr('Studi universitari', 'University education'), widget.teacher.universityEducation),
           ],
         ),
       ),
@@ -559,7 +563,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          opinionQuestion(widget.teacher),
+          opinionQuestion(widget.teacher, _pupils),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             fontWeight: FontWeight.w600,
@@ -583,7 +587,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
     final teacher = widget.teacher;
 
     return AppDialogStack(
-      eyebrow: 'Docente',
+      eyebrow: tr('Docente', 'Teacher'),
       title: '${teacher.firstName} ${teacher.lastName}',
       leading: PersonAvatar(person: teacher, size: PersonAvatar.titleSize),
       maxWidth: _dialogWidth,

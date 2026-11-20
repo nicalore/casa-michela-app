@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -80,12 +81,20 @@ class MoveDay
   bool get viable => refusal == null && options.any((option) => option.refusal == null);
 }
 
-const String kMoveDayLabel = 'Giorno';
-const String kMoveTargetLabel = 'Sposta in';
-const String kMoveAddHours = 'Aggiungi gli orari.';
-const String kMoveStretchHours = 'La presenza non copre tutte le lezioni: allunga gli orari.';
+String get kMoveDayLabel => tr('Giorno', 'Day');
+String get kMoveTargetLabel => tr('Sposta in', 'Move to');
+String get kMoveAddHours => tr('Aggiungi gli orari.', 'Add the hours.');
+String get kMoveStretchHours => tr(
+  'La presenza non copre tutte le lezioni: allunga gli orari.',
+  "The attendance doesn't cover all the lessons: stretch the hours.",
+);
 
-String moveNothingChosen(int count) => 'Scegli dove spostare ${count == 1 ? 'la lezione' : 'le lezioni'}.';
+String moveNothingChosen(int count)
+{
+  return count == 1
+      ? tr('Scegli dove spostare la lezione.', 'Choose where to move the lesson.')
+      : tr('Scegli dove spostare le lezioni.', 'Choose where to move the lessons.');
+}
 
 // The row's own hours where it has them, stretched to [needed] and clamped inside [window].
 (TimeOfDay, TimeOfDay) moveHoursFor(OpeningWindow window, int needed, {PresenceItem? row})
@@ -105,7 +114,13 @@ String moveNothingChosen(int count) => 'Scegli dove spostare ${count == 1 ? 'la 
   return (timeOfDayFromMinutes(start), timeOfDayFromMinutes(end));
 }
 
-String moveTooShort(int needed) => 'Le ore devono coprire le lezioni (${formatMinutes(needed)}).';
+String moveTooShort(int needed)
+{
+  return tr(
+    'Le ore devono coprire le lezioni (${formatMinutes(needed)}).',
+    'The hours must cover the lessons (${formatMinutes(needed)}).',
+  );
+}
 
 // Starts from the row's hours as the band's only stretch; a grown row keeps its stretch.
 BandSchedule<PresenceItem> moveScheduleFor(MoveOption option)
@@ -172,7 +187,7 @@ Widget _footer({required VoidCallback onMove})
     DesktopTourTarget(
       id: kTourBookingsMoveConfirm,
       child: AppGradientButton(
-        label: 'SPOSTA',
+        label: tr('SPOSTA', 'MOVE'),
         icon: Icons.swap_horiz_rounded,
         height: _buttonHeight,
         fontSize: _buttonFontSize,
@@ -356,7 +371,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
     final OpeningWindow? window = chosen?.window;
 
     return [
-      const AppFieldLabel(kMoveTargetLabel),
+      AppFieldLabel(kMoveTargetLabel),
       const SizedBox(height: 12),
       DesktopTourTarget(
         id: kTourBookingsMoveOptions,
@@ -431,7 +446,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AppFieldLabel(kMoveDayLabel),
+              AppFieldLabel(kMoveDayLabel),
               const SizedBox(height: 12),
               DesktopTourTarget(
                 id: kTourBookingsMoveDays,

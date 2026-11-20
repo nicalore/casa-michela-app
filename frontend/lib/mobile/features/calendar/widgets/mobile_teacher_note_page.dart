@@ -113,7 +113,7 @@ class _MobileTeacherNotePageState extends State<MobileTeacherNotePage>
         saving: _busy,
         body: [
           const SizedBox(height: 18),
-          const MobileSheetText(kTeacherNoteHint),
+          MobileSheetText(kTeacherNoteHint),
           const SizedBox(height: 18),
           MobileTextField(
             controller: _text,

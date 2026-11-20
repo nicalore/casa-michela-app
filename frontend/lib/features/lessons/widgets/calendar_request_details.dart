@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
@@ -13,6 +14,7 @@ import '../../calendar/widgets/own_lesson_dialog.dart' show studentCertification
 import '../../people/models/person_item.dart';
 import '../../people/models/school_enrollment_item.dart';
 import '../models/booking_summary_item.dart';
+import '../utils/booking_wizard_strings.dart' show kDurationLabel, kLessonKindLabel, kTeacherNotesLabel, preferredTeachersLabel;
 import 'band_note_parts.dart';
 import 'booking_fields_section.dart';
 import 'subject_request_tile.dart';
@@ -93,13 +95,13 @@ class CalendarRequestDetails extends StatelessWidget
     final String? program = student.studyProgram;
 
     return [
-      _buildVoice('Scuola', _said(student.schoolName)),
+      _buildVoice(tr('Scuola', 'School'), _said(student.schoolName)),
       const SizedBox(height: 14),
-      _buildVoice('Percorso di studi', _said(program == null ? null : studyProgramNameOnlyOf(program))),
+      _buildVoice(tr('Percorso di studi', 'Study programme'), _said(program == null ? null : studyProgramNameOnlyOf(program))),
       const SizedBox(height: 14),
-      _buildVoice('Classe', _said(student.schoolClass)),
+      _buildVoice(tr('Classe', 'Class'), _said(student.schoolClass)),
       const SizedBox(height: 14),
-      _buildVoice('Certificazioni', studentCertificationsOf(student)),
+      _buildVoice(tr('Certificazioni', 'Certifications'), studentCertificationsOf(student)),
       Padding(
         padding: EdgeInsets.symmetric(vertical: 18),
         child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
@@ -149,7 +151,7 @@ class CalendarRequestDetails extends StatelessWidget
               const SizedBox(height: 18),
             ],
             if (student != null) ..._buildStudent(student),
-            const AppEyebrow('Disciplina richiesta'),
+            AppEyebrow(tr('Disciplina richiesta', 'Discipline requested')),
             const SizedBox(height: 2),
             Text(
               discipline ?? subject,
@@ -163,19 +165,19 @@ class CalendarRequestDetails extends StatelessWidget
             const SizedBox(height: 14),
             // As the day page: the subject said apart when a discipline is named, a dash when there is none.
             if (discipline != null) ...[
-              _buildVoice('Materia', subject),
+              _buildVoice(tr('Materia', 'Subject'), subject),
               const SizedBox(height: 14),
             ],
             _buildPair(
-              _buildVoice('Durata', formatMinutes(booking.duration)),
-              _buildVoice('Tipo di lezione', _said(bookingTagLabels(booking.tags).join(', '))),
+              _buildVoice(kDurationLabel, formatMinutes(booking.duration)),
+              _buildVoice(kLessonKindLabel, _said(bookingTagLabels(booking.tags).join(', '))),
             ),
             const SizedBox(height: 14),
-            _buildVoice('Argomento', _said(booking.topic)),
+            _buildVoice(tr('Argomento', 'Topic'), _said(booking.topic)),
             const SizedBox(height: 14),
-            _buildVoice('Mi sono trovato meglio con...', _said(preferred)),
+            _buildVoice(preferredTeachersLabel(student?.gender), _said(preferred)),
             const SizedBox(height: 14),
-            _buildVoice('Note per il docente', _said(booking.notes)),
+            _buildVoice(kTeacherNotesLabel, _said(booking.notes)),
           ],
         ),
       ),

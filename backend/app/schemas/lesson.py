@@ -3,6 +3,7 @@ from typing import ClassVar, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.i18n import tr
 from app.core.time_band import TimeBandEnum
 from app.core.time_step import QUARTER_LESSON_MINUTES
 from app.schemas.association_subject import AssociationSubjectOption
@@ -12,11 +13,15 @@ from app.schemas.person import PersonOption
 from app.schemas.room import RoomOption
 from app.schemas.validators import TimeBandMixin
 
-_NO_BOOKING_ERROR: Final[str] = (
-    "Una lezione deve avere almeno una prenotazione."
+_NO_BOOKING_ERROR: Final[tuple[str, str]] = (
+    "Una lezione deve avere almeno una prenotazione.",
+    "A lesson must have at least one booking.",
 )
 
-_LESSON_TOO_SHORT_ERROR: Final[str] = "Una lezione dura almeno un quarto d'ora."
+_LESSON_TOO_SHORT_ERROR: Final[tuple[str, str]] = (
+    "Una lezione dura almeno un quarto d'ora.",
+    "A lesson lasts at least a quarter of an hour.",
+)
 
 
 def _drop_duplicates[T](values: list[T]) -> list[T]:
@@ -25,7 +30,7 @@ def _drop_duplicates[T](values: list[T]) -> list[T]:
 
 class LessonBase(TimeBandMixin):
     _minimum_minutes: ClassVar[int] = QUARTER_LESSON_MINUTES
-    _too_short_error: ClassVar[str] = _LESSON_TOO_SHORT_ERROR
+    _too_short_error: ClassVar[tuple[str, str]] = _LESSON_TOO_SHORT_ERROR
 
     availability_id: int
 
@@ -45,7 +50,7 @@ class LessonBase(TimeBandMixin):
     @classmethod
     def _not_empty(cls, values: list[int]) -> list[int]:
         if not values:
-            raise ValueError(_NO_BOOKING_ERROR)
+            raise ValueError(tr(*_NO_BOOKING_ERROR))
 
         return values
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
@@ -38,7 +39,7 @@ import 'widgets/profile_avatar.dart';
 
 const String _parentRole = 'PARENT';
 
-const String _module = 'Figli';
+String get _module => tr('Figli', 'Children');
 
 const double _cardsWidth = 1200;
 
@@ -49,12 +50,12 @@ const double _childrenMenuWidth = 260;
 const double _menuFace = 28;
 
 // One group per child, each with these sections in this order.
-const List<String> _entries = [
-  'Informazioni personali',
-  'Iscrizioni',
-  'Scuola',
-  'Altre informazioni',
-  'Statistiche personali',
+List<String> get _entries => [
+  tr('Informazioni personali', 'Personal information'),
+  tr('Iscrizioni', 'Enrolments'),
+  tr('Scuola', 'School'),
+  tr('Altre informazioni', 'Other information'),
+  tr('Statistiche personali', 'Personal statistics'),
 ];
 
 const int _infoIndex = 0;
@@ -76,15 +77,15 @@ List<String> childReportableFields(PersonItem child)
   return [
     ...kPersonalReportableFields,
     ...kSchoolReportableFields,
-    if (isPupil) 'Certificazioni',
-    if (isPupil && !child.isAdult) 'Uscita anticipata',
-    if (!child.isAdult) ...['Contatto di emergenza', 'Allergie e farmaci'],
+    if (isPupil) tr('Certificazioni', 'Certifications'),
+    if (isPupil && !child.isAdult) tr('Uscita anticipata', 'Early departure'),
+    if (!child.isAdult) ...[tr('Contatto di emergenza', 'Emergency contact'), tr('Allergie e farmaci', 'Allergies and medicines')],
   ];
 }
 
 String childReportEyebrow(PersonItem child)
 {
-  return 'Dati di ${child.firstName}';
+  return tr('Dati di ${child.firstName}', "${child.firstName}'s details");
 }
 
 class ParentChildrenPage extends StatefulWidget
@@ -361,7 +362,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
   Widget _buildReportButton(PersonItem child)
   {
     return AppGradientButton(
-      label: 'SEGNALA DATO MANCANTE / ERRATO',
+      label: tr('SEGNALA DATO MANCANTE / ERRATO', 'REPORT MISSING / WRONG DETAILS'),
       icon: Icons.flag_rounded,
       gradient: AppTheme.dismissGradient,
       accent: AppTheme.trialVioletText,
@@ -385,7 +386,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
       ),
       leadingWidth: kPersonHeadingFace + kPersonHeadingFaceGap,
       titleMenu: _children.length > 1 ? (context, close) => _buildChildrenMenu(child, entry, close) : null,
-      groups: const [RailGroup(entries: _entries)],
+      groups: [RailGroup(entries: _entries)],
       selectedIndex: entry,
       onSelected: (index) => _selectSection(child * _entries.length + index),
       tours: child == _toured ? const {_statsIndex: kTourChildrenToStats} : const {},
@@ -442,17 +443,20 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
     {
       return AppLoadFailedRoom(
         error: _loadFailure,
-        message: 'Non è stato possibile caricare i dati dei figli.',
+        message: tr('Non è stato possibile caricare i dati dei figli.', "Couldn't load your children's details."),
         onRetry: _load,
       );
     }
 
     if (_children.isEmpty)
     {
-      return const Center(
+      return Center(
         child: PageTransitionItem(
           slot: PageTransitionItem.list,
-          child: AppEmptyCard(icon: Icons.family_restroom_rounded, message: 'Nessun figlio collegato al tuo profilo.'),
+          child: AppEmptyCard(
+            icon: Icons.family_restroom_rounded,
+            message: tr('Nessun figlio collegato al tuo profilo.', 'No children linked to your profile.'),
+          ),
         ),
       );
     }
@@ -619,7 +623,10 @@ class _ChildOtherInfoTab extends StatelessWidget
     if (cards.isEmpty)
     {
       return AppEmptyRoom(
-        card: const AppEmptyCard(icon: Icons.info_outline_rounded, message: 'Nessuna informazione aggiuntiva.'),
+        card: AppEmptyCard(
+          icon: Icons.info_outline_rounded,
+          message: tr('Nessuna informazione aggiuntiva.', 'No additional information.'),
+        ),
         gap: dense ? personSectionGap(context) : _footerGap,
         below: [footer],
       );

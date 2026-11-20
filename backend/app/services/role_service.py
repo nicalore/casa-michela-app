@@ -12,10 +12,13 @@ from app.models.member import Member
 from app.models.membership import MembershipRevocationEnum
 from app.models.person import Person
 from app.models.staff import CollaborationTypeEnum
+from app.services.bilingual import Bilingual
 
-_UNPAID_ADMIN_ROLE_ERROR: Final[str] = (
-    "Presidente, Vicepresidente e Tesoriere devono avere "
-    "tipo di collaborazione 'Non pagato'."
+_UNPAID_ADMIN_ROLE_ERROR: Final[Bilingual] = Bilingual(
+    "Presidente, Vicepresidente e Tesoriere devono avere tipo di collaborazione 'Non "
+    "pagato'.",
+    "President, Vice-president and Treasurer must have the collaboration type "
+    "“Unpaid”.",
 )
 
 # Mirrored by frontend/lib/features/auth/models/me_response.dart.
@@ -189,5 +192,5 @@ class RoleService:
         ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_UNPAID_ADMIN_ROLE_ERROR,
+                detail=_UNPAID_ADMIN_ROLE_ERROR.for_request(),
             )

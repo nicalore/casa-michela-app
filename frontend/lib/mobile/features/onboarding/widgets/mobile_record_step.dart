@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/field_limits.dart';
+import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/phone_number.dart';
 import '../../../../features/auth/models/me_response.dart';
 import '../../../../features/onboarding/onboarding_steps.dart';
@@ -169,7 +170,7 @@ class _MobileRecordStepState extends State<MobileRecordStep>
   {
     return MobileDetailCard(
       icon: Icons.alternate_email_rounded,
-      title: 'Contatti',
+      title: tr('Contatti', 'Contacts'),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -177,7 +178,7 @@ class _MobileRecordStepState extends State<MobileRecordStep>
           MobileTextField(
             controller: _email,
             label: 'Email',
-            hintText: 'nome@esempio.it',
+            hintText: tr('nome@esempio.it', 'name@example.com'),
             keyboardType: TextInputType.emailAddress,
             maxLength: FieldLimits.email,
             textInputAction: TextInputAction.next,
@@ -185,7 +186,7 @@ class _MobileRecordStepState extends State<MobileRecordStep>
           const SizedBox(height: _fieldGap),
           MobileTextField(
             controller: _phone,
-            label: 'Telefono',
+            label: tr('Telefono', 'Phone'),
             hintText: '+39 …',
             keyboardType: TextInputType.phone,
             inputFormatters: const [PhoneInputFormatter()],
@@ -200,15 +201,15 @@ class _MobileRecordStepState extends State<MobileRecordStep>
   {
     return MobileDetailCard(
       icon: Icons.school_rounded,
-      title: 'I tuoi studi',
+      title: tr('I tuoi studi', 'Your studies'),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 6),
           MobileTextField(
             controller: _school,
-            label: 'Studi scolastici',
-            hintText: 'Es. Liceo scientifico',
+            label: tr('Studi scolastici', 'School studies'),
+            hintText: tr('Es. Liceo scientifico', 'E.g. Science high school'),
             maxLength: FieldLimits.education,
             textCapitalization: TextCapitalization.sentences,
             textInputAction: _atSchool ? TextInputAction.done : TextInputAction.next,
@@ -217,8 +218,8 @@ class _MobileRecordStepState extends State<MobileRecordStep>
             const SizedBox(height: _fieldGap),
             MobileTextField(
               controller: _university,
-              label: 'Studi universitari',
-              hintText: 'Es. Ingegneria informatica',
+              label: tr('Studi universitari', 'University studies'),
+              hintText: tr('Es. Ingegneria informatica', 'E.g. Computer engineering'),
               maxLength: FieldLimits.education,
               textCapitalization: TextCapitalization.sentences,
             ),

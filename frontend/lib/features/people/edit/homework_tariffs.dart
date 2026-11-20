@@ -1,31 +1,34 @@
+import '../../../core/language/app_language.dart';
+
 // Aiuto Compiti tariffs: what the creation wizard offers, with the enrolment form's figures written in.
 
-const String kHourlyTariff = 'A ore';
-const String kPackageTariff = 'Pacchetto';
-const String kMonthlyTariff = 'Quota mensile';
+String get kHourlyTariff => tr('A ore', 'Hourly');
+String get kPackageTariff => tr('Pacchetto', 'Hours package');
+String get kMonthlyTariff => tr('Quota mensile', 'Monthly fee');
 
-const List<String> kTariffChoices = [kHourlyTariff, kPackageTariff, kMonthlyTariff];
+List<String> get kTariffChoices => [kHourlyTariff, kPackageTariff, kMonthlyTariff];
 
-const Map<String, String> kTariffKinds = {
+Map<String, String> get kTariffKinds => {
   kHourlyTariff: 'HOURLY',
   kPackageTariff: 'PACKAGE',
   kMonthlyTariff: 'MONTHLY',
 };
 
-const String kTariffLabel = 'Tariffa Aiuto Compiti';
-const String kHourlyCostLabel = 'Costo orario';
-const String kPackageHoursLabel = 'Ore del pacchetto';
-const String kPackageCostLabel = 'Costo del pacchetto';
-const String kMonthlyCostLabel = 'Quota mensile';
+String get kTariffLabel => tr('Tariffa Aiuto Compiti', 'Homework Help rate');
+String get kHourlyCostLabel => tr('Costo orario', 'Hourly cost');
+String get kPackageHoursLabel => tr('Ore del pacchetto', 'Package hours');
+String get kPackageCostLabel => tr('Costo del pacchetto', 'Package cost');
+String get kMonthlyCostLabel => tr('Quota mensile', 'Monthly fee');
 
-const String kPaidChoice = 'Pagato';
-const String kUnpaidChoice = 'Non pagato';
-const String kPaidFeminineChoice = 'Pagata';
-const String kUnpaidFeminineChoice = 'Non pagata';
+String get kPaidChoice => tr('Pagato', 'Paid');
+String get kUnpaidChoice => tr('Non pagato', 'Not paid');
+String get kPaidFeminineChoice => tr('Pagata', 'Paid');
+String get kUnpaidFeminineChoice => tr('Non pagata', 'Not paid');
 
 // Under the figures when they differ from the level's standard tariff.
-String standardTariffNote(String levelLabel, String terms) => 'Tariffa standard delle ${levelLabel.toLowerCase()}: $terms';
+String standardTariffNote(String levelLabel, String terms) =>
+    tr('Tariffa standard delle ${levelLabel.toLowerCase()}: $terms', 'Standard rate for $levelLabel: $terms');
 
 // The annual fees of the year the new member joins.
-String membershipFeeLabel(int year) => 'Iscrizione $year';
-String insuranceFeeLabel(int year) => 'Assicurazione $year';
+String membershipFeeLabel(int year) => tr('Iscrizione $year', 'Enrolment $year');
+String insuranceFeeLabel(int year) => tr('Assicurazione $year', 'Insurance $year');

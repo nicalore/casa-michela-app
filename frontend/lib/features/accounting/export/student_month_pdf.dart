@@ -45,7 +45,7 @@ List<AccountingGroup> _groups(String? situation, double available)
   AccountingGroup figures(String title, List<double> widths) => AccountingGroup(
         title: title,
         parts: [
-          for (final (index, label) in const [kTotalColumn, kPresenceColumn, kOnlineColumn].indexed)
+          for (final (index, label) in [kTotalColumn, kPresenceColumn, kOnlineColumn].indexed)
             (label: label, width: widths[index] * grow),
         ],
       );

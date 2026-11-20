@@ -255,7 +255,7 @@ async def test_a_discipline_left_untaught_stops_publication(
         await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
 
     assert error.value.status_code == 400
-    assert "non sono assegnate" in error.value.detail
+    assert "non è assegnata" in error.value.detail
 
 
 async def test_a_teacher_without_a_room_stops_publication(
@@ -859,7 +859,7 @@ async def test_a_request_nobody_planned_stops_publication(db: AsyncSession) -> N
         await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
 
     assert error.value.status_code == 400
-    assert "non sono state pianificate" in error.value.detail
+    assert "non è stata pianificata" in error.value.detail
 
 
 async def test_a_request_nobody_planned_stops_closing_a_bozza(

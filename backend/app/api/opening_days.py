@@ -8,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Response, status
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.core.booking_window import today_in_rome
+from app.core.i18n import tr
 from app.models.opening_day import OpeningDay
 from app.repositories.opening_day_repository import OpeningDayRepository
 from app.repositories.weekly_template_repository import WeeklyTemplateRepository
@@ -176,4 +177,4 @@ async def delete_opening_day(
 ) -> dict[str, str]:
     await _service(db).delete(opening_day_id, confirmed=confirm)
 
-    return {"detail": "Apertura eliminata"}
+    return {"detail": tr("Apertura eliminata", "Opening deleted")}

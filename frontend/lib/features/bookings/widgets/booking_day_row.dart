@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
@@ -472,7 +473,7 @@ class _BookingDayRowState extends State<BookingDayRow>
                   litBy: bin,
                   icon: Icons.delete_outline_rounded,
                   color: AppTheme.trialDangerText,
-                  tooltip: 'Elimina la giornata',
+                  tooltip: tr('Elimina la giornata', 'Delete the day'),
                   onTap: () => widget.onDeleteDay(_lanes.single),
                 ),
               ),
@@ -623,7 +624,7 @@ class _BookingDayRowState extends State<BookingDayRow>
         dense: true,
         icon: Icons.delete_outline_rounded,
         color: AppTheme.trialDangerText,
-        tooltip: 'Elimina la giornata',
+        tooltip: tr('Elimina la giornata', 'Delete the day'),
         onTap: () => widget.onDeleteDay(_lanes.single),
       ),
     );
@@ -686,7 +687,7 @@ class _BookingDayRowState extends State<BookingDayRow>
           const SizedBox(width: 16),
           Icon(Icons.event_busy_rounded, size: 17, color: AppTheme.trialMutedText),
           const SizedBox(width: 8),
-          const Expanded(child: _Muted("L'Associazione è chiusa", dense: true)),
+          Expanded(child: _Muted(tr("L'Associazione è chiusa", 'The Association is closed'), dense: true)),
         ],
       );
     }
@@ -730,7 +731,7 @@ class _BookingDayRowState extends State<BookingDayRow>
       children: [
         Icon(Icons.event_busy_rounded, size: 20, color: AppTheme.trialMutedText),
         const SizedBox(width: 10),
-        const Expanded(child: _Muted("L'Associazione è chiusa")),
+        Expanded(child: _Muted(tr("L'Associazione è chiusa", 'The Association is closed'))),
       ],
     );
   }
@@ -964,7 +965,7 @@ class _LaneViewState extends State<_LaneView>
           Expanded(
             child: !widget.named
                 ? (widget.lane.group == null
-                    ? const Align(alignment: Alignment.centerLeft, child: _Muted('Nessuna prenotazione'))
+                    ? Align(alignment: Alignment.centerLeft, child: _Muted(tr('Nessuna prenotazione', 'No bookings')))
                     : const SizedBox.shrink())
                 : Row(
                     mainAxisSize: MainAxisSize.min,
@@ -993,7 +994,7 @@ class _LaneViewState extends State<_LaneView>
                             litBy: bin,
                             icon: Icons.delete_outline_rounded,
                             color: AppTheme.trialDangerText,
-                            tooltip: 'Elimina la giornata',
+                            tooltip: tr('Elimina la giornata', 'Delete the day'),
                             onTap: widget.onDeleteDay,
                           ),
                         ),
@@ -1078,7 +1079,7 @@ class _LaneViewState extends State<_LaneView>
                         dense: true,
                         icon: Icons.delete_outline_rounded,
                         color: AppTheme.trialDangerText,
-                        tooltip: 'Elimina la giornata',
+                        tooltip: tr('Elimina la giornata', 'Delete the day'),
                         onTap: widget.onDeleteDay,
                       ),
                     ),
@@ -1090,9 +1091,9 @@ class _LaneViewState extends State<_LaneView>
           ],
           Expanded(
             child: empty
-                ? const Align(
+                ? Align(
                     alignment: Alignment.centerLeft,
-                    child: _Muted('Nessuna prenotazione', dense: true, lines: 1),
+                    child: _Muted(tr('Nessuna prenotazione', 'No bookings'), dense: true, lines: 1),
                   )
                 : const SizedBox.shrink(),
           ),
@@ -1149,7 +1150,7 @@ class _LaneViewState extends State<_LaneView>
             if (group != null || widget.named) const SizedBox(height: _laneInnerGap),
           ],
           if (group == null)
-            (dense || (headed && !widget.named) ? const SizedBox.shrink() : const _Muted('Nessuna prenotazione'))
+            (dense || (headed && !widget.named) ? const SizedBox.shrink() : _Muted(tr('Nessuna prenotazione', 'No bookings')))
           else
             for (final (i, (mode, band)) in blocks.indexed) ...[
               if (i > 0) SizedBox(height: dense ? _denseModeGap : _modeGap),
@@ -1329,7 +1330,7 @@ class _ModeBlockState extends State<_ModeBlock>
           DesktopTourTarget(
             id: widget.tour.lock == widget.block ? kTourBookingsLock : null,
             child: AppTooltip(
-              message: 'Prenotazioni chiuse',
+              message: tr('Prenotazioni chiuse', 'Bookings closed'),
               child: Icon(Icons.lock_outline_rounded, size: dense ? 13 : 15, color: AppTheme.trialMutedText),
             ),
           ),
@@ -1350,7 +1351,7 @@ class _ModeBlockState extends State<_ModeBlock>
           litBy: _actionsTour,
           icon: Icons.schedule_rounded,
           color: AppTheme.trialTealDeepText,
-          tooltip: 'Modifica gli orari',
+          tooltip: tr('Modifica gli orari', 'Edit the hours'),
           onTap: widget.onEditHours,
         ),
         const SizedBox(width: 2),
@@ -1360,7 +1361,7 @@ class _ModeBlockState extends State<_ModeBlock>
           litBy: _actionsTour,
           icon: Icons.add_rounded,
           color: AppTheme.trialTealDeepText,
-          tooltip: 'Aggiungi una lezione',
+          tooltip: tr('Aggiungi una lezione', 'Add a lesson'),
           onTap: widget.onAddLesson,
         ),
         // A note there is changed beside it.
@@ -1712,7 +1713,7 @@ class _LessonRowState extends State<_LessonRow>
         ),
         const SizedBox(width: 8),
         if (chosen.isEmpty)
-          const Expanded(child: _Muted('Nessuna preferenza'))
+          Expanded(child: _Muted(tr('Nessuna preferenza', 'No preference')))
         else
           Expanded(
             child: Text(
@@ -1747,7 +1748,7 @@ class _LessonRowState extends State<_LessonRow>
           id: widget.tour.topic == _booking.id ? kTourBookingsTopic : null,
           child: _Mark(
             icon: Icons.chat_bubble_outline_rounded,
-            label: 'Argomento',
+            label: tr('Argomento', 'Topic'),
             text: _booking.topic,
             muted: widget.closed,
             dense: widget.dense,
@@ -1758,7 +1759,7 @@ class _LessonRowState extends State<_LessonRow>
           id: widget.tour.notes == _booking.id ? kTourBookingsNotes : null,
           child: _Mark(
             icon: Icons.sticky_note_2_outlined,
-            label: 'Note per il docente',
+            label: tr('Note per il docente', 'Notes for the teacher'),
             text: _booking.notes,
             muted: widget.closed,
             dense: widget.dense,
@@ -1777,7 +1778,7 @@ class _LessonRowState extends State<_LessonRow>
                   dense: widget.dense,
                   icon: Icons.edit_outlined,
                   color: AppTheme.trialTealDeepText,
-                  tooltip: 'Modifica la lezione',
+                  tooltip: tr('Modifica la lezione', 'Edit the lesson'),
                   onTap: widget.onEdit,
                 ),
                 if (widget.movable) ...[
@@ -1788,7 +1789,7 @@ class _LessonRowState extends State<_LessonRow>
                     dense: widget.dense,
                     icon: Icons.swap_horiz_rounded,
                     color: AppTheme.trialTealDeepText,
-                    tooltip: 'Sposta la lezione',
+                    tooltip: tr('Sposta la lezione', 'Move the lesson'),
                     onTap: widget.onMove,
                   ),
                 ],
@@ -1799,7 +1800,7 @@ class _LessonRowState extends State<_LessonRow>
                   dense: widget.dense,
                   icon: Icons.delete_outline_rounded,
                   color: AppTheme.trialDangerText,
-                  tooltip: 'Elimina la lezione',
+                  tooltip: tr('Elimina la lezione', 'Delete the lesson'),
                   onTap: widget.onDelete,
                 ),
               ],
@@ -1928,7 +1929,7 @@ class _LessonRowState extends State<_LessonRow>
 
     double right = 15 + 6 + _spanWidth(
       context,
-      TextSpan(text: _preferenceText ?? 'Nessuna preferenza', style: _densePreferenceStyle),
+      TextSpan(text: _preferenceText ?? tr('Nessuna preferenza', 'No preference'), style: _densePreferenceStyle),
     );
 
     for (final label in tags)
@@ -1981,7 +1982,7 @@ class _LessonRowState extends State<_LessonRow>
         const SizedBox(width: 6),
         Flexible(
           child: text == null
-              ? const _Muted('Nessuna preferenza', dense: true)
+              ? _Muted(tr('Nessuna preferenza', 'No preference'), dense: true)
               : Text(text, maxLines: 2, overflow: TextOverflow.ellipsis, style: _densePreferenceStyle),
         ),
       ],
@@ -2328,7 +2329,7 @@ class BookingTodayPill extends StatelessWidget
         border: Border.all(color: AppTheme.trialTealDeepText.withValues(alpha: 0.28)),
       ),
       child: Text(
-        'OGGI',
+        tr('OGGI', 'TODAY'),
         style: GoogleFonts.plusJakartaSans(
           fontSize: 9.5,
           fontWeight: FontWeight.w700,

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_menu.dart';
@@ -694,7 +695,7 @@ class _EntryTabState extends State<_EntryTab>
 
     if (!widget.enabled)
     {
-      return AppTooltip(waitDuration: const Duration(milliseconds: 400), message: 'In arrivo', child: tab);
+      return AppTooltip(waitDuration: const Duration(milliseconds: 400), message: tr('In arrivo', 'Coming soon'), child: tab);
     }
 
     return MouseRegion(

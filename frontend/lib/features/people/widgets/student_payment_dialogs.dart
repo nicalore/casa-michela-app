@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
@@ -1301,7 +1302,7 @@ class _SettleDialogState extends State<_SettleDialog>
                     child: AppTextField(
                       controller: _rate.amount,
                       label: kHourlyCostLabel,
-                      hintText: 'Es. 10,00',
+                      hintText: tr('Es. 10,00', 'E.g. 10.00'),
                       keyboardType: TextInputType.number,
                       nothingAbove: true,
                       enabled: !line.isWeekendOnline,
@@ -1508,7 +1509,7 @@ class _PayAheadDialogState extends State<_PayAheadDialog>
                     child: AppTextField(
                       controller: _rate.amount,
                       label: kHourlyCostLabel,
-                      hintText: 'Es. 10,00',
+                      hintText: tr('Es. 10,00', 'E.g. 10.00'),
                       keyboardType: TextInputType.number,
                       errorText: _rate.amountError,
                       onChanged: (_)
@@ -1529,7 +1530,7 @@ class _PayAheadDialogState extends State<_PayAheadDialog>
                   ),
                 ],
               ),
-              if (unsettled > 0) const _Note(kUnsettledTakenNow),
+              if (unsettled > 0) _Note(kUnsettledTakenNow),
               _PaymentFields(input: _payment, title: kPaymentBlock, onChanged: () => setState(() {})),
             ],
           ),

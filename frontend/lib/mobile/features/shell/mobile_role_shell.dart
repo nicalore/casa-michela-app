@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../../features/reports/reports_board.dart';
@@ -537,7 +538,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
                       constraints: const BoxConstraints(maxWidth: MobileNavSheet.tabletWidth),
                       child: MobileLoadFailed(
                         error: failure,
-                        message: 'Non è stato possibile caricare i tuoi dati.',
+                        message: tr('Non è stato possibile caricare i tuoi dati.', 'Your details could not be loaded.'),
                         onRetry: _apiService.retryIdentity,
                         tablet: tablet,
                       ),

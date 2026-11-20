@@ -67,7 +67,11 @@ from app.core.exception_handlers import (
     request_validation_exception_handler,
     value_error_exception_handler,
 )
-from app.middleware import PersonRefsMiddleware, audit_logging_middleware
+from app.middleware import (
+    LanguageMiddleware,
+    PersonRefsMiddleware,
+    audit_logging_middleware,
+)
 from app.services.calendar_bootstrap import bootstrap_calendar_on_startup
 from app.services.close_sweep import sweep_after_every_close
 from app.services.minute_sweep import sweep_every_minute
@@ -121,6 +125,9 @@ app.middleware("http")(audit_logging_middleware)
 
 # Outside the audit, which logs tax codes; inside GZip, so it reads plain bodies.
 app.add_middleware(PersonRefsMiddleware)
+
+# Every layer inside it, exception handlers too, answers in the request's language.
+app.add_middleware(LanguageMiddleware)
 
 # Added last, so outermost: the audit middleware keeps reading plain bodies.
 app.add_middleware(GZipMiddleware, minimum_size=1024)

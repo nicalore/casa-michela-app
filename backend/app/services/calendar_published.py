@@ -20,6 +20,7 @@ from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import GenderEnum
 from app.models.presence import Presence
 from app.services.notifications import (
+    Bilingual,
     dismissals,
     fingerprint,
     notify,
@@ -28,46 +29,81 @@ from app.services.notifications import (
 from app.services.push import PushBatch, joined
 from app.services.role_service import RoleService
 
-_PUPIL_TITLE: Final[str] = "Il calendario delle lezioni {band} è disponibile"
-_PUPIL_BODY: Final[str] = "Tocca per visualizzarlo"
-_PUPIL_WEB_BODY: Final[str] = "Clicca per visualizzarlo"
-
-_CALLED_TITLES: Final[dict[GenderEnum, str]] = {
-    GenderEnum.M: "Sei stato convocato!",
-    GenderEnum.F: "Sei stata convocata!",
-}
-_CALLED_BODY: Final[str] = (
-    "Tocca per visualizzare il calendario delle lezioni {band}."
+_PUPIL_TITLE: Final[Bilingual] = Bilingual(
+    "Il calendario delle lezioni {band} è disponibile",
+    "The {band} lesson calendar is available",
 )
-_CALLED_WEB_BODY: Final[str] = (
-    "Clicca per visualizzare il calendario delle lezioni {band}."
+_PUPIL_BODY: Final[Bilingual] = Bilingual("Tocca per visualizzarlo", "Tap to view it")
+_PUPIL_WEB_BODY: Final[Bilingual] = Bilingual(
+    "Clicca per visualizzarlo",
+    "Click to view it",
 )
 
-_NOT_CALLED_TITLES: Final[dict[GenderEnum, str]] = {
-    GenderEnum.M: "Non sei stato convocato",
-    GenderEnum.F: "Non sei stata convocata",
+_CALLED_TITLES: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual("Sei stato convocato!", "You've been called in!"),
+    GenderEnum.F: Bilingual("Sei stata convocata!", "You've been called in!"),
 }
-_NOT_CALLED_BODY: Final[str] = (
-    "Grazie in ogni caso per aver dato la tua disponibilità"
+_CALLED_BODY: Final[Bilingual] = Bilingual(
+    "Tocca per visualizzare il calendario delle lezioni {band}.",
+    "Tap to view the {band} lesson calendar.",
+)
+_CALLED_WEB_BODY: Final[Bilingual] = Bilingual(
+    "Clicca per visualizzare il calendario delle lezioni {band}.",
+    "Click to view the {band} lesson calendar.",
 )
 
-_NEWLY_CALLED_TITLES: Final[dict[GenderEnum, str]] = {
-    GenderEnum.M: "Le convocazioni sono cambiate: sei convocato!",
-    GenderEnum.F: "Le convocazioni sono cambiate: sei convocata!",
+_NOT_CALLED_TITLES: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual("Non sei stato convocato", "You haven't been called in"),
+    GenderEnum.F: Bilingual("Non sei stata convocata", "You haven't been called in"),
 }
-_NO_LONGER_CALLED_TITLES: Final[dict[GenderEnum, str]] = {
-    GenderEnum.M: "Le convocazioni sono cambiate: non sei più convocato",
-    GenderEnum.F: "Le convocazioni sono cambiate: non sei più convocata",
+_NOT_CALLED_BODY: Final[Bilingual] = Bilingual(
+    "Grazie in ogni caso per aver dato la tua disponibilità",
+    "Thank you anyway for giving your availability",
+)
+
+_NEWLY_CALLED_TITLES: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Le convocazioni sono cambiate: sei convocato!",
+        "The call-ins have changed: you're called in!",
+    ),
+    GenderEnum.F: Bilingual(
+        "Le convocazioni sono cambiate: sei convocata!",
+        "The call-ins have changed: you're called in!",
+    ),
+}
+_NO_LONGER_CALLED_TITLES: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Le convocazioni sono cambiate: non sei più convocato",
+        "The call-ins have changed: you're no longer called in",
+    ),
+    GenderEnum.F: Bilingual(
+        "Le convocazioni sono cambiate: non sei più convocata",
+        "The call-ins have changed: you're no longer called in",
+    ),
 }
 
-_CHANGED_TITLE: Final[str] = "Le lezioni {band} sono state modificate"
-_CHANGED_BODY: Final[str] = "Tocca per visualizzare"
-_CHANGED_WEB_BODY: Final[str] = "Clicca per visualizzare"
+_CHANGED_TITLE: Final[Bilingual] = Bilingual(
+    "Le lezioni {band} sono state modificate",
+    "The {band} lessons have changed",
+)
+_CHANGED_BODY: Final[Bilingual] = Bilingual("Tocca per visualizzare", "Tap to view")
+_CHANGED_WEB_BODY: Final[Bilingual] = Bilingual(
+    "Clicca per visualizzare",
+    "Click to view",
+)
 _CHANGED_BANDS: Final[dict[TimeBandEnum, str]] = {
     TimeBandEnum.MORNING: "del mattino",
     TimeBandEnum.AFTERNOON: "del pomeriggio",
     TimeBandEnum.EVENING: "della sera",
 }
+
+
+# The band in both languages, as each template wants it.
+def _phrased(template: Bilingual, italian: str, band: TimeBandEnum) -> Bilingual:
+    return Bilingual(
+        template.it.format(band=italian),
+        template.en.format(band=time_band_phrase(band, "en")),
+    )
 
 _PUBLISHED_KINDS: Final[list[NotificationKindEnum]] = [
     NotificationKindEnum.CALENDAR_PUBLISHED,
@@ -157,18 +193,20 @@ async def _reach(db: AsyncSession) -> tuple[dict[str, Account], Holding]:
     return accounts, holding
 
 
-Texts = tuple[str, str, str | None]
+Texts = tuple[Bilingual, Bilingual, Bilingual | None]
 
 
-def _called_texts(title: str, phrase: str) -> Texts:
+def _called_texts(title: Bilingual, band: TimeBandEnum) -> Texts:
+    phrase = time_band_phrase(band, "it")
+
     return (
         title,
-        _CALLED_BODY.format(band=phrase),
-        _CALLED_WEB_BODY.format(band=phrase),
+        _phrased(_CALLED_BODY, phrase, band),
+        _phrased(_CALLED_WEB_BODY, phrase, band),
     )
 
 
-def _not_called_texts(title: str) -> Texts:
+def _not_called_texts(title: Bilingual) -> Texts:
     return title, _NOT_CALLED_BODY, None
 
 
@@ -209,13 +247,12 @@ async def announce_publication(
         await _parents_of(db, booked) if booked else set(),
         "PARENT",
     )
-    phrase = time_band_phrase(band)
     batches = [
         await notify(
             db,
             pupils,
             kind=NotificationKindEnum.CALENDAR_PUBLISHED,
-            title=_PUPIL_TITLE.format(band=phrase),
+            title=_phrased(_PUPIL_TITLE, time_band_phrase(band, "it"), band),
             body=_PUPIL_BODY,
             web_body=_PUPIL_WEB_BODY,
             calendar=(day, band),
@@ -231,7 +268,7 @@ async def announce_publication(
         gender = accounts[code].person.gender
 
         if code in called:
-            texts[code] = _called_texts(_CALLED_TITLES[gender], phrase)
+            texts[code] = _called_texts(_CALLED_TITLES[gender], band)
         elif not online_only:
             texts[code] = _not_called_texts(_NOT_CALLED_TITLES[gender])
 
@@ -397,9 +434,8 @@ async def announce_changes(
     ):
         live[(row.kind, row.account_tax_code)].append(row)
 
-    phrase = time_band_phrase(band)
     changed: Texts = (
-        _CHANGED_TITLE.format(band=_CHANGED_BANDS[band]),
+        _phrased(_CHANGED_TITLE, _CHANGED_BANDS[band], band),
         _CHANGED_BODY,
         _CHANGED_WEB_BODY,
     )
@@ -411,7 +447,7 @@ async def announce_changes(
     def first(kind: NotificationKindEnum, code: str) -> Texts | None:
         if kind == families:
             return (
-                _PUPIL_TITLE.format(band=phrase),
+                _phrased(_PUPIL_TITLE, time_band_phrase(band, "it"), band),
                 _PUPIL_BODY,
                 _PUPIL_WEB_BODY,
             )
@@ -419,7 +455,7 @@ async def announce_changes(
         gender = accounts[code].person.gender
 
         if code in called_after:
-            return _called_texts(_CALLED_TITLES[gender], phrase)
+            return _called_texts(_CALLED_TITLES[gender], band)
 
         if online_only:
             return None
@@ -434,7 +470,7 @@ async def announce_changes(
         gender = accounts[code].person.gender
 
         if code in called_after - called_before:
-            return _called_texts(_NEWLY_CALLED_TITLES[gender], phrase)
+            return _called_texts(_NEWLY_CALLED_TITLES[gender], band)
 
         if code in called_before - called_after:
             return _not_called_texts(_NO_LONGER_CALLED_TITLES[gender])

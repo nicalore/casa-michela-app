@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification, NotificationKindEnum
 from app.services.notification_kinds import holds_kind
-from app.services.notifications import dismissals, notify, reachable_identities
+from app.services.notifications import (
+    Bilingual,
+    dismissals,
+    notify,
+    reachable_identities,
+)
 from app.services.push import PushBatch, joined
 
 _ROME: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
@@ -15,26 +20,34 @@ _ROME: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 _KIND: Final[NotificationKindEnum] = NotificationKindEnum.OPENING_HOURS_CHANGED
 
 # The phone taps, the desktop clicks.
-_DAY_TITLE: Final[str] = (
-    "C'è stata una modifica agli orari di apertura per il giorno {day}"
+_DAY_TITLE: Final[Bilingual] = Bilingual(
+    "C'è stata una modifica agli orari di apertura per il giorno {day}",
+    "The opening hours for {day} have changed",
 )
-_SPAN_TITLE: Final[str] = (
+_SPAN_TITLE: Final[Bilingual] = Bilingual(
     "C'è stata una modifica agli orari di apertura per le giornate "
-    "dal {first} al {last}"
+    "dal {first} al {last}",
+    "The opening hours from {first} to {last} have changed",
 )
-_BODY: Final[str] = "Tocca per leggerla"
-_WEB_BODY: Final[str] = "Clicca per leggerla"
+_BODY: Final[Bilingual] = Bilingual("Tocca per leggerla", "Tap to read it")
+_WEB_BODY: Final[Bilingual] = Bilingual("Clicca per leggerla", "Click to read it")
 
 
 def _label(day: date) -> str:
     return day.strftime("%d/%m/%Y")
 
 
-def _title(first: date, last: date) -> str:
+def _title(first: date, last: date) -> Bilingual:
     if first == last:
-        return _DAY_TITLE.format(day=_label(first))
+        return Bilingual(
+            _DAY_TITLE.it.format(day=_label(first)),
+            _DAY_TITLE.en.format(day=_label(first)),
+        )
 
-    return _SPAN_TITLE.format(first=_label(first), last=_label(last))
+    return Bilingual(
+        _SPAN_TITLE.it.format(first=_label(first), last=_label(last)),
+        _SPAN_TITLE.en.format(first=_label(first), last=_label(last)),
+    )
 
 
 # What told of the same days before goes: the news is the latest change.

@@ -6,18 +6,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.notification import Notification, NotificationKindEnum
 from app.models.person import GenderEnum, Person
 from app.models.teacher_note import TeacherNote
-from app.services.notifications import dismissals, notify, reachable_administrators
+from app.services.notifications import (
+    Bilingual,
+    dismissals,
+    notify,
+    reachable_administrators,
+)
 from app.services.push import PushBatch
 
 _KIND: Final[NotificationKindEnum] = NotificationKindEnum.TEACHER_NOTE_ADDED
 
 _TITLE: Final[str] = "{author} ha inserito una nuova osservazione per {pupil}"
+_ENGLISH_TITLE: Final[str] = "{author} added a new observation about {pupil}"
 _PUPIL: Final[dict[GenderEnum, str]] = {
     GenderEnum.M: "lo studente {name}",
     GenderEnum.F: "la studentessa {name}",
 }
-_BODY: Final[str] = "Tocca per visualizzare"
-_WEB_BODY: Final[str] = "Clicca per visualizzare"
+_ENGLISH_PUPIL: Final[str] = "the student {name}"
+_BODY: Final[Bilingual] = Bilingual("Tocca per visualizzare", "Tap to view")
+_WEB_BODY: Final[Bilingual] = Bilingual("Clicca per visualizzare", "Click to view")
 
 
 def _full_name(person: Person) -> str:
@@ -47,9 +54,15 @@ async def announce_teacher_note(db: AsyncSession, note: TeacherNote) -> PushBatc
             if tax_code != author.tax_code
         ],
         kind=_KIND,
-        title=_TITLE.format(
-            author=_full_name(author),
-            pupil=_PUPIL[pupil.gender].format(name=_full_name(pupil)),
+        title=Bilingual(
+            _TITLE.format(
+                author=_full_name(author),
+                pupil=_PUPIL[pupil.gender].format(name=_full_name(pupil)),
+            ),
+            _ENGLISH_TITLE.format(
+                author=_full_name(author),
+                pupil=_ENGLISH_PUPIL.format(name=_full_name(pupil)),
+            ),
         ),
         body=_BODY,
         web_body=_WEB_BODY,

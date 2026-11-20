@@ -15,14 +15,16 @@ from sqlalchemy import (
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
+from app.core.i18n import tr
 from app.db.base import Base
 from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 
 if TYPE_CHECKING:
     from app.models.member import Member
 
-_FUTURE_MEMBERSHIP_YEAR_ERROR: Final[str] = (
-    "L'anno di tesseramento non può essere nel futuro"
+_FUTURE_MEMBERSHIP_YEAR_ERROR: Final[tuple[str, str]] = (
+    "L'anno di tesseramento non può essere nel futuro",
+    "The membership year can't be in the future",
 )
 
 
@@ -90,4 +92,4 @@ def _validate_memberships(
             continue
 
         if instance.year > current_year:
-            raise ValueError(_FUTURE_MEMBERSHIP_YEAR_ERROR)
+            raise ValueError(tr(*_FUTURE_MEMBERSHIP_YEAR_ERROR))

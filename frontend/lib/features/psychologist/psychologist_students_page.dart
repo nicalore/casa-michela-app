@@ -124,7 +124,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
         }
       });
 
-      _startTour(psychologistStudentsTour());
+      _startTour(psychologistStudentsTour(studentGender: _selected?.gender));
     }
     catch (error, stackTrace)
     {
@@ -255,7 +255,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
 
       if (note == null)
       {
-        _startTour(psychologistNoteTour(), hold: hold);
+        _startTour(psychologistNoteTour(studentGender: student.gender), hold: hold);
       }
     }
   }
@@ -436,7 +436,7 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
       return AppLoadFailedRoom(error: _loadFailure, message: kLoadFailed, onRetry: _load);
     }
 
-    const Widget none = Center(
+    final Widget none = Center(
       child: PageTransitionItem(
         slot: PageTransitionItem.list,
         child: AppEmptyCard(icon: Icons.school_rounded, message: kNoStudents),

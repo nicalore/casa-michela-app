@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/language/app_language.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
 import '../../../models/teacher_appreciation_item.dart';
@@ -114,7 +115,7 @@ class TeacherAppreciationCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppCard(
-      title: 'Gradimento docenti',
+      title: tr('Gradimento docenti', 'Teacher appreciation'),
       selectable: false,
       leading: const AppCardBadge(icon: Icons.emoji_events_rounded),
       trailingFit: AppCardTrailing.wrapping,

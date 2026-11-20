@@ -193,7 +193,7 @@ class MobileBookingDraft
 
   bool isClosed(DateTime day, TimeBucket bucket) => haveBookingsClosed(day, bucket, now);
 
-  String get _whose => 'di ${pupil.firstName}';
+  String get _whose => whoseLabel(pupil.firstName);
 
   // Bands of [day] the pupil has booked the other way.
   Set<TimeBucket> _takenOn(DateTime day)

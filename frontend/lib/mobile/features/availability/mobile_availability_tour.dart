@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../shared/widgets/mobile_action_circle.dart';
 import '../../shared/widgets/mobile_info_button.dart';
@@ -8,7 +9,7 @@ import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_availability_draft.dart';
 import 'mobile_availability_week.dart';
 
-const String _title = 'Disponibilità';
+String get _title => tr('Disponibilità', 'Availability');
 
 // Bump a version on every change to that tour.
 const String _slug = 'availability';
@@ -33,19 +34,39 @@ const String kAvailabilityTourInfo = 'availability.info';
 const EdgeInsets kAvailabilityTourWeekInflate = EdgeInsets.all(12);
 const double kAvailabilityTourWeekRadius = 22;
 
-const String _thisWeek = 'Qui puoi vedere le disponibilità che hai dato questa settimana.';
-const String _toNextWeek = 'Tocca «Settimana prossima».';
-const String _nextWeek = 'Qui puoi dare le disponibilità per la settimana prossima, che si sblocca il venerdì alle 20:00.';
-const String _info =
-    'In $kMobileTourGlyph trovi le scadenze entro cui dare o modificare le disponibilità: toccalo per leggerle.';
+String get _thisWeek => tr(
+  'Qui puoi vedere le disponibilità che hai dato questa settimana.',
+  'Here you can see the availability you have given this week.',
+);
+String get _toNextWeek => tr('Tocca «Settimana prossima».', 'Tap “Next week”.');
+String get _nextWeek => tr(
+  'Qui puoi dare le disponibilità per la settimana prossima, che si sblocca il venerdì alle 20:00.',
+  'Here you can give your availability for next week, which opens on Friday at 20:00.',
+);
+String get _info => tr(
+  'In $kMobileTourGlyph trovi le scadenze entro cui dare o modificare le disponibilità: toccalo per leggerle.',
+  'In $kMobileTourGlyph you will find the deadlines for giving or changing your availability: tap it to read them.',
+);
 
-const Map<AvailabilityMark, String> _markTexts = {
-  AvailabilityMark.slots:
-      "Le lezioni in presenza sono contrassegnate dal colore verde e dall'icona di una casa, mentre quelle online sono "
-      "indicate in arancione e con l'icona di una videocamera.",
-  AvailabilityMark.add: 'Con $kMobileTourGlyph puoi aggiungere una disponibilità per un giorno.',
-  AvailabilityMark.edit: 'Con $kMobileTourGlyph puoi modificare o eliminare una disponibilità.',
-  AvailabilityMark.lock: 'Il lucchetto indica che non è più possibile aggiungere o modificare la disponibilità.',
+Map<AvailabilityMark, String> get _markTexts => {
+  AvailabilityMark.slots: tr(
+    "Le lezioni in presenza sono contrassegnate dal colore verde e dall'icona di una casa, mentre quelle online sono "
+        "indicate in arancione e con l'icona di una videocamera.",
+    'In-person lessons are marked in green with a house icon, while online ones are shown in orange with a video '
+        'camera icon.',
+  ),
+  AvailabilityMark.add: tr(
+    'Con $kMobileTourGlyph puoi aggiungere una disponibilità per un giorno.',
+    'With $kMobileTourGlyph you can add availability for a day.',
+  ),
+  AvailabilityMark.edit: tr(
+    'Con $kMobileTourGlyph puoi modificare o eliminare una disponibilità.',
+    'With $kMobileTourGlyph you can change or delete an availability.',
+  ),
+  AvailabilityMark.lock: tr(
+    'Il lucchetto indica che non è più possibile aggiungere o modificare la disponibilità.',
+    'The padlock means that availability can no longer be added or changed.',
+  ),
 };
 
 const Duration _pageBack = Duration(milliseconds: 320);
@@ -166,12 +187,23 @@ const Map<DaySheetMark, int> _sheetMarkVersions = {
   DaySheetMark.edit: 4,
 };
 
-const Map<DaySheetMark, String> _sheetTexts = {
-  DaySheetMark.bin:
-      'Il cestino ti permette di rimuovere un singolo orario tra quelli in cui hai indicato la tua disponibilità.',
-  DaySheetMark.band: 'Puoi anche eliminare tutte le disponibilità che hai dato per una fascia oraria.',
-  DaySheetMark.day: 'Se lo desideri, puoi eliminare direttamente tutte le disponibilità che hai dato per la giornata.',
-  DaySheetMark.edit: 'Se vuoi modificare le disponibilità che hai già dato, tocca «Modifica».',
+Map<DaySheetMark, String> get _sheetTexts => {
+  DaySheetMark.bin: tr(
+    'Il cestino ti permette di rimuovere un singolo orario tra quelli in cui hai indicato la tua disponibilità.',
+    'The bin lets you remove a single time range among those you said you are available.',
+  ),
+  DaySheetMark.band: tr(
+    'Puoi anche eliminare tutte le disponibilità che hai dato per una fascia oraria.',
+    'You can also delete all the availability you have given for a time slot.',
+  ),
+  DaySheetMark.day: tr(
+    'Se lo desideri, puoi eliminare direttamente tutte le disponibilità che hai dato per la giornata.',
+    'If you wish, you can delete straight away all the availability you have given for the day.',
+  ),
+  DaySheetMark.edit: tr(
+    'Se vuoi modificare le disponibilità che hai già dato, tocca «Modifica».',
+    'If you want to change the availability you have already given, tap “Edit”.',
+  ),
 };
 
 String daySheetTourTarget(DaySheetMark mark) => 'availability.sheet.${mark.name}';
@@ -263,16 +295,31 @@ const Map<WizardMark, int> _wizardVersions = {
   WizardMark.save: 5,
 };
 
-const Map<WizardMark, String> _wizardTexts = {
-  WizardMark.days: 'Puoi selezionare una data toccandola. Toccando una data barrata scopri perché non è disponibile.',
-  WizardMark.yesNo:
-      'Con il selettore dai o togli la tua disponibilità per la fascia oraria corrispondente (mattina, pomeriggio o sera).',
-  WizardMark.hours: "Con + e − cambi gli orari in cui sei disponibile. Toccando l'ora puoi anche scriverla direttamente.",
-  WizardMark.add:
-      'Puoi indicare più orari di disponibilità nella stessa fascia. Ad esempio, dalle 14:00 alle 15:00 e dalle 17:00 alle 18:00.',
-  WizardMark.bin: 'Puoi eliminare un orario in cui hai dato disponibilità toccando sul cestino.',
-  WizardMark.create: 'Quando hai finito, tocca «Crea».',
-  WizardMark.save: 'Quando hai finito, tocca «Salva».',
+Map<WizardMark, String> get _wizardTexts => {
+  WizardMark.days: tr(
+    'Puoi selezionare una data toccandola. Toccando una data barrata scopri perché non è disponibile.',
+    'You can choose a date by tapping it. Tap a struck-through date to find out why it is not available.',
+  ),
+  WizardMark.yesNo: tr(
+    'Con il selettore dai o togli la tua disponibilità per la fascia oraria corrispondente (mattina, pomeriggio o sera).',
+    'With the switch you give or withdraw your availability for the matching time slot (morning, afternoon or '
+        'evening).',
+  ),
+  WizardMark.hours: tr(
+    "Con + e − cambi gli orari in cui sei disponibile. Toccando l'ora puoi anche scriverla direttamente.",
+    'With + and − you change the times when you are available. You can also tap the time to type it in.',
+  ),
+  WizardMark.add: tr(
+    'Puoi indicare più orari di disponibilità nella stessa fascia. Ad esempio, dalle 14:00 alle 15:00 e dalle 17:00 alle 18:00.',
+    'You can give more than one availability range in the same slot. For example, from 14:00 to 15:00 and from '
+        '17:00 to 18:00.',
+  ),
+  WizardMark.bin: tr(
+    'Puoi eliminare un orario in cui hai dato disponibilità toccando sul cestino.',
+    'You can delete an availability range by tapping the bin.',
+  ),
+  WizardMark.create: tr('Quando hai finito, tocca «Crea».', 'When you have finished, tap “Create”.'),
+  WizardMark.save: tr('Quando hai finito, tocca «Salva».', 'When you have finished, tap “Save”.'),
 };
 
 String wizardTourTarget(WizardMark mark, String page) => 'availability.wizard.${mark.name}.$page';

@@ -365,7 +365,7 @@ List<double> _needs(BuildContext context, StudentMonth month, _Fit fit)
 
   cells[0] = math.min(name, _nameMost) + _nameInset + 8 + 2;
 
-  const List<String> heads = [
+  final List<String> heads = [
     kTotalColumn, kPresenceColumn, kOnlineColumn,
     kTotalColumn, kPresenceColumn, kOnlineColumn,
   ];

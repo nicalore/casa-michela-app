@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_catalogue_card.dart';
@@ -90,13 +91,13 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
       context: context,
       barrierLabel: 'ConfirmDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Eliminazione',
-        title: 'Confermi?',
+        eyebrow: tr('Eliminazione', 'Deletion'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -105,7 +106,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -124,12 +125,12 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: 'La materia '),
+                  TextSpan(text: tr('La materia ', 'The subject ')),
                   TextSpan(
                     text: subject.name,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                   ),
-                  const TextSpan(text: ' verrà eliminata definitivamente.'),
+                  TextSpan(text: tr(' verrà eliminata definitivamente.', ' will be deleted permanently.')),
                 ],
               ),
               style: GoogleFonts.plusJakartaSans(
@@ -171,7 +172,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildFieldLabel('Livello', first: true),
+        _buildFieldLabel(tr('Livello', 'Level'), first: true),
         Text(
           levelLabel,
           softWrap: false,
@@ -185,7 +186,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildFieldLabel(areaLabels.length == 1 ? 'Area' : 'Aree', first: true),
+        _buildFieldLabel(areaLabels.length == 1 ? tr('Area', 'Area') : tr('Aree', 'Areas'), first: true),
         for (int i = 0; i < areaLabels.length; i++)
           Padding(
             padding: EdgeInsets.only(top: i == 0 ? 0 : 4),
@@ -195,12 +196,12 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
     );
 
     return AppDialogStack(
-      eyebrow: 'Materia ministeriale',
+      eyebrow: tr('Materia ministeriale', 'Curriculum subject'),
       title: subject.name,
       maxWidth: 660,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ELIMINA',
+          label: tr('ELIMINA', 'DELETE'),
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -209,7 +210,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
           onPressed: () => _showDeleteConfirmation(context),
         ),
         primary: AppGradientButton(
-          label: 'MODIFICA',
+          label: tr('MODIFICA', 'EDIT'),
           icon: Icons.edit_outlined,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -237,9 +238,9 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
                       Expanded(child: areasBlock),
                     ],
                   ),
-                _buildFieldLabel('Descrizione'),
+                _buildFieldLabel(tr('Descrizione', 'Description')),
                 Text(
-                  hasDescription ? subject.description! : 'Nessuna descrizione fornita.',
+                  hasDescription ? subject.description! : tr('Nessuna descrizione fornita.', 'No description given.'),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -258,11 +259,11 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFieldLabel('Discipline interne associate', first: true),
+              _buildFieldLabel(tr('Discipline interne associate', 'Linked internal disciplines'), first: true),
               if (subject.associationSubjects.isEmpty)
                 Center(
                   child: Text(
-                    'Nessuna disciplina associata.',
+                    tr('Nessuna disciplina associata.', 'No linked disciplines.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,

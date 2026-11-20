@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -33,13 +34,15 @@ const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 const double _dialogButtonPadding = 18;
 
-const String _kTeacherHint = 'Scegli il docente';
+String get _kTeacherHint => tr('Scegli il docente', 'Choose the teacher');
 
-const String _kNoTeacherNote =
-    'Nessun docente ha dato la sua disponibilità in questa parte della giornata: '
-    "l'attività resta qui finché non ce n'è uno.";
+String get _kNoTeacherNote => tr(
+  'Nessun docente ha dato la sua disponibilità in questa parte della giornata: '
+      "l'attività resta qui finché non ce n'è uno.",
+  'No teacher has given availability in this part of the day: the activity stays here until there is one.',
+);
 
-const String _kNameRequired = "Un'attività deve avere un nome.";
+String get _kNameRequired => tr("Un'attività deve avere un nome.", 'An activity must have a name.');
 
 // Both availability modes are offered: an activity needs the teacher's time, not a room.
 class _Slot
@@ -241,8 +244,8 @@ class _ActivityDialogState extends State<ActivityDialog>
         children: [
           AppTextField(
             controller: _name,
-            label: 'Nome',
-            hintText: 'Es. Ufficio',
+            label: tr('Nome', 'Name'),
+            hintText: tr('Es. Ufficio', 'E.g. Office'),
             nothingAbove: true,
             maxLength: FieldLimits.name,
             textCapitalization: TextCapitalization.sentences,
@@ -257,8 +260,8 @@ class _ActivityDialogState extends State<ActivityDialog>
           ),
           AppTextField(
             controller: _description,
-            label: 'Descrizione (opzionale)',
-            hintText: 'Aggiungi una descrizione...',
+            label: tr('Descrizione (opzionale)', 'Description (optional)'),
+            hintText: tr('Aggiungi una descrizione...', 'Add a description...'),
             maxLength: FieldLimits.description,
             maxLines: 3,
             minLines: 2,
@@ -280,7 +283,7 @@ class _ActivityDialogState extends State<ActivityDialog>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _label('Docente'),
+          _label(tr('Docente', 'Teacher')),
           if (_slots.isEmpty)
             Text(_kNoTeacherNote, style: _noteStyle)
           else
@@ -305,7 +308,7 @@ class _ActivityDialogState extends State<ActivityDialog>
               },
             ),
           if (slot != null) ...[
-            _label('Quando', first: false),
+            _label(tr('Quando', 'When'), first: false),
             BandTimeRangeSlider(
               bucket: _index.band,
               startTime: timeOfDayFromMinutes(_startMinutes),
@@ -460,7 +463,7 @@ class _ActivityDialogState extends State<ActivityDialog>
     {
       return AppDialogFooter.single(
         AppGradientButton(
-          label: 'CHIUDI',
+          label: tr('CHIUDI', 'CLOSE'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
           accent: AppTheme.trialVioletText,
@@ -473,7 +476,7 @@ class _ActivityDialogState extends State<ActivityDialog>
     }
 
     final confirm = AppGradientButton(
-      label: 'CONFERMA',
+      label: tr('CONFERMA', 'CONFIRM'),
       icon: Icons.check_rounded,
       busy: _isSaving,
       height: _dialogButtonHeight,
@@ -504,7 +507,7 @@ class _ActivityDialogState extends State<ActivityDialog>
             )
           : null,
       secondary: AppGradientButton(
-        label: 'ELIMINA',
+        label: tr('ELIMINA', 'DELETE'),
         icon: Icons.delete_outline_rounded,
         gradient: AppTheme.dangerGradient,
         accent: AppTheme.trialDangerText,
@@ -523,7 +526,7 @@ class _ActivityDialogState extends State<ActivityDialog>
   {
     return AppDialogStack(
       eyebrow: kActivityWord,
-      title: _isNew ? 'Nuova attività' : 'Modifica attività',
+      title: _isNew ? tr('Nuova attività', 'New activity') : tr('Modifica attività', 'Edit activity'),
       maxWidth: _dialogWidth,
       footer: _buildFooter(),
       children: [

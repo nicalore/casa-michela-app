@@ -5,9 +5,9 @@ from typing import Final, Self
 from pydantic import BaseModel, Field, model_validator
 
 from app.core import field_lengths
+from app.core.i18n import tr
 from app.schemas.membership_fees import WizardFeesData
 from app.schemas.person import (
-    HEALTH_DATA_WITHOUT_CONSENT_ERROR,
     BirthPlaceData,
     ParentalRelationshipInput,
     SchoolOrHomeschooling,
@@ -15,6 +15,7 @@ from app.schemas.person import (
     StudentEarlyExitData,
     StudentTariffChoice,
     TeacherEducationData,
+    health_data_without_consent_error,
 )
 from app.schemas.student_payments import WizardTariffData
 from app.schemas.validators import (
@@ -25,23 +26,37 @@ from app.schemas.validators import (
     UpperCaseStr,
 )
 
-_MISSING_CONSENTS_ERROR: Final[str] = (
-    "Per completare l'iscrizione è necessario accettare: {consents}."
+_MISSING_CONSENTS_ERROR: Final[tuple[str, str]] = (
+    "Per completare l'iscrizione è necessario accettare: {consents}.",
+    "To complete the enrolment you need to accept: {consents}.",
 )
 
-_MANDATORY_PSYCH_MEETINGS_ERROR: Final[str] = (
-    "È necessario prendere atto dei due incontri obbligatori con "
-    "lo psicologo."
+_MANDATORY_PSYCH_MEETINGS_ERROR: Final[tuple[str, str]] = (
+    "È necessario prendere atto dei due incontri obbligatori con lo psicologo.",
+    "You need to acknowledge the two mandatory meetings with the psychologist.",
 )
 
-_MISSING_PAYMENT_METHOD_ERROR: Final[str] = (
-    "È necessario indicare la modalità di pagamento."
+_MISSING_PAYMENT_METHOD_ERROR: Final[tuple[str, str]] = (
+    "È necessario indicare la modalità di pagamento.",
+    "The payment method is required.",
 )
 
-_MANDATORY_CONSENTS: Final[tuple[tuple[str, str], ...]] = (
-    ("statute_acknowledged", "presa visione dello Statuto"),
-    ("regulation_acknowledged", "accettazione del Regolamento"),
-    ("video_surveillance_acknowledged", "consapevolezza della videosorveglianza"),
+_MANDATORY_CONSENTS: Final[tuple[tuple[str, tuple[str, str]], ...]] = (
+    (
+        "statute_acknowledged",
+        ("presa visione dello Statuto", "acknowledgement of the Statute"),
+    ),
+    (
+        "regulation_acknowledged",
+        ("accettazione del Regolamento", "acceptance of the Regulations"),
+    ),
+    (
+        "video_surveillance_acknowledged",
+        (
+            "consapevolezza della videosorveglianza",
+            "awareness of the video surveillance",
+        ),
+    ),
 )
 
 
@@ -118,14 +133,14 @@ class WizardMemberData(WizardMemberDataBase):
     @model_validator(mode="after")
     def _check_mandatory_consents(self) -> Self:
         missing = [
-            label
+            tr(*label)
             for field_name, label in _MANDATORY_CONSENTS
             if not getattr(self, field_name)
         ]
 
         if missing:
             raise ValueError(
-                _MISSING_CONSENTS_ERROR.format(consents=", ".join(missing))
+                tr(*_MISSING_CONSENTS_ERROR).format(consents=", ".join(missing))
             )
 
         return self
@@ -134,11 +149,11 @@ class WizardMemberData(WizardMemberDataBase):
     @model_validator(mode="after")
     def _check_payment_method(self) -> Self:
         if self.payment_method is None:
-            raise ValueError(_MISSING_PAYMENT_METHOD_ERROR)
+            raise ValueError(tr(*_MISSING_PAYMENT_METHOD_ERROR))
 
         # A payment recorded with the enrolment needs the method whole.
         if self.payment_method == "OTHER" and not self.payment_method_other:
-            raise ValueError(_MISSING_PAYMENT_METHOD_ERROR)
+            raise ValueError(tr(*_MISSING_PAYMENT_METHOD_ERROR))
 
         return self
 
@@ -195,7 +210,7 @@ class WizardStudentData(
     @model_validator(mode="after")
     def _check_mandatory_psych_meetings(self) -> Self:
         if self.certification_types and not self.mandatory_psych_meetings_acknowledged:
-            raise ValueError(_MANDATORY_PSYCH_MEETINGS_ERROR)
+            raise ValueError(tr(*_MANDATORY_PSYCH_MEETINGS_ERROR))
 
         return self
 
@@ -233,6 +248,6 @@ class PersonWizardPayload(PersonWizardPayloadBase):
             or (self.student_data is not None and self.student_data.certification_types)
             or self.psychological_support_data is not None
         ):
-            raise ValueError(HEALTH_DATA_WITHOUT_CONSENT_ERROR)
+            raise ValueError(health_data_without_consent_error())
 
         return self

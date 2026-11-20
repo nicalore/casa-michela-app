@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/field_limits.dart';
+import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
@@ -610,7 +611,7 @@ class _WizardState extends State<_Wizard>
     final bool confirmed = await showMobileConfirmSheet(
       context: page,
       eyebrow: kRemovalEyebrow,
-      title: 'Confermi?',
+      title: tr('Confermi?', 'Are you sure?'),
       message: TextSpan(
         children: switch (flow.discipline)
         {
@@ -619,19 +620,19 @@ class _WizardState extends State<_Wizard>
                 text: disciplineLabel(flow.draft.displayName, discipline),
                 style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
               ),
-              const TextSpan(text: kDisciplineRemovalAfter),
+              TextSpan(text: kDisciplineRemovalAfter),
             ],
           null => [
-              const TextSpan(text: kSubjectRemovalBefore),
+              TextSpan(text: kSubjectRemovalBefore),
               TextSpan(
                 text: flow.draft.displayName,
                 style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
               ),
-              const TextSpan(text: kSubjectRemovalAfter),
+              TextSpan(text: kSubjectRemovalAfter),
             ],
         },
       ),
-      confirmLabel: 'Rimuovi',
+      confirmLabel: tr('Rimuovi', 'Remove'),
       confirmIcon: Icons.delete_outline_rounded,
     );
 
@@ -819,7 +820,7 @@ class _WizardState extends State<_Wizard>
 
   List<Widget> _buildCategory(MobileBookingGroup group, TimeBucket band, String page)
   {
-    final String whose = 'di ${_pupil.firstName}';
+    final String whose = whoseLabel(_pupil.firstName);
 
     switch (_category)
     {
@@ -889,7 +890,7 @@ class _WizardState extends State<_Wizard>
       default:
         if (_catalogue.services.isEmpty)
         {
-          return const [MobileQuietLine(kNoServices)];
+          return [MobileQuietLine(kNoServices)];
         }
 
         final List<ServiceItem> shown = _catalogue.services
@@ -993,7 +994,7 @@ class _WizardState extends State<_Wizard>
     });
 
     return [
-      const MobileWizardGuide(question: kBandNotesQuestion, hint: kBandNotesHint),
+      MobileWizardGuide(question: kBandNotesQuestion, hint: kBandNotesHint),
       if (_draft.groups.length > 1) MobileDaysTag(days: group.days),
       if (offer != null) MobileBandTag(offer: offer, mode: _draft.mode, showsLeft: false),
       const SizedBox(height: 16),
@@ -1034,7 +1035,7 @@ class _WizardState extends State<_Wizard>
   {
     final int step = _step.clamp(0, steps.length - 1);
     final bool last = _isLast(steps, step);
-    final String label = last ? (_draft.isEditing ? 'Salva' : 'Crea') : 'Avanti';
+    final String label = last ? (_draft.isEditing ? tr('Salva', 'Save') : tr('Crea', 'Create')) : tr('Avanti', 'Next');
 
     final VoidCallback? back = step > 0 ? () => _turnTo(step - 1) : null;
 
@@ -1099,7 +1100,7 @@ class _WizardState extends State<_Wizard>
     );
   }
 
-  String _modeWord() => modeLabel(_draft.mode).toLowerCase();
+  String _modeWord() => tr(modeLabel(_draft.mode).toLowerCase(), modeLabel(_draft.mode));
 
   String _eyebrow() => _draft.isSelf ? _modeWord() : '${_pupil.firstName} · ${_modeWord()}';
 }

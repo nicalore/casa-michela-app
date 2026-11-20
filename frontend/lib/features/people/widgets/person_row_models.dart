@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../association/models/school_item.dart';
 import '../models/membership_item.dart';
 import '../../association/models/study_program_item.dart';
@@ -55,7 +56,7 @@ class MembershipRowData
 }
 
 // Stands where a school name goes when the pupil has none.
-const String kHomeschoolingLabel = 'Istruzione parentale';
+String get kHomeschoolingLabel => tr('Istruzione parentale', 'Home education');
 
 class SchoolEnrollmentRowData
 {

@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../shared/widgets/mobile_choice_sheet.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_tour.dart';
 
-const String _title = 'Calendario';
+String get _title => tr('Calendario', 'Calendar');
 
 // Bump a version on every change to that tour.
 const String _slug = 'calendar';
@@ -24,21 +25,32 @@ const int _pickerVersion = 2;
 
 const String kCalendarTourPickerDays = 'calendar.picker.days';
 
-const String _picker = 'Il pallino sotto una data indica la presenza di un calendario pubblicato in quel giorno.';
+String get _picker => tr(
+  'Il pallino sotto una data indica la presenza di un calendario pubblicato in quel giorno.',
+  'The dot under a date means that a calendar has been published for that day.',
+);
 
 String calendarTourCard(TimeBucket band) => 'calendar.card.${band.name}';
 String calendarTourLesson(TimeBucket band) => 'calendar.lesson.${band.name}';
 
-const String _bands =
-    'Qui puoi vedere, una volta pubblicati, gli orari delle lezioni per ciascuna fascia oraria (mattina, '
-    'pomeriggio, sera).';
-const String _day =
-    'Puoi scorrere tra i giorni con le frecce, o toccare la data al centro per selezionare un giorno qualsiasi.';
-const String _card =
-    'Qui puoi consultare un riepilogo della tua convocazione, con gli orari di inizio e fine, il numero di lezioni '
-    'assegnate, gli studenti coinvolti e il totale delle ore previste. In basso, se sei in presenza, trovi la stanza '
-    "assegnata e l'elenco dei responsabili di stanza.";
-const String _lesson = 'Tocca una lezione per vederne i dettagli.';
+String get _bands => tr(
+  'Qui puoi vedere, una volta pubblicati, gli orari delle lezioni per ciascuna fascia oraria (mattina, '
+      'pomeriggio, sera).',
+  'Here you can see, once published, the lesson times for each time slot (morning, afternoon, evening).',
+);
+String get _day => tr(
+  'Puoi scorrere tra i giorni con le frecce, o toccare la data al centro per selezionare un giorno qualsiasi.',
+  'You can move between days with the arrows, or tap the date in the middle to choose any day.',
+);
+String get _card => tr(
+  'Qui puoi consultare un riepilogo della tua convocazione, con gli orari di inizio e fine, il numero di lezioni '
+      'assegnate, gli studenti coinvolti e il totale delle ore previste. In basso, se sei in presenza, trovi la stanza '
+      "assegnata e l'elenco dei responsabili di stanza.",
+  'Here you can see a summary of your call-in, with the start and end times, the number of lessons assigned, the '
+      'students involved and the total hours planned. At the bottom, if you are in person, you will find the room '
+      'assigned and the list of room supervisors.',
+);
+String get _lesson => tr('Tocca una lezione per vederne i dettagli.', 'Tap a lesson to see its details.');
 
 // The lesson sheet's parts, each explained once, the first time it shows.
 enum LessonSheetMark { details, studentTab, facts, technical, methodological, sensitive, note }
@@ -56,28 +68,47 @@ const Map<LessonSheetMark, int> _sheetVersions = {
   LessonSheetMark.note: 2,
 };
 
-const Map<LessonSheetMark, String> _sheetTexts = {
-  LessonSheetMark.details:
-      'Qui trovi tutte le informazioni sulla lezione. Le note sono indicazioni aggiuntive inserite dal genitore per '
-      'te.',
-  LessonSheetMark.studentTab: 'Tocca «Studente».',
-  LessonSheetMark.facts:
-      'Queste sono alcune informazioni sullo studente che possono aiutarti a organizzare la lezione.',
-  LessonSheetMark.technical:
-      "Le osservazioni tecniche sono indicazioni sullo studente inserite dal Direttivo dell'Associazione.",
-  LessonSheetMark.methodological:
-      "Le osservazioni metodologiche sono indicazioni operative redatte dagli psicologi dell'Associazione che "
-      'seguono o hanno seguito lo studente. Se presenti, ti preghiamo di leggerle con attenzione e di tenerne conto '
-      'per adattare la lezione alle esigenze specifiche dello studente.',
-  LessonSheetMark.sensitive:
-      'Alcune di queste informazioni sono particolarmente delicate. Puoi consultarle al fine di offrire allo '
-      'studente un servizio più attento e adeguato alle sue necessità. Ti chiediamo, tuttavia, di accedervi in un '
-      'luogo riservato, assicurandoti che nessun altro possa vederle, e di non divulgarle in alcun caso, nel '
-      'rispetto dello studente.',
-  LessonSheetMark.note:
-      'Puoi aggiungere alcune note relative al comportamento e al rendimento dello studente durante la lezione. '
-      'Queste note verranno lette dal Direttivo e in seguito potrebbero essere comunicate alle famiglie oppure, '
-      'se ritenute utili per tutti i docenti, aggiunte alle osservazioni tecniche.',
+Map<LessonSheetMark, String> get _sheetTexts => {
+  LessonSheetMark.details: tr(
+    'Qui trovi tutte le informazioni sulla lezione. Le note sono indicazioni aggiuntive inserite da chi ha '
+        'prenotato la lezione.',
+    'Here you will find all the information about the lesson. The notes are extra directions added by whoever '
+        'booked the lesson.',
+  ),
+  LessonSheetMark.studentTab: tr('Tocca «Studente».', 'Tap “Student”.'),
+  LessonSheetMark.facts: tr(
+    'Queste sono alcune informazioni sullo studente che possono aiutarti a organizzare la lezione.',
+    'This is some information about the student that can help you plan the lesson.',
+  ),
+  LessonSheetMark.technical: tr(
+    "Le osservazioni tecniche sono indicazioni sullo studente inserite dal Direttivo dell'Associazione.",
+    "Technical observations are notes about the student added by the Association's Board.",
+  ),
+  LessonSheetMark.methodological: tr(
+    "Le osservazioni metodologiche sono indicazioni operative redatte dagli psicologi dell'Associazione che "
+        'seguono o hanno seguito lo studente. Se presenti, ti preghiamo di leggerle con attenzione e di tenerne conto '
+        'per adattare la lezione alle esigenze specifiche dello studente.',
+    "Methodological observations are practical directions written by the Association's psychologists who follow "
+        'or have followed the student. If there are any, please read them carefully and take them into account to '
+        "adapt the lesson to the student's specific needs.",
+  ),
+  LessonSheetMark.sensitive: tr(
+    'Alcune di queste informazioni sono particolarmente delicate. Puoi consultarle al fine di offrire allo '
+        'studente un servizio più attento e adeguato alle sue necessità. Ti chiediamo, tuttavia, di accedervi in un '
+        'luogo riservato, assicurandoti che nessun altro possa vederle, e di non divulgarle in alcun caso, nel '
+        'rispetto dello studente.',
+    'Some of this information is particularly sensitive. You can read it in order to offer the student a more '
+        'attentive service, suited to their needs. We ask you, however, to open it in a private place, making sure '
+        'that nobody else can see it, and never to disclose it, out of respect for the student.',
+  ),
+  LessonSheetMark.note: tr(
+    'Puoi aggiungere alcune note relative al comportamento e al rendimento dello studente durante la lezione. '
+        'Queste note verranno lette dal Direttivo e in seguito potrebbero essere comunicate alle famiglie oppure, '
+        'se ritenute utili per tutti i docenti, aggiunte alle osservazioni tecniche.',
+    "You can add some notes about the student's behaviour and performance during the lesson. These notes will be "
+        'read by the Board and may later be passed on to the families or, if useful for all the teachers, added to '
+        'the technical observations.',
+  ),
 };
 
 String lessonSheetTourTarget(LessonSheetMark mark) => 'calendar.sheet.${mark.name}';
@@ -245,14 +276,14 @@ MobileTour calendarTour({
   final List<MobileTourStep> steps = [
     if (main) ...[
       // The page may open scrolled to the lesson under way, the header gone.
-      const MobileTourStep(
+      MobileTourStep(
         text: _bands,
-        shown: [kCalendarTourBands],
+        shown: const [kCalendarTourBands],
         reveal: kCalendarTourBands,
         scrolls: false,
         seen: mainSeen,
       ),
-      const MobileTourStep(text: _day, shown: [kCalendarTourDay], reveal: kCalendarTourDay, seen: mainSeen),
+      MobileTourStep(text: _day, shown: const [kCalendarTourDay], reveal: kCalendarTourDay, seen: mainSeen),
     ],
     if (band != null) ...[
       MobileTourStep(text: _card, shown: [calendarTourCard(band)], reveal: calendarTourCard(band), seen: callSeen),
@@ -307,7 +338,7 @@ MobileTour calendarPickerTour()
     slug: _pickerSlug,
     title: _title,
     version: _pickerVersion,
-    steps: const [MobileTourStep(text: _picker, shown: [kCalendarTourPickerDays])],
+    steps: [MobileTourStep(text: _picker, shown: const [kCalendarTourPickerDays])],
     leave: MobileNavSheet.hidden,
     left: () => !MobileNavSheet.hidden.value,
   );
@@ -341,10 +372,13 @@ const String kPupilCalendarTourLayouts = 'calendar.pupil.layouts';
 
 String pupilCalendarTourCards(TimeBucket band) => 'calendar.pupil.cards.${band.name}';
 
-const String _layout = 'Tocca per cambiare la visualizzazione del calendario.';
-const String _layouts =
-    "La visualizzazione per orario organizza le lezioni su una linea del tempo, mentre quella per lezioni le presenta "
-    "in un elenco, una sotto l'altra. Tocca un'opzione per sceglierla.";
+String get _layout => tr('Tocca per cambiare la visualizzazione del calendario.', 'Tap to change how the calendar is shown.');
+String get _layouts => tr(
+  "La visualizzazione per orario organizza le lezioni su una linea del tempo, mentre quella per lezioni le presenta "
+      "in un elenco, una sotto l'altra. Tocca un'opzione per sceglierla.",
+  'The view by time lays the lessons out on a timeline, while the view by lesson shows them in a list, one under '
+      'the other. Tap an option to choose it.',
+);
 
 // The lesson sheet a parent opens, each part explained once, the first time it shows.
 enum PupilLessonSheetMark { details, teacherTab, teacher }
@@ -364,16 +398,33 @@ const String kLessonSheetTourOther = 'calendar.sheet.other';
 bool _daughter(String? gender) => gender == 'F';
 
 // [self]: the student's own lesson.
-String _pupilSheetText(PupilLessonSheetMark mark, {required String? gender, required bool self})
+String _pupilSheetText(
+  PupilLessonSheetMark mark, {
+  required String? gender,
+  required bool self,
+  required String? teacherGender,
+})
 {
+  final String teacher = teacherGender == 'F' ? 'sulla docente' : 'sul docente';
+
   return switch (mark)
   {
-    PupilLessonSheetMark.details => 'Qui trovi tutte le informazioni sulla lezione.',
-    PupilLessonSheetMark.teacherTab => 'Tocca «Docente».',
+    PupilLessonSheetMark.details => tr(
+      'Qui trovi tutte le informazioni sulla lezione.',
+      'Here you will find all the information about the lesson.',
+    ),
+    PupilLessonSheetMark.teacherTab => tr('Tocca «Docente».', 'Tap “Teacher”.'),
     PupilLessonSheetMark.teacher => self
-        ? 'Queste sono alcune informazioni sul docente che ti seguirà per la lezione.'
-        : 'Queste sono alcune informazioni sul docente che seguirà ${_daughter(gender) ? 'tua figlia' : 'tuo figlio'} '
-            'per la lezione.',
+        ? tr(
+            'Queste sono alcune informazioni $teacher che ti seguirà per la lezione.',
+            'This is some information about the teacher who will teach you in the lesson.',
+          )
+        : tr(
+            'Queste sono alcune informazioni $teacher che seguirà ${_daughter(gender) ? 'tua figlia' : 'tuo figlio'} '
+                'per la lezione.',
+            'This is some information about the teacher who will teach '
+                '${_daughter(gender) ? 'your daughter' : 'your son'} in the lesson.',
+          ),
   };
 }
 
@@ -400,6 +451,7 @@ MobileTour pupilCalendarTour({
   required List<String?> shownGenders,
   required bool online,
   required String? lessonGender,
+  required String? teacherGender,
   required ValueListenable<bool> layouts,
   required VoidCallback openLayouts,
   required VoidCallback closeLayouts,
@@ -415,17 +467,19 @@ MobileTour pupilCalendarTour({
   final bool lessonAhead = band != null;
 
   final List<String?> all = genders ?? const [];
-  final String child = all.isNotEmpty && all.every(_daughter) ? 'la figlia' : 'il figlio';
+  final String child = all.isNotEmpty && all.every(_daughter) ? tr('la figlia', 'daughter') : tr('il figlio', 'child');
 
   final String whose = shownGenders.length > 1
-      ? (shownGenders.every(_daughter) ? 'delle tue figlie' : 'dei tuoi figli')
-      : (shownGenders.isNotEmpty && _daughter(shownGenders.first) ? 'di tua figlia' : 'di tuo figlio');
-  final String presence = online ? 'presenza online' : 'presenza';
-  final String summary = self ? 'della tua $presence' : 'della $presence $whose';
+      ? (shownGenders.every(_daughter) ? tr('delle tue figlie', "your daughters'") : tr('dei tuoi figli', "your children's"))
+      : (shownGenders.isNotEmpty && _daughter(shownGenders.first)
+          ? tr('di tua figlia', "your daughter's")
+          : tr('di tuo figlio', "your son's"));
+  final String presence = online ? tr('presenza online', 'online presence') : tr('presenza', 'presence');
+  final String summary = self ? tr('della tua $presence', 'your $presence') : tr('della $presence $whose', '$whose $presence');
 
   MobileTourStep sheetStep(PupilLessonSheetMark mark)
   {
-    final String text = _pupilSheetText(mark, gender: lessonGender, self: self);
+    final String text = _pupilSheetText(mark, gender: lessonGender, self: self, teacherGender: teacherGender);
     final (String, int) seen = _pupilSheetSeen(mark);
 
     // Each step on top, over the sheet's header: cards show whole, the banner stays put.
@@ -477,7 +531,10 @@ MobileTour pupilCalendarTour({
       ),
       if (genders != null)
         MobileTourStep(
-          text: 'Da qui puoi selezionare $child di cui vuoi visualizzare il calendario delle lezioni.',
+          text: tr(
+            'Da qui puoi selezionare $child di cui vuoi visualizzare il calendario delle lezioni.',
+            'From here you can choose the $child whose lesson calendar you want to see.',
+          ),
           shown: const [kPupilCalendarTourChildren],
           reveal: kPupilCalendarTourChildren,
           joined: true,
@@ -487,8 +544,12 @@ MobileTour pupilCalendarTour({
     ],
     if (band != null) ...[
       MobileTourStep(
-        text: 'Qui puoi consultare un riepilogo $summary, con orario di inizio e fine, il numero di lezioni e il '
-            'totale delle ore previste.',
+        text: tr(
+          'Qui puoi consultare un riepilogo $summary, con orario di inizio e fine, il numero di lezioni e il '
+              'totale delle ore previste.',
+          'Here you can see a summary of $summary, with start and end time, the number of lessons and the total '
+              'hours planned.',
+        ),
         shown: [pupilCalendarTourCards(band)],
         reveal: pupilCalendarTourCards(band),
         seen: bandSeen,

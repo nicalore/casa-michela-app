@@ -1,142 +1,166 @@
+import '../../core/language/app_language.dart';
+import '../../services/api_service.dart';
 import '../../shared/widgets/show_more_button.dart';
 import 'notification_item.dart';
 
-const String kNotificationsEyebrow = 'Cose da fare';
-const String kNotificationsTitle = 'Attività e notifiche';
+String get kNotificationsEyebrow => tr('Cose da fare', 'To do');
+String get kNotificationsTitle => tr('Attività e notifiche', 'Activity & notifications');
 
-String notificationsNewLabel(int count) => count == 1 ? '1 nuova' : '$count nuove';
+String notificationsNewLabel(int count) => count == 1 ? tr('1 nuova', '1 new') : tr('$count nuove', '$count new');
 
-const String kNotificationsEmpty = 'Nessuna notifica.';
+String get kNotificationsEmpty => tr('Nessuna notifica.', 'No notifications.');
 
 // Where the page scrolls the card shows the newest few and lengthens in place.
-const String kNotificationsShowAll = kShowAllLabel;
-const String kNotificationsShowFewer = kShowFewerLabel;
-const String kNotificationsUnavailable = 'Le notifiche non sono disponibili.';
-const String kNotificationsYesterday = 'Ieri';
+String get kNotificationsShowAll => kShowAllLabel;
+String get kNotificationsShowFewer => kShowFewerLabel;
+String get kNotificationsUnavailable => tr('Le notifiche non sono disponibili.', 'Notifications are unavailable.');
+String get kNotificationsYesterday => tr('Ieri', 'Yesterday');
 
 // The two buttons of each notification.
-const String kNotificationMarkRead = 'Segna come letta';
-const String kNotificationMarkUnread = 'Segna come da leggere';
-const String kNotificationDelete = 'Elimina';
+String get kNotificationMarkRead => tr('Segna come letta', 'Mark as read');
+String get kNotificationMarkUnread => tr('Segna come da leggere', 'Mark as unread');
+String get kNotificationDelete => tr('Elimina', 'Delete');
 
 // The card's row while they are off.
-const String kNotificationsOffTitle = 'Le notifiche sono spente';
-const String kNotificationsOffDesktop = 'Attivale per ricevere gli avvisi.';
-const String kNotificationsOffMobile = 'Attivale per ricevere gli avvisi.';
-const String kNotificationsTurnOn = 'Attiva';
-const String kNotificationsBlockedWeb = 'Il browser ha bloccato le notifiche.';
-const String kNotificationsBlockedMobile = 'Puoi riattivarle dalle impostazioni del telefono.';
+String get kNotificationsOffTitle => tr('Le notifiche sono spente', 'Notifications are off');
+String get kNotificationsOffDesktop => tr('Attivale per ricevere gli avvisi.', 'Turn them on to get alerts.');
+String get kNotificationsOffMobile => tr('Attivale per ricevere gli avvisi.', 'Turn them on to get alerts.');
+String get kNotificationsTurnOn => tr('Attiva', 'Turn on');
+String get kNotificationsBlockedWeb => tr('Il browser ha bloccato le notifiche.', 'The browser has blocked notifications.');
+String get kNotificationsBlockedMobile => tr('Puoi riattivarle dalle impostazioni del telefono.', 'You can turn them back on in your phone settings.');
 
-const String kNotificationsOfferEyebrow = 'Notifiche';
-const String kNotificationsOfferTitle = 'Vuoi ricevere le notifiche?';
-const String kNotificationsOfferMessage =
+String get kNotificationsOfferEyebrow => tr('Notifiche', 'Notifications');
+String get kNotificationsOfferTitle => tr('Vuoi ricevere le notifiche?', 'Would you like to get notifications?');
+String get kNotificationsOfferMessage => tr(
     'Ti avviseremo quando succede qualcosa di importante, come la pubblicazione delle lezioni '
-    'o una variazione degli orari di apertura. Puoi cambiare idea in qualsiasi momento dalle impostazioni.';
-const String kNotificationsNotNow = 'Non ora';
+    'o una variazione degli orari di apertura. Puoi cambiare idea in qualsiasi momento dalle impostazioni.',
+    "We'll let you know when something important happens, such as lessons being published "
+    'or a change to the opening hours. You can change your mind at any time in the settings.',
+);
+String get kNotificationsNotNow => tr('Non ora', 'Not now');
 
-const String kNotificationsSettingTitle = 'Notifiche';
-const String kNotificationsSettingHint = 'Gli avvisi di Casa Michela su questo dispositivo.';
-const String kNotificationsOn = 'Attive';
-const String kNotificationsOff = 'Disattive';
-const String kNotificationsBlocked = 'Bloccate';
-const String kNotificationsUnsupported = 'Questo browser non può ricevere notifiche.';
+String get kNotificationsSettingTitle => tr('Notifiche', 'Notifications');
+String get kNotificationsSettingHint => tr('Gli avvisi di Casa Michela su questo dispositivo.', 'Casa Michela alerts on this device.');
+String get kNotificationsOn => tr('Attive', 'On');
+String get kNotificationsOff => tr('Disattive', 'Off');
+String get kNotificationsBlocked => tr('Bloccate', 'Blocked');
+String get kNotificationsUnsupported => tr('Questo browser non può ricevere notifiche.', "This browser can't receive notifications.");
 
-const String kNotificationKindsTitle = 'Tipi di notifica';
-const String kNotificationKindsChoose = 'Scegli';
-const String kNotificationKindsTurnOnFirst = 'Attiva le notifiche per scegliere quali visualizzare.';
-const String kNotificationKindsHint = 'Scegli quali notifiche vuoi ricevere. Vale per tutti i tuoi dispositivi.';
-const String kNotificationKindsConfirm = 'Conferma';
+String get kNotificationKindsTitle => tr('Tipi di notifica', 'Notification types');
+String get kNotificationKindsChoose => tr('Scegli', 'Choose');
+String get kNotificationKindsTurnOnFirst => tr('Attiva le notifiche per scegliere quali visualizzare.', 'Turn on notifications to choose which ones to see.');
+String get kNotificationKindsHint => tr('Scegli quali notifiche vuoi ricevere. Vale per tutti i tuoi dispositivi.', 'Choose which notifications you want to get. This applies to all your devices.');
+String get kNotificationKindsConfirm => tr('Conferma', 'Confirm');
 
-String notificationKindsCount(int on, int all) => on == 1 ? '1 attivo su $all' : '$on attivi su $all';
+String notificationKindsCount(int on, int all) => on == 1 ? tr('1 attivo su $all', '1 of $all on') : tr('$on attivi su $all', '$on of $all on');
 
 // Each kind's switch, title and line; every kind but the test one needs its own.
-const Map<NotificationKind, (String, String)> kNotificationKindLabels = {
+Map<NotificationKind, (String, String)> get kNotificationKindLabels => {
   NotificationKind.bookingsClosed: (
-    'Chiusura delle prenotazioni',
-    'Avvisa quando è possibile pubblicare il calendario delle lezioni.',
+    tr('Chiusura delle prenotazioni', 'Bookings closed'),
+    tr('Avvisa quando è possibile pubblicare il calendario delle lezioni.', 'Alerts you when the lesson calendar can be published.'),
   ),
   NotificationKind.calendarPublished: (
-    'Calendario delle lezioni',
-    'Avvisa quando il calendario delle lezioni prenotate è disponibile.',
+    tr('Calendario delle lezioni', 'Lesson calendar'),
+    tr('Avvisa quando il calendario delle lezioni prenotate è disponibile.', 'Alerts you when the calendar of booked lessons is available.'),
   ),
   NotificationKind.convocation: (
-    'Convocazioni',
-    'Avvisa se sei stato convocato quando viene pubblicato il calendario.',
+    tr('Convocazioni', 'Call-ins'),
+    tr('Avvisa se sei stato convocato quando viene pubblicato il calendario.', 'Alerts you if you have been called in when the calendar is published.'),
   ),
   NotificationKind.arrivalReminder: (
-    'Braccialetto e timbratura',
-    "Ricorda il braccialetto e la timbratura mezz'ora prima della convocazione in presenza.",
+    tr('Braccialetto e timbratura', 'Wristband and clock-in'),
+    tr("Ricorda il braccialetto e la timbratura mezz'ora prima della convocazione in presenza.", 'Reminds you about the wristband and clocking in half an hour before an in-person call-in.'),
   ),
   NotificationKind.availabilityOpened: (
-    'Disponibilità della settimana',
-    'Avvisa il venerdì alle 20:00 quando si possono inserire le disponibilità per la settimana successiva.',
+    tr('Disponibilità della settimana', 'Weekly availability'),
+    tr('Avvisa il venerdì alle 20:00 quando si possono inserire le disponibilità per la settimana successiva.', 'Alerts you on Friday at 20:00 when availability for the following week can be entered.'),
   ),
   NotificationKind.bookingsOpened: (
-    'Prenotazioni della settimana',
-    'Avvisa il venerdì alle 20:00 quando si possono prenotare le lezioni per la settimana successiva.',
+    tr('Prenotazioni della settimana', 'Weekly bookings'),
+    tr('Avvisa il venerdì alle 20:00 quando si possono prenotare le lezioni per la settimana successiva.', 'Alerts you on Friday at 20:00 when lessons for the following week can be booked.'),
   ),
   NotificationKind.availabilityReminder: (
-    'Promemoria delle disponibilità',
-    'Avvisa alle 19:00 se non hai dato disponibilità per il giorno dopo.',
+    tr('Promemoria delle disponibilità', 'Availability reminder'),
+    tr('Avvisa alle 19:00 se non hai dato disponibilità per il giorno dopo.', "Alerts you at 19:00 if you haven't given availability for the next day."),
   ),
   NotificationKind.bookingReminder: (
-    'Promemoria delle prenotazioni',
-    'Avvisa alle 19:00 se non hai prenotato lezioni per il giorno dopo.',
+    tr('Promemoria delle prenotazioni', 'Booking reminder'),
+    tr('Avvisa alle 19:00 se non hai prenotato lezioni per il giorno dopo.', "Alerts you at 19:00 if you haven't booked lessons for the next day."),
   ),
   NotificationKind.openingHoursChanged: (
-    'Orari di apertura',
-    'Avvisa quando cambiano gli orari di apertura.',
+    tr('Orari di apertura', 'Opening hours'),
+    tr('Avvisa quando cambiano gli orari di apertura.', 'Alerts you when the opening hours change.'),
   ),
   NotificationKind.noticeReceived: (
-    'Comunicazioni',
-    'Avvisa quando arriva una nuova comunicazione.',
+    tr('Comunicazioni', 'Announcements'),
+    tr('Avvisa quando arriva una nuova comunicazione.', 'Alerts you when a new announcement arrives.'),
   ),
   NotificationKind.bookingAdded: (
-    'Nuove prenotazioni',
-    'Avvisa quando qualcun altro prenota una nuova lezione.',
+    tr('Nuove prenotazioni', 'New bookings'),
+    tr('Avvisa quando qualcun altro prenota una nuova lezione.', 'Alerts you when someone else books a new lesson.'),
   ),
   NotificationKind.bookingCancelled: (
-    'Prenotazioni cancellate',
-    'Avvisa quando qualcun altro cancella una lezione prenotata.',
+    tr('Prenotazioni cancellate', 'Cancelled bookings'),
+    tr('Avvisa quando qualcun altro cancella una lezione prenotata.', 'Alerts you when someone else cancels a booked lesson.'),
   ),
   NotificationKind.bookingChanged: (
-    'Prenotazioni modificate',
-    'Avvisa quando qualcun altro modifica una lezione prenotata.',
+    tr('Prenotazioni modificate', 'Changed bookings'),
+    tr('Avvisa quando qualcun altro modifica una lezione prenotata.', 'Alerts you when someone else changes a booked lesson.'),
   ),
   NotificationKind.availabilityAdded: (
-    'Nuove disponibilità',
-    'Avvisa quando qualcun altro inserisce una tua disponibilità.',
+    tr('Nuove disponibilità', 'New availability'),
+    tr('Avvisa quando qualcun altro inserisce una tua disponibilità.', 'Alerts you when someone else enters availability for you.'),
   ),
   NotificationKind.availabilityChanged: (
-    'Disponibilità modificate',
-    'Avvisa quando qualcun altro modifica una tua disponibilità.',
+    tr('Disponibilità modificate', 'Changed availability'),
+    tr('Avvisa quando qualcun altro modifica una tua disponibilità.', 'Alerts you when someone else changes your availability.'),
   ),
   NotificationKind.availabilityCancelled: (
-    'Disponibilità cancellate',
-    'Avvisa quando qualcun altro cancella una tua disponibilità.',
+    tr('Disponibilità cancellate', 'Cancelled availability'),
+    tr('Avvisa quando qualcun altro cancella una tua disponibilità.', 'Alerts you when someone else cancels your availability.'),
   ),
   NotificationKind.newDevice: (
-    'Nuovi accessi',
-    'Avvisa quando un nuovo dispositivo effettua l\'accesso al tuo account.',
+    tr('Nuovi accessi', 'New sign-ins'),
+    tr('Avvisa quando un nuovo dispositivo effettua l\'accesso al tuo account.', 'Alerts you when a new device signs in to your account.'),
   ),
   NotificationKind.reportReceived: (
-    'Segnalazioni',
-    'Avvisa quando arriva una nuova segnalazione.',
+    tr('Segnalazioni', 'Reports'),
+    tr('Avvisa quando arriva una nuova segnalazione.', 'Alerts you when a new report arrives.'),
   ),
   NotificationKind.ratingReminder: (
-    'Valutazione docenti',
-    'Avvisa di aggiornare la valutazione di un docente due settimane dopo la sua iscrizione.',
+    tr('Valutazione docenti', 'Teacher rating'),
+    tr('Avvisa di aggiornare la valutazione di un docente due settimane dopo la sua iscrizione.', "Reminds you to update a teacher's rating two weeks after they enrol."),
   ),
   NotificationKind.teacherNoteAdded: (
-    'Osservazioni dei docenti',
-    'Avvisa quando un docente inserisce una nuova osservazione per uno studente.',
+    tr('Osservazioni dei docenti', "Teachers' observations"),
+    tr('Avvisa quando un docente inserisce una nuova osservazione per uno studente.', 'Alerts you when a teacher adds a new observation about a student.'),
   ),
   NotificationKind.administratorNoteAdded: (
-    'Osservazioni degli amministratori',
-    'Avvisa quando un amministratore inserisce una nuova osservazione che ti riguarda.',
+    tr('Osservazioni degli amministratori', "Administrators' observations"),
+    tr('Avvisa quando un amministratore inserisce una nuova osservazione che ti riguarda.', 'Alerts you when an administrator adds a new observation about you.'),
   ),
   NotificationKind.volunteeringChanged: (
-    'Volontariato',
-    'Avvisa quando cambia il numero di ore di volontariato che ti sono state assegnate.',
+    tr('Volontariato', 'Volunteering'),
+    tr('Avvisa quando cambia il numero di ore di volontariato che ti sono state assegnate.', 'Alerts you when the number of volunteering hours assigned to you changes.'),
   ),
 };
+
+// The convocation line agrees with the reader.
+(String, String)? notificationKindLabel(NotificationKind kind)
+{
+  final (String, String)? labels = kNotificationKindLabels[kind];
+
+  if (labels != null && kind == NotificationKind.convocation && ApiService().lastKnownIdentity?.gender == 'F')
+  {
+    return (
+      labels.$1,
+      tr(
+        'Avvisa se sei stata convocata quando viene pubblicato il calendario.',
+        'Alerts you if you have been called in when the calendar is published.',
+      ),
+    );
+  }
+
+  return labels;
+}

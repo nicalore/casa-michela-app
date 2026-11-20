@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -89,12 +90,12 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Autorizzazione al ritiro',
+      eyebrow: tr('Autorizzazione al ritiro', 'Pick-up authorisation'),
       title: widget.parentName,
       maxWidth: 580,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'CONFERMA',
+          label: tr('CONFERMA', 'CONFIRM'),
           icon: Icons.check_rounded,
           height: 52,
           fontSize: 14,
@@ -109,8 +110,10 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                '${widget.parentName} ha l\'autorizzazione a ritirare '
-                '${widget.childName}?',
+                tr(
+                  '${widget.parentName} ha l\'autorizzazione a ritirare ${widget.childName}?',
+                  'Is ${widget.parentName} authorised to pick up ${widget.childName}?',
+                ),
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,
@@ -122,7 +125,7 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
               const SizedBox(height: 20),
               AppSegmentedSwitch(
                 value: _authorized,
-                trueLabel: 'Sì',
+                trueLabel: tr('Sì', 'Yes'),
                 falseLabel: 'No',
                 onChanged: (value) => setState(() => _authorized = value),
               ),
@@ -134,8 +137,8 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
                   ignoring: _authorized,
                   child: AppTextField(
                     controller: _reasonCtrl,
-                    label: 'Motivo',
-                    hintText: 'Es. Divieto di avvicinamento',
+                    label: tr('Motivo', 'Reason'),
+                    hintText: tr('Es. Divieto di avvicinamento', 'E.g. Restraining order'),
                     maxLength: FieldLimits.pickupReason,
                     textCapitalization: TextCapitalization.sentences,
                   ),

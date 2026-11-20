@@ -13,6 +13,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
+from app.core.i18n import tr
 from app.core.labels import HOMESCHOOLING_LABEL
 from app.db.base import Base
 
@@ -21,8 +22,9 @@ if TYPE_CHECKING:
     from app.models.student import Student
     from app.models.study_program import StudyProgram
 
-_INCOMPATIBLE_GRADE_ERROR: Final[str] = (
-    "La classe selezionata non è compatibile con il percorso di studi."
+_INCOMPATIBLE_GRADE_ERROR: Final[tuple[str, str]] = (
+    "La classe selezionata non è compatibile con il percorso di studi.",
+    "The selected class doesn't fit the study programme.",
 )
 
 
@@ -116,4 +118,4 @@ def _validate_school_enrollments(
             continue
 
         if not (program.min_year <= instance.grade <= program.max_year):
-            raise ValueError(_INCOMPATIBLE_GRADE_ERROR)
+            raise ValueError(tr(*_INCOMPATIBLE_GRADE_ERROR))

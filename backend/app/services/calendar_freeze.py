@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.booking_window import now_in_rome
+from app.core.i18n import request_language
 from app.core.labels import time_band_label
 from app.core.time_band import band_of
 from app.models.availability import Availability
@@ -14,19 +15,27 @@ from app.models.calendar_activity import CalendarActivity
 from app.models.confirmed_hours import ConfirmedBand
 from app.models.lesson import Lesson
 from app.models.room_supervision import RoomSupervision
+from app.services.bilingual import Bilingual
 
 # The calendar is the plan: what has begun is no longer planned, it happened,
 # and its hours are corrected in the daily summary instead.
-_STARTED_ERROR: Final[str] = (
-    "Non è possibile modificare lezioni già cominciate. "
-    "È necessario correggere le ore dal riepilogo giornaliero della Contabilità."
+_STARTED_ERROR: Final[Bilingual] = Bilingual(
+    "Non è possibile modificare lezioni già cominciate. È necessario correggere le "
+    "ore dal riepilogo giornaliero della Contabilità.",
+    "Lessons that have already started cannot be changed. Correct the hours from the "
+    "daily summary in Accounting.",
 )
 
-_BEGUN_HOURS_ERROR: Final[str] = "Questo orario è già passato."
+_BEGUN_HOURS_ERROR: Final[Bilingual] = Bilingual(
+    "Questo orario è già passato.",
+    "This time has already passed.",
+)
 
-_CONFIRMED_ERROR: Final[str] = (
-    "Le ore del {day} ({band}) sono confermate: "
-    "il calendario di quella fascia non si può più cambiare."
+_CONFIRMED_ERROR: Final[Bilingual] = Bilingual(
+    "Le ore del {day} ({band}) sono confermate: il calendario di quella fascia non si "
+    "può più cambiare.",
+    "The hours of {day} ({band}) are confirmed: that time slot's calendar can no "
+    "longer change.",
 )
 
 # Teacher, start, end and mode of a lesson, activity or shift that has begun.
@@ -38,7 +47,10 @@ def has_started(day: date, start: time | None, now: datetime) -> bool:
 
 
 def _refuse_started() -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_STARTED_ERROR)
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=_STARTED_ERROR.for_request(),
+    )
 
 
 def assert_not_started(day: date, *starts: time | None) -> None:
@@ -55,7 +67,7 @@ def has_begun(day: date, start: time) -> bool:
 def refuse_begun_hours() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
-        detail=_BEGUN_HOURS_ERROR,
+        detail=_BEGUN_HOURS_ERROR.for_request(),
     )
 
 
@@ -95,9 +107,9 @@ async def assert_not_confirmed(session: AsyncSession, day: date, band: str) -> N
     if confirmed is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_CONFIRMED_ERROR.format(
+            detail=_CONFIRMED_ERROR.for_request().format(
                 day=day.strftime("%d/%m/%Y"),
-                band=time_band_label(band).lower(),
+                band=time_band_label(band, request_language()).lower(),
             ),
         )
 

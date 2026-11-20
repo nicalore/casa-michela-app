@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/week_range.dart' show formatMinutes;
@@ -354,7 +355,7 @@ class _StatsBlockState<T> extends State<_StatsBlock<T>>
     final MobileChoice<String>? picked = await showMobileChoiceSheet(
       context: context,
       eyebrow: OwnPageSection.stats.label,
-      title: 'Modalità',
+      title: tr('Modalità', 'Mode'),
       choices: [
         for (final mode in const [kPresenceMode, kOnlineMode]) MobileChoice(value: mode, label: modeLabel(mode)),
       ],
@@ -372,7 +373,7 @@ class _StatsBlockState<T> extends State<_StatsBlock<T>>
     final MobileChoice<String>? picked = await showMobileChoiceSheet(
       context: context,
       eyebrow: OwnPageSection.stats.label,
-      title: 'Periodo',
+      title: tr('Periodo', 'Period'),
       choices: [
         for (final option in statsPeriodOptions()) MobileChoice(value: option.value, label: option.label),
       ],
@@ -511,7 +512,7 @@ class _TeacherFigures extends StatelessWidget
         _FigurePair(
           first: _Figure(
             value: statistics.weeklyAverage.toStringAsFixed(1),
-            label: 'Disponibilità a settimana',
+            label: tr('Disponibilità a settimana', 'Availability per week'),
           ),
           second: _Figure(
             value: '${statistics.totalAvailabilities}',
@@ -519,13 +520,13 @@ class _TeacherFigures extends StatelessWidget
           ),
         ),
         const _Hairline(),
-        const _SectionTitle(kAvailabilityTrendTitle),
+        _SectionTitle(kAvailabilityTrendTitle),
         const SizedBox(height: 8),
         _mobileTrend(period, statistics.monthlyTrend, TrendScale.count, axis),
         const _Hairline(),
         _Figure(value: formatMinutes(statistics.lessonMinutes), label: kLessonHoursLabel),
         const SizedBox(height: 14),
-        const _SectionTitle(kLessonTrendTitle),
+        _SectionTitle(kLessonTrendTitle),
         const SizedBox(height: 8),
         _mobileTrend(period, statistics.monthlyLessonMinutes, TrendScale.minutes, axis),
         if (statistics.hasPay) ...[
@@ -535,7 +536,7 @@ class _TeacherFigures extends StatelessWidget
             second: _Figure(value: paidHoursText(statistics), label: kPaidHoursLabel),
           ),
           const _Hairline(),
-          const _SectionTitle(kPayTrendTitle),
+          _SectionTitle(kPayTrendTitle),
           const SizedBox(height: 8),
           _mobileTrend(period, statistics.monthlyPay, TrendScale.cents, axis, bars: true),
         ],
@@ -567,7 +568,7 @@ class _PupilFigures extends StatelessWidget
           ),
           second: _Figure(
             value: '${statistics.totalPresenceDays}',
-            label: 'Giorni totali nel periodo',
+            label: tr('Giorni totali nel periodo', 'Total days in the period'),
           ),
         ),
         const _Hairline(),
@@ -597,7 +598,7 @@ class _SubjectHours extends StatelessWidget
     final MobileChoice<RequestedSubjectKind>? picked = await showMobileChoiceSheet(
       context: context,
       eyebrow: OwnPageSection.stats.label,
-      title: 'Classifica',
+      title: tr('Classifica', 'Ranking'),
       choices: [for (final kind in RequestedSubjectKind.values) MobileChoice(value: kind, label: kind.label)],
       value: controller.kind,
     );
@@ -695,7 +696,7 @@ class _RankRow extends StatelessWidget
             ConstrainedBox(
               constraints: const BoxConstraints(minWidth: _positionSlot),
               child: Text(
-                '$position°',
+                tr('$position°', '#$position'),
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -922,7 +923,7 @@ class _NoData extends StatelessWidget
       padding: const EdgeInsets.symmetric(vertical: 18),
       child: Center(
         child: Text(
-          'Nessun dato',
+          tr('Nessun dato', 'No data'),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 14,
             fontWeight: FontWeight.w600,

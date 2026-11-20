@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -29,11 +30,23 @@ class PersonRoleOption
   final String label;
   final String description;
 
+  final String? feminineLabel;
+  final String? feminineDescription;
+
   const PersonRoleOption({
     required this.id,
     required this.label,
     required this.description,
+    this.feminineLabel,
+    this.feminineDescription,
   });
+
+  String labelFor({required bool feminine}) => feminine ? feminineLabel ?? label : label;
+
+  String descriptionFor({required bool feminine})
+  {
+    return feminine ? feminineDescription ?? description : description;
+  }
 }
 
 // The registry's own code for a birthplace outside Italy.
@@ -41,35 +54,63 @@ const String kBornAbroadProvince = 'EE';
 
 const String kBornInItalyNation = 'Italia';
 
-const Map<String, String> kCollaborationTypes = {
-  'Volontario': 'VOLUNTEER',
-  'Retribuito': 'PAID',
-  'FSL (Ex PCTO)': 'PCTO',
-  'Non pagato': 'UNPAID',
+// Keyed by the label in force: the value held while editing is the label, the code is what is sent.
+Map<String, String> get kCollaborationTypes => {
+  tr('Volontario', 'Volunteer'): 'VOLUNTEER',
+  tr('Retribuito', 'Paid'): 'PAID',
+  tr('FSL (Ex PCTO)', 'FSL (formerly PCTO)'): 'PCTO',
+  tr('Non pagato', 'Unpaid'): 'UNPAID',
 };
 
-const List<String> kCollaborationChoices = ['Volontario', 'Retribuito', 'FSL (Ex PCTO)'];
+List<String> get kCollaborationChoices => [
+  tr('Volontario', 'Volunteer'),
+  tr('Retribuito', 'Paid'),
+  tr('FSL (Ex PCTO)', 'FSL (formerly PCTO)'),
+];
 
-const Map<String, String> kAdminRoles = {
-  'Presidente': 'PRESIDENT',
-  'Vicepresidente': 'VICE_PRESIDENT',
-  'Tesoriere': 'TREASURER',
-  'Responsabile IT': 'IT_MANAGER',
-  'Altro': 'OTHER',
+// Only where the word describes the person; keys and choice lists stay masculine.
+String collaborationOf(String label, {required bool feminine})
+{
+  if (!feminine || isEnglish)
+  {
+    return label;
+  }
+
+  return switch (label)
+  {
+    'Volontario' => 'Volontaria',
+    'Retribuito' => 'Retribuita',
+    'Non pagato' => 'Non pagata',
+    _ => label,
+  };
+}
+
+Map<String, String> get kAdminRoles => {
+  tr('Presidente', 'President'): 'PRESIDENT',
+  tr('Vicepresidente', 'Vice president'): 'VICE_PRESIDENT',
+  tr('Tesoriere', 'Treasurer'): 'TREASURER',
+  tr('Responsabile IT', 'IT manager'): 'IT_MANAGER',
+  tr('Altro', 'Other'): 'OTHER',
 };
 
-const Map<String, String> kPaymentMethods = {
-  'Contanti': 'CASH',
-  'Bonifico bancario': 'BANK_TRANSFER',
-  'Altro': 'OTHER',
+Map<String, String> get kPaymentMethods => {
+  tr('Contanti', 'Cash'): 'CASH',
+  tr('Bonifico bancario', 'Bank transfer'): 'BANK_TRANSFER',
+  tr('Altro', 'Other'): 'OTHER',
 };
 
-const Map<String, String> kCertificationTypes = {
-  'DSA': 'DSA',
-  'BES': 'BES',
+Map<String, String> get kCertificationTypes => {
+  tr('DSA', 'SLD'): 'DSA',
+  tr('BES', 'SEN'): 'BES',
   'ADHD': 'ADHD',
-  'Altro': 'OTHER',
+  tr('Altro', 'Other'): 'OTHER',
 };
+
+// The label in force of a code of one of the tables above.
+String labelOfCode(Map<String, String> table, String code)
+{
+  return table.entries.firstWhere((entry) => entry.value == code).key;
+}
 
 // The server is inconsistent: some fields arrive as labels, others as codes.
 String? labelForServerValue(Map<String, String> table, String? value)
@@ -95,38 +136,56 @@ String? labelForServerValue(Map<String, String> table, String? value)
   return null;
 }
 
-const List<PersonRoleOption> kPersonRoleOptions = [
+List<PersonRoleOption> get kPersonRoleOptions => [
   PersonRoleOption(
     id: 'DOCENTE',
-    label: 'Docente',
-    description: 'Svolge attività di supporto didattico e ripetizioni.',
+    label: tr('Docente', 'Teacher'),
+    description: tr('Svolge attività di supporto didattico e ripetizioni.', 'Gives learning support and tutoring.'),
   ),
   PersonRoleOption(
     id: 'STUDENTE',
-    label: 'Studente',
-    description: 'Riceve supporto didattico e ripetizioni.',
+    label: tr('Studente', 'Student'),
+    feminineLabel: tr('Studentessa', 'Student'),
+    description: tr('Riceve supporto didattico e ripetizioni.', 'Receives learning support and tutoring.'),
   ),
   PersonRoleOption(
     id: 'AMMINISTRATORE',
-    label: 'Amministratore',
-    description:
-        'Gestisce le attività amministrative, organizzative e operative dell\'Associazione.',
+    label: tr('Amministratore', 'Administrator'),
+    feminineLabel: tr('Amministratrice', 'Administrator'),
+    description: tr(
+      'Gestisce le attività amministrative, organizzative e operative dell\'Associazione.',
+      'Runs the administrative, organisational and operational work of the Association.',
+    ),
   ),
   PersonRoleOption(
     id: 'PSICOLOGO',
-    label: 'Psicologo',
-    description: 'Svolge colloqui psicologici e supporta gli studenti.',
+    label: tr('Psicologo', 'Psychologist'),
+    feminineLabel: tr('Psicologa', 'Psychologist'),
+    description: tr(
+      'Svolge colloqui psicologici e supporta gli studenti.',
+      'Holds psychological interviews and supports the students.',
+    ),
   ),
   PersonRoleOption(
     id: 'CORSISTA',
-    label: 'Corsista',
-    description:
-        'Partecipa ai corsi organizzati dall\'Associazione, come yoga o pilates.',
+    label: tr('Corsista', 'Course participant'),
+    description: tr(
+      'Partecipa ai corsi organizzati dall\'Associazione, come yoga o pilates.',
+      'Takes part in the courses the Association runs, such as yoga or pilates.',
+    ),
   ),
   PersonRoleOption(
     id: 'GENITORE',
-    label: 'Genitore / Tutore',
-    description: 'È il responsabile legale di uno o più iscritti all\'Associazione.',
+    label: tr('Genitore / Tutore', 'Parent / Guardian'),
+    description: tr(
+      'È il responsabile legale di uno o più iscritti all\'Associazione.',
+      'Is legally responsible for one or more members of the Association.',
+    ),
+    feminineLabel: tr('Genitore / Tutrice', 'Parent / Guardian'),
+    feminineDescription: tr(
+      'È la responsabile legale di uno o più iscritti all\'Associazione.',
+      'Is legally responsible for one or more members of the Association.',
+    ),
   ),
 ];
 
@@ -421,10 +480,10 @@ class PersonEditForm
 
   TextEditingController tariffAmountCtrl(String choice)
   {
-    return switch (choice)
+    return switch (kTariffKinds[choice])
     {
-      kHourlyTariff => tariffHourlyCtrl,
-      kPackageTariff => tariffPackageCostCtrl,
+      'HOURLY' => tariffHourlyCtrl,
+      'PACKAGE' => tariffPackageCostCtrl,
       _ => tariffMonthlyCtrl,
     };
   }
@@ -791,9 +850,9 @@ class PersonEditForm
 
     if (adminRole != null)
     {
-      adminRoleValue = labelForServerValue(kAdminRoles, adminRole) ?? 'Altro';
+      adminRoleValue = labelForServerValue(kAdminRoles, adminRole) ?? labelOfCode(kAdminRoles, 'OTHER');
 
-      if (adminRoleValue == 'Altro')
+      if (kAdminRoles[adminRoleValue] == 'OTHER')
       {
         otherAdminRoleCtrl.text = person.adminOtherRole ?? adminRole;
       }
@@ -828,7 +887,7 @@ class PersonEditForm
 
     paymentMethodValue = labelForServerValue(kPaymentMethods, person.paymentMethod);
 
-    if (paymentMethodValue == 'Altro')
+    if (kPaymentMethods[paymentMethodValue] == 'OTHER')
     {
       otherPaymentMethodCtrl.text = person.paymentMethodOther ?? '';
     }
@@ -1057,9 +1116,7 @@ class PersonEditForm
   bool get collaborationForcedUnpaid
   {
     return selectedRoles.contains('AMMINISTRATORE') &&
-        (adminRoleValue == 'Presidente' ||
-            adminRoleValue == 'Vicepresidente' ||
-            adminRoleValue == 'Tesoriere');
+        const {'PRESIDENT', 'VICE_PRESIDENT', 'TREASURER'}.contains(kAdminRoles[adminRoleValue]);
   }
 
   String? get _savedCollaboration => labelForServerValue(kCollaborationTypes, person?.collaborationType);
@@ -1085,16 +1142,16 @@ class PersonEditForm
 
     final String? saved = _savedCollaboration;
 
-    return saved != null && saved != 'Non pagato';
+    return saved != null && kCollaborationTypes[saved] != 'UNPAID';
   }
 
   void syncCollaborationWithAdminRole()
   {
     if (collaborationForcedUnpaid)
     {
-      collaborationTypeValue = 'Non pagato';
+      collaborationTypeValue = labelOfCode(kCollaborationTypes, 'UNPAID');
     }
-    else if (collaborationTypeValue == 'Non pagato')
+    else if (kCollaborationTypes[collaborationTypeValue] == 'UNPAID')
     {
       collaborationTypeValue = collaborationInCompensi ? _savedCollaboration : null;
     }

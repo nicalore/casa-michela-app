@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_text_field.dart';
@@ -11,7 +12,7 @@ import 'person_detail_widgets.dart';
 import 'person_row_models.dart';
 
 // Chip labels stand for ISO weekdays; the short names are all distinct.
-final Map<String, int> kWeekdayByShortName = {
+Map<String, int> get kWeekdayByShortName => {
   for (var weekday = 1; weekday <= 7; weekday++) weekdayShortName(weekday): weekday,
 };
 
@@ -39,7 +40,7 @@ class EarlyExitEditRow extends StatelessWidget
   Widget build(BuildContext context)
   {
     final Widget days = PersonChipGroupField.multiple(
-      label: 'Giorni',
+      label: tr('Giorni', 'Days'),
       options: kWeekdayByShortName.keys.toList(),
       values: {
         for (final entry in kWeekdayByShortName.entries)
@@ -61,7 +62,7 @@ class EarlyExitEditRow extends StatelessWidget
 
     final Widget timeField = AppTextField(
       controller: row.timeCtrl,
-      label: 'Orario',
+      label: tr('Orario', 'Time'),
       hintText: 'hh:mm',
       errorText: errors['time'],
       keyboardType: TextInputType.number,
@@ -71,8 +72,8 @@ class EarlyExitEditRow extends StatelessWidget
 
     final Widget reasonField = AppTextField(
       controller: row.reasonCtrl,
-      label: 'Motivo',
-      hintText: 'Es. Nuoto',
+      label: tr('Motivo', 'Reason'),
+      hintText: tr('Es. Nuoto', 'E.g. Swimming'),
       maxLength: FieldLimits.earlyExitReason,
       errorText: errors['reason'],
       onChanged: (_) => onChanged(),

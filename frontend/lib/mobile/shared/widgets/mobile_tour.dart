@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../features/settings/utils/settings_strings.dart';
@@ -26,8 +27,8 @@ import 'mobile_nav_sheet.dart';
 import 'mobile_notice.dart';
 
 const String kMobileTourGlyph = '\u{FFFC}';
-const String _nextLabel = 'Avanti';
-const String _endLabel = 'Fine';
+String get _nextLabel => tr('Avanti', 'Next');
+String get _endLabel => tr('Fine', 'Done');
 
 const String kMobileTourNavSheet = 'nav.sheet';
 const String kMobileTourNavHead = 'nav.head';
@@ -2222,7 +2223,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     final Widget banner = _TourBanner(
       key: _bannerKey,
       textKey: _bannerTextKey,
-      title: total > 1 ? '${run.tour.title} · ${_path.length} di $total' : run.tour.title,
+      title: total > 1 ? tr('${run.tour.title} · ${_path.length} di $total', '${run.tour.title} · ${_path.length} of $total') : run.tour.title,
       text: step.text,
       glyphs: step.drawn,
       step: _step,
@@ -2917,7 +2918,7 @@ class _CloseButton extends StatelessWidget
   {
     return Semantics(
       button: true,
-      label: 'Chiudi',
+      label: tr('Chiudi', 'Close'),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
@@ -2946,7 +2947,7 @@ class _BackButton extends StatelessWidget
   {
     return Semantics(
       button: true,
-      label: 'Indietro',
+      label: tr('Indietro', 'Back'),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,

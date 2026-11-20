@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -64,8 +65,8 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
     final int? year = int.tryParse(row.yearCtrl.text.trim());
 
     return year == null
-        ? 'Anno scolastico da completare'
-        : 'Anno scolastico $year/${year + 1}';
+        ? tr('Anno scolastico da completare', 'School year to complete')
+        : tr('Anno scolastico $year/${year + 1}', 'School year $year/${year + 1}');
   }
 
   String? get _firstError
@@ -119,7 +120,7 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
         Padding(
           padding: const EdgeInsets.only(left: 8),
           child: AppTooltip(
-            message: 'Modifica',
+            message: tr('Modifica', 'Edit'),
             waitDuration: const Duration(milliseconds: 400),
             child: FadeHoverIconButton(
               icon: Icons.edit_rounded,
@@ -132,7 +133,7 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
         Padding(
           padding: const EdgeInsets.only(left: 4),
           child: AppTooltip(
-            message: 'Rimuovi',
+            message: tr('Rimuovi', 'Remove'),
             waitDuration: const Duration(milliseconds: 400),
             child: FadeHoverIconButton(
               icon: Icons.delete_outline_rounded,
@@ -151,15 +152,15 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
   {
     final List<_RowFact> facts = [
       _RowFact(
-        'Scuola',
+        tr('Scuola', 'School'),
         row.homeschooling
             ? kHomeschoolingLabel
             : row.school == null ? null : '${row.school!.name} (${row.school!.city})',
         flex: 5,
         lines: 2,
       ),
-      _RowFact('Classe', row.grade),
-      _RowFact('Percorso', row.program?.fullName, flex: 5, lines: 2),
+      _RowFact(tr('Classe', 'Class'), row.grade),
+      _RowFact(tr('Percorso', 'Programme'), row.program?.fullName, flex: 5, lines: 2),
     ];
 
     return PersonEditRow(

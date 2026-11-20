@@ -4,13 +4,15 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core import field_lengths
+from app.core.i18n import tr
 from app.models.association_subject import SubjectAreaEnum
 from app.models.study_program import EducationLevelEnum
 from app.schemas.association_subject import AssociationSubjectOption
 from app.schemas.validators import OptionalCleanStr, StrippedStr
 
-_DUPLICATE_AREAS_ERROR: Final[str] = (
-    "Le aree selezionate non possono contenere duplicati."
+_DUPLICATE_AREAS_ERROR: Final[tuple[str, str]] = (
+    "Le aree selezionate non possono contenere duplicati.",
+    "The selected areas can't contain duplicates.",
 )
 
 
@@ -30,7 +32,7 @@ class MinistrySubjectBase(BaseModel):
         value: list[SubjectAreaEnum],
     ) -> list[SubjectAreaEnum]:
         if len(set(value)) != len(value):
-            raise ValueError(_DUPLICATE_AREAS_ERROR)
+            raise ValueError(tr(*_DUPLICATE_AREAS_ERROR))
 
         return value
 

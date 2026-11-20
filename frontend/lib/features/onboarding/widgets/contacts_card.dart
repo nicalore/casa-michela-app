@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
@@ -76,7 +77,7 @@ class _ContactsCardState extends State<ContactsCard>
   Widget build(BuildContext context)
   {
     return AppCard(
-      title: 'Contatti',
+      title: tr('Contatti', 'Contacts'),
       leading: const AppCardBadge(icon: Icons.alternate_email_rounded),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,12 +85,12 @@ class _ContactsCardState extends State<ContactsCard>
           AppTextField(
             controller: _email,
             label: 'Email',
-            hintText: 'nome@esempio.it',
+            hintText: tr('nome@esempio.it', 'name@example.com'),
             maxLength: FieldLimits.email,
           ),
           AppTextField(
             controller: _phone,
-            label: 'Telefono',
+            label: tr('Telefono', 'Phone'),
             hintText: '+39 …',
             maxLength: FieldLimits.phone,
             inputFormatters: const [PhoneInputFormatter()],

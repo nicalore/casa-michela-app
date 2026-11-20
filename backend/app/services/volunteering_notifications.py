@@ -5,34 +5,49 @@ from typing import Final
 from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.labels import MONTH_NAMES
+from app.core.labels import month_name
 from app.models.notification import Notification, NotificationKindEnum
 from app.models.volunteering import VolunteeringRule, VolunteeringRuleChange
 from app.repositories.identity_repository import IdentityRepository
 from app.services.notification_kinds import holds_kind
-from app.services.notifications import dismissals, is_reachable, notify
+from app.services.notifications import (
+    Bilingual,
+    dismissals,
+    is_reachable,
+    notify,
+)
 from app.services.push import PushBatch, joined
 
 _KIND: Final[NotificationKindEnum] = NotificationKindEnum.VOLUNTEERING_CHANGED
 
-_FOR_MONTH: Final[str] = (
-    "Ti è stata assegnata un'ora di volontariato {rule} per il mese di {month}"
+_FOR_MONTH: Final[Bilingual] = Bilingual(
+    "Ti è stata assegnata un'ora di volontariato {rule} per il mese di {month}",
+    "You've been assigned one hour of volunteering {rule} for {month}",
 )
-_NONE_FOR_MONTH: Final[str] = (
-    "Per il mese di {month} non ti è assegnata nessuna ora di volontariato"
+_NONE_FOR_MONTH: Final[Bilingual] = Bilingual(
+    "Per il mese di {month} non ti è assegnata nessuna ora di volontariato",
+    "You have no volunteering hours assigned for {month}",
 )
-_FROM_MONTH: Final[str] = (
-    "Dal mese di {month} ti è stata assegnata un'ora di volontariato {rule}"
+_FROM_MONTH: Final[Bilingual] = Bilingual(
+    "Dal mese di {month} ti è stata assegnata un'ora di volontariato {rule}",
+    "From {month} you've been assigned one hour of volunteering {rule}",
 )
-_NONE_FROM_MONTH: Final[str] = (
-    "Dal mese di {month} non ti è assegnata nessuna ora di volontariato"
+_NONE_FROM_MONTH: Final[Bilingual] = Bilingual(
+    "Dal mese di {month} non ti è assegnata nessuna ora di volontariato",
+    "From {month} you have no volunteering hours assigned",
 )
-_RULE_WORDS: Final[dict[VolunteeringRule, str]] = {
-    VolunteeringRule.DAILY: "al giorno",
-    VolunteeringRule.WEEKLY: "a settimana",
+_RULE_WORDS: Final[dict[VolunteeringRule, Bilingual]] = {
+    VolunteeringRule.DAILY: Bilingual("al giorno", "a day"),
+    VolunteeringRule.WEEKLY: Bilingual("a settimana", "a week"),
 }
-_BODY: Final[str] = "Tocca per visualizzare la paga aggiornata"
-_WEB_BODY: Final[str] = "Clicca per visualizzare la paga aggiornata"
+_BODY: Final[Bilingual] = Bilingual(
+    "Tocca per visualizzare la paga aggiornata",
+    "Tap to view your updated pay",
+)
+_WEB_BODY: Final[Bilingual] = Bilingual(
+    "Clicca per visualizzare la paga aggiornata",
+    "Click to view your updated pay",
+)
 
 # What a notice keeps: the month's rule before its news, and whether it tells a
 # rule from that month on rather than for that month alone.
@@ -40,16 +55,23 @@ _BEFORE: Final[str] = "rule"
 _FROM: Final[str] = "from"
 
 
-def _title(month: date, rule: VolunteeringRule, from_month: bool) -> str:
-    name = MONTH_NAMES[month.month - 1]
+def _title(
+    month: date,
+    rule: VolunteeringRule,
+    from_month: bool,
+    language: str,
+) -> str:
+    name = month_name(month.month, language)
 
     if rule == VolunteeringRule.NONE:
-        return (_NONE_FROM_MONTH if from_month else _NONE_FOR_MONTH).format(
-            month=name,
-        )
+        template = _NONE_FROM_MONTH if from_month else _NONE_FOR_MONTH
 
-    return (_FROM_MONTH if from_month else _FOR_MONTH).format(
-        rule=_RULE_WORDS[rule],
+        return template.to(language).format(month=name)
+
+    template = _FROM_MONTH if from_month else _FOR_MONTH
+
+    return template.to(language).format(
+        rule=_RULE_WORDS[rule].to(language),
         month=name,
     )
 
@@ -108,7 +130,10 @@ async def announce_volunteering_rule(
         db,
         [tax_code],
         kind=_KIND,
-        title=_title(month, rule, from_month),
+        title=Bilingual(
+            _title(month, rule, from_month, "it"),
+            _title(month, rule, from_month, "en"),
+        ),
         body=_BODY,
         web_body=_WEB_BODY,
         calendar=month,

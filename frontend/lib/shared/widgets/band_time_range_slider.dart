@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
@@ -26,12 +27,12 @@ class BandTimeRangeSlider extends StatelessWidget
 
   final bool enabled;
 
-  final String disabledLabel;
+  final String? disabledLabel;
 
-  final String offLabel;
+  final String? offLabel;
 
-  final String trueLabel;
-  final String falseLabel;
+  final String? trueLabel;
+  final String? falseLabel;
 
   final String? nameOverride;
 
@@ -52,10 +53,10 @@ class BandTimeRangeSlider extends StatelessWidget
     this.windowStartMinutes,
     this.windowEndMinutes,
     this.enabled = true,
-    this.disabledLabel = 'Chiuso',
-    this.offLabel = 'Chiuso',
-    this.trueLabel = 'Aperta',
-    this.falseLabel = 'Chiusa',
+    this.disabledLabel,
+    this.offLabel,
+    this.trueLabel,
+    this.falseLabel,
     this.nameOverride,
     this.trailing,
     this.switchTour,
@@ -110,7 +111,9 @@ class BandTimeRangeSlider extends StatelessWidget
   Widget _buildValue()
   {
     return Text(
-      _isOpen ? formatTimeRange(startTime!, endTime!) : (enabled ? offLabel : disabledLabel),
+      _isOpen
+          ? formatTimeRange(startTime!, endTime!)
+          : (enabled ? offLabel ?? tr('Chiuso', 'Closed') : disabledLabel ?? tr('Chiuso', 'Closed')),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.plusJakartaSans(
@@ -134,8 +137,8 @@ class BandTimeRangeSlider extends StatelessWidget
       id: switchTour,
       child: AppSegmentedSwitch(
         value: _isOpen,
-        trueLabel: trueLabel,
-        falseLabel: falseLabel,
+        trueLabel: trueLabel ?? tr('Aperta', 'Open'),
+        falseLabel: falseLabel ?? tr('Chiusa', 'Closed'),
         onChanged: _toggle,
       ),
     );

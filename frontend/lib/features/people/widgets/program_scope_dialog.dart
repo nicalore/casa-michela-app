@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
@@ -244,7 +245,9 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
         children: [
           Expanded(
             child: Text(
-              chosen == total ? 'Tutti i percorsi ($total)' : '$chosen di $total percorsi',
+              chosen == total
+                  ? tr('Tutti i percorsi ($total)', 'All programmes ($total)')
+                  : tr('$chosen di $total percorsi', '$chosen of $total programmes'),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -393,7 +396,7 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
     final int? single = _singleRow(tree);
 
     return AppDialogStack(
-      eyebrow: 'Percorsi',
+      eyebrow: tr('Percorsi', 'Programmes'),
       title: widget.subjectName,
       maxWidth: 720,
       fillLast: true,
@@ -401,7 +404,7 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
         DesktopTourTarget(
           id: kTourProgramsConfirm,
           child: AppGradientButton(
-            label: 'CONFERMA',
+            label: tr('CONFERMA', 'CONFIRM'),
             icon: Icons.check_rounded,
             height: kPersonDialogButtonHeight,
             fontSize: kPersonDialogButtonFontSize,
@@ -434,7 +437,7 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
                 const SizedBox(height: 14),
                 AppSearchField(
                   controller: _searchController,
-                  hintText: 'Cerca percorso...',
+                  hintText: tr('Cerca percorso...', 'Search for a programme...'),
                   onChanged: _onQuery,
                 ),
               ],
@@ -446,7 +449,7 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
           child: AppDialogPill(
             expand: true,
             child: tree.isEmpty
-                ? const PersonEmptyState(message: 'Nessun percorso trovato.')
+                ? PersonEmptyState(message: tr('Nessun percorso trovato.', 'No programme found.'))
                 : ScrollEdgeFade(
                     child: SingleChildScrollView(
                       child: Column(
@@ -487,7 +490,7 @@ class _SelectAll extends StatelessWidget
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Seleziona tutto',
+              tr('Seleziona tutto', 'Select all'),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,

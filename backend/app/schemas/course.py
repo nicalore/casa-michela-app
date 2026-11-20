@@ -4,9 +4,13 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core import field_lengths
+from app.core.i18n import tr
 from app.schemas.validators import OptionalCleanStr, StrippedStr
 
-_BLANK_NAME_ERROR: Final[str] = "Il nome del corso non può essere vuoto."
+_BLANK_NAME_ERROR: Final[tuple[str, str]] = (
+    "Il nome del corso non può essere vuoto.",
+    "The course name can't be empty.",
+)
 
 
 class CourseBase(BaseModel):
@@ -24,7 +28,7 @@ class CourseBase(BaseModel):
     @classmethod
     def _name_not_blank(cls, value: str) -> str:
         if not value:
-            raise ValueError(_BLANK_NAME_ERROR)
+            raise ValueError(tr(*_BLANK_NAME_ERROR))
 
         return value
 

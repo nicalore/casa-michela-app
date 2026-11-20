@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
+
 class MobileInfoButton extends StatelessWidget
 {
   final VoidCallback onTap;
@@ -14,7 +16,7 @@ class MobileInfoButton extends StatelessWidget
   {
     return Semantics(
       button: true,
-      label: 'Informazioni',
+      label: tr('Informazioni', 'Information'),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,

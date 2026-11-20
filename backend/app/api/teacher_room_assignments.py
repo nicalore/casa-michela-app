@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.api.room_supervisions import supervision_responses
+from app.core.i18n import tr
 from app.models.person import Person
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.repositories.calendar_publication_repository import (
@@ -141,9 +142,20 @@ async def unassign_room(
     shifts = await _service(db).unassign(identity, day, teacher_tax_code)
 
     # Said rather than discovered afterwards: the shifts went with it.
-    detail = "Assegnazione rimossa"
+    if not shifts:
+        return {"detail": tr("Assegnazione rimossa", "Assignment removed")}
 
-    if shifts:
-        detail = f"{detail} insieme a {shifts} turni da responsabile"
+    if shifts == 1:
+        return {
+            "detail": tr(
+                "Assegnazione rimossa insieme a 1 turno da responsabile",
+                "Assignment removed together with 1 supervision shift",
+            )
+        }
 
-    return {"detail": detail}
+    return {
+        "detail": tr(
+            f"Assegnazione rimossa insieme a {shifts} turni da responsabile",
+            f"Assignment removed together with {shifts} supervision shifts",
+        )
+    }

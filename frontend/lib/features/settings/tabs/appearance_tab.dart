@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/theme_choice.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/account_colour_theme.dart';
+import '../../../services/account_language.dart';
 import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/page_density.dart';
@@ -18,7 +20,7 @@ const double _languageWidth = 260;
 const double _denseLanguageWidth = 210;
 const double _menuCode = 26;
 
-// The language's first option is the one in force; the mode (light, dark, automatic) and the colours are the account's.
+// The mode (light, dark, automatic), the colours and the language are the account's.
 class AppearanceTab extends StatelessWidget
 {
   const AppearanceTab({super.key});
@@ -115,7 +117,27 @@ class AppearanceTab extends StatelessWidget
     }
   }
 
-  Widget _buildLanguages(bool dense)
+  Future<void> _chooseLanguage(BuildContext context, AppLanguage language) async
+  {
+    if (language == AppLanguages.current.value)
+    {
+      return;
+    }
+
+    try
+    {
+      await AccountLanguage.choose(language);
+    }
+    catch (e)
+    {
+      if (context.mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+    }
+  }
+
+  Widget _buildLanguages(BuildContext context, bool dense)
   {
     final List<AppearanceOption> options = kLanguageSetting.options;
 
@@ -127,21 +149,26 @@ class AppearanceTab extends StatelessWidget
 
     return SizedBox(
       width: dense ? _denseLanguageWidth : _languageWidth,
-      child: AppDropdownField<String>(
+      child: AppDropdownField<AppLanguage>(
         hint: kLanguageSetting.title,
-        value: options.first.label,
+        value: AppLanguages.current.value,
         options: [
           for (final AppearanceOption option in options)
             AppDropdownOption(
-              value: option.label,
+              value: option.language!,
               label: option.label,
               leading: code(option, size: _menuCode),
               enabled: option.available,
               disabledReason: kComingSoon,
             ),
         ],
-        // The sole language in force cannot change yet.
-        onChanged: (_) {},
+        onChanged: (language)
+        {
+          if (language != null)
+          {
+            _chooseLanguage(context, language);
+          }
+        },
       ),
     );
   }
@@ -158,7 +185,7 @@ class AppearanceTab extends StatelessWidget
             SettingsRow(
               icon: kLanguageSetting.icon,
               title: kLanguageSetting.title,
-              trailing: _buildLanguages(AppPageDensity.of(context)),
+              trailing: _buildLanguages(context, AppPageDensity.of(context)),
             ),
             SettingsRow(
               icon: Icons.auto_awesome_rounded,

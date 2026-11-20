@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../models/activity_item.dart';
@@ -9,14 +10,18 @@ typedef HandedBack = ({int lessons, int activities});
 String handedBackSentence(HandedBack back)
 {
   final parts = [
-    if (back.lessons > 0) back.lessons == 1 ? '1 lezione' : '${back.lessons} lezioni',
+    if (back.lessons > 0) back.lessons == 1 ? tr('1 lezione', '1 lesson') : tr('${back.lessons} lezioni', '${back.lessons} lessons'),
     // "attività" is invariable in the plural.
-    if (back.activities > 0) '${back.activities} attività',
+    if (back.activities > 0)
+      back.activities == 1 ? tr('1 attività', '1 activity') : tr('${back.activities} attività', '${back.activities} activities'),
   ];
 
-  final verb = back.lessons + back.activities == 1 ? 'è tornata' : 'sono tornate';
+  final bool one = back.lessons + back.activities == 1;
 
-  return '${parts.join(' e ')} $verb da pianificare.';
+  return tr(
+    '${parts.join(' e ')} ${one ? 'è tornata' : 'sono tornate'} da pianificare.',
+    '${parts.join(' and ')} ${one ? 'is' : 'are'} back to be planned.',
+  );
 }
 
 // Local mirror of the server's exclusion: lessons are removed, activities

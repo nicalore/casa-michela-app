@@ -8,6 +8,7 @@ from sqlalchemy import func
 
 from app.api.rbac import IdentityContext
 from app.core.booking_close import assert_ready_to_publish, has_closed, now_in_rome
+from app.core.i18n import request_language, tr
 from app.core.integrity import integrity_guard
 from app.core.labels import time_band_label
 from app.core.time_band import TimeBandEnum, band_bounds, band_of
@@ -15,6 +16,7 @@ from app.core.time_step import minutes_between
 from app.models.booking_disciplines import loaded_disciplines
 from app.models.calendar_publication import CalendarPublication
 from app.models.lesson import Lesson
+from app.models.person import GenderEnum
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.calendar_activity_repository import (
     CalendarActivityRepository,
@@ -37,6 +39,7 @@ from app.repositories.teacher_room_assignment_repository import (
     TeacherRoomAssignmentRepository,
 )
 from app.schemas.calendar_publication import CalendarPublicationCreate
+from app.services.bilingual import Bilingual, by_count
 from app.services.calendar_freeze import (
     assert_not_confirmed,
     assert_started_unchanged,
@@ -52,52 +55,136 @@ from app.services.room_occupancy import (
 )
 from app.services.room_supervision_service import realign_shifts
 
-_NOT_FOUND_ERROR: Final[str] = "Questo calendario non è pubblicato."
-_NOT_IN_DRAFT_ERROR: Final[str] = "Questo calendario non è in bozza."
-_ALREADY_IN_DRAFT_ERROR: Final[str] = "Questo calendario è già in bozza."
-_STARTED_UNPUBLISH_ERROR: Final[str] = (
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Questo calendario non è pubblicato.",
+    "This calendar is not published.",
+)
+_NOT_IN_DRAFT_ERROR: Final[Bilingual] = Bilingual(
+    "Questo calendario non è in bozza.",
+    "This calendar is not in draft.",
+)
+_ALREADY_IN_DRAFT_ERROR: Final[Bilingual] = Bilingual(
+    "Questo calendario è già in bozza.",
+    "This calendar is already in draft.",
+)
+_STARTED_UNPUBLISH_ERROR: Final[Bilingual] = Bilingual(
     "Le lezioni di questa fascia sono già cominciate: "
-    "il calendario non si può più ritirare."
+    "il calendario non si può più ritirare.",
+    "The lessons of this time slot have already started: "
+    "the calendar can no longer be withdrawn.",
 )
-_PUBLISH_ERROR: Final[str] = "Errore durante la pubblicazione."
-_DISCARD_ERROR: Final[str] = "Errore durante l'uscita dalla bozza."
-
-_ALREADY_PUBLISHED_ERROR: Final[str] = (
-    "Il calendario del {day} ({band}) è già pubblicato."
+_PUBLISH_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante la pubblicazione.",
+    "Something went wrong while publishing.",
 )
-
-_PARTIAL_COVERAGE_ERROR: Final[str] = (
-    "Alcune prenotazioni sono coperte solo in parte: {students}. Completa o "
-    "rimuovi le lezioni prima di pubblicare."
-)
-
-_UNCOVERED_DISCIPLINES_ERROR: Final[str] = (
-    "Alcune discipline richieste non sono assegnate a nessuna lezione: "
-    "{students}."
+_DISCARD_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'uscita dalla bozza.",
+    "Something went wrong while leaving the draft.",
 )
 
-_UNPLANNED_ERROR: Final[str] = (
-    "Alcune prenotazioni non sono state pianificate: {students}. Mettile in "
-    "calendario o annullale prima di pubblicare."
+_ALREADY_PUBLISHED_ERROR: Final[Bilingual] = Bilingual(
+    "Il calendario del {day} ({band}) è già pubblicato.",
+    "The calendar for {day} ({band}) is already published.",
 )
 
-_UNASSIGNED_ACTIVITIES_ERROR: Final[str] = (
-    "Alcune attività non sono state assegnate a nessun docente: {names}. "
-    "Assegnale o eliminale prima di pubblicare."
+# Each pair: one listed, then several.
+_PARTIAL_COVERAGE_ERRORS: Final[tuple[Bilingual, Bilingual]] = (
+    Bilingual(
+        "Una prenotazione è coperta solo in parte: {students}. Completa o "
+        "rimuovi le lezioni prima di pubblicare.",
+        "A booking is only partly covered: {students}. Complete or remove "
+        "the lessons before publishing.",
+    ),
+    Bilingual(
+        "Alcune prenotazioni sono coperte solo in parte: {students}. Completa o "
+        "rimuovi le lezioni prima di pubblicare.",
+        "Some bookings are only partly covered: {students}. Complete or remove "
+        "the lessons before publishing.",
+    ),
 )
 
-_TEACHERS_WITHOUT_A_ROOM_ERROR: Final[str] = (
-    "Alcuni docenti in presenza non hanno una stanza assegnata: {teachers}."
+_UNCOVERED_DISCIPLINES_ERRORS: Final[tuple[Bilingual, Bilingual]] = (
+    Bilingual(
+        "Una disciplina richiesta non è assegnata a nessuna lezione: {students}.",
+        "A requested discipline is not assigned to any lesson: {students}.",
+    ),
+    Bilingual(
+        "Alcune discipline richieste non sono assegnate a nessuna lezione: "
+        "{students}.",
+        "Some requested disciplines are not assigned to any lesson: {students}.",
+    ),
 )
 
-_ROOMS_LEFT_OPEN_ERROR: Final[str] = (
-    "Alcune stanze non hanno un responsabile per tutte le ore di lezione: "
-    "{rooms}."
+_UNPLANNED_ERRORS: Final[tuple[Bilingual, Bilingual]] = (
+    Bilingual(
+        "Una prenotazione non è stata pianificata: {students}. Mettila in "
+        "calendario o annullala prima di pubblicare.",
+        "A booking has not been planned: {students}. Put it in the calendar "
+        "or cancel it before publishing.",
+    ),
+    Bilingual(
+        "Alcune prenotazioni non sono state pianificate: {students}. Mettile in "
+        "calendario o annullale prima di pubblicare.",
+        "Some bookings have not been planned: {students}. Put them in the "
+        "calendar or cancel them before publishing.",
+    ),
 )
 
-_NOT_YOURS_TO_DISCARD_ERROR: Final[str] = (
+_UNASSIGNED_ACTIVITIES_ERRORS: Final[tuple[Bilingual, Bilingual]] = (
+    Bilingual(
+        "Un'attività non è stata assegnata a nessun docente: {names}. "
+        "Assegnala o eliminala prima di pubblicare.",
+        "An activity has not been assigned to any teacher: {names}. "
+        "Assign it or delete it before publishing.",
+    ),
+    Bilingual(
+        "Alcune attività non sono state assegnate a nessun docente: {names}. "
+        "Assegnale o eliminale prima di pubblicare.",
+        "Some activities have not been assigned to any teacher: {names}. "
+        "Assign them or delete them before publishing.",
+    ),
+)
+
+_TEACHER_WITHOUT_A_ROOM_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Un docente in presenza non ha una stanza assegnata: {teachers}.",
+        "A teacher in person has no room assigned: {teachers}.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Una docente in presenza non ha una stanza assegnata: {teachers}.",
+        "A teacher in person has no room assigned: {teachers}.",
+    ),
+}
+
+# Feminine only when every teacher listed is a woman.
+_TEACHERS_WITHOUT_A_ROOM_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Alcuni docenti in presenza non hanno una stanza assegnata: {teachers}.",
+        "Some teachers in person have no room assigned: {teachers}.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Alcune docenti in presenza non hanno una stanza assegnata: {teachers}.",
+        "Some teachers in person have no room assigned: {teachers}.",
+    ),
+}
+
+_ROOMS_LEFT_OPEN_ERRORS: Final[tuple[Bilingual, Bilingual]] = (
+    Bilingual(
+        "Una stanza non ha un responsabile per tutte le ore di lezione: {rooms}.",
+        "A room has no supervisor for all its lesson hours: {rooms}.",
+    ),
+    Bilingual(
+        "Alcune stanze non hanno un responsabile per tutte le ore di lezione: "
+        "{rooms}.",
+        "Some rooms have no supervisor for all their lesson hours: {rooms}.",
+    ),
+)
+
+_NOT_YOURS_TO_DISCARD_ERROR: Final[Bilingual] = Bilingual(
     "La bozza è stata aperta da {opener}: uscendone si annullerebbe anche il "
-    "suo lavoro. Puoi pubblicarla, oppure chiedere a {opener} di uscirne."
+    "suo lavoro. Puoi pubblicarla, oppure chiedere a {opener} di uscirne.",
+    "The draft was opened by {opener}: leaving it would also undo their "
+    "work. You can publish it, or ask {opener} to leave it.",
 )
 
 _MAX_NAMED: Final[int] = 5
@@ -113,11 +200,16 @@ def _person_label(person: object) -> str:
     return f"{first} {last}".strip()
 
 
+def _by_count(errors: tuple[Bilingual, Bilingual], count: int) -> str:
+    return by_count(errors, count).for_request()
+
+
 def _joined(names: Sequence[str]) -> str:
     shown = sorted(names)[:_MAX_NAMED]
     rest = len(names) - len(shown)
+    more = tr(f" e altri {rest}", f" and {rest} more")
 
-    return ", ".join(shown) + (f" e altri {rest}" if rest > 0 else "")
+    return ", ".join(shown) + (more if rest > 0 else "")
 
 
 class CalendarPublicationService:
@@ -159,9 +251,9 @@ class CalendarPublicationService:
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UNPLANNED_ERROR.format(
+            detail=_by_count(_UNPLANNED_ERRORS, len(left_out)).format(
                 students=_joined(
-                    [_person_label(people.get(code)) for code in left_out],
+                    [_person_label(people.get(code)) for code in set(left_out)],
                 ),
             ),
         )
@@ -201,6 +293,7 @@ class CalendarPublicationService:
 
         short = []
         uncovered = []
+        missing = 0
 
         for booking_id, booking in bookings.items():
             if minutes[booking_id] != booking.duration:
@@ -211,6 +304,7 @@ class CalendarPublicationService:
 
             if requested - covered[booking_id]:
                 uncovered.append(booking.presence.student_tax_code)
+                missing += len(requested - covered[booking_id])
 
         if not short and not uncovered:
             return
@@ -220,18 +314,18 @@ class CalendarPublicationService:
         if short:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_PARTIAL_COVERAGE_ERROR.format(
+                detail=_by_count(_PARTIAL_COVERAGE_ERRORS, len(short)).format(
                     students=_joined(
-                        [_person_label(people.get(code)) for code in short],
+                        [_person_label(people.get(code)) for code in set(short)],
                     ),
                 ),
             )
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UNCOVERED_DISCIPLINES_ERROR.format(
+            detail=_by_count(_UNCOVERED_DISCIPLINES_ERRORS, missing).format(
                 students=_joined(
-                    [_person_label(people.get(code)) for code in uncovered],
+                    [_person_label(people.get(code)) for code in set(uncovered)],
                 ),
             ),
         )
@@ -314,7 +408,7 @@ class CalendarPublicationService:
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UNASSIGNED_ACTIVITIES_ERROR.format(
+            detail=_by_count(_UNASSIGNED_ACTIVITIES_ERRORS, len(waiting)).format(
                 names=_joined([activity.name for activity in waiting]),
             ),
         )
@@ -337,10 +431,18 @@ class CalendarPublicationService:
 
         if adrift:
             people = await PersonRepository(self.session).get_options(adrift)
+            genders = {getattr(people.get(code), "gender", None) for code in adrift}
+            errors = (
+                _TEACHER_WITHOUT_A_ROOM_ERRORS
+                if len(adrift) == 1
+                else _TEACHERS_WITHOUT_A_ROOM_ERRORS
+            )
 
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_TEACHERS_WITHOUT_A_ROOM_ERROR.format(
+                detail=errors[
+                    GenderEnum.F if genders == {GenderEnum.F} else GenderEnum.M
+                ].for_request().format(
                     teachers=_joined(
                         [_person_label(people.get(code)) for code in adrift],
                     ),
@@ -363,7 +465,7 @@ class CalendarPublicationService:
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ROOMS_LEFT_OPEN_ERROR.format(
+            detail=_by_count(_ROOMS_LEFT_OPEN_ERRORS, len(left_open)).format(
                 rooms=_joined([room.name for room in rooms]),
             ),
         )
@@ -391,7 +493,7 @@ class CalendarPublicationService:
         if publication.draft_snapshot is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=_ALREADY_IN_DRAFT_ERROR,
+                detail=_ALREADY_IN_DRAFT_ERROR.for_request(),
             )
 
         await assert_not_confirmed(self.session, day, band)
@@ -400,7 +502,7 @@ class CalendarPublicationService:
         publication.draft_snapshot = await self.picture_of(day, band)
         publication.draft_opened_by = identity.tax_code
 
-        async with integrity_guard(self.session, _PUBLISH_ERROR):
+        async with integrity_guard(self.session, _PUBLISH_ERROR.for_request()):
             await self.repository.commit()
             await self.repository.refresh(publication)
 
@@ -417,7 +519,7 @@ class CalendarPublicationService:
         if publication.draft_snapshot is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=_NOT_IN_DRAFT_ERROR,
+                detail=_NOT_IN_DRAFT_ERROR.for_request(),
             )
 
         await assert_band_claimed(self.session, identity, day, band)
@@ -444,7 +546,7 @@ class CalendarPublicationService:
 
         await self._let_go(identity, day, band)
 
-        async with integrity_guard(self.session, _PUBLISH_ERROR):
+        async with integrity_guard(self.session, _PUBLISH_ERROR.for_request()):
             await self.repository.commit()
             await self.repository.refresh(publication)
 
@@ -466,8 +568,9 @@ class CalendarPublicationService:
 
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_NOT_YOURS_TO_DISCARD_ERROR.format(
-                opener=_person_label(people.get(opener)) or "un altro amministratore",
+            detail=_NOT_YOURS_TO_DISCARD_ERROR.for_request().format(
+                opener=_person_label(people.get(opener))
+                or tr("un altro amministratore", "another administrator"),
             ),
         )
 
@@ -484,7 +587,7 @@ class CalendarPublicationService:
         if publication is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return publication
@@ -518,9 +621,9 @@ class CalendarPublicationService:
         if await self.repository.is_published(payload.date, band):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=_ALREADY_PUBLISHED_ERROR.format(
+                detail=_ALREADY_PUBLISHED_ERROR.for_request().format(
                     day=payload.date.strftime("%d/%m/%Y"),
-                    band=time_band_label(band).lower(),
+                    band=time_band_label(band, request_language()).lower(),
                 ),
             )
 
@@ -546,7 +649,7 @@ class CalendarPublicationService:
 
         await self._let_go(identity, payload.date, band)
 
-        async with integrity_guard(self.session, _PUBLISH_ERROR):
+        async with integrity_guard(self.session, _PUBLISH_ERROR.for_request()):
             await self.repository.create(publication)
             await self.repository.commit()
             await self.repository.refresh(publication)
@@ -567,7 +670,7 @@ class CalendarPublicationService:
         if snapshot is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=_NOT_IN_DRAFT_ERROR,
+                detail=_NOT_IN_DRAFT_ERROR.for_request(),
             )
 
         await assert_band_claimed(self.session, identity, day, band)
@@ -585,7 +688,7 @@ class CalendarPublicationService:
 
         await self._let_go(identity, day, band)
 
-        async with integrity_guard(self.session, _DISCARD_ERROR):
+        async with integrity_guard(self.session, _DISCARD_ERROR.for_request()):
             await self.repository.commit()
             await self.repository.refresh(publication)
 
@@ -605,7 +708,7 @@ class CalendarPublicationService:
         if await started_rows(self.session, day, band):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=_STARTED_UNPUBLISH_ERROR,
+                detail=_STARTED_UNPUBLISH_ERROR.for_request(),
             )
 
         await assert_band_claimed(self.session, identity, day, band)

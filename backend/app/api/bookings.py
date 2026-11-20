@@ -10,6 +10,7 @@ from app.api.booking_presentation import (
 )
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
+from app.core.i18n import tr
 from app.models.booking import Booking
 from app.models.person import Person
 from app.repositories.booking_repository import BookingRepository
@@ -165,4 +166,4 @@ async def delete_booking(
     await _services(db).delete(identity, booking_id)
     background.add_task(push.deliver, await _tell(db, identity, pupil, before, {}))
 
-    return {"detail": "Prenotazione eliminata"}
+    return {"detail": tr("Prenotazione eliminata", "Booking deleted")}

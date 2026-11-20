@@ -1,5 +1,7 @@
-const String kPickDayLabel = 'Scegli il giorno';
-const String kTodayLabel = 'Oggi';
+import '../../core/language/app_language.dart';
+
+String get kPickDayLabel => tr('Scegli il giorno', 'Pick the day');
+String get kTodayLabel => tr('Oggi', 'Today');
 
 class DayMarks
 {

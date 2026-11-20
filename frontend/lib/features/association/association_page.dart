@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
@@ -48,18 +49,26 @@ const int _hoursContentIndex = 8;
 const int _tariffsContentIndex = 9;
 
 // Order matches the PageSections below; the constants above index both.
-const List<RailGroup> _sections = [
+List<RailGroup> get _sections => [
   RailGroup(
-    title: 'Didattica',
+    title: tr('Didattica', 'Teaching'),
     entries: [
-      'Servizi',
-      'Discipline interne',
-      'Materie ministeriali',
-      'Percorsi di studio',
-      'Scuole',
+      tr('Servizi', 'Services'),
+      tr('Discipline interne', 'Internal disciplines'),
+      tr('Materie ministeriali', 'Curriculum subjects'),
+      tr('Percorsi di studio', 'Study programmes'),
+      tr('Scuole', 'Schools'),
     ],
   ),
-  RailGroup(entries: ['Corsi', 'Stanze', 'Comunicazioni e avvisi', 'Orari', kTariffsSection]),
+  RailGroup(
+    entries: [
+      tr('Corsi', 'Courses'),
+      tr('Stanze', 'Rooms'),
+      tr('Comunicazioni e avvisi', 'Announcements and notices'),
+      tr('Orari', 'Hours'),
+      kTariffsSection,
+    ],
+  ),
 ];
 
 class AssociationPage extends StatefulWidget
@@ -232,7 +241,7 @@ class _AssociationPageState extends State<AssociationPage>
     return write(
       call: () => _apiService.createService(name, description),
       apply: (created) => _services = [..._services, created],
-      done: 'Servizio creato con successo!',
+      done: tr('Servizio creato con successo!', 'Service created!'),
       onError: onError,
     );
   }
@@ -243,7 +252,7 @@ class _AssociationPageState extends State<AssociationPage>
     return write(
       call: () => _apiService.updateService(originalName, name, description),
       apply: (updated) => _services = _services.map((s) => s.name == originalName ? updated : s).toList(),
-      done: 'Servizio modificato con successo!',
+      done: tr('Servizio modificato con successo!', 'Service edited!'),
       onError: onError,
     );
   }
@@ -253,7 +262,7 @@ class _AssociationPageState extends State<AssociationPage>
     return erase(
       call: () => _apiService.deleteService(item.name),
       apply: () => _services = _services.where((s) => s.name != item.name).toList(),
-      done: 'Servizio eliminato con successo!',
+      done: tr('Servizio eliminato con successo!', 'Service deleted!'),
     );
   }
 
@@ -262,7 +271,7 @@ class _AssociationPageState extends State<AssociationPage>
     return write(
       call: () => _apiService.createCourse(name, cost, description),
       apply: (created) => _courses = [..._courses, created],
-      done: 'Corso creato con successo!',
+      done: tr('Corso creato con successo!', 'Course created!'),
       onError: onError,
     );
   }
@@ -273,7 +282,7 @@ class _AssociationPageState extends State<AssociationPage>
     return write(
       call: () => _apiService.updateCourse(originalName, name, cost, description),
       apply: (updated) => _courses = _courses.map((c) => c.name == originalName ? updated : c).toList(),
-      done: 'Corso modificato con successo!',
+      done: tr('Corso modificato con successo!', 'Course edited!'),
       onError: onError,
     );
   }
@@ -283,7 +292,7 @@ class _AssociationPageState extends State<AssociationPage>
     return erase(
       call: () => _apiService.deleteCourse(item.name),
       apply: () => _courses = _courses.where((c) => c.name != item.name).toList(),
-      done: 'Corso eliminato con successo!',
+      done: tr('Corso eliminato con successo!', 'Course deleted!'),
     );
   }
 
@@ -292,7 +301,7 @@ class _AssociationPageState extends State<AssociationPage>
     return write(
       call: () => _apiService.createAssociationSubject(name, area, description),
       apply: (created) => _associationSubjects = [..._associationSubjects, created],
-      done: 'Disciplina interna creata con successo!',
+      done: tr('Disciplina interna creata con successo!', 'Internal discipline created!'),
       onError: onError,
     );
   }
@@ -302,7 +311,7 @@ class _AssociationPageState extends State<AssociationPage>
     return write(
       call: () => _apiService.updateAssociationSubject(id, name, area, description),
       apply: (updated) => _associationSubjects = _associationSubjects.map((s) => s.id == id ? updated : s).toList(),
-      done: 'Disciplina interna modificata con successo!',
+      done: tr('Disciplina interna modificata con successo!', 'Internal discipline edited!'),
       onError: onError,
       cascade: _refreshMinistrySubjects,
     );
@@ -313,7 +322,7 @@ class _AssociationPageState extends State<AssociationPage>
     return erase(
       call: () => _apiService.deleteAssociationSubject(item.id),
       apply: () => _associationSubjects = _associationSubjects.where((s) => s.id != item.id).toList(),
-      done: 'Disciplina interna eliminata con successo!',
+      done: tr('Disciplina interna eliminata con successo!', 'Internal discipline deleted!'),
       cascade: _refreshMinistrySubjects,
     );
   }
@@ -329,7 +338,7 @@ class _AssociationPageState extends State<AssociationPage>
         associationSubjectIds: associationIds,
       ),
       apply: (created) => _ministrySubjects = [..._ministrySubjects, created],
-      done: 'Materia ministeriale creata con successo!',
+      done: tr('Materia ministeriale creata con successo!', 'Curriculum subject created!'),
       onError: onError,
     );
   }
@@ -346,7 +355,7 @@ class _AssociationPageState extends State<AssociationPage>
         associationSubjectIds: associationIds,
       ),
       apply: (updated) => _ministrySubjects = _ministrySubjects.map((s) => s.id == id ? updated : s).toList(),
-      done: 'Materia ministeriale modificata con successo!',
+      done: tr('Materia ministeriale modificata con successo!', 'Curriculum subject edited!'),
       onError: onError,
       cascade: _refreshStudyPrograms,
     );
@@ -357,7 +366,7 @@ class _AssociationPageState extends State<AssociationPage>
     return erase(
       call: () => _apiService.deleteMinistrySubject(item.id),
       apply: () => _ministrySubjects = _ministrySubjects.where((s) => s.id != item.id).toList(),
-      done: 'Materia ministeriale eliminata con successo!',
+      done: tr('Materia ministeriale eliminata con successo!', 'Curriculum subject deleted!'),
       cascade: _refreshStudyPrograms,
     );
   }
@@ -376,7 +385,7 @@ class _AssociationPageState extends State<AssociationPage>
         ministrySubjectIds: subjectIds,
       ),
       apply: (created) => _studyPrograms = [..._studyPrograms, created],
-      done: 'Percorso creato con successo!',
+      done: tr('Percorso creato con successo!', 'Programme created!'),
       onError: onError,
     );
   }
@@ -396,7 +405,7 @@ class _AssociationPageState extends State<AssociationPage>
         ministrySubjectIds: subjectIds,
       ),
       apply: (updated) => _studyPrograms = _studyPrograms.map((p) => p.id == id ? updated : p).toList(),
-      done: 'Percorso modificato con successo!',
+      done: tr('Percorso modificato con successo!', 'Programme edited!'),
       onError: onError,
       cascade: _refreshSchools,
     );
@@ -407,7 +416,7 @@ class _AssociationPageState extends State<AssociationPage>
     return erase(
       call: () => _apiService.deleteStudyProgram(item.id),
       apply: () => _studyPrograms = _studyPrograms.where((p) => p.id != item.id).toList(),
-      done: 'Percorso eliminato con successo!',
+      done: tr('Percorso eliminato con successo!', 'Programme deleted!'),
       cascade: _refreshSchools,
     );
   }
@@ -423,7 +432,7 @@ class _AssociationPageState extends State<AssociationPage>
         studyProgramIds: programIds,
       ),
       apply: (created) => _schools = [..._schools, created],
-      done: 'Scuola creata con successo!',
+      done: tr('Scuola creata con successo!', 'School created!'),
       onError: onError,
     );
   }
@@ -440,7 +449,7 @@ class _AssociationPageState extends State<AssociationPage>
         studyProgramIds: programIds,
       ),
       apply: (updated) => _schools = _schools.map((s) => s.id == id ? updated : s).toList(),
-      done: 'Scuola modificata con successo!',
+      done: tr('Scuola modificata con successo!', 'School edited!'),
       onError: onError,
     );
   }
@@ -450,7 +459,7 @@ class _AssociationPageState extends State<AssociationPage>
     return erase(
       call: () => _apiService.deleteSchool(item.id),
       apply: () => _schools = _schools.where((s) => s.id != item.id).toList(),
-      done: 'Scuola eliminata con successo!',
+      done: tr('Scuola eliminata con successo!', 'School deleted!'),
     );
   }
 
@@ -459,7 +468,7 @@ class _AssociationPageState extends State<AssociationPage>
     return write(
       call: () => _apiService.createRoom(name: name, description: description, capacity: capacity),
       apply: (created) => _rooms = [..._rooms, created],
-      done: 'Stanza creata con successo!',
+      done: tr('Stanza creata con successo!', 'Room created!'),
       onError: onError,
     );
   }
@@ -469,7 +478,7 @@ class _AssociationPageState extends State<AssociationPage>
     return write(
       call: () => _apiService.updateRoom(id: id, name: name, description: description, capacity: capacity),
       apply: (updated) => _rooms = _rooms.map((r) => r.id == id ? updated : r).toList(),
-      done: 'Stanza modificata con successo!',
+      done: tr('Stanza modificata con successo!', 'Room edited!'),
       onError: onError,
     );
   }
@@ -479,7 +488,7 @@ class _AssociationPageState extends State<AssociationPage>
     return erase(
       call: () => _apiService.deleteRoom(item.id),
       apply: () => _rooms = _rooms.where((r) => r.id != item.id).toList(),
-      done: 'Stanza eliminata con successo!',
+      done: tr('Stanza eliminata con successo!', 'Room deleted!'),
     );
   }
 
@@ -626,7 +635,7 @@ class _AssociationPageState extends State<AssociationPage>
                             child: PageTransitionItem(
                               slot: PageTransitionItem.frame,
                               child: AppSectionRail(
-                                title: 'Associazione',
+                                title: tr('Associazione', 'Association'),
                                 groups: _sections,
                                 selectedIndex: _selectedSection,
                                 onSelected: _selectSection,
@@ -643,7 +652,7 @@ class _AssociationPageState extends State<AssociationPage>
                                 PageTransitionItem(
                                   slot: PageTransitionItem.frame,
                                   child: AppSectionTabs(
-                                    title: 'Associazione',
+                                    title: tr('Associazione', 'Association'),
                                     groups: _sections,
                                     selectedIndex: _selectedSection,
                                     onSelected: _selectSection,

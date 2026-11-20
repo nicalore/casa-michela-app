@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
@@ -234,7 +235,7 @@ class _ModeColumn extends StatelessWidget
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  hidden.length == 1 ? '+1 orario' : '+${hidden.length} orari',
+                  hidden.length == 1 ? tr('+1 orario', '+1 time') : tr('+${hidden.length} orari', '+${hidden.length} times'),
                   maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: dense ? 13 : 14,
@@ -297,13 +298,13 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
       barrierLabel: 'ConfirmAvailabilityDeletion',
       builder: (confirmContext) => AppDialogStack(
         eyebrow: '${formatAvailableDayLabel(group.date)} · ${group.teacher.fullName}',
-        title: 'Confermi?',
+        title: tr('Confermi?', 'Confirm?'),
         shrinkTitle: true,
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -312,7 +313,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -331,12 +332,17 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: 'La disponibilità di '),
+                  TextSpan(text: tr('La disponibilità di ', '')),
                   TextSpan(
                     text: group.teacher.fullName,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                   ),
-                  TextSpan(text: ' di ${formatAvailableDayLabel(group.date).toLowerCase()} verrà eliminata definitivamente.'),
+                  TextSpan(
+                    text: tr(
+                      ' di ${formatAvailableDayInSentence(group.date)} verrà eliminata definitivamente.',
+                      "'s availability on ${formatAvailableDayInSentence(group.date)} will be permanently deleted.",
+                    ),
+                  ),
                 ],
               ),
               style: GoogleFonts.plusJakartaSans(
@@ -378,7 +384,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Disponibilità',
+      eyebrow: tr('Disponibilità', 'Availability'),
       title: group.teacher.fullName,
       leading: PersonAvatar(person: group.teacher, size: PersonAvatar.titleSize),
       maxWidth: 560,
@@ -386,7 +392,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
           ? null
           : AppDialogFooter(
               secondary: AppGradientButton(
-                label: 'ELIMINA',
+                label: tr('ELIMINA', 'DELETE'),
                 icon: Icons.delete_outline_rounded,
                 gradient: AppTheme.dangerGradient,
                 accent: AppTheme.trialDangerText,
@@ -395,7 +401,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
                 onPressed: () => _showDeleteConfirmation(context),
               ),
               primary: AppGradientButton(
-                label: 'MODIFICA',
+                label: tr('MODIFICA', 'EDIT'),
                 icon: Icons.edit_outlined,
                 height: _dialogButtonHeight,
                 fontSize: _dialogButtonFontSize,
@@ -410,7 +416,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFieldLabel('Giornata', first: true),
+                _buildFieldLabel(tr('Giornata', 'Day'), first: true),
                 Text(formatAvailableDayLabel(group.date), style: _valueStyle),
               ],
             ),
@@ -427,7 +433,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
                 if (group.slotsFor(mode).isEmpty)
                   Center(
                     child: Text(
-                      'Nessuna disponibilità.',
+                      tr('Nessuna disponibilità.', 'No availability.'),
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,

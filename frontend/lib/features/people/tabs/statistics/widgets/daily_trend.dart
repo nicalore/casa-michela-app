@@ -1,3 +1,4 @@
+import '../../../../../core/language/app_language.dart';
 import '../../../../../core/utils/week_range.dart';
 import '../../../../../shared/widgets/filter_menu.dart';
 import 'stats_constants.dart';
@@ -8,10 +9,10 @@ const String kTrendByMonth = 'month';
 
 List<FilterOption<String>> trendResolutionOptions()
 {
-  return const [
-    FilterOption(value: kTrendByDay, label: 'Giornaliera'),
-    FilterOption(value: kTrendByWeek, label: 'Settimanale'),
-    FilterOption(value: kTrendByMonth, label: 'Mensile'),
+  return [
+    FilterOption(value: kTrendByDay, label: tr('Giornaliera', 'Daily')),
+    FilterOption(value: kTrendByWeek, label: tr('Settimanale', 'Weekly')),
+    FilterOption(value: kTrendByMonth, label: tr('Mensile', 'Monthly')),
   ];
 }
 

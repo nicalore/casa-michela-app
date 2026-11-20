@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import '../core/language/app_language.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/colour_theme_scope.dart';
 import '../core/theme/theme_colours.dart';
@@ -67,8 +68,8 @@ class _MobileAppState extends State<MobileApp>
           title: 'Associazione Casa Michela',
           debugShowCheckedModeBanner: false,
           theme: _theme,
-          locale: const Locale('it'),
-          supportedLocales: const [Locale('it')],
+          locale: AppLanguages.current.value.locale,
+          supportedLocales: AppLanguages.supportedLocales,
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           builder: (context, child) => MobileTextScale(child: MobileBackground(child: MobileRotationVeil(child: child))),
           // An app link names a site route; the gate reads it itself.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
@@ -267,7 +268,7 @@ class ClosedBandColumn extends StatelessWidget
         const SizedBox(width: 7),
         Flexible(
           child: Text(
-            "L'Associazione è chiusa",
+            tr("L'Associazione è chiusa", 'The Association is closed'),
             style: GoogleFonts.plusJakartaSans(
               fontSize: scale.closed,
               fontWeight: FontWeight.w600,
@@ -392,7 +393,7 @@ class HomeDayStrip extends StatelessWidget
     if (read == null)
     {
       return Text(
-        'Gli orari di oggi non sono disponibili.',
+        tr('Gli orari di oggi non sono disponibili.', "Today's hours aren't available."),
         textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14.5,

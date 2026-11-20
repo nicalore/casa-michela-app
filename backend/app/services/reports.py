@@ -8,10 +8,11 @@ from html import escape
 from typing import Final
 
 import resend.exceptions
-from sqlalchemy import func, select, update
+from sqlalchemy import func, inspect, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.i18n import tr_for
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.notification import Notification, NotificationKindEnum
 from app.models.person import Person
@@ -19,7 +20,14 @@ from app.models.report import Report, ReportKindEnum, ReportRead
 from app.repositories.identity_repository import IdentityRepository
 from app.services import email_service, notice_mail
 from app.services.notice_mail import day_and_time
-from app.services.notifications import dismissals, notify, reachable_identities
+from app.services.notifications import (
+    Bilingual,
+    Words,
+    dismissals,
+    notify,
+    reachable_identities,
+    worded,
+)
 from app.services.push import PushBatch
 from app.services.report_readers import audience, reader_role
 
@@ -27,15 +35,25 @@ logger = logging.getLogger("reports")
 
 _KIND: Final[NotificationKindEnum] = NotificationKindEnum.REPORT_RECEIVED
 
-_TITLE: Final[str] = "Nuova segnalazione da {full_name}"
-_BODY: Final[str] = "Tocca per leggerla"
-_WEB_BODY: Final[str] = "Clicca per leggerla"
+_TITLE: Final[Bilingual] = Bilingual(
+    "Nuova segnalazione da {full_name}",
+    "New report from {full_name}",
+)
+_BODY: Final[Bilingual] = Bilingual("Tocca per leggerla", "Tap to read it")
+_WEB_BODY: Final[Bilingual] = Bilingual("Clicca per leggerla", "Click to read it")
 
-_GREETING: Final[str] = "Ciao {first_name},"
+_GREETING: Final[Bilingual] = Bilingual("Ciao {first_name},", "Hi {first_name},")
 
-_RESOLVED_SUBJECT: Final[str] = "Segnalazione risolta"
+_RESOLVED_SUBJECT: Final[Bilingual] = Bilingual(
+    "Segnalazione risolta",
+    "Report resolved",
+)
+_RESOLVED_THANKS: Final[Bilingual] = Bilingual(
+    "La segnalazione che hai inviato il giorno {day} è stata risolta. Grazie!",
+    "The report you sent on {day} has been resolved. Thank you!",
+)
 _RESOLVED_BODY: Final[str] = """
-    <p>La segnalazione che hai inviato il giorno {day} è stata risolta. Grazie!</p>
+    <p>{thanks}</p>
     <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
                 border: 1px solid {line}; border-radius: 18px;">
         {fields}
@@ -90,39 +108,52 @@ def _send_patiently(send: Callable[[], None]) -> None:
     send()
 
 
-# One email per reader but its author; with no reader at all, the association's
-# mailbox. Waits only for the first that leaves and fails only if none does; the
-# rest are returned for deliver_rest.
+def _account_language(person: Person) -> str | None:
+    if "account" in inspect(person).unloaded or person.account is None:
+        return None
+
+    return person.account.language
+
+
+# One email per reader but its author, in the reader's language; with no reader at
+# all, the association's mailbox, in Italian. Waits only for the first that leaves
+# and fails only if none does; the rest are returned for deliver_rest.
 async def send_to_readers(
     db: AsyncSession,
     report: Report,
     *,
-    subject: str,
-    heading: str,
-    body: str,
+    subject: Words,
+    heading: Words,
+    body: Words,
     reply_to: str | None = email_service.CONTACT_ADDRESS,
 ) -> list[Callable[[], None]]:
     holders = await _holders(db, audience(report))
     recipients = [
-        (person.email, _GREETING.format(first_name=escape(person.first_name)))
+        (
+            person.email,
+            _GREETING.to(language).format(first_name=escape(person.first_name)),
+            language,
+        )
         for person in holders
         if person.tax_code != report.reporter_tax_code
+        for language in [_account_language(person)]
     ]
 
     if not holders:
-        recipients = [(email_service.CONTACT_ADDRESS, email_service.GREETING)]
+        recipients = [(email_service.CONTACT_ADDRESS, email_service.GREETING, None)]
 
     sends: list[Callable[[], None]] = [
         partial(
             email_service.send_email,
             recipient=address,
-            subject=subject,
-            heading=heading,
-            body=body,
+            subject=worded(subject, language),
+            heading=worded(heading, language),
+            body=worded(body, language),
             reply_to=reply_to,
             greeting=greeting,
+            language=language,
         )
-        for address, greeting in recipients
+        for address, greeting, language in recipients
     ]
 
     # Its author is its only reader: they have it in the app already.
@@ -200,7 +231,10 @@ async def record_report(
         db,
         [code for code in readers if code != reporter.tax_code],
         kind=_KIND,
-        title=_TITLE.format(full_name=f"{reporter.first_name} {reporter.last_name}"),
+        title=Bilingual(
+            _TITLE.it.format(full_name=f"{reporter.first_name} {reporter.last_name}"),
+            _TITLE.en.format(full_name=f"{reporter.first_name} {reporter.last_name}"),
+        ),
         body=_BODY,
         web_body=_WEB_BODY,
         report_id=report.id,
@@ -244,9 +278,12 @@ class ResolvedMail:
     address: str
     greeting: str
     body: str
+    language: str | None = None
 
 
-def _fields(report: Report) -> list[tuple[str, str]]:
+def _fields(report: Report, language: str | None) -> list[tuple[str, str]]:
+    description = tr_for(language, "Descrizione", "Description")
+
     if report.kind == ReportKindEnum.PERSONAL_DATA:
         return [
             (correction["field"], correction["value"])
@@ -255,24 +292,31 @@ def _fields(report: Report) -> list[tuple[str, str]]:
 
     if report.kind == ReportKindEnum.MISSING_SUBJECT:
         return [
-            ("Disciplina", report.title or ""),
-            ("Descrizione", report.description or ""),
+            (tr_for(language, "Disciplina", "Discipline"), report.title or ""),
+            (description, report.description or ""),
         ]
 
-    return [("Descrizione", report.description or "")]
+    return [(description, report.description or "")]
 
 
-# The reporter's thanks, with what they sent below.
-def resolved_mail(report: Report, reporter: Person) -> ResolvedMail:
-    day, _ = day_and_time(report.created_at)
-    fields = [(label, value) for label, value in _fields(report) if value]
+# The reporter's thanks in their language, with what they sent below. Without
+# language, the reporter's loaded account tells it; failing that, Italian.
+def resolved_mail(
+    report: Report,
+    reporter: Person,
+    language: str | None = None,
+) -> ResolvedMail:
+    language = language or _account_language(reporter)
+    day, _ = day_and_time(report.created_at, language)
+    fields = [(label, value) for label, value in _fields(report, language) if value]
 
     return ResolvedMail(
         report_id=report.id,
         address=reporter.email,
-        greeting=_GREETING.format(first_name=escape(reporter.first_name)),
+        greeting=_GREETING.to(language).format(first_name=escape(reporter.first_name)),
+        language=language,
         body=_RESOLVED_BODY.format(
-            day=day,
+            thanks=_RESOLVED_THANKS.to(language).format(day=day),
             fields=_FIELD_GAP.join(
                 _FIELD.format(
                     label=escape(label),
@@ -294,11 +338,12 @@ def deliver_resolved(mail: ResolvedMail) -> None:
             partial(
                 email_service.send_email,
                 recipient=mail.address,
-                subject=_RESOLVED_SUBJECT,
-                heading=_RESOLVED_SUBJECT,
+                subject=_RESOLVED_SUBJECT.to(mail.language),
+                heading=_RESOLVED_SUBJECT.to(mail.language),
                 body=mail.body,
                 greeting=mail.greeting,
                 idempotency_key=f"report-{mail.report_id}-resolved",
+                language=mail.language,
             )
         )
     except Exception:

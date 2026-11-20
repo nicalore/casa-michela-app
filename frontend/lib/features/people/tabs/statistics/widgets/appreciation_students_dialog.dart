@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../core/language/app_language.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/utils/error_message.dart';
 import '../../../../../services/api_service.dart';
@@ -120,7 +121,7 @@ class AppreciationStudentsDialog extends StatelessWidget
   {
     if (students.isEmpty)
     {
-      return const PersonEmptyState(message: 'Nessuno studente.');
+      return PersonEmptyState(message: tr('Nessuno studente.', 'No students.'));
     }
 
     return Column(

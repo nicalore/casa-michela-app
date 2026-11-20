@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../features/association/models/subject_taxonomy.dart';
 import '../../../../features/association/teacher_opinions.dart';
 import '../../../../features/people/models/teacher_subject_item.dart';
@@ -82,7 +83,7 @@ class _SubjectFilterSheetState extends State<_SubjectFilterSheet>
       behavior: HitTestBehavior.opaque,
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: MobileSheet(
-        eyebrow: 'Filtro',
+        eyebrow: tr('Filtro', 'Filter'),
         title: kSubjectsFilterTitle,
         body: [
           const SizedBox(height: 14),
@@ -126,12 +127,12 @@ class _SubjectFilterSheetState extends State<_SubjectFilterSheet>
           child: Row(
             children: [
               Expanded(
-                child: MobileDismissButton(label: 'Azzera', icon: Icons.refresh_rounded, onPressed: _reset),
+                child: MobileDismissButton(label: tr('Azzera', 'Reset'), icon: Icons.refresh_rounded, onPressed: _reset),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: MobileGoldButton(
-                  label: 'Applica',
+                  label: tr('Applica', 'Apply'),
                   icon: Icons.check_rounded,
                   onPressed: () => finishMobileSheet(context, _selected),
                 ),

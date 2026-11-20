@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
@@ -86,7 +87,7 @@ Future<void> showMobileLessonSheet({
       title: lessonTitle(lesson),
       subtitle: formatWeekdayColumnLabel(lesson.date),
       face: lesson.bookings.firstOrNull?.presence.student,
-      otherName: withStudent ? 'Studente' : null,
+      otherName: withStudent ? tr('Studente', 'Student') : null,
       otherVoices: student == null ? null : studentVoicesOf(student),
       otherFailedNote: kStudentFailedNote,
       takesNote: true,
@@ -115,7 +116,7 @@ Future<void> showMobilePupilLessonSheet({
       title: lessonTitle(lesson, view: CalendarView.byStudent),
       subtitle: pupilName == null ? day : '$pupilName · $day',
       face: lesson.teacher,
-      otherName: 'Docente',
+      otherName: tr('Docente', 'Teacher'),
       otherVoices: teacher == null ? null : teacherVoicesOf(teacher),
       otherFailedNote: kTeacherFailedNote,
       forPupil: true,
@@ -165,7 +166,7 @@ class _LessonSheet extends StatefulWidget
 
 class _LessonSheetState extends State<_LessonSheet>
 {
-  late final List<String> _pageNames = ['Lezione', ?widget.otherName];
+  late final List<String> _pageNames = [tr('Lezione', 'Lesson'), ?widget.otherName];
 
   // While the notes' images are read: a second tap opens nothing more.
   bool _openingNotes = false;
@@ -493,7 +494,7 @@ class _LessonSheetState extends State<_LessonSheet>
     if (widget.otherName == null)
     {
       return MobileSheet(
-        eyebrow: 'Lezione',
+        eyebrow: tr('Lezione', 'Lesson'),
         title: widget.title,
         subtitle: widget.subtitle,
         leading: leading,
@@ -506,7 +507,7 @@ class _LessonSheetState extends State<_LessonSheet>
     }
 
     return MobileSheet(
-      eyebrow: 'Lezione',
+      eyebrow: tr('Lezione', 'Lesson'),
       title: widget.title,
       subtitle: widget.subtitle,
       leading: leading,

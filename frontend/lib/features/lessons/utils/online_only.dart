@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
@@ -8,10 +9,12 @@ import '../models/person_option_item.dart';
 import 'opening_window.dart';
 
 // Approved wording: the calendar row's badge and the warning when it happens.
-const String kOnlineOnlyBadge = 'In sede - Solo lezioni online';
+String get kOnlineOnlyBadge => tr('In sede - Solo lezioni online', 'On site - Online lessons only');
 
-String onlineOnlyWarning(String teacher) =>
-    '$teacher verrà in sede solo per lezioni online: ha dato disponibilità solo in presenza.';
+String onlineOnlyWarning(String teacher) => tr(
+  '$teacher verrà in sede solo per lezioni online: ha dato disponibilità solo in presenza.',
+  '$teacher will come on site only for online lessons: they gave in-person availability only.',
+);
 
 // A teacher's band: they come in, yet every lesson is with a pupil at a screen and no
 // activity brings them, so they come only to connect from the association's computers.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 
 class PublishedPill extends StatelessWidget
@@ -22,7 +23,7 @@ class PublishedPill extends StatelessWidget
         border: Border.all(color: accent.withValues(alpha: 0.28)),
       ),
       child: Text(
-        isDraft ? 'IN BOZZA' : 'PUBBLICATO',
+        isDraft ? tr('IN BOZZA', 'DRAFT') : tr('PUBBLICATO', 'PUBLISHED'),
         maxLines: 1,
         softWrap: false,
         style: GoogleFonts.plusJakartaSans(

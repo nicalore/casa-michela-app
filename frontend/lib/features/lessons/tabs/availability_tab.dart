@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
@@ -172,15 +173,15 @@ class _AvailabilityTabState extends State<AvailabilityTab>
   {
     if (_hasFilters)
     {
-      return const AppEmptyCard(icon: Icons.filter_alt_off_rounded, message: 'Nessuna disponibilità corrisponde ai filtri scelti.');
+      return AppEmptyCard(icon: Icons.filter_alt_off_rounded, message: tr('Nessuna disponibilità corrisponde ai filtri scelti.', 'No availability matches the chosen filters.'));
     }
 
     if (_searchText.isNotEmpty)
     {
-      return const AppEmptyCard(icon: Icons.search_off_rounded, message: 'Nessun docente trovato in questa giornata.');
+      return AppEmptyCard(icon: Icons.search_off_rounded, message: tr('Nessun docente trovato in questa giornata.', 'No teachers found on this day.'));
     }
 
-    return const AppEmptyCard(icon: Icons.event_note_rounded, message: 'Nessuna disponibilità in questa giornata.');
+    return AppEmptyCard(icon: Icons.event_note_rounded, message: tr('Nessuna disponibilità in questa giornata.', 'No availability on this day.'));
   }
 
   Widget _buildFilters()
@@ -190,8 +191,8 @@ class _AvailabilityTabState extends State<AvailabilityTab>
     return TabFiltersRow(
       filters: [
         AppFilterPill<String>.filter(
-          prefix: 'Modalità',
-          hint: 'Presenza e online',
+          prefix: tr('Modalità', 'Mode'),
+          hint: tr('Presenza e online', 'In person and online'),
           icon: Icons.devices_outlined,
           value: _filterMode,
           menuWidth: 190,
@@ -203,8 +204,8 @@ class _AvailabilityTabState extends State<AvailabilityTab>
           ],
         ),
         AppFilterPill<TimeBucket>.filter(
-          prefix: 'Quando',
-          hint: 'Tutta la giornata',
+          prefix: tr('Quando', 'When'),
+          hint: tr('Tutta la giornata', 'All day'),
           icon: Icons.schedule_rounded,
           value: _filterBucket,
           menuWidth: 190,
@@ -217,7 +218,7 @@ class _AvailabilityTabState extends State<AvailabilityTab>
         ),
         if (subjects.isNotEmpty)
           AppCountFilterPill(
-            label: 'Discipline',
+            label: tr('Discipline', 'Disciplines'),
             icon: Icons.auto_stories_outlined,
             count: _filterSubjects.length,
             onOpen: () => _showSubjectFilterDialog(subjects),
@@ -233,8 +234,8 @@ class _AvailabilityTabState extends State<AvailabilityTab>
       context: context,
       barrierLabel: 'SubjectFilterDialog',
       builder: (context) => MultiSelectFilterDialog<String>(
-        title: 'Filtra per disciplina interna',
-        hint: 'Es. Aritmetica',
+        title: tr('Filtra per disciplina interna', 'Filter by internal discipline'),
+        hint: tr('Es. Aritmetica', 'E.g. Arithmetic'),
         options: [
           for (final subject in subjects)
             MultiSelectFilterOption(value: subject, label: subject),
@@ -292,8 +293,8 @@ class _AvailabilityTabState extends State<AvailabilityTab>
           onViewSelected: widget.onViewSelected,
           searchController: _searchController,
           onSearchChanged: (value) => setState(() => _searchText = value),
-          searchHint: 'Cerca docente...',
-          actionLabel: 'NUOVA DISPONIBILITÀ',
+          searchHint: tr('Cerca docente...', 'Search teachers...'),
+          actionLabel: tr('NUOVA DISPONIBILITÀ', 'NEW AVAILABILITY'),
           onAction: widget.readOnly ? null : _showWizard,
         ),
         const TabHeaderGap(wide: 20, dense: 10),

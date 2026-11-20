@@ -3,6 +3,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
+from app.core.i18n import tr
 from app.core.labels import time_band_label
 from app.core.time_band import TimeBandEnum, band_bounds
 
@@ -15,16 +16,20 @@ _CLOSING_TIMES: Final[dict[TimeBandEnum, tuple[int, time]]] = {
     TimeBandEnum.EVENING: (0, time(18)),
 }
 
-_TOO_EARLY_ERROR: Final[str] = (
-    "Il calendario di {band} del {day} si può pubblicare dal {opens}, quando "
-    "chiudono le prenotazioni."
+_TOO_EARLY_ERROR: Final[tuple[str, str]] = (
+    "Il calendario di {band} del {day} si può pubblicare dal {opens}, quando chiudono "
+    "le prenotazioni.",
+    "The {band} calendar of {day} can be published from {opens}, when bookings close.",
 )
 
-_CLOSED_ERROR: Final[str] = "Le prenotazioni si sono chiuse il {closed}."
+_CLOSED_ERROR: Final[tuple[str, str]] = (
+    "Le prenotazioni si sono chiuse il {closed}.",
+    "Bookings closed on {closed}.",
+)
 
 
 def _format(moment: datetime) -> str:
-    return moment.strftime("%d/%m/%Y alle %H:%M")
+    return moment.strftime(tr("%d/%m/%Y alle %H:%M", "%d/%m/%Y at %H:%M"))
 
 
 def _day_label(day: date) -> str:
@@ -81,7 +86,7 @@ def assert_ready_to_publish(day: date, band: TimeBandEnum, now: datetime) -> Non
         return
 
     raise ValueError(
-        _TOO_EARLY_ERROR.format(
+        tr(*_TOO_EARLY_ERROR).format(
             band=time_band_label(str(band)).lower(),
             day=_day_label(day),
             opens=_format(closes_at(day, band)),
@@ -104,5 +109,5 @@ def assert_still_open(
     for band in sorted(bands, key=lambda row: closes_at(day, row)):
         if has_closed(day, band, moment):
             raise ValueError(
-                _CLOSED_ERROR.format(closed=_format(closes_at(day, band))),
+                tr(*_CLOSED_ERROR).format(closed=_format(closes_at(day, band))),
             )

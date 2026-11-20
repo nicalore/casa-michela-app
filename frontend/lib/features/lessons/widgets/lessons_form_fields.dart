@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_field_label.dart';
@@ -19,7 +20,7 @@ const double _fieldRadius = 14;
 const double _fieldBorderWidth = 2;
 const double _fieldHeight = 50;
 
-const String _notCollaborating = 'Non collaborante';
+String get _notCollaborating => tr('Non collaborante', 'Non-collaborating');
 
 Widget _fieldLabel(String text, [TextStyle? style])
 {
@@ -270,7 +271,7 @@ class _SelectionListDialogState<T> extends State<_SelectionListDialog<T>>
     final options = _filteredOptions;
 
     return AppDialogStack(
-      eyebrow: 'Selezione',
+      eyebrow: tr('Selezione', 'Selection'),
       title: widget.title,
       maxWidth: 520,
       alignment: const Alignment(0, -0.1),
@@ -294,7 +295,7 @@ class _SelectionListDialogState<T> extends State<_SelectionListDialog<T>>
                     ? Padding(
                         padding: const EdgeInsets.symmetric(vertical: 32),
                         child: Text(
-                          'Nessun risultato.',
+                          tr('Nessun risultato.', 'No results.'),
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 15,

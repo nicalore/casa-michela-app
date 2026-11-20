@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/descender_room.dart';
@@ -55,14 +56,14 @@ class _CalendarActivityCardState extends State<CalendarActivityCard>
   {
     if (_activity.isLocked)
     {
-      return 'Calendario pubblicato: riportalo in bozza';
+      return tr('Calendario pubblicato: riportalo in bozza', 'Calendar published: put it back into draft');
     }
 
     return switch (widget.dragMode)
     {
-      BookingDragMode.immediate => 'Trascinala su un docente per assegnarla',
-      BookingDragMode.longPress => 'Tieni premuto e trascinala su un docente',
-      BookingDragMode.none => 'Aprila per assegnarla a un docente',
+      BookingDragMode.immediate => tr('Trascinala su un docente per assegnarla', 'Drag it onto a teacher to assign it'),
+      BookingDragMode.longPress => tr('Tieni premuto e trascinala su un docente', 'Press and hold, then drag it onto a teacher'),
+      BookingDragMode.none => tr('Aprila per assegnarla a un docente', 'Open it to assign it to a teacher'),
     };
   }
 

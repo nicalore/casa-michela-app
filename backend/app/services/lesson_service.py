@@ -21,6 +21,7 @@ from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
 from app.models.ministry_association_subject import MinistryAssociationSubject
+from app.models.person import GenderEnum
 from app.models.presence import Presence
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
@@ -35,6 +36,7 @@ from app.repositories.calendar_activity_repository import (
 from app.repositories.lesson_repository import LessonRepository, LessonVisibility
 from app.repositories.person_repository import PersonRepository
 from app.schemas.lesson import LessonCreate, LessonUpdate
+from app.services.bilingual import Bilingual
 from app.services.calendar_freeze import assert_not_started
 from app.services.lesson_guard import (
     assert_band_claimed,
@@ -60,55 +62,94 @@ from app.services.teacher_occupancy import (
 )
 from app.services.teaching_competence import lacks_competence
 
-_ENTITY_LABEL: Final[str] = "la lezione"
-_NOT_FOUND_ERROR: Final[str] = "Lezione non trovata"
-_CREATE_ERROR: Final[str] = "Errore durante la creazione della lezione."
-_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
-
-_AVAILABILITY_NOT_FOUND_ERROR: Final[str] = "Disponibilità non trovata"
-
-_UNKNOWN_BOOKINGS_ERROR: Final[str] = "Alcune prenotazioni non esistono: {ids}."
-
-_UNKNOWN_DISCIPLINES_ERROR: Final[str] = "Alcune discipline non esistono: {ids}."
-
-_OUTSIDE_AVAILABILITY_ERROR: Final[str] = (
-    "Fuori dalla disponibilità del docente ({start} - {end})."
+_ENTITY_LABEL: Final[Bilingual] = Bilingual(
+    "la lezione",
+    "the lesson",
+)
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Lezione non trovata",
+    "Lesson not found",
+)
+_CREATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante la creazione della lezione.",
+    "Something went wrong while creating the lesson.",
+)
+_UPDATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'aggiornamento.",
+    "Something went wrong while saving.",
 )
 
-_MIXED_MODES_ERROR: Final[str] = (
-    "Una lezione si deve svolgere interamente nella stessa modalità."
+_AVAILABILITY_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Disponibilità non trovata",
+    "Availability not found",
 )
 
-_ONE_PUPIL_ERROR: Final[str] = (
-    "Una lezione è di un solo studente: per più studenti crea lezioni separate."
+_UNKNOWN_BOOKINGS_ERROR: Final[Bilingual] = Bilingual(
+    "Alcune prenotazioni non esistono: {ids}.",
+    "Some bookings do not exist: {ids}.",
 )
 
-_TEACHER_AT_HOME_ERROR: Final[str] = (
-    "Un docente collegato da casa non può tenere una lezione in presenza."
+_UNKNOWN_DISCIPLINES_ERROR: Final[Bilingual] = Bilingual(
+    "Alcune discipline non esistono: {ids}.",
+    "Some disciplines do not exist: {ids}.",
 )
 
-_WRONG_DAY_ERROR: Final[str] = (
-    "La prenotazione di {student} non è nel giorno della disponibilità."
+_OUTSIDE_AVAILABILITY_ERROR: Final[Bilingual] = Bilingual(
+    "Fuori dalla disponibilità del docente ({start} - {end}).",
+    "Outside the teacher's availability ({start} - {end}).",
 )
 
-_OUTSIDE_PRESENCE_ERROR: Final[str] = (
-    "La lezione non rientra nelle ore di presenza di {student} ({hours})."
+_MIXED_MODES_ERROR: Final[Bilingual] = Bilingual(
+    "Una lezione si deve svolgere interamente nella stessa modalità.",
+    "A lesson must take place entirely in the same mode.",
 )
 
-_STUDENT_OVERLAP_ERROR: Final[str] = (
-    "Uno studente ha già un'altra lezione a quest'ora."
+_ONE_PUPIL_ERROR: Final[Bilingual] = Bilingual(
+    "Una lezione è di un solo studente: per più studenti crea lezioni separate.",
+    "A lesson has a single student: for more students create separate lessons.",
+)
+
+_TEACHER_AT_HOME_ERROR: Final[Bilingual] = Bilingual(
+    "Un docente collegato da casa non può tenere una lezione in presenza.",
+    "A teacher connected from home cannot teach a lesson in person.",
+)
+
+_WRONG_DAY_ERROR: Final[Bilingual] = Bilingual(
+    "La prenotazione di {student} non è nel giorno della disponibilità.",
+    "{student}'s booking is not on the day of the availability.",
+)
+
+_OUTSIDE_PRESENCE_ERROR: Final[Bilingual] = Bilingual(
+    "La lezione non rientra nelle ore di presenza di {student} ({hours}).",
+    "The lesson does not fall within {student}'s attendance hours ({hours}).",
+)
+
+_STUDENT_OVERLAP_ERROR: Final[Bilingual] = Bilingual(
+    "Uno studente ha già un'altra lezione a quest'ora.",
+    "A student already has another lesson at this time.",
 )
 
 # An activity occupies the teacher outright: unlike lessons, it never overlaps.
-_MISSING_COMPETENCE_ERROR: Final[str] = (
-    "Il docente non ha la competenza per: {subjects}."
+_MISSING_COMPETENCE_ERROR: Final[Bilingual] = Bilingual(
+    "Il docente non ha la competenza per: {subjects}.",
+    "The teacher is not qualified for: {subjects}.",
 )
 
-_MISSING_SERVICE_ERROR: Final[str] = "Il docente non ha la competenza per: {services}."
-
-_NOT_PREFERRED_WARNING: Final[str] = (
-    "Il docente {teacher} è indicato come non preferito da {student}."
+_MISSING_SERVICE_ERROR: Final[Bilingual] = Bilingual(
+    "Il docente non ha la competenza per: {services}.",
+    "The teacher is not qualified for: {services}.",
 )
+
+_NOT_PREFERRED_WARNINGS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il docente {teacher} è indicato come non preferito da {student}.",
+        "The teacher {teacher} is marked as not preferred by {student}.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La docente {teacher} è indicata come non preferita da {student}.",
+        "The teacher {teacher} is marked as not preferred by {student}.",
+    ),
+}
 
 
 class _HasId(Protocol):
@@ -200,7 +241,7 @@ class LessonService:
         if availability is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_AVAILABILITY_NOT_FOUND_ERROR,
+                detail=_AVAILABILITY_NOT_FOUND_ERROR.for_request(),
             )
 
         return availability
@@ -211,7 +252,7 @@ class LessonService:
             .options(*BOOKING_EAGER_LOADER)
             .where(Booking.id.in_(booking_ids)),
             booking_ids,
-            error=_UNKNOWN_BOOKINGS_ERROR,
+            error=_UNKNOWN_BOOKINGS_ERROR.for_request(),
         )
 
     async def _disciplines_or_400(
@@ -226,7 +267,7 @@ class LessonService:
                 AssociationSubject.id.in_(association_subject_ids),
             ),
             association_subject_ids,
-            error=_UNKNOWN_DISCIPLINES_ERROR,
+            error=_UNKNOWN_DISCIPLINES_ERROR.for_request(),
         )
 
     def _assert_within_availability(
@@ -238,7 +279,7 @@ class LessonService:
         if start_time < availability.start_time or end_time > availability.end_time:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_OUTSIDE_AVAILABILITY_ERROR.format(
+                detail=_OUTSIDE_AVAILABILITY_ERROR.for_request().format(
                     start=_format_time(availability.start_time),
                     end=_format_time(availability.end_time),
                 ),
@@ -250,7 +291,7 @@ class LessonService:
         if len({booking.presence.student_tax_code for booking in bookings}) > 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_ONE_PUPIL_ERROR,
+                detail=_ONE_PUPIL_ERROR.for_request(),
             )
 
     async def _resolve_mode(
@@ -265,7 +306,7 @@ class LessonService:
         if len(modes) > 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_MIXED_MODES_ERROR,
+                detail=_MIXED_MODES_ERROR.for_request(),
             )
 
         mode = modes.pop()
@@ -273,7 +314,7 @@ class LessonService:
         if availability.mode == "online" and mode == "presence":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_TEACHER_AT_HOME_ERROR,
+                detail=_TEACHER_AT_HOME_ERROR.for_request(),
             )
 
         students = set()
@@ -289,7 +330,7 @@ class LessonService:
             if presence.date != availability.date:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=_WRONG_DAY_ERROR.format(student=student),
+                    detail=_WRONG_DAY_ERROR.for_request().format(student=student),
                 )
 
             windows = hours.get(
@@ -305,7 +346,7 @@ class LessonService:
             if not fits_a_window(start_time, end_time, windows):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=_OUTSIDE_PRESENCE_ERROR.format(
+                    detail=_OUTSIDE_PRESENCE_ERROR.for_request().format(
                         student=student,
                         hours=", ".join(
                             f"{_format_time(start)} - {_format_time(end)}"
@@ -425,7 +466,7 @@ class LessonService:
         if busy is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_STUDENT_OVERLAP_ERROR,
+                detail=_STUDENT_OVERLAP_ERROR.for_request(),
             )
 
     # Highest start_year wins, as the app reads it (api/people.py _latest_enrollment).
@@ -539,7 +580,9 @@ class LessonService:
         if not lacking:
             return None
 
-        return _MISSING_COMPETENCE_ERROR.format(subjects=", ".join(lacking))
+        return _MISSING_COMPETENCE_ERROR.for_request().format(
+            subjects=", ".join(lacking),
+        )
 
     async def _service_refusal(
         self,
@@ -570,7 +613,7 @@ class LessonService:
         if not lacking:
             return None
 
-        return _MISSING_SERVICE_ERROR.format(services=", ".join(lacking))
+        return _MISSING_SERVICE_ERROR.for_request().format(services=", ".join(lacking))
 
     async def _competence_refusal(
         self,
@@ -659,10 +702,14 @@ class LessonService:
         people = await PersonRepository(self.session).get_options(
             [*unwanted_by, teacher_tax_code],
         )
-        teacher = _person_label(people.get(teacher_tax_code))
+        teacher_person = people.get(teacher_tax_code)
+        teacher = _person_label(teacher_person)
+        warning = _NOT_PREFERRED_WARNINGS[
+            GenderEnum.M if teacher_person is None else teacher_person.gender
+        ].for_request()
 
         return [
-            _NOT_PREFERRED_WARNING.format(
+            warning.format(
                 teacher=teacher,
                 student=_person_label(people.get(student_tax_code)),
             )
@@ -781,7 +828,7 @@ class LessonService:
         if lesson is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return lesson
@@ -804,7 +851,7 @@ class LessonService:
             lesson_disciplines=validated.discipline_rows(),
         )
 
-        async with integrity_guard(self.session, _CREATE_ERROR):
+        async with integrity_guard(self.session, _CREATE_ERROR.for_request()):
             self.session.add_all(validated.waivers)
             await self.repository.create(lesson)
             await settle_teacher_band(
@@ -828,7 +875,7 @@ class LessonService:
         assert_not_stale(
             lesson,
             payload.expected_updated_at,
-            entity_label=_ENTITY_LABEL,
+            entity_label=_ENTITY_LABEL.for_request(),
         )
 
         await assert_bands_editable(
@@ -857,7 +904,7 @@ class LessonService:
         lesson.lesson_bookings = validated.links()
         lesson.lesson_disciplines = validated.discipline_rows()
 
-        async with integrity_guard(self.session, _UPDATE_ERROR):
+        async with integrity_guard(self.session, _UPDATE_ERROR.for_request()):
             self.session.add_all(validated.waivers)
             await self.session.flush()
 
@@ -898,7 +945,7 @@ class LessonService:
         if lesson is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return lesson

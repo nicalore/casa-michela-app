@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
+import '../../core/language/app_language.dart';
 import 'pdf_tab.dart';
 
 // Scope of a documents worker browsers may still hold: they are told to let it go.
@@ -11,10 +12,10 @@ const String _formerScope = '/documenti/';
 
 bool _formerWorkerGone = false;
 
-const String _defaultWaiting = 'Generazione del PDF in corso&hellip;';
+String get _defaultWaiting => tr('Generazione del PDF in corso&hellip;', 'Generating the PDF&hellip;');
 
 String _waitingPage(String title, String? waiting) => '''
-<!doctype html><html lang="it"><head><meta charset="utf-8">
+<!doctype html><html lang="${AppLanguages.current.value.key}"><head><meta charset="utf-8">
 <title>${_escaped(title)}</title>
 <style>
   html,body{margin:0;height:100%;background:#EBEFF3;color:#5B7280;
@@ -144,7 +145,7 @@ class _WebPdfTab implements PdfTab
         ..href = url
         ..download = fileName
         ..setAttribute('style', 'display:inline')
-        ..textContent = 'Scarica "$fileName"',
+        ..textContent = tr('Scarica "$fileName"', 'Download "$fileName"'),
     );
 
     waiting.replaceWith(docs);
@@ -216,7 +217,7 @@ class _WebPdfTab implements PdfTab
         (document.createElement('a') as web.HTMLAnchorElement)
           ..href = urls[index]
           ..download = shown.fileName
-          ..textContent = 'Scarica "${shown.fileName}"',
+          ..textContent = tr('Scarica "${shown.fileName}"', 'Download "${shown.fileName}"'),
       );
     }
 
@@ -252,7 +253,7 @@ class _WebPdfTab implements PdfTab
       return;
     }
 
-    waiting.textContent = '$message\nPuoi chiudere questa scheda e riprovare.';
+    waiting.textContent = tr('$message\nPuoi chiudere questa scheda e riprovare.', '$message\nYou can close this tab and try again.');
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/association_subject_item.dart';
@@ -15,86 +16,158 @@ import 'opening_window.dart';
 import 'study_program_lookup.dart';
 import 'timeline_geometry.dart';
 
-const String kTooShortRefusal = "Una lezione dura almeno mezz'ora.";
-const String kOutsideAvailabilityRefusal = 'Fuori dalla disponibilità del docente.';
-const String kTeacherAtHomeRefusal = 'Un docente collegato da casa non può tenere una lezione in presenza.';
-const String kMixedModesRefusal = 'Una lezione si deve svolgere interamente nella stessa modalità.';
-const String kAcrossBandsRefusal =
-    'Una lezione non può essere separata in fasce orarie diverse.';
-const String kNoBookingRefusal = 'Una lezione deve avere almeno una prenotazione.';
-const String kSettledRefusal = 'Questo calendario è pubblicato: riportalo in bozza '
-    'per modificare le lezioni.';
-const String kLessonWithoutDisciplineRefusal =
-    'Solo i servizi non hanno discipline.';
-const String kDisciplineNotRequestedRefusal =
-    'Ogni disciplina della lezione deve essere collegata ad almeno una delle prenotazioni.';
-const String kBookingNotOnLessonSubjectRefusal =
-    'Ogni prenotazione deve avere almeno una disciplina in comune con la lezione.';
-const String kTooManyPartsRefusal = 'Una prenotazione può essere divisa in al massimo due lezioni.';
+String get kTooShortRefusal => tr("Una lezione dura almeno mezz'ora.", 'A lesson lasts at least half an hour.');
+String outsideAvailabilityRefusal({required bool feminine}) => tr(
+  feminine ? 'Fuori dalla disponibilità della docente.' : 'Fuori dalla disponibilità del docente.',
+  "Outside the teacher's availability.",
+);
+String get kTeacherAtHomeRefusal => tr(
+  'Un docente collegato da casa non può tenere una lezione in presenza.',
+  'A teacher connected from home cannot teach an in-person lesson.',
+);
+String get kMixedModesRefusal => tr(
+  'Una lezione si deve svolgere interamente nella stessa modalità.',
+  'A lesson must take place entirely in the same mode.',
+);
+String get kAcrossBandsRefusal => tr(
+  'Una lezione non può essere separata in fasce orarie diverse.',
+  'A lesson cannot be split across different time slots.',
+);
+String get kNoBookingRefusal => tr('Una lezione deve avere almeno una prenotazione.', 'A lesson must have at least one booking.');
+String get kSettledRefusal => tr(
+  'Questo calendario è pubblicato: riportalo in bozza '
+      'per modificare le lezioni.',
+  'This calendar is published: put it back into draft to change the lessons.',
+);
+String get kLessonWithoutDisciplineRefusal => tr('Solo i servizi non hanno discipline.', 'Only services have no disciplines.');
+String get kDisciplineNotRequestedRefusal => tr(
+  'Ogni disciplina della lezione deve essere collegata ad almeno una delle prenotazioni.',
+  "Each of the lesson's disciplines must be linked to at least one of the bookings.",
+);
+String get kBookingNotOnLessonSubjectRefusal => tr(
+  'Ogni prenotazione deve avere almeno una disciplina in comune con la lezione.',
+  'Each booking must have at least one discipline in common with the lesson.',
+);
+String get kTooManyPartsRefusal => tr(
+  'Una prenotazione può essere divisa in al massimo due lezioni.',
+  'A booking can be split into at most two lessons.',
+);
 
-const String kFreedMinutesGoBackNotice =
-    'Una prenotazione può essere divisa in al massimo due lezioni: la porzione rimossa torna da pianificare.';
+String get kFreedMinutesGoBackNotice => tr(
+  'Una prenotazione può essere divisa in al massimo due lezioni: la porzione rimossa torna da pianificare.',
+  'A booking can be split into at most two lessons: the part removed goes back to be planned.',
+);
 
 // Overlapping a certified student is allowed but warned about, not refused.
-const String kCertifiedOverlapWarning =
-    'Gli studenti con una certificazione non dovrebbero essere sovrapposti.';
+String get kCertifiedOverlapWarning => tr(
+  'Gli studenti con una certificazione non dovrebbero essere sovrapposti.',
+  'Students with a certification should not overlap.',
+);
 
 const int kMaxConcurrentStudents = 2;
 
 // Pupils at these levels may crowd past the limit, as long as nobody else is there.
 const Set<String> kUncappedLevels = {'PRIMARY_SCHOOL', 'MIDDLE_SCHOOL'};
 
-const String kTooManyStudentsRefusal =
-    'Non è possibile sovrapporre più di due lezioni con gli studenti delle superiori.';
+String get kTooManyStudentsRefusal => tr(
+  'Non è possibile sovrapporre più di due lezioni con gli studenti delle superiori.',
+  'No more than two lessons with upper secondary students can overlap.',
+);
 
-const String kOnlineCannotOverlapRefusal =
-    "Le lezioni online non possono avere sovrapposizioni.";
+String get kOnlineCannotOverlapRefusal => tr(
+  "Le lezioni online non possono avere sovrapposizioni.",
+  'Online lessons cannot overlap.',
+);
 
-const String kOtherPartBandRefusal =
-    'Le lezioni di una prenotazione devono stare nella stessa parte della giornata.';
+String get kOtherPartBandRefusal => tr(
+  'Le lezioni di una prenotazione devono stare nella stessa parte della giornata.',
+  "A booking's lessons must be in the same part of the day.",
+);
 
 const int kDefaultActivityMinutes = 60;
 
 const int kMinimumActivityMinutes = kQuarterHour;
 
-const String kActivityTooShortRefusal = "Un'attività dura almeno un quarto d'ora.";
+String get kActivityTooShortRefusal => tr("Un'attività dura almeno un quarto d'ora.", 'An activity lasts at least a quarter of an hour.');
 
-const String kActivityAcrossBandsRefusal =
-    "Un'attività non può essere separata in fasce orarie diverse.";
+String get kActivityAcrossBandsRefusal => tr(
+  "Un'attività non può essere separata in fasce orarie diverse.",
+  'An activity cannot be split across different time slots.',
+);
 
-const String kActivitySettledRefusal = 'Questo calendario è pubblicato: riportalo in bozza '
-    'per modificare le attività.';
+String get kActivitySettledRefusal => tr(
+  'Questo calendario è pubblicato: riportalo in bozza '
+      'per modificare le attività.',
+  'This calendar is published: put it back into draft to change the activities.',
+);
 
-const String kActivityOverActivityRefusal = "Il docente ha un'altra attività a quest'ora.";
+String activityOverActivityRefusal({required bool feminine}) => tr(
+  feminine ? "La docente ha un'altra attività a quest'ora." : "Il docente ha un'altra attività a quest'ora.",
+  'The teacher has another activity at this time.',
+);
 
-const String kActivityFromHomeRefusal = "A quest'ora il docente non è disponibile in presenza.";
+String activityFromHomeRefusal({required bool feminine}) => tr(
+  feminine ? "A quest'ora la docente non è disponibile in presenza." : "A quest'ora il docente non è disponibile in presenza.",
+  'At this time the teacher is not available in person.',
+);
 
-const String kExcludedTeacherRefusal = 'Il docente è escluso dal calendario.';
+String excludedTeacherRefusal({required bool feminine}) => tr(
+  feminine ? 'La docente è esclusa dal calendario.' : 'Il docente è escluso dal calendario.',
+  'The teacher is excluded from the calendar.',
+);
 
-const String kCalledOnlineRefusal =
-    'Il docente è convocato online: ha lezioni che non rientrano nella sua disponibilità in presenza.';
+String calledOnlineRefusal({required bool feminine}) => tr(
+  feminine
+      ? 'La docente è convocata online: ha lezioni che non rientrano nella sua disponibilità in presenza.'
+      : 'Il docente è convocato online: ha lezioni che non rientrano nella sua disponibilità in presenza.',
+  'The teacher is called in online: they have lessons outside their in-person availability.',
+);
 
-String calledInRefusal(String hours) => 'Il docente è convocato in presenza ($hours): non può collegarsi da casa.';
+String calledInRefusal(String hours, {required bool feminine}) => tr(
+  feminine
+      ? 'La docente è convocata in presenza ($hours): non può collegarsi da casa.'
+      : 'Il docente è convocato in presenza ($hours): non può collegarsi da casa.',
+  'The teacher is called in in person ($hours): they cannot connect from home.',
+);
 
-String outsidePresenceRefusal(String student, String range) => 'La lezione non rientra nelle ore di presenza di $student ($range).';
+String outsidePresenceRefusal(String student, String range) => tr(
+  'La lezione non rientra nelle ore di presenza di $student ($range).',
+  "The lesson is outside $student's hours of attendance ($range).",
+);
 
-String studentOverlapRefusal(String student) => "$student ha già un'altra lezione a quest'ora.";
+String studentOverlapRefusal(String student) => tr("$student ha già un'altra lezione a quest'ora.", '$student already has another lesson at this time.');
 
-String missingCompetenceRefusal(Iterable<String> disciplines) =>
-    'Il docente non ha la competenza per: ${disciplines.join(', ')}.';
+String missingCompetenceRefusal(Iterable<String> disciplines, {required bool feminine}) => tr(
+  '${feminine ? 'La docente' : 'Il docente'} non ha la competenza per: ${disciplines.join(', ')}.',
+  'The teacher is not qualified for: ${disciplines.join(', ')}.',
+);
 
-String missingServiceRefusal(Iterable<String> services) => 'Il docente non ha la competenza per: '
-    '${services.join(', ')}.';
+String missingServiceRefusal(Iterable<String> services, {required bool feminine}) => tr(
+  '${feminine ? 'La docente' : 'Il docente'} non ha la competenza per: ${services.join(', ')}.',
+  'The teacher is not qualified for: ${services.join(', ')}.',
+);
 
-String noSharedDisciplineRefusal(String teacher) => '$teacher non insegna nessuna delle discipline richieste.';
+String noSharedDisciplineRefusal(String teacher) => tr(
+  '$teacher non insegna nessuna delle discipline richieste.',
+  '$teacher does not teach any of the disciplines requested.',
+);
 
-String remainingMinutesRefusal(int minutes) => 'Restano solo ${formatMinutes(minutes)} di questa prenotazione.';
+String remainingMinutesRefusal(int minutes) => tr(
+  'Restano solo ${formatMinutes(minutes)} di questa prenotazione.',
+  'Only ${formatMinutes(minutes)} of this booking is left.',
+);
 
-String leaveRoomForTheRestRefusal(int minutes, Iterable<String> disciplines) =>
-    'Al massimo ${formatMinutes(minutes)}: ${disciplines.join(', ')} resta da pianificare.';
+String leaveRoomForTheRestRefusal(int minutes, Iterable<String> disciplines) => tr(
+  'Al massimo ${formatMinutes(minutes)}: ${disciplines.join(', ')} resta da pianificare.',
+  'At most ${formatMinutes(minutes)}: ${disciplines.join(', ')} is still to be planned.',
+);
 
-String notPreferredWarning(String teacher, String student) =>
-    'Il docente $teacher è indicato come non preferito da $student.';
+String notPreferredWarning(String teacher, String student, {required bool feminine}) => tr(
+  feminine
+      ? 'La docente $teacher è indicata come non preferita da $student.'
+      : 'Il docente $teacher è indicato come non preferito da $student.',
+  '$student has marked the teacher $teacher as not preferred.',
+);
 
 class CalendarDayIndex
 {
@@ -132,6 +205,9 @@ class CalendarDayIndex
   // (booking id, teacher) once let through without the competence: no longer asked.
   final Set<(int, String)> competenceWaivers;
 
+  // Teachers and pupils who are women, for the messages naming them.
+  final Set<String> femaleTaxCodes;
+
   const CalendarDayIndex({
     required this.day,
     required this.band,
@@ -149,9 +225,12 @@ class CalendarDayIndex
     this.uncappedStudents = const {},
     this.excludedTeachers = const {},
     this.competenceWaivers = const {},
+    this.femaleTaxCodes = const {},
   });
 
   int get bandStart => bandStartMinutes(band);
+
+  bool isFemale(String taxCode) => femaleTaxCodes.contains(taxCode);
 
   // Anything proposing, counting or searching teachers reads this, not [lanes].
   List<TeacherLane> get callableLanes
@@ -190,6 +269,7 @@ class CalendarDayIndex
     final programmes = <String, int>{};
     final certified = <String>{};
     final uncapped = <String>{};
+    final female = <String>{};
     final levelOf = {for (final programme in studyPrograms) programme.id: programme.level};
 
     for (final person in people)
@@ -221,6 +301,11 @@ class CalendarDayIndex
       if (person.certificationTypes.isNotEmpty)
       {
         certified.add(person.fiscalCode);
+      }
+
+      if (person.gender == 'F')
+      {
+        female.add(person.fiscalCode);
       }
     }
 
@@ -271,10 +356,11 @@ class CalendarDayIndex
           for (final waiver in entry.presence.competenceWaivers)
             if (waiver.$1 == entry.id) waiver,
       },
+      femaleTaxCodes: female,
     );
   }
 
-  String nameOf(int disciplineId) => disciplineNames[disciplineId] ?? 'disciplina';
+  String nameOf(int disciplineId) => disciplineNames[disciplineId] ?? tr('disciplina', 'discipline');
 
   List<String> namesOf(Iterable<int> disciplineIds)
   {
@@ -345,11 +431,26 @@ class CarriedRequest
   // Where the carried hours may land; empty for a pupil with no free hours, and for an activity.
   final List<(int, int)> windows;
 
+  final Set<String> femaleTaxCodes;
+
   const CarriedRequest({
     required this.payload,
     this.competentTeachers = const {},
     this.windows = const [],
+    this.femaleTaxCodes = const {},
   });
+
+  bool get femalePupils
+  {
+    final Set<String> pupils = switch (payload)
+    {
+      BookingDragPayload(:final entry) => {entry.presence.studentTaxCode},
+      LessonDragPayload(:final lesson) => lesson.studentTaxCodes,
+      ActivityDragPayload() => const {},
+    };
+
+    return pupils.isNotEmpty && femaleTaxCodes.containsAll(pupils);
+  }
 }
 
 // [shortest]: the least time a stretch must share with the pupil's hours to take the lesson.
@@ -664,7 +765,7 @@ List<BandHour> _laneHours(TeacherLane lane, {int? lessonId, int? deleteLessonId,
 
 // Refuses [hour] when the band keeps one mode without it but not with it; a band already
 // mixed, from before the rule, is left as it was.
-String? _refuseBandMode(TeacherLane lane, List<BandHour> others, BandHour hour)
+String? _refuseBandMode(TeacherLane lane, List<BandHour> others, BandHour hour, {required bool feminine})
 {
   final before = bandModeOf(others, lane.availabilities);
 
@@ -675,15 +776,18 @@ String? _refuseBandMode(TeacherLane lane, List<BandHour> others, BandHour hour)
 
   if (before == kOnlineMode)
   {
-    return kCalledOnlineRefusal;
+    return calledOnlineRefusal(feminine: feminine);
   }
 
   final inBuilding = lane.availabilitiesIn(kPresenceMode)
     ..sort((a, b) => minutesOfTimeOfDay(a.startTime).compareTo(minutesOfTimeOfDay(b.startTime)));
 
-  return calledInRefusal([
-    for (final slot in inBuilding) '${formatTimeOfDayShort(slot.startTime)} - ${formatTimeOfDayShort(slot.endTime)}',
-  ].join(', '));
+  return calledInRefusal(
+    [
+      for (final slot in inBuilding) '${formatTimeOfDayShort(slot.startTime)} - ${formatTimeOfDayShort(slot.endTime)}',
+    ].join(', '),
+    feminine: feminine,
+  );
 }
 
 // Shortest lesson of these bookings: a quarter hour only for a quarter-hour booking.
@@ -873,7 +977,7 @@ String? _refuseCompetence({
 
   if (missing.isNotEmpty)
   {
-    return missingCompetenceRefusal(index.namesOf(missing));
+    return missingCompetenceRefusal(index.namesOf(missing), feminine: index.isFemale(teacherTaxCode));
   }
 
   if (disciplineIds.isNotEmpty)
@@ -888,7 +992,7 @@ String? _refuseCompetence({
   };
   final unserved = wanted.difference(offered);
 
-  return unserved.isEmpty ? null : missingServiceRefusal(unserved);
+  return unserved.isEmpty ? null : missingServiceRefusal(unserved, feminine: index.isFemale(teacherTaxCode));
 }
 
 String? _refuseBudget({
@@ -998,16 +1102,18 @@ LessonPlacement validatePlacement({
     return placement(hoursRefusal);
   }
 
+  final bool feminine = index.isFemale(teacherTaxCode);
+
   if (index.excludedTeachers.contains(teacherTaxCode))
   {
-    return placement(kExcludedTeacherRefusal);
+    return placement(excludedTeacherRefusal(feminine: feminine));
   }
 
   final lane = index.lanesByTeacher[teacherTaxCode];
 
   if (lane == null)
   {
-    return placement(kOutsideAvailabilityRefusal);
+    return placement(outsideAvailabilityRefusal(feminine: feminine));
   }
 
   final modes = bookings.map((entry) => entry.presence.mode).toSet();
@@ -1038,7 +1144,7 @@ LessonPlacement validatePlacement({
             minutesOfTimeOfDay(slot.startTime) <= startMinutes &&
             minutesOfTimeOfDay(slot.endTime) >= endMinutes);
 
-    return placement(onlyOnline ? kTeacherAtHomeRefusal : kOutsideAvailabilityRefusal);
+    return placement(onlyOnline ? kTeacherAtHomeRefusal : outsideAvailabilityRefusal(feminine: feminine));
   }
 
   final students = <String>{for (final entry in bookings) entry.presence.studentTaxCode};
@@ -1066,7 +1172,7 @@ LessonPlacement validatePlacement({
         lessonId: lessonId,
         deleteLessonId: deleteLessonId,
       ) ??
-      _refuseBandMode(lane, others, hour) ??
+      _refuseBandMode(lane, others, hour, feminine: feminine) ??
       _refuseDisciplines(bookings: bookings, disciplineIds: disciplineIds) ??
       _refuseBudget(
         index: index,
@@ -1086,7 +1192,7 @@ LessonPlacement validatePlacement({
   final warnings = <String>[
     for (final entry in bookings)
       if (entry.booking.notPreferredTeacherTaxCodes.contains(teacherTaxCode))
-        notPreferredWarning(lane.teacher.fullName, entry.presence.student.fullName),
+        notPreferredWarning(lane.teacher.fullName, entry.presence.student.fullName, feminine: feminine),
   ];
 
   // Checked last, so that when it refuses it is the only obstacle left to waive.
@@ -1138,8 +1244,11 @@ bool overlapsACertifiedStudent(CalendarDayIndex index, LessonPlacement placement
 
 String noTeacherReason(CalendarDayIndex index, SchedulableBooking entry, Set<int> disciplineIds)
 {
-  final noneFree = 'Nessun docente è libero nelle ore di ${entry.presence.student.fullName} '
-      '(${entry.hoursLabel}).';
+  final noneFree = tr(
+    'Nessun docente è libero nelle ore di ${entry.presence.student.fullName} '
+        '(${entry.hoursLabel}).',
+    "No teacher is free during ${entry.presence.student.fullName}'s hours (${entry.hoursLabel}).",
+  );
 
   final service = entry.booking.serviceName;
 
@@ -1150,7 +1259,7 @@ String noTeacherReason(CalendarDayIndex index, SchedulableBooking entry, Set<int
     );
 
     return offering.isEmpty
-        ? 'Nessun docente disponibile ha la competenza per: $service.'
+        ? tr('Nessun docente disponibile ha la competenza per: $service.', 'No available teacher is qualified for: $service.')
         : noneFree;
   }
 
@@ -1165,8 +1274,11 @@ String noTeacherReason(CalendarDayIndex index, SchedulableBooking entry, Set<int
 
   if (disciplineIds.isNotEmpty && competent.isEmpty)
   {
-    return 'Nessun docente della giornata ha la competenza per: '
-        '${index.namesOf(disciplineIds).join(', ')}.';
+    return tr(
+      'Nessun docente della giornata ha la competenza per: '
+          '${index.namesOf(disciplineIds).join(', ')}.',
+      "None of the day's teachers is qualified for: ${index.namesOf(disciplineIds).join(', ')}.",
+    );
   }
 
   return noneFree;
@@ -1328,7 +1440,7 @@ LessonPlacement planDrop(
       teacherTaxCode: teacherTaxCode,
       startMinutes: startMinutes,
       endMinutes: startMinutes + drag.minutes,
-      refusal: kOutsideAvailabilityRefusal,
+      refusal: outsideAvailabilityRefusal(feminine: index.isFemale(teacherTaxCode)),
     );
   }
 
@@ -1840,16 +1952,18 @@ LessonPlacement validateActivityPlacement({
     return placement(kActivityAcrossBandsRefusal);
   }
 
+  final bool feminine = index.isFemale(teacherTaxCode);
+
   if (index.excludedTeachers.contains(teacherTaxCode))
   {
-    return placement(kExcludedTeacherRefusal);
+    return placement(excludedTeacherRefusal(feminine: feminine));
   }
 
   final lane = index.lanesByTeacher[teacherTaxCode];
 
   if (lane == null)
   {
-    return placement(kOutsideAvailabilityRefusal);
+    return placement(outsideAvailabilityRefusal(feminine: feminine));
   }
 
   // Activities happen at the association: hours offered online never hold one.
@@ -1865,7 +1979,9 @@ LessonPlacement validateActivityPlacement({
     final fromHome = lane.availabilitiesIn(kOnlineMode).any((slot) =>
         minutesOfTimeOfDay(slot.startTime) <= startMinutes && minutesOfTimeOfDay(slot.endTime) >= endMinutes);
 
-    return placement(fromHome ? kActivityFromHomeRefusal : kOutsideAvailabilityRefusal);
+    return placement(
+      fromHome ? activityFromHomeRefusal(feminine: feminine) : outsideAvailabilityRefusal(feminine: feminine),
+    );
   }
 
   for (final lesson in lane.lessons)
@@ -1881,7 +1997,7 @@ LessonPlacement validateActivityPlacement({
     if (other.id != activity.id &&
         spansOverlap(startMinutes, endMinutes, other.startMinutes, other.endMinutes))
     {
-      return placement(kActivityOverActivityRefusal);
+      return placement(activityOverActivityRefusal(feminine: feminine));
     }
   }
 
@@ -1889,6 +2005,7 @@ LessonPlacement validateActivityPlacement({
     lane,
     _laneHours(lane, activityId: activity.id),
     (start: startMinutes, end: endMinutes, inPerson: true),
+    feminine: feminine,
   );
 
   if (modeRefusal != null)
@@ -1958,7 +2075,7 @@ LessonPlacement planActivityDrop(
       endMinutes: startMinutes + drag.minutes,
       kind: kind,
       activityId: activity.id,
-      refusal: kOutsideAvailabilityRefusal,
+      refusal: outsideAvailabilityRefusal(feminine: index.isFemale(teacherTaxCode)),
     );
   }
 

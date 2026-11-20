@@ -9,10 +9,13 @@ from sqlalchemy.orm import selectinload
 from app.api.dependencies import DbSession
 from app.api.rbac import IdentityContext, require_role
 from app.core.booking_window import now_in_rome
+from app.core.i18n import tr
 from app.models.member import Member
 from app.models.membership_fee import MembershipFee, MembershipFeeKindEnum
+from app.models.person import GenderEnum
 from app.models.student import Student
 from app.models.student_payment import StudentPayment
+from app.repositories.person_repository import PersonRepository
 from app.schemas.student_payments import (
     AheadData,
     AheadStatusResponse,
@@ -47,13 +50,26 @@ Admin = Annotated[IdentityContext, Depends(require_role("ADMIN"))]
 # A database integer: anything larger would fail in the driver, not as a 404.
 RowId = Annotated[int, Path(ge=1, le=2**31 - 1)]
 
-_STUDENT_NOT_FOUND_ERROR: Final[str] = "Studente non trovato"
-
-_MEMBER_NOT_FOUND_ERROR: Final[str] = "Socio non trovato"
-
-_READ_ONLY_ERROR: Final[str] = (
-    "Non è iscritto quest’anno: si può solo saldare quello che resta da pagare."
+_STUDENT_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Studente non trovato",
+    "Student not found",
 )
+
+_MEMBER_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Socio non trovato",
+    "Member not found",
+)
+
+_READ_ONLY_ERRORS: Final[dict[GenderEnum, tuple[str, str]]] = {
+    GenderEnum.M: (
+        "Non è iscritto quest’anno: si può solo saldare quello che resta da pagare.",
+        "He isn't enrolled this year: only what is still owed can be paid.",
+    ),
+    GenderEnum.F: (
+        "Non è iscritta quest’anno: si può solo saldare quello che resta da pagare.",
+        "She isn't enrolled this year: only what is still owed can be paid.",
+    ),
+}
 
 FeeRowKind = Literal["MEMBERSHIP_FEE", "INSURANCE_FEE"]
 
@@ -83,18 +99,22 @@ async def _member_or_404(
     if member is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_STUDENT_NOT_FOUND_ERROR if student else _MEMBER_NOT_FOUND_ERROR,
+            detail=tr(
+                *(_STUDENT_NOT_FOUND_ERROR if student else _MEMBER_NOT_FOUND_ERROR)
+            ),
         )
 
     return member
 
 
 # Whoever is not enrolled buys nothing new: what is owed can still be settled.
-def _writable(member: Member) -> None:
+async def _writable(db: AsyncSession, member: Member) -> None:
     if not RoleService.is_enrolled(member):
+        gender = await PersonRepository(db).gender(member.tax_code)
+
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_READ_ONLY_ERROR,
+            detail=tr(*_READ_ONLY_ERRORS[gender]),
         )
 
 
@@ -328,7 +348,7 @@ async def renew(
 ) -> StudentPaymentsResponse:
     await lock_account(db, tax_code.upper())
     member = await _member_or_404(db, tax_code.upper(), student=True)
-    _writable(member)
+    await _writable(db, member)
     await refuse_pending_pupil(db, member.tax_code)
     await payments_service.renew(db, member.tax_code, payload, now_in_rome())
     await db.commit()
@@ -348,7 +368,7 @@ async def change_tariff(
 ) -> StudentPaymentsResponse:
     await lock_account(db, tax_code.upper())
     member = await _member_or_404(db, tax_code.upper(), student=True)
-    _writable(member)
+    await _writable(db, member)
     await refuse_pending_pupil(db, member.tax_code)
     await payments_service.change_tariff(db, member.tax_code, payload, now_in_rome())
     await db.commit()
@@ -369,7 +389,7 @@ async def pay_ahead(
 ) -> StudentPaymentsResponse:
     await lock_account(db, tax_code.upper())
     member = await _member_or_404(db, tax_code.upper(), student=True)
-    _writable(member)
+    await _writable(db, member)
     await refuse_pending_pupil(db, member.tax_code)
     await payments_service.pay_ahead(db, member.tax_code, payload, now_in_rome())
     await db.commit()

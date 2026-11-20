@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
+from app.core.i18n import tr
 from app.core.time_band import TimeBandEnum
 from app.models.calendar_band_lock import (
     LOCK_IDLE_SECONDS,
@@ -112,4 +113,4 @@ async def release_lock(
     await _repository(db).release(lock_date, str(band), identity.tax_code)
     await db.commit()
 
-    return {"detail": "Calendario lasciato"}
+    return {"detail": tr("Calendario lasciato", "Calendar released")}

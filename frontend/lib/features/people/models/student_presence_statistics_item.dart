@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../lessons/models/person_option_item.dart';
 import 'personal_statistics_items.dart';
@@ -23,15 +24,30 @@ class StudentPresenceRankItem
 
 enum RequestedSubjectKind
 {
-  ministrySubject('Materie', 'materie più richieste', 'materie con più ore'),
-  discipline('Discipline', 'discipline più richieste', 'discipline con più ore'),
-  service('Servizi', 'servizi più richiesti', 'servizi con più ore');
+  ministrySubject,
+  discipline,
+  service;
 
-  final String label;
-  final String rankingTitle;
-  final String hoursTitle;
+  String get label => switch (this)
+  {
+    ministrySubject => tr('Materie', 'Subjects'),
+    discipline => tr('Discipline', 'Disciplines'),
+    service => tr('Servizi', 'Services'),
+  };
 
-  const RequestedSubjectKind(this.label, this.rankingTitle, this.hoursTitle);
+  String get rankingTitle => switch (this)
+  {
+    ministrySubject => tr('materie più richieste', 'most requested subjects'),
+    discipline => tr('discipline più richieste', 'most requested disciplines'),
+    service => tr('servizi più richiesti', 'most requested services'),
+  };
+
+  String get hoursTitle => switch (this)
+  {
+    ministrySubject => tr('materie con più ore', 'subjects with the most hours'),
+    discipline => tr('discipline con più ore', 'disciplines with the most hours'),
+    service => tr('servizi con più ore', 'services with the most hours'),
+  };
 }
 
 class RequestedSubjectItem

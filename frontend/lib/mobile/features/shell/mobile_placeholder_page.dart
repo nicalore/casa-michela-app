@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_empty_card.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
@@ -36,7 +37,7 @@ class MobilePlaceholderPage extends StatelessWidget
               child: Center(
                 child: MobileEmptyCard(
                   icon: Icons.construction_rounded,
-                  message: 'In arrivo',
+                  message: tr('In arrivo', 'Coming soon'),
                   tablet: MobileBreakpoints.of(context).isTablet,
                 ),
               ),

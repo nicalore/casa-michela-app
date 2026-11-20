@@ -15,14 +15,24 @@ from app.models.accounting_opening import (
     TeacherOpening,
 )
 from app.models.member import Member
+from app.models.person import GenderEnum
+from app.repositories.person_repository import PersonRepository
+from app.services.bilingual import Bilingual
 from app.services.role_service import RoleService
 
 # Tests run without the set-up: their fixed dates come long before money_from.
 ACTIVE: bool = True
 
-PENDING_PUPIL_ERROR: Final[str] = (
-    "Prima configura lo studente in Contabilità › Configurazione iniziale."
-)
+PENDING_PUPIL_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Prima configura lo studente in Contabilità › Configurazione iniziale.",
+        "First set up the student in Accounting › Initial setup.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Prima configura la studentessa in Contabilità › Configurazione iniziale.",
+        "First set up the student in Accounting › Initial setup.",
+    ),
+}
 
 
 async def accounting_opening(db: AsyncSession) -> AccountingOpening | None:
@@ -144,7 +154,9 @@ async def pupil_start(db: AsyncSession, tax_code: str) -> PupilStart:
 # Until the set-up says how the pupil stood, nothing is bought or settled by the hour.
 async def refuse_pending_pupil(db: AsyncSession, tax_code: str) -> None:
     if (await pupil_start(db, tax_code)).pending:
+        gender = await PersonRepository(db).gender(tax_code)
+
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=PENDING_PUPIL_ERROR,
+            detail=PENDING_PUPIL_ERRORS[gender].for_request(),
         )

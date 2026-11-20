@@ -8,18 +8,21 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validat
 
 from app.core import field_lengths
 from app.core.holidays import holiday_label
+from app.core.i18n import tr
 from app.schemas.validators import (
     OptionalCleanStr,
     OptionalTimeRangeMixin,
     TimeRangeMixin,
 )
 
-_INVALID_RANGE_ERROR: Final[str] = (
-    "La data finale deve essere uguale o successiva a quella iniziale."
+_INVALID_RANGE_ERROR: Final[tuple[str, str]] = (
+    "La data finale deve essere uguale o successiva a quella iniziale.",
+    "The end date must be the same as or after the start date.",
 )
 
-_OVERLAPPING_BANDS_ERROR: Final[str] = (
-    "Le fasce orarie di una giornata non possono sovrapporsi."
+_OVERLAPPING_BANDS_ERROR: Final[tuple[str, str]] = (
+    "Le fasce orarie di una giornata non possono sovrapporsi.",
+    "A day's time slots can't overlap.",
 )
 
 
@@ -60,7 +63,7 @@ class OpeningDayReplace(BaseModel):
 
         for earlier, later in zip(ordered, ordered[1:], strict=False):
             if later.start_time < earlier.end_time:
-                raise ValueError(_OVERLAPPING_BANDS_ERROR)
+                raise ValueError(tr(*_OVERLAPPING_BANDS_ERROR))
 
         return self
 
@@ -99,7 +102,7 @@ class OpeningDayRestoreRequest(BaseModel):
     @model_validator(mode="after")
     def _range_ordered(self) -> Self:
         if self.date_to < self.date_from:
-            raise ValueError(_INVALID_RANGE_ERROR)
+            raise ValueError(tr(*_INVALID_RANGE_ERROR))
 
         return self
 
@@ -112,7 +115,7 @@ class OpeningHoursChanged(BaseModel):
     @model_validator(mode="after")
     def _range_ordered(self) -> Self:
         if self.date_to < self.date_from:
-            raise ValueError(_INVALID_RANGE_ERROR)
+            raise ValueError(tr(*_INVALID_RANGE_ERROR))
 
         return self
 

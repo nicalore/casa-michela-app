@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' show TimeOfDay;
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -72,9 +73,13 @@ String publishedSentence(CalendarPublicationItem publication)
 {
   final at = publication.publishedAt.toLocal();
   final said = formatWeekdayColumnLabel(at);
-  final day = '${said[0].toLowerCase()}${said.substring(1)}';
+  final day = isEnglish ? said : '${said[0].toLowerCase()}${said.substring(1)}';
   final by = publication.publisher;
+  final String time = formatTimeOfDayShort(TimeOfDay.fromDateTime(at));
 
-  return 'Pubblicato $day alle ${formatTimeOfDayShort(TimeOfDay.fromDateTime(at))}'
-      '${by == null ? '' : ' da ${by.fullName}'}';
+  return tr(
+    'Pubblicato $day alle $time'
+        '${by == null ? '' : ' da ${by.fullName}'}',
+    'Published $day at $time${by == null ? '' : ' by ${by.fullName}'}',
+  );
 }

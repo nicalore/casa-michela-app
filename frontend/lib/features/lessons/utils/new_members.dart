@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/week_range.dart';
 import '../../people/models/person_item.dart';
 import '../models/calendar_day.dart';
@@ -5,8 +6,15 @@ import '../models/calendar_day.dart';
 // How many days somebody counts as newly joined.
 const int kNewMemberDays = 14;
 
-String uncalledNewTeacherWarning(String teacher) =>
-    'Attenzione: il docente $teacher è iscritto da meno di due settimane e non è stato convocato.';
+String uncalledNewTeacherWarning(String teacher, {String? gender})
+{
+  return tr(
+    gender == 'F'
+        ? 'Attenzione: la docente $teacher è iscritta da meno di due settimane e non è stata convocata.'
+        : 'Attenzione: il docente $teacher è iscritto da meno di due settimane e non è stato convocato.',
+    'Warning: the teacher $teacher has been enrolled for less than two weeks and has not been called in.',
+  );
+}
 
 // Start of the earliest membership: later ones are renewals.
 DateTime? joinedTheAssociationOn(PersonItem person)
@@ -45,6 +53,6 @@ List<String> uncalledNewTeacherWarnings({
     for (final lane in lanes)
       if (lane.lessons.isEmpty && lane.activities.isEmpty)
         if (byTaxCode[lane.teacherTaxCode] case final person?)
-          if (joinedRecently(person, by: day)) uncalledNewTeacherWarning(lane.teacher.fullName),
+          if (joinedRecently(person, by: day)) uncalledNewTeacherWarning(lane.teacher.fullName, gender: person.gender),
   ];
 }

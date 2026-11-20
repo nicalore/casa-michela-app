@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_catalogue_card.dart';
 import '../../../shared/widgets/app_field_label.dart';
@@ -79,13 +80,13 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
       context: context,
       barrierLabel: 'ConfirmDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Eliminazione',
-        title: 'Confermi?',
+        eyebrow: tr('Eliminazione', 'Deletion'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -94,7 +95,7 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -113,12 +114,12 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: 'Il percorso '),
+                  TextSpan(text: tr('Il percorso ', 'The programme ')),
                   TextSpan(
                     text: program.name,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                   ),
-                  const TextSpan(text: ' verrà eliminato definitivamente.'),
+                  TextSpan(text: tr(' verrà eliminato definitivamente.', ' will be deleted permanently.')),
                 ],
               ),
               style: GoogleFonts.plusJakartaSans(
@@ -154,12 +155,12 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
     final hasDescription = program.description.isNotEmpty;
 
     return AppDialogStack(
-      eyebrow: program.scopeLine ?? 'Percorso di studio',
+      eyebrow: program.scopeLine ?? tr('Percorso di studio', 'Study programme'),
       title: program.name,
       maxWidth: 650,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ELIMINA',
+          label: tr('ELIMINA', 'DELETE'),
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -168,7 +169,7 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
           onPressed: () => _showDeleteConfirmation(context),
         ),
         primary: AppGradientButton(
-          label: 'MODIFICA',
+          label: tr('MODIFICA', 'EDIT'),
           icon: Icons.edit_outlined,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -190,7 +191,7 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildFieldLabel('Livello', first: true),
+                          _buildFieldLabel(tr('Livello', 'Level'), first: true),
                           Text(schoolLevelLabel(program.level), style: _valueStyle),
                         ],
                       ),
@@ -200,16 +201,16 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildFieldLabel('Anni di corso', first: true),
+                          _buildFieldLabel(tr('Anni di corso', 'Years of the course'), first: true),
                           Text('${program.minYear} - ${program.maxYear}', style: _valueStyle),
                         ],
                       ),
                     ),
                   ],
                 ),
-                _buildFieldLabel('Descrizione'),
+                _buildFieldLabel(tr('Descrizione', 'Description')),
                 Text(
-                  hasDescription ? program.description : 'Nessuna descrizione fornita.',
+                  hasDescription ? program.description : tr('Nessuna descrizione fornita.', 'No description given.'),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -228,11 +229,11 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFieldLabel('Materie ministeriali incluse', first: true),
+              _buildFieldLabel(tr('Materie ministeriali incluse', 'Curriculum subjects included'), first: true),
               if (program.ministrySubjects.isEmpty)
                 Center(
                   child: Text(
-                    'Nessuna materia associata.',
+                    tr('Nessuna materia associata.', 'No linked subjects.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,

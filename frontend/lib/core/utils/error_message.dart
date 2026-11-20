@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-const String kUnreachableTitle = 'Impossibile raggiungere il server';
-const String kUnreachableDetail = 'Controlla la connessione e riprova.';
+import '../language/app_language.dart';
 
-const String connectionFailureMessage = '$kUnreachableTitle. $kUnreachableDetail';
+String get kUnreachableTitle => tr('Impossibile raggiungere il server', "Can't reach the server");
+String get kUnreachableDetail => tr('Controlla la connessione e riprova.', 'Check your connection and try again.');
+
+String get connectionFailureMessage => '$kUnreachableTitle. $kUnreachableDetail';
 
 // Thrown by ApiService in place of its refusal text when no answer came back.
 class ServerUnreachable implements Exception

@@ -12,7 +12,7 @@ import 'accounting_pdf_look.dart';
 
 typedef TeacherHoursPdfBand = ({TimeBucket band, TeacherHoursBand data});
 
-const List<AccountingGroup> _groups = [
+List<AccountingGroup> get _groups => [
   AccountingGroup(parts: [(label: kTeacherColumn, width: 0)], flexible: true, leading: true),
   AccountingGroup(
     title: kWorkGroup,

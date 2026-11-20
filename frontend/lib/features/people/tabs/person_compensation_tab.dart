@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -496,7 +497,7 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
       // Only teaching leaves hours here: for the others a month is what they were in it.
       return _teaches
           ? Center(child: AppEmptyCard(icon: Icons.event_busy_rounded, message: noHoursMessage(_month)))
-          : _CollaborationCard(shown: shown, metrics: metrics);
+          : _CollaborationCard(shown: shown, metrics: metrics, feminine: widget.person.gender == 'F');
     }
 
     return _buildDays(shown, metrics, gap);
@@ -553,7 +554,7 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
         if (shown.isPaid)
           _PayCard(shown: shown, metrics: metrics)
         else
-          _CollaborationCard(shown: shown, metrics: metrics),
+          _CollaborationCard(shown: shown, metrics: metrics, feminine: widget.person.gender == 'F'),
         SizedBox(height: gap),
         if (metrics.isList)
           _DayList(shown: shown, metrics: metrics, onOpenDay: _openDay)
@@ -1075,7 +1076,7 @@ class _PayCard extends StatelessWidget
           );
 
           Widget rate(String label, String value, Color color) => _Figure(
-                label: split ? label.replaceFirst(' orario ', ' orario\n') : label,
+                label: split ? label.replaceFirst(tr(' orario ', ' hourly '), tr(' orario\n', ' hourly\n')) : label,
                 value: value,
                 size: m.rateText,
                 line: m.payLine,
@@ -1157,8 +1158,9 @@ class _CollaborationCard extends StatelessWidget
 {
   final CompensationMonth shown;
   final _Metrics metrics;
+  final bool feminine;
 
-  const _CollaborationCard({required this.shown, required this.metrics});
+  const _CollaborationCard({required this.shown, required this.metrics, required this.feminine});
 
   @override
   Widget build(BuildContext context)
@@ -1181,7 +1183,10 @@ class _CollaborationCard extends StatelessWidget
         Expanded(
           child: _Figure(
             label: kCollaborationLabel,
-            value: labelForServerValue(kCollaborationTypes, shown.collaborationType) ?? shown.collaborationType,
+            value: collaborationOf(
+              labelForServerValue(kCollaborationTypes, shown.collaborationType) ?? shown.collaborationType,
+              feminine: feminine,
+            ),
             size: m.payText,
             line: m.payLine,
             labelSize: m.labelText,
@@ -1191,7 +1196,7 @@ class _CollaborationCard extends StatelessWidget
     );
 
     Widget figure(String label, String value, Color color) => _Figure(
-          label: m.shortNames ? label.replaceFirst(' orario ', ' orario\n') : label,
+          label: m.shortNames ? label.replaceFirst(tr(' orario ', ' hourly '), tr(' orario\n', ' hourly\n')) : label,
           value: value,
           size: m.rateText,
           line: m.payLine,
@@ -1401,9 +1406,9 @@ class _DayTable extends StatelessWidget
             ),
             const _Rule(),
             for (final (title, labels, flex, last) in [
-              (kWorkGroup, const [kStartColumn, kEndColumn, kHoursColumn], c.time, false),
-              (kVolunteerGroup, const [kStartColumn, kEndColumn, kHoursColumn], c.time, false),
-              (kPayGroup, const [kGrossColumn, kWithholdingColumn, kNetColumn], c.money, true),
+              (kWorkGroup, [kStartColumn, kEndColumn, kHoursColumn], c.time, false),
+              (kVolunteerGroup, [kStartColumn, kEndColumn, kHoursColumn], c.time, false),
+              (kPayGroup, [kGrossColumn, kWithholdingColumn, kNetColumn], c.money, true),
             ]) ...[
               Expanded(
                 flex: flex * labels.length,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/time_bucket.dart';
@@ -105,7 +106,7 @@ class MobileBookingDayCard extends StatelessWidget
             ),
             if (day.isToday) ...[
               const SizedBox(width: 8),
-              const MobilePill('Oggi', tone: MobilePillTone.teal, dense: true),
+              MobilePill(tr('Oggi', 'Today'), tone: MobilePillTone.teal, dense: true),
             ],
           ],
         ),
@@ -151,12 +152,12 @@ class MobileBookingDayCard extends StatelessWidget
   {
     if (day.isClosed)
     {
-      return _buildNote("L'Associazione è chiusa", icon: Icons.event_busy_rounded);
+      return _buildNote(tr("L'Associazione è chiusa", 'The Association is closed'), icon: Icons.event_busy_rounded);
     }
 
     if (day.modes.isEmpty)
     {
-      return _buildNote('Nessuna prenotazione');
+      return _buildNote(tr('Nessuna prenotazione', 'No bookings'));
     }
 
     return Column(
@@ -366,7 +367,12 @@ class _ModeBlock extends StatelessWidget
             tour?.addLesson,
             _tourRowInflate,
             _tourAddLessonRadius,
-            MobileSlotButton(label: 'Aggiungi lezione', icon: Icons.add_rounded, onPressed: onAddLesson, onLight: true),
+            MobileSlotButton(
+              label: tr('Aggiungi lezione', 'Add lesson'),
+              icon: Icons.add_rounded,
+              onPressed: onAddLesson,
+              onLight: true,
+            ),
           ),
         ],
       ],
@@ -478,7 +484,7 @@ class _MoreButton extends StatelessWidget
   {
     return Semantics(
       button: true,
-      label: 'Azioni',
+      label: tr('Azioni', 'Actions'),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,

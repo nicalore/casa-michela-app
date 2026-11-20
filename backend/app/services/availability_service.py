@@ -8,16 +8,20 @@ from sqlalchemy import select
 from app.api.rbac import IdentityContext
 from app.core.booking_close import assert_still_open, bands_of
 from app.core.booking_window import assert_within_booking_window
+from app.core.i18n import request_language
 from app.core.integrity import integrity_guard
 from app.core.labels import opening_mode_label
 from app.core.optimistic_concurrency import assert_not_stale
 from app.models.availability import Availability
+from app.models.person import GenderEnum
 from app.models.teacher import Teacher
 from app.repositories.availability_repository import AvailabilityRepository
 from app.repositories.calendar_activity_repository import (
     CalendarActivityRepository,
 )
+from app.repositories.person_repository import PersonRepository
 from app.schemas.availability import AvailabilityCreate, AvailabilityUpdate
+from app.services.bilingual import Bilingual
 from app.services.calendar_freeze import (
     assert_hours_not_begun,
     assert_only_ahead_moves,
@@ -32,19 +36,45 @@ from app.services.opening_window import assert_within_opening
 from app.services.schedule_cascade import unassign, unschedule
 from app.services.teacher_band_mode import rehome_online_lessons, settle_teacher_days
 
-_ENTITY_LABEL: Final[str] = "le disponibilità"
-_NOT_FOUND_ERROR: Final[str] = "Disponibilità non trovata"
-_TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato"
-_FORBIDDEN_TEACHER_TAX_CODE_ERROR: Final[str] = "Puoi gestire solo le tue disponibilità"
-_CREATE_ERROR: Final[str] = "Errore durante la creazione della disponibilità."
-_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
+_ENTITY_LABEL: Final[Bilingual] = Bilingual(
+    "le disponibilità",
+    "the availability",
+)
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Disponibilità non trovata",
+    "Availability not found",
+)
+_TEACHER_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Docente non trovato",
+    "Teacher not found",
+)
+_FORBIDDEN_TEACHER_TAX_CODE_ERROR: Final[Bilingual] = Bilingual(
+    "Puoi gestire solo le tue disponibilità",
+    "You can only manage your own availability",
+)
+_CREATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante la creazione della disponibilità.",
+    "Something went wrong while creating the availability.",
+)
+_UPDATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'aggiornamento.",
+    "Something went wrong while saving.",
+)
 
-_OUTSIDE_OPENING_ERROR: Final[str] = (
-    "La disponibilità deve stare dentro l'apertura {mode}: {windows}."
+_OUTSIDE_OPENING_ERROR: Final[Bilingual] = Bilingual(
+    "La disponibilità deve stare dentro l'apertura {mode}: {windows}.",
+    "The availability must fall within the {mode} opening: {windows}.",
 )
-_OVERLAP_ERROR: Final[str] = (
-    "Il docente ha già una disponibilità {mode} che si sovrappone a questo orario."
-)
+_OVERLAP_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il docente ha già una disponibilità {mode} che si sovrappone a questo orario.",
+        "The teacher already has {mode} availability overlapping this time.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La docente ha già una disponibilità {mode} che si sovrappone a questo orario.",
+        "The teacher already has {mode} availability overlapping this time.",
+    ),
+}
 
 
 class AvailabilityService:
@@ -64,7 +94,7 @@ class AvailabilityService:
             mode=mode,
             start_time=start_time,
             end_time=end_time,
-            outside_opening_error=_OUTSIDE_OPENING_ERROR,
+            outside_opening_error=_OUTSIDE_OPENING_ERROR.for_request(),
         )
 
     async def _assert_no_overlap(
@@ -89,9 +119,15 @@ class AvailabilityService:
             stmt = stmt.where(Availability.id != exclude_id)
 
         if (await self.repository.session.execute(stmt)).scalars().first() is not None:
+            gender = await PersonRepository(self.repository.session).gender(
+                teacher_tax_code
+            )
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_OVERLAP_ERROR.format(mode=opening_mode_label(mode)),
+                detail=_OVERLAP_ERRORS[gender].for_request().format(
+                    mode=opening_mode_label(mode, request_language()),
+                ),
             )
 
     async def _unschedule_what_no_longer_fits(
@@ -164,7 +200,7 @@ class AvailabilityService:
         if teacher is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_TEACHER_NOT_FOUND_ERROR,
+                detail=_TEACHER_NOT_FOUND_ERROR.for_request(),
             )
 
     def _resolve_teacher_tax_code_for_create(
@@ -178,7 +214,7 @@ class AvailabilityService:
         if not identity.is_admin and payload_value != identity.tax_code:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=_FORBIDDEN_TEACHER_TAX_CODE_ERROR,
+                detail=_FORBIDDEN_TEACHER_TAX_CODE_ERROR.for_request(),
             )
 
         return payload_value
@@ -216,7 +252,7 @@ class AvailabilityService:
         if availability is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return availability
@@ -281,7 +317,10 @@ class AvailabilityService:
             end_time=payload.end_time,
         )
 
-        async with integrity_guard(self.repository.session, _CREATE_ERROR):
+        async with integrity_guard(
+            self.repository.session,
+            _CREATE_ERROR.for_request(),
+        ):
             await self.repository.create(availability)
             await settle_collaboration(self.repository.session, teacher_tax_code)
             await settle_teacher_days(
@@ -310,7 +349,7 @@ class AvailabilityService:
         assert_not_stale(
             availability,
             payload.expected_updated_at,
-            entity_label=_ENTITY_LABEL,
+            entity_label=_ENTITY_LABEL.for_request(),
         )
 
         if (
@@ -320,7 +359,7 @@ class AvailabilityService:
             if not identity.is_admin:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=_FORBIDDEN_TEACHER_TAX_CODE_ERROR,
+                    detail=_FORBIDDEN_TEACHER_TAX_CODE_ERROR.for_request(),
                 )
 
             await self._assert_teacher_exists(payload.teacher_tax_code)
@@ -377,7 +416,10 @@ class AvailabilityService:
         availability.start_time = payload.start_time
         availability.end_time = payload.end_time
 
-        async with integrity_guard(self.repository.session, _UPDATE_ERROR):
+        async with integrity_guard(
+            self.repository.session,
+            _UPDATE_ERROR.for_request(),
+        ):
             await self.repository.session.flush()
 
             for teacher_tax_code, day in dict.fromkeys(

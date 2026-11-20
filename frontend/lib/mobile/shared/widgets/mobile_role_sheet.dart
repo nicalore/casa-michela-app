@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../routing/app_router.dart';
@@ -140,7 +141,7 @@ class _RoleRow extends StatelessWidget
                 ),
               ),
             ),
-            if (!offered) const MobilePill('In arrivo', tone: MobilePillTone.teal),
+            if (!offered) MobilePill(tr('In arrivo', 'Coming soon'), tone: MobilePillTone.teal),
             if (choosing)
               SizedBox.square(
                 dimension: 20,

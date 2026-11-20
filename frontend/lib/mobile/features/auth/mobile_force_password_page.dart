@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/settings/utils/settings_strings.dart';
@@ -13,12 +14,14 @@ import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_password_fields.dart';
 import '../../shared/widgets/mobile_sheet.dart';
 
-const String _title = 'Aggiorna password';
+String get _title => tr('Aggiorna password', 'Update password');
 
-const String _why =
-    'Al primo accesso, o in particolari situazioni, è obbligatorio impostare una nuova password.';
+String get _why => tr(
+  'Al primo accesso, o in particolari situazioni, è obbligatorio impostare una nuova password.',
+  'On your first access, or in some situations, you must set a new password.',
+);
 
-const String _changed = 'Password aggiornata con successo!';
+String get _changed => tr('Password aggiornata con successo!', 'Password updated successfully!');
 
 // The recent sign-in stands for the current password, which is not asked.
 class MobileForcePasswordPage extends StatefulWidget
@@ -126,7 +129,7 @@ class _MobileForcePasswordPageState extends State<MobileForcePasswordPage>
       child: MobileFlowScaffold(
         tablet: tablet,
         footer: MobileFlowFooter(
-          label: 'Salva e accedi',
+          label: tr('Salva e accedi', 'Save and sign in'),
           icon: Icons.login_rounded,
           busy: _busy,
           onPressed: _save,
@@ -135,7 +138,7 @@ class _MobileForcePasswordPageState extends State<MobileForcePasswordPage>
           tablet: tablet,
           children: [
             MobileFlowHead(
-              eyebrow: 'Nuovo accesso',
+              eyebrow: tr('Nuovo accesso', 'New sign-in'),
               title: _title,
               tablet: tablet,
               capsule: MobileFlowCapsule(onTap: _leave, busy: _leaving),

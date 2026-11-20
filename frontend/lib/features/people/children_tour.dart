@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/language/app_language.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
@@ -12,7 +13,7 @@ const String kTourChildrenPeriod = 'children.period';
 // Followed child's section on show, by name ('info', 'stats'...): the tour's clicks wait for it.
 final ValueNotifier<String?> childrenPageSection = ValueNotifier(null);
 
-const String _title = 'Figli';
+String get _title => tr('Figli', 'Children');
 
 const String _parentRole = 'PARENT';
 
@@ -79,19 +80,27 @@ DesktopTour childrenTour({
 })
 {
   final String whom = genders.length > 1
-      ? (genders.every(_daughter) ? 'sulle tue figlie' : 'sui tuoi figli')
-      : (genders.isNotEmpty && _daughter(genders.first) ? 'su tua figlia' : 'su tuo figlio');
-  final String yours = _daughter(followed) ? 'tua figlia' : 'tuo figlio';
+      ? (genders.every(_daughter) ? tr('sulle tue figlie', "your daughters'") : tr('sui tuoi figli', "your children's"))
+      : (genders.isNotEmpty && _daughter(genders.first)
+          ? tr('su tua figlia', "your daughter's")
+          : tr('su tuo figlio', "your son's"));
+  final String yours = _daughter(followed) ? tr('tua figlia', 'your daughter') : tr('tuo figlio', 'your son');
+  final String pronoun = _daughter(followed) ? 'she' : 'he';
 
   return DesktopTour(
     slug: _seen.$1,
     title: _title,
     version: _seen.$2,
     steps: [
-      DesktopTourStep(text: 'In questo menù puoi consultare le informazioni personali $whom.'),
+      DesktopTourStep(
+        text: tr('In questo menù puoi consultare le informazioni personali $whom.', 'In this menu you can see $whom personal information.'),
+      ),
       DesktopTourStep(
         targets: const [kTourChildrenReport],
-        text: 'Se noti inesattezze o alcune informazioni sono cambiate, ti preghiamo di farcelo sapere.',
+        text: tr(
+          'Se noti inesattezze o alcune informazioni sono cambiate, ti preghiamo di farcelo sapere.',
+          'If you notice any mistakes or some information has changed, please let us know.',
+        ),
         sides: _over,
         pad: 6,
         radius: 17,
@@ -101,7 +110,7 @@ DesktopTour childrenTour({
       if (pupil) ...[
         DesktopTourStep(
           targets: const [kTourChildrenToStats],
-          text: 'Clicca «Statistiche personali».',
+          text: tr('Clicca «Statistiche personali».', 'Click “Personal statistics”.'),
           sides: _beside,
           // The entry spans the rail: the hole keeps inside its edges.
           pad: 0,
@@ -112,8 +121,12 @@ DesktopTour childrenTour({
         ),
         DesktopTourStep(
           targets: const [kTourChildrenStats],
-          text: 'Qui puoi vedere le presenze che ha fatto $yours nel tempo, le materie su cui ha svolto più ore di '
-              'lezione e i docenti con cui ha lavorato di più.',
+          text: tr(
+            'Qui puoi vedere le presenze che ha fatto $yours nel tempo, le materie su cui ha svolto più ore di '
+                'lezione e i docenti con cui ha lavorato di più.',
+            "Here you can see $yours's attendance over time, the subjects with the most lesson hours and the "
+                'teachers $pronoun worked with the most.',
+          ),
           sides: _below,
           pad: 6,
           radius: 43,
@@ -125,8 +138,12 @@ DesktopTour childrenTour({
         // The mode's and the period's pills as one part: the ranking's one beside them is not told.
         DesktopTourStep(
           targets: const [kTourChildrenMode, kTourChildrenPeriod],
-          text: "Puoi consultare le statistiche delle lezioni in presenza oppure online, e scegliere l'intervallo di "
-              'tempo che desideri analizzare.',
+          text: tr(
+            "Puoi consultare le statistiche delle lezioni in presenza oppure online, e scegliere l'intervallo di "
+                'tempo che desideri analizzare.',
+            'You can see the statistics of in-person or online lessons, and choose the time range you want to '
+                'analyse.',
+          ),
           sides: _below,
           pad: 6,
           radius: 25,

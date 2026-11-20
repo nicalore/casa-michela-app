@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.current_account import CurrentSessionId
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, IdentityContext, require_role
+from app.core.i18n import tr
 from app.models.account import Account, AccountStatusEnum
 from app.models.person import Person
 from app.repositories.account_repository import AccountRepository
@@ -38,26 +39,63 @@ router = APIRouter(
     dependencies=[Depends(require_role("ADMIN"))],
 )
 
-_ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
-_MISSING_EMAIL_ERROR: Final[str] = "Questa persona non ha un indirizzo email"
-_EMAIL_SEND_ERROR: Final[str] = "Impossibile inviare la mail tramite Resend: {error}"
-_CURRENT_SESSION_ERROR: Final[str] = "La sessione in uso si chiude con l'uscita"
-_SESSION_NOT_FOUND_ERROR: Final[str] = "Sessione non trovata o già disattivata"
-_PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
-_ACCOUNT_EXISTS_ERROR: Final[str] = "Questa persona ha già un account"
-_NO_ROLE_ERROR: Final[str] = "Questa persona non può avere un account"
-_INVALID_PARENTS_ERROR: Final[str] = "I genitori scelti non sono validi"
-_REVOKED_MEMBERSHIP_ERROR: Final[str] = (
-    "L'iscrizione è stata revocata: non è possibile creare l'account"
+_ACCOUNT_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Account non trovato",
+    "Account not found",
 )
-_SUSPENDED_ERROR: Final[str] = "L'account è sospeso"
-_OWN_SUSPENSION_ERROR: Final[str] = "Non puoi sospendere il tuo account"
-_REVOKED_FOR_GOOD_ERROR: Final[str] = (
-    "L'account è sospeso per la revoca dell'iscrizione e non può essere riattivato"
+_MISSING_EMAIL_ERROR: Final[tuple[str, str]] = (
+    "Questa persona non ha un indirizzo email",
+    "This person has no email address",
 )
-_NOT_ANSWERED_FOR_ERROR: Final[str] = (
-    "Le prenotazioni autonome valgono solo per uno studente "
-    "con responsabilità genitoriali"
+_EMAIL_SEND_ERROR: Final[tuple[str, str]] = (
+    "Impossibile inviare la mail tramite Resend: {error}",
+    "Couldn't send the email through Resend: {error}",
+)
+_CURRENT_SESSION_ERROR: Final[tuple[str, str]] = (
+    "La sessione in uso si chiude con l'uscita",
+    "The current session is closed by signing out",
+)
+_SESSION_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Sessione non trovata o già disattivata",
+    "Session not found or already turned off",
+)
+_PERSON_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Persona non trovata",
+    "Person not found",
+)
+_ACCOUNT_EXISTS_ERROR: Final[tuple[str, str]] = (
+    "Questa persona ha già un account",
+    "This person already has an account",
+)
+_NO_ROLE_ERROR: Final[tuple[str, str]] = (
+    "Questa persona non può avere un account",
+    "This person can't have an account",
+)
+_INVALID_PARENTS_ERROR: Final[tuple[str, str]] = (
+    "I genitori scelti non sono validi",
+    "The chosen parents are not valid",
+)
+_REVOKED_MEMBERSHIP_ERROR: Final[tuple[str, str]] = (
+    "L'iscrizione è stata revocata: non è possibile creare l'account",
+    "The enrolment has been revoked: the account can't be created",
+)
+_SUSPENDED_ERROR: Final[tuple[str, str]] = (
+    "L'account è sospeso",
+    "The account is suspended",
+)
+_OWN_SUSPENSION_ERROR: Final[tuple[str, str]] = (
+    "Non puoi sospendere il tuo account",
+    "You can't suspend your own account",
+)
+_REVOKED_FOR_GOOD_ERROR: Final[tuple[str, str]] = (
+    "L'account è sospeso per la revoca dell'iscrizione e non può essere riattivato",
+    "The account is suspended because the enrolment was revoked, and it can't be "
+    "reactivated",
+)
+_NOT_ANSWERED_FOR_ERROR: Final[tuple[str, str]] = (
+    "Le prenotazioni autonome valgono solo per uno studente con responsabilità "
+    "genitoriali",
+    "Self-booking only applies to a student under parental responsibility",
 )
 
 
@@ -73,7 +111,7 @@ async def _account_or_404(service: AuthService, tax_code: str) -> Account:
     if account is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_ACCOUNT_NOT_FOUND_ERROR,
+            detail=tr(*_ACCOUNT_NOT_FOUND_ERROR),
         )
 
     return account
@@ -95,7 +133,7 @@ def _bad_request(detail: str) -> HTTPException:
 def _parents_to_open(person: Person, chosen: list[str]) -> list[Person]:
     if not RoleService.is_answered_for(person):
         if chosen:
-            raise _bad_request(_INVALID_PARENTS_ERROR)
+            raise _bad_request(tr(*_INVALID_PARENTS_ERROR))
 
         return []
 
@@ -104,7 +142,7 @@ def _parents_to_open(person: Person, chosen: list[str]) -> list[Person]:
     wanted = {code.upper() for code in chosen}
 
     if not wanted <= openable:
-        raise _bad_request(_INVALID_PARENTS_ERROR)
+        raise _bad_request(tr(*_INVALID_PARENTS_ERROR))
 
     return [parent for parent in parents if parent.tax_code in wanted]
 
@@ -125,21 +163,21 @@ async def create_person_account(
     if person is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_PERSON_NOT_FOUND_ERROR,
+            detail=tr(*_PERSON_NOT_FOUND_ERROR),
         )
 
     if person.account is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_ACCOUNT_EXISTS_ERROR,
+            detail=tr(*_ACCOUNT_EXISTS_ERROR),
         )
 
     # Checked first: a revocation leaves no role either.
     if membership_revoked(person):
-        raise _bad_request(_REVOKED_MEMBERSHIP_ERROR)
+        raise _bad_request(tr(*_REVOKED_MEMBERSHIP_ERROR))
 
     if not RoleService.get_available_roles(person):
-        raise _bad_request(_NO_ROLE_ERROR)
+        raise _bad_request(tr(*_NO_ROLE_ERROR))
 
     parents = _parents_to_open(person, payload.parent_tax_codes)
 
@@ -164,7 +202,7 @@ async def create_person_account(
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_EMAIL_SEND_ERROR.format(error=err),
+            detail=tr(*_EMAIL_SEND_ERROR).format(error=err),
         ) from err
 
     await db.commit()
@@ -232,16 +270,16 @@ async def send_password_reset_email(tax_code: str, db: DbSession) -> None:
     try:
         await service.send_password_reset(account)
     except AccountDisabledError:
-        raise _bad_request(_SUSPENDED_ERROR) from None
+        raise _bad_request(tr(*_SUSPENDED_ERROR)) from None
     except MissingEmailError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_MISSING_EMAIL_ERROR,
+            detail=tr(*_MISSING_EMAIL_ERROR),
         ) from None
     except Exception as err:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=_EMAIL_SEND_ERROR.format(error=err),
+            detail=tr(*_EMAIL_SEND_ERROR).format(error=err),
         ) from err
 
 
@@ -257,7 +295,7 @@ async def set_autonomous_bookings(
     if not RoleService.is_answered_for(account.person):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NOT_ANSWERED_FOR_ERROR,
+            detail=tr(*_NOT_ANSWERED_FOR_ERROR),
         )
 
     account.autonomous_bookings = payload.enabled
@@ -275,7 +313,7 @@ async def suspend_account(
     account = await _account_or_404(service, tax_code)
 
     if account.tax_code == identity.tax_code:
-        raise _bad_request(_OWN_SUSPENSION_ERROR)
+        raise _bad_request(tr(*_OWN_SUSPENSION_ERROR))
 
     if account.status == AccountStatusEnum.ACTIVE:
         await service.suspend(account, AccountStatusEnum.DISABLED)
@@ -288,7 +326,7 @@ async def reactivate_account(tax_code: str, db: DbSession) -> None:
     account = await _account_or_404(service, tax_code)
 
     if account.status == AccountStatusEnum.REVOKED:
-        raise _bad_request(_REVOKED_FOR_GOOD_ERROR)
+        raise _bad_request(tr(*_REVOKED_FOR_GOOD_ERROR))
 
     if account.status == AccountStatusEnum.DISABLED:
         await service.reactivate(account)
@@ -333,7 +371,7 @@ async def revoke_person_session(
     if session_id == _own_session(account, identity, current_session_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_CURRENT_SESSION_ERROR,
+            detail=tr(*_CURRENT_SESSION_ERROR),
         )
 
     try:
@@ -341,5 +379,5 @@ async def revoke_person_session(
     except SessionNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_SESSION_NOT_FOUND_ERROR,
+            detail=tr(*_SESSION_NOT_FOUND_ERROR),
         ) from None

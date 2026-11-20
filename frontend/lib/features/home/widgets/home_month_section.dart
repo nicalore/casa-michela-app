@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
@@ -25,7 +26,7 @@ class HomeDelta
 
   const HomeDelta({required this.text, required this.direction});
 
-  static const HomeDelta still = HomeDelta(text: 'Stabile', direction: 0);
+  static HomeDelta get still => HomeDelta(text: tr('Stabile', 'Steady'), direction: 0);
 }
 
 class HomeFigure
@@ -101,7 +102,7 @@ class HomeFigureGroup
   const HomeFigureGroup({required this.name, required this.figures});
 }
 
-String _days(num count) => count == 1 ? 'giorno' : 'giorni';
+String _days(num count) => count == 1 ? tr('giorno', 'day') : tr('giorni', 'days');
 
 // The minus is the typographic one (U+2212).
 HomeDelta _delta(
@@ -133,7 +134,7 @@ String? _weeklyWarning(TeacherMonthSummaryItem month)
 
   if (current != null && current.isShort)
   {
-    return '${current.given}\u00a0su\u00a0${current.needed}';
+    return tr('${current.given}\u00a0su\u00a0${current.needed}', '${current.given}\u00a0of\u00a0${current.needed}');
   }
 
   final int short = month.shortWeekCount;
@@ -143,7 +144,9 @@ String? _weeklyWarning(TeacherMonthSummaryItem month)
     return null;
   }
 
-  return '$short ${short == 1 ? 'settimana' : 'settimane'} con meno di\u00a0due';
+  return short == 1
+      ? tr('$short settimana con meno di\u00a0due', '$short week with fewer than\u00a0two')
+      : tr('$short settimane con meno di\u00a0due', '$short weeks with fewer than\u00a0two');
 }
 
 // Pay amounts show a dash while the way pay is counted is undefined.
@@ -164,10 +167,10 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
 
   return [
     HomeFigure(
-      label: 'Disponibilità in presenza',
+      label: tr('Disponibilità in presenza', 'In-person availability'),
       value: '${month.totalAvailabilities}',
       unit: _days(month.totalAvailabilities),
-      warning: month.isBelowMonthlyThreshold ? 'Meno di 9' : null,
+      warning: month.isBelowMonthlyThreshold ? tr('Meno di 9', 'Fewer than 9') : null,
       delta: _delta(
         month.totalAvailabilities - last.totalAvailabilities,
         (change) => '$change',
@@ -176,7 +179,7 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
       link: const HomeStatsLink(),
     ),
     HomeFigure(
-      label: 'A settimana in presenza',
+      label: tr('A settimana in presenza', 'In person per week'),
       value: month.weeklyAvailabilities.toStringAsFixed(1),
       unit: _days(month.weeklyAvailabilities),
       warning: _weeklyWarning(month),
@@ -189,7 +192,7 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
       link: const HomeWeekLink(),
     ),
     HomeFigure.time(
-      label: 'Lezioni totali',
+      label: tr('Lezioni totali', 'Total lessons'),
       minutes: month.workedMinutes,
       delta: _delta(
         month.workedMinutes - last.workedMinutes,
@@ -200,11 +203,11 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
     if (cents != null)
       withAmount
           ? HomeFigure(
-              label: 'Compenso',
+              label: tr('Compenso', 'Pay'),
               value: formatAmount(cents),
               delta: _delta(cents - (lastCents ?? 0), (change) => formatAmount(change.toInt())),
             )
-          : const HomeFigure(label: 'Compenso', value: '—', tone: HomeFigureTone.absent),
+          : HomeFigure(label: tr('Compenso', 'Pay'), value: '—', tone: HomeFigureTone.absent),
   ];
 }
 
@@ -213,24 +216,24 @@ HomeFigure _tariffFigure(PupilMonthFiguresItem figures)
 {
   if (figures.hasPackage)
   {
-    return const HomeFigure(
-      label: 'Modalità',
-      value: 'Pacchetto',
+    return HomeFigure(
+      label: tr('Modalità', 'Rate'),
+      value: tr('Pacchetto', 'Package'),
       tone: HomeFigureTone.pending,
     );
   }
 
   if (figures.isHourly)
   {
-    return const HomeFigure(label: 'Modalità', value: 'A ore');
+    return HomeFigure(label: tr('Modalità', 'Rate'), value: tr('A ore', 'Hourly'));
   }
 
   if (figures.isMonthly)
   {
-    return const HomeFigure(label: 'Modalità', value: 'Mensile');
+    return HomeFigure(label: tr('Modalità', 'Rate'), value: tr('Mensile', 'Monthly'));
   }
 
-  return const HomeFigure(label: 'Modalità', value: '—', tone: HomeFigureTone.absent);
+  return HomeFigure(label: tr('Modalità', 'Rate'), value: '—', tone: HomeFigureTone.absent);
 }
 
 // [pupil]: the child they are of, on a parent's home.
@@ -245,25 +248,25 @@ List<HomeFigure> pupilFigures(
 
   return [
     HomeFigure(
-      label: 'Presenze',
+      label: tr('Presenze', 'Attendance'),
       value: '${figures.totalPresences}',
       unit: _days(figures.totalPresences),
       link: stats,
     ),
     if (withWeekly)
       HomeFigure(
-        label: 'A settimana',
+        label: tr('A settimana', 'Per week'),
         value: figures.weeklyPresences.toStringAsFixed(1),
         unit: _days(figures.weeklyPresences),
         link: stats,
       ),
     HomeFigure(
-      label: 'Prenotazioni',
+      label: tr('Prenotazioni', 'Bookings'),
       value: '${figures.bookedPresences}',
       unit: _days(figures.bookedPresences),
       link: HomeWeekLink(pupil: pupil),
     ),
-    HomeFigure.time(label: 'Lezioni', minutes: figures.lessonMinutes, link: stats),
+    HomeFigure.time(label: tr('Lezioni', 'Lessons'), minutes: figures.lessonMinutes, link: stats),
     if (withTariff) _tariffFigure(figures),
   ];
 }
@@ -447,8 +450,8 @@ class HomeMonthSection extends StatelessWidget
     {
       return Text(
         read == null
-            ? 'Il riepilogo del mese non è disponibile.'
-            : 'Nessuno studente associato.',
+            ? tr('Il riepilogo del mese non è disponibile.', "The month's summary isn't available.")
+            : tr('Nessuno studente associato.', 'No linked students.'),
         textAlign: TextAlign.center,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14.5,

@@ -18,22 +18,54 @@ from app.models.student_tariff import TariffKindEnum
 from app.schemas.person import SchoolEnrollmentUpdateItem
 from app.schemas.re_enrollment import ReEnrollmentPayload
 from app.schemas.student_payments import PaymentData, RenewalData
+from app.services.bilingual import Bilingual
 from app.services.membership_fees import first_fees
 from app.services.student_payments import first_tariffs, renew, student_payment_status
 
-_NOT_A_MEMBER_ERROR: Final[str] = "L'utente non possiede un profilo da associato."
-_REVOKED_ERROR: Final[str] = "Con l'iscrizione revocata non si può rinnovare."
-_WRONG_YEAR_ERROR: Final[str] = "La data di inizio deve essere nel {year}."
-_ALREADY_ENROLLED_ERROR: Final[str] = "L'iscrizione del {year} c'è già."
-_FEES_RECORDED_ERROR: Final[str] = "Le quote del {year} sono già registrate."
-_NO_TARIFF_ERROR: Final[str] = "Manca la tariffa."
-_NO_SCHOOL_YEAR_ERROR: Final[str] = "Manca l'anno scolastico in corso."
-_EMPTY_SCHOOL_HISTORY_ERROR: Final[str] = "Indica almeno un anno scolastico."
-_DUPLICATE_SCHOOL_YEAR_ERROR: Final[str] = "Un anno scolastico è ripetuto."
-_START_TOO_LATE_ERROR: Final[str] = (
-    "La data di inizio deve essere prima del 31 dicembre."
+_NOT_A_MEMBER_ERROR: Final[Bilingual] = Bilingual(
+    "L'utente non possiede un profilo da associato.",
+    "The user has no member profile.",
 )
-_MONTH_PAID_ERROR: Final[str] = "La quota di questo mese è già pagata."
+_REVOKED_ERROR: Final[Bilingual] = Bilingual(
+    "Con l'iscrizione revocata non si può rinnovare.",
+    "A revoked enrolment cannot be renewed.",
+)
+_WRONG_YEAR_ERROR: Final[Bilingual] = Bilingual(
+    "La data di inizio deve essere nel {year}.",
+    "The start date must be in {year}.",
+)
+_ALREADY_ENROLLED_ERROR: Final[Bilingual] = Bilingual(
+    "L'iscrizione del {year} c'è già.",
+    "The {year} enrolment already exists.",
+)
+_FEES_RECORDED_ERROR: Final[Bilingual] = Bilingual(
+    "Le quote del {year} sono già registrate.",
+    "The {year} fees are already recorded.",
+)
+_NO_TARIFF_ERROR: Final[Bilingual] = Bilingual(
+    "Manca la tariffa.",
+    "The rate is missing.",
+)
+_NO_SCHOOL_YEAR_ERROR: Final[Bilingual] = Bilingual(
+    "Manca l'anno scolastico in corso.",
+    "The current school year is missing.",
+)
+_EMPTY_SCHOOL_HISTORY_ERROR: Final[Bilingual] = Bilingual(
+    "Indica almeno un anno scolastico.",
+    "Enter at least one school year.",
+)
+_DUPLICATE_SCHOOL_YEAR_ERROR: Final[Bilingual] = Bilingual(
+    "Un anno scolastico è ripetuto.",
+    "A school year is repeated.",
+)
+_START_TOO_LATE_ERROR: Final[Bilingual] = Bilingual(
+    "La data di inizio deve essere prima del 31 dicembre.",
+    "The start date must be before 31 December.",
+)
+_MONTH_PAID_ERROR: Final[Bilingual] = Bilingual(
+    "La quota di questo mese è già pagata.",
+    "This month's fee is already paid.",
+)
 
 # Memberships end on 31 December and stay renewable 31 days more.
 _RENEWAL_PERIOD_DAYS: Final[int] = 31
@@ -51,7 +83,7 @@ async def _member(db: AsyncSession, tax_code: str) -> Member:
     )
 
     if member is None:
-        raise _refused(status.HTTP_404_NOT_FOUND, _NOT_A_MEMBER_ERROR)
+        raise _refused(status.HTTP_404_NOT_FOUND, _NOT_A_MEMBER_ERROR.for_request())
 
     return member
 
@@ -60,23 +92,23 @@ def _check_year(member: Member, start: date, year: int) -> None:
     latest = max(member.memberships, key=lambda row: row.year, default=None)
 
     if latest is not None and latest.revocation != MembershipRevocationEnum.NO:
-        raise _refused(status.HTTP_409_CONFLICT, _REVOKED_ERROR)
+        raise _refused(status.HTTP_409_CONFLICT, _REVOKED_ERROR.for_request())
 
     if start.year != year:
         raise _refused(
             status.HTTP_400_BAD_REQUEST,
-            _WRONG_YEAR_ERROR.format(year=year),
+            _WRONG_YEAR_ERROR.for_request().format(year=year),
         )
 
     if latest is not None and latest.year >= year:
         raise _refused(
             status.HTTP_409_CONFLICT,
-            _ALREADY_ENROLLED_ERROR.format(year=year),
+            _ALREADY_ENROLLED_ERROR.for_request().format(year=year),
         )
 
     # The year ends on 31 December: a start on it would leave no day enrolled.
     if start >= date(year, 12, 31):
-        raise _refused(status.HTTP_400_BAD_REQUEST, _START_TOO_LATE_ERROR)
+        raise _refused(status.HTTP_400_BAD_REQUEST, _START_TOO_LATE_ERROR.for_request())
 
 
 async def _rewrite_school_years(
@@ -85,12 +117,18 @@ async def _rewrite_school_years(
     rows: Sequence[SchoolEnrollmentUpdateItem],
 ) -> None:
     if not rows:
-        raise _refused(status.HTTP_400_BAD_REQUEST, _EMPTY_SCHOOL_HISTORY_ERROR)
+        raise _refused(
+            status.HTTP_400_BAD_REQUEST,
+            _EMPTY_SCHOOL_HISTORY_ERROR.for_request(),
+        )
 
     years = [row.start_year for row in rows]
 
     if len(years) != len(set(years)):
-        raise _refused(status.HTTP_400_BAD_REQUEST, _DUPLICATE_SCHOOL_YEAR_ERROR)
+        raise _refused(
+            status.HTTP_400_BAD_REQUEST,
+            _DUPLICATE_SCHOOL_YEAR_ERROR.for_request(),
+        )
 
     await db.execute(
         delete(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == tax_code),
@@ -120,7 +158,7 @@ async def _program_now(db: AsyncSession, tax_code: str, today: date) -> int:
     )
 
     if latest is None or latest.start_year != school_year_start(today):
-        raise _refused(status.HTTP_400_BAD_REQUEST, _NO_SCHOOL_YEAR_ERROR)
+        raise _refused(status.HTTP_400_BAD_REQUEST, _NO_SCHOOL_YEAR_ERROR.for_request())
 
     return latest.study_program_id
 
@@ -149,7 +187,7 @@ async def _new_tariff(
     tariff = payload.tariff
 
     if tariff is None:
-        raise _refused(status.HTTP_400_BAD_REQUEST, _NO_TARIFF_ERROR)
+        raise _refused(status.HTTP_400_BAD_REQUEST, _NO_TARIFF_ERROR.for_request())
 
     (row,) = await first_tariffs(db, tariff, program, today)
     row.student_tax_code = tax_code
@@ -169,7 +207,7 @@ async def _new_tariff(
     if running is not None and running.tariff.id == row.id:
         # Renewing a month already paid would buy the one after it.
         if tariff.kind == TariffKindEnum.MONTHLY and running.month_paid:
-            raise _refused(status.HTTP_409_CONFLICT, _MONTH_PAID_ERROR)
+            raise _refused(status.HTTP_409_CONFLICT, _MONTH_PAID_ERROR.for_request())
 
         await renew(
             db,
@@ -223,7 +261,7 @@ async def re_enroll(
     if recorded is not None:
         raise _refused(
             status.HTTP_409_CONFLICT,
-            _FEES_RECORDED_ERROR.format(year=year),
+            _FEES_RECORDED_ERROR.for_request().format(year=year),
         )
 
     db.add(

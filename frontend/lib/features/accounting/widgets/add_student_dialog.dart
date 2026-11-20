@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/time_bucket.dart';
@@ -197,7 +198,7 @@ class _AddStudentDialogState extends State<_AddStudentDialog>
       endTime: timeOfDayFromMinutes(span.end),
       windowStartMinutes: window.start,
       windowEndMinutes: window.end,
-      trueLabel: 'Sì',
+      trueLabel: tr('Sì', 'Yes'),
       falseLabel: 'No',
       offLabel: kNoneLabel,
       trailing: _work.length > 1
@@ -246,7 +247,7 @@ class _AddStudentDialogState extends State<_AddStudentDialog>
                 onCleared: () => setState(() => _taxCode = null),
               ),
               const SizedBox(height: _fieldGap),
-              const AppFieldLabel(kModeLabel),
+              AppFieldLabel(kModeLabel),
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,

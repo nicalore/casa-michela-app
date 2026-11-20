@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.api.dependencies import DbSession
+from app.core.i18n import tr
 from app.core.security import decode_access_token
 from app.models.account import Account, AccountStatusEnum
 from app.repositories.identity_repository import IdentityRepository
@@ -13,10 +14,22 @@ from app.services.role_service import RoleService
 
 bearer_scheme = HTTPBearer()
 
-_INVALID_ACCESS_TOKEN_ERROR: Final[str] = "Token di accesso non valido"
-_ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
-_ACCOUNT_DISABLED_ERROR: Final[str] = "Account disabilitato"
-_SESSION_ENDED_ERROR: Final[str] = "Sessione terminata"
+_INVALID_ACCESS_TOKEN_ERROR: Final[tuple[str, str]] = (
+    "Token di accesso non valido",
+    "Invalid access token",
+)
+_ACCOUNT_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Account non trovato",
+    "Account not found",
+)
+_ACCOUNT_DISABLED_ERROR: Final[tuple[str, str]] = (
+    "Account disabilitato",
+    "Account disabled",
+)
+_SESSION_ENDED_ERROR: Final[tuple[str, str]] = (
+    "Sessione terminata",
+    "Session ended",
+)
 
 _PASSWORD_RESET_REQUIRED_CODE: Final[str] = "PASSWORD_RESET_REQUIRED"
 
@@ -34,7 +47,7 @@ async def get_current_account(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_INVALID_ACCESS_TOKEN_ERROR,
+            detail=tr(*_INVALID_ACCESS_TOKEN_ERROR),
         ) from None
 
     # The sid is optional: a token without one is tied to no session.
@@ -49,7 +62,7 @@ async def get_current_account(
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_SESSION_ENDED_ERROR,
+            detail=tr(*_SESSION_ENDED_ERROR),
         )
 
     # With the role graph: every later dependency reads it off this object.
@@ -58,7 +71,7 @@ async def get_current_account(
     if account is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_ACCOUNT_NOT_FOUND_ERROR,
+            detail=tr(*_ACCOUNT_NOT_FOUND_ERROR),
         )
 
     # A suspension takes effect at once, not when the access token expires.
@@ -68,7 +81,7 @@ async def get_current_account(
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_ACCOUNT_DISABLED_ERROR,
+            detail=tr(*_ACCOUNT_DISABLED_ERROR),
         )
 
     return account

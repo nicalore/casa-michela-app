@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
@@ -52,15 +53,15 @@ const double _buttonGap = 22;
 const double _reportGap = 20;
 const double _creditsGap = 34;
 
-const String _confirmTitle = 'Confermi?';
+String get _confirmTitle => tr('Confermi?', 'Are you sure?');
 
 // Third of the strip: "Aspetto", "Accesso", "Dispositivi".
 const int _devicesPage = 2;
 const Duration _pageTurn = Duration(milliseconds: 320);
 
 // Mobile only: the desktop opens the document in a tab instead.
-const String _documentSaved = 'Il documento è stato scaricato.';
-const String _documentSaveFailed = 'Non è stato possibile salvare il documento.';
+String get _documentSaved => tr('Il documento è stato scaricato.', 'The document has been downloaded.');
+String get _documentSaveFailed => tr('Non è stato possibile salvare il documento.', 'The document could not be saved.');
 
 // Page data lives here: the pages are not kept alive.
 class MobileSettingsPage extends StatefulWidget
@@ -298,7 +299,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
       context: context,
       eyebrow: kSessionsEyebrow,
       title: _confirmTitle,
-      message: const TextSpan(text: kRevokeOthersWarning),
+      message: TextSpan(text: kRevokeOthersWarning),
       confirmLabel: kRevokeSessionLabel,
       confirmIcon: Icons.logout_rounded,
     );
@@ -414,7 +415,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
         ),
         const SizedBox(height: _stripGap),
         MobilePageStrip(
-          labels: const [kAppearanceSection, kAccessSection, kDevicesSection, kSystemSection, kInfoSection],
+          labels: [kAppearanceSection, kAccessSection, kDevicesSection, kSystemSection, kInfoSection],
           controller: _pages,
           scrollMargin: margin,
         ),

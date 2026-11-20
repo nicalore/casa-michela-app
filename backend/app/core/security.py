@@ -8,11 +8,15 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 
 from app.core.config import settings
+from app.core.i18n import tr
 
 _ACCESS_TOKEN_TYPE: Final[str] = "access"
 _REFRESH_TOKEN_TYPE: Final[str] = "refresh"
 
-_INVALID_TOKEN_TYPE_ERROR: Final[str] = "Tipo di token non valido"
+_INVALID_TOKEN_TYPE_ERROR: Final[tuple[str, str]] = (
+    "Tipo di token non valido",
+    "Invalid token type",
+)
 
 password_hasher = PasswordHasher(
     time_cost=3,
@@ -98,7 +102,7 @@ def _decode_token(token: str, secret: str, expected_type: str) -> dict[str, Any]
     )
 
     if payload["type"] != expected_type:
-        raise ValueError(_INVALID_TOKEN_TYPE_ERROR)
+        raise ValueError(tr(*_INVALID_TOKEN_TYPE_ERROR))
 
     return payload
 

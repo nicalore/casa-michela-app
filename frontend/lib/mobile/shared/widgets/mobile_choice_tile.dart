@@ -70,7 +70,7 @@ Widget _trailing({required bool chosen, required bool available})
     return const MobileChoiceTick();
   }
 
-  return available ? const SizedBox.shrink() : const MobilePill(kComingSoon, tone: MobilePillTone.muted);
+  return available ? const SizedBox.shrink() : MobilePill(kComingSoon, tone: MobilePillTone.muted);
 }
 
 class MobileChoiceTile extends StatelessWidget

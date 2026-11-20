@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../services/api_service.dart';
@@ -13,7 +14,7 @@ import '../../shared/widgets/password_policy_checklist.dart';
 import 'widgets/auth_pill_page.dart';
 import '../../shared/widgets/snackbar.dart';
 
-const String _invalidLink = 'Il link non è più valido. Richiedine uno nuovo.';
+String get _invalidLink => tr('Il link non è più valido. Richiedine uno nuovo.', 'The link is no longer valid. Request a new one.');
 
 class ResetPasswordPage extends StatefulWidget
 {
@@ -104,13 +105,13 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
 
     if (newPassword.isEmpty || confirmPassword.isEmpty)
     {
-      CustomSnackBar.show(context: context, message: 'Compila tutti i campi', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Compila tutti i campi', 'Fill in all the fields'), isError: true);
       return;
     }
 
     if (newPassword != confirmPassword)
     {
-      CustomSnackBar.show(context: context, message: 'Le password non coincidono', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Le password non coincidono', "Passwords don't match"), isError: true);
       return;
     }
 
@@ -118,7 +119,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'La password non rispetta i criteri di sicurezza',
+        message: tr('La password non rispetta i criteri di sicurezza', 'The password does not meet the security criteria'),
         isError: true,
       );
 
@@ -139,7 +140,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Password reimpostata con successo! Ora puoi accedere.',
+          message: tr('Password reimpostata con successo! Ora puoi accedere.', 'Password reset successfully! You can now sign in.'),
           isError: false,
         );
 
@@ -176,11 +177,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     }
 
     return AuthPillPage(
-      eyebrow: 'Recupero',
-      title: 'Nuova password',
+      eyebrow: tr('Recupero', 'Recovery'),
+      title: tr('Nuova password', 'New password'),
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'TORNA AL LOGIN',
+          label: tr('TORNA AL LOGIN', 'BACK TO SIGN-IN'),
           icon: Icons.arrow_back_rounded,
           gradient: AppTheme.dismissGradient,
           accent: AppTheme.trialVioletText,
@@ -189,7 +190,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
           onPressed: () => context.go('/login'),
         ),
         primary: AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _isSaving,
           height: _buttonHeight,
@@ -206,16 +207,16 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
             children: [
               PasswordField(
                 controller: _newPasswordController,
-                label: 'Nuova password',
-                hintText: 'Inserisci nuova password',
+                label: tr('Nuova password', 'New password'),
+                hintText: tr('Inserisci nuova password', 'Enter new password'),
                 nothingAbove: true,
               ),
               const SizedBox(height: 16),
               PasswordPolicyChecklist(status: _policyStatus),
               PasswordField(
                 controller: _confirmPasswordController,
-                label: 'Conferma password',
-                hintText: 'Ripeti nuova password',
+                label: tr('Conferma password', 'Confirm password'),
+                hintText: tr('Ripeti nuova password', 'Repeat new password'),
               ),
             ],
           ),

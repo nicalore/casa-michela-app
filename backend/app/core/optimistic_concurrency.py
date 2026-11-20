@@ -3,19 +3,21 @@ from typing import Final
 
 from fastapi import HTTPException, status
 
+from app.core.i18n import tr
 from app.models.mixins import UpdatedAtMixin
 
 # The subject is the author, so the sentence reads well with any label.
-_STALE_ENTITY_ERROR: Final[str] = (
-    "Qualcuno ha modificato {entity_label} nel frattempo. "
-    "Ricarica la pagina e riprova."
+_STALE_ENTITY_ERROR: Final[tuple[str, str]] = (
+    "Qualcuno ha modificato {entity_label} nel frattempo. Ricarica la pagina e "
+    "riprova.",
+    "Someone changed {entity_label} in the meantime. Reload the page and try again.",
 )
 
 
 def stale_conflict(entity_label: str) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
-        detail=_STALE_ENTITY_ERROR.format(entity_label=entity_label),
+        detail=tr(*_STALE_ENTITY_ERROR).format(entity_label=entity_label),
     )
 
 

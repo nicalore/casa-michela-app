@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/language/app_language.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/utils/week_range.dart';
 import '../../../../../shared/widgets/app_card.dart';
@@ -55,7 +56,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
   Widget _topStudents()
   {
     return PersonRankingSection(
-      title: widget._online ? '10 studenti più presenti online' : '10 studenti più presenti',
+      title: widget._online ? tr('10 studenti più presenti online', '10 students most present online') : tr('10 studenti più presenti', '10 most present students'),
       rows: [
         for (var position = 1; position <= widget.statistics.topStudents.length; position++)
           PersonRankRow(
@@ -63,7 +64,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
             person: widget.statistics.topStudents[position - 1].student,
             badgeText:
                 '${widget.statistics.topStudents[position - 1].presenceDays} '
-                '${widget.statistics.topStudents[position - 1].presenceDays == 1 ? 'giorno' : 'giorni'}',
+                '${widget.statistics.topStudents[position - 1].presenceDays == 1 ? tr('giorno', 'day') : tr('giorni', 'days')}',
             accent: AppTheme.trialTealDeepText,
           ),
       ],
@@ -73,7 +74,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
   Widget _topByHours()
   {
     return PersonRankingSection(
-      title: widget._online ? '10 studenti con più ore di lezione online' : '10 studenti con più ore di lezione',
+      title: widget._online ? tr('10 studenti con più ore di lezione online', '10 students with the most online lesson hours') : tr('10 studenti con più ore di lezione', '10 students with the most lesson hours'),
       rows: [
         for (final (index, item) in widget.statistics.topStudentsByHours.indexed)
           PersonRankRow(
@@ -99,7 +100,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
   Widget build(BuildContext context)
   {
     return AppCard(
-      title: 'Presenze studenti',
+      title: tr('Presenze studenti', 'Student attendance'),
       selectable: false,
       leading: const AppCardBadge(icon: Icons.event_seat_rounded),
       trailingFit: AppCardTrailing.wrapping,
@@ -122,12 +123,12 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
             Row(
               children: [
                 _figure(
-                  'Studenti al giorno',
+                  tr('Studenti al giorno', 'Students per day'),
                   widget.statistics.dailyAverage.toStringAsFixed(1),
                 ),
                 const StatDivider(),
                 _figure(
-                  widget._online ? 'Studenti unici online nel periodo' : 'Studenti unici nel periodo',
+                  widget._online ? tr('Studenti unici online nel periodo', 'Unique online students in the period') : tr('Studenti unici nel periodo', 'Unique students in the period'),
                   '${widget.statistics.studentCount}',
                 ),
               ],

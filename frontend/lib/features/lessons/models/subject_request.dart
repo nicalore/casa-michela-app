@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import 'booking_summary_item.dart';
 import 'lesson_item.dart';
@@ -118,9 +119,9 @@ class SubjectRequestDraft
 
   String get displayName => switch (kind)
   {
-    BookingRequestKind.ministrySubject => ministrySubjectName ?? 'Materia',
-    BookingRequestKind.associationSubject => associationSubjectName ?? 'Disciplina',
-    BookingRequestKind.service => serviceName ?? 'Servizio',
+    BookingRequestKind.ministrySubject => ministrySubjectName ?? tr('Materia', 'Subject'),
+    BookingRequestKind.associationSubject => associationSubjectName ?? tr('Disciplina', 'Discipline'),
+    BookingRequestKind.service => serviceName ?? tr('Servizio', 'Service'),
   };
 
   SubjectRequestDraft copy()

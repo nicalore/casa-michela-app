@@ -2,6 +2,8 @@ from datetime import date, datetime, time, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
+from app.core.i18n import tr
+
 _ROME_TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 
 # Monday=0 .. Sunday=6, per date.weekday().
@@ -10,9 +12,10 @@ _UNLOCK_HOUR: Final[int] = 20
 _CURRENT_WEEK_LAST_OFFSET: Final[int] = 6
 _NEXT_WEEK_LAST_OFFSET: Final[int] = 13
 
-_OUT_OF_WINDOW_ERROR: Final[str] = (
-    "La data selezionata non rientra nella finestra di prenotazione "
-    "attualmente sbloccata."
+_OUT_OF_WINDOW_ERROR: Final[tuple[str, str]] = (
+    "La data selezionata non rientra nella finestra di prenotazione attualmente "
+    "sbloccata.",
+    "The selected date is outside the booking window currently open.",
 )
 
 
@@ -56,4 +59,4 @@ def assert_within_booking_window(target_date: date) -> None:
     today, max_unlocked = compute_available_window(datetime.now(_ROME_TIMEZONE))
 
     if target_date < today or target_date > max_unlocked:
-        raise ValueError(_OUT_OF_WINDOW_ERROR)
+        raise ValueError(tr(*_OUT_OF_WINDOW_ERROR))

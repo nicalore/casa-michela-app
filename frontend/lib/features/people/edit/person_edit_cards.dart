@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -85,11 +86,18 @@ Widget cardSection(String label, Widget child)
 }
 
 // Drafts: why a choice is off when a history keeps roles or the membership.
-const String kKeptRoleNote = 'Non si può togliere: ci sono lezioni, ore o pagamenti registrati.';
-const String kKeptRolesNote =
-    'Non si può scegliere: alcuni ruoli hanno lezioni, ore o pagamenti registrati.';
-const String kKeptMembershipNote =
-    'Non si può scegliere: ci sono pagamenti registrati nel periodo di iscrizione.';
+String get kKeptRoleNote => tr(
+  'Non si può togliere: ci sono lezioni, ore o pagamenti registrati.',
+  'Cannot be removed: there are lessons, hours or payments recorded.',
+);
+String get kKeptRolesNote => tr(
+  'Non si può scegliere: alcuni ruoli hanno lezioni, ore o pagamenti registrati.',
+  'Cannot be chosen: some roles have lessons, hours or payments recorded.',
+);
+String get kKeptMembershipNote => tr(
+  'Non si può scegliere: ci sono pagamenti registrati nel periodo di iscrizione.',
+  'Cannot be chosen: there are payments recorded in the enrolment period.',
+);
 
 // An option off keeps its own words; the reason shows on hover.
 Widget _offWithReason(String? reason, Widget card)
@@ -115,15 +123,23 @@ class InvolvementCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool feminine = ctx.form.genderValue == 'F';
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       spacing: _choiceGap,
       children: [
         AppChoiceCard(
           icon: Icons.workspaces_outline,
-          title: 'Coinvolto nelle attività',
-          subtitle: 'Partecipa alla vita dell\'Associazione, svolge uno o più ruoli '
-              'oppure è un genitore.',
+          title: feminine
+              ? tr('Coinvolta nelle attività', 'Involved in the activities')
+              : tr('Coinvolto nelle attività', 'Involved in the activities'),
+          subtitle: tr(
+            'Partecipa alla vita dell\'Associazione, svolge uno o più ruoli '
+            'oppure è un genitore.',
+            'Takes part in the life of the Association, holds one or more roles '
+            'or is a parent.',
+          ),
           selected: ctx.form.involvementType == 0,
           onSelected: (_)
           {
@@ -135,9 +151,13 @@ class InvolvementCard extends StatelessWidget
           ctx.form.keepsSomeRole ? kKeptRolesNote : null,
           AppChoiceCard(
             icon: Icons.card_membership_rounded,
-            title: 'Solo socio',
-            subtitle: 'Paga regolarmente la quota di iscrizione per sostenere '
-                'l\'Associazione, ma non ricopre alcun ruolo.',
+            title: feminine ? tr('Solo socia', 'Member only') : tr('Solo socio', 'Member only'),
+            subtitle: tr(
+              'Paga regolarmente la quota di iscrizione per sostenere '
+              'l\'Associazione, ma non ricopre alcun ruolo.',
+              'Pays the membership fee regularly to support '
+              'the Association, but holds no role.',
+            ),
             disabled: ctx.form.keepsSomeRole,
             selected: ctx.form.involvementType == 1,
             onSelected: (_)
@@ -230,13 +250,14 @@ class RolesCard extends StatelessWidget
   Widget _buildCard(PersonRoleOption role)
   {
     final bool kept = ctx.form.isRoleKept(role.id);
+    final bool feminine = ctx.form.genderValue == 'F';
 
     return _offWithReason(
       kept ? kKeptRoleNote : null,
       AppChoiceCard(
         icon: _icons[role.id] ?? Icons.person_outline,
-        title: role.label,
-        subtitle: role.description,
+        title: role.labelFor(feminine: feminine),
+        subtitle: role.descriptionFor(feminine: feminine),
         disabled: kept,
         selected: ctx.form.selectedRoles.contains(role.id),
         onSelected: (selected)
@@ -255,6 +276,35 @@ class AssociationCard extends StatelessWidget
 
   const AssociationCard({super.key, required this.ctx});
 
+  // No minor chosen yet reads as one boy.
+  String _guardianOnly()
+  {
+    final PersonEditForm form = ctx.form;
+    final List<PersonItem> known = [
+      ...form.allPeople,
+      for (final pending in form.pendingPeople) pending['person'] as PersonItem,
+    ];
+    final List<String?> genders = [
+      for (final taxCode in form.selectedMinors.keys)
+        known.where((person) => person.fiscalCode == taxCode).firstOrNull?.gender,
+    ];
+    final bool allGirls = genders.isNotEmpty && genders.every((gender) => gender == 'F');
+
+    if (isEnglish)
+    {
+      return genders.length > 1
+          ? 'The parent is recorded only as guardian of the minors.'
+          : 'The parent is recorded only as guardian of the minor.';
+    }
+
+    final String guardian = form.genderValue == 'F' ? 'tutrice' : 'tutore';
+    final String minors = genders.length > 1
+        ? (allGirls ? 'delle minori' : 'dei minori')
+        : (allGirls ? 'della minore' : 'del minore');
+
+    return 'Il genitore viene registrato solo come $guardian $minors.';
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -264,8 +314,11 @@ class AssociationCard extends StatelessWidget
       children: [
         AppChoiceCard(
           icon: Icons.person_outlined,
-          title: 'Sì',
-          subtitle: 'Il genitore aderisce all\'Associazione e versa la quota annuale.',
+          title: tr('Sì', 'Yes'),
+          subtitle: tr(
+            'Il genitore aderisce all\'Associazione e versa la quota annuale.',
+            'The parent joins the Association and pays the annual fee.',
+          ),
           selected: ctx.form.parentIsMember == true,
           onSelected: (_)
           {
@@ -278,7 +331,7 @@ class AssociationCard extends StatelessWidget
           AppChoiceCard(
             icon: Icons.person_off_outlined,
             title: 'No',
-            subtitle: 'Il genitore viene registrato solo come tutore del minore.',
+            subtitle: _guardianOnly(),
             disabled: ctx.form.keepsMembership,
             selected: ctx.form.parentIsMember == false,
             onSelected: (_)
@@ -309,7 +362,7 @@ class _ReportBlock extends StatelessWidget
       child: Align(
         alignment: Alignment.centerLeft,
         child: AppGradientButton(
-          label: 'SEGNALA ERRORE',
+          label: tr('SEGNALA ERRORE', 'REPORT ERROR'),
           icon: Icons.flag_rounded,
           gradient: AppTheme.dismissGradient,
           accent: AppTheme.trialVioletText,
@@ -349,11 +402,11 @@ class IdentityCard extends StatelessWidget
           },
         ),
         const SizedBox(height: 24),
-        AppInfoRow(label: 'Nome', value: orDash(person.firstName), labelWidth: _factLabelWidth),
-        AppInfoRow(label: 'Cognome', value: orDash(person.lastName), labelWidth: _factLabelWidth),
-        AppInfoRow(label: 'Sesso', value: orDash(person.gender), labelWidth: _factLabelWidth),
+        AppInfoRow(label: tr('Nome', 'First name'), value: orDash(person.firstName), labelWidth: _factLabelWidth),
+        AppInfoRow(label: tr('Cognome', 'Surname'), value: orDash(person.lastName), labelWidth: _factLabelWidth),
+        AppInfoRow(label: tr('Sesso', 'Sex'), value: orDash(person.gender), labelWidth: _factLabelWidth),
         AppInfoRow(
-          label: 'Codice fiscale',
+          label: tr('Codice fiscale', 'Tax code'),
           value: orDash(person.fiscalCode),
           labelWidth: _factLabelWidth,
         ),
@@ -380,22 +433,22 @@ class BirthDataCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppInfoRow(
-          label: 'Data di nascita',
+          label: tr('Data di nascita', 'Date of birth'),
           value: orDash(ctx.form.birthDateCtrl.text),
           labelWidth: _factLabelWidth,
         ),
         AppInfoRow(
-          label: 'Città di nascita',
+          label: tr('Città di nascita', 'City of birth'),
           value: orDash(person.birthCity),
           labelWidth: _factLabelWidth,
         ),
         AppInfoRow(
-          label: 'Provincia di nascita',
+          label: tr('Provincia di nascita', 'Province of birth'),
           value: orDash(person.birthProvince),
           labelWidth: _factLabelWidth,
         ),
         AppInfoRow(
-          label: 'Nazione di nascita',
+          label: tr('Nazione di nascita', 'Country of birth'),
           value: orDash(person.birthNation),
           labelWidth: _factLabelWidth,
         ),
@@ -420,8 +473,8 @@ class IdentityEditCard extends StatelessWidget
   {
     final Widget firstNameValue = AppTextField(
       controller: ctx.form.firstNameCtrl,
-      label: 'Nome',
-      hintText: 'Es. Mario',
+      label: tr('Nome', 'First name'),
+      hintText: tr('Es. Mario', 'E.g. Mario'),
       maxLength: FieldLimits.personName,
       errorText: ctx.errors['nome'],
       textCapitalization: TextCapitalization.words,
@@ -430,8 +483,8 @@ class IdentityEditCard extends StatelessWidget
 
     final Widget lastNameValue = AppTextField(
       controller: ctx.form.lastNameCtrl,
-      label: 'Cognome',
-      hintText: 'Es. Rossi',
+      label: tr('Cognome', 'Surname'),
+      hintText: tr('Es. Rossi', 'E.g. Rossi'),
       maxLength: FieldLimits.personName,
       errorText: ctx.errors['cognome'],
       textCapitalization: TextCapitalization.words,
@@ -474,7 +527,7 @@ class IdentityEditCard extends StatelessWidget
           builder: (context, constraints)
           {
             final Widget genderValue = PersonChipGroupField(
-              label: 'Sesso',
+              label: tr('Sesso', 'Sex'),
               options: const ['M', 'F'],
               value: ctx.form.genderValue,
               errorText: ctx.errors['sesso'],
@@ -487,8 +540,8 @@ class IdentityEditCard extends StatelessWidget
 
             final Widget cf = AppTextField(
               controller: ctx.form.cfCtrl,
-              label: 'Codice fiscale',
-              hintText: 'Es. RSSMRA80A01L157H',
+              label: tr('Codice fiscale', 'Tax code'),
+              hintText: tr('Es. RSSMRA80A01L157H', 'E.g. RSSMRA80A01L157H'),
               maxLength: FieldLimits.taxCode,
               errorText: ctx.errors['cf'],
               textCapitalization: TextCapitalization.characters,
@@ -535,8 +588,10 @@ class BirthDataEditCard extends StatelessWidget
 
     final Widget cityValue = AppTextField(
       controller: ctx.form.birthCityCtrl,
-      label: abroad ? 'Città di nascita (opzionale)' : 'Città di nascita',
-      hintText: abroad ? 'Es. Bucarest' : 'Es. Thiene',
+      label: abroad
+          ? tr('Città di nascita (opzionale)', 'City of birth (optional)')
+          : tr('Città di nascita', 'City of birth'),
+      hintText: abroad ? tr('Es. Bucarest', 'E.g. Bucharest') : tr('Es. Thiene', 'E.g. Thiene'),
       maxLength: FieldLimits.city,
       errorText: ctx.errors['cittaNascita'],
       textCapitalization: TextCapitalization.words,
@@ -545,8 +600,8 @@ class BirthDataEditCard extends StatelessWidget
 
     final Widget provinceCode = AppTextField(
       controller: ctx.form.birthProvinceCtrl,
-      label: 'Provincia di nascita',
-      hintText: 'Es. VI',
+      label: tr('Provincia di nascita', 'Province of birth'),
+      hintText: tr('Es. VI', 'E.g. VI'),
       maxLength: FieldLimits.province,
       errorText: ctx.errors['provNascita'],
       enabled: !abroad,
@@ -559,8 +614,8 @@ class BirthDataEditCard extends StatelessWidget
       children: [
         AppTextField(
           controller: ctx.form.birthDateCtrl,
-          label: 'Data di nascita',
-          hintText: 'gg/mm/aaaa',
+          label: tr('Data di nascita', 'Date of birth'),
+          hintText: tr('gg/mm/aaaa', 'dd/mm/yyyy'),
           errorText: ctx.errors['dataNascita'],
           keyboardType: TextInputType.number,
           inputFormatters: [DateInputFormatter()],
@@ -568,11 +623,11 @@ class BirthDataEditCard extends StatelessWidget
         ),
         const SizedBox(height: 20),
         cardSection(
-          'Luogo di nascita',
+          tr('Luogo di nascita', 'Place of birth'),
           AppSegmentedSwitch(
             value: !abroad,
-            trueLabel: 'Italia',
-            falseLabel: 'Estero',
+            trueLabel: tr('Italia', 'Italy'),
+            falseLabel: tr('Estero', 'Abroad'),
             onChanged: (inItaly)
             {
               ctx.form.setBornAbroad(!inItaly);
@@ -589,8 +644,8 @@ class BirthDataEditCard extends StatelessWidget
         if (abroad)
           AppTextField(
             controller: ctx.form.birthNationCtrl,
-            label: 'Nazione di nascita',
-            hintText: 'Es. Romania',
+            label: tr('Nazione di nascita', 'Country of birth'),
+            hintText: tr('Es. Romania', 'E.g. Romania'),
             maxLength: FieldLimits.nation,
             errorText: ctx.errors['nazioneNascita'],
             textCapitalization: TextCapitalization.words,
@@ -678,8 +733,11 @@ class ConsentsCard extends StatelessWidget
         children: [
           if (ctx.form.isCreation) ...[
           _consent(
-            label: 'Statuto',
-            description: 'Dichiara di aver letto e accettato lo statuto dell\'Associazione.',
+            label: tr('Statuto', 'Statute'),
+            description: tr(
+              'Dichiara di aver letto e accettato lo statuto dell\'Associazione.',
+              'Declares they have read and accepted the Association’s statute.',
+            ),
             value: ctx.form.statuteAcknowledged,
             errorText: ctx.errors['statutoAccettato'],
             onChanged: (value)
@@ -689,8 +747,11 @@ class ConsentsCard extends StatelessWidget
             },
           ),
           _consent(
-            label: 'Regolamento',
-            description: 'Dichiara di aver letto e accettato il regolamento interno.',
+            label: tr('Regolamento', 'Rules'),
+            description: tr(
+              'Dichiara di aver letto e accettato il regolamento interno.',
+              'Declares they have read and accepted the internal rules.',
+            ),
             value: ctx.form.regulationAcknowledged,
             errorText: ctx.errors['regolamentoAccettato'],
             onChanged: (value)
@@ -700,9 +761,13 @@ class ConsentsCard extends StatelessWidget
             },
           ),
           _consent(
-            label: 'Videosorveglianza',
-            description: 'Dichiara di aver preso visione dell\'informativa sulla '
-                'videosorveglianza dei locali.',
+            label: tr('Videosorveglianza', 'Video surveillance'),
+            description: tr(
+              'Dichiara di aver preso visione dell\'informativa sulla '
+              'videosorveglianza dei locali.',
+              'Declares they have read the notice on the '
+              'video surveillance of the premises.',
+            ),
             value: ctx.form.videoSurveillanceAcknowledged,
             errorText: ctx.errors['videosorveglianzaPresaVisione'],
             onChanged: (value)
@@ -713,9 +778,13 @@ class ConsentsCard extends StatelessWidget
           ),
           ],
           _consent(
-            label: 'Dati particolari (opzionale)',
-            description: 'Acconsente al trattamento dei dati particolari (salute, '
-                'certificazioni) per le finalità dell\'Associazione.',
+            label: tr('Dati particolari (opzionale)', 'Special category data (optional)'),
+            description: tr(
+              'Acconsente al trattamento dei dati particolari (salute, '
+              'certificazioni) per le finalità dell\'Associazione.',
+              'Agrees to the processing of special category data (health, '
+              'certifications) for the Association’s purposes.',
+            ),
             value: ctx.form.specialCategoryDataConsentValue,
             errorText: null,
             onChanged: (value)
@@ -725,8 +794,11 @@ class ConsentsCard extends StatelessWidget
             },
           ),
           _consent(
-            label: 'Notiziari periodici (opzionale)',
-            description: 'Acconsente a ricevere i notiziari periodici dell\'Associazione.',
+            label: tr('Notiziari periodici (opzionale)', 'Newsletters (optional)'),
+            description: tr(
+              'Acconsente a ricevere i notiziari periodici dell\'Associazione.',
+              'Agrees to receive the Association’s newsletters.',
+            ),
             value: ctx.form.newsletterConsentValue,
             errorText: null,
             onChanged: (value)
@@ -755,7 +827,7 @@ class PsychologicalSupportCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         cardSection(
-          'Aderisce al servizio',
+          tr('Aderisce al servizio', 'Joins the service'),
           AppSegmentedSwitch(
             value: ctx.form.hasPsychologicalSupport,
             onChanged: (value)
@@ -769,8 +841,8 @@ class PsychologicalSupportCard extends StatelessWidget
           const SizedBox(height: 20),
           AppTextField(
             controller: ctx.form.psychologicalSupportStartDateCtrl,
-            label: 'Data di inizio',
-            hintText: 'gg/mm/aaaa',
+            label: tr('Data di inizio', 'Start date'),
+            hintText: tr('gg/mm/aaaa', 'dd/mm/yyyy'),
             errorText: ctx.errors['dataInizioSostegnoPsicologico'],
             keyboardType: TextInputType.number,
             inputFormatters: [DateInputFormatter()],
@@ -803,8 +875,8 @@ class ResidenceCard extends StatelessWidget
   {
     final Widget streetTypeValue = AppTextField(
       controller: ctx.form.streetTypeCtrl,
-      label: 'Indirizzo',
-      hintText: 'Via/Strada/...',
+      label: tr('Indirizzo', 'Address'),
+      hintText: tr('Via/Strada/...', 'Street/Road/...'),
       maxLength: FieldLimits.residenceType,
       errorText: ctx.errors['tipoVia'],
       onChanged: (_) => _handWritten('tipoVia'),
@@ -813,7 +885,7 @@ class ResidenceCard extends StatelessWidget
     final Widget addressValue = AppTextField(
       controller: ctx.form.streetNameCtrl,
       label: '',
-      hintText: 'Nome',
+      hintText: tr('Nome', 'Name'),
       maxLength: FieldLimits.address,
       errorText: ctx.errors['indirizzo'],
       textCapitalization: TextCapitalization.words,
@@ -823,7 +895,7 @@ class ResidenceCard extends StatelessWidget
     final Widget streetNumberValue = AppTextField(
       controller: ctx.form.streetNumberCtrl,
       label: '',
-      hintText: 'N°',
+      hintText: tr('N°', 'No.'),
       maxLength: FieldLimits.streetNumber,
       errorText: ctx.errors['civico'],
       onChanged: (_) => _handWritten('civico'),
@@ -840,8 +912,14 @@ class ResidenceCard extends StatelessWidget
             icon: Icons.home_outlined,
             title: offered.label,
             subtitle: offered.isEmpty
-                ? 'Non c\'è ancora niente da copiare: quella residenza non è stata scritta.'
-                : 'Compila indirizzo, città, provincia e CAP con gli stessi dati.',
+                ? tr(
+                  'Non c\'è ancora niente da copiare: quella residenza non è stata scritta.',
+                  'There is nothing to copy yet: that residence has not been written.',
+                )
+                : tr(
+                  'Compila indirizzo, città, provincia e CAP con gli stessi dati.',
+                  'Fills in address, city, province and postcode with the same details.',
+                ),
             disabled: offered.isEmpty,
             selected: ctx.form.copiesResidence,
             onSelected: (taken)
@@ -887,8 +965,8 @@ class ResidenceCard extends StatelessWidget
         ),
         AppTextField(
           controller: ctx.form.residenceCityCtrl,
-          label: 'Città',
-          hintText: 'Es. Thiene',
+          label: tr('Città', 'City'),
+          hintText: tr('Es. Thiene', 'E.g. Thiene'),
           maxLength: FieldLimits.city,
           errorText: ctx.errors['cittaResidenza'],
           textCapitalization: TextCapitalization.words,
@@ -899,8 +977,8 @@ class ResidenceCard extends StatelessWidget
           {
             final Widget provinceCode = AppTextField(
               controller: ctx.form.residenceProvinceCtrl,
-              label: 'Provincia',
-              hintText: 'Es. VI',
+              label: tr('Provincia', 'Province'),
+              hintText: tr('Es. VI', 'E.g. VI'),
               maxLength: FieldLimits.province,
               errorText: ctx.errors['provResidenza'],
               onChanged: (_) => _handWritten('provResidenza'),
@@ -908,8 +986,8 @@ class ResidenceCard extends StatelessWidget
 
             final Widget postalCodeValue = AppTextField(
               controller: ctx.form.postalCodeCtrl,
-              label: 'CAP',
-              hintText: 'Es. 36016',
+              label: tr('CAP', 'Postcode'),
+              hintText: tr('Es. 36016', 'E.g. 36016'),
               maxLength: FieldLimits.postalCode,
               errorText: ctx.errors['cap'],
               keyboardType: TextInputType.number,
@@ -950,7 +1028,7 @@ class ContactsCard extends StatelessWidget
     final Widget email = AppTextField(
       controller: ctx.form.emailCtrl,
       label: 'Email',
-      hintText: 'Es. mario.rossi@email.com',
+      hintText: tr('Es. mario.rossi@email.com', 'E.g. mario.rossi@email.com'),
       maxLength: FieldLimits.email,
       errorText: ctx.errors['email'],
       keyboardType: TextInputType.emailAddress,
@@ -959,8 +1037,8 @@ class ContactsCard extends StatelessWidget
 
     final Widget phoneValue = AppTextField(
       controller: ctx.form.phoneCtrl,
-      label: 'Telefono',
-      hintText: 'Es. 333 123 4567',
+      label: tr('Telefono', 'Phone'),
+      hintText: tr('Es. 333 123 4567', 'E.g. 333 123 4567'),
       maxLength: FieldLimits.phone,
       errorText: ctx.errors['telefono'],
       keyboardType: TextInputType.phone,
@@ -1062,7 +1140,7 @@ class MembershipsCard extends StatelessWidget
         ),
         const SizedBox(height: 6),
         AppAddRowButton(
-          label: 'AGGIUNGI ISCRIZIONE',
+          label: tr('AGGIUNGI ISCRIZIONE', 'ADD ENROLMENT'),
           onTap: ()
           {
             final Iterable<int> years = rows
@@ -1155,7 +1233,7 @@ class _PaymentCardState extends State<PaymentCard>
           child: AppTextField(
             controller: form.tariffPackageHoursCtrl,
             label: kPackageHoursLabel,
-            hintText: 'Es. 18',
+            hintText: tr('Es. 18', 'E.g. 18'),
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             maxLength: _packageHoursDigits,
@@ -1262,7 +1340,7 @@ class _PaymentCardState extends State<PaymentCard>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AppFieldLabel(kTariffLabel),
+        AppFieldLabel(kTariffLabel),
         const SizedBox(height: 10),
         Text(
           currentTariff(tariff.kind, tariff.amountCents, tariff.packageHours),
@@ -1463,8 +1541,8 @@ class _PaymentCardState extends State<PaymentCard>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PersonChipGroupField(
-          label: 'Modalità di pagamento',
-          options: const ['Contanti', 'Bonifico bancario', 'Altro'],
+          label: tr('Modalità di pagamento', 'Payment method'),
+          options: kPaymentMethods.keys.toList(),
           value: ctx.form.paymentMethodValue,
           errorText: ctx.errors['modalitaPagamento'],
           onChanged: (value)
@@ -1473,11 +1551,11 @@ class _PaymentCardState extends State<PaymentCard>
             ctx.clearError('modalitaPagamento');
           },
         ),
-        if (ctx.form.paymentMethodValue == 'Altro')
+        if (kPaymentMethods[ctx.form.paymentMethodValue] == 'OTHER')
           AppTextField(
             controller: ctx.form.otherPaymentMethodCtrl,
-            label: 'Altra modalità',
-            hintText: 'Es. Carta di credito',
+            label: tr('Altra modalità', 'Other method'),
+            hintText: tr('Es. Carta di credito', 'E.g. Credit card'),
             maxLength: FieldLimits.otherDetail,
             errorText: ctx.errors['altraModalitaPagamento'],
             onChanged: (_) => ctx.clearError('altraModalitaPagamento'),
@@ -1529,8 +1607,9 @@ class AdminCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PersonChipGroupField(
-          label: 'Ruolo',
-          options: const ['Presidente', 'Vicepresidente', 'Tesoriere', 'Responsabile IT', 'Altro'],
+          label: tr('Ruolo', 'Role'),
+          options: kAdminRoles.keys.toList(),
+          shownAs: ctx.form.genderValue == 'F' && !isEnglish ? const {'Tesoriere': 'Tesoriera'} : const {},
           value: ctx.form.adminRoleValue,
           errorText: ctx.errors['ruoloAmministratore'],
           onChanged: (value)
@@ -1540,11 +1619,11 @@ class AdminCard extends StatelessWidget
             ctx.clearError('ruoloAmministratore');
           },
         ),
-        if (ctx.form.adminRoleValue == 'Altro')
+        if (kAdminRoles[ctx.form.adminRoleValue] == 'OTHER')
           AppTextField(
             controller: ctx.form.otherAdminRoleCtrl,
-            label: 'Altro ruolo',
-            hintText: 'Es. Segreteria',
+            label: tr('Altro ruolo', 'Other role'),
+            hintText: tr('Es. Segreteria', 'E.g. Secretariat'),
             maxLength: FieldLimits.otherRole,
             errorText: ctx.errors['altroRuoloAmministratore'],
             onChanged: (_) => ctx.clearError('altroRuoloAmministratore'),
@@ -1568,7 +1647,9 @@ class TeacherCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         cardSection(
-          'Studente delle superiori',
+          ctx.form.genderValue == 'F'
+              ? tr('Studentessa delle superiori', 'Upper secondary student')
+              : tr('Studente delle superiori', 'Upper secondary student'),
           AppSegmentedSwitch(
             value: ctx.form.isHighSchoolStudent,
             onChanged: (value)
@@ -1581,8 +1662,8 @@ class TeacherCard extends StatelessWidget
         const SizedBox(height: 24),
         AppTextField(
           controller: ctx.form.studiScolasticiCtrl,
-          label: 'Studi scolastici (opzionale)',
-          hintText: 'Es. Liceo Classico',
+          label: tr('Studi scolastici (opzionale)', 'School studies (optional)'),
+          hintText: tr('Es. Liceo Classico', 'E.g. Classical high school'),
           maxLength: FieldLimits.education,
           errorText: ctx.errors['studiScolastici'],
           textCapitalization: TextCapitalization.sentences,
@@ -1591,8 +1672,8 @@ class TeacherCard extends StatelessWidget
         if (!ctx.form.isHighSchoolStudent)
           AppTextField(
             controller: ctx.form.studiUniversitariCtrl,
-            label: 'Studi universitari (opzionale)',
-            hintText: 'Es. Laurea in Informatica',
+            label: tr('Studi universitari (opzionale)', 'University studies (optional)'),
+            hintText: tr('Es. Laurea in Informatica', 'E.g. Degree in Computer Science'),
             maxLength: FieldLimits.education,
             errorText: ctx.errors['studiUniversitari'],
             textCapitalization: TextCapitalization.sentences,
@@ -1617,7 +1698,7 @@ class CourseParticipantCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PersonChipGroupField(
-          label: 'Tipo corso',
+          label: tr('Tipo corso', 'Course type'),
           options: [for (final course in ctx.form.allCourses) course.name],
           value: ctx.form.courseTypeValue,
           errorText: ctx.errors['tipoCorso'],
@@ -1629,8 +1710,8 @@ class CourseParticipantCard extends StatelessWidget
         ),
         AppTextField(
           controller: ctx.form.certificateExpirationCtrl,
-          label: 'Scadenza certificato medico (opzionale)',
-          hintText: 'gg/mm/aaaa',
+          label: tr('Scadenza certificato medico (opzionale)', 'Medical certificate expiry (optional)'),
+          hintText: tr('gg/mm/aaaa', 'dd/mm/yyyy'),
           errorText: ctx.errors['scadenzaCertificato'],
           keyboardType: TextInputType.number,
           inputFormatters: [DateInputFormatter()],
@@ -1643,8 +1724,8 @@ class CourseParticipantCard extends StatelessWidget
 
 class EarlyExitCard extends StatelessWidget
 {
-  static const String _wholeMembership = 'Tutta l\'iscrizione';
-  static const String _limitedPeriod = 'Periodo limitato';
+  static String get _wholeMembership => tr('Tutta l\'iscrizione', 'Whole enrolment');
+  static String get _limitedPeriod => tr('Periodo limitato', 'Limited period');
 
   final PersonEditCardContext ctx;
 
@@ -1682,8 +1763,8 @@ class EarlyExitCard extends StatelessWidget
     return [
       const SizedBox(height: 24),
       PersonChipGroupField(
-        label: 'Validità',
-        options: const [_wholeMembership, _limitedPeriod],
+        label: tr('Validità', 'Validity'),
+        options: [_wholeMembership, _limitedPeriod],
         value: ctx.form.uscitaAnticipataPeriodoLimitato
             ? _limitedPeriod
             : _wholeMembership,
@@ -1708,8 +1789,8 @@ class EarlyExitCard extends StatelessWidget
             Expanded(
               child: AppTextField(
                 controller: ctx.form.uscitaAnticipataDalCtrl,
-                label: 'Dal',
-                hintText: 'gg/mm/aaaa',
+                label: tr('Dal', 'From'),
+                hintText: tr('gg/mm/aaaa', 'dd/mm/yyyy'),
                 errorText: ctx.errors['uscitaAnticipataDal'],
                 keyboardType: TextInputType.number,
                 inputFormatters: [DateInputFormatter()],
@@ -1720,8 +1801,8 @@ class EarlyExitCard extends StatelessWidget
             Expanded(
               child: AppTextField(
                 controller: ctx.form.uscitaAnticipataAlCtrl,
-                label: 'Al',
-                hintText: 'gg/mm/aaaa',
+                label: tr('Al', 'To'),
+                hintText: tr('gg/mm/aaaa', 'dd/mm/yyyy'),
                 errorText: ctx.errors['uscitaAnticipataAl'],
                 keyboardType: TextInputType.number,
                 inputFormatters: [DateInputFormatter()],
@@ -1731,10 +1812,10 @@ class EarlyExitCard extends StatelessWidget
           ],
         ),
       const SizedBox(height: 24),
-      const AppFieldLabel('Uscite'),
+      AppFieldLabel(tr('Uscite', 'Departures')),
       const SizedBox(height: 10),
       if (rows.isEmpty)
-        const PersonEmptyState(message: 'Nessuna uscita indicata.'),
+        PersonEmptyState(message: tr('Nessuna uscita indicata.', 'No departures set.')),
       for (var i = 0; i < rows.length; i++)
         EarlyExitEditRow(
           key: ValueKey(rows[i]),
@@ -1759,7 +1840,7 @@ class EarlyExitCard extends StatelessWidget
       if (rows.length < PersonEditForm.maxEarlyExitRows) ...[
         const SizedBox(height: 6),
         AppAddRowButton(
-          label: 'AGGIUNGI USCITA',
+          label: tr('AGGIUNGI USCITA', 'ADD DEPARTURE'),
           onTap: ()
           {
             rows.add(EarlyExitRowData.empty());
@@ -1779,7 +1860,7 @@ class EarlyExitCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         cardSection(
-          'Autorizzata',
+          tr('Autorizzata', 'Authorised'),
           AppSegmentedSwitch(
             value: ctx.form.uscitaAnticipata,
             onChanged: (value)
@@ -1816,8 +1897,8 @@ class CertificationsCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PersonChipGroupField.multiple(
-          label: 'Certificazione',
-          options: const [_noCertification, 'DSA', 'BES', 'ADHD', 'Altro'],
+          label: tr('Certificazione', 'Certification'),
+          options: [_noCertification, ...kCertificationTypes.keys],
           values: ctx.form.certificationValues.isEmpty
               ? const {_noCertification}
               : ctx.form.certificationValues,
@@ -1839,30 +1920,33 @@ class CertificationsCard extends StatelessWidget
             ctx.onChanged();
           },
         ),
-        if (ctx.form.certificationValues.contains('DSA'))
+        if (ctx.form.certificationValues.any((value) => kCertificationTypes[value] == 'DSA'))
           AppTextField(
             controller: ctx.form.dsaCertificationCtrl,
-            label: 'Tipo di DSA',
-            hintText: 'Es. Dislessia e discalculia',
+            label: tr('Tipo di DSA', 'Type of SLD'),
+            hintText: tr('Es. Dislessia e discalculia', 'E.g. Dyslexia and dyscalculia'),
             maxLength: FieldLimits.dsaDetail,
             errorText: ctx.errors['tipoDsa'],
             onChanged: (_) => ctx.clearError('tipoDsa'),
           ),
-        if (ctx.form.certificationValues.contains('Altro'))
+        if (ctx.form.certificationValues.any((value) => kCertificationTypes[value] == 'OTHER'))
           AppTextField(
             controller: ctx.form.otherCertificationCtrl,
-            label: 'Altra certificazione',
-            hintText: 'Es. Autismo livello 1',
+            label: tr('Altra certificazione', 'Other certification'),
+            hintText: tr('Es. Autismo livello 1', 'E.g. Autism level 1'),
             maxLength: FieldLimits.otherDetail,
             errorText: ctx.errors['altraCertificazione'],
             onChanged: (_) => ctx.clearError('altraCertificazione'),
           ),
         if (ctx.form.certificationValues.isNotEmpty) ...[
           const SizedBox(height: 24),
-          const AppFieldLabel('Presa visione incontri'),
+          AppFieldLabel(tr('Presa visione incontri', 'Meetings acknowledged')),
           const SizedBox(height: 8),
           Text(
-            'In presenza di una certificazione, sono obbligatori due colloqui con uno psicologo dell\'Associazione.',
+            tr(
+              'In presenza di una certificazione, sono obbligatori due colloqui con uno psicologo dell\'Associazione.',
+              'With a certification, two meetings with one of the Association’s psychologists are required.',
+            ),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -1914,6 +1998,7 @@ class SchoolEnrollmentsCard extends StatelessWidget
       allPrograms: ctx.form.allPrograms,
       takenYears: takenSchoolYears(rows, except: index),
       isEditing: index != null,
+      gender: ctx.form.genderValue,
       initial: index == null
           ? previousSchoolYearOf(rows)
           : SchoolYearChoice.ofRow(rows[index]),
@@ -1950,7 +2035,7 @@ class SchoolEnrollmentsCard extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (rows.isEmpty)
-                const PersonEmptyState(message: 'Nessun anno scolastico inserito.'),
+                PersonEmptyState(message: tr('Nessun anno scolastico inserito.', 'No school years entered.')),
               for (var i = 0; i < rows.length; i++)
                 SchoolEnrollmentSummaryRow(
                   key: ValueKey(rows[i]),
@@ -1974,7 +2059,7 @@ class SchoolEnrollmentsCard extends StatelessWidget
         ),
         const SizedBox(height: 6),
         AppAddRowButton(
-          label: 'AGGIUNGI ANNO',
+          label: tr('AGGIUNGI ANNO', 'ADD YEAR'),
           onTap: () => _openWizard(context),
         ),
       ],
@@ -1998,12 +2083,15 @@ class StaffCard extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PersonChipGroupField(
-          label: 'Collaborazione',
-          options: forced ? const ['Non pagato'] : kCollaborationChoices,
+          label: tr('Collaborazione', 'Collaboration'),
+          options: forced ? [labelOfCode(kCollaborationTypes, 'UNPAID')] : kCollaborationChoices,
           value: ctx.form.collaborationTypeValue,
           enabled: !forced,
           note: forced
-              ? 'Presidente, vicepresidente e tesoriere non possono essere retribuiti.'
+              ? tr(
+                  'Presidente, vicepresidente e tesoriere non possono essere retribuiti.',
+                  'The president, vice president and treasurer cannot be paid.',
+                )
               : null,
           errorText: ctx.errors['tipoCollaborazione'],
           onChanged: (value)
@@ -2016,8 +2104,8 @@ class StaffCard extends StatelessWidget
           const SizedBox(height: 20),
           AppTextField(
             controller: ctx.form.grossCompensationCtrl,
-            label: 'Compenso orario lordo (opzionale)',
-            hintText: 'Es. 10,00',
+            label: tr('Compenso orario lordo (opzionale)', 'Gross hourly pay (optional)'),
+            hintText: tr('Es. 10,00', 'E.g. 10.00'),
             keyboardType: TextInputType.number,
             errorText: ctx.errors['compensoLordo'],
             onChanged: (_) => ctx.clearError('compensoLordo'),
@@ -2028,7 +2116,7 @@ class StaffCard extends StatelessWidget
           AppTextField(
             controller: ctx.form.ibanCtrl,
             label: 'IBAN',
-            hintText: 'Es. IT00A...',
+            hintText: tr('Es. IT00A...', 'E.g. IT00A...'),
             maxLength: FieldLimits.iban,
             errorText: ctx.errors['iban'],
             onChanged: (_) => ctx.clearError('iban'),
@@ -2054,8 +2142,8 @@ class MinorSafetyCard extends StatelessWidget
       children: [
         AppTextField(
           controller: ctx.form.emergencyContactNameCtrl,
-          label: 'Contatto emergenza',
-          hintText: 'Nome e cognome',
+          label: tr('Contatto emergenza', 'Emergency contact'),
+          hintText: tr('Nome e cognome', 'First name and surname'),
           maxLength: FieldLimits.contactName,
           errorText: ctx.errors['contattoEmergenzaNome'],
           textCapitalization: TextCapitalization.words,
@@ -2063,8 +2151,8 @@ class MinorSafetyCard extends StatelessWidget
         ),
         AppTextField(
           controller: ctx.form.emergencyContactPhoneCtrl,
-          label: 'Telefono emergenza',
-          hintText: 'Es. 333 123 4567',
+          label: tr('Telefono emergenza', 'Emergency phone'),
+          hintText: tr('Es. 333 123 4567', 'E.g. 333 123 4567'),
           maxLength: FieldLimits.phone,
           errorText: ctx.errors['contattoEmergenzaTelefono'],
           keyboardType: TextInputType.phone,
@@ -2073,8 +2161,8 @@ class MinorSafetyCard extends StatelessWidget
         ),
         AppTextField(
           controller: ctx.form.allergiesCtrl,
-          label: 'Allergie / Intolleranze / Condizioni di salute',
-          hintText: 'Es. Polline',
+          label: tr('Allergie / Intolleranze / Condizioni di salute', 'Allergies / Intolerances / Health conditions'),
+          hintText: tr('Es. Polline', 'E.g. Pollen'),
           maxLength: FieldLimits.notes,
           minLines: 1,
           maxLines: 3,
@@ -2083,8 +2171,8 @@ class MinorSafetyCard extends StatelessWidget
         ),
         AppTextField(
           controller: ctx.form.medicationsCtrl,
-          label: 'Farmaci / Altre indicazioni',
-          hintText: 'Es. Ventolin',
+          label: tr('Farmaci / Altre indicazioni', 'Medicines / Other instructions'),
+          hintText: tr('Es. Ventolin', 'E.g. Ventolin'),
           maxLength: FieldLimits.notes,
           minLines: 1,
           maxLines: 3,

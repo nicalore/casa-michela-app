@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, IdentityContext, require_role
+from app.core.i18n import tr
 from app.models.administrator_note import AdministratorNote
 from app.schemas.student_note import StudentNoteResponse
 from app.services import push
@@ -22,7 +23,10 @@ from app.services.student_notes import (
     teacher_or_404,
 )
 
-_FORBIDDEN_ERROR: Final[str] = "Non hai accesso ai dati di questa persona."
+_FORBIDDEN_ERROR: Final[tuple[str, str]] = (
+    "Non hai accesso ai dati di questa persona.",
+    "You don't have access to this person's data.",
+)
 
 # Administrators only, and any of them may change or delete any note.
 router = APIRouter(prefix="/people/{tax_code}/administrator-notes", tags=["people"])
@@ -96,7 +100,7 @@ async def get_administrator_note_image(
     if not (identity.is_admin or identity.tax_code == code):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_FORBIDDEN_ERROR,
+            detail=tr(*_FORBIDDEN_ERROR),
         )
 
     image = await administrator_note_image(

@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../association/models/ministry_subject_item.dart';
 
@@ -16,8 +17,8 @@ String bookingTitle(BookingSummaryItem booking, List<MinistrySubjectItem> minist
         ministrySubjects,
         booking.ministrySubjectId,
       ),
-    BookingRequestKind.associationSubject => booking.associationSubject?.name ?? 'Disciplina',
-    BookingRequestKind.service => booking.serviceName ?? 'Servizio',
+    BookingRequestKind.associationSubject => booking.associationSubject?.name ?? tr('Disciplina', 'Discipline'),
+    BookingRequestKind.service => booking.serviceName ?? tr('Servizio', 'Service'),
   };
 }
 
@@ -91,7 +92,7 @@ String _ministrySubjectName(List<MinistrySubjectItem> subjects, int? id)
     }
   }
 
-  return 'Materia';
+  return tr('Materia', 'Subject');
 }
 
 class BookingSummaryItem

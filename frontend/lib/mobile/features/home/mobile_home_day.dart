@@ -1,10 +1,13 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 
 String homeLineRange(int startMinutes, int endMinutes)
 {
-  return 'dalle ${formatTimeOfDayShort(timeOfDayFromMinutes(startMinutes))} '
-      'alle ${formatTimeOfDayShort(timeOfDayFromMinutes(endMinutes))}';
+  final String start = formatTimeOfDayShort(timeOfDayFromMinutes(startMinutes));
+  final String end = formatTimeOfDayShort(timeOfDayFromMinutes(endMinutes));
+
+  return tr('dalle $start alle $end', 'from $start to $end');
 }
 
 // Minutes from midnight, one mode.

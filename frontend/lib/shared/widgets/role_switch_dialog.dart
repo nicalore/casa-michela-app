@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/role_label_mapper.dart';
 import '../../routing/app_router.dart';
@@ -28,7 +29,9 @@ const Map<String, IconData> _roleIcons = <String, IconData>{
 
 IconData roleIconFor(String role) => _roleIcons[role] ?? Icons.badge_outlined;
 
-String signedInAsLabel({required bool feminine}) => feminine ? 'Sei autenticata come' : 'Sei autenticato come';
+String signedInAsLabel({required bool feminine}) => feminine
+    ? tr('Sei autenticata come', 'Signed in as')
+    : tr('Sei autenticato come', 'Signed in as');
 
 Future<void> showRoleSwitchDialog({
   required BuildContext context,
@@ -129,7 +132,7 @@ class _RoleRowState extends State<_RoleRow>
     if (!canSwitchTo(widget.role))
     {
       return AppTooltip(
-        message: 'In arrivo',
+        message: tr('In arrivo', 'Coming soon'),
         child: _buildRow(
           border: AppTheme.trialLine,
           foreground: AppTheme.trialMutedText,

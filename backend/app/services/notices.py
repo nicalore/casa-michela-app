@@ -21,6 +21,7 @@ from app.schemas.notice import (
     NoticeResponse,
     NoticeSummaryResponse,
 )
+from app.services.bilingual import Bilingual
 from app.services.notice_markdown import image_keys, preview
 from app.services.notice_recipients import notices_excluding, reached_roles
 
@@ -30,12 +31,30 @@ MAX_FILES_BYTES: Final[int] = 15 * 1024 * 1024
 # Lines on the home card, pinned ones included.
 HOME_LIMIT: Final[int] = 5
 
-_NOTICE_NOT_FOUND_ERROR: Final[str] = "Comunicazione non trovata"
-_FILE_NOT_FOUND_ERROR: Final[str] = "File non trovato"
-_NOT_THE_AUTHOR_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
-_TOO_LARGE_ERROR: Final[str] = "Gli allegati superano i 15 MB totali."
-_NOT_AN_IMAGE_ERROR: Final[str] = "Nel messaggio si possono inserire solo immagini."
-_MISSING_IMAGE_ERROR: Final[str] = "Un'immagine del messaggio non è stata caricata."
+_NOTICE_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Comunicazione non trovata",
+    "Announcement not found",
+)
+_FILE_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "File non trovato",
+    "File not found",
+)
+_NOT_THE_AUTHOR_ERROR: Final[Bilingual] = Bilingual(
+    "Non hai i permessi per accedere a questa risorsa",
+    "You don't have permission to access this resource",
+)
+_TOO_LARGE_ERROR: Final[Bilingual] = Bilingual(
+    "Gli allegati superano i 15 MB totali.",
+    "The attachments exceed 15 MB in total.",
+)
+_NOT_AN_IMAGE_ERROR: Final[Bilingual] = Bilingual(
+    "Nel messaggio si possono inserire solo immagini.",
+    "Only images can be placed in the message.",
+)
+_MISSING_IMAGE_ERROR: Final[Bilingual] = Bilingual(
+    "Un'immagine del messaggio non è stata caricata.",
+    "An image in the message was not uploaded.",
+)
 
 _DEFAULT_CONTENT_TYPE: Final[str] = "application/octet-stream"
 _DEFAULT_FILE_NAME: Final[str] = "allegato"
@@ -76,7 +95,7 @@ def _content_type(name: str, declared: str | None) -> str:
 async def read_uploads(
     files: Sequence[UploadFile] | None,
     *,
-    too_large: str = _TOO_LARGE_ERROR,
+    too_large: str = _TOO_LARGE_ERROR.for_request(),
 ) -> list[Upload]:
     uploads: list[Upload] = []
     total = 0
@@ -141,13 +160,13 @@ def settle_images[F](
         if upload is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_MISSING_IMAGE_ERROR,
+                detail=_MISSING_IMAGE_ERROR.for_request(),
             )
 
         if not upload.content_type.startswith("image/"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_NOT_AN_IMAGE_ERROR,
+                detail=_NOT_AN_IMAGE_ERROR.for_request(),
             )
 
         add.append(stored(upload, key))
@@ -163,7 +182,7 @@ def check_total_size(files: Sequence[NoticeFile]) -> None:
     if sum(file.size for file in files) > MAX_FILES_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=_TOO_LARGE_ERROR,
+            detail=_TOO_LARGE_ERROR.for_request(),
         )
 
 
@@ -188,7 +207,7 @@ async def load_notice(
     if notice is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_NOTICE_NOT_FOUND_ERROR,
+            detail=_NOTICE_NOT_FOUND_ERROR.for_request(),
         )
 
     return notice
@@ -206,7 +225,7 @@ async def own_notice(
     if notice.author_tax_code != author_tax_code:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_NOT_THE_AUTHOR_ERROR,
+            detail=_NOT_THE_AUTHOR_ERROR.for_request(),
         )
 
     return notice
@@ -235,7 +254,7 @@ async def notice_file(
     if file is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_FILE_NOT_FOUND_ERROR,
+            detail=_FILE_NOT_FOUND_ERROR.for_request(),
         )
 
     return file
@@ -378,7 +397,7 @@ async def readable_notice(
     if not reached_roles(identity.roles, notice.recipients, excluded=bool(excluded)):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_NOTICE_NOT_FOUND_ERROR,
+            detail=_NOTICE_NOT_FOUND_ERROR.for_request(),
         )
 
     return notice

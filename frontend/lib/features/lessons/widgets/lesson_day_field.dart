@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
@@ -59,7 +60,7 @@ class LessonDayField extends StatelessWidget
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: const AppFieldLabel('Giornate'),
+          child: AppFieldLabel(tr('Giornate', 'Days')),
         ),
         Wrap(
           spacing: 10,

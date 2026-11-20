@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
@@ -204,6 +205,8 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     ];
   }
 
+  bool get _femaleTeacher => _selectedTeacher?.gender == 'F';
+
   PersonItem? get _selectedTeacher
   {
     final taxCode = _selectedTeacherTaxCode;
@@ -309,12 +312,15 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       return availabilityDayRefusal(day, shut: shut, closed: closed);
     }
 
-    final when = formatAvailableDayLabel(day).toLowerCase();
+    final when = formatAvailableDayInSentence(day);
 
     final teacher = _selectedTeacher;
-    final name = teacher == null ? 'Il docente' : '${teacher.firstName} ${teacher.lastName}';
+    final name = teacher == null ? tr('Il docente', 'The teacher') : '${teacher.firstName} ${teacher.lastName}';
 
-    return '$name ha già una disponibilità $when: aprila per cambiarne gli orari.';
+    return tr(
+      '$name ha già una disponibilità $when: aprila per cambiarne gli orari.',
+      '$name already has availability on $when: open it to change its times.',
+    );
   }
 
   @override
@@ -446,7 +452,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
     if (_selectedTeacherTaxCode == null)
     {
-      return 'Scegli il docente per andare avanti.';
+      return tr('Scegli il docente per andare avanti.', 'Choose the teacher to continue.');
     }
 
     if (_days.isEmpty)
@@ -597,13 +603,13 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
     if (teacherTaxCode == null)
     {
-      CustomSnackBar.show(context: context, message: 'Seleziona un docente.', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Seleziona un docente.', 'Select a teacher.'), isError: true);
       return;
     }
 
     if (_days.isEmpty)
     {
-      CustomSnackBar.show(context: context, message: 'Seleziona almeno una giornata.', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Seleziona almeno una giornata.', 'Select at least one day.'), isError: true);
       return;
     }
 
@@ -646,13 +652,17 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
             continue;
           }
 
-          final when = '${modeLabel(mode).toLowerCase()} ${formatAvailableDayLabel(day).toLowerCase()}';
+          final when = '${modeLabel(mode).toLowerCase()} ${formatAvailableDayInSentence(day)}';
+          final String english = '${mode == kOnlineMode ? 'online' : 'in-person'} availability on ${formatAvailableDayInSentence(day)}';
 
           CustomSnackBar.show(
             context: context,
             message: _isOwn
                 ? availabilityTakenWarning(day, mode)
-                : 'Il docente ha già una disponibilità $when: aprila per cambiarne gli orari.',
+                : tr(
+                    '${_femaleTeacher ? 'La docente' : 'Il docente'} ha già una disponibilità $when: aprila per cambiarne gli orari.',
+                    'The teacher already has $english: open it to change its times.',
+                  ),
             isError: true,
           );
 
@@ -779,7 +789,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
     if (group == null)
     {
-      return 'Disponibilità';
+      return tr('Disponibilità', 'Availability');
     }
 
     final String when = formatAvailableDayLabel(group.date);
@@ -813,8 +823,8 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AutocompleteField<String>(
-          label: 'Docente',
-          hint: 'Cerca docente...',
+          label: tr('Docente', 'Teacher'),
+          hint: tr('Cerca docente...', 'Search teachers...'),
           icon: null,
           options: teacherOptions,
           value: _selectedTeacherTaxCode,
@@ -862,7 +872,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     return AppDialogPill(
       expand: true,
       child: WizardFact(
-        label: group.days.length == 1 ? 'Giornata' : 'Giornate',
+        label: group.days.length == 1 ? tr('Giornata', 'Day') : tr('Giornate', 'Days'),
         value: group.days.map(formatAvailableDayLabel).join(', '),
         maxLines: null,
       ),
@@ -876,9 +886,12 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       return _isOwn
           ? kOwnDaysGuide
           : (
-              question: 'Per chi e quando?',
-              hint: 'Indica il docente per cui stai creando la disponibilità e i giorni. '
-                  'Puoi indicare anche più giornate.',
+              question: tr('Per chi e quando?', 'For whom and when?'),
+              hint: tr(
+                'Indica il docente per cui stai creando la disponibilità e i giorni. '
+                    'Puoi indicare anche più giornate.',
+                "Choose the teacher you're creating availability for and the days. You can choose more than one.",
+              ),
             );
     }
 
@@ -887,17 +900,23 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       return _isOwn
           ? kOwnPresenceGuide
           : (
-              question: 'Quando è disponibile in presenza?',
-              hint: 'Indica gli orari in cui il docente può essere presente in Associazione '
-                  'per le lezioni.',
+              question: tr('Quando è disponibile in presenza?', 'When are they available in person?'),
+              hint: tr(
+                'Indica gli orari in cui ${_femaleTeacher ? 'la docente' : 'il docente'} può essere presente in Associazione '
+                    'per le lezioni.',
+                'Enter the times when the teacher can be at the Association for lessons.',
+              ),
             );
     }
 
     return _isOwn
         ? kOwnOnlineGuide
         : (
-            question: 'Quando è disponibile online?',
-            hint: 'Indica gli orari in cui il docente può effettuare lezioni a distanza.',
+            question: tr('Quando è disponibile online?', 'When are they available online?'),
+            hint: tr(
+              'Indica gli orari in cui ${_femaleTeacher ? 'la docente' : 'il docente'} può effettuare lezioni a distanza.',
+              'Enter the times when the teacher can give remote lessons.',
+            ),
           );
   }
 
@@ -916,7 +935,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
         DesktopTourTarget(
           id: _isOwn ? kTourWizardSave : null,
           child: AppGradientButton(
-            label: _isEditing ? 'SALVA' : 'CREA',
+            label: _isEditing ? tr('SALVA', 'SAVE') : tr('CREA', 'CREATE'),
             icon: Icons.check_rounded,
             busy: _isSaving,
             height: _dialogButtonHeight,

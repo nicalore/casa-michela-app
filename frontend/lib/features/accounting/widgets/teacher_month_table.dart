@@ -4,6 +4,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
@@ -522,7 +523,7 @@ List<double> _needs(BuildContext context, List<TeacherMonthRow> rows, _Fit fit)
 
   cells[0] = math.min(name, _nameMost) + _nameInset + 8 + 2;
 
-  const List<String> heads = [
+  final List<String> heads = [
     kTotalColumn, kPresenceColumn, kOnlineColumn,
     kTotalColumn, kVolunteerColumn, kPaidColumn,
     kGrossColumn, kWithholdingColumn, kNetColumn, kReceiptColumn,
@@ -1208,6 +1209,11 @@ String pendingBandLabel(PendingBand band)
 {
   final String day = formatWeekdayColumnLabel(band.date);
 
+  if (isEnglish)
+  {
+    return '$day ${bandLabel(band.band).toLowerCase()}';
+  }
+
   return '${day[0].toLowerCase()}${day.substring(1)} ${bandLabel(band.band).toLowerCase()}';
 }
 
@@ -1238,13 +1244,13 @@ class PendingBandsNote extends StatelessWidget
     final List<PendingBand> named = _named;
     final int others = pending.length - named.length;
 
-    final List<InlineSpan> spans = [const TextSpan(text: kStillToConfirm)];
+    final List<InlineSpan> spans = [TextSpan(text: kStillToConfirm)];
 
     for (final (index, band) in named.indexed)
     {
       if (index > 0)
       {
-        spans.add(TextSpan(text: index == named.length - 1 && others == 0 ? ' e ' : ', '));
+        spans.add(TextSpan(text: index == named.length - 1 && others == 0 ? tr(' e ', ' and ') : ', '));
       }
 
       // The sentence scales what sits in it already: the link must not scale again.

@@ -14,10 +14,20 @@ from app.repositories.calendar_publication_repository import (
     CalendarPublicationRepository,
 )
 from app.schemas.student_note import StudentNoteWrite, TeacherNoteResponse
+from app.services.bilingual import Bilingual
 
-_LESSON_NOT_FOUND_ERROR: Final[str] = "Lezione non trovata"
-_BOOKING_NOT_FOUND_ERROR: Final[str] = "Prenotazione non trovata"
-_NOT_THEIR_LESSON_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
+_LESSON_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Lezione non trovata",
+    "Lesson not found",
+)
+_BOOKING_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Prenotazione non trovata",
+    "Booking not found",
+)
+_NOT_THEIR_LESSON_ERROR: Final[Bilingual] = Bilingual(
+    "Non hai i permessi per accedere a questa risorsa",
+    "You don't have permission to access this resource",
+)
 
 # The frontend's fallback for a ministry subject it cannot name.
 _UNNAMED_SUBJECT: Final[str] = "Materia"
@@ -74,13 +84,13 @@ async def write_teacher_note(
     if lesson is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_LESSON_NOT_FOUND_ERROR,
+            detail=_LESSON_NOT_FOUND_ERROR.for_request(),
         )
 
     if lesson.availability.teacher_tax_code != teacher_tax_code:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_NOT_THEIR_LESSON_ERROR,
+            detail=_NOT_THEIR_LESSON_ERROR.for_request(),
         )
 
     # Unpublished, the lesson is not shown to its teacher yet.
@@ -89,7 +99,7 @@ async def write_teacher_note(
     if not await publications.is_published(lesson.date, lesson.band):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_LESSON_NOT_FOUND_ERROR,
+            detail=_LESSON_NOT_FOUND_ERROR.for_request(),
         )
 
     bookings = [link.booking for link in lesson.lesson_bookings]
@@ -97,7 +107,7 @@ async def write_teacher_note(
     if not bookings:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_BOOKING_NOT_FOUND_ERROR,
+            detail=_BOOKING_NOT_FOUND_ERROR.for_request(),
         )
 
     # The note is about the whole lesson: every subject in it, each named once.

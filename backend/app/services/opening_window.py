@@ -5,10 +5,15 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.i18n import request_language
 from app.core.labels import opening_mode_label
 from app.models.opening_day import OpeningDay
+from app.services.bilingual import Bilingual
 
-_CLOSED_ERROR: Final[str] = "L'associazione non è aperta {mode} in quel giorno."
+_CLOSED_ERROR: Final[Bilingual] = Bilingual(
+    "L'associazione non è aperta {mode} in quel giorno.",
+    "The association is not open {mode} on that day.",
+)
 
 
 def _format_time(value: time) -> str:
@@ -44,7 +49,9 @@ async def assert_within_opening(
     if not openings:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_CLOSED_ERROR.format(mode=opening_mode_label(mode)),
+            detail=_CLOSED_ERROR.for_request().format(
+                mode=opening_mode_label(mode, request_language()),
+            ),
         )
 
     for opens, closes in openings:
@@ -58,7 +65,7 @@ async def assert_within_opening(
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=outside_opening_error.format(
-            mode=opening_mode_label(mode),
+            mode=opening_mode_label(mode, request_language()),
             windows=windows,
         ),
     )

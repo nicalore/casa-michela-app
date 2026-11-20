@@ -164,7 +164,7 @@ class _ReportDetailsState extends State<_ReportDetails>
     {
       return [
         const SizedBox(height: 14),
-        const AppEyebrow(kCorrectionsHeading),
+        AppEyebrow(kCorrectionsHeading),
         const SizedBox(height: 10),
         for (final (index, correction) in _report.corrections.indexed)
           _row(correction.field, correction.value, first: index == 0),

@@ -263,7 +263,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
         return;
       }
 
-      CustomSnackBar.show(context: context, message: kPupilConfirmed);
+      CustomSnackBar.show(context: context, message: pupilConfirmed(feminine: saved.gender == 'F'));
       await _refresh();
     }
     catch (error)
@@ -307,9 +307,9 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     {
       return [
         SizedBox(height: gap + 8),
-        const PageHeading(kHistoryHeading),
+        PageHeading(kHistoryHeading),
         const SizedBox(height: 12),
-        const Center(child: AppEmptyCard(icon: Icons.receipt_long_rounded, message: kNoPayments)),
+        Center(child: AppEmptyCard(icon: Icons.receipt_long_rounded, message: kNoPayments)),
       ];
     }
 
@@ -357,7 +357,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
       child: tabActionButton(
         label: kGiveTariffLabel,
         icon: Icons.add_rounded,
-        disabledReason: payments.openingPending ? kPendingReason : null,
+        disabledReason: payments.openingPending ? pendingReason(feminine: widget.person.gender == 'F') : null,
         onPressed: () => _giveTariff(payments),
       ),
     );
@@ -437,7 +437,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
 
     // One paid ahead at a time: the buttons wait for it to start. Nothing before the set-up.
     final String? off = payments.openingPending
-        ? kPendingReason
+        ? pendingReason(feminine: widget.person.gender == 'F')
         : switch (payments.queued)
         {
           QueuedPayment.package => kPackageQueuedReason,

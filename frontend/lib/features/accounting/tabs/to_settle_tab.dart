@@ -225,7 +225,7 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
           Text.rich(
             TextSpan(
               children: [
-                const TextSpan(text: '$kOwedInAll  '),
+                TextSpan(text: '$kOwedInAll  '),
                 TextSpan(
                   text: formatAmount(rows.fold(0, (sum, row) => sum + row.totalCents)),
                   style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: AppTheme.modifiedAccent),

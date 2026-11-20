@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import distinct, func, select
 
 from app.models.room import Room
 from app.models.teacher_room_assignment import TeacherRoomAssignment
@@ -45,11 +45,11 @@ class RoomRepository(WritableRepository[Room]):
 
         return await self.session.scalar(stmt)
 
-    async def count_assignments(self, room_id: int) -> int:
+    # A teacher's day may hold several stretches in the room: days, not rows.
+    async def count_assigned_days(self, room_id: int) -> int:
         return (
             await self.session.scalar(
-                select(func.count())
-                .select_from(TeacherRoomAssignment)
+                select(func.count(distinct(TeacherRoomAssignment.date)))
                 .where(TeacherRoomAssignment.room_id == room_id),
             )
             or 0

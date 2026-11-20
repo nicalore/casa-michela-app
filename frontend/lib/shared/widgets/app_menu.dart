@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_tooltip.dart';
@@ -184,7 +185,7 @@ class _AppMenuItemState extends State<AppMenuItem>
     {
       return AppTooltip(
         waitDuration: const Duration(milliseconds: 400),
-        message: 'In arrivo',
+        message: tr('In arrivo', 'Coming soon'),
         child: entry,
       );
     }

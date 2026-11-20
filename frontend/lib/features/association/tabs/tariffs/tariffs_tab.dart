@@ -54,7 +54,7 @@ TextStyle _quietStyle(bool dense) => GoogleFonts.plusJakartaSans(
     );
 
 // The kinds in the order of the columns.
-const List<(String, String)> _columns = [
+List<(String, String)> get _columns => [
   ('HOURLY', kHourlyColumn),
   ('PACKAGE', kPackageColumn),
   ('MONTHLY', kMonthlyColumn),

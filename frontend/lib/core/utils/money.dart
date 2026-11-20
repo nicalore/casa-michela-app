@@ -1,8 +1,10 @@
+import '../language/app_language.dart';
+
 // Amounts in cents: doubles round in binary and the net (a fifth off) must land on the cent.
 
 const int _centsPerUnit = 100;
 
-// Accepts '1200', '1200,50', '1200.50', '1.200', '1.200,50'; null when not an amount, empty text included.
+// Accepts '1200', '1200,50', '1200.50', '1.200', '1.200,50', '1,200.50'; null when not an amount, empty text included.
 int? parseAmountCents(String text)
 {
   final String cleaned = text.trim().replaceAll(' ', '').replaceAll('€', '');
@@ -14,8 +16,9 @@ int? parseAmountCents(String text)
 
   final bool plain = RegExp(r'^\d+([.,]\d{1,2})?$').hasMatch(cleaned);
   final bool grouped = RegExp(r'^\d{1,3}(\.\d{3})+(,\d{1,2})?$').hasMatch(cleaned);
+  final bool groupedEnglish = RegExp(r'^\d{1,3}(,\d{3})+(\.\d{1,2})?$').hasMatch(cleaned);
 
-  if (!plain && !grouped)
+  if (!plain && !grouped && !groupedEnglish)
   {
     return null;
   }
@@ -23,7 +26,7 @@ int? parseAmountCents(String text)
   // Grouped figures keep their dots for thousands: only a comma is their decimal mark.
   final int comma = cleaned.lastIndexOf(',');
   final int dot = cleaned.lastIndexOf('.');
-  final int decimal = grouped || comma > dot ? comma : dot;
+  final int decimal = groupedEnglish ? dot : (grouped || comma > dot ? comma : dot);
 
   final String units =
       (decimal < 0 ? cleaned : cleaned.substring(0, decimal)).replaceAll(RegExp(r'[.,]'), '');
@@ -48,16 +51,16 @@ String formatAmount(int cents)
   {
     if (i > 0 && (units.length - i) % 3 == 0)
     {
-      grouped.write('.');
+      grouped.write(isEnglish ? ',' : '.');
     }
 
     grouped.write(units[i]);
   }
 
-  return '€ $grouped,$fraction';
+  return isEnglish ? '€$grouped.$fraction' : '€ $grouped,$fraction';
 }
 
-// "−€ 139,00" below zero, as a balance can be.
+// "−€ 139,00" below zero, as a balance can be; "−€139.00" in English.
 String formatSignedAmount(int cents) => cents < 0 ? '\u2212${formatAmount(-cents)}' : formatAmount(cents);
 
 String? formatAmountText(String? raw)

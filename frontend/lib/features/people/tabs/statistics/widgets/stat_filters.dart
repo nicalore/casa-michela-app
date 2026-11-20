@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/language/app_language.dart';
 import '../../../../../shared/widgets/app_filter_pill.dart';
 import '../../../../../shared/widgets/filter_menu.dart';
 import '../../../../lessons/utils/opening_window.dart';
@@ -51,8 +52,8 @@ AppFilterPill<String> trendResolutionPill({
 })
 {
   return AppFilterPill<String>.setting(
-    prefix: 'Vista',
-    hint: 'Vista',
+    prefix: tr('Vista', 'View'),
+    hint: tr('Vista', 'View'),
     icon: Icons.calendar_view_month_rounded,
     value: value,
     options: trendResolutionOptions(),
@@ -68,8 +69,8 @@ AppFilterPill<int> startYearPill({
 })
 {
   return AppFilterPill<int>.setting(
-    prefix: 'Da anno',
-    hint: 'Da anno',
+    prefix: tr('Da anno', 'From year'),
+    hint: tr('Da anno', 'From year'),
     icon: Icons.first_page_rounded,
     value: value,
     options: yearOptions(),
@@ -85,8 +86,8 @@ AppFilterPill<int> endYearPill({
 })
 {
   return AppFilterPill<int>.setting(
-    prefix: 'A anno',
-    hint: 'A anno',
+    prefix: tr('A anno', 'To year'),
+    hint: tr('A anno', 'To year'),
     icon: Icons.last_page_rounded,
     value: value,
     options: yearOptions(),
@@ -102,8 +103,8 @@ AppFilterPill<int> yearPill({
 })
 {
   return AppFilterPill<int>.setting(
-    prefix: 'Anno',
-    hint: 'Anno',
+    prefix: tr('Anno', 'Year'),
+    hint: tr('Anno', 'Year'),
     icon: Icons.date_range_rounded,
     value: value,
     options: yearOptions(),
@@ -121,8 +122,8 @@ AppFilterPill<int> monthPill({
 })
 {
   return AppFilterPill<int>.setting(
-    prefix: 'Mese',
-    hint: 'Mese',
+    prefix: tr('Mese', 'Month'),
+    hint: tr('Mese', 'Month'),
     icon: Icons.today_rounded,
     value: value,
     options: monthOptions(year),
@@ -138,8 +139,8 @@ AppFilterPill<String> statsPeriodPill({
 })
 {
   return AppFilterPill<String>.setting(
-    prefix: 'Periodo',
-    hint: 'Periodo',
+    prefix: tr('Periodo', 'Period'),
+    hint: tr('Periodo', 'Period'),
     icon: Icons.event_note_rounded,
     value: value,
     options: statsPeriodOptions(),
@@ -156,8 +157,8 @@ AppFilterPill<String> statsModePill({
 })
 {
   return AppFilterPill<String>.setting(
-    prefix: 'Modalità',
-    hint: 'Modalità',
+    prefix: tr('Modalità', 'Mode'),
+    hint: tr('Modalità', 'Mode'),
     icon: Icons.devices_outlined,
     value: value,
     options: [
@@ -177,8 +178,8 @@ AppFilterPill<RequestedSubjectKind> requestedKindPill({
 })
 {
   return AppFilterPill<RequestedSubjectKind>.setting(
-    prefix: 'Classifica',
-    hint: 'Classifica',
+    prefix: tr('Classifica', 'Ranking'),
+    hint: tr('Classifica', 'Ranking'),
     icon: Icons.leaderboard_rounded,
     value: value,
     options: [

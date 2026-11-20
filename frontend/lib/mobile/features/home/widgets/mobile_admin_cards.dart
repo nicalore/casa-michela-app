@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/time_bucket.dart';
@@ -201,8 +202,8 @@ class MobileAdminBandCard extends StatelessWidget
         if (status != null && status.isPublished) ...[
           const SizedBox(width: 10),
           status.isDraft
-              ? const MobilePill('In bozza', tone: MobilePillTone.muted)
-              : const MobilePill('Pubblicato'),
+              ? MobilePill(tr('In bozza', 'Draft'), tone: MobilePillTone.muted)
+              : MobilePill(tr('Pubblicato', 'Published')),
         ],
       ],
     );

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
+from app.core.i18n import tr
 from app.core.time_band import TimeBandEnum
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
 from app.models.person import Person
@@ -119,4 +120,9 @@ async def readmit_teacher(
         teacher_tax_code,
     )
 
-    return {"detail": "Docente riaggiunto al calendario"}
+    return {
+        "detail": tr(
+            "Docente riaggiunto al calendario",
+            "Teacher added back to the calendar",
+        )
+    }

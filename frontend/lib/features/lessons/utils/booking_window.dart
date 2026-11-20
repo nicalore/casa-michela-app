@@ -1,31 +1,33 @@
+import '../../../core/language/app_language.dart';
+
 export '../../../core/utils/week_range.dart' show isSameDate;
 
 // Every Friday 20:00 the next Mon-Sun week unlocks. Mirrors backend/app/core/booking_window.py.
 // Days step via DateTime(y, m, d + n), never Duration: Duration math skews across DST.
 
-const List<String> _weekdayNames = [
-  'Lunedì',
-  'Martedì',
-  'Mercoledì',
-  'Giovedì',
-  'Venerdì',
-  'Sabato',
-  'Domenica',
+List<String> get _weekdayNames => [
+  tr('Lunedì', 'Monday'),
+  tr('Martedì', 'Tuesday'),
+  tr('Mercoledì', 'Wednesday'),
+  tr('Giovedì', 'Thursday'),
+  tr('Venerdì', 'Friday'),
+  tr('Sabato', 'Saturday'),
+  tr('Domenica', 'Sunday'),
 ];
 
-const List<String> _monthNames = [
-  'gennaio',
-  'febbraio',
-  'marzo',
-  'aprile',
-  'maggio',
-  'giugno',
-  'luglio',
-  'agosto',
-  'settembre',
-  'ottobre',
-  'novembre',
-  'dicembre',
+List<String> get _monthNames => [
+  tr('gennaio', 'January'),
+  tr('febbraio', 'February'),
+  tr('marzo', 'March'),
+  tr('aprile', 'April'),
+  tr('maggio', 'May'),
+  tr('giugno', 'June'),
+  tr('luglio', 'July'),
+  tr('agosto', 'August'),
+  tr('settembre', 'September'),
+  tr('ottobre', 'October'),
+  tr('novembre', 'November'),
+  tr('dicembre', 'December'),
 ];
 
 const int _unlockHour = 20;
@@ -92,6 +94,14 @@ String formatAvailableDayLabel(DateTime date)
   final month = _monthNames[date.month - 1];
 
   return '$weekday ${date.day} $month';
+}
+
+// Inside a sentence: "sabato 25 luglio", but "Saturday 25 July" in English.
+String formatAvailableDayInSentence(DateTime date)
+{
+  final String label = formatAvailableDayLabel(date);
+
+  return isEnglish ? label : label.toLowerCase();
 }
 
 // E.g. "Lun 3 ago".

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colours.dart';
 import '../../../../features/auth/models/me_response.dart';
@@ -31,7 +32,7 @@ class MobileOwnFace extends StatelessWidget
 
     return Semantics(
       button: true,
-      label: 'Foto profilo',
+      label: tr('Foto profilo', 'Profile photo'),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: busy ? null : onTap,
@@ -103,7 +104,7 @@ Future<MobilePhotoAction?> showMobilePhotoSheet({
   return showMobileSheet<MobilePhotoAction>(
     context: context,
     builder: (context) => MobileSheet(
-      eyebrow: 'Foto profilo',
+      eyebrow: tr('Foto profilo', 'Profile photo'),
       title: user.fullName,
       body: [
         const SizedBox(height: 22),
@@ -118,20 +119,20 @@ Future<MobilePhotoAction?> showMobilePhotoSheet({
         const SizedBox(height: 28),
         _ActionRow(
           icon: Icons.photo_library_rounded,
-          label: 'Scegli dalla galleria',
+          label: tr('Scegli dalla galleria', 'Choose from gallery'),
           onTap: () => finishMobileSheet(context, MobilePhotoAction.gallery),
         ),
         const SizedBox(height: 10),
         _ActionRow(
           icon: Icons.photo_camera_rounded,
-          label: 'Scatta una foto',
+          label: tr('Scatta una foto', 'Take a photo'),
           onTap: () => finishMobileSheet(context, MobilePhotoAction.camera),
         ),
         if (hasImage) ...[
           const SizedBox(height: 10),
           _ActionRow(
             icon: Icons.delete_outline_rounded,
-            label: 'Rimuovi la foto',
+            label: tr('Rimuovi la foto', 'Remove the photo'),
             danger: true,
             onTap: () async
             {

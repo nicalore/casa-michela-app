@@ -1,3 +1,4 @@
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/theme_choice.dart';
 import '../../../core/theme/theme_colours.dart';
 
@@ -37,6 +38,9 @@ class MeResponse
 
   // Light, dark or the device's own, chosen like the colours.
   final ThemeChoice themeChoice;
+
+  // Chosen like the colours; null until the account picks one, so the device's own stays.
+  final AppLanguage? language;
 
   // The kinds of report they receive (IT managers, the president); empty for the rest.
   final List<String> reportKinds;
@@ -85,6 +89,7 @@ class MeResponse
     this.boardRole,
     this.colourTheme = ColourTheme.casaMichela,
     this.themeChoice = ThemeChoice.light,
+    this.language,
     this.reportKinds = const [],
     this.managesUpdates = false,
     this.lastLogin,
@@ -122,6 +127,7 @@ class MeResponse
       boardRole: json['board_role'] as String?,
       colourTheme: ColourTheme.fromKey(json['colour_theme'] as String?),
       themeChoice: ThemeChoice.fromKey(json['theme_mode'] as String?),
+      language: AppLanguage.fromKey(json['language'] as String?),
       reportKinds: List<String>.from(json['report_kinds'] ?? const []),
       managesUpdates: json['manages_updates'] ?? false,
       // The server sends UTC; convert to local or it reads hours behind.

@@ -359,7 +359,7 @@ class _StatsBody extends StatelessWidget
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const StatSectionTitle(kFlowsChart),
+                StatSectionTitle(kFlowsChart),
                 const SizedBox(height: 10),
                 TrendLegend(
                   series: [
@@ -375,7 +375,7 @@ class _StatsBody extends StatelessWidget
           ),
           _part(
             context,
-            const StatSectionTitle(kBalanceChart),
+            StatSectionTitle(kBalanceChart),
             SizedBox(
               height: statChartHeight(context, _balanceHeight),
               child: MoneyChart.bars(
@@ -408,7 +408,7 @@ class _StatsBody extends StatelessWidget
           (kCostPerHour, perHour(stats.lessonCostCents)),
         ],
         width,
-        infos: const {kPayPerHour: kPayPerHourInfo, kCostPerHour: kCostPerHourInfo},
+        infos: {kPayPerHour: kPayPerHourInfo, kCostPerHour: kCostPerHourInfo},
       ),
     );
   }
@@ -501,7 +501,7 @@ class _StatsBody extends StatelessWidget
           if (stats.breakEven.isNotEmpty)
             _part(
               context,
-              const StatSectionTitle(kBreakEvenTitle),
+              StatSectionTitle(kBreakEvenTitle),
               _figures(context, [
                 for (final even in stats.breakEven)
                   (
@@ -512,7 +512,7 @@ class _StatsBody extends StatelessWidget
             ),
           _part(
             context,
-            const StatSectionTitle(kMarginChart),
+            StatSectionTitle(kMarginChart),
             pupils.isEmpty
                 ? _feesNote(kNoFeePupils)
                 : MarginBars(
@@ -607,7 +607,7 @@ class _StatsBody extends StatelessWidget
           ], width, small: true),
           _part(
             context,
-            const StatSectionTitle(kIncomeChart),
+            StatSectionTitle(kIncomeChart),
             _lineChart(context, _trend((month) => month.incomeCents), TrendScale.cents),
           ),
         ],
@@ -638,7 +638,7 @@ class _StatsBody extends StatelessWidget
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const StatSectionTitle(kKindsChart),
+          StatSectionTitle(kKindsChart),
           const SizedBox(height: 12),
           SizedBox(
             height: statChartHeight(context, _chartHeight),
@@ -682,7 +682,7 @@ class _StatsBody extends StatelessWidget
           ], width, small: true),
           _part(
             context,
-            const StatSectionTitle(kVolunteerChart),
+            StatSectionTitle(kVolunteerChart),
             _lineChart(context, _trend((month) => month.volunteerMinutes), TrendScale.minutes),
           ),
         ],

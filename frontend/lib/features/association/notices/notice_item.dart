@@ -1,22 +1,33 @@
 import 'dart:typed_data';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/json_parsing.dart';
 
 // Mirrors NoticeRoleEnum in backend/app/models/notice.py, in the composer's order.
 enum NoticeRole
 {
-  admin('ADMIN', 'Amministratori'),
-  teacher('TEACHER', 'Docenti'),
-  psychologist('PSYCHOLOGIST', 'Psicologi'),
-  parent('PARENT', 'Genitori'),
-  student('STUDENT', 'Studenti'),
-  courseParticipant('COURSE_PARTICIPANT', 'Corsisti'),
-  member('MEMBER', 'Associati');
+  admin('ADMIN'),
+  teacher('TEACHER'),
+  psychologist('PSYCHOLOGIST'),
+  parent('PARENT'),
+  student('STUDENT'),
+  courseParticipant('COURSE_PARTICIPANT'),
+  member('MEMBER');
 
   final String code;
-  final String plural;
 
-  const NoticeRole(this.code, this.plural);
+  const NoticeRole(this.code);
+
+  String get plural => switch (this)
+  {
+    NoticeRole.admin => tr('Amministratori', 'Administrators'),
+    NoticeRole.teacher => tr('Docenti', 'Teachers'),
+    NoticeRole.psychologist => tr('Psicologi', 'Psychologists'),
+    NoticeRole.parent => tr('Genitori', 'Parents'),
+    NoticeRole.student => tr('Studenti', 'Students'),
+    NoticeRole.courseParticipant => tr('Corsisti', 'Course participants'),
+    NoticeRole.member => tr('Associati', 'Members'),
+  };
 
   static NoticeRole? fromCode(String code)
   {

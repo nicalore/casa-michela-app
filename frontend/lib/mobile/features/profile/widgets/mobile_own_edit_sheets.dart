@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/field_limits.dart';
+import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/phone_number.dart';
 import '../../../../features/onboarding/widgets/contacts_card.dart' show ContactsDraft;
@@ -83,7 +84,7 @@ class _EditSheet extends StatelessWidget
         footer: Padding(
           padding: const EdgeInsets.only(top: 24),
           child: MobileGoldButton(
-            label: 'Salva',
+            label: tr('Salva', 'Save'),
             icon: Icons.check_rounded,
             busy: busy,
             onPressed: onSave,
@@ -147,7 +148,7 @@ class _ContactsSheetState extends State<_ContactsSheet>
 
       if (mounted)
       {
-        MobileNotice.show(context, 'Contatti aggiornati con successo!');
+        MobileNotice.show(context, tr('Contatti aggiornati con successo!', 'Contacts updated successfully!'));
         finishMobileSheet(context, true);
       }
     }
@@ -165,8 +166,8 @@ class _ContactsSheetState extends State<_ContactsSheet>
   Widget build(BuildContext context)
   {
     return _EditSheet(
-      eyebrow: 'Contatti',
-      title: 'Modifica contatti',
+      eyebrow: tr('Contatti', 'Contacts'),
+      title: tr('Modifica contatti', 'Edit contacts'),
       busy: _busy,
       onSave: _save,
       changed: () => _draft.differsFrom(widget.person),
@@ -175,7 +176,7 @@ class _ContactsSheetState extends State<_ContactsSheet>
           controller: _email,
           label: 'Email',
           icon: Icons.mail_rounded,
-          hintText: 'nome@esempio.it',
+          hintText: tr('nome@esempio.it', 'name@example.com'),
           keyboardType: TextInputType.emailAddress,
           maxLength: FieldLimits.email,
           textInputAction: TextInputAction.next,
@@ -183,7 +184,7 @@ class _ContactsSheetState extends State<_ContactsSheet>
         ),
         MobileTextField(
           controller: _phone,
-          label: 'Telefono',
+          label: tr('Telefono', 'Phone'),
           icon: Icons.call_rounded,
           hintText: '+39 …',
           keyboardType: TextInputType.phone,
@@ -251,7 +252,7 @@ class _StudiesSheetState extends State<_StudiesSheet>
 
       if (mounted)
       {
-        MobileNotice.show(context, 'Studi aggiornati con successo!');
+        MobileNotice.show(context, tr('Studi aggiornati con successo!', 'Studies updated successfully!'));
         finishMobileSheet(context, true);
       }
     }
@@ -269,9 +270,12 @@ class _StudiesSheetState extends State<_StudiesSheet>
   Widget build(BuildContext context)
   {
     return _EditSheet(
-      eyebrow: 'Studi',
-      title: 'Modifica studi',
-      subtitle: 'Queste informazioni saranno visibili a studenti e genitori.',
+      eyebrow: tr('Studi', 'Studies'),
+      title: tr('Modifica studi', 'Edit studies'),
+      subtitle: tr(
+        'Queste informazioni saranno visibili a studenti e genitori.',
+        'Students and parents will see this information.',
+      ),
       busy: _busy,
       onSave: _save,
       changed: () =>
@@ -280,9 +284,9 @@ class _StudiesSheetState extends State<_StudiesSheet>
       fields: [
         MobileTextField(
           controller: _school,
-          label: 'Studi scolastici',
+          label: tr('Studi scolastici', 'School studies'),
           icon: Icons.school_rounded,
-          hintText: 'Es. Liceo scientifico',
+          hintText: tr('Es. Liceo scientifico', 'E.g. Science high school'),
           maxLength: FieldLimits.education,
           textCapitalization: TextCapitalization.sentences,
           textInputAction: _atSchool ? TextInputAction.done : TextInputAction.next,
@@ -290,9 +294,9 @@ class _StudiesSheetState extends State<_StudiesSheet>
         if (!_atSchool)
           MobileTextField(
             controller: _university,
-            label: 'Studi universitari',
+            label: tr('Studi universitari', 'University studies'),
             icon: Icons.account_balance_rounded,
-            hintText: 'Es. Ingegneria informatica',
+            hintText: tr('Es. Ingegneria informatica', 'E.g. Computer engineering'),
             maxLength: FieldLimits.education,
             textCapitalization: TextCapitalization.sentences,
           ),

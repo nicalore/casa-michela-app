@@ -3,16 +3,26 @@ from typing import Final, Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.core.i18n import tr
 from app.models.member import PaymentMethodEnum
 from app.models.student_payment import HoursKindEnum
 from app.models.student_tariff import TariffKindEnum
 from app.models.study_program import EducationLevelEnum
 
-_PACKAGE_HOURS_ERROR: Final[str] = "Le ore si indicano solo per il pacchetto."
+_PACKAGE_HOURS_ERROR: Final[tuple[str, str]] = (
+    "Le ore si indicano solo per il pacchetto.",
+    "Hours apply only to the hours package.",
+)
 
-_OTHER_METHOD_ERROR: Final[str] = "La modalità si scrive solo per «Altro»."
+_OTHER_METHOD_ERROR: Final[tuple[str, str]] = (
+    "La modalità si scrive solo per «Altro».",
+    "The method is written only for “Other”.",
+)
 
-_HOURLY_PAID_ERROR: Final[str] = "La tariffa a ore non si paga all’iscrizione."
+_HOURLY_PAID_ERROR: Final[tuple[str, str]] = (
+    "La tariffa a ore non si paga all’iscrizione.",
+    "The hourly rate isn't paid at enrolment.",
+)
 
 _MAX_AMOUNT_CENTS: Final[int] = 10_000_000
 
@@ -22,7 +32,10 @@ _MAX_METHOD_LENGTH: Final[int] = 255
 
 _QUARTER_HOUR: Final[int] = 15
 
-_PAID_TOO_EARLY_ERROR: Final[str] = "La data del pagamento non è valida."
+_PAID_TOO_EARLY_ERROR: Final[tuple[str, str]] = (
+    "La data del pagamento non è valida.",
+    "The payment date is not valid.",
+)
 
 # The association's first day, as services.worked_hours.BEGINNING: no payment is
 # older, and a mistyped year lands before it.
@@ -37,7 +50,7 @@ class StudentTariffData(BaseModel):
     @model_validator(mode="after")
     def _hours_only_for_packages(self) -> Self:
         if (self.kind == TariffKindEnum.PACKAGE) != (self.package_hours is not None):
-            raise ValueError(_PACKAGE_HOURS_ERROR)
+            raise ValueError(tr(*_PACKAGE_HOURS_ERROR))
 
         return self
 
@@ -49,7 +62,7 @@ class WizardTariffData(StudentTariffData):
     @model_validator(mode="after")
     def _hourly_never_paid(self) -> Self:
         if self.paid and self.kind == TariffKindEnum.HOURLY:
-            raise ValueError(_HOURLY_PAID_ERROR)
+            raise ValueError(tr(*_HOURLY_PAID_ERROR))
 
         return self
 
@@ -68,14 +81,14 @@ class PaymentData(BaseModel):
         other = self.payment_method == PaymentMethodEnum.OTHER
 
         if other != (self.payment_method_other is not None):
-            raise ValueError(_OTHER_METHOD_ERROR)
+            raise ValueError(tr(*_OTHER_METHOD_ERROR))
 
         return self
 
     @model_validator(mode="after")
     def _not_before_the_association(self) -> Self:
         if self.paid_on < _FIRST_DAY:
-            raise ValueError(_PAID_TOO_EARLY_ERROR)
+            raise ValueError(tr(*_PAID_TOO_EARLY_ERROR))
 
         return self
 

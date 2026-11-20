@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
@@ -110,8 +111,8 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
       context: context,
       barrierLabel: 'SubjectFilterDialog',
       builder: (context) => MultiSelectFilterDialog<int>(
-        title: 'Filtra per disciplina interna',
-        hint: 'Es. Aritmetica',
+        title: tr('Filtra per disciplina interna', 'Filter by internal discipline'),
+        hint: tr('Es. Aritmetica', 'E.g. Arithmetic'),
         options: widget.associationSubjects
             .map((subject) => MultiSelectFilterOption(value: subject.id, label: subject.name))
             .toList(),
@@ -130,19 +131,19 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
       header: entityTabHeader(
         searchController: _searchController,
         onSearchChanged: (value) => setState(() => _searchText = value),
-        searchHint: 'Cerca materia ministeriale...',
-        actionLabel: 'NUOVA MATERIA',
+        searchHint: tr('Cerca materia ministeriale...', 'Search curriculum subjects...'),
+        actionLabel: tr('NUOVA MATERIA', 'NEW SUBJECT'),
         onAction: () => _showWizard(),
         sort: _sortBy,
         onSortChanged: (value) => setState(() => _sortBy = value),
         countLabel: subjects.length == 1
-            ? '1 materia trovata'
-            : '${subjects.length} materie trovate',
+            ? tr('1 materia trovata', '1 subject found')
+            : tr('${subjects.length} materie trovate', '${subjects.length} subjects found'),
         filters: [
           const FilterGroupDivider(),
           AppFilterPill<String>.filter(
-            prefix: 'Livello',
-            hint: 'Tutti i livelli',
+            prefix: tr('Livello', 'Level'),
+            hint: tr('Tutti i livelli', 'All levels'),
             icon: Icons.school_outlined,
             value: _filterLevel,
             menuWidth: 210,
@@ -153,8 +154,8 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
                 .toList(),
           ),
           AppFilterPill<String>.filter(
-            prefix: 'Area',
-            hint: 'Tutte le aree',
+            prefix: tr('Area', 'Area'),
+            hint: tr('Tutte le aree', 'All areas'),
             icon: Icons.category_outlined,
             value: _filterArea,
             menuWidth: 210,
@@ -166,7 +167,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
           ),
           AppCountFilterPill(
             icon: Icons.auto_stories_outlined,
-            label: 'Discipline interne',
+            label: tr('Discipline interne', 'Internal disciplines'),
             count: _selectedAssociationSubjectIds.length,
             onOpen: _showAssociationSubjectFilterDialog,
             onClear: () => setState(() => _selectedAssociationSubjectIds = {}),
@@ -177,7 +178,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
         shown: subjects.length,
         total: widget.ministrySubjects.length,
         icon: Icons.menu_book_rounded,
-        none: 'Nessuna materia registrata',
+        none: tr('Nessuna materia registrata', 'No subjects recorded'),
       ),
       body: EntityCardGrid(
         children: subjects.map((subject)
@@ -281,7 +282,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   {
     if (isSelected && _selectedAreas.length >= _maxAreas)
     {
-      CustomSnackBar.show(context: context, message: 'Puoi selezionare al massimo $_maxAreas aree.', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Puoi selezionare al massimo $_maxAreas aree.', 'You can select at most $_maxAreas areas.'), isError: true);
       return;
     }
 
@@ -309,17 +310,17 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   {
     if (_nameController.text.trim().isEmpty)
     {
-      return 'Scrivi il nome per andare avanti.';
+      return tr('Scrivi il nome per andare avanti.', 'Write the name to go on.');
     }
 
     if (_selectedLevel == null)
     {
-      return 'Seleziona un livello scolastico per andare avanti.';
+      return tr('Seleziona un livello scolastico per andare avanti.', 'Select a school level to go on.');
     }
 
     if (_selectedAreas.isEmpty)
     {
-      return "Seleziona almeno un'area per andare avanti.";
+      return tr("Seleziona almeno un'area per andare avanti.", 'Select at least one area to go on.');
     }
 
     return null;
@@ -345,7 +346,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
     if (_selectedAssociations.isEmpty)
     {
       goToStep(1);
-      showError('Seleziona almeno una disciplina interna associata.');
+      showError(tr('Seleziona almeno una disciplina interna associata.', 'Select at least one linked internal discipline.'));
 
       return;
     }
@@ -371,12 +372,12 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
             children: [
               AppTextField(
                 controller: _nameController,
-                label: 'Nome',
-                hintText: 'Es. Lingua e cultura latina',
+                label: tr('Nome', 'Name'),
+                hintText: tr('Es. Lingua e cultura latina', 'E.g. Latin language and culture'),
                 maxLength: FieldLimits.name,
                 textCapitalization: TextCapitalization.sentences,
               ),
-              const WizardFieldLabel('Livello scolastico'),
+              WizardFieldLabel(tr('Livello scolastico', 'School level')),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -392,7 +393,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
                   );
                 }).toList(),
               ),
-              const WizardFieldLabel('Aree (massimo $_maxAreas)'),
+              WizardFieldLabel(tr('Aree (massimo $_maxAreas)', 'Areas (at most $_maxAreas)')),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -424,7 +425,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Seleziona le discipline interne associate.',
+          tr('Seleziona le discipline interne associate.', 'Select the linked internal disciplines.'),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             color: AppTheme.trialMutedText,
@@ -435,7 +436,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
         AppSearchField(
           controller: _disciplineSearchController,
           onChanged: (_) => setState(() {}),
-          hintText: 'Cerca disciplina interna...',
+          hintText: tr('Cerca disciplina interna...', 'Search internal disciplines...'),
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
@@ -443,7 +444,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
           child: availableSubjects.isEmpty
               ? Center(
                   child: Text(
-                    'Nessuna disciplina trovata per le aree selezionate.',
+                    tr('Nessuna disciplina trovata per le aree selezionate.', 'No disciplines found for the selected areas.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
@@ -488,7 +489,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   Widget build(BuildContext context)
   {
     return buildTwoStepDialog(
-      title: isEditing ? 'Modifica materia' : 'Nuova materia',
+      title: isEditing ? tr('Modifica materia', 'Edit subject') : tr('Nuova materia', 'New subject'),
       contentMaxWidth: _contentMaxWidth,
       onSubmit: _submit,
       firstStep: _buildStep1,

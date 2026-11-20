@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 
 const double _meterHeight = 6;
@@ -61,11 +62,11 @@ class PasswordPolicyStatus
   List<PasswordPolicyRule> get rules
   {
     return <PasswordPolicyRule>[
-      PasswordPolicyRule('Almeno $minLength caratteri', hasMinLength),
-      PasswordPolicyRule('Almeno una lettera minuscola', hasLowercase),
-      PasswordPolicyRule('Almeno una lettera maiuscola', hasUppercase),
-      PasswordPolicyRule('Almeno un numero', hasDigit),
-      PasswordPolicyRule('Almeno un carattere speciale', hasSpecialCharacter),
+      PasswordPolicyRule(tr('Almeno $minLength caratteri', 'At least $minLength characters'), hasMinLength),
+      PasswordPolicyRule(tr('Almeno una lettera minuscola', 'At least one lowercase letter'), hasLowercase),
+      PasswordPolicyRule(tr('Almeno una lettera maiuscola', 'At least one uppercase letter'), hasUppercase),
+      PasswordPolicyRule(tr('Almeno un numero', 'At least one number'), hasDigit),
+      PasswordPolicyRule(tr('Almeno un carattere speciale', 'At least one special character'), hasSpecialCharacter),
     ];
   }
 
@@ -76,10 +77,10 @@ class PasswordPolicyStatus
     final int missing = missingCount;
 
     return missing == 0
-        ? 'Tutti i requisiti soddisfatti'
+        ? tr('Tutti i requisiti soddisfatti', 'All requirements met')
         : missing == 1
-            ? 'Manca un requisito'
-            : 'Mancano $missing requisiti';
+            ? tr('Manca un requisito', 'One requirement missing')
+            : tr('Mancano $missing requisiti', '$missing requirements missing');
   }
 
   double get progress => (rules.length - missingCount) / rules.length;

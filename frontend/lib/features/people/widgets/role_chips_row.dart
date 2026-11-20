@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -272,7 +273,7 @@ class RoleChipsRow extends StatelessWidget
       richMessage: TextSpan(
         children: [
           TextSpan(
-            text: 'ALTRI RUOLI\n',
+            text: tr('ALTRI RUOLI\n', 'OTHER ROLES\n'),
             style: AppTheme.tooltipTextStyle.copyWith(
               fontSize: 10,
               letterSpacing: 1.2,

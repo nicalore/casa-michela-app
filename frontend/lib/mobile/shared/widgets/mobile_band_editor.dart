@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
@@ -200,7 +201,7 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
     return Row(
       children: [
         Text(
-          'Apertura'.toUpperCase(),
+          tr('Apertura', 'Opening').toUpperCase(),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 11,
             fontWeight: FontWeight.w800,
@@ -283,7 +284,7 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
                 children: [
                   Expanded(
                     child: MobileTimeField(
-                      label: 'Dalle',
+                      label: tr('Dalle', 'From'),
                       minutes: stretch.startMinutes,
                       min: first,
                       max: last - kMinimumBandMinutes,
@@ -293,7 +294,7 @@ class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
                   const SizedBox(width: 10),
                   Expanded(
                     child: MobileTimeField(
-                      label: 'Alle',
+                      label: tr('Alle', 'To'),
                       minutes: stretch.endMinutes,
                       min: first + kMinimumBandMinutes,
                       max: last,
@@ -606,7 +607,7 @@ class _YesNo extends StatelessWidget
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(child: _buildOption('Sì', on: yes, onTap: onYes)),
+                Expanded(child: _buildOption(tr('Sì', 'Yes'), on: yes, onTap: onYes)),
                 Expanded(child: _buildOption('No', on: !yes, onTap: onNo)),
               ],
             ),
@@ -685,7 +686,7 @@ class _Foot extends StatelessWidget
           padding: const EdgeInsets.only(top: 14),
           child: lit(
             MobileSlotButton(
-              label: 'Aggiungi orario',
+              label: tr('Aggiungi orario', 'Add time'),
               icon: Icons.add_rounded,
               onPressed: onAdd,
               onLight: true,

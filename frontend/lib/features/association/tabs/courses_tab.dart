@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
@@ -106,20 +107,20 @@ class _CoursesTabState extends State<CoursesTab>
       header: entityTabHeader(
         searchController: _searchController,
         onSearchChanged: (value) => setState(() => _searchText = value),
-        searchHint: 'Cerca corso...',
-        actionLabel: 'NUOVO CORSO',
+        searchHint: tr('Cerca corso...', 'Search courses...'),
+        actionLabel: tr('NUOVO CORSO', 'NEW COURSE'),
         onAction: () => _showWizard(),
         sort: _sortBy,
         onSortChanged: (value) => setState(() => _sortBy = value),
         countLabel: courses.length == 1
-            ? '1 corso trovato'
-            : '${courses.length} corsi trovati',
+            ? tr('1 corso trovato', '1 course found')
+            : tr('${courses.length} corsi trovati', '${courses.length} courses found'),
       ),
       empty: emptyListCard(
         shown: courses.length,
         total: widget.courses.length,
         icon: Icons.cast_for_education_rounded,
-        none: 'Nessun corso registrato',
+        none: tr('Nessun corso registrato', 'No courses recorded'),
       ),
       body: EntityCardGrid(
         children: courses.map((course)
@@ -210,7 +211,7 @@ class _CourseWizardDialogState extends State<_CourseWizardDialog>
 
     if (name.isEmpty)
     {
-      showError('Il nome non può essere vuoto.');
+      showError(tr('Il nome non può essere vuoto.', 'The name cannot be empty.'));
 
       return;
     }
@@ -229,22 +230,22 @@ class _CourseWizardDialogState extends State<_CourseWizardDialog>
   Widget build(BuildContext context)
   {
     return buildSingleStepDialog(
-      eyebrow: 'Corso',
-      title: isEditing ? 'Modifica corso' : 'Nuovo corso',
+      eyebrow: tr('Corso', 'Course'),
+      title: isEditing ? tr('Modifica corso', 'Edit course') : tr('Nuovo corso', 'New course'),
       onSubmit: _save,
       fields: [
         AppTextField(
           controller: _nameController,
-          label: 'Nome',
-          hintText: 'Es. Yoga',
+          label: tr('Nome', 'Name'),
+          hintText: tr('Es. Yoga', 'E.g. Yoga'),
           maxLength: FieldLimits.name,
           textCapitalization: TextCapitalization.sentences,
           nothingAbove: true,
         ),
         AppTextField(
           controller: _costController,
-          label: 'Costo',
-          hintText: 'Es. 45€ al mese',
+          label: tr('Costo', 'Cost'),
+          hintText: tr('Es. 45€ al mese', 'E.g. €45 per month'),
           maxLength: FieldLimits.cost,
         ),
         DescriptionField(_descController),

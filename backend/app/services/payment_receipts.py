@@ -10,26 +10,48 @@ from sqlalchemy.orm import undefer
 from app.core import field_lengths
 from app.models.confirmed_hours import ConfirmedHours
 from app.models.payment_receipt import PaymentReceipt
+from app.models.person import GenderEnum
 from app.models.teacher import Teacher
+from app.repositories.person_repository import PersonRepository
+from app.services.bilingual import Bilingual
 from app.services.compensation import load_terms
 from app.services.worked_hours import month_after
 
 MAX_RECEIPT_BYTES: Final[int] = 15 * 1024 * 1024
 
-_TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato."
-_RECEIPT_NOT_FOUND_ERROR: Final[str] = "Ricevuta non trovata."
-_NOT_PAID_ERROR: Final[str] = (
-    "La ricevuta può essere caricata solo a chi è retribuito."
+_TEACHER_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Docente non trovato.",
+    "Teacher not found.",
 )
-_NO_HOURS_ERROR: Final[str] = (
-    "La ricevuta può essere caricata solo a chi ha ore lavorate."
+_RECEIPT_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Ricevuta non trovata.",
+    "Receipt not found.",
 )
-_OPENING_PENDING_ERROR: Final[str] = (
-    "Prima configura il docente in Contabilità › Configurazione iniziale."
+_NOT_PAID_ERROR: Final[Bilingual] = Bilingual(
+    "La ricevuta può essere caricata solo a chi è retribuito.",
+    "A receipt can be uploaded only for paid staff.",
 )
-_TOO_LARGE_ERROR: Final[str] = "La ricevuta supera i 15 MB."
-_WRONG_KIND_ERROR: Final[str] = (
-    "La ricevuta deve essere un PDF o una foto JPG o PNG."
+_NO_HOURS_ERROR: Final[Bilingual] = Bilingual(
+    "La ricevuta può essere caricata solo a chi ha ore lavorate.",
+    "A receipt can be uploaded only for those with hours worked.",
+)
+_OPENING_PENDING_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Prima configura il docente in Contabilità › Configurazione iniziale.",
+        "First set up the teacher in Accounting › Initial setup.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Prima configura la docente in Contabilità › Configurazione iniziale.",
+        "First set up the teacher in Accounting › Initial setup.",
+    ),
+}
+_TOO_LARGE_ERROR: Final[Bilingual] = Bilingual(
+    "La ricevuta supera i 15 MB.",
+    "The receipt exceeds 15 MB.",
+)
+_WRONG_KIND_ERROR: Final[Bilingual] = Bilingual(
+    "La ricevuta deve essere un PDF o una foto JPG o PNG.",
+    "The receipt must be a PDF or a JPG or PNG photo.",
 )
 
 _DEFAULT_FILE_NAME: Final[str] = "ricevuta"
@@ -89,7 +111,7 @@ async def _readable(file: UploadFile) -> tuple[bytes, str]:
     if file.size is not None and file.size > MAX_RECEIPT_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=_TOO_LARGE_ERROR,
+            detail=_TOO_LARGE_ERROR.for_request(),
         )
 
     content = await file.read(MAX_RECEIPT_BYTES + 1)
@@ -97,7 +119,7 @@ async def _readable(file: UploadFile) -> tuple[bytes, str]:
     if len(content) > MAX_RECEIPT_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=_TOO_LARGE_ERROR,
+            detail=_TOO_LARGE_ERROR.for_request(),
         )
 
     kind = _kind_of(content)
@@ -105,7 +127,7 @@ async def _readable(file: UploadFile) -> tuple[bytes, str]:
     if kind is None:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=_WRONG_KIND_ERROR,
+            detail=_WRONG_KIND_ERROR.for_request(),
         )
 
     return content, kind
@@ -131,7 +153,7 @@ async def store_receipt(
     if await db.get(Teacher, tax_code) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_TEACHER_NOT_FOUND_ERROR,
+            detail=_TEACHER_NOT_FOUND_ERROR.for_request(),
         )
 
     timeline = await load_terms(db, tax_code)
@@ -139,14 +161,16 @@ async def store_receipt(
     if not timeline.of_month(month).is_paid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NOT_PAID_ERROR,
+            detail=_NOT_PAID_ERROR.for_request(),
         )
 
     # The month's pay is not known while its initial set-up waits.
     if timeline.pending_in(month):
+        gender = await PersonRepository(db).gender(tax_code)
+
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_OPENING_PENDING_ERROR,
+            detail=_OPENING_PENDING_ERRORS[gender].for_request(),
         )
 
     content, kind = await _readable(file)
@@ -165,7 +189,7 @@ async def store_receipt(
     if worked is None and not timeline.opening_in(month):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_HOURS_ERROR,
+            detail=_NO_HOURS_ERROR.for_request(),
         )
 
     receipt = await db.get(PaymentReceipt, (tax_code, month))
@@ -198,7 +222,7 @@ async def receipt_file(db: AsyncSession, tax_code: str, month: date) -> PaymentR
     if receipt is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_RECEIPT_NOT_FOUND_ERROR,
+            detail=_RECEIPT_NOT_FOUND_ERROR.for_request(),
         )
 
     return receipt
@@ -210,7 +234,7 @@ async def delete_receipt(db: AsyncSession, tax_code: str, month: date) -> None:
     if receipt is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_RECEIPT_NOT_FOUND_ERROR,
+            detail=_RECEIPT_NOT_FOUND_ERROR.for_request(),
         )
 
     await db.delete(receipt)

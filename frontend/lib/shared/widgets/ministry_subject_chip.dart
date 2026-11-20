@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_entity_chip.dart';
 import '../../features/association/models/ministry_subject_item.dart';
@@ -74,7 +75,7 @@ class MinistrySubjectChip extends StatelessWidget
       richMessage: TextSpan(
         children: [
           TextSpan(
-            text: 'Discipline interne:\n',
+            text: tr('Discipline interne:\n', 'Internal disciplines:\n'),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
               color: _tooltipLabel,
@@ -84,7 +85,7 @@ class MinistrySubjectChip extends StatelessWidget
           ),
           if (subject.associationSubjects.isEmpty)
             TextSpan(
-              text: 'Nessuna disciplina associata',
+              text: tr('Nessuna disciplina associata', 'No linked disciplines'),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 color: Colors.white60,

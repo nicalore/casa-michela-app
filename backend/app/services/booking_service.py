@@ -4,7 +4,7 @@ from typing import Final
 
 from fastapi import HTTPException, status
 
-from app.api.rbac import IdentityContext, assert_may_book_for
+from app.api.rbac import IdentityContext, assert_may_book_for, pupil_as_read
 from app.core.booking_close import assert_still_open, bands_of
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale, stale_conflict
@@ -13,11 +13,13 @@ from app.core.time_band import band_of
 from app.models.association_subject import AssociationSubject
 from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
+from app.models.person import GenderEnum
 from app.models.presence import Presence
 from app.models.subject_requested import SubjectRequested
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.booking import BookingBase, BookingCreate, BookingUpdate
+from app.services.bilingual import Bilingual
 from app.services.calendar_freeze import has_begun, refuse_begun_hours
 from app.services.collaboration import (
     assert_admin_may_name,
@@ -37,23 +39,72 @@ from app.services.pupil_lock import (
 )
 from app.services.schedule_cascade import unschedule
 
-_ENTITY_LABEL: Final[str] = "la prenotazione"
-_DAY_LABEL: Final[str] = "la giornata"
-_NOT_FOUND_ERROR: Final[str] = "Prenotazione non trovata"
-_PRESENCE_NOT_FOUND_ERROR: Final[str] = "Presenza non trovata"
-_NO_SUBJECTS_ERROR: Final[str] = "Seleziona almeno una materia."
-_INVALID_SUBJECTS_ERROR: Final[str] = (
-    "Alcune materie selezionate non sono valide per questa materia ministeriale."
+_ENTITY_LABEL: Final[Bilingual] = Bilingual(
+    "la prenotazione",
+    "the booking",
 )
-_UNKNOWN_TEACHERS_ERROR: Final[str] = "Alcuni docenti indicati non esistono: {codes}."
-_AVOIDED_TEACHERS_ERROR: Final[str] = (
-    "Alcuni docenti indicati sono tra quelli con cui lo studente si è trovato "
-    "meno: {codes}."
+_DAY_LABEL: Final[Bilingual] = Bilingual(
+    "la giornata",
+    "the day",
 )
-_UNKNOWN_ASSOCIATION_SUBJECT_ERROR: Final[str] = "La disciplina indicata non esiste."
-_UNKNOWN_SERVICE_ERROR: Final[str] = 'Il servizio "{name}" non esiste.'
-_CREATE_ERROR: Final[str] = "Errore durante la creazione della prenotazione."
-_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
+_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Prenotazione non trovata",
+    "Booking not found",
+)
+_PRESENCE_NOT_FOUND_ERROR: Final[Bilingual] = Bilingual(
+    "Presenza non trovata",
+    "Attendance not found",
+)
+_NO_SUBJECTS_ERROR: Final[Bilingual] = Bilingual(
+    "Seleziona almeno una materia.",
+    "Select at least one subject.",
+)
+_INVALID_SUBJECTS_ERROR: Final[Bilingual] = Bilingual(
+    "Alcune materie selezionate non sono valide per questa materia ministeriale.",
+    "Some selected subjects are not valid for this curriculum subject.",
+)
+_UNKNOWN_TEACHERS_ERROR: Final[Bilingual] = Bilingual(
+    "Alcuni docenti indicati non esistono: {codes}.",
+    "Some of the teachers given do not exist: {codes}.",
+)
+_OWN_AVOIDED_TEACHERS_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Alcuni docenti indicati sono tra quelli con cui ti sei trovato meno: {codes}.",
+        "Some of the teachers given are among those you got on with least: {codes}.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Alcuni docenti indicati sono tra quelli con cui ti sei trovata meno: {codes}.",
+        "Some of the teachers given are among those you got on with least: {codes}.",
+    ),
+}
+_AVOIDED_TEACHERS_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Alcuni docenti indicati sono tra quelli con cui {name} si è trovato meno: "
+        "{codes}.",
+        "Some of the teachers given are among those {name} got on with least: {codes}.",
+    ),
+    GenderEnum.F: Bilingual(
+        "Alcuni docenti indicati sono tra quelli con cui {name} si è trovata meno: "
+        "{codes}.",
+        "Some of the teachers given are among those {name} got on with least: {codes}.",
+    ),
+}
+_UNKNOWN_ASSOCIATION_SUBJECT_ERROR: Final[Bilingual] = Bilingual(
+    "La disciplina indicata non esiste.",
+    "The discipline given does not exist.",
+)
+_UNKNOWN_SERVICE_ERROR: Final[Bilingual] = Bilingual(
+    'Il servizio "{name}" non esiste.',
+    "The service “{name}” does not exist.",
+)
+_CREATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante la creazione della prenotazione.",
+    "Something went wrong while creating the booking.",
+)
+_UPDATE_ERROR: Final[Bilingual] = Bilingual(
+    "Errore durante l'aggiornamento.",
+    "Something went wrong while saving.",
+)
 
 
 # Child rows that version the booking too.
@@ -99,10 +150,14 @@ class BookingService:
         if presence is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_PRESENCE_NOT_FOUND_ERROR,
+                detail=_PRESENCE_NOT_FOUND_ERROR.for_request(),
             )
 
-        assert_may_book_for(identity, presence.student_tax_code)
+        await assert_may_book_for(
+            self.presence_repository.session,
+            identity,
+            presence.student_tax_code,
+        )
 
         return presence
 
@@ -117,7 +172,7 @@ class BookingService:
         if not association_subject_ids:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_NO_SUBJECTS_ERROR,
+                detail=_NO_SUBJECTS_ERROR.for_request(),
             )
 
         unique_ids = list(dict.fromkeys(association_subject_ids))
@@ -130,7 +185,7 @@ class BookingService:
         if len(pairs) != len(unique_ids):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_INVALID_SUBJECTS_ERROR,
+                detail=_INVALID_SUBJECTS_ERROR.for_request(),
             )
 
         return [
@@ -144,6 +199,7 @@ class BookingService:
 
     async def resolve_preferred_teachers(
         self,
+        identity: IdentityContext,
         preferred_tax_codes: list[str],
         *,
         student_tax_code: str,
@@ -165,7 +221,9 @@ class BookingService:
         if missing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_UNKNOWN_TEACHERS_ERROR.format(codes=", ".join(missing)),
+                detail=_UNKNOWN_TEACHERS_ERROR.for_request().format(
+                    codes=", ".join(missing),
+                ),
             )
 
         # Off every picker too, so dropped: requests still naming them keep saving.
@@ -184,9 +242,25 @@ class BookingService:
         clashing = [code for code in preferred_tax_codes if code in avoided]
 
         if clashing:
+            name, gender = await pupil_as_read(
+                self.repository.session,
+                identity,
+                student_tax_code,
+            )
+            codes = ", ".join(clashing)
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_AVOIDED_TEACHERS_ERROR.format(codes=", ".join(clashing)),
+                detail=(
+                    _OWN_AVOIDED_TEACHERS_ERRORS[gender]
+                    .for_request()
+                    .format(codes=codes)
+                    if name is None
+                    else _AVOIDED_TEACHERS_ERRORS[gender].for_request().format(
+                        name=name,
+                        codes=codes,
+                    )
+                ),
             )
 
         return [
@@ -196,6 +270,7 @@ class BookingService:
 
     async def build_for_presence(
         self,
+        identity: IdentityContext,
         presence: Presence,
         payload: BookingBase,
     ) -> Booking:
@@ -215,12 +290,18 @@ class BookingService:
                 payload.association_subject_ids,
             ),
             preferred_teachers=await self.resolve_preferred_teachers(
+                identity,
                 payload.preferred_teacher_tax_codes,
                 student_tax_code=presence.student_tax_code,
             ),
         )
 
-    async def fill(self, booking: Booking, payload: BookingBase) -> None:
+    async def fill(
+        self,
+        identity: IdentityContext,
+        booking: Booking,
+        payload: BookingBase,
+    ) -> None:
         children = _children_of(booking)
         booking.association_subject = await self._resolve_request_target(payload)
 
@@ -235,6 +316,7 @@ class BookingService:
             payload.association_subject_ids,
         )
         booking.preferred_teachers = await self.resolve_preferred_teachers(
+            identity,
             payload.preferred_teacher_tax_codes,
             student_tax_code=booking.presence.student_tax_code,
         )
@@ -257,7 +339,7 @@ class BookingService:
             if association_subject is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=_UNKNOWN_ASSOCIATION_SUBJECT_ERROR,
+                    detail=_UNKNOWN_ASSOCIATION_SUBJECT_ERROR.for_request(),
                 )
 
         if payload.service_name is not None:
@@ -266,7 +348,9 @@ class BookingService:
             if found_service is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=_UNKNOWN_SERVICE_ERROR.format(name=payload.service_name),
+                    detail=_UNKNOWN_SERVICE_ERROR.for_request().format(
+                        name=payload.service_name,
+                    ),
                 )
 
         return association_subject
@@ -303,7 +387,7 @@ class BookingService:
         if booking is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=_NOT_FOUND_ERROR,
+                detail=_NOT_FOUND_ERROR.for_request(),
             )
 
         return booking
@@ -350,7 +434,7 @@ class BookingService:
             if _same_band(row, presence)
             for other in row.bookings
         ):
-            raise stale_conflict(_DAY_LABEL)
+            raise stale_conflict(_DAY_LABEL.for_request())
 
     async def create(
         self,
@@ -367,9 +451,12 @@ class BookingService:
 
         await self._assert_still_theirs(identity, presence)
 
-        booking = await self.build_for_presence(presence, payload)
+        booking = await self.build_for_presence(identity, presence, payload)
 
-        async with integrity_guard(self.repository.session, _CREATE_ERROR):
+        async with integrity_guard(
+            self.repository.session,
+            _CREATE_ERROR.for_request(),
+        ):
             await self.repository.create(booking)
             await self.repository.commit()
 
@@ -438,7 +525,11 @@ class BookingService:
             ],
         )
         booking = await self.get_owned_or_404(identity, booking_id)
-        assert_may_book_for(identity, booking.presence.student_tax_code)
+        await assert_may_book_for(
+            self.repository.session,
+            identity,
+            booking.presence.student_tax_code,
+        )
         await assert_admin_may_name(
             self.repository.session,
             identity,
@@ -448,7 +539,7 @@ class BookingService:
         assert_not_stale(
             booking,
             payload.expected_updated_at,
-            entity_label=_ENTITY_LABEL,
+            entity_label=_ENTITY_LABEL.for_request(),
         )
 
         await self._assert_still_theirs(identity, booking.presence)
@@ -483,9 +574,12 @@ class BookingService:
 
             booking.presence = new_presence
 
-        await self.fill(booking, payload)
+        await self.fill(identity, booking, payload)
 
-        async with integrity_guard(self.repository.session, _UPDATE_ERROR):
+        async with integrity_guard(
+            self.repository.session,
+            _UPDATE_ERROR.for_request(),
+        ):
             await self.repository.commit()
             await self.repository.refresh(booking)
 
@@ -494,7 +588,11 @@ class BookingService:
     async def delete(self, identity: IdentityContext, booking_id: int) -> None:
         await lock_pupil_of_booking(self.repository.session, booking_id)
         booking = await self.get_owned_or_404(identity, booking_id)
-        assert_may_book_for(identity, booking.presence.student_tax_code)
+        await assert_may_book_for(
+            self.repository.session,
+            identity,
+            booking.presence.student_tax_code,
+        )
 
         await self._assert_still_theirs(identity, booking.presence)
         await self._assert_band_keeps_a_lesson(booking)

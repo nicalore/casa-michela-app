@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
@@ -173,7 +174,7 @@ class MobileAvailabilityDayCard extends StatelessWidget
           ),
           if (day.isToday) ...[
             const SizedBox(height: 5),
-            const MobilePill('Oggi', tone: MobilePillTone.teal, dense: true),
+            MobilePill(tr('Oggi', 'Today'), tone: MobilePillTone.teal, dense: true),
           ],
         ],
       ),
@@ -256,12 +257,12 @@ class MobileAvailabilityDayCard extends StatelessWidget
     if (!band.isOpen)
     {
       return Text(
-        'Associazione chiusa',
+        tr('Associazione chiusa', 'Association closed'),
         style: sizes.noteStyle.copyWith(color: MobilePalette.mutedText.withValues(alpha: 0.6)),
       );
     }
 
-    return Text('Nessuna disponibilità', style: sizes.noteStyle);
+    return Text(tr('Nessuna disponibilità', 'No availability'), style: sizes.noteStyle);
   }
 
   // Beside its name while both fit; with larger text, under it rather than cut.
@@ -299,7 +300,7 @@ class MobileAvailabilityDayCard extends StatelessWidget
       children: [
         Icon(Icons.event_busy_rounded, size: 18, color: MobilePalette.mutedText),
         const SizedBox(width: 8),
-        Expanded(child: Text("L'Associazione è chiusa", style: sizes.noteStyle.copyWith(fontSize: 13))),
+        Expanded(child: Text(tr("L'Associazione è chiusa", 'The Association is closed'), style: sizes.noteStyle.copyWith(fontSize: 13))),
       ],
     );
   }
@@ -366,7 +367,7 @@ class MobileAvailabilityDayCard extends StatelessWidget
   {
     if (band.slots.isEmpty)
     {
-      return _textWidth('Nessuna disponibilità', sizes.noteStyle, scaler);
+      return _textWidth(tr('Nessuna disponibilità', 'No availability'), sizes.noteStyle, scaler);
     }
 
     return band.slots
@@ -425,7 +426,11 @@ class MobileAvailabilityDayCard extends StatelessWidget
     final double tileWidth = [
       wide ? _wideMinTileWidth : _minTileWidth,
       _textWidth('00', GoogleFonts.plusJakartaSans(fontSize: sizes.numberSize, fontWeight: FontWeight.w800), scaler),
-      _textWidth('OGGI', GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.6), scaler) + 12,
+      _textWidth(
+        tr('OGGI', 'TODAY'),
+        GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.6),
+        scaler,
+      ) + 12,
     ].reduce(math.max);
 
     Widget card = LayoutBuilder(

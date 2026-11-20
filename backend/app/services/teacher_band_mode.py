@@ -11,19 +11,39 @@ from app.core.time_band import band_of
 from app.models.availability import Availability
 from app.models.calendar_activity import CalendarActivity
 from app.models.lesson import Lesson
+from app.models.person import GenderEnum
+from app.repositories.person_repository import PersonRepository
+from app.services.bilingual import Bilingual
 from app.services.lesson_guard import find_settled_bands
 
 _PRESENCE: Final[str] = "presence"
 _ONLINE: Final[str] = "online"
 
-_CALLED_IN_ERROR: Final[str] = (
-    "Il docente è convocato in presenza ({hours}): non può collegarsi da casa."
-)
+_CALLED_IN_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il docente è convocato in presenza ({hours}): non può collegarsi da casa.",
+        "The teacher is called in in person ({hours}): they cannot connect from home.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La docente è convocata in presenza ({hours}): non può collegarsi da casa.",
+        "The teacher is called in in person ({hours}): they cannot connect from home.",
+    ),
+}
 
-_CALLED_ONLINE_ERROR: Final[str] = (
-    "Il docente è convocato online: "
-    "ha lezioni che non rientrano nella sua disponibilità in presenza."
-)
+_CALLED_ONLINE_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il docente è convocato online: ha lezioni che non rientrano nella sua "
+        "disponibilità in presenza.",
+        "The teacher is called in online: they have lessons outside their in-person "
+        "availability.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La docente è convocata online: ha lezioni che non rientrano nella sua "
+        "disponibilità in presenza.",
+        "The teacher is called in online: they have lessons outside their in-person "
+        "availability.",
+    ),
+}
 
 
 # One lesson or activity of a teacher's band, as the band's mode sees it.
@@ -166,12 +186,16 @@ async def assert_one_mode(
     if before is None or band_mode([*others, hour], offered) is not None:
         return
 
+    gender = await PersonRepository(session).gender(teacher_tax_code)
+
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=(
-            _CALLED_IN_ERROR.format(hours=_presence_hours(offered, band))
+            _CALLED_IN_ERRORS[gender]
+            .for_request()
+            .format(hours=_presence_hours(offered, band))
             if before == _PRESENCE
-            else _CALLED_ONLINE_ERROR
+            else _CALLED_ONLINE_ERRORS[gender].for_request()
         ),
     )
 

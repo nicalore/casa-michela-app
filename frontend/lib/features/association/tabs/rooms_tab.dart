@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
@@ -107,20 +108,20 @@ class _RoomsTabState extends State<RoomsTab>
       header: entityTabHeader(
         searchController: _searchController,
         onSearchChanged: (value) => setState(() => _searchText = value),
-        searchHint: 'Cerca stanza...',
-        actionLabel: 'NUOVA STANZA',
+        searchHint: tr('Cerca stanza...', 'Search rooms...'),
+        actionLabel: tr('NUOVA STANZA', 'NEW ROOM'),
         onAction: () => _showWizard(),
         sort: _sortBy,
         onSortChanged: (value) => setState(() => _sortBy = value),
         countLabel: rooms.length == 1
-            ? '1 stanza trovata'
-            : '${rooms.length} stanze trovate',
+            ? tr('1 stanza trovata', '1 room found')
+            : tr('${rooms.length} stanze trovate', '${rooms.length} rooms found'),
       ),
       empty: emptyListCard(
         shown: rooms.length,
         total: widget.rooms.length,
         icon: Icons.meeting_room_rounded,
-        none: 'Nessuna stanza registrata',
+        none: tr('Nessuna stanza registrata', 'No rooms recorded'),
       ),
       body: EntityCardGrid(
         children: rooms.map((room)
@@ -211,7 +212,7 @@ class _RoomWizardDialogState extends State<_RoomWizardDialog>
 
     if (name.isEmpty)
     {
-      showError('Il nome non può essere vuoto.');
+      showError(tr('Il nome non può essere vuoto.', 'The name cannot be empty.'));
 
       return;
     }
@@ -221,7 +222,7 @@ class _RoomWizardDialogState extends State<_RoomWizardDialog>
 
     if (capacityText.isNotEmpty && (capacity == null || capacity <= 0))
     {
-      showError('La capienza deve essere un numero maggiore di zero.');
+      showError(tr('La capienza deve essere un numero maggiore di zero.', 'The capacity must be a number greater than zero.'));
 
       return;
     }
@@ -240,22 +241,22 @@ class _RoomWizardDialogState extends State<_RoomWizardDialog>
   Widget build(BuildContext context)
   {
     return buildSingleStepDialog(
-      eyebrow: 'Stanza',
-      title: isEditing ? 'Modifica stanza' : 'Nuova stanza',
+      eyebrow: tr('Stanza', 'Room'),
+      title: isEditing ? tr('Modifica stanza', 'Edit room') : tr('Nuova stanza', 'New room'),
       onSubmit: _save,
       fields: [
         AppTextField(
           controller: _nameController,
-          label: 'Nome',
-          hintText: 'Es. Stanza di Aldo',
+          label: tr('Nome', 'Name'),
+          hintText: tr('Es. Stanza di Aldo', "E.g. Aldo's room"),
           maxLength: FieldLimits.name,
           textCapitalization: TextCapitalization.sentences,
           nothingAbove: true,
         ),
         AppTextField(
           controller: _capacityController,
-          label: 'Capienza (opzionale)',
-          hintText: 'Es. 12',
+          label: tr('Capienza (opzionale)', 'Capacity (optional)'),
+          hintText: tr('Es. 12', 'E.g. 12'),
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         ),

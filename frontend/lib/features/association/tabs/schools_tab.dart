@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_empty_card.dart';
@@ -189,8 +190,8 @@ class _SchoolsTabState extends State<SchoolsTab>
       context: context,
       barrierLabel: 'StudyProgramFilterDialog',
       builder: (context) => MultiSelectFilterDialog<int>(
-        title: 'Filtra per percorso di studio',
-        hint: 'Es. Scientifico',
+        title: tr('Filtra per percorso di studio', 'Filter by study programme'),
+        hint: tr('Es. Scientifico', 'E.g. Scientific'),
         subtitlePlacement: AutocompleteSubtitlePlacement.above,
         options: widget.studyPrograms
             .map((program) => MultiSelectFilterOption(
@@ -221,19 +222,19 @@ class _SchoolsTabState extends State<SchoolsTab>
       header: entityTabHeader(
         searchController: _searchController,
         onSearchChanged: (value) => setState(() => _searchText = value),
-        searchHint: 'Cerca per nome o codice meccanografico...',
-        actionLabel: 'NUOVA SCUOLA',
+        searchHint: tr('Cerca per nome o codice meccanografico...', 'Search by name or school code...'),
+        actionLabel: tr('NUOVA SCUOLA', 'NEW SCHOOL'),
         onAction: () => _showWizard(),
         sort: _sortBy,
         onSortChanged: (value) => setState(() => _sortBy = value),
         countLabel: schools.length == 1
-            ? '1 scuola trovata'
-            : '${schools.length} scuole trovate',
+            ? tr('1 scuola trovata', '1 school found')
+            : tr('${schools.length} scuole trovate', '${schools.length} schools found'),
         filters: [
           const FilterGroupDivider(),
           AppFilterPill<String>.filter(
-            prefix: 'Città',
-            hint: 'Tutte le città',
+            prefix: tr('Città', 'City'),
+            hint: tr('Tutte le città', 'All cities'),
             icon: Icons.location_city_outlined,
             value: _filterCity,
             menuWidth: 210,
@@ -242,8 +243,8 @@ class _SchoolsTabState extends State<SchoolsTab>
             options: _cityOptions,
           ),
           AppFilterPill<_ProgramScope>.filter(
-            prefix: 'Livello',
-            hint: 'Tutti i livelli',
+            prefix: tr('Livello', 'Level'),
+            hint: tr('Tutti i livelli', 'All levels'),
             icon: Icons.school_outlined,
             value: _filterScope,
             menuWidth: 280,
@@ -253,7 +254,7 @@ class _SchoolsTabState extends State<SchoolsTab>
           ),
           AppCountFilterPill(
             icon: Icons.route_outlined,
-            label: 'Percorsi di studio',
+            label: tr('Percorsi di studio', 'Study programmes'),
             count: _selectedProgramIds.length,
             onOpen: _showStudyProgramFilterDialog,
             onClear: () => setState(() => _selectedProgramIds = {}),
@@ -264,7 +265,7 @@ class _SchoolsTabState extends State<SchoolsTab>
         shown: schools.length,
         total: widget.schools.length,
         icon: Icons.school_rounded,
-        none: 'Nessuna scuola registrata',
+        none: tr('Nessuna scuola registrata', 'No schools recorded'),
       ),
       body: EntityCardGrid(
         children: schools.map((school)
@@ -398,12 +399,12 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   {
     if (_nameController.text.trim().isEmpty || _cityController.text.trim().isEmpty)
     {
-      return 'Compila nome e città per andare avanti.';
+      return tr('Compila nome e città per andare avanti.', 'Fill in the name and city to go on.');
     }
 
     if (_provinceController.text.trim().length != FieldLimits.province)
     {
-      return 'La provincia è di due lettere.';
+      return tr('La provincia è di due lettere.', 'The province is two letters.');
     }
 
     return null;
@@ -421,7 +422,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     if (_selectedPrograms.isEmpty)
     {
       goToStep(1);
-      showError('Associa almeno un percorso di studio alla scuola.');
+      showError(tr('Associa almeno un percorso di studio alla scuola.', 'Link at least one study programme to the school.'));
 
       return;
     }
@@ -493,8 +494,8 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
             return AppTextField(
               controller: controller,
               focusNode: focusNode,
-              label: 'Città',
-              hintText: 'Es. Thiene',
+              label: tr('Città', 'City'),
+              hintText: tr('Es. Thiene', 'E.g. Thiene'),
               maxLength: FieldLimits.city,
               textCapitalization: TextCapitalization.words,
               onSubmitted: (_) => onFieldSubmitted(),
@@ -531,8 +532,8 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
             children: [
               AppTextField(
                 controller: _nameController,
-                label: 'Nome',
-                hintText: 'Es. Liceo Statale "F. Corradini"',
+                label: tr('Nome', 'Name'),
+                hintText: tr('Es. Liceo Statale "F. Corradini"', 'E.g. Liceo Statale "F. Corradini"'),
                 maxLength: FieldLimits.name,
                 textCapitalization: TextCapitalization.words,
               ),
@@ -545,8 +546,8 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
                     flex: 1,
                     child: AppTextField(
                       controller: _provinceController,
-                      label: 'Provincia',
-                      hintText: 'Es. VI',
+                      label: tr('Provincia', 'Province'),
+                      hintText: tr('Es. VI', 'E.g. VI'),
                       maxLength: FieldLimits.province,
                       textCapitalization: TextCapitalization.characters,
                     ),
@@ -556,8 +557,8 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
               AppTextField(
                 controller: _codeController,
                 focusNode: _codeFocusNode,
-                label: 'Codice meccanografico (opzionale)',
-                hintText: 'Es. VIPC02000P',
+                label: tr('Codice meccanografico (opzionale)', 'School code (optional)'),
+                hintText: tr('Es. VIPC02000P', 'E.g. VIPC02000P'),
                 maxLength: FieldLimits.mechanographicCode,
                 textCapitalization: TextCapitalization.characters,
               ),
@@ -581,7 +582,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Seleziona i percorsi di studio attivi in questa scuola.',
+          tr('Seleziona i percorsi di studio attivi in questa scuola.', 'Select the study programmes active at this school.'),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             color: AppTheme.trialMutedText,
@@ -592,7 +593,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
         AppSearchField(
           controller: _programSearchController,
           onChanged: (_) => setState(() {}),
-          hintText: 'Cerca percorso di studio...',
+          hintText: tr('Cerca percorso di studio...', 'Search study programmes...'),
         ),
         const SizedBox(height: 20),
         ConstrainedBox(
@@ -640,7 +641,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   Widget build(BuildContext context)
   {
     return buildTwoStepDialog(
-      title: isEditing ? 'Modifica scuola' : 'Nuova scuola',
+      title: isEditing ? tr('Modifica scuola', 'Edit school') : tr('Nuova scuola', 'New school'),
       contentMaxWidth: _contentMaxWidth,
       onSubmit: _submit,
       firstStep: _buildStep1,

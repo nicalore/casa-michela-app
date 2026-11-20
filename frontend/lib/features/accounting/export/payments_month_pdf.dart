@@ -11,7 +11,7 @@ import '../utils/payments_month_words.dart';
 import 'accounting_pdf_look.dart';
 
 // Five columns: an upright page holds them, the payment taking what the others leave.
-const List<AccountingGroup> _groups = [
+List<AccountingGroup> get _groups => [
   AccountingGroup(parts: [(label: kPaymentDayColumn, width: 78)], leading: true),
   AccountingGroup(parts: [(label: kDebtorColumn, width: 128)], leading: true),
   AccountingGroup(parts: [(label: kPaymentWhatColumn, width: 0)], flexible: true, leading: true),

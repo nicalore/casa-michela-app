@@ -200,6 +200,7 @@ class _MobilePupilHomePageState extends State<MobilePupilHomePage>
           openingDays: openingDays,
           publications: publications,
           presences: presences.where((presence) => presence.studentTaxCode == taxCode).toList(),
+          gender: widget.user.gender,
         );
       }
       else if (reader != null)

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -449,7 +450,7 @@ class _ModeColumn extends StatelessWidget
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  hidden.length == 1 ? '+1 orario' : '+${hidden.length} orari',
+                  hidden.length == 1 ? tr('+1 orario', '+1 time') : tr('+${hidden.length} orari', '+${hidden.length} times'),
                   maxLines: 1,
                   style: _moreStyle,
                 ),
@@ -461,10 +462,10 @@ class _ModeColumn extends StatelessWidget
           fit: BoxFit.scaleDown,
           child: Text(
             requests.isEmpty
-                ? 'Nessuna materia'
+                ? tr('Nessuna materia', 'No subjects')
                 : (requests.length == 1
-                    ? '1 prenotazione · ${formatMinutes(group.minutesAskedFor(mode))}'
-                    : '${requests.length} prenotazioni · ${formatMinutes(group.minutesAskedFor(mode))}'),
+                    ? '${tr('1 prenotazione', '1 booking')} · ${formatMinutes(group.minutesAskedFor(mode))}'
+                    : '${tr('${requests.length} prenotazioni', '${requests.length} bookings')} · ${formatMinutes(group.minutesAskedFor(mode))}'),
             maxLines: 1,
             style: _totalStyle,
           ),
@@ -715,13 +716,13 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       context: context,
       barrierLabel: 'ConfirmRequestDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Eliminazione',
-        title: 'Confermi?',
+        eyebrow: tr('Eliminazione', 'Deletion'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -730,7 +731,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -758,17 +759,24 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
               TextSpan(
                 children: [
                   TextSpan(
-                    text: mode == null
-                        ? 'La prenotazione di '
-                        : 'La prenotazione ${mode == kOnlineMode ? kOnScreen : kInBuilding} di ',
+                    text: tr(
+                      mode == null
+                          ? 'La prenotazione di '
+                          : 'La prenotazione ${mode == kOnlineMode ? kOnScreen : kInBuilding} di ',
+                      '',
+                    ),
                   ),
                   TextSpan(
                     text: group.student.fullName,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                   ),
                   TextSpan(
-                    text: ' di ${formatAvailableDayLabel(group.date).toLowerCase()} '
-                        'verrà eliminata definitivamente',
+                    text: tr(
+                      ' di ${formatAvailableDayInSentence(group.date)} '
+                          'verrà eliminata definitivamente',
+                      "'s ${mode == null ? '' : '${mode == kOnlineMode ? 'online' : 'in-person'} '}booking on "
+                          '${formatAvailableDayInSentence(group.date)} will be permanently deleted',
+                    ),
                   ),
                 ],
               ),
@@ -825,7 +833,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     }
 
     return [
-      _buildModeAction(Icons.schedule_rounded, AppTheme.trialTealDeepText, 'Modifica gli orari', () => widget.onEditMode(mode)),
+      _buildModeAction(Icons.schedule_rounded, AppTheme.trialTealDeepText, tr('Modifica gli orari', 'Edit the times'), () => widget.onEditMode(mode)),
       // With one mode alone it would do what the footer's ELIMINA does.
       if (_isBooked(_otherMode(mode)))
         _buildModeAction(
@@ -940,7 +948,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
           if (haveBookingsClosed(group.date, band, romeNow())) ...[
             const SizedBox(width: 6),
             AppTooltip(
-              message: 'Prenotazioni chiuse',
+              message: tr('Prenotazioni chiuse', 'Bookings closed'),
               child: Icon(Icons.lock_outline_rounded, size: 14, color: AppTheme.trialMutedText),
             ),
           ],
@@ -974,11 +982,12 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
                 ),
         ),
       ],
-      _buildFieldLabel('Discipline richieste'),
+      _buildFieldLabel(tr('Discipline richieste', 'Disciplines requested')),
       SubjectRequestList(
         requests: [for (final booking in stored) _draftOf(booking)],
         ministrySubjects: widget.ministrySubjects,
         teachers: widget.teachers,
+        studentGender: widget.studentGender,
         onEdit: locked ? null : (index) => _showSubjectWizard(context, mode, existing: stored[index]),
         onRemove: locked ? null : (index) => _showSubjectDeletion(stored[index]),
         isLocked: (index) => widget.begunBookingIds.contains(stored[index].id),
@@ -999,7 +1008,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         children: [
           _buildModeHeading(context, mode),
           if (bands.isEmpty)
-            _buildEmpty('Non richiesto.')
+            _buildEmpty(tr('Non richiesto.', 'Not requested.'))
           else
             for (final (i, band) in bands.indexed) ..._buildBand(mode, band, first: i == 0),
         ],
@@ -1019,13 +1028,13 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
   Widget _buildWindow(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Richiesta',
+      eyebrow: tr('Richiesta', 'Request'),
       title: group.student.fullName,
       leading: PersonAvatar(person: group.student, size: PersonAvatar.titleSize),
       maxWidth: 1040,
       footer: widget.readOnly ? null : AppDialogFooter.single(
         AppGradientButton(
-          label: 'ELIMINA',
+          label: tr('ELIMINA', 'DELETE'),
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -1042,8 +1051,8 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
               spacing: 32,
               runSpacing: 12,
               children: [
-                _buildFact('Giornata', formatAvailableDayLabel(group.date)),
-                _buildFact('Richiesta da', group.booker.fullName),
+                _buildFact(tr('Giornata', 'Day'), formatAvailableDayLabel(group.date)),
+                _buildFact(tr('Richiesta da', 'Requested by'), group.booker.fullName),
               ],
             ),
           ),
@@ -1102,17 +1111,21 @@ class _ConfirmSubjectDeletion extends StatelessWidget
     required this.onConfirmed,
   });
 
+  String get _ending => discipline == null
+      ? tr(' verrà tolta dalla richiesta.', ' will be taken off the request.')
+      : tr(' verrà rimossa dalla richiesta.', ' will be removed from the request.');
+
   @override
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Eliminazione',
-      title: 'Confermi?',
+      eyebrow: tr('Eliminazione', 'Deletion'),
+      title: tr('Confermi?', 'Confirm?'),
       showClose: false,
       maxWidth: _confirmWidth,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ANNULLA',
+          label: tr('ANNULLA', 'CANCEL'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
           accent: AppTheme.trialVioletText,
@@ -1121,7 +1134,7 @@ class _ConfirmSubjectDeletion extends StatelessWidget
           onPressed: () => Navigator.pop(context),
         ),
         primary: AppGradientButton(
-          label: 'ELIMINA',
+          label: tr('ELIMINA', 'DELETE'),
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -1139,12 +1152,12 @@ class _ConfirmSubjectDeletion extends StatelessWidget
           child: Text.rich(
             TextSpan(
               children: [
-                if (discipline == null) const TextSpan(text: 'La materia '),
+                if (discipline == null) TextSpan(text: tr('La materia ', 'The subject ')),
                 TextSpan(
                   text: discipline ?? label,
                   style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                 ),
-                TextSpan(text: '${discipline == null ? ' verrà tolta dalla richiesta.' : ' verrà rimossa dalla richiesta.'}$note'),
+                TextSpan(text: '$_ending$note'),
               ],
             ),
             style: GoogleFonts.plusJakartaSans(

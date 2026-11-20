@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -20,6 +21,7 @@ import '../../lessons/models/lesson_item.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
 import '../../lessons/widgets/calendar_lesson_block.dart' show lessonAbout, lessonTitle, lessonWhere;
 import '../../lessons/widgets/person_avatar.dart';
+import '../../psychologist/widgets/certifications_dialog.dart' show kCertificationLabels;
 import '../calendar_tour.dart';
 import '../pupil_calendar_tour.dart';
 import 'teacher_note_dialog.dart';
@@ -63,14 +65,14 @@ const String _empty = kVoiceEmpty;
 
 const String _otherCertification = 'OTHER';
 
-const String kStudentFailedNote = 'Non è stato possibile leggere i dati dello studente.';
+String get kStudentFailedNote => tr('Non è stato possibile leggere i dati dello studente.', "Couldn't read the student's details.");
 
-const String _birthdayToday = 'Oggi è il suo compleanno';
+String get _birthdayToday => tr('Oggi è il suo compleanno', "It's their birthday today");
 
 const double _voiceIconGap = 6;
 
-const String _sharedWith = 'Questa lezione è in compresenza con un altro studente';
-const String kTeacherFailedNote = 'Non è stato possibile leggere i dati del docente.';
+String get _sharedWith => tr('Questa lezione è in compresenza con un altro studente', 'This lesson is shared with another student');
+String get kTeacherFailedNote => tr('Non è stato possibile leggere i dati del docente.', "Couldn't read the teacher's details.");
 
 class LessonVoice
 {
@@ -173,10 +175,13 @@ String sharedLessonSentence(LessonItem lesson)
 
   final stretches = [
     for (final (start, end) in lesson.overlaps)
-      'dalle ${formatTimeOfDayShort(start)} alle ${formatTimeOfDayShort(end)}',
+      tr(
+        'dalle ${formatTimeOfDayShort(start)} alle ${formatTimeOfDayShort(end)}',
+        'from ${formatTimeOfDayShort(start)} to ${formatTimeOfDayShort(end)}',
+      ),
   ];
 
-  return '$_sharedWith ${stretches.join(' e ')}';
+  return '$_sharedWith ${stretches.join(tr(' e ', ' and '))}';
 }
 
 String _joined(Iterable<String> values, {String separator = ', '})
@@ -206,9 +211,9 @@ String studentCertificationsOf(PersonItem person)
       if (type == _otherCertification)
         person.certificationOtherDetail?.trim() ?? ''
       else if (type == 'DSA' && (person.certificationDsaDetail?.trim().isNotEmpty ?? false))
-        'DSA (${person.certificationDsaDetail!.trim()})'
+        '${kCertificationLabels[type]} (${person.certificationDsaDetail!.trim()})'
       else
-        type,
+        kCertificationLabels[type] ?? type,
   ];
 
   return _joined(types, separator: ' – ');
@@ -241,40 +246,42 @@ List<LessonVoice> lessonVoicesOf(LessonItem lesson, List<MinistrySubjectItem> mi
 
   return [
     LessonVoice(
-      label: 'Orario',
+      label: tr('Orario', 'Time'),
       value: '${formatTimeRange(lesson.startTime, lesson.endTime)} · ${formatMinutes(lesson.minutes)}',
     ),
-    if (where) LessonVoice(label: 'Stanza', value: lessonWhere(lesson).label),
-    if (disciplines != null) LessonVoice(label: 'Disciplina', value: disciplines),
+    if (where) LessonVoice(label: tr('Stanza', 'Room'), value: lessonWhere(lesson).label),
+    if (disciplines != null) LessonVoice(label: tr('Disciplina', 'Discipline'), value: disciplines),
     LessonVoice(
-      label: 'Materia',
+      label: tr('Materia', 'Subject'),
       value: perBooking((booking) => bookingSubject(booking, ministrySubjects)),
     ),
     LessonVoice(
-      label: 'Tipo di lezione',
+      label: tr('Tipo di lezione', 'Lesson type'),
       value: perBooking((booking) => bookingTagLabels(booking.tags).join(', ')),
     ),
-    LessonVoice(label: 'Argomento', value: topic),
-    LessonVoice(label: 'Note', value: notes),
+    LessonVoice(label: tr('Argomento', 'Topic'), value: topic),
+    LessonVoice(label: tr('Note', 'Notes'), value: notes),
   ];
 }
 
 LessonVoice _studentAge(PersonItem person)
 {
-  const label = 'Età';
+  final String label = tr('Età', 'Age');
   final age = person.age;
 
   if (age == null)
   {
-    return const LessonVoice(label: label, value: _empty);
+    return LessonVoice(label: label, value: _empty);
   }
+
+  final String years = tr('$age anni', '$age years old');
 
   if (!person.hasBirthdayToday)
   {
-    return LessonVoice(label: label, value: '$age anni');
+    return LessonVoice(label: label, value: years);
   }
 
-  return LessonVoice(label: label, value: '$age anni – $_birthdayToday', icon: Icons.cake_rounded);
+  return LessonVoice(label: label, value: '$years – $_birthdayToday', icon: Icons.cake_rounded);
 }
 
 // [notes]: false on desktop, where the notes take a card of their own.
@@ -286,24 +293,27 @@ List<LessonVoice> studentVoicesOf(PersonItem person, {bool notes = true})
   return [
     _studentAge(person),
     LessonVoice(
-      label: 'Certificazioni',
+      label: tr('Certificazioni', 'Certifications'),
       value: studentCertificationsOf(person),
       sensitive: true,
     ),
-    LessonVoice(label: 'Scuola', value: person.schoolName?.trim() ?? _empty),
-    LessonVoice(label: 'Livello', value: person.educationLevel?.trim() ?? _empty),
+    LessonVoice(label: tr('Scuola', 'School'), value: person.schoolName?.trim() ?? _empty),
+    LessonVoice(label: tr('Livello', 'Level'), value: person.educationLevel?.trim() ?? _empty),
     LessonVoice(
-      label: 'Percorso di studi',
+      label: tr('Percorso di studi', 'Study programme'),
       value: person.studyProgram == null ? _empty : studyProgramNameOnlyOf(person.studyProgram!),
     ),
-    LessonVoice(label: 'Classe', value: person.schoolClass?.trim() ?? _empty),
-    LessonVoice(label: 'Ripetente', value: year == null ? _empty : (repeating ? 'Sì' : 'No')),
+    LessonVoice(label: tr('Classe', 'Class'), value: person.schoolClass?.trim() ?? _empty),
+    LessonVoice(
+      label: tr('Ripetente', 'Repeating the year'),
+      value: year == null ? _empty : (repeating ? tr('Sì', 'Yes') : tr('No', 'No')),
+    ),
     if (notes) ...[
       _notesVoice(kTechnicalNotesTitle, person, StudentNoteKind.technical, person.technicalNotes),
       _notesVoice(kMethodologicalNotesTitle, person, StudentNoteKind.methodological, person.methodologicalNotes),
     ],
     LessonVoice(
-      label: 'Altre informazioni',
+      label: tr('Altre informazioni', 'Other information'),
       value: _joined([person.allergiesNotes ?? '', person.medicationsNotes ?? ''], separator: '\n'),
       sensitive: true,
     ),
@@ -315,9 +325,9 @@ List<LessonVoice> teacherVoicesOf(PersonItem person)
   final age = person.age;
 
   return [
-    LessonVoice(label: 'Età', value: age == null ? _empty : '$age anni'),
-    LessonVoice(label: 'Studi scolastici', value: person.schoolEducation?.trim() ?? _empty),
-    LessonVoice(label: 'Studi universitari', value: person.universityEducation?.trim() ?? _empty),
+    LessonVoice(label: tr('Età', 'Age'), value: age == null ? _empty : tr('$age anni', '$age years old')),
+    LessonVoice(label: tr('Studi scolastici', 'School education'), value: person.schoolEducation?.trim() ?? _empty),
+    LessonVoice(label: tr('Studi universitari', 'University education'), value: person.universityEducation?.trim() ?? _empty),
   ];
 }
 
@@ -370,7 +380,7 @@ class _OwnLessonDialog extends StatelessWidget
     return DesktopTourTarget(
       id: kTourLessonDetails,
       child: LessonDialogSection(
-        heading: withOther ? 'Lezione' : null,
+        heading: withOther ? tr('Lezione', 'Lesson') : null,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,7 +400,7 @@ class _OwnLessonDialog extends StatelessWidget
     return DesktopTourTarget(
       id: person == null ? null : kTourLessonStudent,
       child: LessonDialogSection(
-        heading: _byStudent ? 'Docente' : 'Studente',
+        heading: _byStudent ? tr('Docente', 'Teacher') : tr('Studente', 'Student'),
         child: person == null
             ? _buildNote(_byStudent ? kTeacherFailedNote : kStudentFailedNote)
             : LessonVoicesTable(
@@ -405,7 +415,7 @@ class _OwnLessonDialog extends StatelessWidget
     final technical = DesktopTourTarget(
       id: kTourLessonTechnical,
       child: _NotesColumn(
-        label: 'Tecniche',
+        label: tr('Tecniche', 'Technical'),
         taxCode: student.fiscalCode,
         kind: StudentNoteKind.technical,
         notes: student.technicalNotes ?? const [],
@@ -414,7 +424,7 @@ class _OwnLessonDialog extends StatelessWidget
     final methodological = DesktopTourTarget(
       id: kTourLessonMethodological,
       child: _NotesColumn(
-        label: 'Metodologiche',
+        label: tr('Metodologiche', 'Methodological'),
         taxCode: student.fiscalCode,
         kind: StudentNoteKind.methodological,
         notes: student.methodologicalNotes ?? const [],
@@ -423,7 +433,7 @@ class _OwnLessonDialog extends StatelessWidget
     );
 
     return LessonDialogSection(
-      heading: 'Osservazioni',
+      heading: tr('Osservazioni', 'Observations'),
       child: SelectionArea(
         child: wide
             ? Row(
@@ -457,7 +467,7 @@ class _OwnLessonDialog extends StatelessWidget
     return _LessonTourStart(
       teacher: !_byStudent,
       child: AppDialogStack(
-        eyebrow: 'Lezione',
+        eyebrow: tr('Lezione', 'Lesson'),
         title: lessonTitle(lesson, view: view),
         leading: face == null ? null : PersonAvatar(person: face, size: PersonAvatar.titleSize),
         subtitle: Text(

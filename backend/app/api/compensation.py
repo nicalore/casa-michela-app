@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import DbSession
 from app.api.rbac import IdentityContext, require_role
 from app.core.booking_window import now_in_rome
+from app.core.i18n import tr
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.staff import CollaborationTypeEnum, Staff
 from app.models.teacher import Teacher
@@ -48,8 +49,14 @@ router = APIRouter(prefix="/people", tags=["compensation"])
 
 Admin = Annotated[IdentityContext, Depends(require_role("ADMIN"))]
 
-_STAFF_NOT_FOUND_ERROR: Final[str] = "Collaboratore non trovato"
-_FUTURE_MONTH_ERROR: Final[str] = "Il mese non è ancora iniziato"
+_STAFF_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Collaboratore non trovato",
+    "Collaborator not found",
+)
+_FUTURE_MONTH_ERROR: Final[tuple[str, str]] = (
+    "Il mese non è ancora iniziato",
+    "The month hasn't started yet",
+)
 
 
 def _is_over() -> Callable[[date, time], bool]:
@@ -71,7 +78,7 @@ def _month_or_400(year: int, month: int) -> date:
     if first > _this_month():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_FUTURE_MONTH_ERROR,
+            detail=tr(*_FUTURE_MONTH_ERROR),
         )
 
     return first
@@ -101,7 +108,7 @@ async def _staff_or_404(db: AsyncSession, tax_code: str) -> Staff:
     if staff is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_STAFF_NOT_FOUND_ERROR,
+            detail=tr(*_STAFF_NOT_FOUND_ERROR),
         )
 
     return staff

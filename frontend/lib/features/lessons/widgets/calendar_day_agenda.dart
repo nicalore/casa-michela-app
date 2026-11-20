@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -81,7 +82,7 @@ class CalendarDayAgenda extends StatelessWidget
 
   Widget _buildHeader()
   {
-    return PageHeading('In calendario', count: _rowCount);
+    return PageHeading(tr('In calendario', 'In the calendar'), count: _rowCount);
   }
 
   // Lessons and activities interleaved in clock order.
@@ -290,14 +291,14 @@ class _AgendaRowState extends State<_AgendaRow>
         if (widget.isPreferred) ...[
           const SizedBox(width: 6),
           AppTooltip(
-            message: 'Docente richiesto dall\'alunno',
+            message: tr('Docente richiesto dall\'alunno', 'Teacher requested by the pupil'),
             child: Icon(Icons.star_rounded, size: 14, color: kPreferredTeacherColor),
           ),
         ],
         if (widget.hasWarning) ...[
           const SizedBox(width: 6),
           AppTooltip(
-            message: 'Docente che l\'alunno preferirebbe evitare',
+            message: tr('Docente che l\'alunno preferirebbe evitare', 'Teacher the pupil would rather avoid'),
             child: Icon(Icons.circle, size: 9, color: kAvoidedTeacherColor),
           ),
         ],

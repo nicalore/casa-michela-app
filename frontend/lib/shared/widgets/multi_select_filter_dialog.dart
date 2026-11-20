@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/alphabetical_order.dart';
 import 'app_dialog_footer.dart';
@@ -182,12 +183,12 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
     final selectedGroups = _selectedGroups;
 
     return AppDialogStack(
-      eyebrow: 'Filtro',
+      eyebrow: tr('Filtro', 'Filter'),
       title: widget.title,
       maxWidth: 520,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'AZZERA',
+          label: tr('AZZERA', 'RESET'),
           icon: Icons.refresh_rounded,
           gradient: AppTheme.dismissGradient,
           accent: AppTheme.trialVioletText,
@@ -196,7 +197,7 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
           onPressed: _reset,
         ),
         primary: AppGradientButton(
-          label: 'APPLICA',
+          label: tr('APPLICA', 'APPLY'),
           icon: Icons.check_rounded,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -222,7 +223,7 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Center(
                     child: Text(
-                      'Nessuna selezione.',
+                      tr('Nessuna selezione.', 'Nothing selected.'),
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,

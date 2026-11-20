@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_catalogue_card.dart';
 import '../../../shared/widgets/app_field_label.dart';
@@ -93,13 +94,13 @@ class _SchoolDetailsDialogContent extends StatelessWidget
       context: context,
       barrierLabel: 'ConfirmSchoolDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Eliminazione',
-        title: 'Confermi?',
+        eyebrow: tr('Eliminazione', 'Deletion'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -108,7 +109,7 @@ class _SchoolDetailsDialogContent extends StatelessWidget
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -127,12 +128,12 @@ class _SchoolDetailsDialogContent extends StatelessWidget
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: 'La scuola '),
+                  TextSpan(text: tr('La scuola ', 'The school ')),
                   TextSpan(
                     text: school.name,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                   ),
-                  const TextSpan(text: ' verrà eliminata definitivamente.'),
+                  TextSpan(text: tr(' verrà eliminata definitivamente.', ' will be deleted permanently.')),
                 ],
               ),
               style: GoogleFonts.plusJakartaSans(
@@ -154,7 +155,7 @@ class _SchoolDetailsDialogContent extends StatelessWidget
   {
     final fullProgram = availableStudyPrograms.firstWhere(
       (program) => program.id == programId,
-      orElse: () => throw Exception('Percorso non trovato nei dati caricati'),
+      orElse: () => throw Exception(tr('Percorso non trovato nei dati caricati', 'Programme not found in the loaded data')),
     );
 
     showBlurredDialog<void>(
@@ -187,12 +188,12 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     final hasCode = school.mechanographicCode != null && school.mechanographicCode!.isNotEmpty;
 
     return AppDialogStack(
-      eyebrow: 'Scuola',
+      eyebrow: tr('Scuola', 'School'),
       title: school.name,
       maxWidth: 600,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
-          label: 'ELIMINA',
+          label: tr('ELIMINA', 'DELETE'),
           icon: Icons.delete_outline_rounded,
           gradient: AppTheme.dangerGradient,
           accent: AppTheme.trialDangerText,
@@ -201,7 +202,7 @@ class _SchoolDetailsDialogContent extends StatelessWidget
           onPressed: () => _showDeleteConfirmation(context),
         ),
         primary: AppGradientButton(
-          label: 'MODIFICA',
+          label: tr('MODIFICA', 'EDIT'),
           icon: Icons.edit_outlined,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -224,7 +225,7 @@ class _SchoolDetailsDialogContent extends StatelessWidget
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildFieldLabel('Città', first: true),
+                          _buildFieldLabel(tr('Città', 'City'), first: true),
                           Text(school.city, style: _valueStyle),
                         ],
                       ),
@@ -235,16 +236,16 @@ class _SchoolDetailsDialogContent extends StatelessWidget
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildFieldLabel('Provincia', first: true),
+                          _buildFieldLabel(tr('Provincia', 'Province'), first: true),
                           Text(school.province, style: _valueStyle),
                         ],
                       ),
                     ),
                   ],
                 ),
-                _buildFieldLabel('Codice meccanografico'),
+                _buildFieldLabel(tr('Codice meccanografico', 'School code')),
                 Text(
-                  hasCode ? school.mechanographicCode! : 'Non presente',
+                  hasCode ? school.mechanographicCode! : tr('Non presente', 'None'),
                   style: hasCode
                       ? _valueStyle
                       : _valueStyle.copyWith(
@@ -263,11 +264,11 @@ class _SchoolDetailsDialogContent extends StatelessWidget
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFieldLabel('Percorsi di studio attivi', first: true),
+              _buildFieldLabel(tr('Percorsi di studio attivi', 'Active study programmes'), first: true),
               if (school.studyPrograms.isEmpty)
                 Center(
                   child: Text(
-                    'Nessun percorso associato a questa scuola.',
+                    tr('Nessun percorso associato a questa scuola.', 'No programmes linked to this school.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
@@ -330,7 +331,7 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
     final hasDescription = program.description.isNotEmpty;
 
     return AppDialogStack(
-      eyebrow: program.scopeLine ?? 'Percorso di studio',
+      eyebrow: program.scopeLine ?? tr('Percorso di studio', 'Study programme'),
       title: program.name,
       maxWidth: 560,
       // Right of centre so the school details stay readable behind it.
@@ -350,7 +351,7 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildFieldLabel('Livello', first: true),
+                            _buildFieldLabel(tr('Livello', 'Level'), first: true),
                             Text(schoolLevelLabel(program.level), style: _valueStyle),
                           ],
                         ),
@@ -360,16 +361,16 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildFieldLabel('Anni di corso', first: true),
+                            _buildFieldLabel(tr('Anni di corso', 'Years of the course'), first: true),
                             Text('${program.minYear} - ${program.maxYear}', style: _valueStyle),
                           ],
                         ),
                       ),
                     ],
                   ),
-                  _buildFieldLabel('Descrizione'),
+                  _buildFieldLabel(tr('Descrizione', 'Description')),
                   Text(
-                    hasDescription ? program.description : 'Nessuna descrizione fornita.',
+                    hasDescription ? program.description : tr('Nessuna descrizione fornita.', 'No description given.'),
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -388,11 +389,11 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFieldLabel('Materie ministeriali incluse', first: true),
+              _buildFieldLabel(tr('Materie ministeriali incluse', 'Curriculum subjects included'), first: true),
               if (program.ministrySubjects.isEmpty)
                 Center(
                   child: Text(
-                    'Nessuna materia associata.',
+                    tr('Nessuna materia associata.', 'No linked subjects.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,

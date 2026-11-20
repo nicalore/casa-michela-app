@@ -86,7 +86,7 @@ class MobileAppCredits extends StatelessWidget
         const SizedBox(height: _warningGap),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: MobileNavSheet.tabletWidth),
-          child: const MobileDevelopmentWarning(kDevelopmentWarning),
+          child: MobileDevelopmentWarning(kDevelopmentWarning),
         ),
       ],
     );

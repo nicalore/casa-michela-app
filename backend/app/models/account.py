@@ -52,6 +52,12 @@ class ThemeModeEnum(StrEnum):
     SYSTEM = "SYSTEM"
 
 
+# The app's language for this account; null until chosen, so each device shows its own.
+class LanguageEnum(StrEnum):
+    IT = "it"
+    EN = "en"
+
+
 # Why an ACTIVE account is suspended all the same. Never stored: re-enrolling lifts it.
 class AccessLapseEnum(StrEnum):
     MEMBERSHIP = "MEMBERSHIP"
@@ -158,6 +164,11 @@ class Account(CreatedAtMixin, UpdatedAtMixin, Base):
         nullable=False,
         default=ThemeModeEnum.LIGHT,
         server_default=ThemeModeEnum.LIGHT.value,
+    )
+
+    language: Mapped[LanguageEnum | None] = mapped_column(
+        SqlEnum(LanguageEnum, name="language_enum"),
+        nullable=True,
     )
 
     # Null until a role is used; the API then falls back to the first usable one.

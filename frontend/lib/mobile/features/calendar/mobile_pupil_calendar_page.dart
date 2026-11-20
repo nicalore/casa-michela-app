@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -13,6 +14,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../features/association/models/ministry_subject_item.dart';
 import '../../../features/association/models/opening_day_item.dart';
 import '../../../features/association/tabs/opening_hours/calendar_bounds.dart';
+import '../../../features/association/teacher_opinions.dart' show canSpeakFor;
 import '../../../features/auth/models/me_response.dart';
 import '../../../features/calendar/utils/calendar_strings.dart';
 import '../../../features/calendar/utils/day_marks_loader.dart';
@@ -49,7 +51,7 @@ import 'widgets/mobile_lesson_list.dart';
 import 'widgets/mobile_lesson_sheet.dart';
 import 'widgets/mobile_presence_card.dart';
 
-const String _title = 'Calendario';
+String get _title => tr('Calendario', 'Calendar');
 
 // Same "seen" flag for every role: the sentence is the same.
 
@@ -168,8 +170,9 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
   // Not disposed: a sheet closing after the page still tells it.
   final LessonSheetTourLink _sheetLink = LessonSheetTourLink();
 
-  // The child of the lesson whose sheet is up.
+  // The child and the teacher of the lesson whose sheet is up.
   PersonItem? _sheetPupil;
+  PersonItem? _sheetTeacher;
 
   // The layouts' sheet up and still, and how to close it.
   final ValueNotifier<bool> _layoutsUp = ValueNotifier(false);
@@ -415,6 +418,8 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     ];
     final (LessonItem, PersonItem)? lit = band == null ? null : _litLessonIn(data, band, pupils);
     final Set<PupilLessonSheetMark> sheetMarks = band == null ? const {} : await unseenPupilLessonSheetMarks(taxCode);
+    final String? teacherGender =
+        lit != null && sheetMarks.contains(PupilLessonSheetMark.teacher) ? await _teacherGenderOf(lit.$1) : null;
 
     if (!mounted)
     {
@@ -433,6 +438,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
               (presence) => presence.isEmpty || presence.byMode.every((span) => span.mode != kPresenceMode),
             ),
         lessonGender: lit?.$2.gender,
+        teacherGender: teacherGender,
         layouts: _layoutsUp,
         openLayouts: _pickLayout,
         closeLayouts: () => _closeLayouts?.call(),
@@ -441,6 +447,19 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
         self: !_isParent,
       ),
     );
+  }
+
+  // Read only when the tour will name the lesson's teacher.
+  Future<String?> _teacherGenderOf(LessonItem lesson) async
+  {
+    try
+    {
+      return (await _apiService.getPerson(lesson.teacherTaxCode)).gender;
+    }
+    catch (_)
+    {
+      return null;
+    }
   }
 
   // A lesson's sheet up outside a tour: its parts never seen, the first time they show.
@@ -477,6 +496,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
       shownGenders: const [],
       online: false,
       lessonGender: _sheetPupil?.gender,
+      teacherGender: _sheetTeacher?.gender,
       layouts: _layoutsUp,
       openLayouts: _pickLayout,
       closeLayouts: () => _closeLayouts?.call(),
@@ -722,7 +742,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     final MobileChoice<CalendarLayout>? picked = await showMobileChoiceSheet(
       context: context,
       eyebrow: _title,
-      title: 'Disposizione',
+      title: tr('Disposizione', 'Layout'),
       choices: [for (final layout in CalendarLayout.values) MobileChoice(value: layout, label: layout.label)],
       value: _layout,
       tourChoices: kPupilCalendarTourLayouts,
@@ -793,6 +813,7 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
     }
 
     _sheetPupil = pupil;
+    _sheetTeacher = teacher;
 
     await showMobilePupilLessonSheet(
       context: context,
@@ -900,7 +921,10 @@ class _MobilePupilCalendarPageState extends State<MobilePupilCalendarPage>
       return MobileEmptyCard(
         icon: Icons.free_cancellation_rounded,
         message: kCalendarUnavailableTitle,
-        detail: kNoLessonsRequested,
+        detail: noLessonsRequested(
+          childGenders: [if (_isParent) for (final pupil in pupils) pupil.gender],
+          booksOwn: canSpeakFor(widget.role),
+        ),
         tablet: tablet,
       );
     }

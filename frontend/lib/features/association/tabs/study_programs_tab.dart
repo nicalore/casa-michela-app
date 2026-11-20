@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/alphabetical_order.dart';
 import '../../../shared/widgets/app_empty_card.dart';
@@ -167,8 +168,8 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   void _showMinistrySubjectFilterDialog()
   {
     _showSubjectFilterDialog(
-      title: 'Filtra per materia ministeriale',
-      hint: 'Es. Matematica',
+      title: tr('Filtra per materia ministeriale', 'Filter by curriculum subject'),
+      hint: tr('Es. Matematica', 'E.g. Mathematics'),
       options: widget.ministrySubjects
           .map((subject) => MultiSelectFilterOption(
                 value: subject.id,
@@ -185,8 +186,8 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   void _showAssociationSubjectFilterDialog()
   {
     _showSubjectFilterDialog(
-      title: 'Filtra per disciplina interna',
-      hint: 'Es. Aritmetica',
+      title: tr('Filtra per disciplina interna', 'Filter by internal discipline'),
+      hint: tr('Es. Aritmetica', 'E.g. Arithmetic'),
       options: widget.associationSubjects
           .map((subject) => MultiSelectFilterOption(value: subject.id, label: subject.name))
           .toList(),
@@ -204,19 +205,19 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
       header: entityTabHeader(
         searchController: _searchController,
         onSearchChanged: (value) => setState(() => _searchText = value),
-        searchHint: 'Cerca percorso di studio...',
-        actionLabel: 'NUOVO PERCORSO',
+        searchHint: tr('Cerca percorso di studio...', 'Search study programmes...'),
+        actionLabel: tr('NUOVO PERCORSO', 'NEW PROGRAMME'),
         onAction: () => _showWizard(),
         sort: _sortBy,
         onSortChanged: (value) => setState(() => _sortBy = value),
         countLabel: programs.length == 1
-            ? '1 percorso trovato'
-            : '${programs.length} percorsi trovati',
+            ? tr('1 percorso trovato', '1 programme found')
+            : tr('${programs.length} percorsi trovati', '${programs.length} programmes found'),
         filters: [
           const FilterGroupDivider(),
           AppFilterPill<String>.filter(
-            prefix: 'Livello',
-            hint: 'Tutti i livelli',
+            prefix: tr('Livello', 'Level'),
+            hint: tr('Tutti i livelli', 'All levels'),
             icon: Icons.school_outlined,
             value: _filterLevel,
             menuWidth: 210,
@@ -228,8 +229,8 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
           ),
           if (_knownSectors.isNotEmpty)
             AppFilterPill<String>.filter(
-              prefix: 'Settore',
-              hint: 'Tutti i settori',
+              prefix: tr('Settore', 'Sector'),
+              hint: tr('Tutti i settori', 'All sectors'),
               icon: Icons.account_tree_outlined,
               value: _filterSector,
               menuWidth: 280,
@@ -241,14 +242,14 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
             ),
           AppCountFilterPill(
             icon: Icons.auto_stories_outlined,
-            label: 'Discipline interne',
+            label: tr('Discipline interne', 'Internal disciplines'),
             count: _selectedAssociationSubjectIds.length,
             onOpen: _showAssociationSubjectFilterDialog,
             onClear: () => setState(() => _selectedAssociationSubjectIds = {}),
           ),
           AppCountFilterPill(
             icon: Icons.menu_book_outlined,
-            label: 'Materie ministeriali',
+            label: tr('Materie ministeriali', 'Curriculum subjects'),
             count: _selectedMinistrySubjectIds.length,
             onOpen: _showMinistrySubjectFilterDialog,
             onClear: () => setState(() => _selectedMinistrySubjectIds = {}),
@@ -259,7 +260,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         shown: programs.length,
         total: widget.studyPrograms.length,
         icon: Icons.route_rounded,
-        none: 'Nessun percorso di studio registrato',
+        none: tr('Nessun percorso di studio registrato', 'No study programmes recorded'),
       ),
       body: EntityCardGrid(
         cardWidth: _cardWidth,
@@ -533,17 +534,17 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   {
     if (_nameController.text.trim().isEmpty)
     {
-      return 'Scrivi il nome per andare avanti.';
+      return tr('Scrivi il nome per andare avanti.', 'Write the name to go on.');
     }
 
     if (_selectedLevel == null)
     {
-      return 'Seleziona un livello scolastico per andare avanti.';
+      return tr('Seleziona un livello scolastico per andare avanti.', 'Select a school level to go on.');
     }
 
     if (_isHighSchool && _selectedTrack == null)
     {
-      return "Seleziona l'articolazione per andare avanti.";
+      return tr("Seleziona l'articolazione per andare avanti.", 'Select the cycle to go on.');
     }
 
     if (!_hasTypedYears)
@@ -553,7 +554,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
     if (_minYearController.text.isEmpty || _maxYearController.text.isEmpty)
     {
-      return "Compila l'intervallo degli anni per andare avanti.";
+      return tr("Compila l'intervallo degli anni per andare avanti.", 'Fill in the range of years to go on.');
     }
 
     final HighSchoolTrack? restated = _isHighSchool
@@ -562,7 +563,10 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
     if (restated != null)
     {
-      return 'Per gli anni ${restated.minYear}-${restated.maxYear} scegli ${restated.label}.';
+      return tr(
+        'Per gli anni ${restated.minYear}-${restated.maxYear} scegli ${restated.label}.',
+        'For years ${restated.minYear}-${restated.maxYear} choose ${restated.label}.',
+      );
     }
 
     return null;
@@ -586,7 +590,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
     if (minYear == null || maxYear == null || minYear > maxYear || minYear < 1)
     {
-      showError('Intervallo di anni non valido.');
+      showError(tr('Intervallo di anni non valido.', 'Invalid range of years.'));
 
       return false;
     }
@@ -594,8 +598,12 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     if (maxYear > _maxYearForSelectedLevel)
     {
       showError(
-        "Per il livello selezionato l'anno massimo consentito è "
-        '$_maxYearForSelectedLevel.',
+        tr(
+          "Per il livello selezionato l'anno massimo consentito è "
+              '$_maxYearForSelectedLevel.',
+          'For the selected level the highest year allowed is '
+              '$_maxYearForSelectedLevel.',
+        ),
       );
 
       return false;
@@ -616,7 +624,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     if (_selectedSubjects.isEmpty)
     {
       goToStep(1);
-      showError('Seleziona almeno una materia ministeriale.');
+      showError(tr('Seleziona almeno una materia ministeriale.', 'Select at least one curriculum subject.'));
 
       return;
     }
@@ -682,7 +690,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildYearField(_minYearController, 'Anno inizio', 'Es. 1', isMinField: true),
+                  _buildYearField(_minYearController, tr('Anno inizio', 'Start year'), tr('Es. 1', 'E.g. 1'), isMinField: true),
                 ],
               ),
             ),
@@ -691,14 +699,17 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildYearField(_maxYearController, 'Anno fine', 'Es. 5', isMinField: false),
+                  _buildYearField(_maxYearController, tr('Anno fine', 'End year'), tr('Es. 5', 'E.g. 5'), isMinField: false),
                 ],
               ),
             ),
           ],
         ),
         if (_selectedLevel != null)
-          _buildHint('Intervallo consentito per il livello selezionato: 1 - $_maxYearForSelectedLevel'),
+          _buildHint(tr(
+            'Intervallo consentito per il livello selezionato: 1 - $_maxYearForSelectedLevel',
+            'Range allowed for the selected level: 1 - $_maxYearForSelectedLevel',
+          )),
       ],
     );
   }
@@ -710,7 +721,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const WizardFieldLabel('Articolazione'),
+        WizardFieldLabel(tr('Articolazione', 'Cycle')),
         Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -727,7 +738,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
           }).toList(),
         ),
         if (chosen != null && chosen.hasFixedYears)
-          _buildHint('Anni di corso: ${chosen.minYear} - ${chosen.maxYear}'),
+          _buildHint(tr('Anni di corso: ${chosen.minYear} - ${chosen.maxYear}', 'Years of the course: ${chosen.minYear} - ${chosen.maxYear}')),
       ],
     );
   }
@@ -741,19 +752,19 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
             children: [
               _SectorAutocompleteField(
                 controller: _sectorController,
-                label: 'Settore (opzionale)',
-                hint: 'Es. Istituto tecnico economico',
+                label: tr('Settore (opzionale)', 'Sector (optional)'),
+                hint: tr('Es. Istituto tecnico economico', 'E.g. Technical institute for economics'),
                 options: widget.knownSectors,
                 onChanged: () => setState(() {}),
               ),
               AppTextField(
                 controller: _nameController,
-                label: 'Nome',
-                hintText: 'Es. Amministrazione, finanza e marketing',
+                label: tr('Nome', 'Name'),
+                hintText: tr('Es. Amministrazione, finanza e marketing', 'E.g. Administration, finance and marketing'),
                 maxLength: FieldLimits.name,
                 textCapitalization: TextCapitalization.sentences,
               ),
-              const WizardFieldLabel('Livello scolastico'),
+              WizardFieldLabel(tr('Livello scolastico', 'School level')),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -789,7 +800,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Seleziona le materie ministeriali associate.',
+          tr('Seleziona le materie ministeriali associate.', 'Select the linked curriculum subjects.'),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             color: AppTheme.trialMutedText,
@@ -800,7 +811,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
         AppSearchField(
           controller: _subjectSearchController,
           onChanged: (_) => setState(() {}),
-          hintText: 'Cerca materia ministeriale...',
+          hintText: tr('Cerca materia ministeriale...', 'Search curriculum subjects...'),
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
@@ -808,7 +819,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
           child: availableSubjects.isEmpty
               ? Center(
                   child: Text(
-                    'Nessuna materia trovata per il livello.',
+                    tr('Nessuna materia trovata per il livello.', 'No subjects found for the level.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
@@ -853,7 +864,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   Widget build(BuildContext context)
   {
     return buildTwoStepDialog(
-      title: isEditing ? 'Modifica percorso' : 'Nuovo percorso',
+      title: isEditing ? tr('Modifica percorso', 'Edit programme') : tr('Nuovo percorso', 'New programme'),
       contentMaxWidth: _contentMaxWidth,
       onSubmit: _submit,
       firstStep: _buildStep1,

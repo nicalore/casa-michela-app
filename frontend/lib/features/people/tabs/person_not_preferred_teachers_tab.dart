@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -29,6 +30,9 @@ const double _cardGap = 16;
 const double _avatarSize = 64;
 
 const String _teacherRoleLabel = 'Docente';
+
+String _notPreferredTitle(String? gender) =>
+    tr('Mi sono ${gender == 'F' ? 'trovata' : 'trovato'} meno con...', 'I got on less well with...');
 
 void showEditNotPreferredTeachersDialog(
   BuildContext context, {
@@ -82,11 +86,11 @@ class PersonNotPreferredTeachersTab extends StatelessWidget
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
-                const PageHeading('Mi sono trovato meno con...', large: true),
+                PageHeading(_notPreferredTitle(person.gender), large: true),
                 const SizedBox(height: kPageHeadingGap),
                 if (teachers.isEmpty)
-                  const Center(
-                    child: AppEmptyCard(icon: Icons.thumb_down_off_alt_rounded, message: 'Nessun docente indicato.'),
+                  Center(
+                    child: AppEmptyCard(icon: Icons.thumb_down_off_alt_rounded, message: tr('Nessun docente indicato.', 'No teacher named.')),
                   )
                 else
                   Wrap(
@@ -97,7 +101,7 @@ class PersonNotPreferredTeachersTab extends StatelessWidget
                 SizedBox(height: personSectionGap(context)),
                 Center(
                   child: AppGradientButton(
-                    label: 'MODIFICA DOCENTI',
+                    label: tr('MODIFICA DOCENTI', 'EDIT TEACHERS'),
                     icon: Icons.edit_rounded,
                     onPressed: () => showEditNotPreferredTeachersDialog(
                       context,
@@ -192,7 +196,7 @@ class _EditNotPreferredTeachersDialogState extends State<_EditNotPreferredTeache
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Docenti aggiornati con successo!',
+          message: tr('Docenti aggiornati con successo!', 'Teachers updated successfully!'),
           isError: false,
         );
 
@@ -231,7 +235,7 @@ class _EditNotPreferredTeachersDialogState extends State<_EditNotPreferredTeache
       return Center(
         child: AppLoadFailedPanel(
           error: _loadFailure,
-          message: 'Impossibile caricare le anagrafiche dal server.',
+          message: tr('Impossibile caricare le anagrafiche dal server.', "Couldn't load the people from the server."),
           onRetry: _loadTeachers,
         ),
       );
@@ -249,12 +253,12 @@ class _EditNotPreferredTeachersDialogState extends State<_EditNotPreferredTeache
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'DOCENTI',
-      title: 'Mi sono trovato meno con...',
+      eyebrow: tr('DOCENTI', 'TEACHERS'),
+      title: _notPreferredTitle(widget.person.gender),
       maxWidth: 720,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _isSubmitting || _isLoading,
           height: kPersonDialogButtonHeight,

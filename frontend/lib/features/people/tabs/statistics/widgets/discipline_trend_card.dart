@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../core/language/app_language.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../services/api_service.dart';
 import '../../../../../shared/widgets/app_card.dart';
@@ -102,7 +103,7 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
     {
       return Center(
         child: Text(
-          'Cerca una disciplina per vederne le richieste mese per mese.',
+          tr('Cerca una disciplina per vederne le richieste mese per mese.', 'Search for a discipline to see its requests month by month.'),
           textAlign: TextAlign.center,
           style: GoogleFonts.plusJakartaSans(
             fontSize: StatMetrics.of(context).dense ? 13.5 : 15,
@@ -130,7 +131,7 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
     ];
 
     return AppCard(
-      title: 'Andamento richieste per disciplina',
+      title: tr('Andamento richieste per disciplina', 'Requests per discipline over time'),
       selectable: false,
       leading: const AppCardBadge(icon: Icons.query_stats_rounded),
       trailingFit: AppCardTrailing.wrapping,
@@ -141,8 +142,8 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _searchFieldWidth),
             child: AutocompleteField<int>(
-              label: 'Disciplina',
-              hint: 'Cerca una disciplina per nome...',
+              label: tr('Disciplina', 'Discipline'),
+              hint: tr('Cerca una disciplina per nome...', 'Search a discipline by name...'),
               options: options,
               value: _selectedId,
               onSelected: _load,

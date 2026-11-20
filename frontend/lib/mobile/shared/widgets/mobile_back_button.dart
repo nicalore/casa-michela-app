@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import 'mobile_glass_panel.dart';
 
@@ -23,7 +24,7 @@ class MobileWizardBackButton extends StatelessWidget
   {
     return Semantics(
       button: true,
-      label: 'Indietro',
+      label: tr('Indietro', 'Back'),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,

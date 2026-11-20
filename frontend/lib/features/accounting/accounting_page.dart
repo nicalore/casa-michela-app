@@ -52,7 +52,7 @@ const List<int> _summaries = [
   _statistics,
 ];
 
-const List<RailGroup> _sections = [
+List<RailGroup> get _sections => [
   RailGroup(
     title: kDailySummaryGroup,
     entries: [kTeachersEntry, kStudentsEntry],
@@ -101,7 +101,7 @@ class _AccountingPageState extends State<AccountingPage> with SectionVisits
       if (opening != null && _openingShown)
         RailGroup(
           title: kOpeningGroup,
-          entries: const [kTeachersEntry, kStudentsEntry],
+          entries: [kTeachersEntry, kStudentsEntry],
           trailing: {
             kTeachersEntry: _LeftBadge(opening.teachersLeft),
             kStudentsEntry: _LeftBadge(opening.pupilsLeft),

@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, IdentityContext
+from app.core.i18n import tr
 from app.core.storage import PROFILE_IMAGES_URL_PREFIX, profile_image_file
 from app.models.member import Member
 from app.models.person import Person
@@ -16,7 +17,10 @@ from app.services.role_service import RoleService
 
 router = APIRouter(prefix=PROFILE_IMAGES_URL_PREFIX, tags=["profile-images"])
 
-_NOT_FOUND_ERROR: Final[str] = "Foto non trovata"
+_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Foto non trovata",
+    "Photo not found",
+)
 
 _STAFF_READERS: Final[frozenset[str]] = frozenset({"TEACHER", "PSYCHOLOGIST"})
 
@@ -80,7 +84,7 @@ async def get_profile_image(
     ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_NOT_FOUND_ERROR,
+            detail=tr(*_NOT_FOUND_ERROR),
         )
 
     return FileResponse(

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.rbac import IdentityContext
+from app.core.i18n import request_language
 from app.core.labels import time_band_label
 from app.core.time_band import TimeBandEnum
 from app.models.booking import Booking
@@ -14,27 +15,45 @@ from app.models.calendar_publication import CalendarPublication
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
+from app.models.person import GenderEnum
 from app.models.presence import Presence
 from app.repositories.calendar_band_lock_repository import (
     CalendarBandLockRepository,
 )
 from app.repositories.person_repository import PersonRepository
+from app.services.bilingual import Bilingual
 from app.services.calendar_freeze import assert_not_confirmed
 
-_PUBLISHED_BAND_ERROR: Final[str] = (
+_PUBLISHED_BAND_ERROR: Final[Bilingual] = Bilingual(
     "Il calendario del {day} ({band}) è pubblicato: riportalo in bozza prima di "
-    "modificarlo."
+    "modificarlo.",
+    "The calendar for {day} ({band}) is published: put it back in draft before "
+    "changing it.",
 )
 
-_HELD_BAND_ERROR: Final[str] = (
-    "{holder} sta costruendo il calendario del {day} ({band}): finché ci lavora "
-    "puoi guardarlo, non modificarlo."
+_HELD_BAND_ERROR: Final[Bilingual] = Bilingual(
+    "{holder} sta costruendo il calendario del {day} ({band}): finché ci lavora puoi "
+    "guardarlo, non modificarlo.",
+    "{holder} is building the calendar for {day} ({band}): while they work on it you "
+    "can look at it, not change it.",
 )
 
-_EXCLUDED_TEACHER_ERROR: Final[str] = "Il docente è escluso dal calendario."
+_EXCLUDED_TEACHER_ERRORS: Final[dict[GenderEnum, Bilingual]] = {
+    GenderEnum.M: Bilingual(
+        "Il docente è escluso dal calendario.",
+        "The teacher is excluded from the calendar.",
+    ),
+    GenderEnum.F: Bilingual(
+        "La docente è esclusa dal calendario.",
+        "The teacher is excluded from the calendar.",
+    ),
+}
 
 # A missing account is not a reason to let the write through.
-_SOMEBODY_ELSE: Final[str] = "Un altro amministratore"
+_SOMEBODY_ELSE: Final[Bilingual] = Bilingual(
+    "Un altro amministratore",
+    "Another administrator",
+)
 
 
 def _day_label(day: date) -> str:
@@ -42,9 +61,9 @@ def _day_label(day: date) -> str:
 
 
 def published_band_error(day: date, band: str) -> str:
-    return _PUBLISHED_BAND_ERROR.format(
+    return _PUBLISHED_BAND_ERROR.for_request().format(
         day=_day_label(day),
-        band=time_band_label(band).lower(),
+        band=time_band_label(band, request_language()).lower(),
     )
 
 
@@ -97,9 +116,11 @@ async def _holder_label(session: AsyncSession, tax_code: str) -> str:
     person = people.get(tax_code)
 
     if person is None:
-        return _SOMEBODY_ELSE
+        return _SOMEBODY_ELSE.for_request()
 
-    return f"{person.first_name} {person.last_name}".strip() or _SOMEBODY_ELSE
+    name = f"{person.first_name} {person.last_name}".strip()
+
+    return name or _SOMEBODY_ELSE.for_request()
 
 
 # Separate from assert_band_editable: published means nobody edits, taken means one
@@ -119,14 +140,14 @@ async def assert_band_claimed(
 
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
-        detail=_HELD_BAND_ERROR.format(
+        detail=_HELD_BAND_ERROR.for_request().format(
             holder=(
                 await _holder_label(session, held.holder_tax_code)
                 if held is not None
-                else _SOMEBODY_ELSE
+                else _SOMEBODY_ELSE.for_request()
             ),
             day=_day_label(day),
-            band=time_band_label(str(band)).lower(),
+            band=time_band_label(str(band), request_language()).lower(),
         ),
     )
 
@@ -278,7 +299,9 @@ async def assert_teacher_not_excluded(
     if standing is None:
         return
 
+    gender = await PersonRepository(session).gender(teacher_tax_code)
+
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail=_EXCLUDED_TEACHER_ERROR,
+        detail=_EXCLUDED_TEACHER_ERRORS[gender].for_request(),
     )

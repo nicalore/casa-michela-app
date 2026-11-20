@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
@@ -15,7 +16,7 @@ const double _avatarSize = 128;
 const double _factGap = 12;
 const double _sectionGap = 20;
 
-String ageLabel(int age) => age == 1 ? '1 anno' : '$age anni';
+String ageLabel(int age) => age == 1 ? tr('1 anno', '1 year old') : tr('$age anni', '$age years old');
 
 class RelativeFact
 {
@@ -137,7 +138,9 @@ class _RelativeCardState extends State<RelativeCard>
           ),
           const SizedBox(width: 8),
           Text(
-            authorized ? 'Ritiro autorizzato' : 'Ritiro non autorizzato',
+            authorized
+                ? tr('Ritiro autorizzato', 'Authorised to pick up')
+                : tr('Ritiro non autorizzato', 'Not authorised to pick up'),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -173,11 +176,11 @@ class _RelativeCardState extends State<RelativeCard>
           if (showsReason) ...[
             const SizedBox(height: 6),
             OverflowTooltipText(
-              text: 'Motivo: $reason',
+              text: tr('Motivo: $reason', 'Reason: $reason'),
               maxLines: 2,
               style: labelStyle,
               textSpan: TextSpan(
-                text: 'Motivo: ',
+                text: tr('Motivo: ', 'Reason: '),
                 style: labelStyle,
                 children: [
                   TextSpan(

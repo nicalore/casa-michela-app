@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../services/api_service.dart';
@@ -91,24 +92,24 @@ class _PersonTeacherParentTabState extends State<PersonTeacherParentTab>
     return [
       PersonDetailCardPair(
         first: PersonDetailCard(
-          title: 'Identità',
+          title: tr('Identità', 'Identity'),
           icon: Icons.badge_rounded,
           rows: [
-            DetailRowData('Nome', parent.firstName),
-            DetailRowData('Cognome', parent.lastName),
-            DetailRowData('Sesso', orDash(parent.gender)),
-            DetailRowData('Codice fiscale', parent.fiscalCode),
+            DetailRowData(tr('Nome', 'First name'), parent.firstName),
+            DetailRowData(tr('Cognome', 'Surname'), parent.lastName),
+            DetailRowData(tr('Sesso', 'Sex'), orDash(parent.gender)),
+            DetailRowData(tr('Codice fiscale', 'Tax code'), parent.fiscalCode),
             null,
           ],
         ),
         second: PersonDetailCard(
-          title: 'Residenza',
+          title: tr('Residenza', 'Residence'),
           icon: Icons.home_rounded,
           rows: [
-            DetailRowData('Indirizzo', _residenceAddress(parent)),
+            DetailRowData(tr('Indirizzo', 'Address'), _residenceAddress(parent)),
             DetailRowData('N°', orDash(parent.addressNumber)),
-            DetailRowData('Città', orDash(parent.city)),
-            DetailRowData('Provincia', orDash(parent.province)),
+            DetailRowData(tr('Città', 'City'), orDash(parent.city)),
+            DetailRowData(tr('Provincia', 'Province'), orDash(parent.province)),
             DetailRowData('CAP', orDash(parent.zipCode)),
           ],
         ),
@@ -116,23 +117,23 @@ class _PersonTeacherParentTabState extends State<PersonTeacherParentTab>
       const SizedBox(height: 24),
       PersonDetailCardPair(
         first: PersonDetailCard(
-          title: 'Dati anagrafici',
+          title: tr('Dati anagrafici', 'Personal details'),
           icon: Icons.cake_rounded,
           rows: [
-            DetailRowData('Data di nascita', birthDate),
-            DetailRowData('Città di nascita', orDash(parent.birthCity)),
+            DetailRowData(tr('Data di nascita', 'Date of birth'), birthDate),
+            DetailRowData(tr('Città di nascita', 'City of birth'), orDash(parent.birthCity)),
             DetailRowData(
-              isBornAbroad ? 'Nazione' : 'Provincia',
+              isBornAbroad ? tr('Nazione', 'Country') : tr('Provincia', 'Province'),
               orDash(isBornAbroad ? parent.birthNation : parent.birthProvince),
             ),
           ],
         ),
         second: PersonDetailCard(
-          title: 'Contatti',
+          title: tr('Contatti', 'Contacts'),
           icon: Icons.alternate_email_rounded,
           rows: [
             DetailRowData('Email', orDash(parent.email)),
-            DetailRowData('Telefono', orDash(formatPhoneNumber(parent.phoneNumber))),
+            DetailRowData(tr('Telefono', 'Phone'), orDash(formatPhoneNumber(parent.phoneNumber))),
             null,
           ],
         ),
@@ -156,7 +157,7 @@ class _PersonTeacherParentTabState extends State<PersonTeacherParentTab>
                 const SizedBox(height: 48),
                 Center(
                   child: AppGradientButton(
-                    label: 'MODIFICA GENITORE',
+                    label: tr('MODIFICA GENITORE', 'EDIT PARENT'),
                     icon: Icons.edit_rounded,
                     busy: _isOpening,
                     onPressed: _openEditDialog,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/rome_clock.dart';
@@ -70,13 +71,17 @@ const Map<String, int> _ageGroupOrder = {
   '> 50': 7,
 };
 
-// Fixed per category, so a slice keeps its colour whichever others are present.
+// Fixed per category, so a slice keeps its colour whichever others are present; labels come in either language.
 Map<String, Color> get _certificationColors => {
   'DSA': AppTheme.chartOcean,
+  'SLD': AppTheme.chartOcean,
   'BES': AppTheme.chartViolet,
+  'SEN': AppTheme.chartViolet,
   'ADHD': AppTheme.chartNavyText,
   'Altro': AppTheme.chartGray,
+  'Other': AppTheme.chartGray,
   'Nessuna': AppTheme.chartGrayLight,
+  'None': AppTheme.chartGrayLight,
 };
 
 Map<String, Color> get _areaColors => {
@@ -641,27 +646,27 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   String _membersRetentionSentence(RetentionRateItem data)
   {
     final subject = data.retainedMembers == 1
-        ? '1 iscritto mantenuto'
-        : '${data.retainedMembers} iscritti mantenuti';
+        ? tr('1 iscritto mantenuto', '1 member retained')
+        : tr('${data.retainedMembers} iscritti mantenuti', '${data.retainedMembers} members retained');
 
-    return "$subject su ${data.previousYearMembers} dell'anno precedente.";
+    return tr("$subject su ${data.previousYearMembers} dell'anno precedente.", '$subject out of ${data.previousYearMembers} from the previous year.');
   }
 
   String _collaboratorsRetentionSentence(RetentionRateItem data)
   {
     final subject = data.retainedMembers == 1
-        ? '1 collaboratore mantenuto'
-        : '${data.retainedMembers} collaboratori mantenuti';
+        ? tr('1 collaboratore mantenuto', '1 collaborator retained')
+        : tr('${data.retainedMembers} collaboratori mantenuti', '${data.retainedMembers} collaborators retained');
 
-    final period = _collabRetentionType == 'year' ? "nell'anno precedente" : 'nel mese precedente';
+    final period = _collabRetentionType == 'year' ? tr("nell'anno precedente", 'in the previous year') : tr('nel mese precedente', 'in the previous month');
 
-    return '$subject rispetto ai ${data.previousYearMembers} attivi $period.';
+    return '$subject ${comparedToActive(data.previousYearMembers)} $period.';
   }
 
   Widget _buildMembersRetentionCard(double width, bool matched)
   {
     return RetentionCard(
-      title: 'Fidelizzazione iscritti',
+      title: tr('Fidelizzazione iscritti', 'Member retention'),
       icon: Icons.favorite_rounded,
       width: width,
       matched: matched,
@@ -680,7 +685,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     final filters = StatFilterRow(
       children: [
         resolutionPill(
-          prefix: 'Tipo',
+          prefix: tr('Tipo', 'Type'),
           value: _collabRetentionType,
           onChanged: (value) => _reloadCollabRetention(()
           {
@@ -706,7 +711,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
 
     return RetentionCard(
-      title: 'Fidelizzazione collaboratori attivi',
+      title: tr('Fidelizzazione collaboratori attivi', 'Active collaborator retention'),
       icon: Icons.volunteer_activism_rounded,
       width: width,
       matched: matched,
@@ -733,7 +738,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     final filters = StatFilterRow(
       children: [
         resolutionPill(
-          prefix: 'Vista',
+          prefix: tr('Vista', 'View'),
           value: resolution,
           onChanged: onResolutionChanged,
         ),
@@ -755,7 +760,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildMembersTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Andamento iscritti',
+      title: tr('Andamento iscritti', 'Members over time'),
       icon: Icons.show_chart_rounded,
       data: _trendData,
       isLoading: _isTrendLoading,
@@ -787,7 +792,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildCollabTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Andamento collaboratori attivi',
+      title: tr('Andamento collaboratori attivi', 'Active collaborators over time'),
       icon: Icons.stacked_line_chart_rounded,
       data: _collabTrendData,
       isLoading: _isCollabTrendLoading,
@@ -819,7 +824,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildCityChartCard()
   {
     return ChartCard(
-      title: 'Distribuzione per città',
+      title: tr('Distribuzione per città', 'Distribution by city'),
       sizesItself: true,
       icon: Icons.location_city_rounded,
       isEmpty: _cityData.isEmpty,
@@ -827,7 +832,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         data: _cityData
             .map((item) => ChartDatum(label: item.city, count: item.count))
             .toList(),
-        othersLabel: (count) => 'Altre $count città',
+        othersLabel: (count) => tr('Altre $count città', 'Other $count cities'),
       ),
     );
   }
@@ -835,7 +840,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildAgeChartCard()
   {
     return ChartCard(
-      title: 'Distribuzione per età',
+      title: tr('Distribuzione per età', 'Distribution by age'),
       icon: Icons.cake_rounded,
       isEmpty: _ageData.isEmpty,
       chart: PieChart(
@@ -850,19 +855,19 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildEducationChartCard()
   {
     return ChartCard(
-      title: 'Distribuzione scolastica',
+      title: tr('Distribuzione scolastica', 'School distribution'),
       sizesItself: true,
       icon: Icons.school_rounded,
       isEmpty: _educationData.isEmpty,
       filters: AppFilterPill<String>.setting(
-        prefix: 'Raggruppa per',
-        hint: 'Raggruppa per',
+        prefix: tr('Raggruppa per', 'Group by'),
+        hint: tr('Raggruppa per', 'Group by'),
         icon: Icons.category_rounded,
         value: _educationDistributionType,
-        options: const [
-          FilterOption(value: 'school', label: 'Scuola'),
-          FilterOption(value: 'program', label: 'Percorso di studio', shortLabel: 'Percorso'),
-          FilterOption(value: 'level', label: 'Livello di istruzione', shortLabel: 'Livello'),
+        options: [
+          FilterOption(value: 'school', label: tr('Scuola', 'School')),
+          FilterOption(value: 'program', label: tr('Percorso di studio', 'Study programme'), shortLabel: tr('Percorso', 'Programme')),
+          FilterOption(value: 'level', label: tr('Livello di istruzione', 'Education level'), shortLabel: tr('Livello', 'Level')),
         ],
         onChanged: (value)
         {
@@ -878,9 +883,9 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             .toList(),
         othersLabel: (count) => switch (_educationDataType)
         {
-          'program' => 'Altri $count percorsi',
-          'level' => 'Altri $count livelli',
-          _ => 'Altre $count scuole',
+          'program' => tr('Altri $count percorsi', 'Other $count programmes'),
+          'level' => tr('Altri $count livelli', 'Other $count levels'),
+          _ => tr('Altre $count scuole', 'Other $count schools'),
         },
         longNames: _educationDataType != 'level',
       ),
@@ -890,7 +895,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildCertificationChartCard()
   {
     return ChartCard(
-      title: 'Distribuzione certificazioni',
+      title: tr('Distribuzione certificazioni', 'Certifications distribution'),
       icon: Icons.description_rounded,
       isEmpty: _certificationData.isEmpty,
       chart: PieChart(
@@ -909,7 +914,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     final areas = _teacherStats?.areaDistribution ?? const <AreaDistributionItem>[];
 
     return ChartCard(
-      title: 'Distribuzione per area',
+      title: tr('Distribuzione per area', 'Distribution by area'),
       icon: Icons.category_rounded,
       isEmpty: areas.isEmpty,
       chart: PieChart(
@@ -924,7 +929,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildCourseChartCard()
   {
     return ChartCard(
-      title: 'Distribuzione per corso',
+      title: tr('Distribuzione per corso', 'Distribution by course'),
       sizesItself: true,
       icon: Icons.menu_book_rounded,
       isEmpty: _courseData.isEmpty,
@@ -932,14 +937,14 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         data: _courseData
             .map((item) => ChartDatum(label: item.label, count: item.count))
             .toList(),
-        othersLabel: (count) => 'Altri $count corsi',
+        othersLabel: (count) => tr('Altri $count corsi', 'Other $count courses'),
       ),
     );
   }
 
   Widget _buildSubjectRow(int position, SubjectDistributionItem subject)
   {
-    final unit = subject.count == 1 ? 'docente' : 'docenti';
+    final unit = subject.count == 1 ? tr('docente', 'teacher') : tr('docenti', 'teachers');
     final programName = subject.programName;
     final StatMetrics metrics = StatMetrics.of(context);
 
@@ -1024,7 +1029,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildTeacherRanking(List<TeacherCompetenceRankItem> teachers)
   {
     final byProgram = _teacherRankingMode == 'program';
-    final String title = byProgram ? '10 docenti con più discipline e percorsi' : '10 docenti con più discipline';
+    final String title = byProgram ? tr('10 docenti con più discipline e percorsi', '10 teachers with the most disciplines and programmes') : tr('10 docenti con più discipline', '10 teachers with the most disciplines');
     final List<PersonRankRow> rows = [
       for (final (index, item) in teachers.indexed)
         PersonRankRow(
@@ -1042,10 +1047,10 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     if (byProgram)
     {
-      return count == 1 ? '1 competenza' : '$count competenze';
+      return count == 1 ? tr('1 competenza', '1 skill') : tr('$count competenze', '$count skills');
     }
 
-    return count == 1 ? '1 disciplina' : '$count discipline';
+    return count == 1 ? tr('1 disciplina', '1 discipline') : tr('$count discipline', '$count disciplines');
   }
 
   Widget _buildFigures(TeacherSubjectsStatisticsItem stats)
@@ -1056,20 +1061,20 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       children: [
         Expanded(
           child: _buildFigure(
-            'Media discipline per docente',
+            tr('Media discipline per docente', 'Average disciplines per teacher'),
             stats.avgSubjectsPerTeacher.toStringAsFixed(1),
           ),
         ),
         const StatDivider(),
         Expanded(
           child: _buildFigure(
-            'Media docenti per disciplina',
+            tr('Media docenti per disciplina', 'Average teachers per discipline'),
             stats.avgTeachersPerSubject.toStringAsFixed(1),
           ),
         ),
         const StatDivider(),
         Expanded(
-          child: _buildFigure('Discipline senza docenti', '${stats.uncoveredSubjects}'),
+          child: _buildFigure(tr('Discipline senza docenti', 'Disciplines without teachers'), '${stats.uncoveredSubjects}'),
         ),
       ],
     );
@@ -1080,7 +1085,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     final teacherRanking = _buildTeacherRanking(stats.top10Teachers);
     final topRanking = _buildSubjectRanking(
-      '10 discipline più coperte',
+      tr('10 discipline più coperte', '10 best covered disciplines'),
       stats.top10Subjects,
     );
     final uncovered = UncoveredSubjectsSection(subjects: stats.subjectsWithoutTeachers);
@@ -1127,18 +1132,18 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildTeacherSubjectsCard(TeacherSubjectsStatisticsItem stats)
   {
     return AppCard(
-      title: 'Analisi competenze',
+      title: tr('Analisi competenze', 'Skills analysis'),
       selectable: false,
       leading: const AppCardBadge(icon: Icons.workspace_premium_rounded),
       trailingFit: AppCardTrailing.wrapping,
       trailing: AppFilterPill<String>.setting(
-        prefix: 'Classifica',
-        hint: 'Classifica',
+        prefix: tr('Classifica', 'Ranking'),
+        hint: tr('Classifica', 'Ranking'),
         icon: Icons.leaderboard_rounded,
         value: _teacherRankingMode,
-        options: const [
-          FilterOption(value: 'absolute', label: 'Per disciplina'),
-          FilterOption(value: 'program', label: 'Per disciplina e percorso'),
+        options: [
+          FilterOption(value: 'absolute', label: tr('Per disciplina', 'By discipline')),
+          FilterOption(value: 'program', label: tr('Per disciplina e percorso', 'By discipline and programme')),
         ],
         onChanged: (value)
         {
@@ -1291,7 +1296,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             ResponsiveCardPair(
               minCardWidth: SummaryStatCard.rowWidth(context),
               first: SummaryStatCard(
-                title: 'Iscritti',
+                title: tr('Iscritti', 'Members'),
                 icon: Icons.groups_rounded,
                 count: _currentTotals?.currentTotalMembers ?? 0,
                 deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
@@ -1299,7 +1304,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                 percentage: _currentTotals?.percentageOfTotalMembers,
               ),
               second: SummaryStatCard(
-                title: 'Collaboratori attivi',
+                title: tr('Collaboratori attivi', 'Active collaborators'),
                 icon: Icons.handshake_rounded,
                 count: _currentTotals?.currentActiveCollaborators ?? 0,
                 deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,

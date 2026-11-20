@@ -10,12 +10,23 @@ from app.core.time_band import TimeBandEnum, band_of
 from app.models.calendar_publication import CalendarPublication
 from app.models.notification import Notification, NotificationKindEnum
 from app.repositories.presence_repository import PresenceRepository
-from app.services.notifications import notify, reachable_administrators
+from app.services.notifications import (
+    Bilingual,
+    notify,
+    reachable_administrators,
+)
 from app.services.push import PushBatch, joined
 
 # The first sentence as the title.
-_TITLE: Final[str] = "Le prenotazioni {band} sono chiuse"
-_BODY: Final[str] = "Da adesso è possibile pubblicare il calendario"
+_TITLE: Final[Bilingual] = Bilingual(
+    "Le prenotazioni {band} sono chiuse",
+    "Bookings for the {band} are closed",
+)
+_BODY: Final[Bilingual] = Bilingual(
+    "È stata effettuata almeno una prenotazione: da adesso è possibile pubblicare "
+    "il calendario",
+    "At least one booking has been made: you can now publish the calendar",
+)
 
 # Closed but not over yet: a close missed while the server was down still counts.
 def _closed_bands(now: datetime) -> list[tuple[date, TimeBandEnum]]:
@@ -76,7 +87,10 @@ async def announce_closed_bands(db: AsyncSession, now: datetime) -> PushBatch:
                     db,
                     recipients,
                     kind=NotificationKindEnum.BOOKINGS_CLOSED,
-                    title=_TITLE.format(band=time_band_phrase(band)),
+                    title=Bilingual(
+                        _TITLE.it.format(band=time_band_phrase(band, "it")),
+                        _TITLE.en.format(band=time_band_phrase(band, "en")),
+                    ),
                     body=_BODY,
                     calendar=(day, band),
                 )

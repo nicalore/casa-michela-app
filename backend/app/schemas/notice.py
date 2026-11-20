@@ -4,9 +4,13 @@ from typing import Final
 from pydantic import BaseModel, field_validator
 
 from app.core.booking_window import today_in_rome
+from app.core.i18n import tr
 from app.models.notice import NoticeRoleEnum
 
-_PAST_DAY_ERROR: Final[str] = "La data deve essere oggi o un giorno successivo."
+_PAST_DAY_ERROR: Final[tuple[str, str]] = (
+    "La data deve essere oggi o un giorno successivo.",
+    "The date must be today or later.",
+)
 
 
 class NoticeAttachmentResponse(BaseModel):
@@ -94,6 +98,6 @@ class NoticePinWrite(BaseModel):
     @classmethod
     def _not_past(cls, until: date | None) -> date | None:
         if until is not None and until < today_in_rome():
-            raise ValueError(_PAST_DAY_ERROR)
+            raise ValueError(tr(*_PAST_DAY_ERROR))
 
         return until

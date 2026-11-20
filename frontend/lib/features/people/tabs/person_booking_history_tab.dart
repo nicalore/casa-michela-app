@@ -909,7 +909,7 @@ class _StretchBlock extends StatelessWidget
               TextSpan(
                 style: muted,
                 children: [
-                  const TextSpan(text: '$kBookedByLabel '),
+                  TextSpan(text: '$kBookedByLabel '),
                   TextSpan(
                     text: stretch.booker.fullName,
                     style: muted.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialInk),

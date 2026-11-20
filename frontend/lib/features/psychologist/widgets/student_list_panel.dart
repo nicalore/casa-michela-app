@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -96,7 +97,7 @@ class StudentListPanel extends StatelessWidget
               DesktopTourTarget(
                 id: inMenu ? null : kTourStudentFilters,
                 child: AppCountFilterPill(
-                  label: 'Filtri',
+                  label: tr('Filtri', 'Filters'),
                   icon: Icons.tune_rounded,
                   count: filtersCount,
                   onOpen: onOpenFilters,

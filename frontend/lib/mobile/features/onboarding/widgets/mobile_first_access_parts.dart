@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/mobile_flow_page.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 
 // Mobile-only copy: the desktop has no page before the steps.
-const String kFirstAccessEyebrow = 'Primo accesso';
-const String kFirstAccessIntro = 'Prima di iniziare, ti chiediamo di completare questi passaggi.';
-const String kFirstAccessStart = 'Inizia';
+String get kFirstAccessEyebrow => tr('Primo accesso', 'First access');
+String get kFirstAccessIntro => tr(
+  'Prima di iniziare, ti chiediamo di completare questi passaggi.',
+  'Before you start, please complete these steps.',
+);
+String get kFirstAccessStart => tr('Inizia', 'Start');
 
 const double _numberSize = 30;
 
@@ -196,7 +200,7 @@ class MobileFirstAccessRail extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const MobileFlowEyebrow(kFirstAccessEyebrow, tablet: true),
+              MobileFlowEyebrow(kFirstAccessEyebrow, tablet: true),
               const SizedBox(height: 12),
               MobileFlowTitle(greeting, tablet: true, size: 32),
               const SizedBox(height: 26),

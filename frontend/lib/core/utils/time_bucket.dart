@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../language/app_language.dart';
 import 'week_range.dart';
 
 export 'week_range.dart' show kMinimumBandMinutes, kMinimumLessonMinutes, kQuarterHour, kQuarterLessonMinutes, minimumLessonMinutes, minutesOfTimeOfDay, timeOfDayFromMinutes;
@@ -70,19 +71,29 @@ String bandLabel(TimeBucket bucket)
   switch (bucket)
   {
     case TimeBucket.morning:
-      return 'Mattina';
+      return tr('Mattina', 'Morning');
     case TimeBucket.afternoon:
-      return 'Pomeriggio';
+      return tr('Pomeriggio', 'Afternoon');
     case TimeBucket.evening:
-      return 'Sera';
+      return tr('Sera', 'Evening');
   }
 }
 
-// "il pomeriggio", for "Elimina il pomeriggio".
-String theBandLabel(TimeBucket bucket) => '${bucket == TimeBucket.afternoon ? 'il' : 'la'} ${bandLabel(bucket).toLowerCase()}';
+// "il pomeriggio", for "Elimina il pomeriggio"; "the afternoon".
+String theBandLabel(TimeBucket bucket)
+{
+  return isEnglish
+      ? 'the ${bandLabel(bucket).toLowerCase()}'
+      : '${bucket == TimeBucket.afternoon ? 'il' : 'la'} ${bandLabel(bucket).toLowerCase()}';
+}
 
-// "del pomeriggio", for "le lezioni del pomeriggio".
-String ofBandLabel(TimeBucket bucket) => '${bucket == TimeBucket.afternoon ? 'del' : 'della'} ${bandLabel(bucket).toLowerCase()}';
+// "del pomeriggio", for "le lezioni del pomeriggio"; "of the afternoon".
+String ofBandLabel(TimeBucket bucket)
+{
+  return isEnglish
+      ? 'of the ${bandLabel(bucket).toLowerCase()}'
+      : '${bucket == TimeBucket.afternoon ? 'del' : 'della'} ${bandLabel(bucket).toLowerCase()}';
+}
 
 int bandStartMinutes(TimeBucket bucket) => _bandStartHour(bucket) * 60;
 
@@ -123,5 +134,5 @@ String bookingsCloseLabel(DateTime day, TimeBucket band)
     return '$hour:00';
   }
 
-  return '$hour:00 di ${formatDayMonthShort(at)}';
+  return tr('$hour:00 di ${formatDayMonthShort(at)}', '$hour:00 on ${formatDayMonthShort(at)}');
 }

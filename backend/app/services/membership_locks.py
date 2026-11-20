@@ -9,6 +9,7 @@ from sqlalchemy import ColumnElement, and_, delete, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
+from app.core.i18n import ENGLISH, request_language
 from app.models.confirmed_hours import ConfirmedHours, ConfirmedVolunteering
 from app.models.membership import Membership
 from app.models.membership_fee import MembershipFee, MembershipFeeKindEnum
@@ -17,6 +18,7 @@ from app.models.student_hours import StudentConfirmedHours
 from app.models.student_payment import StudentPayment, StudentPaymentBand
 from app.models.student_tariff import StudentTariff
 from app.schemas.person import MembershipUpdateItem
+from app.services.bilingual import Bilingual
 from app.services.enrollment_spans import (
     EnrolledSpan,
     YearRow,
@@ -29,15 +31,19 @@ from app.services.student_payments import pupil_lessons, student_payment_status
 from app.services.worked_hours import minutes_of, month_after
 from app.services.write_losses import Losses
 
-_PAID_IN_PERIOD_ERROR: Final[str] = (
+_PAID_IN_PERIOD_ERROR: Final[Bilingual] = Bilingual(
     "Impossibile togliere l'iscrizione: ci sono pagamenti registrati "
-    "nel periodo coinvolto."
+    "nel periodo coinvolto.",
+    "The enrolment cannot be removed: there are payments recorded in the "
+    "period involved.",
 )
 _LOSSES_NOTE: Final[str] = "Togliendo l'iscrizione si cancellano anche {losses}."
+_LOSS_NOTE: Final[str] = "Togliendo l'iscrizione si cancella anche {losses}."
+_ENGLISH_LOSS_NOTE: Final[str] = "Removing the enrolment also deletes {losses}."
 
-_FEE_LABELS: Final[dict[MembershipFeeKindEnum, str]] = {
-    MembershipFeeKindEnum.MEMBERSHIP: "Iscrizione",
-    MembershipFeeKindEnum.INSURANCE: "Assicurazione",
+_FEE_LABELS: Final[dict[MembershipFeeKindEnum, Bilingual]] = {
+    MembershipFeeKindEnum.MEMBERSHIP: Bilingual("Iscrizione", "Enrolment"),
+    MembershipFeeKindEnum.INSURANCE: Bilingual("Assicurazione", "Insurance"),
 }
 
 _ONE_DAY: Final[timedelta] = timedelta(days=1)
@@ -60,17 +66,20 @@ def _year_rows(rows: Iterable[Membership | MembershipUpdateItem]) -> list[YearRo
     ]
 
 
-def _euro(cents: int) -> str:
+def _euro(cents: int, english: bool) -> str:
     units, fraction = divmod(cents, 100)
+
+    if english:
+        return f"€{units:,}.{fraction:02d}"
 
     return f"€ {units:,}".replace(",", ".") + f",{fraction:02d}"
 
 
-def _listed(items: Sequence[str]) -> str:
+def _listed(items: Sequence[str], english: bool = False) -> str:
     if len(items) == 1:
         return items[0]
 
-    return f"{', '.join(items[:-1])} e {items[-1]}"
+    return f"{', '.join(items[:-1])} {'and' if english else 'e'} {items[-1]}"
 
 
 # «4h 45m», «45m», «2h» like formatMinutes in the app.
@@ -83,23 +92,48 @@ def _minutes_said(minutes: int) -> str:
     return f"{hours}h {rest}m" if rest else f"{hours}h"
 
 
-def _losses_said(fees: Sequence[MembershipFee], minutes: int) -> str:
+# In the language of whoever asked.
+def _losses_note(fees: Sequence[MembershipFee], minutes: int) -> str:
+    english = request_language() == ENGLISH
     losses: list[str] = []
 
     if fees:
         said = [
-            f"{_FEE_LABELS[fee.kind]} {fee.year} {_euro(fee.amount_cents)}"
+            f"{_FEE_LABELS[fee.kind].for_request()} {fee.year} "
+            f"{_euro(fee.amount_cents, english)}"
             for fee in sorted(
                 fees,
                 key=lambda row: (row.year, FEE_KINDS.index(row.kind)),
             )
         ]
-        losses.append(f"le quote da pagare ({_listed(said)})")
+        listed = _listed(said, english)
+
+        if english:
+            losses.append(
+                f"the fee due ({listed})" if len(said) == 1
+                else f"the fees due ({listed})",
+            )
+        else:
+            losses.append(
+                f"la quota da pagare ({listed})" if len(said) == 1
+                else f"le quote da pagare ({listed})",
+            )
 
     if minutes:
-        losses.append(f"{_minutes_said(minutes)} di ore confermate non pagate")
+        hours = _minutes_said(minutes)
+        losses.append(
+            f"{hours} of confirmed unpaid hours" if english
+            else f"{hours} di ore confermate non pagate",
+        )
 
-    return _listed(losses)
+    if english:
+        return _ENGLISH_LOSS_NOTE.format(losses=_listed(losses, english))
+
+    # The verb agrees with the whole list: singular for one fee, 1h or 1m alone.
+    one = len(losses) == 1 and len(fees) <= 1 and minutes in (0, 1, 60)
+    note = _LOSS_NOTE if one else _LOSSES_NOTE
+
+    return note.format(losses=_listed(losses))
 
 
 def _within(
@@ -270,7 +304,7 @@ async def guard_lost_enrollment(
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=_PAID_IN_PERIOD_ERROR,
+            detail=_PAID_IN_PERIOD_ERROR.for_request(),
         )
 
     owed = [fee for fee in fees if fee.paid_on is None and fee.year in gone_years]
@@ -286,7 +320,7 @@ async def guard_lost_enrollment(
     minutes = await _unpaid_minutes(db, tax_code, lost) if lost else 0
 
     if owed or minutes:
-        losses.note(_LOSSES_NOTE.format(losses=_losses_said(owed, minutes)))
+        losses.note(_losses_note(owed, minutes))
 
     for fee in owed:
         await db.delete(fee)

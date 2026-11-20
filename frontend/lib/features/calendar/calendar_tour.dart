@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/language/app_language.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/desktop_tour.dart';
 
@@ -24,7 +25,7 @@ final ValueNotifier<bool> calendarPickerOpen = ValueNotifier(false);
 // Set by the lesson's window while it is up: stepping back out of it closes it.
 VoidCallback? calendarLessonCloser;
 
-const String _title = 'Calendario';
+String get _title => tr('Calendario', 'Calendar');
 
 // Bump a version on every change to that tour.
 const (String, int) _pageSeen = ('calendar', 1);
@@ -108,30 +109,41 @@ Future<bool> isCalendarCallDue() async
 
 // Radius = the part's corner + half the pad; the hole adds the other half, so it is concentric.
 // The bands and the day, the same for teachers, parents and students.
-const List<DesktopTourStep> kCalendarMainSteps = [
+List<DesktopTourStep> get kCalendarMainSteps => [
   DesktopTourStep(
-    targets: [kTourCalendarBands],
-    text: 'Qui puoi vedere, una volta pubblicati, gli orari delle lezioni per ciascuna fascia oraria (mattina, '
-        'pomeriggio, sera).',
+    targets: const [kTourCalendarBands],
+    text: tr(
+      'Qui puoi vedere, una volta pubblicati, gli orari delle lezioni per ciascuna fascia oraria (mattina, '
+          'pomeriggio, sera).',
+      'Once published, here you can see the lesson times for each time slot (morning, afternoon, evening).',
+    ),
     sides: _below,
     pad: 6,
     radius: 25,
   ),
   DesktopTourStep(
-    targets: [kTourCalendarDay],
-    text: 'Puoi scorrere tra i giorni con le frecce, o cliccare il calendario per selezionare un giorno qualsiasi.',
+    targets: const [kTourCalendarDay],
+    text: tr(
+      'Puoi scorrere tra i giorni con le frecce, o cliccare il calendario per selezionare un giorno qualsiasi.',
+      'You can move between days with the arrows, or click the calendar to pick any day.',
+    ),
     sides: _belowLeft,
     pad: 6,
     radius: 25,
   ),
 ];
 
-final List<DesktopTourStep> _callSteps = [
+List<DesktopTourStep> get _callSteps => [
   DesktopTourStep(
     targets: const [kTourCalendarCard],
-    text: 'Qui puoi consultare un riepilogo della tua convocazione, con gli orari di inizio e fine, il numero di '
-        'lezioni assegnate, gli studenti coinvolti e il totale delle ore previste. In basso, se sei in presenza, '
-        "trovi la stanza assegnata e l'elenco dei responsabili di stanza.",
+    text: tr(
+      'Qui puoi consultare un riepilogo della tua convocazione, con gli orari di inizio e fine, il numero di '
+          'lezioni assegnate, gli studenti coinvolti e il totale delle ore previste. In basso, se sei in presenza, '
+          "trovi la stanza assegnata e l'elenco dei responsabili di stanza.",
+      "Here you can see a summary of when you're called in, with the start and end times, the number of "
+          'lessons assigned, the students involved and the total hours planned. Below, if you are in person, '
+          'you find the room assigned and the list of room supervisors.',
+    ),
     sides: _below,
     pad: 6,
     radius: 21,
@@ -141,7 +153,7 @@ final List<DesktopTourStep> _callSteps = [
   ),
   DesktopTourStep(
     targets: const [kTourCalendarLesson],
-    text: 'Clicca una lezione per vederne i dettagli.',
+    text: tr('Clicca una lezione per vederne i dettagli.', 'Click a lesson to see its details.'),
     sides: _beside,
     pad: 4,
     radius: 12,
@@ -162,35 +174,60 @@ DesktopTourStep _lessonStep(CalendarLessonMark mark, {VoidCallback? undo, bool F
   {
     CalendarLessonMark.details => (
         kTourLessonDetails,
-        'Qui trovi tutte le informazioni sulla lezione. Le note sono indicazioni aggiuntive inserite dal genitore '
-            'per te.',
+        tr(
+          'Qui trovi tutte le informazioni sulla lezione. Le note sono indicazioni aggiuntive inserite da chi ha '
+              'prenotato la lezione.',
+          'Here you find all the information about the lesson. The notes are extra instructions added by whoever '
+              'booked the lesson.',
+        ),
       ),
     CalendarLessonMark.facts => (
         kTourLessonStudent,
-        'Queste sono alcune informazioni sullo studente che possono aiutarti a organizzare la lezione.',
+        tr(
+          'Queste sono alcune informazioni sullo studente che possono aiutarti a organizzare la lezione.',
+          'This is some information about the student that can help you plan the lesson.',
+        ),
       ),
     CalendarLessonMark.technical => (
         kTourLessonTechnical,
-        "Le osservazioni tecniche sono indicazioni sullo studente inserite dal Direttivo dell'Associazione.",
+        tr(
+          "Le osservazioni tecniche sono indicazioni sullo studente inserite dal Direttivo dell'Associazione.",
+          "Technical observations are notes about the student added by the Association's Board.",
+        ),
       ),
     CalendarLessonMark.methodological => (
         kTourLessonMethodological,
-        "Le osservazioni metodologiche sono indicazioni operative redatte dagli psicologi dell'Associazione che "
-            'seguono o hanno seguito lo studente. Se presenti, ti preghiamo di leggerle con attenzione e di tenerne '
-            'conto per adattare la lezione alle esigenze specifiche dello studente.',
+        tr(
+          "Le osservazioni metodologiche sono indicazioni operative redatte dagli psicologi dell'Associazione che "
+              'seguono o hanno seguito lo studente. Se presenti, ti preghiamo di leggerle con attenzione e di tenerne '
+              'conto per adattare la lezione alle esigenze specifiche dello studente.',
+          "Methodological observations are practical guidelines written by the Association's psychologists who "
+              'follow or have followed the student. If there are any, please read them carefully and take them into '
+              "account to adapt the lesson to the student's specific needs.",
+        ),
       ),
     CalendarLessonMark.sensitive => (
         kTourLessonSensitive,
-        "Alcune di queste informazioni sono particolarmente delicate. Puoi "
-            'consultarle al fine di offrire allo studente un servizio più attento e adeguato alle sue necessità. Ti '
-            'chiediamo, tuttavia, di accedervi in un luogo riservato, assicurandoti che nessun altro possa vederle, e '
-            'di non divulgarle in alcun caso, nel rispetto dello studente.',
+        tr(
+          "Alcune di queste informazioni sono particolarmente delicate. Puoi "
+              'consultarle al fine di offrire allo studente un servizio più attento e adeguato alle sue necessità. Ti '
+              'chiediamo, tuttavia, di accedervi in un luogo riservato, assicurandoti che nessun altro possa vederle, e '
+              'di non divulgarle in alcun caso, nel rispetto dello studente.',
+          'Some of this information is particularly sensitive. You may read it to give the student more careful '
+              'support suited to their needs. We ask you, however, to open it in a private place, making sure no '
+              "one else can see it, and never to share it, out of respect for the student.",
+        ),
       ),
     CalendarLessonMark.note => (
         kTourLessonNote,
-        'Puoi aggiungere alcune note relative al comportamento e al rendimento dello studente durante la lezione. '
-            'Queste note verranno lette dal Direttivo e in seguito potrebbero essere comunicate alle famiglie oppure, '
-            'se ritenute utili per tutti i docenti, aggiunte alle osservazioni tecniche.',
+        tr(
+          'Puoi aggiungere alcune note relative al comportamento e al rendimento dello studente durante la lezione. '
+              'Queste note verranno lette dal Direttivo e in seguito potrebbero essere comunicate alle famiglie oppure, '
+              'se ritenute utili per tutti i docenti, aggiunte alle osservazioni tecniche.',
+          "You can add some notes on the student's behaviour and performance during the lesson. These notes will "
+              'be read by the Board and may later be shared with the families or, if useful to all teachers, '
+              'added to the technical observations.',
+        ),
       ),
   };
 
@@ -331,14 +368,17 @@ Future<DesktopTour?> calendarLessonTour() async
 }
 
 // Over the picker; a click on a day picks it and ends the tour.
-final DesktopTour calendarPickerTour = DesktopTour(
+DesktopTour get calendarPickerTour => DesktopTour(
   slug: 'calendar.picker',
   title: _title,
   version: _pickerVersion,
   steps: [
     DesktopTourStep(
       targets: const [kTourCalendarPickerDays],
-      text: 'Il pallino sotto una data indica la presenza di un calendario pubblicato in quel giorno.',
+      text: tr(
+        'Il pallino sotto una data indica la presenza di un calendario pubblicato in quel giorno.',
+        'The dot under a date means a calendar has been published for that day.',
+      ),
       sides: _beside,
       pad: 6,
       radius: 12,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../../features/onboarding/legal_documents.dart';
@@ -35,8 +36,11 @@ const double _ownButtonGap = 18;
 // Matches a section head's offset under the status bar, Discipline's included.
 const double _phoneTop = 4;
 
-const String _currentYearReason = "Inserisci l'anno scolastico in corso per proseguire.";
-const String _loadFailed = 'Non è stato possibile aprire il primo accesso.';
+String get _currentYearReason => tr(
+  "Inserisci l'anno scolastico in corso per proseguire.",
+  'Add the current school year to continue.',
+);
+String get _loadFailed => tr('Non è stato possibile aprire il primo accesso.', 'The first access could not be opened.');
 
 class MobileOnboardingPage extends StatefulWidget
 {
@@ -441,9 +445,13 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
       person: subject,
       fields: [
         ...kPersonalReportableFields,
-        ...associationReportableFields(subject.roles, forOwner: !step.isAboutAChild),
+        ...associationReportableFields(
+          subject.roles,
+          forOwner: !step.isAboutAChild,
+          feminine: subject.gender == 'F',
+        ),
       ],
-      eyebrow: name == null ? 'I tuoi dati' : 'Dati di $name',
+      eyebrow: name == null ? tr('I tuoi dati', 'Your details') : tr('Dati di $name', "$name's details"),
     );
   }
 
@@ -454,12 +462,12 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
     return switch (step.kind)
     {
       OnboardingStepKind.ownRecord || OnboardingStepKind.childRecord => MobileDismissButton(
-          label: 'Segnala dato mancante / errato',
+          label: tr('Segnala dato mancante / errato', 'Report missing / wrong details'),
           icon: Icons.flag_rounded,
           onPressed: () => _report(step),
         ),
       OnboardingStepKind.childSchool || OnboardingStepKind.ownSchool => MobileSlotButton(
-          label: 'Aggiungi anno',
+          label: tr('Aggiungi anno', 'Add year'),
           icon: Icons.add_rounded,
           onPressed: () => _schoolKeys[index]?.currentState?.add(),
         ),
@@ -479,7 +487,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
   Widget _buildHead(OnboardingStep step, {required bool tablet, required bool rail})
   {
     return MobileFlowHead(
-      eyebrow: 'Passo ${_index + 1} di ${_steps.length}',
+      eyebrow: tr('Passo ${_index + 1} di ${_steps.length}', 'Step ${_index + 1} of ${_steps.length}'),
       title: onboardingStepTitle(step),
       tablet: tablet,
       capsule: rail ? null : _buildCapsule(),
@@ -551,6 +559,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
           person: subject,
           onChanged: () => _reload(subject.fiscalCode),
           margin: margin,
+          atLeastOne: onboardingAtLeastOneSchoolYear(step),
         ),
     };
 
@@ -631,7 +640,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
     }
 
     return MobileFlowFooter(
-      label: _isLast ? 'Concludi' : 'Avanti',
+      label: _isLast ? tr('Concludi', 'Finish') : tr('Avanti', 'Next'),
       icon: _isLast ? Icons.done_all_rounded : Icons.arrow_forward_rounded,
       busy: _busy,
       onPressed: _forward,

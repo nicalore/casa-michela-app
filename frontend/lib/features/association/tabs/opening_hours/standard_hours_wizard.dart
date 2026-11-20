@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/rome_clock.dart';
@@ -32,7 +33,7 @@ const double _dialogButtonFontSize = 14;
 const double _wizardMaxWidth = 560;
 const double _stackMaxWidth = _wizardMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
 
-const String _effectiveFromLabel = 'Applica a partire dal';
+String get _effectiveFromLabel => tr('Applica a partire dal', 'Apply from');
 
 // Weekdays whose current hours match in both modes: they share one pair of steps.
 class _WeekdayGroup
@@ -170,7 +171,7 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
 
     if (!isValidDateString(text))
     {
-      CustomSnackBar.show(context: context, message: 'Inserisci una data di decorrenza valida.', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Inserisci una data di decorrenza valida.', 'Enter a valid start date.'), isError: true);
 
       return false;
     }
@@ -195,7 +196,7 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
 
     if (_weekdays.isEmpty)
     {
-      CustomSnackBar.show(context: context, message: 'Seleziona almeno una giornata.', isError: true);
+      CustomSnackBar.show(context: context, message: tr('Seleziona almeno una giornata.', 'Select at least one day.'), isError: true);
 
       return false;
     }
@@ -363,11 +364,15 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
     }
 
     final message = errors.isNotEmpty
-        ? '$successCount modifiche salvate, ${errors.length} non riuscite. ${errors.first}'
-            '${errors.length > 1 ? ' (e altre ${errors.length - 1})' : ''}'
+        ? tr(
+            '$successCount modifiche salvate, ${errors.length} non riuscite. ${errors.first}'
+                '${errors.length > 1 ? ' (e altre ${errors.length - 1})' : ''}',
+            '$successCount changes saved, ${errors.length} failed. ${errors.first}'
+                '${errors.length > 1 ? ' (and ${errors.length - 1} more)' : ''}',
+          )
         : successCount == 0
-            ? 'Nessun orario da salvare.'
-            : 'Orario aggiornato con successo.';
+            ? tr('Nessun orario da salvare.', 'No hours to save.')
+            : tr('Orario aggiornato con successo.', 'Hours updated.');
 
     CustomSnackBar.show(context: context, message: message, isError: errors.isNotEmpty);
 
@@ -438,7 +443,7 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
         children: [
           WizardFact(label: _effectiveFromLabel, value: _effectiveFromCtrl.text.trim()),
           WizardFact(
-            label: weekdays.length == 1 ? 'Giornata' : 'Giornate',
+            label: weekdays.length == 1 ? tr('Giornata', 'Day') : tr('Giornate', 'Days'),
             value: weekdays.map(weekdayFullName).join(', '),
             maxLines: null,
           ),
@@ -451,14 +456,19 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
   {
     if (_onAskedCard)
     {
-      return const PersonEditGuide(
-        question: 'Da quando e per quali giorni?',
-        hint: 'Scegli da quando vale il nuovo orario e i giorni della settimana a cui applicarlo.',
+      return PersonEditGuide(
+        question: tr('Da quando e per quali giorni?', 'From when and on which days?'),
+        hint: tr(
+          'Scegli da quando vale il nuovo orario e i giorni della settimana a cui applicarlo.',
+          'Choose from when the new hours apply and the days of the week they apply to.',
+        ),
       );
     }
 
     return PersonEditGuide(
-      question: _shownCard.mode == kPresenceMode ? 'Quando è aperta in presenza?' : 'Quando è aperta online?',
+      question: _shownCard.mode == kPresenceMode
+          ? tr('Quando è aperta in presenza?', 'When is it open in person?')
+          : tr('Quando è aperta online?', 'When is it open online?'),
     );
   }
 
@@ -466,14 +476,14 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Orario standard',
-      title: 'Modifica orario',
+      eyebrow: tr('Orario standard', 'Standard hours'),
+      title: tr('Modifica orario', 'Edit hours'),
       shrinkTitle: true,
       onClose: () => Navigator.of(context).pop(),
       maxWidth: _stackMaxWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: tr('SALVA', 'SAVE'),
           icon: Icons.check_rounded,
           busy: _isSaving,
           height: _dialogButtonHeight,

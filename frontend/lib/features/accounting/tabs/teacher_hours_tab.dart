@@ -42,6 +42,7 @@ const double _dayLabelWidth = 250;
 const double _denseDayLabelWidth = 200;
 const double _confirmWidth = 300;
 
+// The server's Italian label, compared as a code: never translated.
 const String _teacherRole = 'Docente';
 
 // Accounting reaches back to the association's first month.
@@ -637,7 +638,7 @@ class _TeacherHoursTabState extends State<TeacherHoursTab> with DestinationRefre
     if (data.status == TeacherHoursStatus.empty)
     {
       return AppEmptyRoom(
-        card: const AppEmptyCard(icon: Icons.event_note_rounded, message: kNothingPlanned),
+        card: AppEmptyCard(icon: Icons.event_note_rounded, message: kNothingPlanned),
         below: [if (_bandBegun) _buildAddButton()],
       );
     }

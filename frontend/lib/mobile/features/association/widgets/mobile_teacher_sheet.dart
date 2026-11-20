@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/alphabetical_order.dart';
 import '../../../../core/utils/error_message.dart';
@@ -69,7 +70,10 @@ class _TeacherSheetState extends State<_TeacherSheet>
 
     if (taxCode != null)
     {
-      startMobileTourOnce(taxCode: taxCode, tour: associationTeacherSheetTour(widget.directory.reader));
+      startMobileTourOnce(
+        taxCode: taxCode,
+        tour: associationTeacherSheetTour(widget.directory.reader, teacherGender: widget.teacher.gender),
+      );
     }
   }
 
@@ -136,9 +140,9 @@ class _TeacherSheetState extends State<_TeacherSheet>
     return MobileSheetCard(
       child: MobileDetailRows(
         rows: [
-          _row('Età', age == null ? null : '$age anni'),
-          _row('Studi scolastici', _teacher.schoolEducation),
-          _row('Studi universitari', _teacher.universityEducation),
+          _row(tr('Età', 'Age'), age == null ? null : tr('$age anni', '$age years')),
+          _row(tr('Studi scolastici', 'School studies'), _teacher.schoolEducation),
+          _row(tr('Studi universitari', 'University studies'), _teacher.universityEducation),
         ],
       ),
     );
@@ -214,7 +218,7 @@ class _TeacherSheetState extends State<_TeacherSheet>
     {
       choice = [
         Text(
-          opinionQuestion(_teacher),
+          opinionQuestion(_teacher, pupils),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             fontWeight: FontWeight.w700,
@@ -271,7 +275,7 @@ class _TeacherSheetState extends State<_TeacherSheet>
         final List<OpinionPupil> pupils = widget.directory.pupils;
 
         return MobileSheet(
-          eyebrow: 'Docente',
+          eyebrow: tr('Docente', 'Teacher'),
           title: '${_teacher.firstName} ${_teacher.lastName}',
           leading: MobileAvatar(
             firstName: _teacher.firstName,

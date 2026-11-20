@@ -17,6 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
+from app.core.i18n import tr
 from app.db.base import Base
 from app.models.flush_state import deleted_instances, pending_instances
 from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
@@ -26,29 +27,35 @@ if TYPE_CHECKING:
     from app.models.lesson_booking import LessonBooking
     from app.models.lesson_discipline import LessonDiscipline
 
-_LESSON_WITHOUT_BOOKING_ERROR: Final[str] = (
-    "Una lezione deve avere almeno una prenotazione"
+_LESSON_WITHOUT_BOOKING_ERROR: Final[tuple[str, str]] = (
+    "Una lezione deve avere almeno una prenotazione",
+    "A lesson must have at least one booking",
 )
 
-_DISCIPLINE_NOT_REQUESTED_ERROR: Final[str] = (
+_DISCIPLINE_NOT_REQUESTED_ERROR: Final[tuple[str, str]] = (
     "Ogni disciplina della lezione deve essere collegata ad almeno una delle "
-    "prenotazioni"
+    "prenotazioni",
+    "Every discipline of the lesson must be linked to at least one of the bookings",
 )
 
-_BOOKING_NOT_ON_LESSON_SUBJECT_ERROR: Final[str] = (
-    "Ogni prenotazione deve avere almeno una disciplina in comune con la lezione"
+_BOOKING_NOT_ON_LESSON_SUBJECT_ERROR: Final[tuple[str, str]] = (
+    "Ogni prenotazione deve avere almeno una disciplina in comune con la lezione",
+    "Every booking must share at least one discipline with the lesson",
 )
 
-_LESSON_WITHOUT_DISCIPLINE_ERROR: Final[str] = (
-    "Solo i servizi non hanno discipline"
+_LESSON_WITHOUT_DISCIPLINE_ERROR: Final[tuple[str, str]] = (
+    "Solo i servizi non hanno discipline",
+    "Only services have no disciplines",
 )
 
-_MODE_MISMATCH_ERROR: Final[str] = (
-    "Una lezione si deve svolgere interamente nella stessa modalità"
+_MODE_MISMATCH_ERROR: Final[tuple[str, str]] = (
+    "Una lezione si deve svolgere interamente nella stessa modalità",
+    "A lesson must take place entirely in the same mode",
 )
 
-_DATE_MISMATCH_ERROR: Final[str] = (
-    "Le prenotazioni di una lezione devono essere nello stesso giorno della lezione"
+_DATE_MISMATCH_ERROR: Final[tuple[str, str]] = (
+    "Le prenotazioni di una lezione devono essere nello stesso giorno della lezione",
+    "A lesson's bookings must be on the same day as the lesson",
 )
 
 # Must stay in sync with the bounds in app/core/time_band.py.
@@ -327,7 +334,7 @@ def _validate_lesson_disciplines(
         bookings = _linked_bookings(session, lesson, deleted_link_keys)
 
         if not bookings:
-            raise ValueError(_LESSON_WITHOUT_BOOKING_ERROR)
+            raise ValueError(tr(*_LESSON_WITHOUT_BOOKING_ERROR))
 
         taught = _lesson_disciplines(session, lesson, deleted_discipline_keys)
         requested = [disciplines_of(session, booking) for booking in bookings]
@@ -335,15 +342,15 @@ def _validate_lesson_disciplines(
         if not taught:
             # Only a service has no discipline behind it.
             if any(disciplines for disciplines in requested):
-                raise ValueError(_LESSON_WITHOUT_DISCIPLINE_ERROR)
+                raise ValueError(tr(*_LESSON_WITHOUT_DISCIPLINE_ERROR))
 
             continue
 
         if not taught <= set().union(*requested):
-            raise ValueError(_DISCIPLINE_NOT_REQUESTED_ERROR)
+            raise ValueError(tr(*_DISCIPLINE_NOT_REQUESTED_ERROR))
 
         if any(not (disciplines & taught) for disciplines in requested):
-            raise ValueError(_BOOKING_NOT_ON_LESSON_SUBJECT_ERROR)
+            raise ValueError(tr(*_BOOKING_NOT_ON_LESSON_SUBJECT_ERROR))
 
 
 # mode duplicates the presences' mode and no FK can enforce it; this hook does.
@@ -378,7 +385,7 @@ def _validate_lesson_student_mode(
                 continue
 
             if presence.mode != lesson.mode:
-                raise ValueError(_MODE_MISMATCH_ERROR)
+                raise ValueError(tr(*_MODE_MISMATCH_ERROR))
 
             if day is not None and presence.date != day:
-                raise ValueError(_DATE_MISMATCH_ERROR)
+                raise ValueError(tr(*_DATE_MISMATCH_ERROR))

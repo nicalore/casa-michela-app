@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_check_mark.dart';
@@ -135,7 +136,7 @@ class _SubjectPickRowState extends State<SubjectPickRow>
                         Text.rich(
                           TextSpan(
                             children: [
-                              const TextSpan(text: kSingleDisciplineLabel),
+                              TextSpan(text: kSingleDisciplineLabel),
                               TextSpan(
                                 text: discipline,
                                 style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: AppTheme.trialOceanText),
@@ -167,7 +168,7 @@ class _SubjectPickRowState extends State<SubjectPickRow>
                 ),
                 if (widget.hasChoice)
                   AppTooltip(
-                    message: 'Modifica',
+                    message: tr('Modifica', 'Edit'),
                     waitDuration: const Duration(milliseconds: 400),
                     child: _TuneButton(onTap: widget.onEditDisciplines),
                   ),
@@ -246,7 +247,7 @@ class _SubjectDisciplinesDialogState extends State<SubjectDisciplinesDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Scegli almeno una disciplina.',
+        message: tr('Scegli almeno una disciplina.', 'Choose at least one discipline.'),
         isError: true,
       );
 
@@ -261,12 +262,12 @@ class _SubjectDisciplinesDialogState extends State<SubjectDisciplinesDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Discipline',
+      eyebrow: tr('Discipline', 'Disciplines'),
       title: widget.subject.name,
       maxWidth: 520,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'CONFERMA',
+          label: tr('CONFERMA', 'CONFIRM'),
           icon: Icons.check_rounded,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
@@ -283,7 +284,7 @@ class _SubjectDisciplinesDialogState extends State<SubjectDisciplinesDialog>
               Padding(
                 padding: const EdgeInsets.only(bottom: 14),
                 child: Text(
-                  'Di ${widget.subject.name}, che cosa vuole fare?',
+                  tr('Di ${widget.subject.name}, che cosa vuole fare?', 'What would they like to do in ${widget.subject.name}?'),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,

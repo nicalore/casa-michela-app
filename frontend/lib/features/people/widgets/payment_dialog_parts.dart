@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/json_parsing.dart';
@@ -33,7 +34,7 @@ DateTime paymentToday()
   return DateTime(now.year, now.month, now.day);
 }
 
-const Map<String, String> kPaymentMethodNames = {
+Map<String, String> get kPaymentMethodNames => {
   'CASH': kCashChoice,
   'BANK_TRANSFER': kBankTransferChoice,
   'OTHER': kOtherChoice,
@@ -309,7 +310,7 @@ class TariffConditionFields extends StatelessWidget
     return AppTextField(
       controller: conditions.amount,
       label: label,
-      hintText: 'Es. 10,00',
+      hintText: tr('Es. 10,00', 'E.g. 10.00'),
       keyboardType: TextInputType.number,
       errorText: conditions.amountError,
       onChanged: (_)
@@ -340,7 +341,7 @@ class TariffConditionFields extends StatelessWidget
           child: AppTextField(
             controller: conditions.hours,
             label: kPackageHoursLabel,
-            hintText: 'Es. 18',
+            hintText: tr('Es. 18', 'E.g. 18'),
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             maxLength: kPackageHoursDigits,

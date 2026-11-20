@@ -11,6 +11,7 @@ from pydantic import (
 )
 
 from app.core import field_lengths
+from app.core.i18n import tr
 from app.core.time_band import EVENING_START
 from app.models.early_exit_schedule import MAXIMUM_SCHEDULES, WEEKDAYS
 from app.models.person import BORN_ABROAD_PROVINCE
@@ -36,51 +37,78 @@ HEALTH_DATA_WITHOUT_CONSENT_ERROR: Final[str] = (
     "farmaci, certificazioni e sostegno psicologico."
 )
 
-_MISSING_DSA_DETAIL_ERROR: Final[str] = (
-    "Per una certificazione DSA va indicato di quale disturbo si tratta."
+
+def university_education_at_high_school_error() -> str:
+    return tr(
+        UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR,
+        "A teacher still at upper secondary school can't list university studies.",
+    )
+
+
+def health_data_without_consent_error() -> str:
+    return tr(
+        HEALTH_DATA_WITHOUT_CONSENT_ERROR,
+        "Without consent to special category data, allergies, medications, "
+        "certifications and psychological support can't be recorded.",
+    )
+
+_MISSING_DSA_DETAIL_ERROR: Final[tuple[str, str]] = (
+    "Per una certificazione DSA va indicato di quale disturbo si tratta.",
+    "For an SLD (specific learning disorder) certification, say which disorder it is.",
 )
 
-_MISSING_BIRTH_CITY_ERROR: Final[str] = (
-    "Per chi è nato in Italia va indicata la città di nascita."
+_MISSING_BIRTH_CITY_ERROR: Final[tuple[str, str]] = (
+    "Per chi è nato in Italia va indicata la città di nascita.",
+    "For people born in Italy, the city of birth is required.",
 )
 
-_REPEATED_CERTIFICATION_ERROR: Final[str] = (
-    "Ogni certificazione può essere indicata una sola volta."
+_REPEATED_CERTIFICATION_ERROR: Final[tuple[str, str]] = (
+    "Ogni certificazione può essere indicata una sola volta.",
+    "Each certification can be given only once.",
 )
 
-_REPEATED_WEEKDAY_ERROR: Final[str] = (
-    "Ogni giorno può essere indicato una sola volta."
+_REPEATED_WEEKDAY_ERROR: Final[tuple[str, str]] = (
+    "Ogni giorno può essere indicato una sola volta.",
+    "Each day can be given only once.",
 )
 
-_WEEKDAY_ON_TWO_LINES_ERROR: Final[str] = (
-    "Uno stesso giorno non può comparire in due righe di uscita anticipata."
+_WEEKDAY_ON_TWO_LINES_ERROR: Final[tuple[str, str]] = (
+    "Uno stesso giorno non può comparire in due righe di uscita anticipata.",
+    "The same day can't appear in two early departure rows.",
 )
 
-_SCHOOL_OR_HOMESCHOOLING_ERROR: Final[str] = (
-    "Per ogni anno scolastico indica la scuola oppure l'istruzione parentale."
+_SCHOOL_OR_HOMESCHOOLING_ERROR: Final[tuple[str, str]] = (
+    "Per ogni anno scolastico indica la scuola oppure l'istruzione parentale.",
+    "For each school year give the school or home education.",
 )
 
-_LATE_EXIT_ERROR: Final[str] = (
+_LATE_EXIT_ERROR: Final[tuple[str, str]] = (
     "L'orario di uscita deve precedere la fine delle attività "
-    f"(ore {EVENING_START:%H:%M})."
+    f"(ore {EVENING_START:%H:%M}).",
+    f"The leaving time must come before activities end ({EVENING_START:%H:%M}).",
 )
 
-_INCOMPLETE_EARLY_EXIT_PERIOD_ERROR: Final[str] = (
-    "Per un'autorizzazione a termine servono sia la data di inizio "
-    "sia quella di fine; senza date vale per tutto il periodo di iscrizione."
+_INCOMPLETE_EARLY_EXIT_PERIOD_ERROR: Final[tuple[str, str]] = (
+    "Per un'autorizzazione a termine servono sia la data di inizio sia quella di "
+    "fine; senza date vale per tutto il periodo di iscrizione.",
+    "A time-limited authorisation needs both a start and an end date; without dates "
+    "it covers the whole enrolment period.",
 )
 
-_EARLY_EXIT_PERIOD_ENDS_FIRST_ERROR: Final[str] = (
-    "La fine dell'autorizzazione all'uscita anticipata non può precederne l'inizio."
+_EARLY_EXIT_PERIOD_ENDS_FIRST_ERROR: Final[tuple[str, str]] = (
+    "La fine dell'autorizzazione all'uscita anticipata non può precederne l'inizio.",
+    "The early departure authorisation can't end before it starts.",
 )
 
-_UNAUTHORIZED_EARLY_EXIT_PERIOD_ERROR: Final[str] = (
-    "Senza autorizzazione all'uscita anticipata non si può indicare un periodo."
+_UNAUTHORIZED_EARLY_EXIT_PERIOD_ERROR: Final[tuple[str, str]] = (
+    "Senza autorizzazione all'uscita anticipata non si può indicare un periodo.",
+    "Without early departure authorisation no period can be given.",
 )
 
-_UNAUTHORIZED_EARLY_EXIT_SCHEDULES_ERROR: Final[str] = (
-    "Senza autorizzazione all'uscita anticipata non si possono indicare "
-    "giorni e orari."
+_UNAUTHORIZED_EARLY_EXIT_SCHEDULES_ERROR: Final[tuple[str, str]] = (
+    "Senza autorizzazione all'uscita anticipata non si possono indicare giorni e "
+    "orari.",
+    "Without early departure authorisation no days and times can be given.",
 )
 
 
@@ -184,7 +212,7 @@ class BirthPlaceData(BaseModel):
     @model_validator(mode="after")
     def _the_city_is_known_unless_born_abroad(self) -> Self:
         if self.birth_city is None and self.birth_province != BORN_ABROAD_PROVINCE:
-            raise ValueError(_MISSING_BIRTH_CITY_ERROR)
+            raise ValueError(tr(*_MISSING_BIRTH_CITY_ERROR))
 
         return self
 
@@ -244,7 +272,7 @@ class TeacherEducationData(BaseModel):
     @model_validator(mode="after")
     def _university_education_only_after_high_school(self) -> Self:
         if self.is_high_school_student and self.university_education is not None:
-            raise ValueError(UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR)
+            raise ValueError(university_education_at_high_school_error())
 
         return self
 
@@ -285,7 +313,7 @@ class SchoolOrHomeschooling(BaseModel):
     @model_validator(mode="after")
     def _school_or_homeschooling(self) -> Self:
         if self.homeschooling == (self.school_id is not None):
-            raise ValueError(_SCHOOL_OR_HOMESCHOOLING_ERROR)
+            raise ValueError(tr(*_SCHOOL_OR_HOMESCHOOLING_ERROR))
 
         return self
 
@@ -316,7 +344,7 @@ class StudentCertificationData(BaseModel):
     @model_validator(mode="after")
     def _no_certification_is_asked_for_twice(self) -> Self:
         if len(set(self.certification_types)) != len(self.certification_types):
-            raise ValueError(_REPEATED_CERTIFICATION_ERROR)
+            raise ValueError(tr(*_REPEATED_CERTIFICATION_ERROR))
 
         return self
 
@@ -326,7 +354,7 @@ class StudentCertificationData(BaseModel):
             CertificationTypeEnum.DSA in self.certification_types
             and self.certification_dsa_detail is None
         ):
-            raise ValueError(_MISSING_DSA_DETAIL_ERROR)
+            raise ValueError(tr(*_MISSING_DSA_DETAIL_ERROR))
 
         return self
 
@@ -348,14 +376,14 @@ class EarlyExitScheduleItem(BaseModel):
     @model_validator(mode="after")
     def _no_day_is_asked_for_twice(self) -> Self:
         if len(set(self.weekdays)) != len(self.weekdays):
-            raise ValueError(_REPEATED_WEEKDAY_ERROR)
+            raise ValueError(tr(*_REPEATED_WEEKDAY_ERROR))
 
         return self
 
     @model_validator(mode="after")
     def _the_exit_comes_before_closing(self) -> Self:
         if self.exit_time >= EVENING_START:
-            raise ValueError(_LATE_EXIT_ERROR)
+            raise ValueError(tr(*_LATE_EXIT_ERROR))
 
         return self
 
@@ -375,14 +403,14 @@ class StudentEarlyExitData(BaseModel):
     @model_validator(mode="after")
     def _a_limited_period_has_both_ends(self) -> Self:
         if (self.early_exit_start_date is None) != (self.early_exit_end_date is None):
-            raise ValueError(_INCOMPLETE_EARLY_EXIT_PERIOD_ERROR)
+            raise ValueError(tr(*_INCOMPLETE_EARLY_EXIT_PERIOD_ERROR))
 
         if (
             self.early_exit_start_date is not None
             and self.early_exit_end_date is not None
             and self.early_exit_end_date < self.early_exit_start_date
         ):
-            raise ValueError(_EARLY_EXIT_PERIOD_ENDS_FIRST_ERROR)
+            raise ValueError(tr(*_EARLY_EXIT_PERIOD_ENDS_FIRST_ERROR))
 
         return self
 
@@ -392,10 +420,10 @@ class StudentEarlyExitData(BaseModel):
             return self
 
         if self.early_exit_start_date is not None:
-            raise ValueError(_UNAUTHORIZED_EARLY_EXIT_PERIOD_ERROR)
+            raise ValueError(tr(*_UNAUTHORIZED_EARLY_EXIT_PERIOD_ERROR))
 
         if self.early_exit_schedules:
-            raise ValueError(_UNAUTHORIZED_EARLY_EXIT_SCHEDULES_ERROR)
+            raise ValueError(tr(*_UNAUTHORIZED_EARLY_EXIT_SCHEDULES_ERROR))
 
         return self
 
@@ -405,7 +433,7 @@ class StudentEarlyExitData(BaseModel):
 
         for schedule in self.early_exit_schedules:
             if seen & set(schedule.weekdays):
-                raise ValueError(_WEEKDAY_ON_TWO_LINES_ERROR)
+                raise ValueError(tr(*_WEEKDAY_ON_TWO_LINES_ERROR))
 
             seen |= set(schedule.weekdays)
 

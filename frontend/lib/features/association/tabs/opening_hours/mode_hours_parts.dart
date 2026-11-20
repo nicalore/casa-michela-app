@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_tooltip.dart';
@@ -13,7 +14,7 @@ import '../../../lessons/utils/opening_window.dart';
 import '../../../lessons/widgets/calendar_lesson_block.dart';
 import '../../models/opening_day_item.dart';
 
-const String kClosedLabel = 'Chiuso';
+String get kClosedLabel => tr('Chiuso', 'Closed');
 
 // Not a flag icon: elsewhere a flag means reporting.
 const IconData kVariationIcon = Icons.update_rounded;

@@ -19,6 +19,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from app.api.current_account import CurrentAccount
 from app.api.dependencies import DbSession
 from app.core import field_lengths
+from app.core.i18n import tr
 from app.core.optimistic_concurrency import assert_not_stale
 from app.models.account import Account
 from app.models.app_update import AppUpdate, AppUpdateRoleEnum
@@ -47,10 +48,14 @@ from app.services.app_updates import (
 from app.services.terms import request_terms
 
 _UPDATE_LABEL: Final[str] = "l'aggiornamento"
-_NOT_A_MANAGER_ERROR: Final[str] = (
-    "Solo i Responsabili IT gestiscono gli aggiornamenti."
+_NOT_A_MANAGER_ERROR: Final[tuple[str, str]] = (
+    "Solo i Responsabili IT gestiscono gli aggiornamenti.",
+    "Only IT managers manage the updates.",
 )
-_VERSION_ERROR: Final[str] = "La versione dell'app non è valida."
+_VERSION_ERROR: Final[tuple[str, str]] = (
+    "La versione dell'app non è valida.",
+    "The app version is not valid.",
+)
 
 _VERSION: Final[re.Pattern[str]] = re.compile(r"\d+\.\d+\.\d+")
 
@@ -62,7 +67,7 @@ def _manager(current_account: CurrentAccount) -> Account:
     if not manages_updates(current_account.person):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_NOT_A_MANAGER_ERROR,
+            detail=tr(*_NOT_A_MANAGER_ERROR),
         )
 
     return current_account
@@ -95,7 +100,7 @@ def _assert_version(version: str) -> None:
     if not _VERSION.fullmatch(version):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_VERSION_ERROR,
+            detail=tr(*_VERSION_ERROR),
         )
 
 

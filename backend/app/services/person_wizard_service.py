@@ -34,6 +34,7 @@ from app.schemas.person_wizard import (
     WizardSchoolEnrollmentData,
 )
 from app.schemas.student_payments import PaymentData, RenewalData, WizardTariffData
+from app.services.bilingual import Bilingual
 from app.services.membership_fees import enrolled_year, first_fees
 from app.services.role_service import RoleService
 from app.services.standard_tariffs import standard_tariff
@@ -66,27 +67,45 @@ _STAFF_ROLES: Final[frozenset[str]] = frozenset(
     }
 )
 
-_PERSON_ALREADY_EXISTS_ERROR: Final[str] = (
-    "Una persona con questo codice fiscale è già presente nel sistema."
+_PERSON_ALREADY_EXISTS_ERROR: Final[Bilingual] = Bilingual(
+    "Una persona con questo codice fiscale è già presente nel sistema.",
+    "A person with this tax code is already in the system.",
 )
 
-_PSYCHOLOGIST_SUPPORT_ERROR: Final[str] = (
-    "Uno Psicologo non può essere iscritto al servizio di sostegno psicologico."
+_PSYCHOLOGIST_SUPPORT_ERROR: Final[Bilingual] = Bilingual(
+    "Uno Psicologo non può essere iscritto al servizio di sostegno psicologico.",
+    "A psychologist cannot be enrolled in the psychological support service.",
 )
 
-_UNKNOWN_SERVICES_ERROR: Final[str] = "Alcuni servizi indicati non esistono: {names}."
-
-_UNKNOWN_COURSE_ERROR: Final[str] = 'Il corso "{name}" non esiste.'
-
-_NOT_ENROLLED_PAYMENT_ERROR: Final[str] = (
-    "Quote e primo pagamento si indicano solo per chi è iscritto quest’anno."
+_UNKNOWN_SERVICES_ERROR: Final[Bilingual] = Bilingual(
+    "Alcuni servizi indicati non esistono: {names}.",
+    "Some of the services given do not exist: {names}.",
 )
 
-_NO_PAYMENT_METHOD_ERROR: Final[str] = "Manca la modalità di pagamento."
+_UNKNOWN_COURSE_ERROR: Final[Bilingual] = Bilingual(
+    'Il corso "{name}" non esiste.',
+    "The course “{name}” does not exist.",
+)
 
-_NO_FEES_ERROR: Final[str] = "Mancano le quote."
+_NOT_ENROLLED_PAYMENT_ERROR: Final[Bilingual] = Bilingual(
+    "Quote e primo pagamento si indicano solo per chi è iscritto quest’anno.",
+    "Fees and first payment are given only for those enrolled this year.",
+)
 
-_NO_TARIFF_ERROR: Final[str] = "Manca la tariffa."
+_NO_PAYMENT_METHOD_ERROR: Final[Bilingual] = Bilingual(
+    "Manca la modalità di pagamento.",
+    "The payment method is missing.",
+)
+
+_NO_FEES_ERROR: Final[Bilingual] = Bilingual(
+    "Mancano le quote.",
+    "The fees are missing.",
+)
+
+_NO_TARIFF_ERROR: Final[Bilingual] = Bilingual(
+    "Manca la tariffa.",
+    "The rate is missing.",
+)
 
 _DEFAULT_GRADE: Final[int] = 1
 
@@ -127,7 +146,7 @@ async def assert_course_exists(db: AsyncSession, name: str) -> None:
     if known is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UNKNOWN_COURSE_ERROR.format(name=name),
+            detail=_UNKNOWN_COURSE_ERROR.for_request().format(name=name),
         )
 
 
@@ -152,7 +171,9 @@ async def _add_teacher_services(
     if missing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UNKNOWN_SERVICES_ERROR.format(names=", ".join(missing)),
+            detail=_UNKNOWN_SERVICES_ERROR.for_request().format(
+                names=", ".join(missing),
+            ),
         )
 
     for name in unique_names:
@@ -172,10 +193,10 @@ async def _pay_first(
     now: datetime,
 ) -> None:
     if not enrolled:
-        raise _bad_request(_NOT_ENROLLED_PAYMENT_ERROR)
+        raise _bad_request(_NOT_ENROLLED_PAYMENT_ERROR.for_request())
 
     if member.payment_method is None:
-        raise _bad_request(_NO_PAYMENT_METHOD_ERROR)
+        raise _bad_request(_NO_PAYMENT_METHOD_ERROR.for_request())
 
     await db.flush()
     await renew(
@@ -203,7 +224,7 @@ async def create_person_from_wizard(
     if existing_person:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_PERSON_ALREADY_EXISTS_ERROR,
+            detail=_PERSON_ALREADY_EXISTS_ERROR.for_request(),
         )
 
     roles = payload.roles
@@ -211,7 +232,7 @@ async def create_person_from_wizard(
     if _ROLE_PSYCHOLOGIST in roles and payload.psychological_support_data is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_PSYCHOLOGIST_SUPPORT_ERROR,
+            detail=_PSYCHOLOGIST_SUPPORT_ERROR.for_request(),
         )
 
     general_data = payload.general_data
@@ -296,14 +317,14 @@ async def create_person_from_wizard(
 
             # Whoever is enrolled this year owes its fees, paid or not.
             if member_data.fees is None and year is not None:
-                raise _bad_request(_NO_FEES_ERROR)
+                raise _bad_request(_NO_FEES_ERROR.for_request())
 
             if member_data.fees is not None:
                 if year is None:
-                    raise _bad_request(_NOT_ENROLLED_PAYMENT_ERROR)
+                    raise _bad_request(_NOT_ENROLLED_PAYMENT_ERROR.for_request())
 
                 if payment_method is None:
-                    raise _bad_request(_NO_PAYMENT_METHOD_ERROR)
+                    raise _bad_request(_NO_PAYMENT_METHOD_ERROR.for_request())
 
                 # No relationship orders the member first.
                 await db.flush()
@@ -326,7 +347,7 @@ async def create_person_from_wizard(
                 and year is not None
                 and await level_has_tariffs(db, student_data.school_enrollments, today)
             ):
-                raise _bad_request(_NO_TARIFF_ERROR)
+                raise _bad_request(_NO_TARIFF_ERROR.for_request())
 
             certification_types = [
                 CertificationTypeEnum(kind)

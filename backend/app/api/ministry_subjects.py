@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.api.dependencies import DbSession
 from app.api.queries import select_parents_left_without_children
 from app.api.rbac import get_current_identity, require_role
+from app.core.i18n import tr
 from app.models.association_subject import AssociationSubject
 from app.models.ministry_subject import MinistrySubject
 from app.models.study_program import EducationLevelEnum
@@ -28,30 +29,51 @@ router = APIRouter(
     dependencies=[Depends(get_current_identity)],
 )
 
-_SUBJECT_NOT_FOUND_ERROR: Final[str] = "Materia non trovata."
-_NO_ASSOCIATION_SUBJECTS_ERROR: Final[str] = "Seleziona almeno una disciplina interna."
-_MISSING_ASSOCIATION_SUBJECTS_ERROR: Final[str] = (
-    "Alcune discipline interne selezionate non esistono."
+_SUBJECT_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
+    "Materia non trovata.",
+    "Subject not found.",
 )
-_DUPLICATE_SUBJECT_ERROR: Final[str] = (
-    'Esiste già la materia "{name}" per questo livello.'
+_NO_ASSOCIATION_SUBJECTS_ERROR: Final[tuple[str, str]] = (
+    "Seleziona almeno una disciplina interna.",
+    "Select at least one internal discipline.",
 )
-_CREATE_ERROR: Final[str] = "Errore durante la creazione della disciplina."
-_UPDATE_ERROR: Final[str] = "Errore durante la modifica."
-_ORPHAN_STUDY_PROGRAM_ERROR: Final[str] = (
+_MISSING_ASSOCIATION_SUBJECTS_ERROR: Final[tuple[str, str]] = (
+    "Alcune discipline interne selezionate non esistono.",
+    "Some of the selected internal disciplines don't exist.",
+)
+_DUPLICATE_SUBJECT_ERROR: Final[tuple[str, str]] = (
+    'Esiste già la materia "{name}" per questo livello.',
+    "The subject “{name}” already exists for this level.",
+)
+_CREATE_ERROR: Final[tuple[str, str]] = (
+    "Errore durante la creazione della disciplina.",
+    "Error while creating the discipline.",
+)
+_UPDATE_ERROR: Final[tuple[str, str]] = (
+    "Errore durante la modifica.",
+    "Error while saving the changes.",
+)
+_ORPHAN_STUDY_PROGRAM_ERROR: Final[tuple[str, str]] = (
     "Impossibile eliminare: un percorso di studi rimarrebbe senza materie "
-    "ministeriali associate."
+    "ministeriali associate.",
+    "Can't delete: a study programme would be left without linked curriculum subjects.",
 )
-_ORPHAN_TEACHER_UPDATE_ERROR: Final[str] = (
-    "Impossibile salvare: un docente rimarrebbe senza competenze."
+_ORPHAN_TEACHER_UPDATE_ERROR: Final[tuple[str, str]] = (
+    "Impossibile salvare: un docente rimarrebbe senza competenze.",
+    "Can't save: a teacher would be left with nothing to teach.",
 )
-_ORPHAN_TEACHER_DELETE_ERROR: Final[str] = (
-    "Impossibile eliminare: un docente rimarrebbe senza competenze."
+_ORPHAN_TEACHER_DELETE_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare: un docente rimarrebbe senza competenze.",
+    "Can't delete: a teacher would be left with nothing to teach.",
 )
-_DELETE_CONSTRAINT_ERROR: Final[str] = (
-    "Impossibile eliminare la materia perché associata ad altri dati."
+_DELETE_CONSTRAINT_ERROR: Final[tuple[str, str]] = (
+    "Impossibile eliminare la materia perché associata ad altri dati.",
+    "Can't delete the subject because it's linked to other data.",
 )
-_DELETE_SUCCESS_DETAIL: Final[str] = "Materia eliminata"
+_DELETE_SUCCESS_DETAIL: Final[tuple[str, str]] = (
+    "Materia eliminata",
+    "Subject deleted",
+)
 
 
 async def _get_subject_or_404(
@@ -70,7 +92,7 @@ async def _get_subject_or_404(
     if subject is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_SUBJECT_NOT_FOUND_ERROR,
+            detail=tr(*_SUBJECT_NOT_FOUND_ERROR),
         )
 
     return subject
@@ -89,7 +111,7 @@ async def _assert_name_available(
     if (await db.execute(stmt)).scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DUPLICATE_SUBJECT_ERROR.format(name=name),
+            detail=tr(*_DUPLICATE_SUBJECT_ERROR).format(name=name),
         )
 
 
@@ -105,7 +127,7 @@ async def _load_association_subjects(
     if len(associations) != len(association_subject_ids):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_MISSING_ASSOCIATION_SUBJECTS_ERROR,
+            detail=tr(*_MISSING_ASSOCIATION_SUBJECTS_ERROR),
         )
 
     return associations
@@ -135,7 +157,7 @@ async def create_ministry_subject(
     if not payload.association_subject_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_ASSOCIATION_SUBJECTS_ERROR,
+            detail=tr(*_NO_ASSOCIATION_SUBJECTS_ERROR),
         )
 
     await _assert_name_available(db, payload.name, payload.level)
@@ -161,7 +183,7 @@ async def create_ministry_subject(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_CREATE_ERROR,
+            detail=tr(*_CREATE_ERROR),
         ) from err
 
     stmt_reload = (
@@ -186,7 +208,7 @@ async def update_ministry_subject(
     if not payload.association_subject_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_NO_ASSOCIATION_SUBJECTS_ERROR,
+            detail=tr(*_NO_ASSOCIATION_SUBJECTS_ERROR),
         )
 
     subject = await _get_subject_or_404(db, subject_id, load_associations=True)
@@ -206,13 +228,13 @@ async def update_ministry_subject(
     subject.association_subjects = list(associations)
 
     try:
-        await close_stray_competences(db, refusal=_ORPHAN_TEACHER_UPDATE_ERROR)
+        await close_stray_competences(db, refusal=tr(*_ORPHAN_TEACHER_UPDATE_ERROR))
         await db.commit()
     except IntegrityError as err:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UPDATE_ERROR,
+            detail=tr(*_UPDATE_ERROR),
         ) from err
 
     return subject
@@ -236,18 +258,18 @@ async def delete_ministry_subject(subject_id: int, db: DbSession) -> dict[str, s
     if orphan_study_programs.scalars().first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_ORPHAN_STUDY_PROGRAM_ERROR,
+            detail=tr(*_ORPHAN_STUDY_PROGRAM_ERROR),
         )
 
     try:
         await db.delete(subject)
-        await close_stray_competences(db, refusal=_ORPHAN_TEACHER_DELETE_ERROR)
+        await close_stray_competences(db, refusal=tr(*_ORPHAN_TEACHER_DELETE_ERROR))
         await db.commit()
     except IntegrityError as err:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_DELETE_CONSTRAINT_ERROR,
+            detail=tr(*_DELETE_CONSTRAINT_ERROR),
         ) from err
 
-    return {"detail": _DELETE_SUCCESS_DETAIL}
+    return {"detail": tr(*_DELETE_SUCCESS_DETAIL)}

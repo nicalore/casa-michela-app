@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -19,13 +20,13 @@ class AppSearchField extends StatefulWidget
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
-  final String hintText;
+  final String? hintText;
 
   const AppSearchField({
     super.key,
     required this.controller,
     required this.onChanged,
-    this.hintText = 'Cerca...',
+    this.hintText,
   });
 
   @override
@@ -142,7 +143,7 @@ class _AppSearchFieldState extends State<AppSearchField>
             decoration: InputDecoration(
               // The field's own least height would overflow the low box and push the text down.
               isDense: dense,
-              hintText: widget.hintText,
+              hintText: widget.hintText ?? tr('Cerca...', 'Search...'),
               hintStyle: GoogleFonts.plusJakartaSans(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w500,

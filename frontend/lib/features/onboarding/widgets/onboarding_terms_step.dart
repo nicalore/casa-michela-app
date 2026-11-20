@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_choice_card.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -161,7 +162,7 @@ class _DocumentTileState extends State<_DocumentTile>
                 Row(
                   children: [
                     Text(
-                      'LEGGI',
+                      tr('LEGGI', 'READ'),
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,

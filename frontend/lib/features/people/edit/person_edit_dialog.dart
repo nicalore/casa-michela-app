@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
@@ -296,7 +297,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       // validation.message describes the first problem overall, not this step's.
       message: validation.firstCard == mine.first.card && validation.message != null
           ? validation.message!
-          : 'Ci sono errori nei dati inseriti. Correggi i campi.',
+          : tr(
+            'Ci sono errori nei dati inseriti. Correggi i campi.',
+            'There are errors in the details entered. Correct the fields.',
+          ),
       isError: true,
     );
 
@@ -367,7 +371,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     final String name =
         '${_form.firstNameCtrl.text.trim()} ${_form.lastNameCtrl.text.trim()}'.trim();
 
-    return name.isEmpty ? 'questa persona' : name;
+    return name.isEmpty ? tr('questa persona', 'this person') : name;
   }
 
   bool _formIsSound()
@@ -411,7 +415,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     CustomSnackBar.show(
       context: context,
-      message: validation.message ?? 'Ci sono errori nei dati inseriti. Correggi i campi.',
+      message: validation.message ?? tr(
+        'Ci sono errori nei dati inseriti. Correggi i campi.',
+        'There are errors in the details entered. Correct the fields.',
+      ),
       isError: true,
     );
 
@@ -432,15 +439,20 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     final List<PdfTabRequest> requests = [
       for (final EnrollmentForm form in forms) ...[
         (
-          tab: openPdfTab(title: 'Modulo di iscrizione · ${form.personName}'),
-          label: 'Modulo di iscrizione · ${form.personName}',
+          tab: openPdfTab(title: tr(
+            'Modulo di iscrizione · ${form.personName}',
+            'Enrolment form · ${form.personName}',
+          )),
+          label: tr('Modulo di iscrizione · ${form.personName}', 'Enrolment form · ${form.personName}'),
           fileName: 'Modulo di iscrizione ${form.personName} $day.pdf',
           bytes: () => ApiService().generateEnrollmentForm(form.request),
         ),
         if (form.needsEarlyExitForm)
           (
-            tab: openPdfTab(title: 'Modulo uscita anticipata · ${form.personName}'),
-            label: 'Modulo uscita anticipata · ${form.personName}',
+            tab: openPdfTab(
+              title: tr('Modulo uscita anticipata · ${form.personName}', 'Early departure form · ${form.personName}'),
+            ),
+            label: tr('Modulo uscita anticipata · ${form.personName}', 'Early departure form · ${form.personName}'),
             fileName: 'Modulo uscita anticipata ${form.personName} $day.pdf',
             bytes: () => ApiService().generateEarlyExitForm(form.request),
           ),
@@ -458,7 +470,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       // Tabs that already got their document ignore fail().
       for (final PdfTabRequest request in requests)
       {
-        request.tab?.fail('Non è stato possibile generare il modulo.');
+        request.tab?.fail(tr('Non è stato possibile generare il modulo.', 'The form could not be generated.'));
       }
 
       if (mounted)
@@ -477,8 +489,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     return (
       printed: true,
       blockedNote: requests.length == 1
-          ? 'Il browser ha bloccato la scheda: il modulo è stato scaricato.'
-          : 'Il browser ha bloccato le schede: i moduli sono stati scaricati.',
+          ? tr(
+              'Il browser ha bloccato la scheda: il modulo è stato scaricato.',
+              'The browser blocked the tab: the form was downloaded.',
+            )
+          : tr(
+              'Il browser ha bloccato le schede: i moduli sono stati scaricati.',
+              'The browser blocked the tabs: the forms were downloaded.',
+            ),
     );
   }
 
@@ -562,8 +580,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         CustomSnackBar.show(
           context: context,
           message: blockedNote == null
-              ? 'Persona creata con successo!'
-              : 'Persona creata con successo! $blockedNote',
+              ? tr('Persona creata con successo!', 'Person created successfully!')
+              : tr('Persona creata con successo! $blockedNote', 'Person created successfully! $blockedNote'),
           isError: false,
         );
         Navigator.of(context).pop(createdTaxCode);
@@ -591,7 +609,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
       CustomSnackBar.show(
         context: context,
-        message: 'Anagrafica aggiornata con successo!',
+        message: tr('Anagrafica aggiornata con successo!', 'Personal details updated successfully!'),
         isError: false,
       );
       Navigator.of(context).pop(newFiscalCode);
@@ -620,9 +638,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     final String name = '${person.firstName} ${person.lastName}';
     final bool alsoEarlyExit = person.getsEarlyExitForm;
     final String day = DateFormat('dd-MM-yyyy').format(romeNow());
-    final PdfTab? enrollmentTab = openPdfTab(title: 'Modulo di iscrizione · $name');
-    final PdfTab? earlyExitTab =
-        alsoEarlyExit ? openPdfTab(title: 'Modulo uscita anticipata · $name') : null;
+    final PdfTab? enrollmentTab = openPdfTab(title: tr('Modulo di iscrizione · $name', 'Enrolment form · $name'));
+    final PdfTab? earlyExitTab = alsoEarlyExit
+        ? openPdfTab(title: tr('Modulo uscita anticipata · $name', 'Early departure form · $name'))
+        : null;
 
     setState(() => _isSaving = true);
 
@@ -644,21 +663,21 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       return;
     }
 
-    String message = 'Iscrizione rinnovata con successo!';
+    String message = tr('Iscrizione rinnovata con successo!', 'Enrolment renewed successfully!');
 
     try
     {
       final bool downloaded = await presentPdfs([
         (
           tab: enrollmentTab,
-          label: 'Modulo di iscrizione',
+          label: tr('Modulo di iscrizione', 'Enrolment form'),
           fileName: 'Modulo di iscrizione $name $day.pdf',
           bytes: () => ApiService().fetchEnrollmentForm(person.fiscalCode),
         ),
         if (alsoEarlyExit)
           (
             tab: earlyExitTab,
-            label: 'Modulo uscita anticipata',
+            label: tr('Modulo uscita anticipata', 'Early departure form'),
             fileName: 'Modulo uscita anticipata $name $day.pdf',
             bytes: () => ApiService().fetchEarlyExitForm(person.fiscalCode),
           ),
@@ -667,15 +686,24 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       if (downloaded)
       {
         message = alsoEarlyExit
-            ? '$message Il browser ha bloccato le schede: i moduli sono stati scaricati.'
-            : '$message Il browser ha bloccato la scheda: il modulo è stato scaricato.';
+            ? tr(
+                '$message Il browser ha bloccato le schede: i moduli sono stati scaricati.',
+                '$message The browser blocked the tabs: the forms were downloaded.',
+              )
+            : tr(
+                '$message Il browser ha bloccato la scheda: il modulo è stato scaricato.',
+                '$message The browser blocked the tab: the form was downloaded.',
+              );
       }
     }
     catch (e)
     {
-      enrollmentTab?.fail('Non è stato possibile generare il modulo.');
-      earlyExitTab?.fail('Non è stato possibile generare il modulo.');
-      message = '$message I moduli non sono stati generati: usa GENERA DOCUMENTI DI ISCRIZIONE.';
+      enrollmentTab?.fail(tr('Non è stato possibile generare il modulo.', 'The form could not be generated.'));
+      earlyExitTab?.fail(tr('Non è stato possibile generare il modulo.', 'The form could not be generated.'));
+      message = tr(
+        '$message I moduli non sono stati generati: usa GENERA DOCUMENTI DI ISCRIZIONE.',
+        '$message The forms were not generated: use GENERATE ENROLMENT DOCUMENTS.',
+      );
     }
 
     if (!mounted)
@@ -711,7 +739,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       // No spinner behind the question: nothing is being saved meanwhile.
       setState(() => _isSaving = false);
 
-      if (!await confirmPersonLosses(context, refusal, eyebrow: 'Anagrafica') || !mounted)
+      if (!await confirmPersonLosses(context, refusal, eyebrow: tr('Anagrafica', 'Personal details')) || !mounted)
       {
         return null;
       }
@@ -773,19 +801,19 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   Future<bool> _confirmParentsDeletion(List<PersonItem> parents) async
   {
     final String names =
-        parents.map((parent) => '${parent.firstName} ${parent.lastName}').join(' e ');
+        parents.map((parent) => '${parent.firstName} ${parent.lastName}').join(tr(' e ', ' and '));
 
     final bool? confirmed = await showBlurredDialog<bool>(
       context: context,
       barrierLabel: 'ConfirmParentsDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Genitori',
-        title: 'Confermi?',
+        eyebrow: tr('Genitori', 'Parents'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: 520,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -794,7 +822,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             onPressed: () => Navigator.of(confirmContext).pop(false),
           ),
           primary: AppGradientButton(
-            label: 'ELIMINA',
+            label: tr('ELIMINA', 'DELETE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -807,8 +835,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           AppDialogPill(
             child: Text(
               parents.length == 1
-                  ? 'Senza altri figli associati, l\'anagrafica di $names verrà eliminata.'
-                  : 'Senza altri figli associati, le anagrafiche di $names verranno eliminate.',
+                  ? tr(
+                      'Senza altri figli associati, l\'anagrafica di $names verrà eliminata.',
+                      'With no other children linked, the personal record of $names will be deleted.',
+                    )
+                  : tr(
+                      'Senza altri figli associati, le anagrafiche di $names verranno eliminate.',
+                      'With no other children linked, the personal records of $names will be deleted.',
+                    ),
             ),
           ),
         ],
@@ -822,13 +856,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   Future<bool> _confirmHealthDataErasure() async
   {
     final PersonItem person = _form.person!;
-    final List<String> kinds = [
+    final List<({String name, bool feminine, bool plural})> kinds = [
       if ((person.allergiesNotes ?? '').trim().isNotEmpty ||
           (person.medicationsNotes ?? '').trim().isNotEmpty)
-        'allergie e farmaci',
-      if (person.certificationTypes.isNotEmpty) 'certificazioni',
-      if (person.psychologicalSupportStartDate != null) 'sostegno psicologico',
-      if ((person.methodologicalNotes ?? const []).isNotEmpty) 'osservazioni metodologiche',
+        (name: tr('allergie e farmaci', 'allergies and medicines'), feminine: false, plural: true),
+      if (person.certificationTypes.isNotEmpty)
+        (name: tr('certificazioni', 'certifications'), feminine: true, plural: true),
+      if (person.psychologicalSupportStartDate != null)
+        (name: tr('sostegno psicologico', 'psychological support'), feminine: false, plural: false),
+      if ((person.methodologicalNotes ?? const []).isNotEmpty)
+        (name: tr('osservazioni metodologiche', 'methodological observations'), feminine: true, plural: true),
     ];
 
     if (kinds.isEmpty)
@@ -836,21 +873,26 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       return true;
     }
 
-    final String listed = kinds.length == 1
-        ? kinds.single
-        : '${kinds.sublist(0, kinds.length - 1).join(', ')} e ${kinds.last}';
+    final List<String> names = [for (final kind in kinds) kind.name];
+    final String listed = names.length == 1
+        ? names.single
+        : '${names.sublist(0, names.length - 1).join(', ')} ${tr('e', 'and')} ${names.last}';
+    final bool feminine = kinds.every((kind) => kind.feminine);
+    final String erased = kinds.length == 1 && !kinds.single.plural
+        ? (feminine ? 'verrà cancellata' : 'verrà cancellato')
+        : (feminine ? 'verranno cancellate' : 'verranno cancellati');
 
     final bool? confirmed = await showBlurredDialog<bool>(
       context: context,
       barrierLabel: 'ConfirmHealthDataErasure',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Dati particolari',
-        title: 'Confermi?',
+        eyebrow: tr('Dati particolari', 'Special category data'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: 520,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'ANNULLA',
+            label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -859,7 +901,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             onPressed: () => Navigator.of(confirmContext).pop(false),
           ),
           primary: AppGradientButton(
-            label: 'CANCELLA',
+            label: tr('CANCELLA', 'ERASE'),
             icon: Icons.delete_outline_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -871,8 +913,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         children: [
           AppDialogPill(
             child: Text(
-              'Senza il consenso verranno cancellati definitivamente $listed di '
-              '${person.firstName} ${person.lastName}.',
+              tr(
+                'Senza il consenso $erased definitivamente $listed di '
+                '${person.firstName} ${person.lastName}.',
+                'Without consent, the $listed of ${person.firstName} ${person.lastName} '
+                'will be permanently erased.',
+              ),
             ),
           ),
         ],
@@ -894,13 +940,13 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       context: context,
       barrierLabel: 'DiscardEdit',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Interrompi inserimento',
-        title: 'Confermi?',
+        eyebrow: tr('Interrompi inserimento', 'Stop entering'),
+        title: tr('Confermi?', 'Confirm?'),
         showClose: false,
         maxWidth: 520,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
-            label: 'RIPRENDI',
+            label: tr('RIPRENDI', 'RESUME'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
             accent: AppTheme.trialVioletText,
@@ -909,7 +955,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             onPressed: () => Navigator.of(confirmContext).pop(false),
           ),
           primary: AppGradientButton(
-            label: 'ESCI SENZA SALVARE',
+            label: tr('ESCI SENZA SALVARE', 'LEAVE WITHOUT SAVING'),
             icon: Icons.logout_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDangerText,
@@ -919,9 +965,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             onPressed: () => Navigator.of(confirmContext).pop(true),
           ),
         ),
-        children: const [
+        children: [
           AppDialogPill(
-            child: Text('Le modifiche non salvate andranno perse.'),
+            child: Text(tr('Le modifiche non salvate andranno perse.', 'Unsaved changes will be lost.')),
           ),
         ],
       ),
@@ -939,7 +985,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       context: context,
       barrierLabel: 'ParentCreation',
       builder: (context) => PersonEditDialog.createParent(
-        offeredResidence: _form.residenceOffer(label: 'Stessa residenza del minore'),
+        offeredResidence: _form.residenceOffer(
+          label: _form.genderValue == 'F'
+              ? tr('Stessa residenza della minore', 'Same residence as the minor')
+              : tr('Stessa residenza del minore', 'Same residence as the minor'),
+        ),
         reservedTaxCodes: _form.taxCodesInHand,
       ),
     );
@@ -958,7 +1008,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       context: context,
       barrierLabel: 'MinorCreation',
       builder: (context) => PersonEditDialog.createMinor(
-        offeredResidence: _form.residenceOffer(label: 'Stessa residenza del genitore'),
+        offeredResidence: _form.residenceOffer(label: tr(
+          'Stessa residenza del genitore',
+          'Same residence as the parent',
+        )),
         reservedTaxCodes: _form.taxCodesInHand,
       ),
     );
@@ -994,13 +1047,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     return AppGradientButton(
       label: switch (widget.purpose)
       {
-        PersonEditPurpose.edit => 'SALVA MODIFICHE',
+        PersonEditPurpose.edit => tr('SALVA MODIFICHE', 'SAVE CHANGES'),
         PersonEditPurpose.create => _printsEnrollmentForms
-            ? 'GENERA DOCUMENTI DI ISCRIZIONE E CREA PERSONA'
-            : 'CREA PERSONA',
-        PersonEditPurpose.createParent => 'AGGIUNGI GENITORE',
-        PersonEditPurpose.createMinor => 'AGGIUNGI MINORE',
-        PersonEditPurpose.reEnroll => 'GENERA DOCUMENTI DI ISCRIZIONE E RINNOVA',
+            ? tr('GENERA DOCUMENTI DI ISCRIZIONE E CREA PERSONA', 'GENERATE ENROLMENT DOCUMENTS AND CREATE PERSON')
+            : tr('CREA PERSONA', 'CREATE PERSON'),
+        PersonEditPurpose.createParent => tr('AGGIUNGI GENITORE', 'ADD PARENT'),
+        PersonEditPurpose.createMinor => tr('AGGIUNGI MINORE', 'ADD MINOR'),
+        PersonEditPurpose.reEnroll => tr(
+          'GENERA DOCUMENTI DI ISCRIZIONE E RINNOVA',
+          'GENERATE ENROLMENT DOCUMENTS AND RENEW',
+        ),
       },
       icon: Icons.check_rounded,
       busy: _isSaving,
@@ -1056,10 +1112,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           personName: _personName,
           pickingParents: true,
           asksPickup: !_form.isTeacherOnly,
-          searchHint: 'Cerca genitore...',
-          emptyMessage: 'Nessun genitore trovato.',
+          searchHint: tr('Cerca genitore...', 'Search parent...'),
+          emptyMessage: tr('Nessun genitore trovato.', 'No parent found.'),
           onChanged: () => setState(() {}),
-          createLabel: 'NUOVO GENITORE',
+          createLabel: tr('NUOVO GENITORE', 'NEW PARENT'),
           onCreateMissing: widget.isCreation ? _createParent : null,
         ),
       PersonEditCardId.minors => PersonEditPeopleCard(
@@ -1067,10 +1123,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           selected: _form.selectedMinors,
           personName: _personName,
           pickingParents: false,
-          searchHint: 'Cerca minore...',
-          emptyMessage: 'Nessun minore trovato.',
+          searchHint: tr('Cerca minore...', 'Search minor...'),
+          emptyMessage: tr('Nessun minore trovato.', 'No minor found.'),
           onChanged: () => setState(() {}),
-          createLabel: 'NUOVO MINORE',
+          createLabel: tr('NUOVO MINORE', 'NEW MINOR'),
           onCreateMissing: widget.isCreation ? _createMinor : null,
         ),
       PersonEditCardId.subjects => CompetenceCatalogue(
@@ -1145,14 +1201,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     final int index = _stepIndex;
 
     return AppDialogStack(
-      eyebrow: 'Passo ${index + 1} di ${steps.length}',
+      eyebrow: tr('Passo ${index + 1} di ${steps.length}', 'Step ${index + 1} of ${steps.length}'),
       title: switch (widget.purpose)
       {
-        PersonEditPurpose.edit => 'Modifica anagrafica',
-        PersonEditPurpose.create => 'Nuova persona',
-        PersonEditPurpose.createParent => 'Nuovo genitore',
-        PersonEditPurpose.createMinor => 'Nuovo minore',
-        PersonEditPurpose.reEnroll => 'Rinnova iscrizione',
+        PersonEditPurpose.edit => tr('Modifica anagrafica', 'Edit personal details'),
+        PersonEditPurpose.create => tr('Nuova persona', 'New person'),
+        PersonEditPurpose.createParent => tr('Nuovo genitore', 'New parent'),
+        PersonEditPurpose.createMinor => tr('Nuovo minore', 'New minor'),
+        PersonEditPurpose.reEnroll => tr('Rinnova iscrizione', 'Renew enrolment'),
       },
       onClose: _confirmDiscard,
       maxWidth: _stackMaxWidth,
