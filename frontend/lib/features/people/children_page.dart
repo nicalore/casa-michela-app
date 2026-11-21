@@ -573,7 +573,7 @@ class _ChildInfoTab extends StatelessWidget
     );
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(top: 16, bottom: 32),
         child: Center(
           child: ConstrainedBox(
@@ -633,7 +633,7 @@ class _ChildOtherInfoTab extends StatelessWidget
     }
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(top: 16, bottom: 32),
         child: Center(
           child: ConstrainedBox(

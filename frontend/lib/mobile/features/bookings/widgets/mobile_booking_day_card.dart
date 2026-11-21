@@ -7,7 +7,6 @@ import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/lessons/models/presence_item.dart';
-import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/band_note_parts.dart' show BandNoteLine;
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../../shared/widgets/whole_words.dart';
@@ -272,7 +271,7 @@ class _ModeBlock extends StatelessWidget
         const SizedBox(width: 5),
         Flexible(
           child: Text(
-            '${modeLabel(mode.mode)} · ${bandLabel(mode.band)}'.toUpperCase(),
+            bandLabel(mode.band).toUpperCase(),
             style: GoogleFonts.plusJakartaSans(
               fontSize: tablet ? 12 : 11,
               fontWeight: FontWeight.w800,

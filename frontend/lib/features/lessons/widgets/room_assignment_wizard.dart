@@ -216,7 +216,7 @@ String _pupilsIn(TeacherLane lane, List<(int, int)> spans)
   ]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
   return [
-    for (final lesson in lessons) '${formatMinutesRange(lesson.startMinutes, lesson.endMinutes)} · ${lessonTitle(lesson)}',
+    for (final lesson in lessons) '${lessonTitle(lesson)} (${formatMinutesRange(lesson.startMinutes, lesson.endMinutes)})',
   ].join('\n');
 }
 
@@ -367,7 +367,7 @@ class _TeacherCardState extends State<_TeacherCard>
               const SizedBox(height: 2),
               DescenderRoom(
                 child: Text(
-                  '${widget.hours} · ${_lessonsLabel(widget.lessons)}',
+                  '${widget.hours} (${_lessonsLabel(widget.lessons)})',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
@@ -2200,7 +2200,8 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
     final guide = _guide;
 
     return AppDialogStack(
-      eyebrow: '${tr('Passo ${_stepIndex + 1} di 2', 'Step ${_stepIndex + 1} of 2')} · ${formatWeekdayColumnLabel(widget.day)} ${widget.day.year}',
+      eyebrow: '${formatWeekdayColumnLabel(widget.day)} ${widget.day.year}',
+      step: (index: _stepIndex + 1, count: 2),
       title: tr('Stanze e responsabili', 'Rooms and supervisors'),
       maxWidth: _dialogWidth,
       footer: AppDialogFooter.single(

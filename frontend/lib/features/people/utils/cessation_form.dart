@@ -12,7 +12,7 @@ PdfTab? openCessationFormTab(PersonItem person)
 {
   final String name = _nameOf(person);
 
-  return openPdfTab(title: tr('Modulo di cessazione · $name', 'Leaving form · $name'));
+  return openPdfTab(title: tr('Modulo di cessazione – $name', 'Leaving form – $name'));
 }
 
 // True when the browser blocked the tab and the form was downloaded instead.

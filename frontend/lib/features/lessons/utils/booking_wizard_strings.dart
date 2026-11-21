@@ -1,7 +1,6 @@
 import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
-import '../models/band_offer.dart';
 import 'booking_window.dart';
 import 'opening_window.dart';
 
@@ -278,9 +277,15 @@ String minutesLeftLabel(int minutes)
   return minutes == 60 ? tr('Rimasta 1h', '1h left') : tr('Rimaste ${formatMinutes(minutes)}', '${formatMinutes(minutes)} left');
 }
 
-String bandsLeftLabel(List<BandOffer> offers)
+// Lower case, for inside brackets.
+String minutesLeftNote(int minutes)
 {
-  return [for (final offer in offers) '${bandLabel(offer.band)}: ${minutesLeftLabel(offer.left)}'].join(' · ');
+  if (minutes <= 0)
+  {
+    return tr('rimaste 0h', '0h left');
+  }
+
+  return minutes == 60 ? tr('rimasta 1h', '1h left') : tr('rimaste ${formatMinutes(minutes)}', '${formatMinutes(minutes)} left');
 }
 
 String get kPickBandToGoOn => tr('Scegli la fascia per andare avanti.', 'Choose the time slot to continue.');

@@ -1102,5 +1102,5 @@ class _WizardState extends State<_Wizard>
 
   String _modeWord() => tr(modeLabel(_draft.mode).toLowerCase(), modeLabel(_draft.mode));
 
-  String _eyebrow() => _draft.isSelf ? _modeWord() : '${_pupil.firstName} · ${_modeWord()}';
+  String _eyebrow() => _draft.isSelf ? _modeWord() : '${_pupil.firstName}, ${_modeWord()}';
 }

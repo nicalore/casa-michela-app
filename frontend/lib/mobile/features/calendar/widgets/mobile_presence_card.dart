@@ -33,7 +33,7 @@ String presenceShortSummary(PupilBandPresence presence)
 {
   final lessons = presenceFigures(presence).first;
 
-  return '${lessons.value} ${lessons.label} · ${formatMinutes(presence.lessonMinutes)}';
+  return '${lessons.value} ${lessons.label} (${formatMinutes(presence.lessonMinutes)})';
 }
 
 class MobilePresenceCard extends StatelessWidget
@@ -191,7 +191,7 @@ class MobilePupilLine extends StatelessWidget
     final (String eyebrow, String hours) = presenceHeadline(presence);
     final lessons = presenceFigures(presence).first;
 
-    return '$eyebrow $hours · ${lessons.value} ${lessons.label}';
+    return '$eyebrow ${hours.isEmpty ? '' : '$hours '}(${lessons.value} ${lessons.label})';
   }
 
   @override

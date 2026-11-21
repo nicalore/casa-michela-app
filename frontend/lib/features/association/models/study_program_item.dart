@@ -41,7 +41,7 @@ class StudyProgramItem
       ?highSchoolTrackShortLabel(highSchoolTrack, minYear, maxYear),
     ];
 
-    return parts.isEmpty ? null : parts.join(' · ');
+    return parts.isEmpty ? null : parts.join(' › ');
   }
 
   // Must equal the backend display_name: the enrolment form matches programmes by it.

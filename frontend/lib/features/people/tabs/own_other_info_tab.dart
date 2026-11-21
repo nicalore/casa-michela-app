@@ -75,7 +75,7 @@ class OwnOtherInfoTab extends StatelessWidget
     final bool isTeacher = _rolesOf(person).contains('DOCENTE');
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(top: 16, bottom: 32),
         child: Center(
           child: ConstrainedBox(

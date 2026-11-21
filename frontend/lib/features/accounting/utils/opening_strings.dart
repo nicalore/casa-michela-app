@@ -64,23 +64,23 @@ String get kNoPupilFound => tr('Nessuno studente trovato', 'No student found');
 String get kPayMissing => tr('Paga da inserire', 'Pay to enter');
 String get kTariffMissing => tr('Tariffa da inserire', 'Rate to enter');
 
-// «Retribuito · € 15,00 l’ora».
+// "Retribuito: 15,00 euro l'ora".
 String paidTag(int cents, {required bool feminine}) => tr(
-  '${feminine ? 'Retribuita' : 'Retribuito'} · ${formatAmount(cents)} l’ora',
-  'Paid · ${formatAmount(cents)} an hour',
+  '${feminine ? 'Retribuita' : 'Retribuito'}: ${formatAmount(cents)} l’ora',
+  'Paid: ${formatAmount(cents)} an hour',
 );
 
-// «Pacchetto · € 215,00 per 18 ore».
+// "Pacchetto: 215,00 euro per 18 ore".
 String tariffTag(String kind, int cents, int? hours)
 {
   return switch (kind)
   {
-    'HOURLY' => tr('A ore · ${formatAmount(cents)} l’ora', 'Hourly · ${formatAmount(cents)} an hour'),
+    'HOURLY' => tr('A ore: ${formatAmount(cents)} l’ora', 'Hourly: ${formatAmount(cents)} an hour'),
     'PACKAGE' => tr(
-      'Pacchetto · ${formatAmount(cents)} per ${hours == 1 ? '1 ora' : '$hours ore'}',
-      'Hours package · ${formatAmount(cents)} for ${hours == 1 ? '1 hour' : '$hours hours'}',
+      'Pacchetto: ${formatAmount(cents)} per ${hours == 1 ? '1 ora' : '$hours ore'}',
+      'Hours package: ${formatAmount(cents)} for ${hours == 1 ? '1 hour' : '$hours hours'}',
     ),
-    _ => tr('Quota mensile · ${formatAmount(cents)}', 'Monthly fee · ${formatAmount(cents)}'),
+    _ => tr('Quota mensile: ${formatAmount(cents)}', 'Monthly fee: ${formatAmount(cents)}'),
   };
 }
 

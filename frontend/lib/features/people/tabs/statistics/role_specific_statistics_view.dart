@@ -1288,7 +1288,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     final double gap = metrics.cardGap;
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

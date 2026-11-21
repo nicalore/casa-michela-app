@@ -17,6 +17,7 @@ import '../../lessons/utils/booking_window.dart';
 import '../../lessons/utils/booking_wizard_strings.dart' show hoursOverlap;
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/band_schedule.dart';
+import '../../lessons/widgets/calendar_lesson_block.dart';
 import '../bookings_tour.dart';
 
 const double _width = 560;
@@ -61,10 +62,10 @@ class MoveOption
 
     if (row == null)
     {
-      return '${modeLabel(mode)} · ${bandLabel(band).toLowerCase()}';
+      return bandLabel(band);
     }
 
-    return '${modeLabel(mode)} · ${formatTimeRange(row.startTime, row.endTime)}';
+    return formatTimeRange(row.startTime, row.endTime);
   }
 }
 
@@ -382,6 +383,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
             for (final option in options)
               AppSelectableChip(
                 label: option.label,
+                icon: lessonModeIcon(option.mode),
                 selected: identical(chosen, option),
                 enabled: option.refusal == null,
                 disabledTooltip: option.refusal,

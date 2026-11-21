@@ -6,11 +6,13 @@ import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
+import '../../../../core/utils/word_lists.dart';
 import '../../../../features/bookings/utils/booking_strings.dart' show deleteBand, moveBandLessons;
 import '../../../../features/lessons/utils/booking_window.dart';
 import '../../../../features/lessons/utils/booking_wizard_strings.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/band_note_parts.dart' show kBandNoteIcon;
+import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart' show DetailRowData;
 import '../../../shared/mobile_palette.dart';
@@ -91,7 +93,7 @@ String _whoAndWhen(PersonItem pupil, MobileBookingDay day, {required bool named}
 {
   final String when = formatAvailableDayLabel(day.date);
 
-  return named ? '${pupil.firstName} · $when' : when;
+  return named ? '${pupil.firstName}, ${dayInSentence(when)}' : when;
 }
 
 Future<void> showMobileLessonSheet({
@@ -280,8 +282,9 @@ Future<void> showMobileModeSheet({
 
       return MobileSheet(
         eyebrow: _whoAndWhen(pupil, day, named: named),
-        title: '${modeLabel(mode.mode)} · ${bandLabel(mode.band)}',
-        subtitle: mode.slots.map((slot) => formatTimeRange(slot.startTime, slot.endTime)).join(' · '),
+        title: bandLabel(mode.band),
+        titleIcon: lessonModeIcon(mode.mode),
+        subtitle: joinWithAnd([for (final slot in mode.slots) formatTimeRange(slot.startTime, slot.endTime)]),
         body: [
           MobileTourOnRise(
             onRisen: taxCode == null || rows.isEmpty ? null : () => startModeSheetTour(taxCode: taxCode),

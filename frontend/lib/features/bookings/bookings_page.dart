@@ -12,6 +12,7 @@ import '../../core/utils/error_message.dart';
 import '../../core/utils/rome_clock.dart';
 import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
+import '../../core/utils/word_lists.dart';
 import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_dialog_footer.dart';
@@ -530,11 +531,11 @@ class _BookingsPageState extends State<BookingsPage>
   void _editBandNote(DateTime day, BookingLane lane, String mode, TimeBucket band)
   {
     final PersonItem pupil = lane.pupil;
-    final String when = '${formatAvailableDayLabel(day)} · ${bandLabel(band)}';
+    final String when = '${formatAvailableDayLabel(day)}, ${bandLabel(band).toLowerCase()}';
 
     showBandNoteDialog(
       context: context,
-      eyebrow: _isParent ? '${pupil.firstName} · $when' : when,
+      eyebrow: _isParent ? '${pupil.firstName}, ${dayInSentence(when)}' : when,
       note: bandNoteOf(lane.group?.slotsFor(mode, band: band) ?? const []),
       onSave: (notes) => _writeBandNote(day, lane, band, notes),
     );
@@ -1026,7 +1027,7 @@ class _BookingsPageState extends State<BookingsPage>
     return [
       if (!_isLoading && !_failed && _pupils.isNotEmpty) _summary,
       if (!_isNextWeekUnlocked && !_isReadOnly) tr('La settimana prossima si sblocca venerdì alle 20:00', 'Next week unlocks on Friday at 20:00'),
-    ].join(' · ');
+    ].join('\n');
   }
 
   // Below the wide window the same lines, smaller.

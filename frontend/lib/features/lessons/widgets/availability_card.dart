@@ -297,7 +297,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
       context: context,
       barrierLabel: 'ConfirmAvailabilityDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: '${formatAvailableDayLabel(group.date)} · ${group.teacher.fullName}',
+        eyebrow: '${formatAvailableDayLabel(group.date)}, ${group.teacher.fullName}',
         title: tr('Confermi?', 'Confirm?'),
         shrinkTitle: true,
         showClose: false,

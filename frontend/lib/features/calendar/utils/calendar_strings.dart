@@ -1,6 +1,7 @@
 import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../lessons/widgets/calendar_lesson_block.dart';
 import 'pupil_band_presence.dart';
 import 'teacher_band_call.dart';
@@ -136,7 +137,7 @@ String? supervisorHours(RoomSupervisor supervisor, {required int count})
 
 String convocationSummary(TeacherBandCall call)
 {
-  return convocationFigures(call).map((figure) => '${figure.value} ${figure.label}').join(' · ');
+  return convocationFigures(call).map((figure) => '${figure.value} ${figure.label}').join(kFigureSeparator);
 }
 
 List<ConvocationFigure> presenceFigures(PupilBandPresence presence)
@@ -151,7 +152,7 @@ List<ConvocationFigure> presenceFigures(PupilBandPresence presence)
 
 String presenceSummary(PupilBandPresence presence)
 {
-  return presenceFigures(presence).map((figure) => '${figure.value} ${figure.label}').join(' · ');
+  return presenceFigures(presence).map((figure) => '${figure.value} ${figure.label}').join(kFigureSeparator);
 }
 
 // Notes an administrator leaves each convened teacher before publishing.

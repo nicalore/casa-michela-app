@@ -129,7 +129,8 @@ class _MobileTeachersTabState extends State<MobileTeachersTab>
         ),
         MobileFilterChip(
           icon: Icons.auto_stories_rounded,
-          label: chosen == 0 ? kSubjectsFilterLabel : '$kSubjectsFilterLabel · $chosen',
+          label: kSubjectsFilterLabel,
+          count: chosen,
           active: chosen > 0,
           onTap: _pickSubjects,
         ),

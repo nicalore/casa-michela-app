@@ -217,7 +217,7 @@ class _PersonDevicesTabState extends State<PersonDevicesTab> with PersonAccountA
     final List<Widget> actions = _buildActions(account);
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(top: 16, bottom: 32),
         child: Center(
           child: ConstrainedBox(

@@ -8,6 +8,7 @@ import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/role_label_mapper.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../features/association/notices/notice_message_view.dart' show noticeTextStyle;
 import '../../../features/auth/models/me_response.dart';
 import '../../../features/notifications/administrator_notes_seen.dart';
@@ -806,7 +807,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
         rows: [
           for (final StudentNoteItem note in notes)
             DetailRowData.drawn(
-              '${noteDate(note.createdAt)} · ${note.authorName}',
+              withAuthor(noteDate(note.createdAt), note.authorName),
               StudentNoteText(
                 taxCode: person.fiscalCode,
                 kind: StudentNoteKind.administrator,

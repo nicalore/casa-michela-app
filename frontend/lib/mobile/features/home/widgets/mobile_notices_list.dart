@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_colours.dart';
 import '../../../../core/utils/rome_clock.dart';
+import '../../../../core/utils/word_lists.dart';
 import '../../../../features/association/notices/notice_card.dart' show NoticePinnedIcon;
 import '../../../../features/association/notices/notice_format.dart';
 import '../../../../features/association/notices/notice_item.dart';
@@ -657,7 +658,7 @@ class _NoticeLine extends StatelessWidget
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '$day · ${notice.authorName}',
+                    withAuthor(day, notice.authorName),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: MobilePalette.mutedText),

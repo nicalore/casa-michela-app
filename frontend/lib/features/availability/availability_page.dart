@@ -516,7 +516,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
     return [
       if (!_isLoading && !_failed) _summary,
       if (!_isNextWeekUnlocked) kNextWeekUnlockNotice,
-    ].join(' · ');
+    ].join('\n');
   }
 
   // Below the wide window the same lines, smaller.

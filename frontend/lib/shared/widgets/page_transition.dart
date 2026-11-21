@@ -230,43 +230,14 @@ class PageTransitionItem extends StatelessWidget
     final scope = _PageTransitionScope.maybeOf(context);
     final int? slot = this.slot;
 
-    if (slot == null)
-    {
-      return _WaveItem(
-        progress: scope?.progress ?? 1,
-        leaving: scope?.leaving ?? false,
-        axis: scope?.axis ?? Axis.vertical,
-        reversed: scope?.reversed ?? false,
-        window: MediaQuery.sizeOf(context),
-        child: child,
-      );
-    }
-
-    Offset offset = Offset.zero;
-    double opacity = 1;
-
-    if (scope != null)
-    {
-      final Size window = MediaQuery.sizeOf(context);
-
-      final bool sideways = scope.axis == Axis.horizontal;
-      final double extent = sideways ? window.width : window.height;
-
-      final double elapsed =
-          _slotProgress(scope.progress, wait: _slotWait(slot), leaving: scope.leaving);
-
-      final double travelled = (scope.reversed ? -1 : 1) *
-          (scope.leaving
-              ? _exitOffset(elapsed, _exitTravel(extent))
-              : _enterOffset(elapsed, _enterTravel(extent)));
-
-      offset = sideways ? Offset(travelled, 0) : Offset(0, travelled);
-      opacity = scope.leaving ? _exitOpacity(elapsed) : _enterOpacity(elapsed);
-    }
-
-    return Transform.translate(
-      offset: offset,
-      child: Opacity(opacity: opacity, child: child),
+    return _WaveItem(
+      progress: scope?.progress ?? 1,
+      leaving: scope?.leaving ?? false,
+      axis: scope?.axis ?? Axis.vertical,
+      reversed: scope?.reversed ?? false,
+      window: MediaQuery.sizeOf(context),
+      fixedWait: slot == null ? null : _slotWait(slot),
+      child: child,
     );
   }
 }
@@ -279,19 +250,23 @@ class _WaveItem extends SingleChildRenderObjectWidget
   final bool reversed;
   final Size window;
 
+  // A slot's wait; null: from the place in its scroll view.
+  final double? fixedWait;
+
   const _WaveItem({
     required this.progress,
     required this.leaving,
     required this.axis,
     required this.reversed,
     required this.window,
+    required this.fixedWait,
     required Widget super.child,
   });
 
   @override
   _RenderWaveItem createRenderObject(BuildContext context)
   {
-    return _RenderWaveItem(progress, leaving, axis, reversed, window);
+    return _RenderWaveItem(progress, leaving, axis, reversed, window, fixedWait);
   }
 
   @override
@@ -302,7 +277,8 @@ class _WaveItem extends SingleChildRenderObjectWidget
       ..leaving = leaving
       ..axis = axis
       ..reversed = reversed
-      ..window = window;
+      ..window = window
+      ..fixedWait = fixedWait;
   }
 }
 
@@ -313,12 +289,13 @@ class _RenderWaveItem extends RenderProxyBox
   Axis _axis;
   bool _reversed;
   Size _window;
-
-  Offset _shift = Offset.zero;
+  double? _fixedWait;
 
   double? _wait;
 
-  _RenderWaveItem(this._progress, this._leaving, this._axis, this._reversed, this._window);
+  final LayerHandle<ClipRectLayer> _clip = LayerHandle<ClipRectLayer>();
+
+  _RenderWaveItem(this._progress, this._leaving, this._axis, this._reversed, this._window, this._fixedWait);
 
   bool get _moving => _leaving || _progress < 1;
 
@@ -405,6 +382,18 @@ class _RenderWaveItem extends RenderProxyBox
     markNeedsPaint();
   }
 
+  set fixedWait(double? value)
+  {
+    if (_fixedWait == value)
+    {
+      return;
+    }
+
+    _fixedWait = value;
+    _wait = null;
+    markNeedsPaint();
+  }
+
   @override
   void performLayout()
   {
@@ -413,10 +402,83 @@ class _RenderWaveItem extends RenderProxyBox
   }
 
   @override
+  void dispose()
+  {
+    _clip.layer = null;
+    super.dispose();
+  }
+
+  @override
   bool get alwaysNeedsCompositing => child != null && _moving;
+
+  double get _elapsed => _slotProgress(_progress, wait: _wait ??= _waitForPlace(), leaving: _leaving);
+
+  Offset _shiftAt(double elapsed)
+  {
+    final bool sideways = _axis == Axis.horizontal;
+    final double extent = sideways ? _window.width : _window.height;
+
+    final double travelled = (_reversed ? -1 : 1) *
+        (_leaving
+            ? _exitOffset(elapsed, _exitTravel(extent))
+            : _enterOffset(elapsed, _enterTravel(extent)));
+
+    return sideways ? Offset(travelled, 0) : Offset(0, travelled);
+  }
+
+  // The nearest scroll view's visible area, here and at rest; null outside a scroll view.
+  Rect? _restView()
+  {
+    final List<RenderObject> chain = [this];
+    RenderObject? node = parent;
+
+    while (node != null && node is! RenderAbstractViewport)
+    {
+      chain.add(node);
+      node = node.parent;
+    }
+
+    if (node is! RenderBox || !node.hasSize)
+    {
+      return null;
+    }
+
+    chain.add(node);
+
+    final Matrix4 transform = Matrix4.identity();
+
+    for (var index = chain.length - 1; index > 0; index--)
+    {
+      // An enclosing block's shift is not part of the place at rest.
+      if (chain[index] is! _RenderWaveItem)
+      {
+        chain[index].applyPaintTransform(chain[index - 1], transform);
+      }
+    }
+
+    final Rect view = MatrixUtils.inverseTransformRect(transform, Offset.zero & node.size);
+
+    // On the side blocks come in from, the scroll view's own edge cuts them, as when scrolling.
+    final double reach = size.longestSide + _window.longestSide;
+
+    return switch ((_axis, _reversed))
+    {
+      (Axis.vertical, false) => Rect.fromLTRB(view.left, view.top, view.right, view.bottom + reach),
+      (Axis.vertical, true) => Rect.fromLTRB(view.left, view.top - reach, view.right, view.bottom),
+      (Axis.horizontal, false) => Rect.fromLTRB(view.left, view.top, view.right + reach, view.bottom),
+      (Axis.horizontal, true) => Rect.fromLTRB(view.left - reach, view.top, view.right, view.bottom),
+    };
+  }
 
   double _waitForPlace()
   {
+    final double? fixed = _fixedWait;
+
+    if (fixed != null)
+    {
+      return fixed;
+    }
+
     final RenderObject? viewport = RenderAbstractViewport.maybeOf(this);
 
     if (viewport is! RenderBox || !viewport.hasSize || !hasSize)
@@ -451,56 +513,73 @@ class _RenderWaveItem extends RenderProxyBox
 
     if (!_moving)
     {
-      _shift = Offset.zero;
       layer = null;
+      _clip.layer = null;
       context.paintChild(child, offset);
 
       return;
     }
 
-    final bool sideways = _axis == Axis.horizontal;
-    final double extent = sideways ? _window.width : _window.height;
-
-    final double wait = _wait ??= _waitForPlace();
-    final double elapsed = _slotProgress(_progress, wait: wait, leaving: _leaving);
-
-    final double travelled = (_reversed ? -1 : 1) *
-        (_leaving
-            ? _exitOffset(elapsed, _exitTravel(extent))
-            : _enterOffset(elapsed, _enterTravel(extent)));
-
-    _shift = sideways ? Offset(travelled, 0) : Offset(0, travelled);
+    final double elapsed = _elapsed;
+    final Offset shift = _shiftAt(elapsed);
 
     final double opacity = _leaving ? _exitOpacity(elapsed) : _enterOpacity(elapsed);
     final int alpha = (opacity * 255).round().clamp(0, 255);
 
-    if (alpha == 0)
+    // Scroll views let moving blocks out: each shows only what showed of it at rest.
+    final Rect? view = alpha == 0 ? null : _restView();
+    final Rect bounds = Offset.zero & size;
+
+    if (alpha == 0 || (view != null && !view.overlaps(bounds)))
     {
       layer = null;
+      _clip.layer = null;
 
       return;
+    }
+
+    final bool cut = view != null &&
+        (view.left > bounds.left || view.top > bounds.top || view.right < bounds.right || view.bottom < bounds.bottom);
+
+    void paintShown(PaintingContext inner, Offset innerOffset)
+    {
+      if (!cut)
+      {
+        _clip.layer = null;
+        inner.paintChild(child, innerOffset);
+
+        return;
+      }
+
+      _clip.layer = inner.pushClipRect(
+        needsCompositing,
+        innerOffset,
+        view,
+        (PaintingContext clipped, Offset clippedOffset) => clipped.paintChild(child, clippedOffset),
+        oldLayer: _clip.layer,
+      );
     }
 
     if (alpha == 255)
     {
       layer = null;
-      context.paintChild(child, offset + _shift);
+      paintShown(context, offset + shift);
 
       return;
     }
 
-    layer = context.pushOpacity(
-      offset + _shift,
-      alpha,
-      (PaintingContext inner, Offset innerOffset) => inner.paintChild(child, innerOffset),
-      oldLayer: layer as OpacityLayer?,
-    );
+    layer = context.pushOpacity(offset + shift, alpha, paintShown, oldLayer: layer as OpacityLayer?);
   }
 
+  // Asked of whatever is not painted too, such as a block still faded out.
   @override
   void applyPaintTransform(RenderBox child, Matrix4 transform)
   {
-    transform.translateByDouble(_shift.dx, _shift.dy, 0, 1);
+    if (_moving)
+    {
+      final Offset shift = _shiftAt(_elapsed);
+      transform.translateByDouble(shift.dx, shift.dy, 0, 1);
+    }
   }
 }
 
@@ -533,15 +612,11 @@ class PageTransitionScrollView extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final scope = _PageTransitionScope.maybeOf(context);
-
-    final bool opening = scope != null && scope.moving && scope.axis == Axis.horizontal;
-    final double overhang = opening ? MediaQuery.sizeOf(context).width : 0;
-
     final List<Widget>? slivers = this.slivers;
 
-    return ClipRect(
-      clipper: _SidewaysClip(overhang),
+    return _TravelClip(
+      sides: false,
+      clipsAtRest: true,
       child: ScrollEdgeFade(
         child: slivers == null
             ? SingleChildScrollView(controller: controller, clipBehavior: Clip.none, child: child!)
@@ -551,17 +626,162 @@ class PageTransitionScrollView extends StatelessWidget
   }
 }
 
-class _SidewaysClip extends CustomClipper<Rect>
+// The clip of a scroll view of blocks: open while the page moves, except where it hides content.
+class _TravelClip extends StatefulWidget
 {
-  final double overhang;
+  // A vertical move opens the sides too.
+  final bool sides;
 
-  const _SidewaysClip(this.overhang);
+  final bool clipsAtRest;
+
+  final Widget child;
+
+  const _TravelClip({required this.sides, required this.clipsAtRest, required this.child});
 
   @override
-  Rect getClip(Size size) => Rect.fromLTRB(-overhang, 0, size.width + overhang, size.height);
+  State<_TravelClip> createState() => _TravelClipState();
+}
+
+class _TravelClipState extends State<_TravelClip>
+{
+  bool _overflows = false;
+
+  bool _measure(ScrollMetricsNotification notification)
+  {
+    final ScrollMetrics metrics = notification.metrics;
+    final bool overflows = metrics.maxScrollExtent > metrics.minScrollExtent;
+
+    if (notification.depth == 0 && overflows != _overflows)
+    {
+      setState(() => _overflows = overflows);
+    }
+
+    return false;
+  }
 
   @override
-  bool shouldReclip(_SidewaysClip oldClipper) => oldClipper.overhang != overhang;
+  Widget build(BuildContext context)
+  {
+    final bool moving = _PageMotion.maybeOf(context)?.moving ?? false;
+
+    // Content that fits hides nothing past an edge: moving, it needs no cut.
+    final Clip clip = moving
+        ? (_overflows ? Clip.hardEdge : Clip.none)
+        : (widget.clipsAtRest ? Clip.hardEdge : Clip.none);
+
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: _measure,
+      child: ClipRect(
+        clipper: _OverhangClip(_travelOpening(context, sides: widget.sides)),
+        clipBehavior: clip,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+// Open while the page moves, but on the side blocks come in from; [sides] also opens sideways.
+EdgeInsets _travelOpening(BuildContext context, {required bool sides})
+{
+  final _PageMotion? motion = _PageMotion.maybeOf(context);
+
+  if (motion == null || !motion.moving)
+  {
+    return EdgeInsets.zero;
+  }
+
+  final Size window = MediaQuery.sizeOf(context);
+
+  if (motion.axis == Axis.horizontal)
+  {
+    return EdgeInsets.symmetric(horizontal: window.width);
+  }
+
+  final double across = sides ? window.width : 0;
+
+  return motion.reversed
+      ? EdgeInsets.only(left: across, right: across, bottom: window.height)
+      : EdgeInsets.only(left: across, right: across, top: window.height);
+}
+
+class _OverhangClip extends CustomClipper<Rect>
+{
+  final EdgeInsets overhang;
+
+  const _OverhangClip(this.overhang);
+
+  @override
+  Rect getClip(Size size) => overhang.inflateRect(Offset.zero & size);
+
+  @override
+  bool shouldReclip(_OverhangClip oldClipper) => oldClipper.overhang != overhang;
+}
+
+// A SingleChildScrollView of blocks: clipped at rest, open while the page moves.
+class TransitionScrollView extends StatelessWidget
+{
+  final EdgeInsetsGeometry? padding;
+
+  final ScrollPhysics? physics;
+
+  final ScrollController? controller;
+
+  final Widget child;
+
+  const TransitionScrollView({super.key, this.padding, this.physics, this.controller, required this.child});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final bool moving = _PageMotion.maybeOf(context)?.moving ?? false;
+
+    return _TravelClip(
+      sides: true,
+      clipsAtRest: false,
+      child: SingleChildScrollView(
+        controller: controller,
+        physics: physics,
+        padding: padding,
+        clipBehavior: moving ? Clip.none : Clip.hardEdge,
+        child: child,
+      ),
+    );
+  }
+}
+
+// Whether the page around is moving, and which way; changes twice a transition, not every frame.
+class _PageMotion extends InheritedWidget
+{
+  final bool moving;
+
+  final Axis axis;
+
+  final bool reversed;
+
+  const _PageMotion({required this.moving, required this.axis, required this.reversed, required super.child});
+
+  static _PageMotion? maybeOf(BuildContext context)
+  {
+    return context.dependOnInheritedWidgetOfExactType<_PageMotion>();
+  }
+
+  @override
+  bool updateShouldNotify(_PageMotion oldWidget) =>
+      oldWidget.moving != moving || oldWidget.axis != axis || oldWidget.reversed != reversed;
+}
+
+// Room for shadows at the edges; under the least gap between sections and the parts around them.
+const double _sectionsClipOutset = 14;
+
+class _SectionsClip extends CustomClipper<Rect>
+{
+  const _SectionsClip();
+
+  @override
+  Rect getClip(Size size) => (Offset.zero & size).inflate(_sectionsClipOutset);
+
+  @override
+  bool shouldReclip(_SectionsClip oldClipper) => false;
 }
 
 double _slotProgress(double progress, {required double wait, required bool leaving})
@@ -965,6 +1185,13 @@ class _HandoverState extends State<_Handover> with TickerProviderStateMixin
         ? (arriving ? _plainFade.value : 1)
         : (arriving ? _arrivalOpacity(progress) : 1 - _arrivalOpacity(progress));
 
+    final double shownProgress = onScreen
+        ? (outer?.progress ?? (inPlace ? _reentryProgress(progress) : progress))
+        : 1;
+    final bool shownLeaving = onScreen && (outer?.leaving ?? (inPlace ? emptying : leaving));
+    final Axis shownAxis = onScreen ? (outer?.axis ?? widget.axis) : widget.axis;
+    final bool shownReversed = outer?.reversed ?? widget.reversed;
+
     return Offstage(
       offstage: !onScreen,
       child: TickerMode(
@@ -976,15 +1203,18 @@ class _HandoverState extends State<_Handover> with TickerProviderStateMixin
                 ? arriving && !covered
                 : _DestinationScope.of(context),
             child: _PageTransitionScope(
-              progress: onScreen
-                  ? (outer?.progress ?? (inPlace ? _reentryProgress(progress) : progress))
-                  : 1,
-              leaving: onScreen && (outer?.leaving ?? (inPlace ? emptying : leaving)),
-              axis: onScreen ? (outer?.axis ?? widget.axis) : widget.axis,
-              reversed: outer?.reversed ?? widget.reversed,
-              child: Opacity(
-                opacity: opacity,
-                child: emptying ? _held! : widget.children[index],
+              progress: shownProgress,
+              leaving: shownLeaving,
+              axis: shownAxis,
+              reversed: shownReversed,
+              child: _PageMotion(
+                moving: shownLeaving || shownProgress < 1,
+                axis: shownAxis,
+                reversed: shownReversed,
+                child: Opacity(
+                  opacity: opacity,
+                  child: emptying ? _held! : widget.children[index],
+                ),
               ),
             ),
           ),
@@ -1007,12 +1237,21 @@ class _HandoverState extends State<_Handover> with TickerProviderStateMixin
       {
         final bool covered = (covering?.value ?? 0) > 0;
 
-        return Stack(
-          fit: widget.fit,
-          children: [
-            for (var i = 0; i < widget.children.length; i++)
-              _child(i, _controller.value, outer, covered: covered),
-          ],
+        // Sections moving on their own keep to their area, off the fixed parts of the page.
+        final bool kept = widget.axis == Axis.vertical &&
+            outer == null &&
+            (_leaving != null || _held != null || _controller.isAnimating);
+
+        return ClipRect(
+          clipper: const _SectionsClip(),
+          clipBehavior: kept ? Clip.hardEdge : Clip.none,
+          child: Stack(
+            fit: widget.fit,
+            children: [
+              for (var i = 0; i < widget.children.length; i++)
+                _child(i, _controller.value, outer, covered: covered),
+            ],
+          ),
         );
       },
     );

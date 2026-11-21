@@ -279,7 +279,7 @@ class _AgendaRowState extends State<_AgendaRow>
         const SizedBox(width: 6),
         Expanded(
           child: Text(
-            '· ${formatMinutes(_lesson.minutes)}',
+            formatMinutes(_lesson.minutes),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -500,7 +500,7 @@ class _ActivityAgendaRowState extends State<_ActivityAgendaRow>
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '· ${formatMinutes(_scheduled.minutes)}',
+                            formatMinutes(_scheduled.minutes),
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

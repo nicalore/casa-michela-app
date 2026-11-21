@@ -2,6 +2,7 @@ import 'dart:math';
 
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../features/association/models/opening_day_item.dart';
 import '../../../features/home/widgets/home_schedule_data.dart';
 import '../../../features/home/widgets/role_home_layout.dart';
@@ -37,10 +38,10 @@ class MobilePupilStay
 
 String _stayDetail(String mode, int subjects)
 {
-  return [
+  return joinFigures([
     modeLabel(mode),
     if (subjects > 0) homeSubjectsLabel(subjects),
-  ].join(' · ');
+  ]);
 }
 
 class MobileStayGroup

@@ -329,7 +329,8 @@ class PaymentHistoryTable extends StatelessWidget
     final bool waiting = _waiting(row);
     final String? line = historyLine(row);
     final String hours = showHours ? _hours(row) : '';
-    final String period = [?line, if (hours.isNotEmpty && hours != '—') hours].join(' · ');
+    final String? counted = hours.isNotEmpty && hours != '—' ? hours : null;
+    final String period = line == null ? counted ?? '' : (counted == null ? line : '$line ($counted)');
     final TextStyle small = GoogleFonts.plusJakartaSans(
       fontSize: metrics.line,
       fontWeight: FontWeight.w600,
@@ -347,7 +348,7 @@ class PaymentHistoryTable extends StatelessWidget
               _settle(row),
             ],
           )
-        : Text(paidOnLine(formatWeekdayColumnLabel(paidOn), _method(row)), style: small);
+        : Text(paidOnLine(formatWeekdayColumnLabel(paidOn), paymentMethodPhrase(row.paymentMethod, row.paymentMethodOther)), style: small);
 
     final Widget cells = Container(
       padding: EdgeInsets.fromLTRB(metrics.sidePadding, 12, 8, 12),

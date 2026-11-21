@@ -383,9 +383,27 @@ String get kHoursColumn => tr('Ore', 'Hours');
 String get kAmountColumn => tr('Importo', 'Amount');
 String get kPaidOnColumn => tr('Pagato il', 'Paid on');
 
-// Minimal windows: «Pagato lunedì 2 novembre · Contanti» under the payment.
-String paidOnLine(String day, String method) =>
-    tr('Pagato ${day[0].toLowerCase()}${day.substring(1)} · $method', 'Paid on $day · $method');
+// "in contanti", "con bonifico bancario"; null when not known.
+String? paymentMethodPhrase(String? method, String? other)
+{
+  final String? typed = other?.trim();
+
+  return switch (method)
+  {
+    null => null,
+    'CASH' => tr('in contanti', 'in cash'),
+    'BANK_TRANSFER' => tr('con bonifico bancario', 'by bank transfer'),
+    _ => typed == null || typed.isEmpty ? null : tr('con $typed', 'by $typed'),
+  };
+}
+
+// Minimal windows: "Pagato lunedì 2 novembre in contanti" under the payment.
+String paidOnLine(String day, String? method)
+{
+  final String when = tr('Pagato ${day[0].toLowerCase()}${day.substring(1)}', 'Paid on $day');
+
+  return method == null ? when : '$when $method';
+}
 String get kMethodColumn => tr('Modalità', 'Method');
 String get kDayColumn => tr('Giorno', 'Day');
 String get kLeftColumn => tr('Rimaste', 'Left');
@@ -603,7 +621,7 @@ String paymentsSpan(DateTime from, DateTime to)
 String _inSentence(String said) => '${said[0].toLowerCase()}${said.substring(1)}';
 
 String paymentsPdfFooter(String name, DateTime from, DateTime to) =>
-    '${tr('Pagamenti', 'Payments')} · $name · ${_inSentence(paymentsSpan(from, to))}';
+    '${tr('Pagamenti', 'Payments')} – $name – ${_inSentence(paymentsSpan(from, to))}';
 
 String paymentsPdfFile(String name, DateTime from, DateTime to) =>
     '${tr('Pagamenti', 'Payments')} $name ${_inSentence(paymentsSpan(from, to))}.pdf';

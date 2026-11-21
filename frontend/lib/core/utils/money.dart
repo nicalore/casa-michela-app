@@ -4,7 +4,8 @@ import '../language/app_language.dart';
 
 const int _centsPerUnit = 100;
 
-// Accepts '1200', '1200,50', '1200.50', '1.200', '1.200,50', '1,200.50'; null when not an amount, empty text included.
+// Accepts '1200', '1200,50', '1200.50' and thousands grouped as the language in force groups them:
+// '1.200,50' in Italian, '1,200.50' in English. Null when not an amount, empty text included.
 int? parseAmountCents(String text)
 {
   final String cleaned = text.trim().replaceAll(' ', '').replaceAll('€', '');
@@ -15,18 +16,20 @@ int? parseAmountCents(String text)
   }
 
   final bool plain = RegExp(r'^\d+([.,]\d{1,2})?$').hasMatch(cleaned);
-  final bool grouped = RegExp(r'^\d{1,3}(\.\d{3})+(,\d{1,2})?$').hasMatch(cleaned);
-  final bool groupedEnglish = RegExp(r'^\d{1,3}(,\d{3})+(\.\d{1,2})?$').hasMatch(cleaned);
 
-  if (!plain && !grouped && !groupedEnglish)
+  // The other language's grouping is refused: in Italian "12,345" is no amount, not 12345.
+  final RegExp grouping = isEnglish
+      ? RegExp(r'^\d{1,3}(,\d{3})+(\.\d{1,2})?$')
+      : RegExp(r'^\d{1,3}(\.\d{3})+(,\d{1,2})?$');
+  final bool grouped = grouping.hasMatch(cleaned);
+
+  if (!plain && !grouped)
   {
     return null;
   }
 
-  // Grouped figures keep their dots for thousands: only a comma is their decimal mark.
-  final int comma = cleaned.lastIndexOf(',');
-  final int dot = cleaned.lastIndexOf('.');
-  final int decimal = groupedEnglish ? dot : (grouped || comma > dot ? comma : dot);
+  // A plain figure has one mark at most, whichever it is.
+  final int decimal = grouped ? cleaned.lastIndexOf(isEnglish ? '.' : ',') : cleaned.lastIndexOf(RegExp('[.,]'));
 
   final String units =
       (decimal < 0 ? cleaned : cleaned.substring(0, decimal)).replaceAll(RegExp(r'[.,]'), '');

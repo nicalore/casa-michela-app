@@ -40,7 +40,7 @@ class LostCalendar
   }
 
   String get said =>
-      '${formatWeekdayColumnLabel(date)} · ${bandLabel(band).toLowerCase()}';
+      '${formatWeekdayColumnLabel(date)}, ${bandLabel(band).toLowerCase()}';
 }
 
 class LostHours

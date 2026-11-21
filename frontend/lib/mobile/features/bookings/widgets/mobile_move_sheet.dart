@@ -1,3 +1,4 @@
+import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -343,6 +344,7 @@ class _MoveSheetState extends State<_MoveSheet>
   {
     return MobileSelectChip(
       label: option.label,
+      icon: lessonModeIcon(option.mode),
       selected: identical(option, _chosen),
       struck: option.refusal != null,
       onTap: () => _choose(option),

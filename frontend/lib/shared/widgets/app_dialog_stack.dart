@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
+import 'app_step_count.dart';
 import 'app_text_link.dart';
 import 'carousel_arrow_button.dart';
 import 'dialog_density.dart';
@@ -50,6 +51,9 @@ class AppDialogStack extends StatelessWidget
   final String eyebrow;
   final String title;
 
+  // Shown as "1/2" beside the eyebrow.
+  final ({int index, int count})? step;
+
   final Widget? leading;
 
   final Widget? subtitle;
@@ -81,6 +85,7 @@ class AppDialogStack extends StatelessWidget
     super.key,
     this.eyebrow = '',
     this.title = '',
+    this.step,
     required this.children,
     this.leading,
     this.subtitle,
@@ -130,23 +135,44 @@ class AppDialogStack extends StatelessWidget
 
   Widget _buildTitleRow(BuildContext context, bool dense)
   {
+    final Widget eyebrowText = Text(
+      eyebrow.toUpperCase(),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textWidthBasis: TextWidthBasis.longestLine,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: dense ? 10 : 11,
+        fontWeight: FontWeight.w600,
+        letterSpacing: dense ? 1.2 : 1.4,
+        height: 1.2,
+        color: AppTheme.trialMutedText,
+      ),
+    );
+
+    final ({int index, int count})? step = this.step;
+
     final Widget heading = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          eyebrow.toUpperCase(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textWidthBasis: TextWidthBasis.longestLine,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: dense ? 10 : 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: dense ? 1.2 : 1.4,
-            height: 1.2,
-            color: AppTheme.trialMutedText,
+        if (step == null)
+          eyebrowText
+        else
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (eyebrow.isNotEmpty) ...[
+                Flexible(child: eyebrowText),
+                const SizedBox(width: 8),
+              ],
+              AppStepCount(
+                index: step.index,
+                count: step.count,
+                color: AppTheme.trialTealDeepText,
+                fontSize: dense ? 9.5 : 10.5,
+              ),
+            ],
           ),
-        ),
         const SizedBox(height: 2),
         _buildTitle(dense),
         if (subtitle != null) ...[

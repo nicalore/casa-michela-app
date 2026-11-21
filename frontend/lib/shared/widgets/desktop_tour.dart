@@ -16,6 +16,7 @@ import '../../core/theme/app_theme.dart';
 import '../../features/settings/utils/settings_strings.dart';
 import '../../services/seen_tours.dart';
 import 'app_gradient_button.dart';
+import 'app_step_count.dart';
 import 'page_transition.dart';
 import 'shared_components.dart';
 import 'snackbar.dart';
@@ -72,7 +73,7 @@ const Duration _longestHold = Duration(seconds: 10);
 const Duration _longestWait = Duration(seconds: 8);
 const Duration _waitStep = Duration(milliseconds: 50);
 
-String _eyebrow(int index, int count) => tr('TUTORIAL · $index DI $count', 'TUTORIAL · $index OF $count');
+const String _eyebrow = 'TUTORIAL';
 
 final Map<String, List<_DesktopTourTargetState>> _targets = {};
 
@@ -1300,7 +1301,8 @@ class _TourLayerState extends State<_TourLayer> with TickerProviderStateMixin, W
       _drawnBubble = _Bubble(
         step: _step,
         animates: _animates,
-        eyebrow: _eyebrow(_path.length + 1, _count),
+        stepIndex: _path.length + 1,
+        stepCount: _count,
         title: widget.run.tour.title,
         text: _current.text,
         onClose: _close,
@@ -1643,7 +1645,8 @@ class _Bubble extends StatelessWidget
   final int step;
   final bool animates;
 
-  final String eyebrow;
+  final int stepIndex;
+  final int stepCount;
   final String title;
   final String text;
 
@@ -1656,7 +1659,8 @@ class _Bubble extends StatelessWidget
   const _Bubble({
     required this.step,
     required this.animates,
-    required this.eyebrow,
+    required this.stepIndex,
+    required this.stepCount,
     required this.title,
     required this.text,
     required this.onClose,
@@ -1719,15 +1723,21 @@ class _Bubble extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                eyebrow,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.4,
-                  height: 1.2,
-                  color: Colors.white.withValues(alpha: 0.7),
-                ),
+              Row(
+                children: [
+                  Text(
+                    _eyebrow,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.4,
+                      height: 1.2,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AppStepCount(index: stepIndex, count: stepCount, color: Colors.white),
+                ],
               ),
               const SizedBox(height: 2),
               Text(

@@ -79,7 +79,7 @@ class MobileHoursDayCard extends StatelessWidget
       }
     }
 
-    return notes.isEmpty ? null : notes.join(' · ');
+    return notes.isEmpty ? null : notes.join('\n');
   }
 
   Widget _buildTitle()

@@ -110,7 +110,7 @@ class _OnboardingRecordStepState extends State<OnboardingRecordStep>
     final int index = _index.clamp(0, cards.length - 1);
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(top: 8, bottom: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

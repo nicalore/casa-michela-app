@@ -2290,7 +2290,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     return '${formatTimeRange(
       timeOfDayFromMinutes(placement.startMinutes),
       timeOfDayFromMinutes(placement.endMinutes),
-    )} · ${formatMinutes(placement.minutes)}';
+    )} (${formatMinutes(placement.minutes)})';
   }
 
   double _ghostTop(int row, int subLane)

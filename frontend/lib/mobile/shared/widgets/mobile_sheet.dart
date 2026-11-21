@@ -755,6 +755,10 @@ class MobileSheet extends StatelessWidget
   final String title;
   final String? subtitle;
 
+  // Drawn inline before the title or the subtitle.
+  final IconData? titleIcon;
+  final IconData? subtitleIcon;
+
   final Widget? leading;
 
   final List<Widget> body;
@@ -784,6 +788,8 @@ class MobileSheet extends StatelessWidget
     required this.eyebrow,
     required this.title,
     this.subtitle,
+    this.titleIcon,
+    this.subtitleIcon,
     this.leading,
     this.body = const [],
     this.footer,
@@ -843,6 +849,30 @@ class MobileSheet extends StatelessWidget
     );
   }
 
+  static Widget _withIcon(IconData? icon, String text, TextStyle style, {required double size})
+  {
+    if (icon == null)
+    {
+      return Text(text, style: style);
+    }
+
+    return Text.rich(
+      TextSpan(
+        children: [
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: EdgeInsets.only(right: size * 0.3),
+              child: Icon(icon, size: size, color: style.color),
+            ),
+          ),
+          TextSpan(text: text),
+        ],
+      ),
+      style: style,
+    );
+  }
+
   Widget _buildHead(BuildContext context)
   {
     final String? subtitle = this.subtitle;
@@ -874,27 +904,31 @@ class MobileSheet extends StatelessWidget
                 const SizedBox(height: 4),
               ],
               WholeWords(
-                child: Text(
+                child: _withIcon(
+                  titleIcon,
                   title,
-                  style: GoogleFonts.plusJakartaSans(
+                  GoogleFonts.plusJakartaSans(
                     fontSize: 25,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.25,
                     height: 1.15,
                     color: AppTheme.trialInk,
                   ),
+                  size: 24,
                 ),
               ),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
                 WholeWords(
-                  child: Text(
+                  child: _withIcon(
+                    subtitleIcon,
                     subtitle,
-                    style: GoogleFonts.plusJakartaSans(
+                    GoogleFonts.plusJakartaSans(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w600,
                       color: MobilePalette.mutedText,
                     ),
+                    size: 16,
                   ),
                 ),
               ],

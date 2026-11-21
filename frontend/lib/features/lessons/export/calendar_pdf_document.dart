@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
 import '../models/calendar_publication_item.dart';
@@ -36,13 +37,13 @@ String calendarPdfFileName(CalendarExportData data)
 
 String calendarPdfTitle(CalendarExportData data)
 {
-  return '${calendarPdfViewLabel(data)} · ${_dayOnItsOwn(data.day)} · ${bandLabel(data.band)}';
+  return '${calendarPdfViewLabel(data)} – ${_dayOnItsOwn(data.day)} – ${bandLabel(data.band)}';
 }
 
 // The tab holding both views is named after the band alone.
 String calendarPdfBandTitle(CalendarExportData data)
 {
-  return '${tr('Calendario', 'Calendar')} · ${_dayOnItsOwn(data.day)} · ${bandLabel(data.band)}';
+  return '${tr('Calendario', 'Calendar')} – ${_dayOnItsOwn(data.day)} – ${bandLabel(data.band)}';
 }
 
 String calendarPdfViewLabel(CalendarExportData data)
@@ -161,12 +162,12 @@ pw.Widget _titleWords(CalendarExportData data, _Styles styles)
       _publicationLine(data, styles),
       pw.SizedBox(height: 3),
       pw.Text(
-        [
+        joinFigures([
           _count(counts.teachers, tr('docente convocato', 'teacher called in'), tr('docenti convocati', 'teachers called in')),
           _count(counts.students, tr('studente', 'student'), tr('studenti', 'students')),
           _count(counts.lessons, tr('lezione', 'lesson'), tr('lezioni', 'lessons')),
           if (counts.activities > 0) _count(counts.activities, tr('attività', 'activity'), tr('attività', 'activities')),
-        ].join(' · '),
+        ]),
         style: styles.meta,
       ),
       pw.SizedBox(height: 6),
@@ -190,14 +191,12 @@ pw.Widget _publicationLine(CalendarExportData data, _Styles styles)
     return pw.Text(said, style: styles.meta);
   }
 
-  return pw.RichText(
-    text: pw.TextSpan(
-      style: styles.meta,
-      children: [
-        pw.TextSpan(text: said),
-        pw.TextSpan(text: tr(' · IN BOZZA', ' · DRAFT'), style: styles.draft),
-      ],
-    ),
+  return pw.Row(
+    children: [
+      pw.Flexible(child: pw.Text(said, style: styles.meta)),
+      pw.SizedBox(width: 6),
+      pdfPill(tr('IN BOZZA', 'DRAFT'), styles.draft),
+    ],
   );
 }
 
@@ -247,7 +246,7 @@ pw.Widget _footer(pw.Context context, CalendarExportData data, _Styles styles)
 {
   return pdfFooter(
     context,
-    '${calendarPdfViewLabel(data)} · ${bandLabel(data.band)} · ${_dayOnItsOwn(data.day)}',
+    '${calendarPdfViewLabel(data)} – ${bandLabel(data.band)} – ${_dayOnItsOwn(data.day)}',
     styles.caption,
   );
 }

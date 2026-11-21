@@ -21,7 +21,7 @@ import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/hover_gold_frame.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
-import '../../people/utils/payments_strings.dart' show kPaymentsSection;
+import '../../people/utils/payments_strings.dart' show kPaymentsSection, paidOnLine, paymentMethodPhrase;
 import '../accounting_page.dart';
 import '../export/accounting_pdf_export.dart';
 import '../export/payments_month_pdf.dart';
@@ -572,7 +572,7 @@ class _PaymentsTable extends StatelessWidget
           ),
           const SizedBox(height: _stackedGap),
           Text(
-            '${formatWeekdayColumnLabel(row.paidOn)} · ${paymentMethodWords(row)}',
+            paidOnLine(formatWeekdayColumnLabel(row.paidOn), paymentMethodPhrase(row.paymentMethod, row.paymentMethodOther)),
             style: GoogleFonts.plusJakartaSans(
               fontSize: _font - 1.5,
               fontWeight: FontWeight.w600,

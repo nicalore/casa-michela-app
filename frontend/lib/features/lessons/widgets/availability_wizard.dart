@@ -794,7 +794,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
     final String when = formatAvailableDayLabel(group.date);
 
-    return _isOwn ? when : '$when · ${group.teacher.fullName}';
+    return _isOwn ? when : '$when, ${group.teacher.fullName}';
   }
 
   Widget _buildDayField()

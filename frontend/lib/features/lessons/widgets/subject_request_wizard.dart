@@ -350,7 +350,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
           SubjectPickRow(
             key: ValueKey(offer.band),
             name: bandLabel(offer.band),
-            subtitle: '${offer.hours} · ${minutesLeftLabel(offer.left)}',
+            subtitle: '${offer.hours} (${minutesLeftNote(offer.left)})',
             selected: _draft.band == offer.band,
             hasChoice: false,
             onSelected: (_) => setState(() => _draft.band = offer.band),
@@ -591,10 +591,10 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     // A named discipline is the title, its subject goes in the eyebrow.
     return AppDialogStack(
       eyebrow: [
-        tr('Passo ${_step + 1} di $_steps', 'Step ${_step + 1} of $_steps'),
         if (discipline != null) _draft.displayName,
         modeLabel(widget.mode).toLowerCase(),
-      ].join(' · '),
+      ].join(', '),
+      step: (index: _step + 1, count: _steps),
       title: discipline ?? (widget.isEditing ? kEditSubjectTitle : kAddSubjectTitle),
       maxWidth: _stackWidth,
       footer: widget.onRemove == null

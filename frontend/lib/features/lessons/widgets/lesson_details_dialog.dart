@@ -121,7 +121,7 @@ class _LessonDetailsDialog extends StatelessWidget
     return [
       LessonVoice(
         label: tr('Orario', 'Time'),
-        value: '${formatTimeRange(lesson.startTime, lesson.endTime)} · ${formatMinutes(lesson.minutes)}',
+        value: '${formatTimeRange(lesson.startTime, lesson.endTime)} (${formatMinutes(lesson.minutes)})',
       ),
       LessonVoice(label: _theOther.label, value: _theOther.value),
       LessonVoice(label: tr('Luogo', 'Place'), value: _where),

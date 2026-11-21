@@ -72,7 +72,7 @@ String? joinedNote(Iterable<OpeningDayItem> rows)
     }
   }
 
-  return notes.isEmpty ? null : notes.join(' · ');
+  return notes.isEmpty ? null : notes.join('\n');
 }
 
 List<OpeningDayItem> sortedByMode(Iterable<OpeningDayItem> rows)

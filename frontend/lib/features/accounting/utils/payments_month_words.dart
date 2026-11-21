@@ -6,7 +6,7 @@ import 'accounting_strings.dart';
 
 // Riepilogo mensile › «Pagamenti»: what a row says, on the page and in its PDF.
 
-// What was paid: «Pacchetto di 18 ore», «Quota di novembre», «Ore svolte · 3h 30m», «Iscrizione 2026».
+// What was paid: "Pacchetto di 18 ore", "Quota di novembre", "Ore svolte: 3h 30m", "Iscrizione 2026".
 String paymentWhat(MonthPayment row)
 {
   if (row.isFee)
@@ -23,7 +23,7 @@ String paymentWhat(MonthPayment row)
     'AHEAD' => aheadTitle(row.aheadMinutes ?? 0),
     _ => row.minutes == null
         ? kHoursTitles[row.kind] ?? ''
-        : '${kHoursTitles[row.kind] ?? ''} · ${hoursText(row.minutes!).replaceAll(' ', ' ')}',
+        : '${kHoursTitles[row.kind] ?? ''}: ${hoursText(row.minutes!).replaceAll(' ', ' ')}',
   };
 }
 
@@ -34,7 +34,7 @@ String paymentMethodWords(MonthPayment row)
   return method == null ? '—' : kPaymentMethodLabels[method] ?? row.paymentMethodOther ?? '—';
 }
 
-// The filters set, for the PDF: «Ruolo: Docenti · Importo: da € 20,00»; null with none.
+// The filters set, for the PDF: "Ruolo: Docenti; Importo: da 20,00 euro"; null with none.
 String? paymentFiltersSaid({String? role, String? tariff, int? least, int? most})
 {
   final List<String> said = [
@@ -43,5 +43,5 @@ String? paymentFiltersSaid({String? role, String? tariff, int? least, int? most}
     if (amountRange(least, most) case final String range) '$kAmountFilterPrefix: $range',
   ];
 
-  return said.isEmpty ? null : said.join(' · ');
+  return said.isEmpty ? null : said.join('; ');
 }

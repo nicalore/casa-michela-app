@@ -404,7 +404,7 @@ class _BookingsTabState extends State<BookingsTab>
   {
     showBandNoteDialog(
       context: context,
-      eyebrow: '${group.student.firstName} · ${formatAvailableDayLabel(group.date)} · ${bandLabel(band)}',
+      eyebrow: '${group.student.firstName}, ${formatAvailableDayInSentence(group.date)}, ${bandLabel(band).toLowerCase()}',
       note: bandNoteOf(group.slots.where((slot) => bucketFor(slot.startTime) == band)),
       hinted: false,
       onSave: (notes) => widget.onWriteBandNotes(

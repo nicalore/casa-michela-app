@@ -93,7 +93,7 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
       ..sort((a, b) => b.startYear.compareTo(a.startYear));
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(top: 8, bottom: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

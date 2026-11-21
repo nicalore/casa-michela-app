@@ -441,7 +441,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     final double gap = metrics.cardGap;
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

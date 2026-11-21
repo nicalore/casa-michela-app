@@ -131,7 +131,7 @@ class PersonObservationsTab extends StatelessWidget
   Widget build(BuildContext context)
   {
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(bottom: 40),
         child: Center(
           child: ConstrainedBox(

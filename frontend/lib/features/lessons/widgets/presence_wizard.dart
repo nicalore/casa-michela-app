@@ -948,10 +948,10 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       for (final band in hours.bands)
           BandOffer(
             band: band,
-            hours: [
+            ranges: [
               for (final stretch in [...hours.of(band)]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes)))
                 formatTimeRange(stretch.startTime, stretch.endTime),
-            ].join(' · '),
+            ],
             minutes: hours.minutesIn(band),
             takenByOthers: _minutesAsked(group, mode, band: band, skip: skip),
           ),
@@ -1595,7 +1595,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       children: [
         if (offer != null) ...[
           Text(
-            '${bandLabel(band)} · ${offer.hours}',
+            '${bandLabel(band)}: ${offer.hours}',
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
@@ -1634,13 +1634,13 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       children: [
         DesktopTourTarget(
           id: _toured ? kTourBookingsWizardBand : null,
-          child: Text('${bandLabel(band)} · ${offer.hours}', style: style),
+          child: Text('${bandLabel(band)}: ${offer.hours}', style: style),
         ),
-        Text(' · ', style: style),
+        Text(' ', style: style),
         DesktopTourTarget(
           id: _toured ? kTourBookingsWizardLeft : null,
           child: Text(
-            minutesLeftLabel(offer.left),
+            '(${minutesLeftNote(offer.left)})',
             style: offer.left <= 0 ? style.copyWith(color: AppTheme.trialDangerText) : style,
           ),
         ),

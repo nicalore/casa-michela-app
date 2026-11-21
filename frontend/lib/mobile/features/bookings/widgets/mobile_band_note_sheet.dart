@@ -13,13 +13,14 @@ Future<void> showMobileBandNoteSheet({
   required BuildContext context,
   required String eyebrow,
   required String subtitle,
+  IconData? subtitleIcon,
   required String? note,
   required Future<bool> Function(String? notes) onSave,
 })
 {
   return showMobileSheet<void>(
     context: context,
-    builder: (context) => _BandNoteSheet(eyebrow: eyebrow, subtitle: subtitle, note: note, onSave: onSave),
+    builder: (context) => _BandNoteSheet(eyebrow: eyebrow, subtitle: subtitle, subtitleIcon: subtitleIcon, note: note, onSave: onSave),
   );
 }
 
@@ -27,10 +28,11 @@ class _BandNoteSheet extends StatefulWidget
 {
   final String eyebrow;
   final String subtitle;
+  final IconData? subtitleIcon;
   final String? note;
   final Future<bool> Function(String? notes) onSave;
 
-  const _BandNoteSheet({required this.eyebrow, required this.subtitle, required this.note, required this.onSave});
+  const _BandNoteSheet({required this.eyebrow, required this.subtitle, this.subtitleIcon, required this.note, required this.onSave});
 
   @override
   State<_BandNoteSheet> createState() => _BandNoteSheetState();
@@ -89,6 +91,7 @@ class _BandNoteSheetState extends State<_BandNoteSheet>
         eyebrow: widget.eyebrow,
         title: kBandNotesLabel,
         subtitle: widget.subtitle,
+        subtitleIcon: widget.subtitleIcon,
         aboveKeyboard: true,
         unsaved: () => _text.text.trim() == (widget.note ?? '') ? MobileUnsaved.none : MobileUnsaved.text,
         saving: _busy,

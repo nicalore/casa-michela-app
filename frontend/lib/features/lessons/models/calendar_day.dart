@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' show TimeOfDay;
 import '../../../core/language/app_language.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../people/models/person_face.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
@@ -227,7 +228,7 @@ String laneWhenLabel(
     return whenNothingLabel(view);
   }
 
-  return windows.map((window) => window.said).join(' · ');
+  return joinWithAnd([for (final window in windows) window.said]);
 }
 
 String whenNothingLabel(CalendarView view) =>

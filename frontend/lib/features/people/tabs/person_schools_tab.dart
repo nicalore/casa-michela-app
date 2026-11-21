@@ -133,7 +133,7 @@ class PersonSchoolsTab extends StatelessWidget
     }
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(bottom: 40),
         child: Center(
           child: ConstrainedBox(

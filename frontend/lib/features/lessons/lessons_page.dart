@@ -2360,7 +2360,7 @@ class _LessonsPageState extends State<LessonsPage>
   // One paragraph: two would each be rounded to the pixel on their own and miss each other's baseline.
   Widget _buildCalendarLeading(BuildContext context, AppWindowSize size, LessonsCalendarTarget target)
   {
-    final String shown = '${formatWeekdayColumnLabel(target.day)} ${target.day.year} · ${bandLabel(target.band)}';
+    final String shown = '${formatWeekdayColumnLabel(target.day)} ${target.day.year}, ${bandLabel(target.band).toLowerCase()}';
 
     // Minimal windows: the day and the band under the name, whole.
     final Widget title = size.isMinimal

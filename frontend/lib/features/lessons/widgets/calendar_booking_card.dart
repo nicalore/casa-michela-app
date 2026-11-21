@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/booking_summary_item.dart';
@@ -218,7 +219,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard> with Calendar
       return tr('Minuti terminati, ma qualcosa resta scoperto', 'No minutes left, but something is still uncovered');
     }
 
-    return parts.join(' · ');
+    return joinFigures(parts);
   }
 
   String? get _splitNote

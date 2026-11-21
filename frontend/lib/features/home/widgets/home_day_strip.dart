@@ -7,6 +7,7 @@ import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../association/tabs/opening_hours/mode_hours_parts.dart';
@@ -456,7 +457,7 @@ class HomeDayStrip extends StatelessWidget
       for (final name in status.idle)
       {
         rows.add(Text(
-          '$name · ${emptyBandLabel.toLowerCase()}',
+          '$name$kShortSeparator${emptyBandLabel.toLowerCase()}',
           style: GoogleFonts.plusJakartaSans(
             fontSize: scale.closed - 0.5,
             fontWeight: FontWeight.w600,

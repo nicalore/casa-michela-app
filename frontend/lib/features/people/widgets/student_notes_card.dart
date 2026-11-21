@@ -65,11 +65,8 @@ class StudentNotesCard extends StatelessWidget
 
   static bool _never(StudentNoteItem note) => false;
 
-  static const double _dotGap = 8;
-  static const double _denseDotGap = 6;
-
   static TextStyle _authorStyle(bool dense) => GoogleFonts.plusJakartaSans(
-    fontSize: dense ? 12.5 : 14,
+    fontSize: dense ? 12 : 13,
     fontWeight: FontWeight.w600,
     color: AppTheme.trialMutedText,
   );
@@ -102,38 +99,37 @@ class StudentNotesCard extends StatelessWidget
   {
     final bool changeable = mayChange(note);
     final String? subject = note.subject;
-    final double dotGap = dense ? _denseDotGap : _dotGap;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            DesktopTourTarget(
-              id: toured ? tourDate : null,
-              child: Text(
-                // A teacher's note goes by the day of its lesson.
-                noteDate(note.lessonDate ?? note.createdAt),
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: dense ? 13.5 : 15,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.trialOceanText,
-                ),
-              ),
-            ),
-            SizedBox(width: dotGap),
-            Text('·', style: _authorStyle(dense)),
-            SizedBox(width: dotGap),
             Expanded(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(
-                    child: Text(note.authorName, overflow: TextOverflow.ellipsis, style: _authorStyle(dense)),
+                  Row(
+                    children: [
+                      DesktopTourTarget(
+                        id: toured ? tourDate : null,
+                        child: Text(
+                          // A teacher's note goes by the day of its lesson.
+                          noteDate(note.lessonDate ?? note.createdAt),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: dense ? 13.5 : 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.trialOceanText,
+                          ),
+                        ),
+                      ),
+                      if (subject != null) ...[
+                        SizedBox(width: dense ? 8 : 10),
+                        Flexible(child: _buildSubject(subject, dense)),
+                      ],
+                    ],
                   ),
-                  if (subject != null) ...[
-                    SizedBox(width: dense ? 8 : 10),
-                    _buildSubject(subject, dense),
-                  ],
+                  Text(note.authorName, maxLines: 1, overflow: TextOverflow.ellipsis, style: _authorStyle(dense)),
                 ],
               ),
             ),

@@ -58,7 +58,7 @@ class _Slot
 
   String get teacherTaxCode => lane.teacherTaxCode;
 
-  String get label => '${lane.teacher.fullName} · ${formatMinutesRange(windowStart, windowEnd)}';
+  String get label => '${lane.teacher.fullName} (${formatMinutesRange(windowStart, windowEnd)})';
 }
 
 class _Part
@@ -1104,7 +1104,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
         fact(
           lessonModeIcon(mode),
           lessonAccent(mode),
-          '$presenceLabel ${formatMinutes(_entry.presenceMinutes)} · ${_entry.hoursLabel}',
+          '$presenceLabel ${formatMinutes(_entry.presenceMinutes)} (${_entry.hoursLabel})',
         ),
       ],
     );
@@ -1185,7 +1185,8 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     final hasRoomForStep = MediaQuery.sizeOf(context).width >= _stepCountMin;
 
     return AppDialogStack(
-      eyebrow: hasRoomForStep ? tr('Passo ${_stepIndex + 1} di 2 · $name', 'Step ${_stepIndex + 1} of 2 · $name') : name,
+      eyebrow: name,
+      step: hasRoomForStep ? (index: _stepIndex + 1, count: 2) : null,
       title: _requestName,
       leading: PersonAvatar(person: _entry.presence.student, size: PersonAvatar.titleSize),
       subtitle: _buildFacts(),

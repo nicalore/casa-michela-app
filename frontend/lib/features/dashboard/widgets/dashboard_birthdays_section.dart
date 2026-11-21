@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/birthday.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart' show formatDayMonthFull, formatDayMonthShort;
+import '../../../core/utils/word_lists.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/whole_words.dart';
 import '../../people/models/person_face.dart';
@@ -32,7 +33,7 @@ class DashboardBirthday
   }
 }
 
-// "<age> anni", a middle dot, "oggi" or the day; short months where two share a row.
+// "<age> anni", a hyphen, "oggi" or the day; short months where two share a row.
 String birthdayCaption(DashboardBirthday birthday, {bool short = false})
 {
   final String when = birthday.isToday
@@ -40,8 +41,8 @@ String birthdayCaption(DashboardBirthday birthday, {bool short = false})
       : (short ? formatDayMonthShort(birthday.date) : formatDayMonthFull(birthday.date));
 
   return birthday.age == 1
-      ? tr('${birthday.age} anno · $when', '${birthday.age} year · $when')
-      : tr('${birthday.age} anni · $when', '${birthday.age} years · $when');
+      ? tr('${birthday.age} anno$kShortSeparator$when', '${birthday.age} year$kShortSeparator$when')
+      : tr('${birthday.age} anni$kShortSeparator$when', '${birthday.age} years$kShortSeparator$when');
 }
 
 DateTime? _nextBirthday(DateTime? birth, DateTime today)

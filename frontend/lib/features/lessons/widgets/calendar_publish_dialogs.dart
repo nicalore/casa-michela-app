@@ -154,8 +154,8 @@ Widget _onlineOnly(List<OnlineOnlyTeacher> teachers)
                           ),
                         ),
                         Text(
-                          '${formatMinutesRange(teacher.startMinutes, teacher.endMinutes)} · '
-                          '${teacher.lessons == 1 ? tr('1 lezione', '1 lesson') : tr('${teacher.lessons} lezioni', '${teacher.lessons} lessons')}',
+                          '${formatMinutesRange(teacher.startMinutes, teacher.endMinutes)} ('
+                          '${teacher.lessons == 1 ? tr('1 lezione', '1 lesson') : tr('${teacher.lessons} lezioni', '${teacher.lessons} lessons')})',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,

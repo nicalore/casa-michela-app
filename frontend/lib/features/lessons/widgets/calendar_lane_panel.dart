@@ -114,7 +114,7 @@ class CalendarLanePanel extends StatelessWidget
           children: [
             TextSpan(text: said, style: quiet),
             for (final stay in label.stays) ...[
-              TextSpan(text: ' · ', style: quiet),
+              TextSpan(text: '\u2002', style: quiet),
               // A room the teacher answers for wears the shield in place of the door.
               WidgetSpan(
                 alignment: PlaceholderAlignment.middle,

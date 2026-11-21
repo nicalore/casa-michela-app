@@ -217,7 +217,7 @@ class _AddStudentDialogState extends State<_AddStudentDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: '${formatWeekdayColumnLabel(widget.day)} · ${bandLabel(widget.band)}',
+      eyebrow: '${formatWeekdayColumnLabel(widget.day)}, ${bandLabel(widget.band).toLowerCase()}',
       title: kAddStudentTitle,
       maxWidth: _dialogWidth,
       footer: AppDialogFooter.single(

@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_floating_panel.dart';
@@ -1565,7 +1566,7 @@ class _CalendarTabState extends State<CalendarTab>
     ];
 
     final Widget counts = Text(
-      parts.join(' · '),
+      joinFigures(parts),
       maxLines: _isDense ? 1 : null,
       overflow: _isDense ? TextOverflow.ellipsis : null,
       style: GoogleFonts.plusJakartaSans(
@@ -2319,7 +2320,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     await showTeacherNotesDialog(
       context: context,
-      eyebrow: '${formatWeekdayColumnLabel(day)} ${day.year} · ${bandLabel(band)}',
+      eyebrow: '${formatWeekdayColumnLabel(day)} ${day.year}, ${bandLabel(band).toLowerCase()}',
       lanes: _lanes,
       notes: _shownTeacherNotes,
       onSave: (notes) async
@@ -2548,7 +2549,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     CustomSnackBar.show(
       context: context,
-      message: warnings.isEmpty ? tr('Calendario pubblicato!', 'Calendar published!') : warnings.join(' · '),
+      message: warnings.isEmpty ? tr('Calendario pubblicato!', 'Calendar published!') : warnings.join('\n'),
       tone: warnings.isEmpty ? SnackBarTone.info : SnackBarTone.warning,
       isError: false,
     );

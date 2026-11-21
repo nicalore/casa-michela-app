@@ -44,7 +44,7 @@ const double _stackedInset = 16;
 const double _stackedChevron = 30;
 const double _stackedGap = 4;
 
-// What is owed, one line each: «Ore oltre il pacchetto · 1h 30m», «Assicurazione 2026».
+// What is owed, one line each: "Ore oltre il pacchetto: 1h 30m", "Assicurazione 2026".
 String _itemLabel(OwedItem item)
 {
   if (item.isFee)
@@ -52,10 +52,10 @@ String _itemLabel(OwedItem item)
     return '${item.kind == 'MEMBERSHIP_FEE' ? kMembershipFee : kInsuranceFee} ${item.year ?? ''}'.trim();
   }
 
-  // Hours never split: «1h 30m» stays on one line with its dot.
+  // Hours never split: "1h 30m" stays on one line.
   final String hours = hoursText(item.minutes ?? 0).replaceAll(' ', '\u00A0');
 
-  return '${kHoursTitles[item.kind] ?? ''}\u00A0· $hours';
+  return '${kHoursTitles[item.kind] ?? ''}: $hours';
 }
 
 class ToSettleTab extends StatefulWidget

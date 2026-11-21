@@ -37,7 +37,7 @@ List<({String label, String value})> activityVoicesOf(ActivityItem activity)
     if (placement != null)
       (
         label: tr('Orario', 'Time'),
-        value: '${formatTimeRange(placement.startTime, placement.endTime)} · ${formatMinutes(placement.minutes)}',
+        value: '${formatTimeRange(placement.startTime, placement.endTime)} (${formatMinutes(placement.minutes)})',
       ),
     (label: tr('Descrizione', 'Description'), value: description.isEmpty ? _empty : description),
   ];

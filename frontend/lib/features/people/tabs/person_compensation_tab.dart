@@ -13,6 +13,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -590,7 +591,7 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
         final _Metrics metrics = _Metrics.of(width, dense);
 
         return ScrollEdgeFade(
-          child: SingleChildScrollView(
+          child: TransitionScrollView(
             padding: const EdgeInsets.only(bottom: 40),
             child: Center(
               child: ConstrainedBox(
@@ -1647,10 +1648,9 @@ class _DayList extends StatelessWidget
 
   Widget _buildDay(CompensationDay day)
   {
-    final String times = [
-      ...day.worked.map(_spanText),
-      formatMinutes(day.workedMinutes),
-    ].join(' · ');
+    final String spans = joinWithAnd([...day.worked.map(_spanText)]);
+    final String length = formatMinutes(day.workedMinutes);
+    final String times = spans.isEmpty ? length : '$spans ($length)';
 
     final int? gross = day.gross;
     final int? withholding = withholdingOf(day.gross, day.net);
@@ -1681,7 +1681,7 @@ class _DayList extends StatelessWidget
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
               decoration: BoxDecoration(color: _headSurface, borderRadius: BorderRadius.circular(10)),
               child: _line(
-                '$kVolunteerGroup ${day.volunteer.map(_spanText).join(' · ')}',
+                '$kVolunteerGroup ${joinWithAnd([...day.volunteer.map(_spanText)])}',
                 formatMinutes(day.volunteerMinutes),
                 size: 11.5,
                 strong: true,

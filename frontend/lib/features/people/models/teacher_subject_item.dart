@@ -44,7 +44,7 @@ class TeacherProgramItem
       ?highSchoolTrackShortLabel(highSchoolTrack, minYear, maxYear),
     ];
 
-    return parts.isEmpty ? name : '${parts.join(' · ')} | $name';
+    return parts.isEmpty ? name : '${parts.join(' › ')} | $name';
   }
 }
 

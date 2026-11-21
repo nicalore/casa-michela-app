@@ -148,7 +148,7 @@ class MobileSubjectFlow
     search.dispose();
   }
 
-  String get eyebrow => '${draft.displayName} · ${tr(modeLabel(mode).toLowerCase(), modeLabel(mode))}';
+  String get eyebrow => '${draft.displayName}, ${tr(modeLabel(mode).toLowerCase(), modeLabel(mode))}';
 
   // The title names the discipline, even a subject's only one.
   String? get discipline => subjectDisciplineName(ministrySubjects, draft.ministrySubjectId, draft.associationSubjectIds);
@@ -272,7 +272,7 @@ class MobileSubjectFlow
         MobileSelectRow(
           key: ValueKey(offer.band),
           title: bandLabel(offer.band),
-          subtitle: '${offer.hours} · ${minutesLeftLabel(offer.left)}',
+          subtitle: '${offer.hours} (${minutesLeftNote(offer.left)})',
           selected: draft.band == offer.band,
           onTap: ()
           {

@@ -78,7 +78,7 @@ class PersonNotPreferredTeachersTab extends StatelessWidget
     final teachers = person.notPreferredTeachers ?? const <PersonOptionItem>[];
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(bottom: 40),
         child: Center(
           child: ConstrainedBox(

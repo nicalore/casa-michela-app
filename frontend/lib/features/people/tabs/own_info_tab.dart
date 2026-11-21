@@ -50,7 +50,7 @@ class OwnInfoTab extends StatelessWidget
   Widget build(BuildContext context)
   {
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(top: 16, bottom: 32),
         child: Center(
           child: ConstrainedBox(

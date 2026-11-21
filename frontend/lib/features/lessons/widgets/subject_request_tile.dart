@@ -188,12 +188,15 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
 
   String get _summary
   {
-    final pieces = <String>[
-      if (_discipline != null) _title,
-      if (widget.draft.duration != null) formatMinutes(widget.draft.duration!),
-    ];
+    final int? duration = widget.draft.duration;
+    final String? length = duration == null ? null : formatMinutes(duration);
 
-    return pieces.join(' · ');
+    if (_discipline == null)
+    {
+      return length ?? '';
+    }
+
+    return length == null ? _title : '$_title ($length)';
   }
 
   void _showDetails()

@@ -11,6 +11,7 @@ import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../features/association/models/association_subject_item.dart';
 import '../../../features/association/models/ministry_subject_item.dart';
 import '../../../features/association/models/opening_day_item.dart';
@@ -30,6 +31,7 @@ import '../../../features/lessons/models/subject_request.dart';
 import '../../../features/lessons/utils/booking_window.dart';
 import '../../../features/lessons/utils/opening_window.dart';
 import '../../../features/lessons/utils/study_program_lookup.dart';
+import '../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../features/lessons/widgets/subject_request_tile.dart' show ministrySubjectName;
 import '../../../features/notifications/bookings_seen.dart';
 import '../../../features/notifications/week_jump.dart';
@@ -695,8 +697,9 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
 
     return showMobileBandNoteSheet(
       context: sheet,
-      eyebrow: _isParent ? '${pupil.firstName} · $when' : when,
-      subtitle: '${modeLabel(mode.mode)} · ${bandLabel(mode.band)}',
+      eyebrow: _isParent ? '${pupil.firstName}, ${dayInSentence(when)}' : when,
+      subtitle: bandLabel(mode.band),
+      subtitleIcon: lessonModeIcon(mode.mode),
       note: mode.note,
       onSave: (notes) => _writeNote(day, pupil, mode, notes),
     );

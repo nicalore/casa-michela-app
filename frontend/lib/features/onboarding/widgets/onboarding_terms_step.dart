@@ -63,7 +63,7 @@ class OnboardingTermsStep extends StatelessWidget
   Widget build(BuildContext context)
   {
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(top: 8, bottom: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

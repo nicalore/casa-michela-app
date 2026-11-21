@@ -40,6 +40,9 @@ class MobileFilterChip extends StatelessWidget
   final bool active;
   final VoidCallback onTap;
 
+  // Shown in a round badge after the label when above zero.
+  final int count;
+
   // Inside a card or a sheet rather than on the sea.
   final bool onLight;
 
@@ -50,6 +53,7 @@ class MobileFilterChip extends StatelessWidget
     required this.active,
     required this.onTap,
     this.onLight = false,
+    this.count = 0,
   });
 
   @override
@@ -93,6 +97,26 @@ class MobileFilterChip extends StatelessWidget
                   color: ink,
                 ),
               ),
+              if (count > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: ink, borderRadius: BorderRadius.circular(999)),
+                  child: Text(
+                    '$count',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                      color: onLight
+                          ? (active ? AppTheme.trialDeepWater : Colors.white)
+                          : (active ? AppTheme.surface : AppTheme.trialDeepWaterText),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

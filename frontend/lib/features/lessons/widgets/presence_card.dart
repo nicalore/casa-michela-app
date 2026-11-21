@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -217,7 +218,7 @@ class _PresenceCardState extends State<PresenceCard>
           child: AppTooltip(
             richMessage: notes.length == 1
                 ? bandNoteTip(notes.single.$2)
-                : bandNotesTip([for (final (band, note) in notes) '${bandLabel(band)} · $note']),
+                : bandNotesTip([for (final (band, note) in notes) '${bandLabel(band)}: $note']),
             child: Icon(kBandNoteIcon, size: dense ? 17 : 20, color: AppTheme.trialOceanText),
           ),
         ),
@@ -464,8 +465,8 @@ class _ModeColumn extends StatelessWidget
             requests.isEmpty
                 ? tr('Nessuna materia', 'No subjects')
                 : (requests.length == 1
-                    ? '${tr('1 prenotazione', '1 booking')} · ${formatMinutes(group.minutesAskedFor(mode))}'
-                    : '${tr('${requests.length} prenotazioni', '${requests.length} bookings')} · ${formatMinutes(group.minutesAskedFor(mode))}'),
+                    ? '${tr('1 prenotazione', '1 booking')}$kFigureSeparator${formatMinutes(group.minutesAskedFor(mode))}'
+                    : '${tr('${requests.length} prenotazioni', '${requests.length} bookings')}$kFigureSeparator${formatMinutes(group.minutesAskedFor(mode))}'),
             maxLines: 1,
             style: _totalStyle,
           ),

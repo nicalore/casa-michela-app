@@ -56,13 +56,36 @@ class MobileSelectChip extends StatelessWidget
   // Cannot be picked: still touchable, so its reason can be told.
   final bool struck;
 
+  // Drawn before the label, in its colour.
+  final IconData? icon;
+
   const MobileSelectChip({
     super.key,
     required this.label,
     required this.selected,
     required this.onTap,
     this.struck = false,
+    this.icon,
   });
+
+  Widget _withIcon(Widget text, Color color)
+  {
+    final IconData? icon = this.icon;
+
+    if (icon == null)
+    {
+      return text;
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 5),
+        Flexible(child: text),
+      ],
+    );
+  }
 
   Widget _buildStruck()
   {
@@ -75,15 +98,18 @@ class MobileSelectChip extends StatelessWidget
       ),
       child: Align(
         widthFactor: 1,
-        child: Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.trialInk.withValues(alpha: 0.35),
-            decoration: TextDecoration.lineThrough,
-            decorationThickness: MobilePalette.strikeThickness,
+        child: _withIcon(
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.trialInk.withValues(alpha: 0.35),
+              decoration: TextDecoration.lineThrough,
+              decorationThickness: MobilePalette.strikeThickness,
+            ),
           ),
+          AppTheme.trialInk.withValues(alpha: 0.35),
         ),
       ),
     );
@@ -111,13 +137,16 @@ class MobileSelectChip extends StatelessWidget
             ),
             child: Align(
               widthFactor: 1,
-              child: Text(
-                label,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: Color.lerp(AppTheme.trialInk, Colors.white, t),
+              child: _withIcon(
+                Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color.lerp(AppTheme.trialInk, Colors.white, t),
+                  ),
                 ),
+                Color.lerp(AppTheme.trialInk, Colors.white, t)!,
               ),
             ),
           ),

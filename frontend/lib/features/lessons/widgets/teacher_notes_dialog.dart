@@ -5,6 +5,7 @@ import '../../../core/constants/field_limits.dart';
 import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -44,7 +45,7 @@ Future<void> showTeacherNotesDialog({
 
 String _countOf(int count, String one, String many) => count == 1 ? one : many;
 
-// "15:00–17:30 · 3 lezioni", with the activities when there are some.
+// "15:00-17:30 - 3 lezioni" (en dashes), with the activities when there are some.
 String teacherNoteDetail(TeacherLane lane)
 {
   final spans = [
@@ -55,7 +56,7 @@ String teacherNoteDetail(TeacherLane lane)
   final lessons = lane.lessons.length;
   final activities = lane.activities.length;
 
-  return [
+  return joinFigures([
     if (spans.isNotEmpty)
       formatMinutesRange(
         spans.map((span) => span.$1).reduce((a, b) => a < b ? a : b),
@@ -64,7 +65,7 @@ String teacherNoteDetail(TeacherLane lane)
     if (lessons > 0) _countOf(lessons, tr('1 lezione', '1 lesson'), tr('$lessons lezioni', '$lessons lessons')),
     if (activities > 0)
       _countOf(activities, tr('1 attività', '1 activity'), tr('$activities attività', '$activities activities')),
-  ].join(' · ');
+  ]);
 }
 
 class _TeacherNotesDialog extends StatefulWidget

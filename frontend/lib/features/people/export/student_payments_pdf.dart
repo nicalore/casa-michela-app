@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../accounting/export/accounting_pdf_look.dart';
 import '../../accounting/utils/accounting_strings.dart' show exportedAt;
 import '../../lessons/export/calendar_pdf_palette.dart';
@@ -240,7 +241,7 @@ pw.Widget _figures(AccountingPdfStyles styles, StudentPaymentsItem payments, Lis
                 text: title,
                 style: styles.figureLineStrong.copyWith(color: ok ? kPdfPresence : kPdfOnline),
               ),
-              if (line != null) pw.TextSpan(text: ' · $line', style: styles.figureLine),
+              if (line != null) pw.TextSpan(text: ': ${lowerFirst(line)}', style: styles.figureLine),
             ],
           ),
         ),

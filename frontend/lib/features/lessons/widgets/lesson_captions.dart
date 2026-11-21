@@ -64,9 +64,10 @@ TextSpan _captionSpan(LessonItem lesson, List<MinistrySubjectItem> ministrySubje
       const TextSpan(text: '  '),
       TextSpan(text: topic.discipline, style: base.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialOceanText)),
       if (topic.subject case final subject?) TextSpan(text: ' ($subject)', style: quiet.copyWith(fontSize: 11)),
-      // Wrapping, the dot stays with the words before it and the name keeps together.
-      TextSpan(text: '\u00A0\u00A0·  ', style: quiet.copyWith(color: AppTheme.trialMutedText.withValues(alpha: 0.6))),
-      TextSpan(text: lessonTitle(lesson).replaceAll(' ', '\u00A0'), style: base.copyWith(color: AppTheme.trialInk)),
+      // Wrapping, the icon and the name keep together.
+      const TextSpan(text: '  '),
+      iconGlyphSpan(Icons.person_outline_rounded, quiet.copyWith(color: AppTheme.trialMutedText.withValues(alpha: 0.6))),
+      TextSpan(text: '\u00A0${lessonTitle(lesson).replaceAll(' ', '\u00A0')}', style: base.copyWith(color: AppTheme.trialInk)),
     ],
   );
 }

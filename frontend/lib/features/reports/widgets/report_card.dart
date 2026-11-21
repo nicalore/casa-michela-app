@@ -216,29 +216,29 @@ class _ReportCardState extends State<ReportCard>
                   Row(
                     children: [
                       Expanded(
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Flexible(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: _reporterMaxWidth),
-                                child: Text(
-                                  report.reporterName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: dense ? 12.5 : 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.trialTealDeepText,
-                                  ),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: _reporterMaxWidth),
+                              child: Text(
+                                report.reporterName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: dense ? 12.5 : 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.trialTealDeepText,
                                 ),
                               ),
                             ),
-                            if (role != null) ...[
-                              const SizedBox(width: 8),
-                              Text('·', style: _muted),
-                              const SizedBox(width: 8),
-                              Flexible(child: Text(role, maxLines: 1, overflow: TextOverflow.ellipsis, style: _muted)),
-                            ],
+                            if (role != null)
+                              Text(
+                                role,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _muted.copyWith(fontSize: (_muted.fontSize ?? 13) - 1),
+                              ),
                           ],
                         ),
                       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/field_limits.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/week_range.dart';
+import '../../../../core/utils/word_lists.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
 import '../../../../features/calendar/widgets/teacher_note_dialog.dart' show lessonSubjects;
 import '../../../../features/lessons/models/lesson_item.dart';
@@ -101,7 +102,7 @@ class _MobileTeacherNotePageState extends State<MobileTeacherNotePage>
       child: MobileSheet(
         eyebrow: kNewNoteEyebrow,
         title: '${student.firstName} ${student.lastName}',
-        subtitle: '${lessonSubjects(lesson, widget.ministrySubjects)} · ${formatWeekdayColumnLabel(lesson.date)}',
+        subtitle: '${lessonSubjects(lesson, widget.ministrySubjects)}, ${dayInSentence(formatWeekdayColumnLabel(lesson.date))}',
         leading: MobileAvatar(
           firstName: student.firstName,
           lastName: student.lastName,

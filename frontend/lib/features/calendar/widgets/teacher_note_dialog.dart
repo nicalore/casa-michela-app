@@ -5,6 +5,7 @@ import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -115,7 +116,7 @@ class _TeacherNoteDialogState extends State<_TeacherNoteDialog>
       title: '${student.firstName} ${student.lastName}',
       leading: PersonAvatar(person: student, size: PersonAvatar.titleSize),
       subtitle: Text(
-        '${lessonSubjects(lesson, widget.ministrySubjects)} · $day',
+        '${lessonSubjects(lesson, widget.ministrySubjects)}, ${dayInSentence(day)}',
         style: GoogleFonts.plusJakartaSans(
           fontSize: 15,
           fontWeight: FontWeight.w600,

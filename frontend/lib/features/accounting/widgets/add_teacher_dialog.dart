@@ -361,7 +361,7 @@ class _AddTeacherDialogState extends State<_AddTeacherDialog>
     final HoursSpan? work = _work.isEmpty ? null : _work.first;
 
     return AppDialogStack(
-      eyebrow: '${formatWeekdayColumnLabel(widget.day)} · ${bandLabel(widget.band)}',
+      eyebrow: '${formatWeekdayColumnLabel(widget.day)}, ${bandLabel(widget.band).toLowerCase()}',
       title: kAddTeacherTitle,
       maxWidth: _dialogWidth,
       footer: AppDialogFooter.single(

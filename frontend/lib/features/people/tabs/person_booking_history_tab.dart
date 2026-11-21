@@ -14,6 +14,7 @@ import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_month_button.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/descender_room.dart';
 import '../../../shared/widgets/page_heading.dart';
@@ -538,7 +539,7 @@ class _PersonBookingHistoryTabState extends State<PersonBookingHistoryTab>
         final bool stretched = width < _oneHeaderLineMinWidth;
 
         return ScrollEdgeFade(
-          child: SingleChildScrollView(
+          child: TransitionScrollView(
             padding: const EdgeInsets.only(bottom: 40),
             child: Center(
               child: ConstrainedBox(
@@ -839,12 +840,15 @@ class _StretchBlock extends StatelessWidget
     final Widget name = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(lessonModeIcon(stretch.mode), size: sizes.headingIcon, color: AppTheme.trialMutedText),
+        AppTooltip(
+          message: modeLabel(stretch.mode),
+          child: Icon(lessonModeIcon(stretch.mode), size: sizes.headingIcon, color: AppTheme.trialMutedText),
+        ),
         const SizedBox(width: 5),
         Flexible(
           child: WholeWords(
             child: Text(
-              '${modeLabel(stretch.mode)} · ${bandLabel(stretch.band)}'.toUpperCase(),
+              bandLabel(stretch.band).toUpperCase(),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: sizes.headingSize,
                 fontWeight: FontWeight.w700,
@@ -900,24 +904,30 @@ class _StretchBlock extends StatelessWidget
 
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(Icons.person_rounded, size: sizes.bookerSize + 3, color: AppTheme.trialMutedText.withValues(alpha: 0.7)),
         const SizedBox(width: 6),
         Flexible(
-          child: WholeWords(
-            child: Text.rich(
-              TextSpan(
-                style: muted,
-                children: [
-                  TextSpan(text: '$kBookedByLabel '),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              WholeWords(
+                child: Text.rich(
                   TextSpan(
-                    text: stretch.booker.fullName,
-                    style: muted.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialInk),
+                    style: muted,
+                    children: [
+                      TextSpan(text: '$kBookedByLabel '),
+                      TextSpan(
+                        text: stretch.booker.fullName,
+                        style: muted.copyWith(fontWeight: FontWeight.w700, color: AppTheme.trialInk),
+                      ),
+                    ],
                   ),
-                  TextSpan(text: ' · ${bookedAtText(stretch.bookedAt)}'),
-                ],
+                ),
               ),
-            ),
+              Text(bookedAtText(stretch.bookedAt), style: muted.copyWith(fontSize: sizes.bookerSize - 1)),
+            ],
           ),
         ),
       ],

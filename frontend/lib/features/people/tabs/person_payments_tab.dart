@@ -540,7 +540,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     final bool exportAlone = dense && !tariffActions && payments.history.isNotEmpty;
 
     final Widget content = ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: EdgeInsets.only(bottom: floating ? _exportRoom : 40),
         child: Center(
           child: ConstrainedBox(

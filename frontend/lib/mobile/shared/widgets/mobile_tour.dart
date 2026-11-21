@@ -14,6 +14,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../features/settings/utils/settings_strings.dart';
 import '../../../services/seen_tours.dart';
+import '../../../shared/widgets/app_step_count.dart';
 import '../../../shared/widgets/tour_cues.dart';
 import '../../../shared/widgets/whole_words.dart';
 import '../../layout/mobile_breakpoints.dart';
@@ -2223,7 +2224,9 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     final Widget banner = _TourBanner(
       key: _bannerKey,
       textKey: _bannerTextKey,
-      title: total > 1 ? tr('${run.tour.title} · ${_path.length} di $total', '${run.tour.title} · ${_path.length} of $total') : run.tour.title,
+      title: run.tour.title,
+      stepIndex: _path.length,
+      stepCount: total,
       text: step.text,
       glyphs: step.drawn,
       step: _step,
@@ -2700,6 +2703,8 @@ class _DimPainter extends CustomPainter
 class _TourBanner extends StatelessWidget
 {
   final String title;
+  final int stepIndex;
+  final int stepCount;
   final String text;
   final List<Widget Function(double size)> glyphs;
   final int step;
@@ -2717,6 +2722,8 @@ class _TourBanner extends StatelessWidget
   const _TourBanner({
     super.key,
     required this.title,
+    required this.stepIndex,
+    required this.stepCount,
     required this.text,
     required this.glyphs,
     required this.step,
@@ -2831,14 +2838,24 @@ class _TourBanner extends StatelessWidget
                           children: [
                             Padding(
                               padding: const EdgeInsets.only(top: _titleTop),
-                              child: Text(
-                                title.toUpperCase(),
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.4,
-                                  color: ThemeColours.of(0xFFF3C766),
-                                ),
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      title.toUpperCase(),
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1.4,
+                                        color: ThemeColours.of(0xFFF3C766),
+                                      ),
+                                    ),
+                                  ),
+                                  if (stepCount > 1) ...[
+                                    const SizedBox(width: 8),
+                                    AppStepCount(index: stepIndex, count: stepCount, color: ThemeColours.of(0xFFF3C766)),
+                                  ],
+                                ],
                               ),
                             ),
                             const SizedBox(height: 4),

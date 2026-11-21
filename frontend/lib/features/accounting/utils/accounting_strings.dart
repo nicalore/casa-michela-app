@@ -162,9 +162,9 @@ String dailyPdfTitle(DateTime day) => tr(
   'Summary of ${_inSentence(pdfDayOnItsOwn(day))}',
 );
 
-String dailyPdfFooter(DateTime day) => '$kDailySummaryGroup · $kTeachersEntry · ${pdfDayOnItsOwn(day)}';
+String dailyPdfFooter(DateTime day) => '$kDailySummaryGroup – $kTeachersEntry – ${pdfDayOnItsOwn(day)}';
 
-String dailyPdfTab(DateTime day) => '$kDailySummaryGroup · ${pdfDayOnItsOwn(day)}';
+String dailyPdfTab(DateTime day) => '$kDailySummaryGroup – ${pdfDayOnItsOwn(day)}';
 
 String dailyPdfFile(DateTime day) => tr(
   'Riepilogo giornaliero docenti ${formatDayMonthFull(day)} ${day.year}.pdf',
@@ -176,9 +176,9 @@ String monthlyPdfTitle(DateTime month) => tr(
   'Summary of ${_monthInSentence(month)}',
 );
 
-String monthlyPdfFooter(DateTime month) => '$kMonthlySummaryGroup · $kTeachersEntry · ${formatMonthYear(month)}';
+String monthlyPdfFooter(DateTime month) => '$kMonthlySummaryGroup – $kTeachersEntry – ${formatMonthYear(month)}';
 
-String monthlyPdfTab(DateTime month) => '$kMonthlySummaryGroup · ${formatMonthYear(month)}';
+String monthlyPdfTab(DateTime month) => '$kMonthlySummaryGroup – ${formatMonthYear(month)}';
 
 String monthlyPdfFile(DateTime month) => tr(
   'Riepilogo mensile docenti ${_monthInSentence(month)}.pdf',
@@ -187,7 +187,7 @@ String monthlyPdfFile(DateTime month) => tr(
 
 String compensationPdfTitle(String name) => tr('$kCompensationPdfName di $name', '$kCompensationPdfName for $name');
 
-String compensationPdfFooter(String name, DateTime month) => '$kCompensationPdfName · $name · ${formatMonthYear(month)}';
+String compensationPdfFooter(String name, DateTime month) => '$kCompensationPdfName – $name – ${formatMonthYear(month)}';
 
 String compensationPdfFile(String name, DateTime month) => '$kCompensationPdfName $name ${_monthInSentence(month)}.pdf';
 
@@ -226,8 +226,8 @@ String receiptsCount(int done, int of) => tr('$done su $of', '$done of $of');
 
 String dropReceiptFor(String name) => tr('Rilascia per caricare la ricevuta di $name', 'Drop to upload $name\'s receipt');
 
-// "Ricevuta · Giulia Rossi · Ottobre 2026": the tab it opens in.
-String receiptTabTitle(String name, DateTime month) => '$kReceiptColumn · $name · ${formatMonthYear(month)}';
+// "Ricevuta - Giulia Rossi - Ottobre 2026" (en dashes): the tab it opens in.
+String receiptTabTitle(String name, DateTime month) => '$kReceiptColumn – $name – ${formatMonthYear(month)}';
 
 // The daily summary of pupils.
 String get kStudentColumn => tr('Studente', 'Student');
@@ -259,9 +259,9 @@ String get kAheadBadge => tr('Anticipo', 'Advance');
 
 String studentsCount(int count) => count == 1 ? tr('1 studente', '1 student') : tr('$count studenti', '$count students');
 
-String dailyStudentsPdfFooter(DateTime day) => '$kDailySummaryGroup · $kStudentsEntry · ${pdfDayOnItsOwn(day)}';
+String dailyStudentsPdfFooter(DateTime day) => '$kDailySummaryGroup – $kStudentsEntry – ${pdfDayOnItsOwn(day)}';
 
-String dailyStudentsPdfTab(DateTime day) => '$kDailySummaryGroup · $kStudentsEntry · ${pdfDayOnItsOwn(day)}';
+String dailyStudentsPdfTab(DateTime day) => '$kDailySummaryGroup – $kStudentsEntry – ${pdfDayOnItsOwn(day)}';
 
 String dailyStudentsPdfFile(DateTime day) => tr(
   'Riepilogo giornaliero studenti ${formatDayMonthFull(day)} ${day.year}.pdf',
@@ -323,9 +323,9 @@ String tariffSpan(DateTime month, DateTime? starts, DateTime? ends)
   return to == null ? '' : 'fino $to';
 }
 
-String monthlyStudentsPdfFooter(DateTime month) => '$kMonthlySummaryGroup · $kStudentsEntry · ${formatMonthYear(month)}';
+String monthlyStudentsPdfFooter(DateTime month) => '$kMonthlySummaryGroup – $kStudentsEntry – ${formatMonthYear(month)}';
 
-String monthlyStudentsPdfTab(DateTime month) => '$kMonthlySummaryGroup · $kStudentsEntry · ${formatMonthYear(month)}';
+String monthlyStudentsPdfTab(DateTime month) => '$kMonthlySummaryGroup – $kStudentsEntry – ${formatMonthYear(month)}';
 
 String monthlyStudentsPdfFile(DateTime month) => tr(
   'Riepilogo mensile studenti ${_monthInSentence(month)}.pdf',
@@ -382,9 +382,9 @@ Map<String, String> get kPaymentTariffFilters => {
 
 String paymentsCount(int count) => count == 1 ? tr('1 pagamento', '1 payment') : tr('$count pagamenti', '$count payments');
 
-String monthlyPaymentsPdfFooter(DateTime month) => '$kMonthlySummaryGroup · $kPaymentsEntry · ${formatMonthYear(month)}';
+String monthlyPaymentsPdfFooter(DateTime month) => '$kMonthlySummaryGroup – $kPaymentsEntry – ${formatMonthYear(month)}';
 
-String monthlyPaymentsPdfTab(DateTime month) => '$kMonthlySummaryGroup · $kPaymentsEntry · ${formatMonthYear(month)}';
+String monthlyPaymentsPdfTab(DateTime month) => '$kMonthlySummaryGroup – $kPaymentsEntry – ${formatMonthYear(month)}';
 
 String monthlyPaymentsPdfFile(DateTime month) => tr(
   'Riepilogo mensile pagamenti ${_monthInSentence(month)}.pdf',

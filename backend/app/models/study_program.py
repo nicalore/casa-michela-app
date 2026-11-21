@@ -167,7 +167,7 @@ class StudyProgram(CreatedAtMixin, Base):
 
         parts = [part for part in (self.sector, track) if part]
 
-        return " · ".join(parts) if parts else None
+        return " › ".join(parts) if parts else None
 
     # Full name, scope included, for contexts where the name alone is ambiguous.
     @property

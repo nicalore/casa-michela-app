@@ -438,7 +438,7 @@ class _ReportCard extends StatelessWidget
               if (block == null) _main() else SizedBox(height: block, child: ClipRect(child: _main())),
               const SizedBox(height: 9),
               Text(
-                role == null ? report.reporterName : '${report.reporterName} · $role',
+                role == null ? report.reporterName : '${report.reporterName}, $role',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.trialTealDeepText),

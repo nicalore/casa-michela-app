@@ -97,7 +97,7 @@ class AppEmptyRoom extends StatelessWidget
   {
     return LayoutBuilder(
       builder: (context, constraints) => ScrollEdgeFade(
-        child: SingleChildScrollView(
+        child: TransitionScrollView(
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.hasBoundedHeight ? constraints.maxHeight : 0),
             child: Center(

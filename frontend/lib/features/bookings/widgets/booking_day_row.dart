@@ -1305,16 +1305,19 @@ class _ModeBlockState extends State<_ModeBlock>
     final Widget heading = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          lessonModeIcon(_mode),
-          size: dense ? 14 : _modeHeadingHeight,
-          color: AppTheme.trialMutedText,
+        AppTooltip(
+          message: modeLabel(_mode),
+          child: Icon(
+            lessonModeIcon(_mode),
+            size: dense ? 14 : _modeHeadingHeight,
+            color: AppTheme.trialMutedText,
+          ),
         ),
         const SizedBox(width: 5),
         Flexible(
           child: WholeWords(
             child: Text(
-              '${modeLabel(_mode)} · ${bandLabel(widget.band)}'.toUpperCase(),
+              bandLabel(widget.band).toUpperCase(),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: dense ? 10.5 : 12,
                 fontWeight: FontWeight.w700,
@@ -1653,7 +1656,7 @@ class _LessonRowState extends State<_LessonRow>
           const SizedBox(height: _disciplinesGap),
           DescenderRoom(
             child: Text(
-              _disciplines.join(' · '),
+              _disciplines.join(', '),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
@@ -1894,7 +1897,7 @@ class _LessonRowState extends State<_LessonRow>
     return TextSpan(
       children: [
         TextSpan(text: _title, style: _denseTitleStyle),
-        if (disciplines.isNotEmpty) TextSpan(text: '  ${disciplines.join(' · ')}', style: _denseDisciplinesStyle),
+        if (disciplines.isNotEmpty) TextSpan(text: '  ${disciplines.join(', ')}', style: _denseDisciplinesStyle),
       ],
     );
   }

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/language/app_language.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
+import '../../../../core/utils/word_lists.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
 import '../../../../features/association/notices/notice_message_view.dart' show noticeTextStyle;
 import '../../../../features/calendar/widgets/own_lesson_dialog.dart';
@@ -114,7 +115,7 @@ Future<void> showMobilePupilLessonSheet({
       lesson: lesson,
       ministrySubjects: ministrySubjects,
       title: lessonTitle(lesson, view: CalendarView.byStudent),
-      subtitle: pupilName == null ? day : '$pupilName · $day',
+      subtitle: pupilName == null ? day : '$pupilName, ${dayInSentence(day)}',
       face: lesson.teacher,
       otherName: tr('Docente', 'Teacher'),
       otherVoices: teacher == null ? null : teacherVoicesOf(teacher),
@@ -434,7 +435,7 @@ class _LessonSheetState extends State<_LessonSheet>
               rows: [
                 for (final StudentNoteItem note in notes)
                   DetailRowData.drawn(
-                    '${noteDate(note.createdAt)} · ${note.authorName}',
+                    withAuthor(noteDate(note.createdAt), note.authorName),
                     StudentNoteText(taxCode: taxCode, kind: kind, note: note, style: _noteStyle),
                   ),
               ],

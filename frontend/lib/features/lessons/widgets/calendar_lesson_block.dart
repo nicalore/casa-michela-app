@@ -171,7 +171,7 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
   final disciplines = {...lesson.disciplineNames, ...lone};
 
   return (
-    subject: subjects.isEmpty ? tr('Lezione', 'Lesson') : subjects.join(' · '),
+    subject: subjects.isEmpty ? tr('Lezione', 'Lesson') : subjects.join(', '),
     disciplines: disciplines.isEmpty ? null : disciplines.join(', '),
   );
 }
@@ -187,10 +187,10 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
 
   if (disciplines.isEmpty)
   {
-    return (discipline: subjects.isEmpty ? tr('Lezione', 'Lesson') : subjects.join(' · '), subject: null);
+    return (discipline: subjects.isEmpty ? tr('Lezione', 'Lesson') : subjects.join(', '), subject: null);
   }
 
-  return (discipline: disciplines.join(', '), subject: subjects.isEmpty ? null : subjects.join(' · '));
+  return (discipline: disciplines.join(', '), subject: subjects.isEmpty ? null : subjects.join(', '));
 }
 
 // The range at full strength, its length and mode a step back.
@@ -202,7 +202,7 @@ TextSpan lessonHoursSpan(List<String> parts, TextStyle style)
     text: parts.first,
     style: style,
     children: [
-      for (final part in parts.skip(1)) TextSpan(text: ' · $part', style: quiet),
+      for (final part in parts.skip(1)) TextSpan(text: '\u2002$part', style: quiet),
     ],
   );
 }
@@ -222,6 +222,32 @@ TextSpan lessonHoursSpan(List<String> parts, TextStyle style)
   }
 
   return (icon: Icons.meeting_room_outlined, label: room);
+}
+
+// A piece of a line; its icon stands where a separator would.
+typedef LinePart = ({IconData? icon, String text});
+
+// An icon as a font glyph: a TextPainter measures it like the letters around it.
+TextSpan iconGlyphSpan(IconData icon, TextStyle style)
+{
+  return TextSpan(
+    text: String.fromCharCode(icon.codePoint),
+    style: style.copyWith(fontFamily: icon.fontFamily, package: icon.fontPackage, letterSpacing: 0),
+  );
+}
+
+TextSpan linePartsSpan(List<LinePart> parts, TextStyle style)
+{
+  return TextSpan(
+    style: style,
+    children: [
+      for (final (index, part) in parts.indexed) ...[
+        if (index > 0) const TextSpan(text: '\u2002'),
+        if (part.icon case final icon?) ...[iconGlyphSpan(icon, style), const TextSpan(text: '\u2009')],
+        TextSpan(text: part.text),
+      ],
+    ],
+  );
 }
 
 Color lessonWhereAccent(LessonItem lesson)
@@ -592,7 +618,7 @@ class CalendarDragFeedback extends StatelessWidget
                       child: Text(
                         saysLeaving
                             ? awayLabel!
-                            : '${lead ?? modeLabel(mode)} · ${span == null ? hours : formatMinutesRange(span.$1, span.$2)}',
+                            : '${lead ?? modeLabel(mode)}: ${span == null ? hours : formatMinutesRange(span.$1, span.$2)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -911,7 +937,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock> with Calendar
     final topic = _topic;
 
     return [
-      '$_hours · ${formatMinutes(widget.lesson.minutes)}',
+      '$_hours (${formatMinutes(widget.lesson.minutes)})',
       topic.discipline,
       ?topic.subject,
       _title,
@@ -1095,10 +1121,13 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock> with Calendar
       endMinutes: lesson.endMinutes,
       title: topic.discipline,
       detail: [
-        ?topic.subject,
-        _title,
-        if (_saysWhere) _where.label else if (_saysOnline) modeLabel(kOnlineMode),
-      ].join(' · '),
+        if (topic.subject case final subject?) (icon: null, text: subject),
+        (icon: topic.subject == null ? null : Icons.person_outline_rounded, text: _title),
+        if (_saysWhere)
+          (icon: _where.icon, text: _where.label)
+        else if (_saysOnline)
+          (icon: lessonModeIcon(kOnlineMode), text: modeLabel(kOnlineMode)),
+      ],
       isCurrent: widget.elapsed != null,
       marks: [
         if (widget.isPreferred) Icon(Icons.star_rounded, size: 14, color: kPreferredTeacherColor),
@@ -1216,10 +1245,13 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock> with Calendar
                               ],
                               SizedBox(height: widget.isComposing ? 2 : (_dense ? 3 : 7)),
                               DescenderRoom(
-                                child: Text(
-                                  _dense
-                                      ? denseLessonLine(widget.lesson, view: widget.view, showsRoom: widget.showsRoom)
-                                      : _title,
+                                child: Text.rich(
+                                  linePartsSpan(
+                                    _dense
+                                        ? denseLessonParts(widget.lesson, view: widget.view, showsRoom: widget.showsRoom)
+                                        : [(icon: null, text: _title)],
+                                    _blockPersonStyle,
+                                  ),
                                   maxLines: _lineCap,
                                   overflow: _lineCut,
                                   style: _blockPersonStyle,
@@ -1350,7 +1382,7 @@ class CalendarBlockRow extends StatelessWidget
   final int endMinutes;
 
   final String title;
-  final String detail;
+  final List<LinePart> detail;
 
   final bool isCurrent;
 
@@ -1362,7 +1394,7 @@ class CalendarBlockRow extends StatelessWidget
     required this.startMinutes,
     required this.endMinutes,
     required this.title,
-    this.detail = '',
+    this.detail = const [],
     this.isCurrent = false,
     this.marks = const [],
   });
@@ -1415,7 +1447,12 @@ class CalendarBlockRow extends StatelessWidget
                 if (detail.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   DescenderRoom(
-                    child: Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: _blockPersonStyle),
+                    child: Text.rich(
+                      linePartsSpan(detail, _blockPersonStyle),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _blockPersonStyle,
+                    ),
                   ),
                 ],
               ],
@@ -1544,12 +1581,14 @@ const double kWidestBlockLine = 240;
 
 // Published: the width for every line, the teacher's mode included, long ones wrapped.
 // The third line of a dense published block: who, and where when the block says it.
-String denseLessonLine(LessonItem lesson, {required CalendarView view, bool showsRoom = false})
+List<LinePart> denseLessonParts(LessonItem lesson, {required CalendarView view, bool showsRoom = false})
 {
+  final where = lessonWhere(lesson);
+
   return [
-    lessonTitle(lesson, view: view),
-    if (view == CalendarView.byStudent || showsRoom) lessonWhere(lesson).label,
-  ].join(' · ');
+    (icon: null, text: lessonTitle(lesson, view: view)),
+    if (view == CalendarView.byStudent || showsRoom) (icon: where.icon, text: where.label),
+  ];
 }
 
 double publishedLessonBlockWidth(
@@ -1579,7 +1618,7 @@ double publishedLessonBlockWidth(
     final denseLines = [
       blockSpanWidth(context, lessonHoursSpan(hours, _blockHoursStyle)) + marks,
       capped(blockLineWidth(context, topic.discipline, _blockDisciplineStyle)),
-      capped(blockLineWidth(context, denseLessonLine(lesson, view: view, showsRoom: showsRoom), _blockPersonStyle)),
+      capped(blockSpanWidth(context, linePartsSpan(denseLessonParts(lesson, view: view, showsRoom: showsRoom), _blockPersonStyle))),
     ];
 
     return denseLines.reduce(math.max) + _blockChrome(padding: 10, barGap: 8) + 1;

@@ -58,7 +58,7 @@ class _VolunteeringPillState extends State<VolunteeringPill>
             children: [
               if (monthOnly != null)
                 TextSpan(
-                  text: ' · ${volunteeringMonthOnlyNote(monthOnly)}',
+                  text: ' (${volunteeringMonthOnlyNote(monthOnly)})',
                   style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.trialMutedText),
                 ),
             ],

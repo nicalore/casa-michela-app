@@ -60,7 +60,7 @@ class _Slot
   });
 
   String get label =>
-      '${lane.teacher.fullName} · ${formatMinutesRange(windowStart, windowEnd)}';
+      '${lane.teacher.fullName} (${formatMinutesRange(windowStart, windowEnd)})';
 }
 
 class ActivityDialog extends StatefulWidget

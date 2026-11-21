@@ -386,7 +386,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
     final double gap = StatMetrics.forDensity(dense).cardGap;
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.only(top: 16, bottom: 32),
         child: Column(

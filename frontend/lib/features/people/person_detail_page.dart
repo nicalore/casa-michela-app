@@ -488,8 +488,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     final String name = '${person.firstName} ${person.lastName}';
     final bool alsoEarlyExit = person.getsEarlyExitForm;
     final String day = DateFormat('dd-MM-yyyy').format(romeNow());
-    final String enrollmentTitle = tr('Modulo di iscrizione · $name', 'Enrolment form · $name');
-    final String earlyExitTitle = tr('Modulo uscita anticipata · $name', 'Early departure form · $name');
+    final String enrollmentTitle = tr('Modulo di iscrizione – $name', 'Enrolment form – $name');
+    final String earlyExitTitle = tr('Modulo uscita anticipata – $name', 'Early departure form – $name');
 
     // Tabs must open before the first await, or the browser blocks them as popups.
     final PdfTab? enrollmentTab = openPdfTab(title: enrollmentTitle);

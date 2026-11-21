@@ -440,19 +440,19 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       for (final EnrollmentForm form in forms) ...[
         (
           tab: openPdfTab(title: tr(
-            'Modulo di iscrizione · ${form.personName}',
-            'Enrolment form · ${form.personName}',
+            'Modulo di iscrizione – ${form.personName}',
+            'Enrolment form – ${form.personName}',
           )),
-          label: tr('Modulo di iscrizione · ${form.personName}', 'Enrolment form · ${form.personName}'),
+          label: tr('Modulo di iscrizione – ${form.personName}', 'Enrolment form – ${form.personName}'),
           fileName: 'Modulo di iscrizione ${form.personName} $day.pdf',
           bytes: () => ApiService().generateEnrollmentForm(form.request),
         ),
         if (form.needsEarlyExitForm)
           (
             tab: openPdfTab(
-              title: tr('Modulo uscita anticipata · ${form.personName}', 'Early departure form · ${form.personName}'),
+              title: tr('Modulo uscita anticipata – ${form.personName}', 'Early departure form – ${form.personName}'),
             ),
-            label: tr('Modulo uscita anticipata · ${form.personName}', 'Early departure form · ${form.personName}'),
+            label: tr('Modulo uscita anticipata – ${form.personName}', 'Early departure form – ${form.personName}'),
             fileName: 'Modulo uscita anticipata ${form.personName} $day.pdf',
             bytes: () => ApiService().generateEarlyExitForm(form.request),
           ),
@@ -638,9 +638,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     final String name = '${person.firstName} ${person.lastName}';
     final bool alsoEarlyExit = person.getsEarlyExitForm;
     final String day = DateFormat('dd-MM-yyyy').format(romeNow());
-    final PdfTab? enrollmentTab = openPdfTab(title: tr('Modulo di iscrizione · $name', 'Enrolment form · $name'));
+    final PdfTab? enrollmentTab = openPdfTab(title: tr('Modulo di iscrizione – $name', 'Enrolment form – $name'));
     final PdfTab? earlyExitTab = alsoEarlyExit
-        ? openPdfTab(title: tr('Modulo uscita anticipata · $name', 'Early departure form · $name'))
+        ? openPdfTab(title: tr('Modulo uscita anticipata – $name', 'Early departure form – $name'))
         : null;
 
     setState(() => _isSaving = true);

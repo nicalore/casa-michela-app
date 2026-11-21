@@ -163,7 +163,7 @@ class _BlockFrame extends StatefulWidget
   final bool dense;
 
   // In the list below the wide window: the card is a row, start and end in a column, then these two lines.
-  final ({String start, String end, String title, String detail})? row;
+  final ({String start, String end, String title, List<LinePart> detail})? row;
 
   const _BlockFrame({
     required this.accent,
@@ -186,10 +186,10 @@ class _BlockFrameState extends State<_BlockFrame>
 {
   bool _isHovering = false;
 
-  Widget _buildRow(({String start, String end, String title, String detail}) row)
+  Widget _buildRow(({String start, String end, String title, List<LinePart> detail}) row)
   {
     final accent = widget.accent;
-    final String detail = row.detail;
+    final List<LinePart> detail = row.detail;
 
     return BlockTexts(
       child: Row(
@@ -223,7 +223,12 @@ class _BlockFrameState extends State<_BlockFrame>
                 Text(row.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _denseTitleStyle),
                 if (detail.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: _densePersonStyle),
+                  Text.rich(
+                    linePartsSpan(detail, _densePersonStyle),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _densePersonStyle,
+                  ),
                 ],
               ],
             ),
@@ -395,16 +400,22 @@ class OwnLessonBlock extends StatelessWidget
       ];
 
   // Below the wide window the third line: who, and where when it says it.
-  String get _denseLine => [_title, if (_saysWhere) _where.label].join(' · ');
+  List<LinePart> get _denseParts => [
+        (icon: null, text: _title),
+        if (_saysWhere) (icon: _where.icon, text: _where.label),
+      ];
 
   // A row of the list below the wide window: the ministry subject first, then the third line.
-  String _rowDetail(({String discipline, String? subject}) topic)
+  List<LinePart> _rowDetail(({String discipline, String? subject}) topic)
   {
     return [
-      ?topic.subject,
-      _title,
-      if (_saysWhere) _where.label else if (!_byStudent && lesson.mode == kOnlineMode) modeLabel(kOnlineMode),
-    ].join(' · ');
+      if (topic.subject case final subject?) (icon: null, text: subject),
+      (icon: topic.subject == null ? null : Icons.person_outline_rounded, text: _title),
+      if (_saysWhere)
+        (icon: _where.icon, text: _where.label)
+      else if (!_byStudent && lesson.mode == kOnlineMode)
+        (icon: lessonModeIcon(kOnlineMode), text: modeLabel(kOnlineMode)),
+    ];
   }
 
   // On the timeline: the width that writes each line whole.
@@ -419,7 +430,7 @@ class OwnLessonBlock extends StatelessWidget
       final lines = [
         _hoursIcon - 1 + _hoursIconGap + hours + (isPast ? _pastMark : 0),
         capped(blockLineWidth(context, topic.discipline, _denseTitleStyle)),
-        capped(blockLineWidth(context, _denseLine, _densePersonStyle)),
+        capped(blockSpanWidth(context, linePartsSpan(_denseParts, _densePersonStyle))),
       ];
 
       return lines.reduce(math.max) + _chrome;
@@ -495,7 +506,12 @@ class OwnLessonBlock extends StatelessWidget
       children: [
         Text(topic.discipline, maxLines: 1, overflow: TextOverflow.ellipsis, style: _denseTitleStyle),
         const SizedBox(height: 2),
-        Text(_denseLine, maxLines: 1, overflow: TextOverflow.ellipsis, style: _densePersonStyle),
+        Text.rich(
+          linePartsSpan(_denseParts, _densePersonStyle),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _densePersonStyle,
+        ),
       ],
     );
   }
@@ -645,7 +661,7 @@ class OwnActivityBlock extends StatelessWidget
               start: formatTimeOfDayShort(timeOfDayFromMinutes(activity.startMinutes)),
               end: formatTimeOfDayShort(timeOfDayFromMinutes(activity.endMinutes)),
               title: activity.name,
-              detail: '',
+              detail: const [],
             )
           : null,
       body: (_) => Text(activity.name, style: dense ? _denseTitleStyle : _titleStyle),

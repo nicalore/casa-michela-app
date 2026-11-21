@@ -190,7 +190,7 @@ String programScopeTitle({
     if (namesHighSchool || level != 'HIGH_SCHOOL') schoolLevelShortLabel(level),
     ?sector,
     ?highSchoolTrackShortLabel(track, minYear, maxYear),
-  ].join(' · ');
+  ].join(' › ');
 }
 
 String? descriptionOrNull(String? description)

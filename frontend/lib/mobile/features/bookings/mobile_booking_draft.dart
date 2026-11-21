@@ -474,10 +474,10 @@ class MobileBookingDraft
       for (final band in hours.bands)
           BandOffer(
             band: band,
-            hours: [
+            ranges: [
               for (final stretch in [...hours.of(band)]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes)))
                 formatTimeRange(stretch.startTime, stretch.endTime),
-            ].join(' · '),
+            ],
             minutes: hours.minutesIn(band),
             takenByOthers: minutesAsked(group, band: band, skip: skip),
           ),

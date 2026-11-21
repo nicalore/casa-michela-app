@@ -11,7 +11,7 @@ class SchoolEnrollmentItem
   // Display only: the mechanographic code is optional on the school record.
   final String? schoolMechanographicCode;
 
-  // Server-composed: sector and track joined by a middle dot, then " | " and the name.
+  // Server-composed: sector and track joined by a single right angle quote, then " | " and the name.
   final String studyProgramName;
   final int studyProgramId;
   final String educationLevel;

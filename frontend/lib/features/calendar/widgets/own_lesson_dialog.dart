@@ -247,7 +247,7 @@ List<LessonVoice> lessonVoicesOf(LessonItem lesson, List<MinistrySubjectItem> mi
   return [
     LessonVoice(
       label: tr('Orario', 'Time'),
-      value: '${formatTimeRange(lesson.startTime, lesson.endTime)} · ${formatMinutes(lesson.minutes)}',
+      value: '${formatTimeRange(lesson.startTime, lesson.endTime)} (${formatMinutes(lesson.minutes)})',
     ),
     if (where) LessonVoice(label: tr('Stanza', 'Room'), value: lessonWhere(lesson).label),
     if (disciplines != null) LessonVoice(label: tr('Disciplina', 'Discipline'), value: disciplines),
@@ -736,7 +736,7 @@ class _NotesColumnState extends State<_NotesColumn>
   static final TextStyle _noteStyle = noticeTextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.45);
 
   static TextStyle get _authorStyle => GoogleFonts.plusJakartaSans(
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: FontWeight.w600,
     color: AppTheme.trialMutedText,
   );
@@ -781,17 +781,15 @@ class _NotesColumnState extends State<_NotesColumn>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text.rich(
-              TextSpan(
-                text: noteDate(note.createdAt),
-                children: [TextSpan(text: ' · ${note.authorName}', style: _authorStyle)],
-              ),
+            Text(
+              noteDate(note.createdAt),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
                 color: AppTheme.trialOceanText,
               ),
             ),
+            Text(note.authorName, style: _authorStyle),
             const SizedBox(height: 4),
             StudentNoteText(taxCode: widget.taxCode, kind: widget.kind, note: note, style: _noteStyle),
           ],

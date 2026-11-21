@@ -201,7 +201,6 @@ class BandChip extends StatelessWidget
 {
   final IconData icon;
   final String label;
-  final String? detail;
 
   final Color accent;
   final Color? surface;
@@ -212,7 +211,6 @@ class BandChip extends StatelessWidget
     super.key,
     required this.icon,
     required this.label,
-    this.detail,
     required this.accent,
     this.surface,
     this.filled = false,
@@ -246,15 +244,6 @@ class BandChip extends StatelessWidget
               color: foreground,
             ),
           ),
-          if (detail != null)
-            Text(
-              ' · $detail',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: fontSize,
-                fontWeight: FontWeight.w600,
-                color: filled ? Colors.white.withValues(alpha: 0.8) : AppTheme.trialMutedText,
-              ),
-            ),
         ],
       ),
     );

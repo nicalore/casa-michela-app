@@ -65,7 +65,7 @@ class OwnObservationsTab extends StatelessWidget
     }
 
     return ScrollEdgeFade(
-      child: SingleChildScrollView(
+      child: TransitionScrollView(
         padding: const EdgeInsets.only(top: _shadowRoom, bottom: 32),
         child: Center(
           child: ConstrainedBox(

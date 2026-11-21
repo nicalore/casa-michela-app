@@ -1,5 +1,6 @@
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../features/association/models/opening_day_item.dart';
 import '../../../features/calendar/utils/calendar_strings.dart';
 import '../../../features/calendar/utils/teacher_band_call.dart';
@@ -167,11 +168,11 @@ MobileLineEntry _convenedEntry(TeacherBandCall call, {required bool feminine})
 {
   final List<String> modes = [for (final span in call.byMode) span.mode];
 
-  final String detail = [
+  final String detail = joinFigures([
     if (modes.length > 1)
       for (final mode in modes) modeLabel(mode),
     convocationSummary(call),
-  ].join(' · ');
+  ]);
 
   return MobileLineEntry(
     convocationTitle(call, feminine: feminine),
