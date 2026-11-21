@@ -35,6 +35,7 @@ from app.models.lesson_discipline import LessonDiscipline
 from app.models.member import Member
 from app.models.membership import Membership
 from app.models.membership_fee import MembershipFee
+from app.models.membership_revocation import MembershipRevocation
 from app.models.methodological_note import MethodologicalNote
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
@@ -122,6 +123,7 @@ __all__ = [
     "Member",
     "Membership",
     "MembershipFee",
+    "MembershipRevocation",
     "MethodologicalNote",
     "MinistryAssociationSubject",
     "MinistrySubject",

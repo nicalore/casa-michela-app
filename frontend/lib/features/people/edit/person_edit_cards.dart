@@ -1112,6 +1112,21 @@ class MembershipsCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // The cessation form prints it as the member's qualification.
+        cardSection(
+          ctx.form.genderValue == 'F'
+              ? tr('Socia fondatrice', 'Founding member')
+              : tr('Socio fondatore', 'Founding member'),
+          AppSegmentedSwitch(
+            value: ctx.form.founderValue,
+            onChanged: (value)
+            {
+              ctx.form.founderValue = value;
+              ctx.onChanged();
+            },
+          ),
+        ),
+        const SizedBox(height: 22),
         CardScrollArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,

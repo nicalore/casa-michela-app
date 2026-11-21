@@ -21,6 +21,7 @@ from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 
 if TYPE_CHECKING:
     from app.models.member import Member
+    from app.models.membership_revocation import MembershipRevocation
 
 _FUTURE_MEMBERSHIP_YEAR_ERROR: Final[tuple[str, str]] = (
     "L'anno di tesseramento non può essere nel futuro",
@@ -77,6 +78,13 @@ class Membership(CreatedAtMixin, UpdatedAtMixin, Base):
     renewal_period_days: Mapped[int] = mapped_column(Integer, nullable=False)
 
     member: Mapped[Member] = relationship(back_populates="memberships")
+
+    # Written with the revocation; none for revocations older than the form.
+    revocation_details: Mapped[MembershipRevocation | None] = relationship(
+        back_populates="membership",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 @event.listens_for(Session, "before_flush")

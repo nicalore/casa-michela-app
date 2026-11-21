@@ -50,6 +50,7 @@ from app.models.course_participant import CourseParticipant
 from app.models.early_exit_schedule import EarlyExitSchedule
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership, MembershipRevocationEnum
+from app.models.membership_revocation import MembershipRevocation
 from app.models.methodological_note import MethodologicalNote
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
@@ -111,6 +112,11 @@ from app.schemas.person_wizard import PersonWizardPayload
 from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
 from app.services import email_service, push
 from app.services.bilingual import Bilingual
+from app.services.cessation import revocation_details
+from app.services.cessation_form import (
+    build_cessation_form,
+    cessation_form_file_name,
+)
 from app.services.collaboration import stop_collaboration
 from app.services.compensation import set_terms
 from app.services.early_exit_form import (
@@ -202,6 +208,7 @@ _MEMBER_OPTIONAL_FIELDS: Final[tuple[str, ...]] = (
     "video_surveillance_acknowledged",
     "special_category_data_consent",
     "newsletter_consent",
+    "founder",
     "consents_signed_at",
     "emergency_contact_name",
     "emergency_contact_phone",
@@ -247,6 +254,16 @@ _EARLY_EXIT_FORM_ERROR: Final[tuple[str, str]] = (
 _NO_EARLY_EXIT_ERROR: Final[tuple[str, str]] = (
     "La persona non ha un'uscita anticipata autorizzata.",
     "This person has no authorised early departure.",
+)
+
+_CESSATION_FORM_ERROR: Final[tuple[str, str]] = (
+    "Non è stato possibile generare il modulo di cessazione: {error}",
+    "Couldn't generate the leaving form: {error}",
+)
+
+_NOT_REVOKED_ERROR: Final[tuple[str, str]] = (
+    "La persona non ha un'iscrizione revocata.",
+    "This person has no revoked enrolment.",
 )
 _PERSON_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
     "Persona non trovata",
@@ -859,6 +876,7 @@ def _map_person_to_response(
     video_surveillance_acknowledged = None
     special_category_data_consent = None
     newsletter_consent = None
+    founder = None
     consents_signed_at = None
     emergency_contact_name = None
     emergency_contact_phone = None
@@ -900,6 +918,7 @@ def _map_person_to_response(
         video_surveillance_acknowledged = member.video_surveillance_acknowledged
         special_category_data_consent = member.special_category_data_consent
         newsletter_consent = member.newsletter_consent
+        founder = member.founder
         consents_signed_at = member.consents_signed_at
         emergency_contact_name = member.emergency_contact_name
         emergency_contact_phone = member.emergency_contact_phone
@@ -1127,6 +1146,7 @@ def _map_person_to_response(
         video_surveillance_acknowledged=video_surveillance_acknowledged,
         special_category_data_consent=special_category_data_consent,
         newsletter_consent=newsletter_consent,
+        founder=founder,
         consents_signed_at=consents_signed_at,
         emergency_contact_name=emergency_contact_name,
         emergency_contact_phone=emergency_contact_phone,
@@ -3180,6 +3200,59 @@ async def person_early_exit_form(
     return await _early_exit_form_response(request_for_person(person))
 
 
+@router.get(
+    "/{tax_code}/cessation-form",
+    status_code=status.HTTP_200_OK,
+    response_class=Response,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
+async def person_cessation_form(
+    tax_code: str,
+    db: DbSession,
+) -> Response:
+    person = await _load_person_or_404(
+        db,
+        tax_code,
+        joinedload(Person.member_profile)
+        .selectinload(Member.memberships)
+        .selectinload(Membership.revocation_details)
+        .joinedload(MembershipRevocation.guardian),
+        joinedload(Person.member_profile).joinedload(Member.staff_profile),
+    )
+
+    member = person.member_profile
+    latest = (
+        max(member.memberships, key=lambda row: row.year)
+        if member is not None and member.memberships
+        else None
+    )
+
+    if latest is None or latest.revocation == MembershipRevocationEnum.NO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=tr(*_NOT_REVOKED_ERROR),
+        )
+
+    try:
+        pdf = await build_cessation_form(person, latest)
+
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=tr(*_CESSATION_FORM_ERROR).format(error=err),
+        ) from err
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": inline_disposition(
+                cessation_form_file_name(person, latest)
+            )
+        },
+    )
+
+
 @router.post(
     "/{tax_code}/image",
     status_code=status.HTTP_200_OK,
@@ -3293,6 +3366,7 @@ async def revoke_person_membership(
         db,
         tax_code,
         joinedload(Person.member_profile).joinedload(Member.memberships),
+        selectinload(Person.parental_relationships),
     )
 
     member = person.member_profile
@@ -3337,9 +3411,14 @@ async def revoke_person_membership(
             detail=tr(*_NO_MEMBERSHIP_TO_REVOKE_ERROR),
         )
 
-    latest_membership.end_date = date.today()
+    today = today_in_rome()
+    details = revocation_details(person, latest_membership, payload, today=today)
+
+    latest_membership.end_date = today
     latest_membership.renewal_period_days = 0
     latest_membership.revocation = MembershipRevocationEnum(payload.revocation_type)
+
+    db.add(details)
 
     member.updated_at = datetime.now(UTC)
 

@@ -4278,6 +4278,30 @@ class ApiService
     }
   }
 
+  // Built from the revoked membership and the data stored with it.
+  Future<Uint8List> fetchCessationForm(String fiscalCode) async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        '/people/$fiscalCode/cessation-form',
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(
+        e,
+        tr(
+          'Errore imprevisto durante la generazione del modulo. Riprova più tardi.',
+          'Unexpected error while generating the form. Please try again later.',
+        ),
+      );
+    }
+  }
+
   Future<Uint8List> fetchEarlyExitForm(String fiscalCode) async
   {
     try
@@ -4427,14 +4451,19 @@ class ApiService
     }
   }
 
-  Future<void> revokePersonMembership(String fiscalCode, String revocationType, DateTime? expectedUpdatedAt) async
+  // [details] are the cessation form's: cause, its data, numbers and guardian.
+  Future<void> revokePersonMembership(
+    String fiscalCode,
+    Map<String, dynamic> details,
+    DateTime? expectedUpdatedAt,
+  ) async
   {
     try
     {
       await _dio.put(
         '/people/$fiscalCode/revoke-membership',
         data: {
-          'revocation_type': revocationType,
+          ...details,
           if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
         },
       );

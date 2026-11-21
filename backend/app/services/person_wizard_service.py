@@ -298,6 +298,7 @@ async def create_person_from_wizard(
                 member_data.special_category_data_consent
             )
             member.newsletter_consent = member_data.newsletter_consent
+            member.founder = member_data.founder
             member.consents_signed_at = member_data.consents_signed_at
             member.emergency_contact_name = member_data.emergency_contact_name
             member.emergency_contact_phone = member_data.emergency_contact_phone

@@ -1,0 +1,183 @@
+{
+  "_meta": {
+    "template": "modulo_cessazione_socio_acroform.pdf",
+    "origine": "Modulo_Cessazione_Socio_Casa_Michela.pdf del 20/10/2026 (Mod. CM-SOC-03, ReportLab)",
+    "campi_totali": 33,
+    "checkbox_valore_spunta": "/Yes",
+    "checkbox_valore_vuoto": "/Off",
+    "note": [
+      "Compilare con pypdf: PdfWriter(clone_from=...) + update_page_form_field_values su ogni pagina (app.core.pdf_forms.fill_acroform).",
+      "Il modulo vuoto e' identico all'originale: i campi non hanno bordo ne' sfondo.",
+      "Le checkbox coprono il quadratino stampato (glifo DejaVuSans): senza riquadro proprio, il widget rende solo il segno di spunta.",
+      "causa_recesso, causa_decadenza e causa_esclusione si escludono a vicenda: spuntarne una sola.",
+      "Le righe delle firme e il riquadro 'Riservato alla Segreteria' non hanno campi: compilazione a mano."
+    ]
+  },
+  "campi": {
+    "protocollo_numero": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Prot. n. (prima parte, prima della barra)"
+    },
+    "protocollo_anno": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Prot. n. (seconda parte, dopo la barra)"
+    },
+    "data_dichiarazione": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Data dopo 'Thiene, li'' ('Thiene, li'' e' gia' stampato)"
+    },
+    "socio_cognome_nome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Cognome e nome del socio"
+    },
+    "socio_numero_tessera": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Numero di tessera"
+    },
+    "socio_luogo_data_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Luogo e data di nascita"
+    },
+    "socio_codice_fiscale": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Codice fiscale del socio"
+    },
+    "socio_residenza": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Indirizzo di residenza"
+    },
+    "socio_data_ammissione": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Ammesso/a il"
+    },
+    "socio_telefono_email": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Telefono / Email"
+    },
+    "socio_ultimo_rinnovo": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Data dell'ultimo rinnovo"
+    },
+    "tutore_nome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Socio minore o tutelato: nome del genitore/tutore (font 8, riga stretta)"
+    },
+    "tutore_codice_fiscale": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Socio minore o tutelato: codice fiscale del genitore/tutore (font 8, riga stretta)"
+    },
+    "qualifica_ordinario": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Qualifica: ordinario"
+    },
+    "qualifica_volontario": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Qualifica: volontario"
+    },
+    "qualifica_fondatore": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Qualifica: fondatore"
+    },
+    "causa_recesso": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Causa A - Recesso volontario (dimissioni)"
+    },
+    "recesso_motivazione": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Causa A - Motivazione (facoltativa)"
+    },
+    "causa_decadenza": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Causa B - Decadenza per mancato rinnovo della tessera"
+    },
+    "decadenza_anno_sociale": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Causa B - Anno sociale non rinnovato (es. '2026/2027')"
+    },
+    "decadenza_data_sollecito": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Causa B - Data del sollecito"
+    },
+    "decadenza_mezzo_sollecito": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Causa B - Mezzo del sollecito (es. 'email')"
+    },
+    "decadenza_data_decorrenza": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Causa B - Data da cui il socio decade"
+    },
+    "causa_esclusione": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Causa C - Esclusione per gravi motivi"
+    },
+    "esclusione_data_delibera": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Causa C - Data della delibera dell'organo competente"
+    },
+    "esclusione_numero_verbale": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Causa C - Numero del verbale"
+    },
+    "esclusione_motivo_inosservanza": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Causa C - Grave inosservanza di Statuto, Regolamento o delibere"
+    },
+    "esclusione_motivo_condotte": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Causa C - Condotte contrarie alle finalita' dell'Associazione"
+    },
+    "esclusione_motivo_danno": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Causa C - Danno morale o materiale all'Associazione o ai soci"
+    },
+    "esclusione_motivo_altro": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Causa C - Altro (descritto in esclusione_altro_descrizione)"
+    },
+    "esclusione_altro_descrizione": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Causa C - Descrizione del motivo 'altro'"
+    },
+    "esclusione_data_contestazione": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Causa C - Data di contestazione degli addebiti (font 8, riga stretta)"
+    },
+    "firma_socio_data": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Data accanto alla firma del socio (o genitore/tutore)"
+    }
+  }
+}

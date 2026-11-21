@@ -113,6 +113,7 @@ class PersonItem implements PersonFace
 
   final bool? specialCategoryDataConsent;
   final bool? newsletterConsent;
+  final bool? founder;
 
   // Optimistic-concurrency tokens: sent back to the API as expected_updated_at.
   final DateTime? memberUpdatedAt;
@@ -212,6 +213,7 @@ class PersonItem implements PersonFace
     this.medicalCertificateExpiration,
     this.specialCategoryDataConsent,
     this.newsletterConsent,
+    this.founder,
     this.memberUpdatedAt,
     this.studentUpdatedAt,
     this.teacherUpdatedAt,
@@ -305,6 +307,7 @@ class PersonItem implements PersonFace
       medicalCertificateExpiration: parseDate(json['medical_certificate_expiration']),
       specialCategoryDataConsent: json['special_category_data_consent'] as bool?,
       newsletterConsent: json['newsletter_consent'] as bool?,
+      founder: json['founder'] as bool?,
       memberUpdatedAt: parseInstant(json['member_updated_at']),
       studentUpdatedAt: parseInstant(json['student_updated_at']),
       teacherUpdatedAt: parseInstant(json['teacher_updated_at']),

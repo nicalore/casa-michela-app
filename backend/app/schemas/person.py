@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Annotated, Final, Self
+from typing import Annotated, Final, Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -14,6 +14,7 @@ from app.core import field_lengths
 from app.core.i18n import tr
 from app.core.time_band import EVENING_START
 from app.models.early_exit_schedule import MAXIMUM_SCHEDULES, WEEKDAYS
+from app.models.membership_revocation import ExpulsionGroundEnum
 from app.models.person import BORN_ABROAD_PROVINCE
 from app.models.student import CertificationTypeEnum
 from app.models.study_program import EducationLevelEnum, HighSchoolTrackEnum
@@ -21,6 +22,7 @@ from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
 from app.schemas.student_payments import StudentTariffData
 from app.schemas.validators import (
     OpeningCapitalStr,
+    OptionalCleanStr,
     OptionalOpeningCapitalStr,
     OptionalSentenceCaseStr,
     OptionalTitleCaseStr,
@@ -481,6 +483,7 @@ class PersonMembershipsUpdate(BaseModel):
     video_surveillance_acknowledged: bool | None = None
     special_category_data_consent: bool | None = None
     newsletter_consent: bool | None = None
+    founder: bool | None = None
     consents_signed_at: date | None = None
     emergency_contact_name: OptionalTitleCaseStr = Field(
         None,
@@ -519,8 +522,37 @@ class PersonUpdatePayload(BaseModel):
 
 
 class RevokeMembershipPayload(BaseModel):
-    revocation_type: str
+    revocation_type: Literal["RESIGNATION", "EXPULSION"]
     expected_updated_at: datetime | None = None
+
+    # What the cessation form prints; the expulsion fields only for an expulsion.
+    reason: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.REVOCATION_REASON,
+    )
+    resolution_date: date | None = None
+    minutes_number: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.REVOCATION_MINUTES,
+    )
+    grounds: list[ExpulsionGroundEnum] = Field(default_factory=list)
+    other_ground: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.REVOCATION_OTHER_GROUND,
+    )
+    charged_on: date | None = None
+    protocol_number: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.REVOCATION_PROTOCOL,
+    )
+    card_number: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.REVOCATION_CARD,
+    )
+    guardian_tax_code: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.TAX_CODE,
+    )
 
 
 class PersonSchoolEnrollmentsUpdate(BaseModel):
@@ -641,6 +673,7 @@ class PersonResponse(BaseModel):
     video_surveillance_acknowledged: bool | None = None
     special_category_data_consent: bool | None = None
     newsletter_consent: bool | None = None
+    founder: bool | None = None
     consents_signed_at: date | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None

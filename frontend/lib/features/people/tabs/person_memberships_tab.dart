@@ -14,7 +14,6 @@ import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
-import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
@@ -27,7 +26,10 @@ import '../../association/tabs/opening_hours/lost_calendars.dart';
 import '../models/membership_item.dart';
 import '../models/person_item.dart';
 import '../edit/person_edit_dialog.dart';
+import '../../../shared/export/pdf_tab.dart';
+import '../utils/cessation_form.dart';
 import '../widgets/collaboration_badge.dart';
+import '../widgets/revoke_membership_dialog.dart';
 import 'person_account_shared.dart';
 import '../widgets/membership_edit_row.dart';
 import '../widgets/person_detail_widgets.dart';
@@ -66,7 +68,7 @@ Color get _tableHeadSurface => ThemeColours.of(0xFFF5F8F8);
 Color get _tableRule => ThemeColours.of(0xFFEDF2F1);
 
 Map<String, String> get _revocationLabels => {
-  MembershipItem.revocationExpulsion: tr('Espulsione', 'Expulsion'),
+  MembershipItem.revocationExpulsion: tr('Esclusione', 'Expulsion'),
   MembershipItem.revocationResignation: tr('Dimissioni', 'Resignation'),
 };
 
@@ -161,13 +163,19 @@ class PersonMembershipsTab extends StatelessWidget
     showBlurredDialog(
       context: context,
       barrierLabel: 'RevokeMembership',
-      builder: (context) => _RevokeMembershipDialog(person: person, onUpdate: onUpdate!),
+      builder: (context) => RevokeMembershipDialog(person: person, onUpdate: onUpdate!),
     );
   }
 
   // Null when there is nothing to act on: a revoked membership is frozen.
   Widget? _buildActions(BuildContext context, {required bool isRevoked, required bool hasAny})
   {
+    // The revoked record offers its cessation form again, to the administrator only.
+    if (onUpdate != null && isRevoked)
+    {
+      return _CessationFormButton(person: person);
+    }
+
     if (onUpdate == null || isRevoked || !hasAny)
     {
       return null;
@@ -620,51 +628,46 @@ class _RevokedNotice extends StatelessWidget
 
 
 
-class _RevokeMembershipDialog extends StatefulWidget
+class _CessationFormButton extends StatefulWidget
 {
   final PersonItem person;
-  final VoidCallback onUpdate;
 
-  const _RevokeMembershipDialog({required this.person, required this.onUpdate});
+  const _CessationFormButton({required this.person});
 
   @override
-  State<_RevokeMembershipDialog> createState() => _RevokeMembershipDialogState();
+  State<_CessationFormButton> createState() => _CessationFormButtonState();
 }
 
-class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
+class _CessationFormButtonState extends State<_CessationFormButton>
 {
-  final ApiService _apiService = ApiService();
+  bool _isGenerating = false;
 
-  String _selectedCode = MembershipItem.revocationResignation;
-  bool _isSaving = false;
-
-  Future<void> _submitRevocation() async
+  Future<void> _open() async
   {
-    setState(() => _isSaving = true);
+    if (_isGenerating)
+    {
+      return;
+    }
+
+    final PersonItem person = widget.person;
+    final PdfTab? tab = openCessationFormTab(person);
+
+    setState(() => _isGenerating = true);
 
     try
     {
-      // memberUpdatedAt is the optimistic concurrency token.
-      await _apiService.revokePersonMembership(
-        widget.person.fiscalCode,
-        _selectedCode,
-        widget.person.memberUpdatedAt,
-      );
+      // Dated as the revocation: the day the membership ended.
+      final DateTime day = person.latestMembership?.endDate ?? romeNow();
 
-      if (mounted)
+      if (await presentCessationForm(person, tab, day: day) && mounted)
       {
-        CustomSnackBar.show(
-          context: context,
-          message: tr('Iscrizione revocata con successo.', 'Enrolment revoked successfully.'),
-          isError: false,
-        );
-
-        Navigator.of(context).pop();
-        widget.onUpdate();
+        CustomSnackBar.show(context: context, message: kCessationFormBlocked, isError: false);
       }
     }
     catch (e)
     {
+      tab?.fail(kCessationFormFailed);
+
       if (mounted)
       {
         CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
@@ -674,98 +677,19 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
     {
       if (mounted)
       {
-        setState(() => _isSaving = false);
+        setState(() => _isGenerating = false);
       }
     }
-  }
-
-  Widget _buildWarning()
-  {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _revokedSurface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.warning_rounded, color: AppTheme.trialDangerText, size: 26),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              tr(
-                "L'operazione è irreversibile: l'iscrizione terminerà in data odierna "
-                    'e lo stato di collaborazione verrà disattivato.'
-                    "${widget.person.hasAccount ? " L'account verrà sospeso definitivamente." : ''}",
-                'This cannot be undone: the enrolment will end today '
-                    'and the collaboration will be turned off.'
-                    "${widget.person.hasAccount ? ' The account will be suspended for good.' : ''}",
-              ),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.trialDangerText,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    return AppDialogStack(
-      eyebrow: tr('Iscrizione', 'Enrolment'),
-      title: tr('Revoca iscrizione', 'Revoke enrolment'),
-      maxWidth: 560,
-      footer: AppDialogFooter.single(
-        AppGradientButton(
-          label: tr('CONFERMA REVOCA', 'CONFIRM REVOCATION'),
-          icon: Icons.gavel_rounded,
-          gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDangerText,
-          busy: _isSaving,
-          height: kPersonDialogButtonHeight,
-          fontSize: kPersonDialogButtonFontSize,
-          onPressed: _submitRevocation,
-        ),
-      ),
-      children: [
-        AppDialogPill(
-          expand: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildWarning(),
-              const SizedBox(height: 22),
-              AppFieldLabel(tr('Motivazione della revoca', 'Reason for revocation')),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final entry in _revocationLabels.entries)
-                    AppSelectableChip(
-                      label: entry.value,
-                      selected: _selectedCode == entry.key,
-                      onSelected: (selected) => setState(()
-                      {
-                        if (selected)
-                        {
-                          _selectedCode = entry.key;
-                        }
-                      }),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
+    return AppGradientButton(
+      label: tr('MODULO DI CESSAZIONE', 'LEAVING FORM'),
+      icon: Icons.picture_as_pdf_outlined,
+      busy: _isGenerating,
+      onPressed: _open,
     );
   }
 }

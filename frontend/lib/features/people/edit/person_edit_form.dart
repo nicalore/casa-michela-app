@@ -654,6 +654,7 @@ class PersonEditForm
   bool videoSurveillanceAcknowledged = false;
   bool specialCategoryDataConsentValue = false;
   bool newsletterConsentValue = false;
+  bool founderValue = false;
 
   bool hasPsychologicalSupport = false;
   final TextEditingController psychologicalSupportStartDateCtrl = TextEditingController();
@@ -894,6 +895,7 @@ class PersonEditForm
 
     specialCategoryDataConsentValue = person.specialCategoryDataConsent ?? false;
     newsletterConsentValue = person.newsletterConsent ?? false;
+    founderValue = person.founder ?? false;
 
     emergencyContactNameCtrl.text = person.emergencyContactName ?? '';
     emergencyContactPhoneCtrl.text = formatPhoneNumber(person.emergencyContactPhone);
@@ -1416,6 +1418,7 @@ class PersonEditForm
             minor && medicationsCtrl.text.isNotEmpty ? medicationsCtrl.text.trim() : null,
         'special_category_data_consent': specialCategoryDataConsentValue,
         'newsletter_consent': newsletterConsentValue,
+        'founder': founderValue,
         if (person?.memberUpdatedAt != null)
           'expected_updated_at': person!.memberUpdatedAt!.toIso8601String(),
       };
@@ -1598,6 +1601,7 @@ class PersonEditForm
         'video_surveillance_acknowledged': videoSurveillanceAcknowledged,
         'special_category_data_consent': specialCategoryDataConsentValue,
         'newsletter_consent': newsletterConsentValue,
+        'founder': founderValue,
         'consents_signed_at': romeNow().toIso8601String().split('T').first,
         'emergency_contact_name': emergencyContactNameCtrl.text.isNotEmpty
             ? emergencyContactNameCtrl.text.trim()

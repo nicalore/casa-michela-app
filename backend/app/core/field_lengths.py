@@ -54,4 +54,11 @@ SECTOR: Final[int] = 100
 
 COST: Final[int] = 100
 
+# Sized on the cessation form's lines; longer text would shrink out of sight.
+REVOCATION_REASON: Final[int] = 100
+REVOCATION_MINUTES: Final[int] = 10
+REVOCATION_OTHER_GROUND: Final[int] = 60
+REVOCATION_PROTOCOL: Final[int] = 10
+REVOCATION_CARD: Final[int] = 20
+
 USERNAME: Final[int] = 50

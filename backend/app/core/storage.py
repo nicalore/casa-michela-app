@@ -81,6 +81,12 @@ EARLY_EXIT_FORM_TEMPLATE: Final[Path] = (
 
 EARLY_EXIT_FORM_FIELD_MAP: Final[Path] = DOCUMENTS_DIR / "mappa_campi_uscita.json"
 
+CESSATION_FORM_TEMPLATE: Final[Path] = (
+    DOCUMENTS_DIR / "modulo_cessazione_socio_acroform.pdf"
+)
+
+CESSATION_FORM_FIELD_MAP: Final[Path] = DOCUMENTS_DIR / "mappa_campi_cessazione.json"
+
 # Embedded into the filled forms; OFL.txt beside it is the licence it ships under.
 ENROLLMENT_FORM_FONT: Final[Path] = DOCUMENTS_DIR / "PlusJakartaSans-Regular.ttf"
 

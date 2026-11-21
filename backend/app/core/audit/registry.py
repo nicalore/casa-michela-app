@@ -212,6 +212,10 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Early exit form download",
         path_params=("tax_code",),
     ),
+    ("GET", "/people/{tax_code}/cessation-form"): AuditRule(
+        "Cessation form download",
+        path_params=("tax_code",),
+    ),
     ("PUT", "/people/{tax_code}"): AuditRule(
         "Person modification",
         path_params=("tax_code",),

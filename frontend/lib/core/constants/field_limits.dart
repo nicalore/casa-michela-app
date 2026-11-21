@@ -51,5 +51,12 @@ abstract final class FieldLimits
 
   static const int cost = 100;
 
+  // Sized on the cessation form's lines.
+  static const int revocationReason = 100;
+  static const int revocationMinutes = 10;
+  static const int revocationOtherGround = 60;
+  static const int revocationProtocol = 10;
+  static const int revocationCard = 20;
+
   static const int username = 50;
 }

@@ -126,6 +126,14 @@ class Member(UpdatedAtMixin, Base):
         server_default="false",
     )
 
+    # Printed on the cessation form as the member's qualification.
+    founder: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
     consents_signed_at: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     emergency_contact_name: Mapped[str | None] = mapped_column(

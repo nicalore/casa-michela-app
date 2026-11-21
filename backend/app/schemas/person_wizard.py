@@ -113,6 +113,7 @@ class WizardMemberDataBase(BaseModel):
     video_surveillance_acknowledged: bool
     special_category_data_consent: bool
     newsletter_consent: bool
+    founder: bool = False
     consents_signed_at: date | None = None
     emergency_contact_name: OptionalTitleCaseStr = Field(
         None,
