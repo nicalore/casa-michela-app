@@ -145,7 +145,7 @@ class MobileChoiceTile extends StatelessWidget
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1,
-                  color: AppTheme.trialTealDeep,
+                  color: AppTheme.trialTealDeepText,
                 ),
               ),
             ),

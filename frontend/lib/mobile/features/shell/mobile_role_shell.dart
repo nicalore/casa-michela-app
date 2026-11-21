@@ -11,11 +11,14 @@ import '../../../features/auth/models/me_response.dart';
 import '../../../features/reports/reports_board.dart';
 import '../../../services/account_colour_theme.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/holiday_snow.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/navigation/mobile_back_tabs.dart';
 import '../../shared/navigation/mobile_destinations.dart';
 import '../../shared/widgets/mobile_birthday_confetti.dart';
+import '../../shared/widgets/mobile_christmas_sleigh.dart';
 import '../../shared/widgets/mobile_halloween_bats.dart';
+import '../../shared/widgets/mobile_new_year_fireworks.dart';
 import '../../shared/widgets/mobile_handover.dart';
 import '../../shared/widgets/mobile_load_failed.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
@@ -612,7 +615,13 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
               child: MobileHoldScope(
                 holds: _holds,
                 waiting: arriving,
-                child: Offstage(offstage: arriving, child: _buildPage(user, sectionRole, slug)),
+                child: Offstage(
+                  offstage: arriving,
+                  // The home's cards carry the festive snow.
+                  child: slug == kMobileHomeSlug
+                      ? HolidaySnow(child: _buildPage(user, sectionRole, slug))
+                      : _buildPage(user, sectionRole, slug),
+                ),
               ),
             ),
           );
@@ -666,6 +675,8 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
                 // Outside the page switcher, so a page change never restarts the shower.
                 const MobileBirthdayConfetti(),
                 MobileHalloweenBats(onHome: _destination == kMobileHomeSlug),
+                MobileNewYearFireworks(onHome: _destination == kMobileHomeSlug),
+                MobileChristmasSleigh(onHome: _destination == kMobileHomeSlug),
                 MobileHandoverBar(
                   head: MobileNavHead(destination: current),
                   child: MobileNavSheet(

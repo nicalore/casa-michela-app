@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/holiday_snow.dart';
 
 const double _pressedOpacity = 0.55;
 const Duration _pressFade = Duration(milliseconds: 90);
@@ -116,6 +117,13 @@ class MobileLinkTile extends StatelessWidget
     }
 
     final bool pressed = context.dependOnInheritedWidgetOfExactType<_HandedPress>()?.pressed ?? false;
+    final Widget tile = DecoratedBox(
+      decoration: BoxDecoration(
+        color: onSea ? Colors.white.withValues(alpha: 0.09) : AppTheme.trialInk.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(onSea ? _seaRadius : _glassRadius),
+        border: onSea ? Border.all(color: Colors.white.withValues(alpha: 0.16)) : null,
+      ),
+    );
 
     return _Fade(
       pressed: pressed,
@@ -127,13 +135,8 @@ class MobileLinkTile extends StatelessWidget
             right: -bleed.right,
             top: -bleed.top,
             bottom: -bleed.bottom,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: onSea ? Colors.white.withValues(alpha: 0.09) : AppTheme.trialInk.withValues(alpha: 0.055),
-                borderRadius: BorderRadius.circular(onSea ? _seaRadius : _glassRadius),
-                border: onSea ? Border.all(color: Colors.white.withValues(alpha: 0.16)) : null,
-              ),
-            ),
+            // On the home's sea they are cards of their own: the festive snow lies on them too.
+            child: onSea && HolidaySnow.of(context) ? SnowCap(radius: _seaRadius, scale: 0.8, child: tile) : tile,
           ),
           padded,
         ],

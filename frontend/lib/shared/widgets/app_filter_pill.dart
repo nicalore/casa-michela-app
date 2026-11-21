@@ -583,7 +583,7 @@ class _PillSurface extends StatelessWidget
         AppTheme.trialTealDeepText,
         h,
       )!,
-      AppTheme.surface,
+      Colors.white,
       t,
     )!;
   }

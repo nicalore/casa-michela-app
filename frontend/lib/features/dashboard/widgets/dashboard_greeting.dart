@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/birthday.dart';
+import '../../../core/utils/festivities.dart';
 import '../../../core/utils/halloween.dart';
 import '../../../core/utils/rome_clock.dart';
 
@@ -21,6 +22,18 @@ String greetingLineFor({required String firstName, DateTime? birthDate, required
   if (isHalloweenToday(now))
   {
     return tr('Dolcetto o scherzetto, $firstName?', 'Trick or treat, $firstName?');
+  }
+
+  switch (festivityOn(now))
+  {
+    case Festivity.holidays:
+      return tr('Buone feste, $firstName!', 'Happy holidays, $firstName!');
+    case Festivity.christmas:
+      return tr('Buon Natale, $firstName!', 'Merry Christmas, $firstName!');
+    case Festivity.newYear:
+      return tr('Felice ${newYearOf(now)}, $firstName!', 'Happy ${newYearOf(now)}, $firstName!');
+    case null:
+      break;
   }
 
   final hour = now.hour;

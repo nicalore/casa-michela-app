@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/corner_glow.dart';
 import '../../../shared/widgets/desktop_tour.dart';
+import '../../../shared/widgets/holiday_snow.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/page_watermark.dart';
 import '../../../routing/app_router.dart';
@@ -677,7 +678,8 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
                       ),
                     ),
                   ),
-                  SizedBox(height: size.isDense ? _denseGreetingBottomGap : _greetingBottomGap),
+                  // Part of the gap moves inside the scroll area, so the snow on the first cards is not cut.
+                  SizedBox(height: (size.isDense ? _denseGreetingBottomGap : _greetingBottomGap) - kSnowRoom),
                   Expanded(
                     child: widget.role == kPsychologistRole
                         ? Center(
@@ -690,10 +692,13 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
                             ),
                           )
                         : PageTransitionScrollView(
-                            child: Center(
-                              child: SizedBox(
-                                width: contentWidth,
-                                child: _buildHome(contentWidth, size),
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: kSnowRoom),
+                              child: Center(
+                                child: SizedBox(
+                                  width: contentWidth,
+                                  child: _buildHome(contentWidth, size),
+                                ),
                               ),
                             ),
                           ),

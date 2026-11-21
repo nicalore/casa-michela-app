@@ -286,7 +286,8 @@ class _AppGradientButtonState extends State<AppGradientButton>
         horizontal: _horizontal,
         vertical: _height == null ? _vertical : _wrappedRoom,
       ),
-      child: ExcludeSemantics(child: _buildFace(AppTheme.surface)),
+      // White on the accent fill in both modes: surface turns dark in the dark mode.
+      child: ExcludeSemantics(child: _buildFace(Colors.white)),
     );
 
     final double edge = t * (1 + _feather);

@@ -165,6 +165,24 @@ abstract final class AppTheme
     stops: [0.15, 0.95],
   );
 
+  // New Year fireworks, the same in every theme and mode: deep twin (a spark's rim on a light page), bright twin.
+  static const List<(Color, Color)> fireworks = [
+    (Color(0xFFB3261E), Color(0xFFFF5A4E)),
+    (Color(0xFFC25400), Color(0xFFFF9238)),
+    fireworksGold,
+    (Color(0xFF1E7D32), Color(0xFF4FD16A)),
+    (Color(0xFF00798A), Color(0xFF3FD6E8)),
+    (Color(0xFF1F4FB8), Color(0xFF5B8CFF)),
+    (Color(0xFF5E35B1), Color(0xFFA57CFF)),
+    (Color(0xFFB0246A), Color(0xFFFF6FB5)),
+  ];
+
+  // The rockets' trails and the willow of the finale.
+  static const (Color, Color) fireworksGold = (Color(0xFFA87400), Color(0xFFFFC93C));
+
+  // Lost on a light page: only over dark backdrops.
+  static const (Color, Color) fireworksSilver = (Color(0xFF4A5866), Color(0xFFFFFFFF));
+
   static const LinearGradient dangerGradient = LinearGradient(
     colors: [trialDanger, trialDangerLight],
     stops: [0.15, 0.95],

@@ -14,14 +14,8 @@ const double kConfettiPour = 3.0;
 const double kConfettiSlowest = 110;
 const double kConfettiFastest = 230;
 
-List<Color> get _colors => [
-  AppTheme.trialTurquoise,
-  AppTheme.trialGold,
-  AppTheme.trialVioletText,
-  AppTheme.trialTealDeepText,
-  AppTheme.trialDangerLight,
-  AppTheme.trialSeaGreen,
-];
+// Every colour, the same in every theme and mode: the fireworks' pairs, half way between deep and bright.
+final List<Color> _colors = [for (final (deep, bright) in AppTheme.fireworks) Color.lerp(deep, bright, 0.55)!];
 
 // Own ticker so the clock survives a page change; positions derive from elapsed alone.
 class ConfettiShower extends ChangeNotifier

@@ -257,7 +257,7 @@ class _TutorialSheetState extends State<_TutorialSheet>
             title: section.label,
             leading: MobileCardBadge(
               icon: section.icon,
-              tint: _chosen.contains(section.slug) ? AppTheme.surface : AppTheme.trialTealDeepText,
+              tint: _chosen.contains(section.slug) ? Colors.white : AppTheme.trialTealDeepText,
             ),
             selected: _chosen.contains(section.slug),
             onTap: () => _toggle(section.slug),

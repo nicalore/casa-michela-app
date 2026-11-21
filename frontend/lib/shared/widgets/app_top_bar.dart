@@ -14,11 +14,14 @@ import '../../services/profile_photo_image.dart';
 
 import 'app_top_nav.dart';
 import 'birthday_confetti.dart';
+import 'christmas_sleigh.dart';
 import 'close_on_resize.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'desktop_tour.dart';
 import 'halloween_bats.dart';
+import 'holiday_lights.dart';
+import 'new_year_fireworks.dart';
 import 'overflow_tooltip_text.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -796,6 +799,40 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
     );
   }
 
+  // Only the homes fire them.
+  Widget _buildFireworks(AppWindowSize size, double width)
+  {
+    return Positioned.fill(
+      child: homeByRole.containsValue(widget.currentRoute)
+          ? NewYearFireworks(user: _user!, source: _celebrationSource(size, width))
+          : const SizedBox.shrink(),
+    );
+  }
+
+  // Only the homes see it fly.
+  Widget _buildSleigh(AppWindowSize size, double width)
+  {
+    return Positioned.fill(
+      child: homeByRole.containsValue(widget.currentRoute)
+          ? ChristmasSleigh(user: _user!, source: _celebrationSource(size, width))
+          : const SizedBox.shrink(),
+    );
+  }
+
+  // On every page during the festive days, still once lit; the user menu opens over them.
+  Widget _buildLights(AppWindowSize size, double width)
+  {
+    final double margin = AppBreakpoints.pageMargin(size);
+
+    return Positioned.fill(
+      child: HolidayLights(
+        user: _user!,
+        shape: size == AppWindowSize.wide ? HolidayLightsShape.bar : HolidayLightsShape.compactBar,
+        frame: Rect.fromLTWH(margin, _topMarginFor(size), width - 2 * margin, _barHeightFor(size)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -834,7 +871,10 @@ class _AppTopBarState extends State<AppTopBar> with CloseOnResize
               ),
               _buildConfetti(size, constraints.maxWidth),
               _buildBats(size, constraints.maxWidth),
+              _buildFireworks(size, constraints.maxWidth),
+              _buildSleigh(size, constraints.maxWidth),
               _buildBar(size),
+              _buildLights(size, constraints.maxWidth),
               _buildMenu(size),
             ],
           );

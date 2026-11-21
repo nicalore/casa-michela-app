@@ -1747,7 +1747,7 @@ class _Bubble extends StatelessWidget
           label: tr('Chiudi', 'Close'),
           child: FadeHoverIconButton(
             icon: Icons.close_rounded,
-            color: AppTheme.surface,
+            color: Colors.white,
             hoverColor: _closeHover,
             onTap: onClose,
           ),

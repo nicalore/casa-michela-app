@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/dark_colours.dart';
 import '../../../core/theme/theme_colours.dart';
+import '../../../shared/widgets/holiday_snow.dart';
 
 const double _blurSigma = 10;
 
@@ -68,6 +69,8 @@ class MobileGlassPanel extends StatelessWidget
   Widget build(BuildContext context)
   {
     final double inset = borderRadius.topLeft.x;
+    final bool snowy = HolidaySnow.of(context);
+    final Widget child = snowy ? HolidaySnow(on: false, child: this.child) : this.child;
 
     // Passthrough, so a panel given a height fills it with glass.
     final Widget glass = Stack(
@@ -102,7 +105,7 @@ class MobileGlassPanel extends StatelessWidget
       ],
     );
 
-    return DecoratedBox(
+    final Widget panel = DecoratedBox(
       decoration: BoxDecoration(borderRadius: borderRadius, boxShadow: shadow),
       child: ClipRRect(
         borderRadius: borderRadius,
@@ -114,5 +117,7 @@ class MobileGlassPanel extends StatelessWidget
             : glass,
       ),
     );
+
+    return snowy ? SnowCap(radius: inset, scale: 0.85, child: panel) : panel;
   }
 }

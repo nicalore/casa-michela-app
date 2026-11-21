@@ -13,6 +13,7 @@ import '../../../services/account_colour_theme.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/corner_glow.dart';
+import '../../../shared/widgets/holiday_snow.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/page_watermark.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
@@ -631,13 +632,17 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
                       ),
                     ),
                   ),
-                  SizedBox(height: size.isDense ? _denseGreetingBottomGap : _greetingBottomGap),
+                  // Part of the gap moves inside the scroll area, so the snow on the first cards is not cut.
+                  SizedBox(height: (size.isDense ? _denseGreetingBottomGap : _greetingBottomGap) - kSnowRoom),
                   Expanded(
                     child: PageTransitionScrollView(
-                      child: Center(
-                        child: SizedBox(
-                          width: contentWidth,
-                          child: _buildHome(contentWidth, size),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: kSnowRoom),
+                        child: Center(
+                          child: SizedBox(
+                            width: contentWidth,
+                            child: _buildHome(contentWidth, size),
+                          ),
                         ),
                       ),
                     ),

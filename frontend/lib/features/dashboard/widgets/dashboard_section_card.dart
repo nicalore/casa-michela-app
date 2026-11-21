@@ -5,6 +5,7 @@ import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/descender_room.dart';
+import '../../../shared/widgets/holiday_snow.dart';
 
 class DashboardSectionCard extends StatelessWidget
 {
@@ -60,28 +61,31 @@ class DashboardSectionCard extends StatelessWidget
 
     return ConstrainedBox(
       constraints: BoxConstraints(minHeight: minHeight),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(dense ? _denseRadius : radius),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        padding: icon != null ? (dense ? denseBadgedPadding : badgedPadding) : compact ? _compactPadding : padding,
-        child: Column(
-          mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (icon != null) ...[
-              _badgedHead(icon, dense: dense),
-              SizedBox(height: dense ? 8 : 10),
-              Container(height: 1, color: AppTheme.trialLine),
-              SizedBox(height: dense ? 10 : 12),
-            ] else ...[
-              _plainHead(),
-              SizedBox(height: compact ? 14 : 20),
+      child: SnowCap(
+        radius: dense ? _denseRadius : radius,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(dense ? _denseRadius : radius),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          padding: icon != null ? (dense ? denseBadgedPadding : badgedPadding) : compact ? _compactPadding : padding,
+          child: Column(
+            mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (icon != null) ...[
+                _badgedHead(icon, dense: dense),
+                SizedBox(height: dense ? 8 : 10),
+                Container(height: 1, color: AppTheme.trialLine),
+                SizedBox(height: dense ? 10 : 12),
+              ] else ...[
+                _plainHead(),
+                SizedBox(height: compact ? 14 : 20),
+              ],
+              if (fill) Expanded(child: child) else child,
             ],
-            if (fill) Expanded(child: child) else child,
-          ],
+          ),
         ),
       ),
     );

@@ -256,7 +256,7 @@ class _MonthCellState extends State<_MonthCell>
               shape: BoxShape.circle,
               color: !widget.marked || !widget.enabled
                   ? Colors.transparent
-                  : (selected ? AppTheme.surface : AppTheme.trialTurquoise),
+                  : (selected ? Colors.white : AppTheme.trialTurquoise),
             ),
           ),
         ],

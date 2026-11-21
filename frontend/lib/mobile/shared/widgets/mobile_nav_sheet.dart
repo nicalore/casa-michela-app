@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../features/auth/models/me_response.dart';
+import '../../../shared/widgets/holiday_lights.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../navigation/mobile_destinations.dart';
 import 'mobile_avatar.dart';
@@ -33,6 +34,9 @@ const double _sidePadding = 20;
 const double _bottomPadding = 20;
 
 const double _topClearance = 24;
+
+// Above the top edge for the festive lights and their glow.
+const double _lightsRoom = 30;
 
 const Duration _hideDuration = Duration(milliseconds: 260);
 
@@ -323,6 +327,24 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
     _open.addListener(check);
   }
 
+  // The festive string lies on the top edge and rides up with it as the menu opens.
+  Widget _buildLights()
+  {
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: -_lightsRoom,
+      height: _lightsRoom + _radius,
+      child: LayoutBuilder(
+        builder: (context, constraints) => HolidayLights(
+          user: widget.user,
+          shape: HolidayLightsShape.menu,
+          frame: Rect.fromLTWH(0, _lightsRoom, constraints.maxWidth, _radius),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHead()
   {
     final MobileDestination current = [...widget.destinations, ...widget.userDestinations]
@@ -549,22 +571,29 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
                         // The list wins the arena when it can scroll.
                         onVerticalDragUpdate: _onDragUpdate,
                         onVerticalDragEnd: _onDragEnd,
-                        child: _Glass(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildHead(),
-                              Expanded(
-                                child: ListView(
-                                  padding: EdgeInsets.zero,
-                                  physics: open < _contentHeight(inset)
-                                      ? const ClampingScrollPhysics()
-                                      : const NeverScrollableScrollPhysics(),
-                                  children: _buildRows(inset),
-                                ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          clipBehavior: Clip.none,
+                          children: [
+                            _Glass(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildHead(),
+                                  Expanded(
+                                    child: ListView(
+                                      padding: EdgeInsets.zero,
+                                      physics: open < _contentHeight(inset)
+                                          ? const ClampingScrollPhysics()
+                                          : const NeverScrollableScrollPhysics(),
+                                      children: _buildRows(inset),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                            _buildLights(),
+                          ],
                         ),
                       ),
                     ),

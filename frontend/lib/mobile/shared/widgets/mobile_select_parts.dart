@@ -360,10 +360,11 @@ class _Ring extends StatelessWidget
       height: _ringSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppTheme.surface.withValues(alpha: t),
+        // White disc and deep teal tick in both modes, as on the teal row.
+        color: Colors.white.withValues(alpha: t),
         border: Border.all(color: AppTheme.trialInk.withValues(alpha: _ringEdgeAlpha * (1 - t)), width: _ringEdge),
       ),
-      child: Icon(Icons.check_rounded, size: 16, color: AppTheme.trialTealDeepText.withValues(alpha: t)),
+      child: Icon(Icons.check_rounded, size: 16, color: AppTheme.trialTealDeep.withValues(alpha: t)),
     );
   }
 }

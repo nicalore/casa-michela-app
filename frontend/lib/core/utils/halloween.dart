@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'birthday.dart';
 
 // Switches the whole celebration (greeting, colours, bats) on or off.
-const bool kHalloweenEnabled = false;
+const bool kHalloweenEnabled = true;
 
 // Stands in for the switch in tests, which check the celebration while it is off.
 @visibleForTesting

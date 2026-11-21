@@ -118,7 +118,7 @@ class _AppSelectableChipState extends State<AppSelectableChip>
   {
     final Color contentColor = Color.lerp(
       Color.lerp(AppTheme.trialMutedText, AppTheme.trialTealDeepText, h)!,
-      AppTheme.surface,
+      Colors.white,
       t,
     )!;
 
