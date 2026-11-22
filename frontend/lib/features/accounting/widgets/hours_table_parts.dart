@@ -328,7 +328,7 @@ class HoursTimeField extends StatelessWidget
           hintMuted: true,
           height: kHoursFieldHeight,
           menuWidth: _menuWidth,
-          fill: changed ? AppTheme.greetingGradient : null,
+          fill: changed ? AppTheme.greetingFillGradient : null,
           markedValue: marked,
           markIcon: Icons.calendar_month_rounded,
           options: [

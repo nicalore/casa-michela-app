@@ -14,9 +14,10 @@ _IMAGE_KEY: Final[re.Pattern[str]] = re.compile(r"[0-9A-Za-z-]{1,36}")
 _PREVIEW_LENGTH: Final[int] = 280
 
 # Raw HTML is shown as text: what reaches an inbox is only what Markdown can say.
-_MARKDOWN: Final[MarkdownIt] = MarkdownIt("commonmark", {"html": False}).enable(
-    "strikethrough"
-)
+# Breaks: a quote's lines, empty ones too, stay apart as in the app.
+_MARKDOWN: Final[MarkdownIt] = MarkdownIt(
+    "commonmark", {"html": False, "breaks": True}
+).enable("strikethrough")
 
 _BLOCK_GAP: Final[str] = "margin: 0 0 14px 0;"
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'chart_steps.dart';
 import 'theme_colours.dart';
 
 abstract final class AppTheme
@@ -86,6 +87,9 @@ abstract final class AppTheme
   static Color get chartNavyText => trialOceanText;
   static Color get chartLilac => ThemeColours.of(0xFFAE8ED0);
 
+  // A hovered row or column: faint on white, stronger on the dark card or it vanishes.
+  static Color get chartHover => chartOcean.withValues(alpha: ThemeColours.isDark ? 0.18 : 0.06);
+
   // A lone series runs from ocean to violet, as the greeting does.
   static LinearGradient get chartLineGradient => LinearGradient(colors: [chartOcean, chartViolet]);
 
@@ -99,16 +103,14 @@ abstract final class AppTheme
   static Color get chartGray => slate400;
   static Color get chartGrayLight => ThemeColours.fixed(0xFFCBD5E1);
 
-  // Ordered categories (age groups), lightest first.
-  static List<Color> get chartRamp => [
-    ThemeColours.of(0xFF77B5FB),
-    ThemeColours.of(0xFF6F9AE4),
-    ThemeColours.of(0xFF687FCC),
-    ThemeColours.of(0xFF6165B3),
-    ThemeColours.of(0xFF584C98),
-    ThemeColours.of(0xFF4E347D),
-    ThemeColours.of(0xFF421B62),
-  ];
+  // Ordered categories (age groups) shown together, lightest first; see chart_steps.dart.
+  static List<Color> chartOrderedSteps(int count) => orderedChartSteps(
+    count,
+    ocean: chartOcean,
+    violet: chartViolet,
+    card: surface,
+    dark: ThemeColours.isDark,
+  );
 
   static const Color primary = Color(0xFF003C82);
   static Color get primaryText => ThemeColours.fixedLit(0xFF003C82);
@@ -152,6 +154,12 @@ abstract final class AppTheme
   // Text: lit up in the dark.
   static LinearGradient get greetingGradient => LinearGradient(
     colors: [trialOceanText, trialVioletText],
+    stops: [0.15, 0.95],
+  );
+
+  // The same as a fill under white text: deep in both modes.
+  static LinearGradient get greetingFillGradient => LinearGradient(
+    colors: [trialOcean, trialViolet],
     stops: [0.15, 0.95],
   );
 

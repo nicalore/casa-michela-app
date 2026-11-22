@@ -41,6 +41,7 @@ DefaultTextBlockStyle _block(TextStyle style, VerticalSpacing spacing, [BoxDecor
 }
 
 // Headings grow from the text's own size, so a smaller text keeps them in step.
+// The theme's violet sets them apart from the text and from the teal links.
 DefaultTextBlockStyle _heading(TextStyle text, double size)
 {
   return _block(
@@ -48,7 +49,7 @@ DefaultTextBlockStyle _heading(TextStyle text, double size)
       fontSize: size * text.fontSize! / _fontSize,
       fontWeight: FontWeight.w700,
       height: 1.3,
-      color: AppTheme.trialOceanText,
+      color: AppTheme.trialVioletText,
     ),
     _headingGap,
   );

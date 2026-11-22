@@ -28,7 +28,6 @@ const double _bandOverhangRight = 10;
 
 const double _barWidthRatio = 0.6;
 const double _barRadius = 8;
-const double _hoverColumnAlpha = 0.06;
 
 TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(color: AppTheme.trialMutedText, fontSize: 13);
 
@@ -605,7 +604,7 @@ class _MoneyPainter extends CustomPainter
           Rect.fromLTRB(x - frame.step / 2, _padTop, x + frame.step / 2, frame.bottom),
           const Radius.circular(_barRadius),
         ),
-        Paint()..color = AppTheme.chartOcean.withValues(alpha: _hoverColumnAlpha),
+        Paint()..color = AppTheme.chartHover,
       );
 
       return;

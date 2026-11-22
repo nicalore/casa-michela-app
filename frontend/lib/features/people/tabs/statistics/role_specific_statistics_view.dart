@@ -90,11 +90,18 @@ Map<String, Color> get _areaColors => {
   'LINGUISTICS': AppTheme.chartNavyText,
 };
 
-Color _ageGroupColor(String ageGroup)
+// The groups present share the steps in age order; an unknown label stays grey.
+List<Color> _ageGroupColors(List<AgeDistributionItem> items)
 {
-  final order = _ageGroupOrder[ageGroup];
+  final List<Color> steps = AppTheme.chartOrderedSteps(
+    items.where((item) => _ageGroupOrder.containsKey(item.ageGroup)).length,
+  );
+  var next = 0;
 
-  return order == null ? AppTheme.chartGray : AppTheme.chartRamp[order - 1];
+  return [
+    for (final item in items)
+      _ageGroupOrder.containsKey(item.ageGroup) ? steps[next++] : AppTheme.chartGray,
+  ];
 }
 
 List<AgeDistributionItem> _sortedByAgeGroup(List<AgeDistributionItem> items)
@@ -847,7 +854,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         data: _ageData
             .map((item) => ChartDatum(label: item.ageGroup, count: item.count))
             .toList(),
-        colors: [for (final item in _ageData) _ageGroupColor(item.ageGroup)],
+        colors: _ageGroupColors(_ageData),
       ),
     );
   }

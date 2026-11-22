@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/export/pdf_tab.dart';
@@ -175,9 +176,15 @@ class _AboutCard extends StatelessWidget
                     padding: dense
                         ? const EdgeInsets.symmetric(horizontal: 9, vertical: 3)
                         : const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    // Deep teal at 0.08 vanishes on the dark card: a tint of its own text and an edge there.
                     decoration: BoxDecoration(
-                      color: AppTheme.trialTealDeep.withValues(alpha: 0.08),
+                      color: ThemeColours.isDark
+                          ? AppTheme.trialTealDeepText.withValues(alpha: 0.16)
+                          : AppTheme.trialTealDeep.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(999),
+                      border: ThemeColours.isDark
+                          ? Border.all(color: AppTheme.trialTealDeepText.withValues(alpha: 0.45))
+                          : null,
                     ),
                     child: Text(
                       kAppVersionLabel,

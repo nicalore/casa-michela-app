@@ -39,7 +39,67 @@ Document noticeDocument(String markdown)
     markdownDocument: md.Document(encodeHtml: false, inlineSyntaxes: [md.StrikethroughSyntax()]),
   );
 
-  return Document.fromDelta(converter.convert(markdown));
+  // In a quote the space goes in as a letter: &nbsp; would split its text and lose the line.
+  final Delta delta = converter.convert(
+    markdown.replaceAllMapped(_quotedBlankLine, (match) => '${match[1]}$_noBreakSpace'),
+  );
+
+  return Document.fromDelta(_mapLines(delta, (content) => _isBlankMark(content) ? const [] : content));
+}
+
+// Markdown drops empty lines: each keeps a no-break space, saved as &nbsp;.
+const String _noBreakSpace = '\u00A0';
+
+final RegExp _markedBlankLine = RegExp('$_noBreakSpace\$', multiLine: true);
+final RegExp _quotedBlankLine = RegExp(r'^( {0,3}>.*)&nbsp;$', multiLine: true);
+
+bool _isBlankMark(List<Operation> content)
+{
+  return content.length == 1 && content.single.data == _noBreakSpace;
+}
+
+bool _isBlank(List<Operation> content)
+{
+  return content.every((operation) => operation.data is String && (operation.data as String).trim().isEmpty);
+}
+
+// Rebuilds the delta line by line, [line] giving what each line holds.
+Delta _mapLines(Delta delta, List<Operation> Function(List<Operation> content) line)
+{
+  final mapped = Delta();
+  final content = <Operation>[];
+
+  for (final operation in delta.operations)
+  {
+    final Object? data = operation.data;
+
+    if (data is! String)
+    {
+      content.add(operation);
+      continue;
+    }
+
+    final List<String> parts = data.split('\n');
+
+    for (var i = 0; i < parts.length; i++)
+    {
+      if (parts[i].isNotEmpty)
+      {
+        content.add(Operation.insert(parts[i], operation.attributes));
+      }
+
+      if (i < parts.length - 1)
+      {
+        line(content).forEach(mapped.push);
+        content.clear();
+        mapped.insert('\n', operation.attributes);
+      }
+    }
+  }
+
+  content.forEach(mapped.push);
+
+  return mapped;
 }
 
 final RegExp _listOrQuote = RegExp(r'^\s*(- |\d+\. |> )');
@@ -58,7 +118,13 @@ String noticeMarkdown(Document document)
     },
   );
 
-  return _separated(converter.convert(_tidied(document.toDelta()))).trim();
+  final Delta marked = _mapLines(
+    _tidied(document.toDelta()),
+    (content) => _isBlank(content) ? [Operation.insert(_noBreakSpace)] : content,
+  );
+
+  // Trimmed first: empty lines at either end still go.
+  return _separated(converter.convert(marked)).trim().replaceAll(_markedBlankLine, '&nbsp;');
 }
 
 // A line right after a list or a quote would join it: a blank line ends them.

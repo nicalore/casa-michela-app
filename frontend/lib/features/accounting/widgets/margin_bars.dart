@@ -21,7 +21,7 @@ const double _rowInset = 6;
 const double _hoverRadius = 8;
 const double _fontSize = 12.5;
 
-Color get _hoverColor => AppTheme.chartOcean.withValues(alpha: 0.06);
+Color get _hoverColor => AppTheme.chartHover;
 
 // One signed bar per row about a zero line: losses to the left in lilac, the rest to the right.
 // The hovered row lights up and its popup stands on the bar's end.

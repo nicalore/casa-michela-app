@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
-import '../../../../../core/theme/theme_colours.dart';
 import '../../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../../shared/widgets/page_density.dart';
 import 'chart_common.dart';
@@ -14,7 +13,7 @@ import 'stat_widgets.dart';
 LinearGradient get _barGradient => AppTheme.chartBarGradient;
 
 // The hovered column lights up behind its bar, as in the accounting charts.
-Color get _hoverColumnColor => ThemeColours.of(0x0F4077B3);
+Color get _hoverColumnColor => AppTheme.chartHover;
 const double _hoverColumnRadius = 8;
 
 // The column holding what does not fit, in the charts' grey for "other".

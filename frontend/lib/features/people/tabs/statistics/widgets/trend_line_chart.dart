@@ -32,9 +32,6 @@ const double _labelGap = 8;
 const double _barWidthRatio = 0.6;
 const double _barRadius = 8;
 
-// The hovered month lights up behind its bar, as in the accounting charts.
-const double _hoverColumnAlpha = 0.06;
-
 TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(
       color: AppTheme.trialMutedText,
       fontSize: _labelFontSize,
@@ -434,7 +431,7 @@ class _TrendLineChartPainter extends CustomPainter
           Rect.fromLTRB(x - columns.step / 2, 0, x + columns.step / 2, chartHeight),
           const Radius.circular(_barRadius),
         ),
-        Paint()..color = AppTheme.chartOcean.withValues(alpha: _hoverColumnAlpha),
+        Paint()..color = AppTheme.chartHover,
       );
     }
 

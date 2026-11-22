@@ -25,7 +25,7 @@ class UpdateVersionBadge extends StatelessWidget
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 11),
       decoration: BoxDecoration(
-        gradient: AppTheme.greetingGradient,
+        gradient: AppTheme.greetingFillGradient,
         borderRadius: BorderRadius.circular(height / 2),
       ),
       child: Center(
