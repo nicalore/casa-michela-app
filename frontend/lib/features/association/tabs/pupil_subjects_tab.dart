@@ -202,7 +202,7 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
           label: kMissingSubjectAction,
           icon: Icons.flag_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           onPressed: _openReportDialog,
         ),
       ),

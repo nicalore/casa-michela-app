@@ -721,6 +721,7 @@ class _Card extends StatelessWidget
         borderRadius: BorderRadius.circular(metrics.radius),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(metrics.radius),
       child: child,
     );
   }

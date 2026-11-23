@@ -124,6 +124,7 @@ class StudentMonthTable extends StatelessWidget
             borderRadius: BorderRadius.circular(24),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: AppTheme.cardEdge(24),
           child: _CellInset(
             inset: columns.inset,
             child: Column(

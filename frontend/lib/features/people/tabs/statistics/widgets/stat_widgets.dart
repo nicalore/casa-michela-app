@@ -687,8 +687,9 @@ String formatAppreciationScore(int score)
   return '${score > 0 ? '+' : '−'}${score.abs()}';
 }
 
-Color get kThumbUpColor => AppTheme.trialTealDeep;
-const Color kThumbDownColor = AppTheme.trialDeepWater;
+// Icon and count: the lit twins, or they sink into the dark card.
+Color get kThumbUpColor => AppTheme.trialTealDeepText;
+Color get kThumbDownColor => AppTheme.trialDeepWaterText;
 
 const Duration _hoverFade = Duration(milliseconds: 180);
 

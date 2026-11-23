@@ -112,12 +112,20 @@ abstract final class ThemeColours
   // The top of the phone's sea; elsewhere the deep water stays Casa Michela's.
   static Color get seaTop => _pick(_seaTop);
 
+  // The greeting's colour beside the ocean, shared by the dismiss buttons: far from the theme's own and the ocean.
+  static Color get secondAccent => _pick(_secondAccent);
+  static Color get secondAccentText => _pick(isDark ? _secondAccentLit : _secondAccent);
+
   static Color _pick(List<int> values) => Color(0xFF000000 | values[_painting.index]);
 }
 
 const List<int> _seaTop = [0x0B3350, 0x1E2D5B, 0x19324D, 0x342A48, 0x3F5168, 0x0B3350];
 const List<int> _presenceAccent = [0x0B6478, 0x006768, 0x24646B, 0x1E6566, 0x20675A, 0x0B6478];
 const List<int> _presenceSurface = [0xEAF7F5, 0xECF7F1, 0xEDF6F3, 0xEDF6F1, 0xEFF6EF, 0xEAF7F5];
+
+// Violet, plum, mauve, raspberry, violet, violet; the lit twins are for text in the dark.
+const List<int> _secondAccent = [0x6C3F95, 0x853477, 0x8B316A, 0x922E55, 0x6C3F95, 0x6C3F95];
+const List<int> _secondAccentLit = [0xC7A1F1, 0xE498D3, 0xEB96C6, 0xF294B2, 0xC7A1F1, 0xC7A1F1];
 
 // Casa Michela colour: Cobalto, Ardesia, Lavanda, Confetto, Terracotta.
 const Map<int, List<int>> _rows = {

@@ -364,10 +364,9 @@ class _WizardState extends State<_Wizard>
 
     return switch (steps[step].kind)
     {
-      MobileBookingStepKind.subjects || MobileBookingStepKind.notes =>
-        _draft.isEditing ? BookingWizardMark.save : BookingWizardMark.create,
+      MobileBookingStepKind.subjects => _draft.isEditing ? BookingWizardMark.save : BookingWizardMark.create,
       MobileBookingStepKind.hours => BookingWizardMark.saveHours,
-      MobileBookingStepKind.days => null,
+      MobileBookingStepKind.days || MobileBookingStepKind.notes => null,
     };
   }
 

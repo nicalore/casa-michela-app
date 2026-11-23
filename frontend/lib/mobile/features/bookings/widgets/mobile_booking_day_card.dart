@@ -419,7 +419,7 @@ class _LessonRow extends StatelessWidget
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (lesson.divided)
+                    if (lesson.ofSubject)
                       WholeWords(
                         child: Text(
                           lesson.title.toUpperCase(),
@@ -434,7 +434,7 @@ class _LessonRow extends StatelessWidget
                       ),
                     WholeWords(
                       child: Text(
-                        lesson.divided ? lesson.disciplines.join(', ') : lesson.title,
+                        lesson.heading,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: titleSize,
                           fontWeight: FontWeight.w800,

@@ -186,6 +186,7 @@ class _NoticeCardState extends State<NoticeCard>
             border: Border.all(color: AppTheme.trialGold.withValues(alpha: lit ? 1 : 0), width: 2),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: lit ? null : AppTheme.cardEdge(_radius),
           child: Padding(
             padding: _dense ? const EdgeInsets.fromLTRB(18, 12, 18, 11) : const EdgeInsets.fromLTRB(26, 18, 26, 14),
             child: _content(notice),

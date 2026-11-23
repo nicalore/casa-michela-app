@@ -22,6 +22,14 @@ abstract final class AppTheme
   static Color get trialViolet => ThemeColours.of(0xFF6C3F95);
   static Color get trialVioletText => ThemeColours.lit(0xFF6C3F95);
 
+  // The greeting's colour beside the ocean, also the dismiss buttons': far from the theme's own.
+  static Color get secondAccent => ThemeColours.secondAccent;
+  static Color get secondAccentText => ThemeColours.secondAccentText;
+
+  // Deep fills under white text: lifted in the dark, or they sink into the dark cards.
+  static Color get oceanFill => ThemeColours.isDark ? const Color(0xFF386189) : trialOcean;
+  static Color get deepWaterFill => ThemeColours.isDark ? const Color(0xFF305880) : trialDeepWater;
+
   static Color get trialGold => ThemeColours.of(0xFFE3A83C);
   static Color get trialGoldSurface => ThemeColours.of(0xFFFDF3E5);
 
@@ -153,13 +161,13 @@ abstract final class AppTheme
 
   // Text: lit up in the dark.
   static LinearGradient get greetingGradient => LinearGradient(
-    colors: [trialOceanText, trialVioletText],
+    colors: [trialOceanText, secondAccentText],
     stops: [0.15, 0.95],
   );
 
   // The same as a fill under white text: deep in both modes.
   static LinearGradient get greetingFillGradient => LinearGradient(
-    colors: [trialOcean, trialViolet],
+    colors: [oceanFill, secondAccent],
     stops: [0.15, 0.95],
   );
 
@@ -196,14 +204,27 @@ abstract final class AppTheme
     stops: [0.15, 0.95],
   );
 
+  // The greeting's colours: a dismiss button echoes it, never the confirm one.
   static LinearGradient get dismissGradient => LinearGradient(
-    colors: [trialOcean, trialViolet],
+    colors: [oceanFill, secondAccent],
     stops: [0.15, 0.95],
   );
 
-  static const List<BoxShadow> cardShadow = [
-    BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16),
-  ];
+  // Text and outline of a dismiss button at rest.
+  static Color get dismissAccent => secondAccentText;
+
+  // In the dark a faint shadow is lost: a deep one lifts the card off the page.
+  static List<BoxShadow> get cardShadow => ThemeColours.isDark
+      ? const [BoxShadow(color: Color(0x73000000), offset: Offset(0, 6), blurRadius: 20)]
+      : const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)];
+
+  // A card's shadow is lost in the dark: a hairline keeps its outline, as a foregroundDecoration.
+  static BoxDecoration? cardEdge(double radius, {double strength = 1}) => ThemeColours.isDark
+      ? BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: trialLine.withValues(alpha: strength)),
+        )
+      : null;
 
   static const List<BoxShadow> dialogShadow = [
     BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24),
@@ -213,8 +234,11 @@ abstract final class AppTheme
     BoxShadow(color: Color(0x14000000), blurRadius: 20, spreadRadius: 2),
   ];
 
+  // Tooltips and floating labels: the ocean as a fill, lifted in the dark.
+  static Color get tooltipSurface => oceanFill;
+
   static BoxDecoration get tooltipDecoration => BoxDecoration(
-        color: trialOcean.withValues(alpha: 0.97),
+        color: tooltipSurface.withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(color: Color(0x33000000), offset: Offset(0, 6), blurRadius: 18),

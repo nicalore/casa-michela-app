@@ -293,6 +293,7 @@ class _IdentityCard extends StatelessWidget
         borderRadius: BorderRadius.circular(dense ? 24 : 40),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(dense ? 24 : 40),
       child: Row(
         children: [
           PersonAvatar(person: student, size: dense ? _denseFaceSize : _faceSize),

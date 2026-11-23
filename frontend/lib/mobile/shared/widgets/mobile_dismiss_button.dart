@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/theme_colours.dart';
 import 'mobile_button_label.dart';
 
 const double _height = 58;
@@ -11,7 +10,7 @@ const double _pressedScale = 0.98;
 const Duration _pressDuration = Duration(milliseconds: 110);
 
 List<BoxShadow> get _shadow => [
-  BoxShadow(color: ThemeColours.keep(0x4D6C3F95), offset: Offset(0, 10), blurRadius: 22),
+  BoxShadow(color: AppTheme.secondAccent.withValues(alpha: 0.3), offset: Offset(0, 10), blurRadius: 22),
 ];
 
 class MobileDismissButton extends StatefulWidget

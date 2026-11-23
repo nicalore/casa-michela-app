@@ -44,6 +44,15 @@ class MobileBookingLesson
 
   bool get divided => disciplines.isNotEmpty;
 
+  // A subject's name always goes with its discipline; a discipline booked alone or a service has none.
+  bool get ofSubject => booking.kind == BookingRequestKind.ministrySubject && booking.associationSubjects.isNotEmpty;
+
+  // The discipline, even when it repeats the subject's name.
+  String get heading => ofSubject ? booking.associationSubjects.map((discipline) => discipline.name).join(', ') : title;
+
+  // "Disciplina - Materia" when it is removed.
+  String get removalName => disciplineFirstLabel(title, disciplines);
+
   // "Materia - Disciplina" when the discipline is named.
   String get named => divided ? disciplineLabel(title, disciplines.join(', ')) : title;
 

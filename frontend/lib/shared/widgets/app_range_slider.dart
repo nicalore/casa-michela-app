@@ -12,13 +12,15 @@ SliderThemeData _sliderTheme(BuildContext context, Color activeTrackColor, bool 
     trackHeight: kRangeSliderTrackHeight,
     activeTrackColor: activeTrackColor,
     inactiveTrackColor: AppTheme.trialLine,
-    thumbColor: AppTheme.surface,
+    // White in both modes: surface turns as dark as the card.
+    thumbColor: Colors.white,
     overlayColor: AppTheme.trialGold.withValues(alpha: 0.18),
     overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
     activeTickMarkColor: Colors.transparent,
     inactiveTickMarkColor: Colors.transparent,
     showValueIndicator: ShowValueIndicator.onDrag,
-    valueIndicatorColor: AppTheme.trialOceanText,
+    // The tooltips' colour, under white text.
+    valueIndicatorColor: AppTheme.tooltipSurface,
     valueIndicatorTextStyle: GoogleFonts.plusJakartaSans(
       fontSize: 13,
       fontWeight: FontWeight.w700,
@@ -79,51 +81,6 @@ class AppRangeSlider extends StatelessWidget
         max: max,
         divisions: divisions,
         labels: labels,
-        onChangeEnd: _letGo,
-        onChanged: onChanged,
-      ),
-    );
-  }
-}
-
-class AppSlider extends StatelessWidget
-{
-  final double value;
-  final double min;
-  final double max;
-  final int? divisions;
-  final String? label;
-
-  final ValueChanged<double>? onChanged;
-
-  final bool dimsWhenDisabled;
-
-  const AppSlider({
-    super.key,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-    this.label,
-    this.dimsWhenDisabled = false,
-  });
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return SliderTheme(
-      data: _sliderTheme(context, AppTheme.trialTealDeepText, dimsWhenDisabled).copyWith(
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: kRangeSliderThumbRadius, elevation: 2),
-        trackShape: const RoundedRectSliderTrackShape(),
-        valueIndicatorShape: const RectangularSliderValueIndicatorShape(),
-      ),
-      child: Slider(
-        value: value,
-        min: min,
-        max: max,
-        divisions: divisions,
-        label: label,
         onChangeEnd: _letGo,
         onChanged: onChanged,
       ),

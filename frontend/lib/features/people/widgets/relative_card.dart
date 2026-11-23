@@ -224,6 +224,7 @@ class _RelativeCardState extends State<RelativeCard>
             ),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: _hover ? null : AppTheme.cardEdge(_cardRadius),
           child: Column(
             children: [
               PersonAvatar(person: widget.person, size: _avatarSize),

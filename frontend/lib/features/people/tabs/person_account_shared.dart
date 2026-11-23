@@ -204,7 +204,7 @@ Future<bool> askPersonConfirmation(
           label: tr('ANNULLA', 'CANCEL'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: kPersonDialogButtonHeight,
           fontSize: kPersonDialogButtonFontSize,
           onPressed: () => Navigator.of(dialogContext).pop(false),

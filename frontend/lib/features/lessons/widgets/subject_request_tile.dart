@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -15,6 +16,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/shared_components.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../people/models/person_item.dart';
 import '../models/booking_summary_item.dart';
@@ -84,6 +86,9 @@ class SubjectRequestList extends StatelessWidget
   // Rows shown without their actions, as a subject whose lesson has begun.
   final bool Function(int index)? isLocked;
 
+  // Why a row cannot be removed, said when its delete is touched.
+  final String? Function(int index)? removalRefusal;
+
   const SubjectRequestList({
     super.key,
     required this.requests,
@@ -96,6 +101,7 @@ class SubjectRequestList extends StatelessWidget
     this.onAdd,
     this.onEdit,
     this.isLocked,
+    this.removalRefusal,
   });
 
   @override
@@ -128,6 +134,7 @@ class SubjectRequestList extends StatelessWidget
             teachers: teachers,
             studentGender: studentGender,
             onDelete: onRemove == null || (isLocked?.call(index) ?? false) ? null : () => onRemove!(index),
+            deleteRefusal: removalRefusal?.call(index),
             onEdit: onEdit == null || (isLocked?.call(index) ?? false) ? null : () => onEdit!(index),
           ),
         if (onAdd != null) ...[
@@ -150,6 +157,9 @@ class SubjectRequestTile extends StatefulWidget
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
 
+  // Set when the delete is refused: touching it says why.
+  final String? deleteRefusal;
+
   const SubjectRequestTile({
     super.key,
     required this.draft,
@@ -159,6 +169,7 @@ class SubjectRequestTile extends StatefulWidget
     this.onDelete,
     this.offeredSubjects,
     this.onEdit,
+    this.deleteRefusal,
   });
 
   @override
@@ -196,7 +207,22 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
       return length ?? '';
     }
 
-    return length == null ? _title : '$_title ($length)';
+    return length == null ? _title : '$_title$kShortSeparator$length';
+  }
+
+  // A refused delete says why and leaves everything open.
+  bool _refuseDeletion(BuildContext context)
+  {
+    final String? refusal = widget.deleteRefusal;
+
+    if (refusal == null)
+    {
+      return false;
+    }
+
+    CustomSnackBar.show(context: context, message: refusal, isError: true);
+
+    return true;
   }
 
   void _showDetails()
@@ -221,6 +247,11 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
             ? null
             : ()
               {
+                if (_refuseDeletion(dialogContext))
+                {
+                  return;
+                }
+
                 Navigator.of(dialogContext).pop();
                 widget.onDelete!();
               },
@@ -281,7 +312,13 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
                 icon: Icons.delete_outline_rounded,
                 color: AppTheme.trialDangerText,
                 hoverColor: AppTheme.trialGoldSurface,
-                onTap: delete,
+                onTap: ()
+                {
+                  if (!_refuseDeletion(context))
+                  {
+                    delete();
+                  }
+                },
               ),
           ],
         ),

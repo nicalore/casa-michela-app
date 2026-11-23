@@ -160,6 +160,7 @@ class _AboutCard extends StatelessWidget
         borderRadius: BorderRadius.circular(dense ? _denseCardRadius : _cardRadius),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(dense ? _denseCardRadius : _cardRadius),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -204,7 +205,7 @@ class _AboutCard extends StatelessWidget
                 label: kReportProblemLabel.toUpperCase(),
                 icon: Icons.flag_rounded,
                 gradient: AppTheme.dismissGradient,
-                accent: AppTheme.trialVioletText,
+                accent: AppTheme.dismissAccent,
                 height: _reportHeight,
                 radius: _reportRadius,
                 fontSize: _reportFontSize,
@@ -326,6 +327,7 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
             ),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: _isHovering ? null : AppTheme.cardEdge(dense ? _denseDocumentRadius : _documentRadius),
           child: Padding(
             padding: dense
                 ? const EdgeInsets.symmetric(horizontal: 14, vertical: 10)

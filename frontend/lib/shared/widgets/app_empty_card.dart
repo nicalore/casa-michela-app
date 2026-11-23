@@ -42,6 +42,7 @@ class AppEmptyCard extends StatelessWidget
         borderRadius: BorderRadius.circular(28),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(28),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

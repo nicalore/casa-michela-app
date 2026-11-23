@@ -466,7 +466,7 @@ class _ActivityDialogState extends State<ActivityDialog>
           label: tr('CHIUDI', 'CLOSE'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           horizontalPadding: _dialogButtonPadding,

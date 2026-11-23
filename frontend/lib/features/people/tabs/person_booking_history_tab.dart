@@ -661,6 +661,7 @@ class _FiguresCard extends StatelessWidget
         borderRadius: BorderRadius.circular(sizes.radius + 6),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(sizes.radius + 6),
       child: LayoutBuilder(
         builder: (context, constraints)
         {
@@ -812,6 +813,7 @@ class _DayCard extends StatelessWidget
         borderRadius: BorderRadius.circular(sizes.radius),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: isToday ? null : AppTheme.cardEdge(sizes.radius),
       child: Container(
         padding: sizes.cardPadding,
         decoration: BoxDecoration(

@@ -176,6 +176,7 @@ class PersonDetailHeader extends StatelessWidget
           borderRadius: BorderRadius.circular(_identityRadius),
           boxShadow: AppTheme.cardShadow,
         ),
+        foregroundDecoration: AppTheme.cardEdge(_identityRadius),
         child: Row(
           children: [
             _buildAvatar(context, person),

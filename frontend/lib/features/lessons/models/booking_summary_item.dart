@@ -1,5 +1,6 @@
 import '../../../core/language/app_language.dart';
 import '../../../core/utils/json_parsing.dart';
+import '../../../core/utils/word_lists.dart';
 import '../../association/models/ministry_subject_item.dart';
 
 enum BookingRequestKind
@@ -28,7 +29,7 @@ String bookingSubject(BookingSummaryItem booking, List<MinistrySubjectItem> mini
   return booking.kind == BookingRequestKind.associationSubject ? '' : bookingTitle(booking, ministrySubjects);
 }
 
-// The discipline a subject is booked for, even its only one; null when it just repeats the subject's name.
+// The discipline a subject is booked for, even its only one or one with the subject's own name.
 String? subjectDisciplineName(List<MinistrySubjectItem> subjects, int? ministrySubjectId, Iterable<int> disciplineIds)
 {
   if (disciplineIds.length != 1)
@@ -44,7 +45,7 @@ String? subjectDisciplineName(List<MinistrySubjectItem> subjects, int? ministryS
       {
         if (discipline.id == disciplineIds.single)
         {
-          return _sameName(discipline.name, subject.name) ? null : discipline.name;
+          return discipline.name;
         }
       }
     }
@@ -55,8 +56,8 @@ String? subjectDisciplineName(List<MinistrySubjectItem> subjects, int? ministryS
 
 bool _sameName(String a, String b) => a.trim().toLowerCase() == b.trim().toLowerCase();
 
-// The same from the booking itself, so a discipline later unlinked from its subject still shows; older
-// bookings may hold several.
+// From the booking itself, so a discipline later unlinked from its subject still shows; older bookings may
+// hold several. A name that repeats the subject's is dropped: the subject already says it.
 List<String> bookingDisciplineNames(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects)
 {
   if (booking.kind != BookingRequestKind.ministrySubject)
@@ -72,15 +73,15 @@ List<String> bookingDisciplineNames(BookingSummaryItem booking, List<MinistrySub
   ];
 }
 
-String disciplineLabel(String subject, String discipline) => '$subject - $discipline';
+// "Algebra - Matematica" when a booking is removed: the discipline first, as on the cards.
+String disciplineFirstLabel(String subject, List<String> disciplines) =>
+    disciplines.isEmpty ? subject : '${disciplines.join(', ')}$kShortSeparator$subject';
 
-// As in "Storia e geografia - Storia".
-String? bookingDisciplineLabel(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects)
-{
-  final List<String> disciplines = bookingDisciplineNames(booking, ministrySubjects);
+String bookingRemovalName(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects) =>
+    disciplineFirstLabel(bookingTitle(booking, ministrySubjects), bookingDisciplineNames(booking, ministrySubjects));
 
-  return disciplines.length == 1 ? disciplineLabel(bookingTitle(booking, ministrySubjects), disciplines.single) : null;
-}
+String disciplineLabel(String subject, String discipline) =>
+    _sameName(subject, discipline) ? subject : '$subject - $discipline';
 
 String _ministrySubjectName(List<MinistrySubjectItem> subjects, int? id)
 {

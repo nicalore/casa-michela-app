@@ -199,6 +199,7 @@ class TeacherMonthTable extends StatelessWidget
             borderRadius: BorderRadius.circular(24),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: AppTheme.cardEdge(24),
           child: _CellInset(
             inset: columns.inset,
             child: Column(
@@ -256,7 +257,7 @@ class _DropLabel extends StatelessWidget
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.trialOcean.withValues(alpha: 0.97),
+        color: AppTheme.tooltipSurface.withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(14),
         boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 18, offset: Offset(0, 6))],
       ),

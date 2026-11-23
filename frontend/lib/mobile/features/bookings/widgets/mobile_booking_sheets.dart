@@ -126,7 +126,7 @@ Future<void> showMobileLessonSheet({
   }
 
   final List<DetailRowData> rows = [
-    if (lesson.divided) fact(tr('Materia', 'Subject'), lesson.title),
+    if (lesson.ofSubject) fact(tr('Materia', 'Subject'), lesson.title),
     fact(kDurationLabel, formatMinutes(lesson.booking.duration)),
     fact(kLessonKindLabel, lesson.tags.join(', ')),
     fact(tr('Argomento', 'Topic'), lesson.topic),
@@ -150,7 +150,7 @@ Future<void> showMobileLessonSheet({
           'Lezione ${modeLabel(lesson.slot.mode).toLowerCase()}',
           lesson.slot.mode == kOnlineMode ? 'Online lesson' : 'In-person lesson',
         ),
-        title: lesson.divided ? lesson.disciplines.join(', ') : lesson.title,
+        title: lesson.heading,
         subtitle: _whoAndWhen(pupil, day, named: named),
         body: [
           MobileTourOnRise(

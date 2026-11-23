@@ -541,6 +541,7 @@ class PersonMembershipsTab extends StatelessWidget
         borderRadius: BorderRadius.circular(dense ? _denseCardRadius : _cardRadius),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(dense ? _denseCardRadius : _cardRadius),
       child: SelectionArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -406,7 +406,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
         label: tr('SEGNALA DATO MANCANTE / ERRATO', 'REPORT MISSING / WRONG DETAILS'),
         icon: Icons.flag_rounded,
         gradient: AppTheme.dismissGradient,
-        accent: AppTheme.trialVioletText,
+        accent: AppTheme.dismissAccent,
         onPressed: () => _report(person),
       ),
     );

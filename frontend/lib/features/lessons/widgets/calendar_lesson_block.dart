@@ -176,19 +176,23 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
   );
 }
 
-// The discipline leads; the subject follows only where it says more.
+// The discipline leads and its subject always follows, even with the same name; a discipline booked
+// alone or a service has none.
 ({String discipline, String? subject}) lessonTopic(LessonItem lesson, List<MinistrySubjectItem> ministrySubjects)
 {
   final disciplines = lesson.disciplineNames;
-  final subjects = [
-    for (final name in {for (final entry in lesson.bookings) bookingTitle(entry.booking, ministrySubjects)})
-      if (!disciplines.contains(name)) name,
-  ];
 
   if (disciplines.isEmpty)
   {
-    return (discipline: subjects.isEmpty ? tr('Lezione', 'Lesson') : subjects.join(', '), subject: null);
+    final titles = {for (final entry in lesson.bookings) bookingTitle(entry.booking, ministrySubjects)};
+
+    return (discipline: titles.isEmpty ? tr('Lezione', 'Lesson') : titles.join(', '), subject: null);
   }
+
+  final subjects = {
+    for (final entry in lesson.bookings)
+      if (entry.booking.kind == BookingRequestKind.ministrySubject) bookingTitle(entry.booking, ministrySubjects),
+  };
 
   return (discipline: disciplines.join(', '), subject: subjects.isEmpty ? null : subjects.join(', '));
 }

@@ -24,7 +24,7 @@ import '../../../shared/widgets/tab_layout.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../association/models/study_program_item.dart';
-import '../../bookings/utils/booking_strings.dart' show addModeLabel, deleteModeBooking, kLessonEdited, kLessonIncomplete, lastLessonNote;
+import '../../bookings/utils/booking_strings.dart' show addModeLabel, deleteModeBooking, kBookingKeepsALesson, kLessonEdited, kLessonIncomplete;
 import '../../people/models/person_item.dart';
 import '../utils/study_program_lookup.dart';
 import '../models/band_offer.dart';
@@ -83,7 +83,7 @@ class PresenceCard extends StatefulWidget
 
   final RequestModeEditor onEditMode;
   final VoidCallback onDelete;
-  final void Function(String mode, {TimeBucket? band}) onDeleteMode;
+  final void Function(String mode) onDeleteMode;
   final void Function(TimeBucket band) onEditNote;
   final void Function(TimeBucket band) onDeleteNote;
 
@@ -259,6 +259,7 @@ class _PresenceCardState extends State<PresenceCard>
               ),
               boxShadow: AppTheme.cardShadow,
             ),
+            foregroundDecoration: _isHovering ? null : AppTheme.cardEdge(dense ? 20 : 30),
             child: Padding(
               padding: dense ? const EdgeInsets.fromLTRB(14, 12, 14, 12) : const EdgeInsets.fromLTRB(24, 20, 24, 20),
               child: Column(
@@ -523,7 +524,7 @@ class _RequestDetailsDialogContent extends StatefulWidget
 
   final RequestModeEditor onEditMode;
   final VoidCallback onDelete;
-  final void Function(String mode, {TimeBucket? band}) onDeleteMode;
+  final void Function(String mode) onDeleteMode;
   final void Function(TimeBucket band) onEditNote;
   final void Function(TimeBucket band) onDeleteNote;
 
@@ -663,39 +664,25 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       return;
     }
 
-    final String mode = held.mode;
-    final TimeBucket? band = _bandOf(booking);
+    // A band's hours always keep a lesson: the band goes with its own delete.
+    if (group.requestsFor(held.mode, band: _bandOf(booking)).length == 1)
+    {
+      _showError(kBookingKeepsALesson);
 
-    // The last lesson of a band takes the band's hours with it.
-    final bool last = group.requestsFor(mode, band: band).length == 1;
-    final bool emptiesDay = last && group.slots.every((slot) => slot.mode == mode && bucketFor(slot.startTime) == band);
+      return;
+    }
 
     showBlurredDialog<void>(
       context: context,
       barrierLabel: 'ConfirmSubjectDeletion',
       builder: (confirmContext) => _ConfirmSubjectDeletion(
-        label: bookingTitle(booking, widget.ministrySubjects),
-        discipline: bookingDisciplineLabel(booking, widget.ministrySubjects),
-        note: last ? lastLessonNote(mode, band: band) : '',
-        onConfirmed: ()
-        {
-          if (emptiesDay)
-          {
-            Navigator.pop(context);
-            widget.onDelete();
-          }
-          else if (last)
-          {
-            widget.onDeleteMode(mode, band: band);
-          }
-          else
-          {
-            widget.onDeleteSubject(booking, held.presenceId, _showError);
-          }
-        },
+        name: bookingRemovalName(booking, widget.ministrySubjects),
+        service: booking.kind == BookingRequestKind.service,
+        onConfirmed: () => widget.onDeleteSubject(booking, held.presenceId, _showError),
       ),
     );
   }
+
 
   static String _otherMode(String mode) => mode == kPresenceMode ? kOnlineMode : kPresenceMode;
 
@@ -726,7 +713,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
             label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -991,6 +978,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         studentGender: widget.studentGender,
         onEdit: locked ? null : (index) => _showSubjectWizard(context, mode, existing: stored[index]),
         onRemove: locked ? null : (index) => _showSubjectDeletion(stored[index]),
+        removalRefusal: (index) => stored.length == 1 ? kBookingKeepsALesson : null,
         isLocked: (index) => widget.begunBookingIds.contains(stored[index].id),
         onAdd: locked ? null : () => widget.onEditMode(mode, subjectsOf: band),
       ),
@@ -1095,25 +1083,21 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
 
 class _ConfirmSubjectDeletion extends StatelessWidget
 {
-  final String label;
+  // "Disciplina - Materia", or a discipline or service alone.
+  final String name;
 
-  // "Materia - Disciplina" when the discipline is named.
-  final String? discipline;
-
-  // What else goes with it, after the sentence.
-  final String note;
+  final bool service;
 
   final VoidCallback onConfirmed;
 
   const _ConfirmSubjectDeletion({
-    required this.label,
-    required this.discipline,
-    required this.note,
+    required this.name,
+    required this.service,
     required this.onConfirmed,
   });
 
-  String get _ending => discipline == null
-      ? tr(' verrà tolta dalla richiesta.', ' will be taken off the request.')
+  String get _ending => service
+      ? tr(' verrà rimosso dalla richiesta.', ' will be removed from the request.')
       : tr(' verrà rimossa dalla richiesta.', ' will be removed from the request.');
 
   @override
@@ -1129,7 +1113,7 @@ class _ConfirmSubjectDeletion extends StatelessWidget
           label: tr('ANNULLA', 'CANCEL'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: () => Navigator.pop(context),
@@ -1153,12 +1137,12 @@ class _ConfirmSubjectDeletion extends StatelessWidget
           child: Text.rich(
             TextSpan(
               children: [
-                if (discipline == null) TextSpan(text: tr('La materia ', 'The subject ')),
+                if (service) TextSpan(text: tr('Il servizio ', 'The service ')),
                 TextSpan(
-                  text: discipline ?? label,
+                  text: name,
                   style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                 ),
-                TextSpan(text: '$_ending$note'),
+                TextSpan(text: _ending),
               ],
             ),
             style: GoogleFonts.plusJakartaSans(

@@ -16,6 +16,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/desktop_tour.dart';
+import '../../../shared/widgets/equal_columns.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -30,7 +31,6 @@ import '../utils/booking_wizard_strings.dart';
 import '../utils/opening_window.dart';
 import '../utils/teacher_fit.dart';
 import 'booking_fields_section.dart';
-import 'duration_slider.dart';
 import 'subject_request_tile.dart';
 
 typedef _Step = SubjectRequestStep;
@@ -39,6 +39,8 @@ const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
 const double _cardWidth = 520;
+
+const double _chipGap = 10;
 
 const double _confirmWidth = 480;
 
@@ -427,20 +429,83 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
   String get _overStay => durationOverStay(mode: widget.mode, isSelf: widget.isSelf, name: widget.studentName);
 
+  bool _fits(int minutes)
+  {
+    final int? available = _minutesAvailable;
+
+    return available == null || _minutesTakenByOthers + minutes <= available;
+  }
+
   Widget _buildDurationStep()
   {
     final int? available = _minutesAvailable;
 
-    return DurationSlider(
-      minutes: _draft.duration ?? 0,
-      longest: _longestDuration,
-      count: available == null
-          ? null
-          : tr('${durationText(_minutesTaken)} di ${formatMinutes(available)}', '${durationText(_minutesTaken)} of ${formatMinutes(available)}'),
-      over: _exceeds,
-      onChanged: (minutes) => setState(() => _draft.duration = minutes),
-      trackTour: _tour(kTourBookingsSubjectDurations),
-      countTour: _tour(kTourBookingsSubjectCount),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              Expanded(child: AppFieldLabel(kDurationLabel)),
+              if (available != null)
+                DesktopTourTarget(
+                  id: _tour(kTourBookingsSubjectCount),
+                  child: Text(
+                    tr(
+                      '${durationText(_minutesTaken)} di ${formatMinutes(available)}',
+                      '${durationText(_minutesTaken)} of ${formatMinutes(available)}',
+                    ),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: _exceeds ? AppTheme.trialDangerText : AppTheme.trialTealDeepText,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        DesktopTourTarget(
+          id: _tour(kTourBookingsSubjectDurations),
+          child: _buildDurationChips(),
+        ),
+      ],
+    );
+  }
+
+  // Every quarter hour up to the time left, rows ending on the hour; two to a row when four do not fit.
+  Widget _buildDurationChips()
+  {
+    final List<int> options = [
+      for (var minutes = kQuarterHour; minutes <= _longestDuration; minutes += kQuarterHour) minutes,
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final double widest = options
+            .map((minutes) => AppSelectableChip.widthOf(context, formatMinutes(minutes)))
+            .reduce(math.max);
+        final double four = (constraints.maxWidth - 3 * _chipGap) / 4;
+
+        return EqualColumns(
+          columns: widest <= four ? 4 : 2,
+          gap: _chipGap,
+          children: [
+            // Only a quarter hour with less than that left is off; the one held never is.
+            for (final minutes in options)
+              AppSelectableChip(
+                label: formatMinutes(minutes),
+                selected: _draft.duration == minutes,
+                enabled: _draft.duration == minutes || _fits(minutes),
+                disabledTooltip: _overStay,
+                onSelected: (_) => setState(() => _draft.duration = minutes),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -515,7 +580,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
             label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),

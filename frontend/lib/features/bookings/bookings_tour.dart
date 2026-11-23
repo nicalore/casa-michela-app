@@ -116,7 +116,7 @@ const (String, int) _switchSeen = ('bookings.wizard.switch', 2);
 const (String, int) _cursorsSeen = ('bookings.hours.cursors', 2);
 const (String, int) _addHoursSeen = ('bookings.hours.add', 3);
 const (String, int) _binSeen = ('bookings.hours.bin', 3);
-const (String, int) _forwardSeen = ('bookings.wizard.forward', 3);
+const (String, int) _forwardSeen = ('bookings.wizard.forward', 4);
 const (String, int) _saveHoursSeen = ('bookings.wizard.save.hours', 3);
 const (String, int) _bandSeen = ('bookings.wizard.band', 1);
 const (String, int) _leftSeen = ('bookings.wizard.left', 1);
@@ -125,9 +125,10 @@ const (String, int) _disciplinesSeen = ('bookings.wizard.disciplines', 1);
 const (String, int) _servicesSeen = ('bookings.wizard.services', 1);
 const (String, int) _listSeen = ('bookings.wizard.list', 2);
 const (String, int) _openSeen = ('bookings.wizard.open', 3);
-const (String, int) _createSeen = ('bookings.wizard.create', 4);
-const (String, int) _saveSeen = ('bookings.wizard.save', 4);
-const (String, int) _noteSeen = ('bookings.wizard.note', 2);
+const (String, int) _createSeen = ('bookings.wizard.create', 5);
+const (String, int) _saveSeen = ('bookings.wizard.save', 5);
+const (String, int) _noteSeen = ('bookings.wizard.note', 3);
+const (String, int) _noteForwardSeen = ('bookings.wizard.note.forward', 1);
 
 const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.below];
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.right, DesktopTourSide.above];
@@ -529,7 +530,7 @@ DesktopTourStep get _binStep => DesktopTourStep(
   seen: _binSeen,
 );
 
-// The hours card: a "Sì" brings the cursors in; then the subjects, or the hours saved alone.
+// The hours card: a "Sì" brings the cursors in; then the band's note, or the hours saved alone.
 Future<DesktopTour?> bookingsWizardHoursTour({
   required BookingsTourPupil pupil,
   required bool online,
@@ -582,7 +583,7 @@ Future<DesktopTour?> bookingsWizardHoursTour({
     else
       DesktopTourStep(
         targets: const [kTourBookingsWizardForward],
-        text: tr('Quando hai finito, clicca la freccia per scegliere le materie.', "When you're done, click the arrow to choose the subjects."),
+        text: tr('Quando hai finito, clicca la freccia per andare avanti.', "When you're done, click the arrow to continue."),
         sides: _leftFirst,
         pad: 6,
         radius: 35,
@@ -613,7 +614,7 @@ DesktopTourStep get _openStep => DesktopTourStep(
   seen: _openSeen,
 );
 
-// At the end, on the band's note: [editing] saves the booking, else creates it.
+// Once a subject is chosen: [editing] saves the booking, else creates it.
 DesktopTourStep _finishStep({required bool editing})
 {
   return DesktopTourStep(
@@ -628,14 +629,17 @@ DesktopTourStep _finishStep({required bool editing})
 }
 
 // The subjects card: band and hours left, the lists; a click on a subject opens it.
-// The button saving it all is told on the band's note, the card after.
+// [chosen]: some subject is already in the card, so the button saving it all is told too.
 Future<DesktopTour?> bookingsWizardSubjectsTour({
   required BookingsTourPupil pupil,
   required bool online,
+  required bool editing,
+  required bool Function() chosen,
 })
 {
   final bool self = pupil == BookingsTourPupil.self;
   final String yours = pupil.yours;
+  final DesktopTourStep finish = _finishStep(editing: editing);
 
   DesktopTourStep tab(String target, String text, (String, int) seen)
   {
@@ -733,11 +737,12 @@ Future<DesktopTour?> bookingsWizardSubjectsTour({
       seen: _listSeen,
     ),
     _openStep,
+    if (chosen()) finish,
   ]);
 }
 
-// The band's note card: the field, then the button saving it all.
-Future<DesktopTour?> bookingsWizardNoteTour({required bool editing})
+// The band's note card, before its subjects: the field, then the arrow to them.
+Future<DesktopTour?> bookingsWizardNoteTour()
 {
   return _freshTour([
     DesktopTourStep(
@@ -750,12 +755,23 @@ Future<DesktopTour?> bookingsWizardNoteTour({required bool editing})
       present: () => _shown(kTourBookingsWizardNote),
       seen: _noteSeen,
     ),
-    _finishStep(editing: editing),
+    DesktopTourStep(
+      targets: const [kTourBookingsWizardForward],
+      text: tr('Quando hai finito, clicca la freccia per scegliere le materie.', "When you're done, click the arrow to choose the subjects."),
+      sides: _leftFirst,
+      pad: 6,
+      radius: 35,
+      present: () => _shown(kTourBookingsWizardForward),
+      seen: _noteForwardSeen,
+    ),
   ]);
 }
 
-// A late part of the card: a subject opened in place.
-Future<DesktopTour?> bookingsLateSubjectsTour() => _dueTour([_openStep]);
+// Late parts of the card: a subject opened in place, the button once one is chosen.
+Future<DesktopTour?> bookingsLateSubjectsTour({required bool editing, required bool chosen})
+{
+  return _dueTour([_openStep, if (chosen) _finishStep(editing: editing)]);
+}
 
 enum BookingsSubjectCard { what, duration, teachers, notes }
 
@@ -766,7 +782,7 @@ const Map<_SubjectMark, int> _subjectVersions = {
   _SubjectMark.kinds: 2,
   _SubjectMark.topic: 3,
   _SubjectMark.forward: 3,
-  _SubjectMark.durations: 4,
+  _SubjectMark.durations: 5,
   _SubjectMark.count: 2,
   _SubjectMark.teachers: 2,
   _SubjectMark.search: 2,
@@ -857,7 +873,7 @@ Future<DesktopTour?> bookingsSubjectTour({
       BookingsSubjectCard.duration => [
           step(
             _SubjectMark.durations,
-            tr('Trascinando il cursore cambi la durata della lezione.', 'Drag the handle to change the length of the lesson.'),
+            tr('Qui puoi selezionare la durata della lezione.', 'Here you can choose the length of the lesson.'),
             target: kTourBookingsSubjectDurations,
             pad: 4,
             radius: 14,

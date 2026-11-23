@@ -105,6 +105,7 @@ class _AppCatalogueCardState extends State<AppCatalogueCard>
               ),
               boxShadow: AppTheme.cardShadow,
             ),
+            foregroundDecoration: _isHovering ? null : AppTheme.cardEdge(dense ? AppCatalogueCard.denseRadius : AppCatalogueCard.radius),
             child: Padding(
               padding: dense ? AppCatalogueCard.densePadding : AppCatalogueCard.padding,
               child: Column(

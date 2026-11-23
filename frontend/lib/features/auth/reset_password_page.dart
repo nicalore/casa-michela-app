@@ -184,7 +184,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
           label: tr('TORNA AL LOGIN', 'BACK TO SIGN-IN'),
           icon: Icons.arrow_back_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: _buttonHeight,
           fontSize: _buttonFontSize,
           onPressed: () => context.go('/login'),

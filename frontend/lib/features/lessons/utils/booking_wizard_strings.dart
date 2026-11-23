@@ -422,8 +422,9 @@ String get kLessonKindLabel => tr('Tipo di lezione', 'Lesson type');
 String get kTopicLabel => tr('Argomento (opzionale)', 'Topic (optional)');
 String get kTopicHint => tr('Es. Disequazioni di secondo grado', 'E.g. Quadratic inequalities');
 String get kDurationLabel => tr('Durata', 'Duration');
-String get kDurationHoursLabel => tr('Ore', 'Hours');
-String get kDurationMinutesLabel => tr('Minuti', 'Minutes');
+
+// Nothing chosen yet reads «0», never «0m».
+String durationText(int minutes) => minutes == 0 ? '0' : formatMinutes(minutes);
 String get kTeacherNotesLabel => tr('Note per il docente', 'Notes for the teacher');
 
 String get kBandNotesLabel => tr('Note sulla prenotazione', 'Booking notes');

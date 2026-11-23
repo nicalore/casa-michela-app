@@ -80,6 +80,7 @@ class StudentListPanel extends StatelessWidget
         borderRadius: BorderRadius.circular(inMenu ? _menuRadius : (dense ? _densePanelRadius : _panelRadius)),
         boxShadow: inMenu ? AppTheme.overlayShadow : AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(inMenu ? _menuRadius : (dense ? _densePanelRadius : _panelRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

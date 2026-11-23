@@ -227,6 +227,7 @@ class _OpeningTabState extends State<OpeningTab>
         borderRadius: BorderRadius.circular(dense ? 22 : 28),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(dense ? 22 : 28),
       child: Row(
         children: [
           Expanded(

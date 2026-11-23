@@ -46,11 +46,12 @@ class _SnackBarStyle
     required this.icon,
   });
 
+  // In the dark the reds light up, as the info text does, or they sink into the dark box.
   static _SnackBarStyle get error => _SnackBarStyle(
     background: ThemeColours.fixed(0xFFFFEBEE),
     border: ThemeColours.fixed(0xFFFFCDD2),
-    iconColor: Color(0xFFD32F2F),
-    textColor: Color(0xFFC62828),
+    iconColor: ThemeColours.isDark ? const Color(0xFFFC7B71) : const Color(0xFFD32F2F),
+    textColor: ThemeColours.isDark ? const Color(0xFFF6C3BD) : const Color(0xFFC62828),
     icon: Icons.error_rounded,
   );
 

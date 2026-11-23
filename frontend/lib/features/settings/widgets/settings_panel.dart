@@ -94,12 +94,14 @@ class SettingsPanel extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final Widget card = DecoratedBox(
+    final double radius = AppPageDensity.of(context) ? _densePanelRadius : _panelRadius;
+    final Widget card = Container(
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppPageDensity.of(context) ? _densePanelRadius : _panelRadius),
+        borderRadius: BorderRadius.circular(radius),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(radius),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

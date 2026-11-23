@@ -155,7 +155,7 @@ class _TriangleArrowPainter extends CustomPainter
         ..close(),
       Paint()
         // Must match the balloon's surface, alpha included.
-        ..color = AppTheme.trialOcean.withValues(alpha: 0.97)
+        ..color = AppTheme.tooltipSurface.withValues(alpha: 0.97)
         ..style = PaintingStyle.fill,
     );
   }

@@ -365,7 +365,7 @@ class _ReportBlock extends StatelessWidget
           label: tr('SEGNALA ERRORE', 'REPORT ERROR'),
           icon: Icons.flag_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: 50,
           fontSize: 14,
           radius: 25,

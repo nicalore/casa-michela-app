@@ -298,10 +298,11 @@ class MobileBookingDraft
       for (final group in groups)
         if (_opensIn(group)) ...[
           if (!subjectsOnly) (kind: MobileBookingStepKind.hours, group: group, band: null),
+          // The band's note before its subjects; a lesson added to a band keeps its own note button.
           if (!hoursOnly)
             for (final band in hoursOf(group).bands) ...[
+              if (!subjectsOnly) (kind: MobileBookingStepKind.notes, group: group, band: band),
               (kind: MobileBookingStepKind.subjects, group: group, band: band),
-              (kind: MobileBookingStepKind.notes, group: group, band: band),
             ],
         ],
     ];

@@ -50,7 +50,7 @@ const EdgeInsets _denseCardPadding = EdgeInsets.fromLTRB(24, 22, 24, 24);
 
 // Stops at the line's ends so both colours show even on short lines.
 LinearGradient get _titleGradient => LinearGradient(
-  colors: [AppTheme.trialOcean, AppTheme.trialViolet],
+  colors: [AppTheme.trialOcean, AppTheme.secondAccent],
   stops: [0.15, 0.95],
 );
 
@@ -240,7 +240,7 @@ class _LoginLayoutState extends State<LoginLayout>
       label: tr('PASSWORD DIMENTICATA?', 'FORGOT PASSWORD?'),
       icon: Icons.lock_reset_rounded,
       gradient: AppTheme.dismissGradient,
-      accent: AppTheme.trialVioletText,
+      accent: AppTheme.dismissAccent,
       height: _authButtonHeight,
       fontSize: _authButtonFontSize,
       horizontalPadding: _secondaryButtonPadding,
@@ -390,7 +390,7 @@ class _LoginLayoutState extends State<LoginLayout>
       label: tr('PASSWORD DIMENTICATA?', 'FORGOT PASSWORD?'),
       icon: Icons.lock_reset_rounded,
       gradient: AppTheme.dismissGradient,
-      accent: AppTheme.trialVioletText,
+      accent: AppTheme.dismissAccent,
       height: _denseButtonHeight,
       fontSize: _denseButtonFontSize,
       horizontalPadding: _secondaryButtonPadding,

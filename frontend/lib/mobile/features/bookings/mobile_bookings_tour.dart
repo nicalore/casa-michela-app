@@ -767,9 +767,9 @@ const Map<BookingWizardMark, int> _wizardVersions = {
   BookingWizardMark.left: 2,
   BookingWizardMark.list: 5,
   BookingWizardMark.open: 3,
-  BookingWizardMark.note: 2,
-  BookingWizardMark.create: 6,
-  BookingWizardMark.save: 7,
+  BookingWizardMark.note: 3,
+  BookingWizardMark.create: 7,
+  BookingWizardMark.save: 8,
   BookingWizardMark.saveHours: 3,
 };
 
@@ -960,9 +960,11 @@ Future<void> startBookingWizardTour({
         BookingWizardMark.left,
         BookingWizardMark.list,
         BookingWizardMark.open,
+        BookingWizardMark.create,
+        BookingWizardMark.save,
       ],
-    // The band's note comes last: the button that saves it all is there.
-    BookingWizardPage.notes => const [BookingWizardMark.note, BookingWizardMark.create, BookingWizardMark.save],
+    // The band's note, before its subjects.
+    BookingWizardPage.notes => const [BookingWizardMark.note],
   };
 
   final bool asksYesNo = !await isMobileTourSeen(taxCode: taxCode, tour: _seenMarker(_wizardSeen(BookingWizardMark.yesNo)));
@@ -1083,7 +1085,7 @@ const Map<SubjectFlowMark, int> _subjectVersions = {
   SubjectFlowMark.kinds: 3,
   SubjectFlowMark.topic: 2,
   SubjectFlowMark.next: 4,
-  SubjectFlowMark.durations: 5,
+  SubjectFlowMark.durations: 6,
   SubjectFlowMark.count: 2,
   SubjectFlowMark.teachers: 3,
   SubjectFlowMark.search: 2,
@@ -1123,8 +1125,8 @@ String _subjectText(SubjectFlowMark mark, BookingTourPupil pupil)
     ),
     SubjectFlowMark.next => tr('Quando hai fatto, tocca «Avanti».', 'When you are done, tap “Next”.'),
     SubjectFlowMark.durations => tr(
-      'Con + e − cambi la durata della lezione. Toccando un valore puoi anche scriverlo direttamente.',
-      'With + and − you change the length of the lesson. You can also tap a value to type it in.',
+      'Qui puoi selezionare la durata della lezione.',
+      'Here you can choose the length of the lesson.',
     ),
     SubjectFlowMark.count => tr(
       'Qui puoi vedere quante ore di lezione sono state prenotate rispetto al totale delle ore che puoi richiedere.',

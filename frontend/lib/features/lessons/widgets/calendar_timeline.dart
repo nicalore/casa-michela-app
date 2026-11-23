@@ -9,6 +9,7 @@ import '../../../core/language/app_language.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/layout/dense_text_scale.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_text_link.dart';
 import '../../../shared/widgets/app_tooltip.dart';
@@ -393,6 +394,9 @@ typedef _DragOutline = ({
   int shortest,
 });
 
+// In the dark a stretch is a sharp outline over a clear veil of its ink: filled, its green and ochre turned muddy.
+Color _darkStretchInk(String mode) => mode == kOnlineMode ? const Color(0xFFF2B458) : const Color(0xFF4FCAA8);
+
 enum StretchReach
 {
   idle,
@@ -417,6 +421,24 @@ class CalendarAvailabilityStretch extends StatelessWidget
   Widget build(BuildContext context)
   {
     final accent = lessonAccent(mode);
+
+    if (ThemeColours.isDark)
+    {
+      final Color ink = _darkStretchInk(mode);
+      final double dim = reach == StretchReach.closed ? 0.35 : 1;
+      final bool open = reach == StretchReach.open;
+
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: ink.withValues(alpha: (open ? 0.26 : 0.16) * dim),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: ink.withValues(alpha: 0.95 * dim), width: open ? 2.5 : 1.5),
+          boxShadow: open ? [BoxShadow(color: ink.withValues(alpha: 0.3), blurRadius: 12)] : null,
+        ),
+      );
+    }
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
@@ -499,16 +521,21 @@ class _OnlineAlsoHatchPainter extends CustomPainter
   const _OnlineAlsoHatchPainter({required this.alpha});
 
   static const double _spacing = 9;
+  static const double _darkSpacing = 7;
 
   @override
   void paint(Canvas canvas, Size size)
   {
+    final bool dark = ThemeColours.isDark;
     final paint = Paint()
-      ..color = lessonAccent(kOnlineMode).withValues(alpha: alpha)
+      ..color = dark
+          ? _darkStretchInk(kOnlineMode).withValues(alpha: (alpha * 0.55 / 0.45).clamp(0.0, 1.0))
+          : lessonAccent(kOnlineMode).withValues(alpha: alpha)
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
+    final double spacing = dark ? _darkSpacing : _spacing;
 
-    for (var x = -size.height; x < size.width; x += _spacing)
+    for (var x = -size.height; x < size.width; x += spacing)
     {
       canvas.drawLine(Offset(x, size.height), Offset(x + size.height, 0), paint);
     }

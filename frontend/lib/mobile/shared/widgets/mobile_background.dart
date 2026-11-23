@@ -30,6 +30,9 @@ class MobileBackground extends StatefulWidget
     systemNavigationBarContrastEnforced: false,
   );
 
+  // The sea's four stops as the theme and mode in force paint them: iOS copies them behind a rotation.
+  static List<Color> seaColours() => _BackdropPainter._colours().sublist(0, 4);
+
   @override
   State<MobileBackground> createState() => _MobileBackgroundState();
 }

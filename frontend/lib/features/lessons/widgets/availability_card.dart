@@ -107,6 +107,7 @@ class _AvailabilityCardState extends State<AvailabilityCard>
               ),
               boxShadow: AppTheme.cardShadow,
             ),
+            foregroundDecoration: _isHovering ? null : AppTheme.cardEdge(dense ? 20 : 30),
             child: Padding(
               padding: dense ? const EdgeInsets.fromLTRB(14, 12, 14, 12) : const EdgeInsets.fromLTRB(24, 20, 24, 20),
               child: Column(
@@ -307,7 +308,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
             label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),

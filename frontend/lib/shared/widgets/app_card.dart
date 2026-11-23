@@ -154,6 +154,7 @@ class AppCard extends StatelessWidget
         borderRadius: BorderRadius.circular(dense ? _pageCardRadius : (compact ? _compactCardRadius : _cardRadius)),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(dense ? _pageCardRadius : (compact ? _compactCardRadius : _cardRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

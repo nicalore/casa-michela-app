@@ -365,7 +365,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
       label: tr('SEGNALA DATO MANCANTE / ERRATO', 'REPORT MISSING / WRONG DETAILS'),
       icon: Icons.flag_rounded,
       gradient: AppTheme.dismissGradient,
-      accent: AppTheme.trialVioletText,
+      accent: AppTheme.dismissAccent,
       onPressed: () => _report(child),
     );
   }

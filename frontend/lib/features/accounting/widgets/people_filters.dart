@@ -180,7 +180,7 @@ class _AmountFilterDialogState extends State<_AmountFilterDialog>
           label: kResetFilterLabel,
           icon: Icons.refresh_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: 52,
           fontSize: 14,
           onPressed: _reset,

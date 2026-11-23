@@ -97,6 +97,7 @@ class StudentHoursTable extends StatelessWidget
             borderRadius: BorderRadius.circular(24),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: AppTheme.cardEdge(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

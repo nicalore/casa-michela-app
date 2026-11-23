@@ -205,6 +205,7 @@ class _ReportCardState extends State<ReportCard>
             border: Border.all(color: AppTheme.trialGold.withValues(alpha: _hover ? 1 : 0), width: 2),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: _hover ? null : AppTheme.cardEdge(dense ? _denseRadius : _radius),
           child: Padding(
             padding: dense ? _densePadding : _padding,
             child: LayoutBuilder(

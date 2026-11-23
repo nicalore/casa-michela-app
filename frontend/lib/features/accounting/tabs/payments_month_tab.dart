@@ -648,6 +648,7 @@ class _PaymentsTable extends StatelessWidget
             borderRadius: BorderRadius.circular(_radius),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: AppTheme.cardEdge(_radius),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

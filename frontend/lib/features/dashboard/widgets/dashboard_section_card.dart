@@ -69,6 +69,7 @@ class DashboardSectionCard extends StatelessWidget
             borderRadius: BorderRadius.circular(dense ? _denseRadius : radius),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: AppTheme.cardEdge(dense ? _denseRadius : radius),
           padding: icon != null ? (dense ? denseBadgedPadding : badgedPadding) : compact ? _compactPadding : padding,
           child: Column(
             mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,

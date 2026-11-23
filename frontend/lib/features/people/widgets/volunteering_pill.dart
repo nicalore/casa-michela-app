@@ -97,6 +97,7 @@ class _VolunteeringPillState extends State<VolunteeringPill>
                 boxShadow: AppTheme.cardShadow,
                 border: Border.all(color: AppTheme.trialGold.withValues(alpha: lit), width: _frameWidth),
               ),
+              foregroundDecoration: AppTheme.cardEdge(height / 2, strength: 1 - lit),
               child: child,
             ),
             child: Row(

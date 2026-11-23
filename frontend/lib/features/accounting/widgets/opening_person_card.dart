@@ -138,6 +138,7 @@ class _OpeningPersonCardState extends State<OpeningPersonCard>
               ),
               boxShadow: AppTheme.cardShadow,
             ),
+            foregroundDecoration: _hover ? null : AppTheme.cardEdge(dense ? 20 : 26),
             child: Padding(
               padding: dense
                   ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)

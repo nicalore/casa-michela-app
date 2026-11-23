@@ -9,6 +9,10 @@ const Duration _press = Duration(milliseconds: 160);
 
 const double kMobileChipGap = 6;
 
+const double kMobileChipPadding = 11;
+
+TextStyle _chipLabel(Color color) => GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.w700, color: color);
+
 const double _rowRadius = 16;
 const double _rowMinHeight = 50;
 Color get _rowRest => ThemeColours.fixed(0xB8FFFFFF);
@@ -59,6 +63,9 @@ class MobileSelectChip extends StatelessWidget
   // Drawn before the label, in its colour.
   final IconData? icon;
 
+  // Room on each side of the label; chips of a set width centre it anyway.
+  final double padding;
+
   const MobileSelectChip({
     super.key,
     required this.label,
@@ -66,7 +73,29 @@ class MobileSelectChip extends StatelessWidget
     required this.onTap,
     this.struck = false,
     this.icon,
+    this.padding = kMobileChipPadding,
   });
+
+  // The width a chip without an icon needs for [label], for laying chips out in columns.
+  static double widthOf(BuildContext context, String label, {double padding = kMobileChipPadding})
+  {
+    // Measured as the chip's Text lays it out, over the inherited style.
+    final DefaultTextStyle inherited = DefaultTextStyle.of(context);
+    final TextPainter painter = TextPainter(
+      text: TextSpan(text: label, style: inherited.style.merge(_chipLabel(AppTheme.trialInk))),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      textWidthBasis: inherited.textWidthBasis,
+      textHeightBehavior: inherited.textHeightBehavior,
+      maxLines: 1,
+    )..layout();
+
+    final double width = painter.width;
+    painter.dispose();
+
+    // The border sits inside the chip, one on each side.
+    return width + 2 * padding + 2;
+  }
 
   Widget _withIcon(Widget text, Color color)
   {
@@ -91,7 +120,7 @@ class MobileSelectChip extends StatelessWidget
   {
     return Container(
       height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 11),
+      padding: EdgeInsets.symmetric(horizontal: padding),
       decoration: BoxDecoration(
         color: AppTheme.trialInk.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(19),
@@ -129,7 +158,7 @@ class MobileSelectChip extends StatelessWidget
           builder: (t) => Container(
             height: 38,
             // Tight enough for three of the lesson kinds to share a phone's row.
-            padding: const EdgeInsets.symmetric(horizontal: 11),
+            padding: EdgeInsets.symmetric(horizontal: padding),
             decoration: BoxDecoration(
               gradient: mobileSelectFill(AppTheme.surface, t),
               borderRadius: BorderRadius.circular(19),
@@ -138,14 +167,7 @@ class MobileSelectChip extends StatelessWidget
             child: Align(
               widthFactor: 1,
               child: _withIcon(
-                Text(
-                  label,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color.lerp(AppTheme.trialInk, Colors.white, t),
-                  ),
-                ),
+                Text(label, style: _chipLabel(Color.lerp(AppTheme.trialInk, Colors.white, t)!)),
                 Color.lerp(AppTheme.trialInk, Colors.white, t)!,
               ),
             ),

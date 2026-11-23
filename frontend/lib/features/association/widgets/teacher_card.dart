@@ -72,6 +72,7 @@ class _TeacherCardState extends State<TeacherCard>
               ),
               boxShadow: AppTheme.cardShadow,
             ),
+            foregroundDecoration: _isHovering ? null : AppTheme.cardEdge(dense ? 20 : _radius),
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: dense ? 12 : 16),
               child: Row(

@@ -163,7 +163,7 @@ class _Chip extends StatelessWidget
   Widget build(BuildContext context)
   {
     final Color fill = onLight
-        ? (selected ? AppTheme.trialDeepWater : AppTheme.trialOcean.withValues(alpha: 0.06))
+        ? (selected ? AppTheme.deepWaterFill : AppTheme.trialOcean.withValues(alpha: 0.06))
         : AppTheme.surface.withValues(alpha: selected ? 0.92 : 0.12);
     final Color edge = onLight
         ? AppTheme.trialOceanText.withValues(alpha: 0.14)

@@ -191,7 +191,7 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
           label: tr('AZZERA', 'RESET'),
           icon: Icons.refresh_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
           onPressed: _reset,

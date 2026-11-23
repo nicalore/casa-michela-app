@@ -648,6 +648,7 @@ class _AvailabilityDayRowState extends State<AvailabilityDayRow>
             borderRadius: BorderRadius.circular(radius),
             boxShadow: shut ? null : AppTheme.cardShadow,
           ),
+          foregroundDecoration: shut || widget.isToday ? null : AppTheme.cardEdge(radius),
           child: card,
         ),
       ),

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -7,6 +9,7 @@ import 'app_tooltip.dart';
 const Duration _fade = Duration(milliseconds: 220);
 const double _radius = 22;
 const double _borderWidth = 1.5;
+const double _padding = 16;
 
 const double _fontSize = 14;
 const double _lineHeight = 1.25;
@@ -40,6 +43,31 @@ class AppSelectableChip extends StatefulWidget
     this.enabled = true,
     this.disabledTooltip,
   });
+
+  // The width a chip without an icon needs for [label], at the wider of its two weights.
+  static double widthOf(BuildContext context, String label)
+  {
+    final TextStyle inherited = DefaultTextStyle.of(context).style;
+    double widest = 0;
+
+    for (final weight in const [_restWeight, _chosenWeight])
+    {
+      final TextPainter painter = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: inherited.merge(GoogleFonts.plusJakartaSans(fontSize: _fontSize, fontWeight: weight, height: _lineHeight)),
+        ),
+        textDirection: TextDirection.ltr,
+        textScaler: MediaQuery.textScalerOf(context),
+        maxLines: 1,
+      )..layout();
+
+      widest = math.max(widest, painter.width);
+      painter.dispose();
+    }
+
+    return widest + 2 * _padding + 2 * _borderWidth;
+  }
 
   @override
   State<AppSelectableChip> createState() => _AppSelectableChipState();
@@ -86,17 +114,21 @@ class _AppSelectableChipState extends State<AppSelectableChip>
   Widget _buildDisabledChip()
   {
     final Widget chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: _padding, vertical: 9),
       decoration: BoxDecoration(
         color: AppTheme.closedSurface,
         borderRadius: BorderRadius.circular(_radius),
         border: Border.all(color: AppTheme.closedLine, width: _borderWidth),
       ),
-      child: _ChipLabel(
-        label: widget.label,
-        weight: _restWeight,
-        color: AppTheme.trialMutedText,
-        struck: true,
+      child: Align(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: _ChipLabel(
+          label: widget.label,
+          weight: _restWeight,
+          color: AppTheme.trialMutedText,
+          struck: true,
+        ),
       ),
     );
 
@@ -135,27 +167,31 @@ class _AppSelectableChipState extends State<AppSelectableChip>
       child: GestureDetector(
         onTap: () => widget.onSelected(!widget.selected),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: _padding, vertical: 9),
           decoration: BoxDecoration(
             gradient: _gradient(t),
             borderRadius: BorderRadius.circular(_radius),
             border: Border.all(color: borderColor, width: _borderWidth),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.icon case final icon?) ...[
-                Icon(icon, size: _iconSize, color: contentColor),
-                const SizedBox(width: _iconGap),
-              ],
-              Flexible(
-                child: _ChipLabel(
-                  label: widget.label,
-                  weight: t > 0.5 ? _chosenWeight : _restWeight,
-                  color: contentColor,
+          child: Align(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.icon case final icon?) ...[
+                  Icon(icon, size: _iconSize, color: contentColor),
+                  const SizedBox(width: _iconGap),
+                ],
+                Flexible(
+                  child: _ChipLabel(
+                    label: widget.label,
+                    weight: t > 0.5 ? _chosenWeight : _restWeight,
+                    color: contentColor,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

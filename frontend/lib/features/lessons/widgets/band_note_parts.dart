@@ -205,7 +205,7 @@ Future<void> showBandNoteDeletion({
           label: tr('ANNULLA', 'CANCEL'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: 52,
           fontSize: 14,
           onPressed: () => Navigator.pop(confirmContext),

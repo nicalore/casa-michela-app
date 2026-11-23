@@ -793,6 +793,7 @@ class _SupervisorCardState extends State<_SupervisorCard>
             ),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: _hover ? null : AppTheme.cardEdge(16),
           child: Row(
             children: [
               PersonAvatar(person: widget.lane.teacher, size: _supervisorAvatarSize),

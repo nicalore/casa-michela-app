@@ -433,18 +433,18 @@ class _BookingsTabState extends State<BookingsTab>
     );
   }
 
-  Future<void> _deleteMode(PresenceGroup group, String mode, {TimeBucket? band}) async
+  Future<void> _deleteMode(PresenceGroup group, String mode) async
   {
     final bool deleted = await widget.onReplaceLessonRequest(
       group.studentTaxCode,
       group.date,
-      [modeReplacement(group, mode, dropping: band == null ? TimeBucket.values.toSet() : {band})],
+      [modeReplacement(group, mode, dropping: TimeBucket.values.toSet())],
       (message) => CustomSnackBar.show(context: context, message: message, isError: true),
     );
 
     if (deleted && mounted)
     {
-      CustomSnackBar.show(context: context, message: modeBookingDeleted(mode, band: band), isError: false);
+      CustomSnackBar.show(context: context, message: modeBookingDeleted(mode), isError: false);
     }
   }
 
@@ -468,7 +468,7 @@ class _BookingsTabState extends State<BookingsTab>
         onlyFreeBands: freeBands,
       ),
       onDelete: () => widget.onDeleteGroup(follow.value.slots),
-      onDeleteMode: (mode, {band}) => _deleteMode(follow.value, mode, band: band),
+      onDeleteMode: (mode) => _deleteMode(follow.value, mode),
       onEditNote: (band) => _editNote(follow.value, band),
       onDeleteNote: (band) => _deleteNote(follow.value, band),
       onEditSubject: widget.onEditBooking,

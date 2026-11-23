@@ -36,8 +36,8 @@ const double _bubbleGap = 20;
 const double _windowMargin = 20;
 
 // Same colour as the desktop tooltips (AppTheme.tooltipDecoration).
-Color get _bubbleColor => AppTheme.trialOcean.withValues(alpha: 0.97);
-Color get _closeHover => Color.alphaBlend(Colors.white.withValues(alpha: 0.14), AppTheme.trialOcean);
+Color get _bubbleColor => AppTheme.tooltipSurface.withValues(alpha: 0.97);
+Color get _closeHover => Color.alphaBlend(Colors.white.withValues(alpha: 0.14), AppTheme.tooltipSurface);
 
 // Above or below a part, the bubble needs at least this much height.
 const double _shortestRoom = 170;
@@ -1676,7 +1676,7 @@ class _Bubble extends StatelessWidget
       label: label,
       icon: icon,
       gradient: forward ? AppTheme.brandGradient : AppTheme.dismissGradient,
-      accent: forward ? AppTheme.trialTealDeepText : AppTheme.trialVioletText,
+      accent: forward ? AppTheme.trialTealDeepText : AppTheme.dismissAccent,
       height: 46,
       fontSize: 14,
       onPressed: onPressed,

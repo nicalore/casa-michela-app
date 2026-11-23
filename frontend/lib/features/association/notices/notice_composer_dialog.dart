@@ -325,7 +325,7 @@ class _NoticeComposerState extends State<_NoticeComposer>
             label: kCancel,
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
             onPressed: () => Navigator.of(confirmContext).pop(false),

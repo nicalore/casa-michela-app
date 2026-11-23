@@ -71,7 +71,7 @@ Future<bool> confirmNoteDeletion(BuildContext context) async
           label: kCancelLabel,
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: 52,
           fontSize: 14,
           onPressed: () => Navigator.pop(confirmContext, false),

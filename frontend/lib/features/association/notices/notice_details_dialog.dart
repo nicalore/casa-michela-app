@@ -128,7 +128,7 @@ class _NoticeDetailsState extends State<_NoticeDetails>
             label: kCancel,
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
             onPressed: () => Navigator.pop(confirmContext),

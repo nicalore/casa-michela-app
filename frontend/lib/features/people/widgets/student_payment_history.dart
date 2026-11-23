@@ -490,6 +490,7 @@ class PaymentHistoryTable extends StatelessWidget
         borderRadius: BorderRadius.circular(metrics.radius),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(metrics.radius),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

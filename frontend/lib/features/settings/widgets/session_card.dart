@@ -78,6 +78,7 @@ class _SessionCardState extends State<SessionCard>
           borderRadius: BorderRadius.circular(_cardRadius),
           boxShadow: AppTheme.cardShadow,
         ),
+        foregroundDecoration: AppTheme.cardEdge(_cardRadius),
         child: Stack(
           children: [
             Padding(

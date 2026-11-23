@@ -203,7 +203,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
             label: tr('TORNA AL LOGIN', 'BACK TO SIGN-IN'),
             icon: Icons.logout_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             busy: _isCancelling,
             height: _buttonHeight,
             fontSize: _buttonFontSize,

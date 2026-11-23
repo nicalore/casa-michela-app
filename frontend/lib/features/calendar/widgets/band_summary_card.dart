@@ -51,6 +51,7 @@ class BandSummaryCard extends StatelessWidget
         borderRadius: BorderRadius.circular(18),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -141,6 +142,7 @@ class BandSummaryCard extends StatelessWidget
         borderRadius: BorderRadius.circular(18),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -512,6 +512,7 @@ class _PersonPickerCardState extends State<PersonPickerCard>
             ),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: _hover ? null : AppTheme.cardEdge(30),
           child: Column(
             children: [
               _buildAvatar(),

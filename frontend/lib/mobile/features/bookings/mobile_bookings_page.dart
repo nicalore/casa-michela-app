@@ -599,10 +599,13 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
             final String mode = lesson.slot.mode;
             final TimeBucket? band = bucketFor(lesson.slot.startTime);
 
-            // The last lesson of a band takes the band's hours with it.
+            // The only lesson of a band takes the band's booking with it.
             final bool last = group.requestsFor(mode, band: band).length == 1;
 
-            final warning = lessonDeletionWarning(lesson.named, mode, last: last, divided: lesson.divided, band: band);
+            final warning = lessonDeletionWarning(
+              lesson.removalName,
+              service: lesson.booking.kind == BookingRequestKind.service,
+            );
 
             await _confirmDeletion(
               sheet,

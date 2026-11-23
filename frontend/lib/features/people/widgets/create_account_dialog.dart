@@ -155,7 +155,7 @@ class _CreateAccountConfirmation extends StatelessWidget
           label: tr('ANNULLA', 'CANCEL'),
           icon: Icons.close_rounded,
           gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialVioletText,
+          accent: AppTheme.dismissAccent,
           height: kPersonDialogButtonHeight,
           fontSize: kPersonDialogButtonFontSize,
           onPressed: () => Navigator.of(context).pop(),

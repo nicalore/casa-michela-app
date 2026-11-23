@@ -2853,7 +2853,7 @@ class _CalendarTabState extends State<CalendarTab>
             label: tr('ESCI DALLA BOZZA', 'LEAVE DRAFT'),
             icon: Icons.undo_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             busy: _isPublishing,
             height: _actionHeight,
             fontSize: _actionFontSize,

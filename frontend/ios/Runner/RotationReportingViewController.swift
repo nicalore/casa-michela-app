@@ -19,6 +19,18 @@ class RotationReportingViewController: FlutterViewController {
     super.viewDidLoad()
     channel = FlutterMethodChannel(name: "it.casamichela.app/rotation", binaryMessenger: binaryMessenger)
 
+    // Dart sends the sea of the theme and mode in force; until then Casa Michela's
+    // light one.
+    channel?.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "setBackdrop" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+
+      self?.paintBackdrop(call.arguments)
+      result(nil)
+    }
+
     // Mirrors MobileBackground: AppTheme.trialDeepWater, trialTealDeep,
     // trialSeaGreen, trialLagoon at a 160° CSS angle. Glows are left out.
     backdrop.colors = [
@@ -38,7 +50,30 @@ class RotationReportingViewController: FlutterViewController {
     if backdrop.superlayer == nil, let host = view.superview {
       backdrop.frame = host.bounds
       host.layer.insertSublayer(backdrop, below: view.layer)
+
+      // In case Dart sent its sea before the handler was set.
+      channel?.invokeMethod("backdrop", arguments: nil) { [weak self] reply in
+        self?.paintBackdrop(reply)
+      }
     }
+  }
+
+  // Four ARGB colours, the sea's stops; anything else leaves it as it is.
+  private func paintBackdrop(_ arguments: Any?) {
+    guard let argb = arguments as? [NSNumber], argb.count == 4 else { return }
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    backdrop.colors = argb.map { number -> CGColor in
+      let value = number.uint32Value
+      return UIColor(
+        red: CGFloat((value >> 16) & 0xFF) / 255.0,
+        green: CGFloat((value >> 8) & 0xFF) / 255.0,
+        blue: CGFloat(value & 0xFF) / 255.0,
+        alpha: CGFloat((value >> 24) & 0xFF) / 255.0
+      ).cgColor
+    }
+    CATransaction.commit()
   }
 
   override func viewDidLayoutSubviews() {

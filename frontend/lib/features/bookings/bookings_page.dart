@@ -834,7 +834,7 @@ class _BookingsPageState extends State<BookingsPage>
             label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             height: _dialogButtonHeight,
             fontSize: _dialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -956,16 +956,12 @@ class _BookingsPageState extends State<BookingsPage>
     final PresenceItem slot = held.slot;
     final TimeBucket? band = bucketFor(slot.startTime);
 
-    // The last lesson of a band takes the band's hours with it.
+    // The only lesson of a band takes the band's booking with it.
     final bool last = group.requestsFor(slot.mode, band: band).length == 1;
 
-    final String? divided = bookingDisciplineLabel(held.booking, _ministrySubjects);
     final warning = lessonDeletionWarning(
-      divided ?? bookingTitle(held.booking, _ministrySubjects),
-      slot.mode,
-      last: last,
-      divided: divided != null,
-      band: band,
+      bookingRemovalName(held.booking, _ministrySubjects),
+      service: held.booking.kind == BookingRequestKind.service,
     );
 
     _confirm(

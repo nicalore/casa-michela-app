@@ -307,7 +307,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
             label: tr('ANNULLA', 'CANCEL'),
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             height: kPersonDialogButtonHeight,
             fontSize: kPersonDialogButtonFontSize,
             onPressed: () => Navigator.pop(confirmContext),
@@ -682,6 +682,7 @@ class _CompetenceCardState extends State<_CompetenceCard>
             ),
             boxShadow: AppTheme.cardShadow,
           ),
+          foregroundDecoration: _isHovering ? null : AppTheme.cardEdge(dense ? _denseCardRadius : _subjectCardRadius),
           child: Padding(
             padding: dense ? const EdgeInsets.fromLTRB(16, 8, 8, 8) : const EdgeInsets.fromLTRB(22, 16, 14, 16),
             child: Row(

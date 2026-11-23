@@ -19,6 +19,11 @@ String get kNoPupils => tr('Nessuno studente a tuo carico.', 'No students in you
 String get kBookingDeleted => tr('Prenotazione eliminata con successo!', 'Booking deleted successfully!');
 String get kLessonDeleted => tr('Materia eliminata con successo!', 'Subject deleted successfully!');
 String get kLessonEdited => tr('Materia modificata con successo!', 'Subject updated successfully!');
+String get kBookingKeepsALesson => tr(
+    'Deve esserci almeno una lezione associata a una prenotazione.',
+    'A booking must have at least one lesson.',
+);
+
 String get kLessonIncomplete => tr('Servono la materia, almeno una disciplina e la durata.', 'You need the subject, at least one discipline and the duration.');
 
 String _where(String mode) => mode == kOnlineMode ? kOnScreen : kInBuilding;
@@ -139,27 +144,10 @@ String bandNoteDeletionWarning(DateTime day, {String? pupil})
   return '$whose di ${formatAvailableDayLabel(day).toLowerCase()} verrà eliminata definitivamente.';
 }
 
-String lastLessonNote(String mode, {TimeBucket? band})
+// [name] from bookingRemovalName, bold; a service is masculine.
+({String? bold, String text}) lessonDeletionWarning(String name, {bool service = false})
 {
-  if (isEnglish)
-  {
-    final String when = band == null ? '' : '${_enBand(band)} ';
-    final String stay = mode == kOnlineMode ? '${when}online attendance' : '${when}attendance at the Association';
-
-    return ' It was the only ${_enKind(mode, band)} lesson, so the $stay will be deleted too.';
-  }
-
-  final String stay = '${mode == kOnlineMode ? kOnScreen : 'in Associazione'}${band == null ? '' : ' ${ofBandLabel(band)}'}';
-
-  return ' Era l\'unica lezione ${_whereIn(mode, band)}, quindi verrà eliminata anche la presenza $stay.';
-}
-
-// Last lesson of a band takes its hours. [divided]: [label] is "Materia - Disciplina", bold.
-({String? bold, String text}) lessonDeletionWarning(String label, String mode, {required bool last, bool divided = false, TimeBucket? band})
-{
-  final String also = last ? lastLessonNote(mode, band: band) : '';
-
-  return divided
-      ? (bold: label, text: tr(' verrà rimossa dalla prenotazione.$also', ' will be removed from the booking.$also'))
-      : (bold: null, text: tr('La materia $label verrà tolta dalla prenotazione.$also', 'The subject $label will be removed from the booking.$also'));
+  return service
+      ? (bold: null, text: tr('Il servizio $name verrà rimosso dalla prenotazione.', 'The service $name will be removed from the booking.'))
+      : (bold: name, text: tr(' verrà rimossa dalla prenotazione.', ' will be removed from the booking.'));
 }

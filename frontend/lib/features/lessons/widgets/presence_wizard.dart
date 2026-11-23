@@ -810,8 +810,14 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         _Step.who => await bookingsWizardDaysTour(),
         _Step.hours => await bookingsWizardHoursTour(pupil: _pupil, online: online, hoursOnly: widget.hoursOnly) ??
             await bookingsLateHoursTour(),
-        _Step.subjects => await bookingsWizardSubjectsTour(pupil: _pupil, online: online) ?? await bookingsLateSubjectsTour(),
-        _Step.notes => await bookingsWizardNoteTour(editing: _isEditing),
+        _Step.subjects => await bookingsWizardSubjectsTour(
+              pupil: _pupil,
+              online: online,
+              editing: _isEditing,
+              chosen: () => _hasChosen(card),
+            ) ??
+            await bookingsLateSubjectsTour(editing: _isEditing, chosen: _hasChosen(card)),
+        _Step.notes => await bookingsWizardNoteTour(),
         _Step.modes => null,
       };
 
@@ -2151,10 +2157,11 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           if (_effectiveModes(group).contains(mode)) ...[
             if (!widget.openOnSubjects) (step: _Step.hours, group: group, mode: mode, band: null),
             if (!widget.hoursOnly)
+              // The band's note before its subjects; a lesson added to a band keeps its own note button.
               for (final band in _answersOf(group).hours[mode]!.bands)
                 if (!_isOver(group, mode, band)) ...[
+                  if (!widget.openOnSubjects) (step: _Step.notes, group: group, mode: mode, band: band),
                   (step: _Step.subjects, group: group, mode: mode, band: band),
-                  (step: _Step.notes, group: group, mode: mode, band: band),
                 ],
           ],
       ],

@@ -63,6 +63,7 @@ class CurrentSessionCard extends StatelessWidget
           ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
           : const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
       decoration: _cardDecoration(dense ? _denseHeroRadius : _heroRadius),
+      foregroundDecoration: AppTheme.cardEdge(dense ? _denseHeroRadius : _heroRadius),
       child: LayoutBuilder(
         builder: (context, constraints)
         {
@@ -143,6 +144,7 @@ class _OtherSessionCardState extends State<OtherSessionCard>
       child: Container(
         padding: dense ? const EdgeInsets.fromLTRB(16, 12, 12, 12) : const EdgeInsets.fromLTRB(20, 18, 14, 18),
         decoration: _cardDecoration(dense ? _denseCardRadius : _cardRadius),
+        foregroundDecoration: AppTheme.cardEdge(dense ? _denseCardRadius : _cardRadius),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

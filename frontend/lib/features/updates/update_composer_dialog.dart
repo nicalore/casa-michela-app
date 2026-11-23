@@ -290,7 +290,7 @@ class _UpdateComposerState extends State<_UpdateComposer>
             label: kUpdateCancel,
             icon: Icons.close_rounded,
             gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialVioletText,
+            accent: AppTheme.dismissAccent,
             height: _buttonHeight,
             fontSize: _buttonFontSize,
             onPressed: () => Navigator.of(confirmContext).pop(false),
