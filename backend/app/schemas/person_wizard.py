@@ -146,13 +146,9 @@ class WizardMemberData(WizardMemberDataBase):
 
         return self
 
-    # Whoever joins owes at least the membership fee and the insurance.
+    # A payment recorded with the enrolment needs the method whole.
     @model_validator(mode="after")
     def _check_payment_method(self) -> Self:
-        if self.payment_method is None:
-            raise ValueError(tr(*_MISSING_PAYMENT_METHOD_ERROR))
-
-        # A payment recorded with the enrolment needs the method whole.
         if self.payment_method == "OTHER" and not self.payment_method_other:
             raise ValueError(tr(*_MISSING_PAYMENT_METHOD_ERROR))
 
@@ -250,5 +246,20 @@ class PersonWizardPayload(PersonWizardPayloadBase):
             or self.psychological_support_data is not None
         ):
             raise ValueError(health_data_without_consent_error())
+
+        return self
+
+    # The method goes with this year's fees, paid or owed (the enrolment form prints
+    # it): whoever is not enrolled this year has none to give.
+    @model_validator(mode="after")
+    def _method_with_the_fees(self) -> Self:
+        member = self.member_data
+        tariff = self.student_data.tariff if self.student_data is not None else None
+        asked = (member is not None and member.fees is not None) or (
+            tariff is not None and tariff.paid
+        )
+
+        if asked and (member is None or member.payment_method is None):
+            raise ValueError(tr(*_MISSING_PAYMENT_METHOD_ERROR))
 
         return self

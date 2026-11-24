@@ -14,6 +14,7 @@ import '../../../shared/widgets/mobile_sheet.dart';
 import '../../../shared/widgets/mobile_text_field.dart';
 
 // The eyebrow says whose facts they are: a parent reports a child's too.
+// A single field has nothing to choose: its box is open from the start.
 Future<void> showMobileReportSheet({
   required BuildContext context,
   required PersonItem person,
@@ -45,6 +46,30 @@ class _ReportSheetState extends State<_ReportSheet>
   final Map<String, TextEditingController> _controllers = {};
 
   bool _busy = false;
+
+  bool get _single => widget.fields.length == 1;
+
+  @override
+  void initState()
+  {
+    super.initState();
+
+    if (_single)
+    {
+      _chosen.add(widget.fields.single);
+      _controllers[widget.fields.single] = TextEditingController();
+    }
+  }
+
+  MobileUnsaved _unsaved()
+  {
+    if (!_single)
+    {
+      return _chosen.isEmpty ? MobileUnsaved.none : MobileUnsaved.choices;
+    }
+
+    return _controllers[widget.fields.single]!.text.trim().isEmpty ? MobileUnsaved.none : MobileUnsaved.text;
+  }
 
   // In the order of the chips, not of the taps.
   List<String> get _chosenInOrder
@@ -130,32 +155,34 @@ class _ReportSheetState extends State<_ReportSheet>
         eyebrow: widget.eyebrow,
         title: tr('Segnala errore', 'Report an error'),
         aboveKeyboard: true,
-        unsaved: () => _chosen.isEmpty ? MobileUnsaved.none : MobileUnsaved.choices,
+        unsaved: _unsaved,
         saving: _busy,
         body: [
-          const SizedBox(height: 18),
-          Text(
-            tr('Quali dati sono sbagliati?', 'Which details are wrong?'),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              height: 1.45,
-              color: AppTheme.trialInk,
+          if (!_single) ...[
+            const SizedBox(height: 18),
+            Text(
+              tr('Quali dati sono sbagliati?', 'Which details are wrong?'),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                height: 1.45,
+                color: AppTheme.trialInk,
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: kMobileChipGap,
-            runSpacing: kMobileChipGap,
-            children: [
-              for (final field in widget.fields)
-                MobileSelectChip(
-                  label: field,
-                  selected: _chosen.contains(field),
-                  onTap: () => _toggle(field),
-                ),
-            ],
-          ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: kMobileChipGap,
+              runSpacing: kMobileChipGap,
+              children: [
+                for (final field in widget.fields)
+                  MobileSelectChip(
+                    label: field,
+                    selected: _chosen.contains(field),
+                    onTap: () => _toggle(field),
+                  ),
+              ],
+            ),
+          ],
           for (final field in _chosenInOrder) ...[
             const SizedBox(height: 18),
             MobileTextField(

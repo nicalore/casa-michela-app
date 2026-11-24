@@ -30,15 +30,12 @@ Set<String> _rolesOf(PersonItem person)
 List<PersonDetailCard> ownOtherCards(PersonItem person)
 {
   final Set<String> roles = _rolesOf(person);
-  final bool isStaff = roles.contains('DOCENTE') || roles.contains('AMMINISTRATORE');
-  final PersonDetailCard? payments = paymentsCard(person);
 
   return [
     if (roles.contains('STUDENTE')) ...[
       ...pupilDetailCards(person, forOwner: true),
       if (!person.isAdult) minorSafetyCard(person),
     ],
-    if (isStaff && payments != null) payments,
     if (roles.contains('AMMINISTRATORE')) adminDetailsCard(person),
     if (roles.contains('DOCENTE')) teacherDetailsCard(person, forOwner: true),
   ];

@@ -18,13 +18,13 @@ class VolunteeringPill extends StatefulWidget
   final DateTime? monthOnly;
 
   final bool dense;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const VolunteeringPill({
     super.key,
     required this.rule,
     required this.dense,
-    required this.onTap,
+    this.onTap,
     this.monthOnly,
   });
 
@@ -74,6 +74,30 @@ class _VolunteeringPillState extends State<VolunteeringPill>
         ),
       ],
     );
+
+    final bool readOnly = widget.onTap == null;
+
+    if (readOnly)
+    {
+      return Container(
+        constraints: BoxConstraints(minHeight: height),
+        padding: EdgeInsets.fromLTRB(dense ? 12 : 14, 4, dense ? 16 : 20, 4),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(height / 2),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        foregroundDecoration: AppTheme.cardEdge(height / 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.volunteer_activism_rounded, size: dense ? 18 : 20, color: AppTheme.trialTealDeepText),
+            SizedBox(width: dense ? 10 : 12),
+            Flexible(child: text),
+          ],
+        ),
+      );
+    }
 
     return Semantics(
       button: true,

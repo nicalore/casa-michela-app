@@ -133,6 +133,17 @@ async def _readable(file: UploadFile) -> tuple[bytes, str]:
     return content, kind
 
 
+# One teacher's receipt of the month, without its bytes.
+async def receipt_of(
+    db: AsyncSession,
+    tax_code: str,
+    month: date,
+) -> ReceiptInfo | None:
+    receipt = await db.get(PaymentReceipt, (tax_code, month))
+
+    return None if receipt is None else _info(receipt)
+
+
 # The month's receipts by teacher, without their bytes.
 async def receipts_of_month(db: AsyncSession, month: date) -> dict[str, ReceiptInfo]:
     receipts = await db.scalars(

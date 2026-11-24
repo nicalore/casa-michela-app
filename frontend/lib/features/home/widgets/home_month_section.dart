@@ -149,10 +149,7 @@ String? _weeklyWarning(TeacherMonthSummaryItem month)
       : tr('$short settimane con meno di\u00a0due', '$short weeks with fewer than\u00a0two');
 }
 
-// Pay amounts show a dash while the way pay is counted is undefined.
-const bool _showsPayAmount = false;
-
-List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount = _showsPayAmount})
+List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
 {
   final TeacherMonthFiguresItem last = month.lastMonth;
 
@@ -200,14 +197,14 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month, {bool withAmount 
       ),
       link: const HomeStatsLink(),
     ),
+    // Last month up to the same day and hour, as the server reads it.
     if (cents != null)
-      withAmount
-          ? HomeFigure(
-              label: tr('Compenso', 'Pay'),
-              value: formatAmount(cents),
-              delta: _delta(cents - (lastCents ?? 0), (change) => formatAmount(change.toInt())),
-            )
-          : HomeFigure(label: tr('Compenso', 'Pay'), value: '—', tone: HomeFigureTone.absent),
+      HomeFigure(
+        label: tr('Compenso', 'Pay'),
+        value: formatAmount(cents),
+        delta: _delta(cents - (lastCents ?? 0), (change) => formatAmount(change.toInt())),
+        link: const HomePayLink(),
+      ),
   ];
 }
 

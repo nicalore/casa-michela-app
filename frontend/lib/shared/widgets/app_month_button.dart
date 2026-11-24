@@ -6,10 +6,11 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/rome_clock.dart';
 import 'calendar_anchor.dart';
 import 'carousel_arrow_button.dart';
+import 'desktop_tour.dart';
 
 String get kPickMonthLabel => tr('Scegli il mese', 'Pick the month');
 
-List<String> get _monthNames => isEnglish
+List<String> get kShortMonthNames => isEnglish
     ? const [
         'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
@@ -47,6 +48,10 @@ class AppMonthButton extends StatelessWidget
   // False where the button stands away from the page's left edge: the popover centres on it.
   final bool startAligned;
 
+  // The months' grid, for a tour; told when the popover opens and closes.
+  final String? tourMonths;
+  final void Function(BuildContext context, bool open)? onOpen;
+
   const AppMonthButton({
     super.key,
     required this.selected,
@@ -56,6 +61,8 @@ class AppMonthButton extends StatelessWidget
     this.marked = const {},
     this.size = CarouselArrowButton.defaultSize,
     this.startAligned = true,
+    this.tourMonths,
+    this.onOpen,
   });
 
   @override
@@ -65,11 +72,13 @@ class AppMonthButton extends StatelessWidget
       size: size,
       tooltip: kPickMonthLabel,
       startAligned: startAligned,
+      onOpen: onOpen,
       popover: (context, close) => _YearPopover(
         selected: selected,
         first: first,
         last: last,
         marked: marked,
+        tourMonths: tourMonths,
         onPicked: (month)
         {
           close();
@@ -86,6 +95,7 @@ class _YearPopover extends StatefulWidget
   final DateTime first;
   final DateTime last;
   final Set<DateTime> marked;
+  final String? tourMonths;
   final ValueChanged<DateTime> onPicked;
 
   const _YearPopover({
@@ -93,6 +103,7 @@ class _YearPopover extends StatefulWidget
     required this.first,
     required this.last,
     required this.marked,
+    required this.tourMonths,
     required this.onPicked,
   });
 
@@ -160,17 +171,25 @@ class _YearPopoverState extends State<_YearPopover>
             ],
           ),
           const SizedBox(height: 14),
-          for (var row = 0; row < _monthNames.length; row += _monthsPerRow) ...[
-            if (row > 0) const SizedBox(height: _cellGap),
-            Row(
+          DesktopTourTarget(
+            id: widget.tourMonths,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                for (var column = 0; column < _monthsPerRow; column++) ...[
-                  if (column > 0) const SizedBox(width: _cellGap),
-                  Expanded(child: _cell(DateTime(_year, row + column + 1), shown, current)),
+                for (var row = 0; row < kShortMonthNames.length; row += _monthsPerRow) ...[
+                  if (row > 0) const SizedBox(height: _cellGap),
+                  Row(
+                    children: [
+                      for (var column = 0; column < _monthsPerRow; column++) ...[
+                        if (column > 0) const SizedBox(width: _cellGap),
+                        Expanded(child: _cell(DateTime(_year, row + column + 1), shown, current)),
+                      ],
+                    ],
+                  ),
                 ],
               ],
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -179,7 +198,7 @@ class _YearPopoverState extends State<_YearPopover>
   Widget _cell(DateTime month, DateTime shown, DateTime current)
   {
     return _MonthCell(
-      label: _monthNames[month.month - 1],
+      label: kShortMonthNames[month.month - 1],
       enabled: _reachable(month),
       selected: month == shown,
       current: month == current,

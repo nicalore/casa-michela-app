@@ -269,6 +269,7 @@ const Set<String> kMobileTourSections = {
   'children',
   'subjects',
   'calendar',
+  'compensation',
   'association',
   'profile',
   'settings',

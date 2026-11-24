@@ -1,5 +1,7 @@
 import '../../../core/language/app_language.dart';
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -16,11 +18,13 @@ import '../../../core/utils/week_range.dart';
 import '../../../core/utils/word_lists.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/export/file_download.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_month_button.dart';
 import '../../../shared/widgets/app_text_link.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/hover_gold_frame.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -34,7 +38,10 @@ import '../../accounting/models/teacher_hours_items.dart';
 import '../../accounting/utils/accounting_jump.dart';
 import '../../accounting/utils/accounting_strings.dart' show compensationPdfFile, compensationPdfFooter, kExportPdf;
 import '../../association/tabs/opening_hours/calendar_bounds.dart';
+import '../../notifications/compensation_seen.dart';
 import '../edit/person_edit_form.dart';
+import '../compensation_tour.dart';
+import '../edit/person_edit_report_dialog.dart';
 import '../models/compensation_items.dart';
 import '../models/person_item.dart';
 import '../../accounting/utils/opening_strings.dart' show openingRowLabel;
@@ -106,7 +113,20 @@ class PersonCompensationTab extends StatefulWidget
   // Opened on this month, a day's summary say; the current one otherwise.
   final DateTime? month;
 
-  const PersonCompensationTab({super.key, required this.person, required this.onUpdate, this.month});
+  // The teacher's own page: nothing to change, no PDF, days open nothing.
+  final bool readOnly;
+
+  // False while another section of the page is on show: no tour then.
+  final bool shown;
+
+  const PersonCompensationTab({
+    super.key,
+    required this.person,
+    required this.onUpdate,
+    this.month,
+    this.readOnly = false,
+    this.shown = true,
+  });
 
   @override
   State<PersonCompensationTab> createState() => _PersonCompensationTabState();
@@ -124,6 +144,7 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
   late String? _iban = widget.person.iban;
   bool _deletingIban = false;
   bool _exporting = false;
+  bool _downloading = false;
 
   DateTime get _startMonth
   {
@@ -159,6 +180,18 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
 
     _load();
     _loadWorkedMonths();
+
+    if (widget.readOnly)
+    {
+      desktopTourLit.addListener(_onTourLit);
+    }
+  }
+
+  @override
+  void dispose()
+  {
+    desktopTourLit.removeListener(_onTourLit);
+    super.dispose();
   }
 
   @override
@@ -170,15 +203,34 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
     {
       _iban = widget.person.iban;
     }
+
+    // The teacher's own page, back on screen or sent to a month by a notification.
+    if (widget.readOnly && widget.month != oldWidget.month && widget.month != null)
+    {
+      _go(_startMonth);
+    }
+    else if (widget.readOnly && !identical(widget.person, oldWidget.person))
+    {
+      _load(quiet: true);
+      _loadWorkedMonths();
+    }
+
+    // Back from the other section: a tour still due starts now.
+    if (widget.shown && !oldWidget.shown && !_fetching)
+    {
+      unawaited(_startTours());
+    }
   }
 
-  Future<void> _load() async
+  // [quiet]: a refresh of the month on show, which keeps it if the refresh fails.
+  Future<void> _load({bool quiet = false}) async
   {
     final int asked = ++_asked;
 
     try
     {
-      final CompensationMonth shown = await _api.getCompensation(widget.person.fiscalCode, _month);
+      final DateTime month = _month;
+      final CompensationMonth shown = await _api.getCompensation(widget.person.fiscalCode, month);
 
       if (mounted && asked == _asked)
       {
@@ -188,11 +240,23 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
           _fetching = false;
           _failure = null;
         });
+
+        // One's own pay on screen: its news is done, its parts may need telling.
+        if (widget.readOnly)
+        {
+          unawaited(markCompensationSeen(month));
+          unawaited(_startTours());
+        }
       }
     }
     catch (error)
     {
       if (!mounted || asked != _asked)
+      {
+        return;
+      }
+
+      if (quiet && _shown != null)
       {
         return;
       }
@@ -364,7 +428,7 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
     // Grown with the text, a tenth larger below the wide window.
     final double labelWidth = MediaQuery.textScalerOf(context).scale(dense ? 130 : 190);
 
-    return Row(
+    final Widget nav = Row(
       mainAxisSize: stretched ? MainAxisSize.max : MainAxisSize.min,
       children: [
         AppMonthButton(
@@ -376,6 +440,8 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
           // Stretched it opens the line, at the page's left edge.
           startAligned: stretched,
           onPicked: _go,
+          tourMonths: widget.readOnly ? kTourPayPickerMonths : null,
+          onOpen: widget.readOnly ? _onPickerOpen : null,
         ),
         const SizedBox(width: 12),
         CarouselArrowButton(
@@ -400,6 +466,61 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
         ),
       ],
     );
+
+    return _tourPart(kTourPayMonth, nav);
+  }
+
+  // Lit by the teacher's own tour; the administrators' tab has none.
+  Widget _tourPart(String id, Widget child) => DesktopTourTarget(id: widget.readOnly ? id : null, child: child);
+
+  void _onPickerOpen(BuildContext context, bool open)
+  {
+    compensationPickerOpen.value = open;
+
+    if (open)
+    {
+      startCompensationTour(context, compensationPickerTour);
+    }
+  }
+
+  // The first visit tells the whole page; later, the parts shown for the first time.
+  Future<void> _startTours() async
+  {
+    // Judged on the parts the data just set will draw.
+    await WidgetsBinding.instance.endOfFrame;
+
+    if (!mounted || !widget.readOnly || !widget.shown || isDesktopTourShown || _shown == null)
+    {
+      return;
+    }
+
+    final DesktopTour page = compensationPageTour;
+
+    if (!await compensationTourSeen(page))
+    {
+      if (mounted)
+      {
+        startCompensationTour(context, page);
+      }
+
+      return;
+    }
+
+    final DesktopTour? late = await compensationLateTour();
+
+    if (late != null && mounted)
+    {
+      startCompensationTour(context, late);
+    }
+  }
+
+  // A tour just ended may leave room for the one still due.
+  void _onTourLit()
+  {
+    if (mounted && desktopTourLit.value.isEmpty && !_fetching)
+    {
+      unawaited(_startTours());
+    }
   }
 
   // Only a paid teacher owes the unpaid hour.
@@ -415,18 +536,21 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
     return AnimatedOpacity(
       duration: _fetchFade,
       opacity: _fetching ? _fetchingOpacity : 1,
-      child: VolunteeringPill(
-        rule: shown.volunteering,
-        monthOnly: shown.volunteeringMonthOnly ? _month : null,
-        dense: dense,
-        onTap: _editVolunteering,
+      child: _tourPart(
+        kTourPayVolunteering,
+        VolunteeringPill(
+          rule: shown.volunteering,
+          monthOnly: shown.volunteeringMonthOnly ? _month : null,
+          dense: dense,
+          onTap: widget.readOnly ? null : _editVolunteering,
+        ),
       ),
     );
   }
 
   Widget _buildHeader(double width, bool dense, _Metrics metrics)
   {
-    final Widget? button = _shown?.canEdit == true
+    final Widget? button = !widget.readOnly && _shown?.canEdit == true
         ? tabActionButton(
             label: kEditCompensationLabel,
             icon: Icons.edit_rounded,
@@ -543,36 +667,157 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
     }
   }
 
+  // The teacher's own copy of the bank transfer that paid the month.
+  Future<void> _downloadReceipt(CompensationMonth shown) async
+  {
+    final CompensationReceipt? receipt = shown.receipt;
+
+    if (receipt == null || _downloading)
+    {
+      return;
+    }
+
+    setState(() => _downloading = true);
+
+    try
+    {
+      final Uint8List bytes = await _api.getCompensationReceipt(widget.person.fiscalCode, _month);
+
+      await downloadFile(bytes, fileName: receipt.fileName, mimeType: receipt.contentType);
+    }
+    catch (error)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(error), isError: true);
+      }
+    }
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _downloading = false);
+      }
+    }
+  }
+
+  // A wrong IBAN goes to the administrators as a report, the right one written in it.
+  void _reportIban()
+  {
+    showAnagraphicErrorReportDialog(
+      context,
+      widget.person,
+      fields: [kIbanLabel],
+      eyebrow: kCompensationSection,
+    );
+  }
+
+  // The teacher's own: the month's receipt, and a word on a wrong IBAN.
+  Widget? _buildOwnActions(CompensationMonth shown)
+  {
+    final bool receipt = widget.readOnly && shown.receipt != null;
+    final bool report = widget.readOnly && _iban != null;
+
+    if (!receipt && !report)
+    {
+      return null;
+    }
+
+    final String receiptLabel = kDownloadReceiptLabel.toUpperCase();
+    final String reportLabel = kReportIbanLabel.toUpperCase();
+
+    // Each label on one line, the two buttons as wide.
+    final double width = [
+      _exportWidth,
+      if (receipt) AppGradientButton.oneLineWidth(context, receiptLabel, fontSize: 14, icon: true),
+      if (report) AppGradientButton.oneLineWidth(context, reportLabel, fontSize: 14, icon: true),
+    ].reduce(math.max);
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 16,
+      runSpacing: 12,
+      children: [
+        if (receipt)
+          _tourPart(
+            kTourPayReceipt,
+            AppGradientButton(
+              label: receiptLabel,
+              icon: Icons.download_rounded,
+              width: width,
+              height: 50,
+              fontSize: 14,
+              busy: _downloading,
+              onPressed: () => unawaited(_downloadReceipt(shown)),
+            ),
+          ),
+        if (report)
+          _tourPart(
+            kTourPayReport,
+            AppGradientButton(
+              label: reportLabel,
+              icon: Icons.flag_rounded,
+              gradient: AppTheme.dismissGradient,
+              accent: AppTheme.dismissAccent,
+              width: width,
+              height: 50,
+              fontSize: 14,
+              onPressed: _reportIban,
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildDays(CompensationMonth shown, _Metrics metrics, double gap)
   {
+    final Widget? own = _buildOwnActions(shown);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (shown.openingPending) ...[
+        // The set-up still to do is the administrators' business.
+        if (shown.openingPending && !widget.readOnly) ...[
           const Align(alignment: Alignment.centerLeft, child: OpeningPendingPill(fontSize: 14)),
           SizedBox(height: gap / 2),
         ],
         if (shown.isPaid)
-          _PayCard(shown: shown, metrics: metrics)
+          _tourPart(kTourPayCard, _PayCard(shown: shown, metrics: metrics))
         else
-          _CollaborationCard(shown: shown, metrics: metrics, feminine: widget.person.gender == 'F'),
-        SizedBox(height: gap),
-        if (metrics.isList)
-          _DayList(shown: shown, metrics: metrics, onOpenDay: _openDay)
-        else
-          _DayTable(shown: shown, metrics: metrics, onOpenDay: _openDay),
-        SizedBox(height: gap),
-        Center(
-          child: AppGradientButton(
-            label: kExportPdf,
-            icon: Icons.picture_as_pdf_outlined,
-            width: _exportWidth,
-            height: 50,
-            fontSize: 14,
-            busy: _exporting,
-            onPressed: () => unawaited(_exportPdf(shown)),
+          _tourPart(
+            kTourPayWork,
+            _CollaborationCard(
+              shown: shown,
+              metrics: metrics,
+              feminine: widget.person.gender == 'F',
+              ownPage: widget.readOnly,
+            ),
           ),
+        SizedBox(height: gap),
+        _tourPart(
+          shown.isPaid ? kTourPayDays : kTourPayHours,
+          metrics.isList
+              ? _DayList(shown: shown, metrics: metrics, onOpenDay: widget.readOnly ? null : _openDay)
+              : _DayTable(shown: shown, metrics: metrics, onOpenDay: widget.readOnly ? null : _openDay),
         ),
+        if (!widget.readOnly) ...[
+          SizedBox(height: gap),
+          Center(
+            child: AppGradientButton(
+              label: kExportPdf,
+              icon: Icons.picture_as_pdf_outlined,
+              width: _exportWidth,
+              height: 50,
+              fontSize: 14,
+              busy: _exporting,
+              onPressed: () => unawaited(_exportPdf(shown)),
+            ),
+          ),
+        ],
+        if (own != null) ...[
+          SizedBox(height: gap),
+          own,
+        ],
       ],
     );
   }
@@ -599,8 +844,18 @@ class _PersonCompensationTabState extends State<PersonCompensationTab>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: pageTransitionBlocks([
-                    _IbanCard(iban: _iban, metrics: metrics, onEdit: _editIban, onDelete: _deleteIban),
-                    SizedBox(height: gap),
+                    if (!widget.readOnly || _iban != null) ...[
+                      _tourPart(
+                        kTourPayIban,
+                        _IbanCard(
+                          iban: _iban,
+                          metrics: metrics,
+                          onEdit: widget.readOnly ? null : _editIban,
+                          onDelete: _deleteIban,
+                        ),
+                      ),
+                      SizedBox(height: gap),
+                    ],
                     _buildHeader(width, dense, metrics),
                     SizedBox(height: gap),
                     if (shown == null && _fetching)
@@ -767,6 +1022,7 @@ class _Card extends StatelessWidget
         borderRadius: BorderRadius.circular(metrics.radius),
         boxShadow: AppTheme.cardShadow,
       ),
+      foregroundDecoration: AppTheme.cardEdge(metrics.radius),
       child: child,
     );
   }
@@ -777,7 +1033,8 @@ class _IbanCard extends StatelessWidget
 {
   final String? iban;
   final _Metrics metrics;
-  final VoidCallback onEdit;
+  // Null on the teacher's own page: the IBAN is only read.
+  final VoidCallback? onEdit;
   final VoidCallback onDelete;
 
   const _IbanCard({required this.iban, required this.metrics, required this.onEdit, required this.onDelete});
@@ -787,6 +1044,30 @@ class _IbanCard extends StatelessWidget
   {
     final _Metrics m = metrics;
     final String? iban = this.iban;
+    final VoidCallback? onEdit = this.onEdit;
+
+    Widget valueOf(bool hidden, Widget eye) => Row(
+          children: [
+            Expanded(
+              child: _Figure(
+                label: kIbanLabel,
+                value: iban == null ? '—' : (hidden ? iban.replaceAll(RegExp(r'.'), '•') : iban),
+                size: m.totalsText,
+                line: m.ibanLine,
+                labelSize: m.labelText,
+                weight: FontWeight.w700,
+              ),
+            ),
+            if (iban != null) eye,
+          ],
+        );
+
+    if (onEdit == null)
+    {
+      return EyeMasked(
+        builder: (context, hidden, eye) => _Card(metrics: m, padding: m.ibanPadding, child: valueOf(hidden, eye)),
+      );
+    }
 
     final double buttonWidth = m.actionWidth(context);
 
@@ -820,21 +1101,7 @@ class _IbanCard extends StatelessWidget
     return EyeMasked(
       builder: (context, hidden, eye)
       {
-        final Widget value = Row(
-          children: [
-            Expanded(
-              child: _Figure(
-                label: kIbanLabel,
-                value: iban == null ? '—' : (hidden ? iban.replaceAll(RegExp(r'.'), '•') : iban),
-                size: m.totalsText,
-                line: m.ibanLine,
-                labelSize: m.labelText,
-                weight: FontWeight.w700,
-              ),
-            ),
-            if (iban != null) eye,
-          ],
-        );
+        final Widget value = valueOf(hidden, eye);
 
         return _Card(
           metrics: m,
@@ -1107,11 +1374,11 @@ class _PayCard extends StatelessWidget
           rule: true,
           flexes: const [_moneyShare, _moneyShare, _moneyShare, _rateShare, _rateShare],
           cells: [
-            pay(kGrossPayLabel, _missing(shown.gross), AppTheme.trialOcean),
-            pay(kWithholdingLabel, _missing(withholdingOf(shown.gross, shown.net)), AppTheme.trialOcean),
-            pay(kNetPayLabel, _missing(shown.net), AppTheme.trialTealDeep),
-            rate(kGrossRateLabel, _missing(shown.grossRate), AppTheme.trialOcean),
-            rate(kNetRateLabel, _missing(shown.netRate), AppTheme.trialTealDeep),
+            pay(kGrossPayLabel, _missing(shown.gross), AppTheme.trialOceanText),
+            pay(kWithholdingLabel, _missing(withholdingOf(shown.gross, shown.net)), AppTheme.trialOceanText),
+            pay(kNetPayLabel, _missing(shown.net), AppTheme.trialTealDeepText),
+            rate(kGrossRateLabel, _missing(shown.grossRate), AppTheme.trialOceanText),
+            rate(kNetRateLabel, _missing(shown.netRate), AppTheme.trialTealDeepText),
           ],
         ),
         SizedBox(height: m.totalsGap),
@@ -1161,7 +1428,10 @@ class _CollaborationCard extends StatelessWidget
   final _Metrics metrics;
   final bool feminine;
 
-  const _CollaborationCard({required this.shown, required this.metrics, required this.feminine});
+  // The teacher's own page: days and hours only, never what the teacher is.
+  final bool ownPage;
+
+  const _CollaborationCard({required this.shown, required this.metrics, required this.feminine, this.ownPage = false});
 
   @override
   Widget build(BuildContext context)
@@ -1217,6 +1487,37 @@ class _CollaborationCard extends StatelessWidget
               figure(kNetRateLabel, _missing(shown.netRate), AppTheme.trialTealDeepText),
             ],
           ];
+
+    if (ownPage)
+    {
+      Widget big(String label, String value) => _Figure(
+            label: label,
+            value: value,
+            size: m.payText,
+            line: m.payLine,
+            labelSize: m.labelText,
+          );
+
+      return _Card(
+        metrics: m,
+        padding: m.cardPadding,
+        child: Row(
+          children: [
+            Expanded(child: big(kWorkedDaysLabel, '${shown.days.length}')),
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.only(left: m.figureRulePadding),
+                decoration: BoxDecoration(
+                  border: Border(left: BorderSide(color: AppTheme.trialLine, width: _ruleWidth)),
+                ),
+                child: big(kWorkedHoursLabel, formatMinutes(shown.workedMinutes)),
+              ),
+            ),
+            const Spacer(),
+          ],
+        ),
+      );
+    }
 
     if (figures.isEmpty)
     {
@@ -1293,7 +1594,7 @@ class _DayTable extends StatelessWidget
 {
   final CompensationMonth shown;
   final _Metrics metrics;
-  final ValueChanged<CompensationDay> onOpenDay;
+  final ValueChanged<CompensationDay>? onOpenDay;
 
   const _DayTable({required this.shown, required this.metrics, required this.onOpenDay});
 
@@ -1456,7 +1757,7 @@ class _DayTable extends StatelessWidget
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _dayCell(AppTextLink(text: '$name ${day.date.day}', style: _cellStyle(strong: true), onTap: () => onOpenDay(day))),
+            _dayCell(_dayName('$name ${day.date.day}', day)),
             const _Rule(),
             _centred(c.time, _lines(day.worked.map((span) => span.start))),
             _centred(c.time, _lines(day.worked.map((span) => span.end))),
@@ -1478,6 +1779,15 @@ class _DayTable extends StatelessWidget
         ),
       ),
     );
+  }
+
+  Widget _dayName(String text, CompensationDay day)
+  {
+    final ValueChanged<CompensationDay>? open = onOpenDay;
+
+    return open == null
+        ? Text(text, style: _cellStyle(strong: true))
+        : AppTextLink(text: text, style: _cellStyle(strong: true), onTap: () => open(day));
   }
 
   Widget _money(int? cents, {bool strong = false})
@@ -1571,7 +1881,7 @@ class _DayTable extends StatelessWidget
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _dayCell(AppTextLink(text: '$weekday ${day.date.day}', style: _cellStyle(strong: true), onTap: () => onOpenDay(day))),
+            _dayCell(_dayName('$weekday ${day.date.day}', day)),
             const _Rule(),
             _centred(_plainTime, _lines(day.worked.map((span) => span.start))),
             _centred(_plainTime, _lines(day.worked.map((span) => span.end))),
@@ -1621,7 +1931,7 @@ class _DayList extends StatelessWidget
 {
   final CompensationMonth shown;
   final _Metrics metrics;
-  final ValueChanged<CompensationDay> onOpenDay;
+  final ValueChanged<CompensationDay>? onOpenDay;
 
   const _DayList({required this.shown, required this.metrics, required this.onOpenDay});
 
@@ -1655,6 +1965,7 @@ class _DayList extends StatelessWidget
     final int? gross = day.gross;
     final int? withholding = withholdingOf(day.gross, day.net);
     final int? net = day.net;
+    final ValueChanged<CompensationDay>? open = onOpenDay;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1666,7 +1977,7 @@ class _DayList extends StatelessWidget
             gross == null ? null : formatAmount(gross),
             size: 13,
             strong: true,
-            onTap: () => onOpenDay(day),
+            onTap: open == null ? null : () => open(day),
           ),
           const SizedBox(height: 3),
           // The withholding under the gross, taken off, and the net under it.

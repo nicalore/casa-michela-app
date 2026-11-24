@@ -74,6 +74,7 @@ CHOOSABLE: Final[dict[NotificationKindEnum, frozenset[str]]] = {
     NotificationKindEnum.TEACHER_NOTE_ADDED: frozenset({"ADMIN"}),
     NotificationKindEnum.ADMINISTRATOR_NOTE_ADDED: frozenset({"TEACHER"}),
     NotificationKindEnum.VOLUNTEERING_CHANGED: frozenset({"TEACHER"}),
+    NotificationKindEnum.PAYMENT_RECEIPT_AVAILABLE: frozenset({"TEACHER"}),
 }
 
 

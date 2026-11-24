@@ -293,11 +293,9 @@ class PersonEditForm
   // Payment is asked only of someone actually enrolled, and what is not asked cannot be required.
   bool get asksPayment => !isOnlyParentNotMember && !isPersonalDataOnly;
 
-  // A member on file has the payment method in the «Pagamenti» tab, and a pupil the tariff too, not the record.
-  bool get paymentsInTab =>
-      person?.roles.any((role) => const {'STUDENTE', 'ASSOCIATO'}.contains(role.toUpperCase())) ?? false;
-
-  bool get asksPaymentStep => asksPayment && (!paymentsInTab || reEnrolling);
+  // The method goes with this year's fees, paid or owed (the enrolment form prints it): asked at creation and
+  // re-enrolment of whoever is enrolled this year, never in an edit.
+  bool get asksPaymentStep => asksPayment && (isCreation || reEnrolling) && isEnrolledByRows;
 
   // A re-enrolling pupil's tariff change already waiting to start: it stays, and none is asked.
   StudentPaymentsItem? paymentsOnFile;
@@ -886,13 +884,6 @@ class PersonEditForm
       ));
     }
 
-    paymentMethodValue = labelForServerValue(kPaymentMethods, person.paymentMethod);
-
-    if (kPaymentMethods[paymentMethodValue] == 'OTHER')
-    {
-      otherPaymentMethodCtrl.text = person.paymentMethodOther ?? '';
-    }
-
     specialCategoryDataConsentValue = person.specialCategoryDataConsent ?? false;
     newsletterConsentValue = person.newsletterConsent ?? false;
     founderValue = person.founder ?? false;
@@ -1394,18 +1385,10 @@ class PersonEditForm
 
     if (!onlyParentNotMember && membershipsData.isNotEmpty)
     {
-      final String? paymentMethod = kPaymentMethods[paymentMethodValue];
-
       final bool minor = isMinor;
 
       memberData = {
         'memberships': membershipsData,
-        // Absent keys keep what is on file: a member's method is in «Pagamenti».
-        if (!paymentsInTab) ...{
-          'payment_method': paymentMethod,
-          'payment_method_other':
-              paymentMethod == 'OTHER' ? otherPaymentMethodCtrl.text.trim() : null,
-        },
         'emergency_contact_name': minor && emergencyContactNameCtrl.text.isNotEmpty
             ? emergencyContactNameCtrl.text.trim()
             : null,
@@ -1588,7 +1571,8 @@ class PersonEditForm
 
     if (!onlyParentNotMember && membershipsData.isNotEmpty)
     {
-      final String? paymentMethod = kPaymentMethods[paymentMethodValue];
+      // A method picked before the rows said another year stays behind.
+      final String? paymentMethod = asksPaymentStep ? kPaymentMethods[paymentMethodValue] : null;
 
       memberData = {
         'memberships': membershipsData,

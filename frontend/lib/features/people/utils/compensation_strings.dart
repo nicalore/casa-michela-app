@@ -4,6 +4,9 @@ import '../../accounting/models/volunteering_rule.dart';
 
 String get kCompensationSection => tr('Compensi', 'Pay');
 
+// The teacher's section holding their pay and their fees.
+String get kWalletSection => tr('Portafoglio', 'Wallet');
+
 String get kEditCompensationLabel => tr('MODIFICA COMPENSO', 'EDIT PAY');
 String get kCompensationEyebrow => tr('Compenso', 'Pay');
 String get kEditCompensationTitle => tr('Modifica compenso', 'Edit pay');
@@ -30,6 +33,16 @@ String get kHoursColumn => tr('Ore', 'Hours');
 String get kGrossColumn => tr('Lorda', 'Gross');
 String get kNetColumn => tr('Netta', 'Net');
 String get kWithholdingColumn => tr('Ritenuta', 'Withholding tax');
+
+// The teacher's own Compensi on the phone: five columns share a narrow row.
+String get kVolunteerShortColumn => tr('Volont.', 'Volunt.');
+String get kPaidHoursLabel => tr('Ore pagate', 'Paid hours');
+// The bank transfer receipt, on the teacher's own Compensi.
+String get kDownloadReceiptLabel => tr('Scarica ricevuta', 'Download receipt');
+String get kReceiptSaved => tr('La ricevuta è stata scaricata.', 'The receipt has been downloaded.');
+String get kReceiptSaveFailed => tr('Non è stato possibile salvare la ricevuta.', "Couldn't save the receipt.");
+String get kReportIbanLabel => tr('Segnala IBAN mancante / errato', 'Report missing / wrong IBAN');
+String get kCompensationLoadFailed => tr('Non è stato possibile caricare i compensi.', "Couldn't load your pay.");
 
 const String kIbanLabel = 'IBAN';
 String get kIbanHint => tr('Es. IT00A...', 'E.g. IT00A...');

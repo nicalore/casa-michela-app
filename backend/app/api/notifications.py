@@ -28,6 +28,8 @@ from app.services.new_devices import about_session
 from app.services.notice_recipients import notices_excluding, reached_roles
 from app.services.notification_kinds import choices_of, choose
 from app.services.notifications import dismissals, withdraw
+from app.services.push import joined
+from app.services.receipt_notifications import receipt_gone
 from app.services.teacher_note_notifications import teacher_notes_seen
 from app.services.volunteering_notifications import compensation_seen
 
@@ -44,6 +46,7 @@ _GONE_ONCE_READ: Final[frozenset[NotificationKindEnum]] = frozenset(
         NotificationKindEnum.TEACHER_NOTE_ADDED,
         NotificationKindEnum.ADMINISTRATOR_NOTE_ADDED,
         NotificationKindEnum.VOLUNTEERING_CHANGED,
+        NotificationKindEnum.PAYMENT_RECEIPT_AVAILABLE,
     },
 )
 
@@ -330,7 +333,8 @@ async def pupil_teacher_notes_seen(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# One's own pay on screen: what told of a changed unpaid hour is done.
+# One's own pay on screen: what told of a changed unpaid hour is done, and with
+# [month] the news of that month's receipt too.
 @router.put(
     "/compensation/seen",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -339,9 +343,15 @@ async def own_compensation_seen(
     current_account: CurrentAccount,
     db: DbSession,
     background: BackgroundTasks,
+    month: Annotated[date | None, Query()] = None,
 ) -> Response:
-    batch = await compensation_seen(db, current_account.tax_code)
+    told = [await compensation_seen(db, current_account.tax_code)]
+
+    if month is not None:
+        first = month.replace(day=1)
+        told.append(await receipt_gone(db, current_account.tax_code, first))
+
     await db.commit()
-    background.add_task(push.deliver, batch)
+    background.add_task(push.deliver, joined(told))
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

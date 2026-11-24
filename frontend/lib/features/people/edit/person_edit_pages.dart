@@ -372,7 +372,7 @@ List<PersonEditStep> buildEditSteps(
 // Says only what the card asks: fees only of whoever is enrolled this year.
 String _paymentHint(PersonEditForm form)
 {
-  // A member on file becoming a pupil: the method is already in the «Pagamenti» tab.
+  // Someone on file becoming a pupil: no fees, so no method.
   if (!form.asksPaymentStep)
   {
     return tr(
@@ -385,25 +385,25 @@ String _paymentHint(PersonEditForm form)
   {
     return form.asksTariff
         ? tr(
-            'Seleziona la modalità di pagamento preferita e, per gli studenti, la tariffa scelta per il '
+            'Seleziona la modalità di pagamento e, per gli studenti, la tariffa scelta per il '
             'servizio di aiuto compiti, l’iscrizione e l’assicurazione.',
-            'Select the preferred payment method and, for students, the rate chosen for the '
+            'Select the payment method and, for students, the rate chosen for the '
             'Homework Help service, the enrolment and the insurance.',
           )
         : tr(
-            'Seleziona la modalità di pagamento preferita, l’iscrizione e l’assicurazione.',
-            'Select the preferred payment method, the enrolment and the insurance.',
+            'Seleziona la modalità di pagamento, l’iscrizione e l’assicurazione.',
+            'Select the payment method, the enrolment and the insurance.',
           );
   }
 
   return form.asksTariff
       ? tr(
-          'Seleziona la modalità di pagamento preferita e, per gli studenti, '
+          'Seleziona la modalità di pagamento e, per gli studenti, '
           'la tariffa scelta per il servizio di aiuto compiti.',
-          'Select the preferred payment method and, for students, '
+          'Select the payment method and, for students, '
           'the rate chosen for the Homework Help service.',
         )
-      : tr('Seleziona la modalità di pagamento preferita.', 'Select the preferred payment method.');
+      : tr('Seleziona la modalità di pagamento.', 'Select the payment method.');
 }
 
 // Field steps answer true: they are validated when the forward arrow is pressed.

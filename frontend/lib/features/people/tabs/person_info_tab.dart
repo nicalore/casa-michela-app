@@ -52,7 +52,7 @@ class PersonInfoTab extends StatelessWidget
                   first: birthCard(person),
                   second: contactsCard(person),
                 ),
-                for (final card in roleDetailCards(person, withCertifications: false, inCompensi: true, withPayments: false)) ...[
+                for (final card in roleDetailCards(person, withCertifications: false, inCompensi: true)) ...[
                   const SizedBox(height: 24),
                   _buildFullWidthCard(card),
                 ],

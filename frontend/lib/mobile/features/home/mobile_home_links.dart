@@ -13,6 +13,7 @@ const String _availabilitySlug = 'availability';
 const String _bookingsSlug = 'bookings';
 const String _calendarSlug = 'calendar';
 const String _childrenSlug = 'children';
+const String _compensationSlug = 'compensation';
 
 // Where a band or a figure of the home leads on mobile, the home being [role]'s.
 void followMobileHomeLink(HomeLink link, {required String role})
@@ -32,6 +33,9 @@ void followMobileHomeLink(HomeLink link, {required String role})
 
       (teacher ? WeekJumps.availability : WeekJumps.bookings).request(romeNow(), role: role, pupil: pupil);
       MobileShellRequests.open(role, teacher ? _availabilitySlug : _bookingsSlug);
+    case HomePayLink():
+      CompensationJumps.request();
+      MobileShellRequests.open(role, _compensationSlug);
     case HomeStatsLink(:final pupil):
       if (pupil == null)
       {

@@ -144,6 +144,10 @@ Map<NotificationKind, (String, String)> get kNotificationKindLabels => {
     tr('Volontariato', 'Volunteering'),
     tr('Avvisa quando cambia il numero di ore di volontariato che ti sono state assegnate.', 'Alerts you when the number of volunteering hours assigned to you changes.'),
   ),
+  NotificationKind.paymentReceiptAvailable: (
+    tr('Ricevuta bonifico', 'Transfer receipt'),
+    tr('Avvisa quando è disponibile la ricevuta di un pagamento.', 'Alerts you when a payment receipt is available.'),
+  ),
 };
 
 // The convocation line agrees with the reader.

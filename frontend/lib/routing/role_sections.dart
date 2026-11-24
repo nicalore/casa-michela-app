@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/language/app_language.dart';
+import '../features/people/utils/compensation_strings.dart' show kWalletSection;
 
 // An unavailable section is still listed on the bar, muted and unclickable.
 class RoleSection
@@ -25,7 +26,7 @@ class RoleSection
       'association' => tr('Associazione', 'Association'),
       'subjects' => tr('Discipline', 'Disciplines'),
       'availability' => tr('Disponibilità', 'Availability'),
-      'compensation' => tr('Compensi', 'Pay'),
+      'compensation' => kWalletSection,
       'children' => tr('Figli', 'Children'),
       'students' => tr('Studenti', 'Students'),
       _ => slug,
@@ -43,7 +44,8 @@ const Map<String, List<RoleSection>> _sectionsByRole = {
     RoleSection.named('subjects', available: true),
     RoleSection.named('availability', available: true),
     _calendar,
-    RoleSection.named('compensation'),
+    // Their pay and their fees.
+    RoleSection.named('compensation', available: true),
     _association,
   ],
   'PARENT': [
@@ -69,7 +71,7 @@ const Map<String, IconData> kSectionIcons = <String, IconData>{
   'subjects': Icons.menu_book_rounded,
   'availability': Icons.event_available_rounded,
   'calendar': Icons.calendar_month_rounded,
-  'compensation': Icons.payments_rounded,
+  'compensation': Icons.account_balance_wallet_rounded,
   'association': Icons.groups_rounded,
   'bookings': Icons.bookmark_added_rounded,
   'payments': Icons.receipt_long_rounded,

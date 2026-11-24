@@ -23,6 +23,7 @@ import '../features/people/children_page.dart';
 import '../features/people/own_page.dart';
 import '../features/people/people_page.dart';
 import '../features/people/person_detail_page.dart';
+import '../features/people/teacher_compensation_page.dart';
 import '../features/people/teacher_subjects_page.dart';
 import '../features/psychologist/psychologist_students_page.dart';
 import '../features/reports/reports_page.dart';
@@ -168,6 +169,11 @@ Widget _sectionPage(String role, RoleSection section)
   if (role == 'TEACHER' && section.slug == 'subjects')
   {
     return const TeacherSubjectsPage();
+  }
+
+  if (role == 'TEACHER' && section.slug == 'compensation')
+  {
+    return const TeacherCompensationPage();
   }
 
   if (role == 'PARENT' && section.slug == 'children')

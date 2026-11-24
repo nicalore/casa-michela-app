@@ -32,6 +32,7 @@ import '../bookings/mobile_bookings_page.dart';
 import '../calendar/mobile_calendar_page.dart';
 import '../calendar/mobile_pupil_calendar_page.dart';
 import '../children/mobile_children_page.dart';
+import '../compensation/mobile_compensation_page.dart';
 import '../home/mobile_admin_home_page.dart';
 import '../home/mobile_pupil_home_page.dart';
 import '../home/mobile_teacher_home_page.dart';
@@ -50,6 +51,7 @@ const String _parentRole = 'PARENT';
 const Set<String> _pupilRoles = {_parentRole, 'STUDENT'};
 const String _subjectsSlug = 'subjects';
 const String _availabilitySlug = 'availability';
+const String _compensationSlug = 'compensation';
 const String _calendarSlug = 'calendar';
 const String _associationSlug = 'association';
 const String _childrenSlug = 'children';
@@ -498,6 +500,11 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
     if (current.slug == _calendarSlug && role == _teacherRole)
     {
       return MobileCalendarPage(user: user);
+    }
+
+    if (current.slug == _compensationSlug && role == _teacherRole)
+    {
+      return MobileCompensationPage(user: user);
     }
 
     if (current.slug == _calendarSlug && _pupilRoles.contains(role))

@@ -24,6 +24,7 @@ const String _peopleRoute = '/people';
 
 const String _availabilitySlug = 'availability';
 const String _bookingsSlug = 'bookings';
+const String _compensationSlug = 'compensation';
 
 // Where a notification leads on the desktop; kinds with nowhere to go stay put.
 void followNotification(NotificationItem item)
@@ -63,14 +64,24 @@ void followNotification(NotificationItem item)
       unawaited(_openObservations(item));
     case NotificationKind.administratorNoteAdded:
       _openOwnObservations();
-    // The teacher's Compensi are not there yet: the home shows the month's pay.
+    // One's own Compensi on the month it tells of.
     case NotificationKind.volunteeringChanged:
-      unawaited(_openAs(const [_teacherRole], jump: (_) {}, route: homeForRole));
+    case NotificationKind.paymentReceiptAvailable:
+      unawaited(_openAs(
+        const [_teacherRole],
+        jump: (_) => _jumpToPayMonth(item),
+        route: (role) => '${homeForRole(role)}/$_compensationSlug',
+      ));
     case NotificationKind.test:
     case NotificationKind.arrivalReminder:
     case NotificationKind.unknown:
       break;
   }
+}
+
+void _jumpToPayMonth(NotificationItem item)
+{
+  CompensationJumps.request(item.calendarDate);
 }
 
 // The person's own calendar on the band it is about, switching to the role it concerns.

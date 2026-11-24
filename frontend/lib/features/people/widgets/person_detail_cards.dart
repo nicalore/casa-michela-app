@@ -35,16 +35,6 @@ String? _adminRoleLabel(String role, {required bool feminine})
   };
 }
 
-String? _paymentMethodLabel(String method)
-{
-  return switch (method)
-  {
-    'CASH' => tr('Contanti', 'Cash'),
-    'BANK_TRANSFER' => tr('Bonifico bancario', 'Bank transfer'),
-    _ => null,
-  };
-}
-
 Set<String> _upperCaseRoles(PersonItem person)
 {
   return person.roles.map((role) => role.toUpperCase()).toSet();
@@ -72,34 +62,6 @@ int? _grossCompensationCents(PersonItem person)
   final String? raw = person.grossCompensation;
 
   return raw == null ? null : parseAmountCents(raw);
-}
-
-// Mirrors the wizard: only a parent who did not join is never asked how they pay.
-bool _wasEverAskedToPay(PersonItem person)
-{
-  final Set<String> roles = _upperCaseRoles(person);
-  final Set<String> active = roles.difference(const {'ASSOCIATO'});
-
-  return !(active.length == 1 &&
-      active.contains('GENITORE') &&
-      !roles.contains('ASSOCIATO'));
-}
-
-String _paymentMethodText(PersonItem person)
-{
-  final method = person.paymentMethod;
-
-  if (method == null)
-  {
-    return missingValue;
-  }
-
-  if (method == _otherOptionCode)
-  {
-    return orDash(person.paymentMethodOther);
-  }
-
-  return _paymentMethodLabel(method) ?? method;
 }
 
 const String _listSeparator = ' – ';
@@ -266,25 +228,6 @@ List<PersonDetailCard> personalDetailCards(PersonItem person)
   ];
 }
 
-// Null for a parent who did not join, and for a pupil, whose «Pagamenti» tab says it;
-// shown even once the membership lapsed.
-PersonDetailCard? paymentsCard(PersonItem person)
-{
-  if (!_wasEverAskedToPay(person) || _upperCaseRoles(person).contains('STUDENTE'))
-  {
-    return null;
-  }
-
-  return PersonDetailCard(
-    title: tr('Pagamenti', 'Payments'),
-    icon: Icons.payments_outlined,
-    labelWidth: kPersonWideCardLabelWidth,
-    rows: [
-      DetailRowData(tr('Modalità', 'Method'), _paymentMethodText(person)),
-    ],
-  );
-}
-
 PersonDetailCard collaborationCard(PersonItem person)
 {
   final int? cents = _grossCompensationCents(person);
@@ -346,23 +289,16 @@ PersonDetailCard teacherDetailsCard(PersonItem person, {bool forOwner = false})
 
 // [withCertifications]: false for the administrators, who have them in «Osservazioni».
 // [inCompensi]: true where the Compensi tab, which a psychologist alone has not, says the collaboration.
-// [withPayments]: false for the administrators, who have the way of paying in «Pagamenti».
 List<PersonDetailCard> roleDetailCards(
   PersonItem person, {
   bool includeTeacherDetails = true,
   bool forOwner = false,
   bool withCertifications = true,
   bool inCompensi = false,
-  bool withPayments = true,
 })
 {
   final roles = _upperCaseRoles(person);
   final cards = <PersonDetailCard>[];
-
-  if (paymentsCard(person) case final PersonDetailCard payments when withPayments)
-  {
-    cards.add(payments);
-  }
 
   final isStaff = roles.contains('AMMINISTRATORE') ||
       roles.contains('DOCENTE') ||

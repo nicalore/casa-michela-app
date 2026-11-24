@@ -40,6 +40,7 @@ class NotificationLook
       NotificationKind.teacherNoteAdded => NotificationLook(Icons.speaker_notes_rounded, AppTheme.trialOceanText),
       NotificationKind.administratorNoteAdded => NotificationLook(Icons.speaker_notes_rounded, AppTheme.trialOceanText),
       NotificationKind.volunteeringChanged => NotificationLook(Icons.volunteer_activism_rounded, AppTheme.trialTealDeepText),
+      NotificationKind.paymentReceiptAvailable => NotificationLook(Icons.receipt_long_rounded, AppTheme.trialOceanText),
       NotificationKind.unknown => NotificationLook(Icons.notifications_rounded, AppTheme.trialOceanText),
     };
   }

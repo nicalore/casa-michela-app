@@ -51,6 +51,7 @@ class NotificationKindEnum(StrEnum):
     TEACHER_NOTE_ADDED = "TEACHER_NOTE_ADDED"
     ADMINISTRATOR_NOTE_ADDED = "ADMINISTRATOR_NOTE_ADDED"
     VOLUNTEERING_CHANGED = "VOLUNTEERING_CHANGED"
+    PAYMENT_RECEIPT_AVAILABLE = "PAYMENT_RECEIPT_AVAILABLE"
 
 
 # What an account was told; the home card lists these, a push only announces one.

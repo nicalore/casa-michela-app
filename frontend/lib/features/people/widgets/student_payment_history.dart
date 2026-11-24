@@ -180,6 +180,9 @@ class PaymentHistoryTable extends StatelessWidget
   // Minimal windows: rows on floors, no columns.
   final bool stacked;
 
+  // The member's own page: rows open nothing, nothing to settle.
+  final bool readOnly;
+
   const PaymentHistoryTable({
     super.key,
     required this.rows,
@@ -189,7 +192,11 @@ class PaymentHistoryTable extends StatelessWidget
     this.showHours = true,
     this.openingPending = false,
     this.stacked = false,
+    this.readOnly = false,
   });
+
+  // The chevron's room, or only the side padding when rows open nothing.
+  double get _end => readOnly ? metrics.sidePadding : _chevron;
 
   bool _waiting(PaymentHistoryRow row) => openingPending && !row.isPaid && !row.isFee;
 
@@ -247,7 +254,7 @@ class PaymentHistoryTable extends StatelessWidget
           _centred(_amountShare, Text(kAmountColumn, style: style)),
           _left(_paidShare, Text(kPaidOnColumn, style: style)),
           _left(_methodShare, Text(kMethodColumn, style: style)),
-          const SizedBox(width: _chevron),
+          SizedBox(width: _end),
         ],
       ),
     );
@@ -344,8 +351,10 @@ class PaymentHistoryTable extends StatelessWidget
             mainAxisSize: MainAxisSize.min,
             children: [
               PaymentDueFlag(height: metrics.flagHeight, fontSize: metrics.cell - 2),
-              const SizedBox(width: 10),
-              _settle(row),
+              if (!readOnly) ...[
+                const SizedBox(width: 10),
+                _settle(row),
+              ],
             ],
           )
         : Text(paidOnLine(formatWeekdayColumnLabel(paidOn), paymentMethodPhrase(row.paymentMethod, row.paymentMethodOther)), style: small);
@@ -374,8 +383,8 @@ class PaymentHistoryTable extends StatelessWidget
               const SizedBox(width: 12),
               _amount(row),
               SizedBox(
-                width: 30,
-                child: Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeepText),
+                width: readOnly ? 12 : 30,
+                child: readOnly ? null : Icon(Icons.chevron_right_rounded, size: 24, color: AppTheme.trialTealDeepText),
               ),
             ],
           ),
@@ -451,11 +460,11 @@ class PaymentHistoryTable extends StatelessWidget
             _methodShare,
             paid
                 ? Text(_method(row), style: _cell(color: ThemeColours.fixed(0xFF33495A)))
-                : (waiting ? const SizedBox.shrink() : FittedBox(fit: BoxFit.scaleDown, child: _settle(row))),
+                : (waiting || readOnly ? const SizedBox.shrink() : FittedBox(fit: BoxFit.scaleDown, child: _settle(row))),
           ),
           SizedBox(
-            width: _chevron,
-            child: Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeepText),
+            width: _end,
+            child: readOnly ? null : Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeepText),
           ),
         ],
       ),
@@ -480,6 +489,26 @@ class PaymentHistoryTable extends StatelessWidget
     );
   }
 
+  // A row that opens its payment; on the member's own page it stands alone.
+  Widget _framed(PaymentHistoryRow row, int index)
+  {
+    final Widget shown = stacked ? _stackedRow(row, first: index == 0) : _row(row, first: index == 0);
+
+    if (readOnly)
+    {
+      return shown;
+    }
+
+    return HoverGoldFrame(
+      cardRadius: metrics.radius,
+      atTop: stacked && index == 0,
+      atBottom: index == rows.length - 1,
+      onTap: () => onOpen(row),
+      leadingInset: row.isPaid || _waiting(row) ? 0 : _stripe,
+      child: shown,
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -495,15 +524,7 @@ class PaymentHistoryTable extends StatelessWidget
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (!stacked) _head(),
-          for (final (index, row) in rows.indexed)
-            HoverGoldFrame(
-              cardRadius: metrics.radius,
-              atTop: stacked && index == 0,
-              atBottom: index == rows.length - 1,
-              onTap: () => onOpen(row),
-              leadingInset: row.isPaid || _waiting(row) ? 0 : _stripe,
-              child: stacked ? _stackedRow(row, first: index == 0) : _row(row, first: index == 0),
-            ),
+          for (final (index, row) in rows.indexed) _framed(row, index),
         ],
       ),
     );

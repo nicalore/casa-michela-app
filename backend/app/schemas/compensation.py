@@ -31,6 +31,12 @@ class CompensationDayResponse(BaseModel):
     net: Decimal | None
 
 
+# The bank transfer that paid the month, once uploaded.
+class CompensationReceiptResponse(BaseModel):
+    file_name: str
+    content_type: str
+
+
 class CompensationMonthResponse(BaseModel):
     collaboration_type: str
 
@@ -64,6 +70,8 @@ class CompensationMonthResponse(BaseModel):
 
     # The month under each rule, were it the teacher's from here: null unless paid.
     volunteering_previews: dict[VolunteeringRuleName, RuleFiguresResponse] | None
+
+    receipt: CompensationReceiptResponse | None = None
 
 
 class IbanUpdate(BaseModel):

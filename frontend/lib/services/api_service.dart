@@ -2609,6 +2609,25 @@ class ApiService
     return CompensationMonth.fromJson(response.data as Map<String, dynamic>);
   }
 
+  // The month's bank transfer receipt, for the teacher it paid.
+  Future<Uint8List> getCompensationReceipt(String taxCode, DateTime month) async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        '/people/$taxCode/compensation/receipt',
+        queryParameters: {'year': month.year, 'month': month.month},
+        options: Options(responseType: ResponseType.bytes, receiveTimeout: _uploadTimeout),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, tr('Impossibile scaricare la ricevuta.', "Couldn't download the receipt."));
+    }
+  }
+
   Future<StudentPaymentsItem> getStudentPayments(String taxCode) async
   {
     final response = await _dio.get('/people/$taxCode/payments');
@@ -3885,6 +3904,16 @@ class ApiService
   Future<void> markAdministratorNotesSeen() async
   {
     await _dio.put('/notifications/administrator-notes/seen');
+  }
+
+  // One's own Compensi on screen: the server withdraws the news of a changed unpaid hour
+  // and of that month's receipt.
+  Future<void> markCompensationSeen(DateTime month) async
+  {
+    await _dio.put(
+      '/notifications/compensation/seen',
+      queryParameters: {'month': formatDateOnly(DateTime(month.year, month.month))},
+    );
   }
 
   // The kinds of the account's roles that can be turned on or off.

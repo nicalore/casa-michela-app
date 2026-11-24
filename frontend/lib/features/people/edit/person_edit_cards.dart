@@ -1592,7 +1592,7 @@ class _PaymentCardState extends State<PaymentCard>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ?top,
-            // The tariff alone, for a member on file: their method lives in «Pagamenti».
+            // The tariff alone in an edit: the method goes with the fees, at creation and re-enrolment.
             if (ctx.form.asksPaymentStep) ...[
               if (top != null)
                 Padding(

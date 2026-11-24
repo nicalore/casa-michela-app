@@ -31,6 +31,7 @@ from app.schemas.teacher_month import (
 from app.services import payment_receipts, push, teacher_month
 from app.services.accounting_lock import lock_account
 from app.services.push import joined
+from app.services.receipt_notifications import announce_receipt, receipt_gone
 from app.services.teacher_month import MonthRow, MonthSummary
 from app.services.volunteering_notifications import announce_volunteering_rule
 
@@ -190,17 +191,21 @@ async def upload_receipt(
     file: Annotated[UploadFile, File()],
     db: DbSession,
     identity: Admin,
+    background: BackgroundTasks,
 ) -> TeacherMonthResponse:
     first = _month_or_400(year, month)
+    teacher = tax_code.upper()
 
     await payment_receipts.store_receipt(
         db,
-        tax_code.upper(),
+        teacher,
         first,
         file,
         identity.tax_code,
     )
+    batch = await announce_receipt(db, teacher, first, identity.tax_code)
     await db.commit()
+    background.add_task(push.deliver, batch)
 
     return await _summary(db, first)
 
@@ -236,10 +241,15 @@ async def delete_receipt(
     tax_code: str,
     db: DbSession,
     _: Admin,
+    background: BackgroundTasks,
 ) -> TeacherMonthResponse:
     first = _month_or_400(year, month)
+    teacher = tax_code.upper()
 
-    await payment_receipts.delete_receipt(db, tax_code.upper(), first)
+    await payment_receipts.delete_receipt(db, teacher, first)
+    # Nothing left to see: the news of it goes.
+    batch = await receipt_gone(db, teacher, first)
     await db.commit()
+    background.add_task(push.deliver, batch)
 
     return await _summary(db, first)

@@ -32,7 +32,6 @@ import 'tabs/own_other_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
-import 'widgets/person_detail_cards.dart';
 import 'tabs/statistics/widgets/stats_data.dart';
 import 'widgets/person_detail_header.dart';
 
@@ -96,7 +95,6 @@ List<String> ownReportableFields(PersonItem person)
   final Set<String> roles = _rolesOf(person);
   final List<OwnPageSection> sections = ownPageSectionsOf(person);
   final bool isPupil = roles.contains('STUDENTE');
-  final bool isStaff = roles.contains('DOCENTE') || roles.contains('AMMINISTRATORE');
   final bool isMinorPupil = isPupil && !person.isAdult;
 
   return [
@@ -111,7 +109,6 @@ List<String> ownReportableFields(PersonItem person)
       tr('Contatto di emergenza', 'Emergency contact'),
       tr('Allergie e farmaci', 'Allergies and medicines'),
     ],
-    if (isStaff && paymentsCard(person) != null) tr('Modalità di pagamento', 'Payment method'),
     if (roles.contains('AMMINISTRATORE'))
       person.gender == 'F' ? tr('Ruolo amministratrice', 'Administrator role') : tr('Ruolo amministratore', 'Administrator role'),
   ];

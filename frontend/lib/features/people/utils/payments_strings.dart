@@ -585,6 +585,7 @@ String hoursOfAhead(int used, int minutes) =>
     tr('${hoursText(used)} di ${hoursText(minutes)}', '${hoursText(used)} of ${hoursText(minutes)}');
 
 String get kNoPayments => tr('Ancora nessun pagamento.', 'No payments yet.');
+String get kPaymentsLoadFailed => tr('Non è stato possibile caricare i pagamenti.', "Couldn't load your payments.");
 
 // The PDF.
 String get kPaymentsEyebrow => tr('Pagamenti', 'Payments');

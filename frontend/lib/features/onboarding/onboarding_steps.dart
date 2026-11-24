@@ -215,7 +215,6 @@ List<String> associationReportableFields(List<String> roles, {bool forOwner = fa
       has('PSYCHOLOGIST', 'PSICOLOGO');
 
   return [
-    tr('Modalità di pagamento', 'Payment method'),
     if (isStaff) ...[tr('Tipo collaborazione', 'Collaboration type'), tr('Compenso', 'Pay'), 'IBAN'],
     if (has(kAdminRole, 'AMMINISTRATORE'))
       feminine ? tr('Ruolo amministratrice', 'Administrator role') : tr('Ruolo amministratore', 'Administrator role'),

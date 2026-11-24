@@ -2,13 +2,22 @@ from collections.abc import Callable
 from datetime import date, time
 from typing import Annotated, Final
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Response,
+    status,
+)
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
 from app.api.rbac import IdentityContext, require_role
 from app.core.booking_window import now_in_rome
+from app.core.downloads import inline_disposition
 from app.core.i18n import tr
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.staff import CollaborationTypeEnum, Staff
@@ -17,13 +26,14 @@ from app.models.volunteering import VolunteeringRule
 from app.schemas.compensation import (
     CompensationDayResponse,
     CompensationMonthResponse,
+    CompensationReceiptResponse,
     CompensationSpanResponse,
     CompensationUpdate,
     IbanUpdate,
     RuleFiguresResponse,
     VolunteeringRuleChangeUpdate,
 )
-from app.services import push
+from app.services import payment_receipts, push
 from app.services.accounting_lock import lock_account
 from app.services.compensation import (
     CompensationMonth,
@@ -48,10 +58,18 @@ from app.services.worked_hours import (
 router = APIRouter(prefix="/people", tags=["compensation"])
 
 Admin = Annotated[IdentityContext, Depends(require_role("ADMIN"))]
+AdminOrTeacher = Annotated[
+    IdentityContext,
+    Depends(require_role("ADMIN", "TEACHER")),
+]
 
 _STAFF_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
     "Collaboratore non trovato",
     "Collaborator not found",
+)
+_FORBIDDEN_ERROR: Final[tuple[str, str]] = (
+    "Non hai i permessi per accedere a questa risorsa",
+    "You don't have permission to access this resource",
 )
 _FUTURE_MONTH_ERROR: Final[tuple[str, str]] = (
     "Il mese non è ancora iniziato",
@@ -82,6 +100,17 @@ def _month_or_400(year: int, month: int) -> date:
         )
 
     return first
+
+
+# Administrators read everyone's pay; a teacher reads only their own.
+def _reader_or_403(identity: IdentityContext, tax_code: str) -> None:
+    own = tax_code == identity.tax_code and "TEACHER" in identity.roles
+
+    if not (identity.is_admin or own):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=tr(*_FORBIDDEN_ERROR),
+        )
 
 
 async def _admin_role(
@@ -140,16 +169,17 @@ def _spans(
 @router.get(
     "/{tax_code}/compensation",
     response_model=CompensationMonthResponse,
-    dependencies=[Depends(require_role("ADMIN"))],
 )
 async def get_compensation(
     tax_code: str,
+    identity: AdminOrTeacher,
     db: DbSession,
     year: int = Query(..., ge=2000, le=2100),
     month: int = Query(..., ge=1, le=12),
 ) -> CompensationMonthResponse:
     tax_code = tax_code.upper()
 
+    _reader_or_403(identity, tax_code)
     await _staff_or_404(db, tax_code)
 
     first = _month_or_400(year, month)
@@ -157,12 +187,15 @@ async def get_compensation(
     pay = await month_compensation(db, tax_code, first, _is_over(), timeline)
     rate = pay.terms.rate
     admin_role = await _admin_role(db, tax_code)
+    # What the rule's window needs stays with whoever can change it.
+    edits = identity.is_admin
     previews = (
         await rule_previews(db, tax_code, first, _is_over(), timeline)
-        if pay.terms.is_paid
+        if edits and pay.terms.is_paid
         else None
     )
     rule = timeline.rule(first)
+    receipt = await payment_receipts.receipt_of(db, tax_code, first)
 
     return CompensationMonthResponse(
         collaboration_type=pay.terms.collaboration_type.value,
@@ -189,15 +222,49 @@ async def get_compensation(
         opening_gross=pay.opening_gross,
         opening_net=pay.opening_net,
         opening_pending=pay.pending,
-        can_edit=admin_role not in RoleService.ADMIN_ROLES_REQUIRING_UNPAID,
+        can_edit=edits and admin_role not in RoleService.ADMIN_ROLES_REQUIRING_UNPAID,
         volunteering=rule.value,
         volunteering_month_only=rule != timeline.standing_rule(first),
-        volunteering_replaced=timeline.chosen_from(first),
+        volunteering_replaced=timeline.chosen_from(first) if edits else [],
         volunteering_previews=(
             None
             if previews is None
             else {choice.value: _figures(month) for choice, month in previews.items()}
         ),
+        receipt=(
+            None
+            if receipt is None
+            else CompensationReceiptResponse(
+                file_name=receipt.file_name,
+                content_type=receipt.content_type,
+            )
+        ),
+    )
+
+
+# The month's bank transfer receipt, for the teacher it paid.
+@router.get("/{tax_code}/compensation/receipt")
+async def get_receipt(
+    tax_code: str,
+    identity: AdminOrTeacher,
+    db: DbSession,
+    year: int = Query(..., ge=2000, le=2100),
+    month: int = Query(..., ge=1, le=12),
+) -> Response:
+    tax_code = tax_code.upper()
+
+    _reader_or_403(identity, tax_code)
+
+    receipt = await payment_receipts.receipt_file(
+        db,
+        tax_code,
+        _month_or_400(year, month),
+    )
+
+    return Response(
+        content=receipt.content,
+        media_type=receipt.content_type,
+        headers={"Content-Disposition": inline_disposition(receipt.file_name)},
     )
 
 
@@ -205,11 +272,15 @@ async def get_compensation(
 @router.get(
     "/{tax_code}/compensation/months",
     response_model=list[date],
-    dependencies=[Depends(require_role("ADMIN"))],
 )
-async def get_worked_months(tax_code: str, db: DbSession) -> list[date]:
+async def get_worked_months(
+    tax_code: str,
+    identity: AdminOrTeacher,
+    db: DbSession,
+) -> list[date]:
     tax_code = tax_code.upper()
 
+    _reader_or_403(identity, tax_code)
     await _staff_or_404(db, tax_code)
 
     days = await worked_days(

@@ -27,6 +27,7 @@ enum NotificationKind
   teacherNoteAdded,
   administratorNoteAdded,
   volunteeringChanged,
+  paymentReceiptAvailable,
   unknown,
 }
 
@@ -54,6 +55,7 @@ const Map<NotificationKind, String> _kindCodes = {
   NotificationKind.teacherNoteAdded: 'TEACHER_NOTE_ADDED',
   NotificationKind.administratorNoteAdded: 'ADMINISTRATOR_NOTE_ADDED',
   NotificationKind.volunteeringChanged: 'VOLUNTEERING_CHANGED',
+  NotificationKind.paymentReceiptAvailable: 'PAYMENT_RECEIPT_AVAILABLE',
 };
 
 NotificationKind _kindOf(Object? value)

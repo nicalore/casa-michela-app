@@ -14,6 +14,7 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_load_failed.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_density.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -25,6 +26,7 @@ import '../../accounting/utils/accounting_strings.dart' show kExportPdf;
 import '../../accounting/utils/opening_strings.dart';
 import '../../accounting/widgets/opening_dialogs.dart';
 import '../../association/models/standard_tariffs_item.dart';
+import '../compensation_tour.dart';
 import '../models/person_item.dart';
 import '../models/student_payments_item.dart';
 import '../utils/payments_strings.dart';
@@ -60,7 +62,13 @@ class PersonPaymentsTab extends StatefulWidget
 {
   final PersonItem person;
 
-  const PersonPaymentsTab({super.key, required this.person});
+  // The member's own page: only the fees, nothing to change, settle or export.
+  final bool ownPage;
+
+  // False while another section of the page is on show: no tour then.
+  final bool shown;
+
+  const PersonPaymentsTab({super.key, required this.person, this.ownPage = false, this.shown = true});
 
   @override
   State<PersonPaymentsTab> createState() => _PersonPaymentsTabState();
@@ -83,14 +91,55 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     _load();
   }
 
+  // The own page reads its person again each time it is shown: the fees follow.
+  @override
+  void didUpdateWidget(PersonPaymentsTab oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.ownPage && !identical(widget.person, oldWidget.person))
+    {
+      unawaited(_refresh());
+    }
+
+    // Brought in: the parts never told are told now.
+    if (widget.shown && !oldWidget.shown)
+    {
+      unawaited(_startOwnTours());
+    }
+  }
+
+  // The teacher's own fees, once on show and the whole page's tour seen: the parts shown for the first time.
+  Future<void> _startOwnTours() async
+  {
+    await WidgetsBinding.instance.endOfFrame;
+
+    if (!mounted || !widget.ownPage || !widget.shown || isDesktopTourShown || _payments == null)
+    {
+      return;
+    }
+
+    if (!await compensationTourSeen(compensationPageTour))
+    {
+      return;
+    }
+
+    final DesktopTour? late = await compensationFeesLateTour();
+
+    if (late != null && mounted)
+    {
+      startCompensationTour(context, late);
+    }
+  }
+
   Future<void> _load() async
   {
     try
     {
-      // Both under way at once; the payments' own failure is what the tab reports.
-      final Future<StandardTariffsItem?> tariffs = ApiService()
-          .getStandardTariffs()
-          .then<StandardTariffsItem?>((tariffs) => tariffs, onError: (_) => null);
+      // Both under way at once; the payments' own failure is what the tab reports. The own page changes nothing.
+      final Future<StandardTariffsItem?> tariffs = widget.ownPage
+          ? Future<StandardTariffsItem?>.value()
+          : ApiService().getStandardTariffs().then<StandardTariffsItem?>((tariffs) => tariffs, onError: (_) => null);
       final StudentPaymentsItem payments = await ApiService().getStudentPayments(widget.person.fiscalCode);
       final StandardTariffsItem? standard = await tariffs;
 
@@ -102,6 +151,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           _standard = standard;
           _error = null;
         });
+        unawaited(_startOwnTours());
       }
     }
     catch (error)
@@ -309,11 +359,16 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
         SizedBox(height: gap + 8),
         PageHeading(kHistoryHeading),
         const SizedBox(height: 12),
-        Center(child: AppEmptyCard(icon: Icons.receipt_long_rounded, message: kNoPayments)),
+        Center(
+          child: DesktopTourTarget(
+            id: widget.ownPage ? kTourFeesEmpty : null,
+            child: AppEmptyCard(icon: Icons.receipt_long_rounded, message: kNoPayments),
+          ),
+        ),
       ];
     }
 
-    return [
+    final List<Widget> blocks = [
       for (final MapEntry(key: year, value: rows) in years.entries) ...[
         SizedBox(height: gap + 8),
         PageHeading(
@@ -333,8 +388,23 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           stacked: AppBreakpoints.of(context).isMinimal,
           onOpen: (row) => _openRow(payments, row),
           onSettle: (row) => _settleRow(payments, row),
+          readOnly: widget.ownPage,
         ),
       ],
+    ];
+
+    if (!widget.ownPage)
+    {
+      return blocks;
+    }
+
+    // The teacher's own: every year lit as one by the tour, the gap above it left out.
+    return [
+      blocks.first,
+      DesktopTourTarget(
+        id: kTourFeesHistory,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: blocks.sublist(1)),
+      ),
     ];
   }
 
@@ -532,12 +602,62 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     }
 
     final bool dense = AppBreakpoints.of(context).isDense;
-    final bool floating = !dense && payments.history.isNotEmpty;
+    final bool own = widget.ownPage;
+    final bool floating = !own && !dense && payments.history.isNotEmpty;
 
     // A member's tariff buttons; none for fees alone, none for whoever is not enrolled (what is owed is still
     // settled in the history).
-    final bool tariffActions = payments.tariff != null && !payments.readOnly;
-    final bool exportAlone = dense && !tariffActions && payments.history.isNotEmpty;
+    final bool tariffActions = !own && payments.tariff != null && !payments.readOnly;
+    final bool exportAlone = !own && dense && !tariffActions && payments.history.isNotEmpty;
+
+    final List<Widget> blocks = [
+      // The pupil's tariff; each payment says its own method.
+      if (payments.student) _SummaryCard(payments: payments, metrics: metrics),
+      if (tariffActions) ...[
+        SizedBox(height: gap),
+        // Minimal windows: two to a line, all as wide, rather than steps down the right.
+        if (AppBreakpoints.of(context).isMinimal)
+          LayoutBuilder(
+            builder: (context, constraints) => _actions(payments, room: constraints.maxWidth),
+          )
+        else
+          _actions(payments),
+      ],
+      if (!own && payments.student && payments.tariff == null && !payments.readOnly) ...[
+        SizedBox(height: gap),
+        _firstTariffAction(payments),
+      ],
+      if (exportAlone) ...[
+        SizedBox(height: gap),
+        Align(alignment: Alignment.centerLeft, child: _exportButton(payments)),
+      ],
+      if (payments.openingPending) ...[
+        SizedBox(height: gap),
+        _PendingCard(
+          lastDay: payments.openingDay,
+          metrics: metrics,
+          onConfigure: () => unawaited(_configure(payments)),
+        ),
+        ..._history(payments, gap),
+      ]
+      else if (payments.state != null) ...[
+        SizedBox(height: gap),
+        DesktopTourTarget(
+          id: own ? kTourFeesStatus : null,
+          child: _StatusCard(payments: payments, metrics: metrics),
+        ),
+        ..._history(payments, gap),
+      ]
+      else if (!payments.student) ...[
+        ..._history(payments, gap),
+      ],
+    ];
+
+    // Without the tariff on top, what comes first needs no gap above it.
+    while (blocks.isNotEmpty && blocks.first is SizedBox && (blocks.first as SizedBox).child == null)
+    {
+      blocks.removeAt(0);
+    }
 
     final Widget content = ScrollEdgeFade(
       child: TransitionScrollView(
@@ -547,44 +667,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
             constraints: const BoxConstraints(maxWidth: _contentWidth),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: pageTransitionBlocks([
-                _SummaryCard(payments: payments, metrics: metrics),
-                if (tariffActions) ...[
-                  SizedBox(height: gap),
-                  // Minimal windows: two to a line, all as wide, rather than steps down the right.
-                  if (AppBreakpoints.of(context).isMinimal)
-                    LayoutBuilder(
-                      builder: (context, constraints) => _actions(payments, room: constraints.maxWidth),
-                    )
-                  else
-                    _actions(payments),
-                ],
-                if (payments.student && payments.tariff == null && !payments.readOnly) ...[
-                  SizedBox(height: gap),
-                  _firstTariffAction(payments),
-                ],
-                if (exportAlone) ...[
-                  SizedBox(height: gap),
-                  Align(alignment: Alignment.centerLeft, child: _exportButton(payments)),
-                ],
-                if (payments.openingPending) ...[
-                  SizedBox(height: gap),
-                  _PendingCard(
-                    lastDay: payments.openingDay,
-                    metrics: metrics,
-                    onConfigure: () => unawaited(_configure(payments)),
-                  ),
-                  ..._history(payments, gap),
-                ]
-                else if (payments.state != null) ...[
-                  SizedBox(height: gap),
-                  _StatusCard(payments: payments, metrics: metrics),
-                  ..._history(payments, gap),
-                ]
-                else if (!payments.student) ...[
-                  ..._history(payments, gap),
-                ],
-              ]),
+              children: pageTransitionBlocks(blocks),
             ),
           ),
         ),
@@ -750,18 +833,6 @@ class _SummaryCard extends StatelessWidget
 
   const _SummaryCard({required this.payments, required this.metrics});
 
-  String get _method
-  {
-    final String? method = payments.paymentMethod;
-
-    if (method == null)
-    {
-      return '—';
-    }
-
-    return kPaymentMethodLabels[method] ?? payments.paymentMethodOther ?? '—';
-  }
-
   Widget _figure(String label, String value)
   {
     return Column(
@@ -796,15 +867,11 @@ class _SummaryCard extends StatelessWidget
         spacing: _figureGap,
         runSpacing: _figureRunGap,
         children: [
-          // A member who is not a pupil pays only the fees: no tariff.
-          if (payments.student) ...[
-            _figure(kTariffFigure, tariff == null ? '—' : kTariffKindLabels[tariff.kind] ?? '—'),
-            _figure(
-              kCostFigure,
-              tariff == null ? '—' : tariffCost(tariff.kind, tariff.amountCents, tariff.packageHours),
-            ),
-          ],
-          _figure(kPaymentMethodFigure, _method),
+          _figure(kTariffFigure, tariff == null ? '—' : kTariffKindLabels[tariff.kind] ?? '—'),
+          _figure(
+            kCostFigure,
+            tariff == null ? '—' : tariffCost(tariff.kind, tariff.amountCents, tariff.packageHours),
+          ),
         ],
       ),
     );

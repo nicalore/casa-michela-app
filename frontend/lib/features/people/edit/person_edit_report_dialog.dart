@@ -37,6 +37,7 @@ List<String> get kSchoolReportableFields => [
   tr('Percorso di studi', 'Study programme'),
 ];
 
+// A single field has nothing to choose: its box is open from the start.
 Future<void> showAnagraphicErrorReportDialog(
   BuildContext context,
   PersonItem person, {
@@ -79,6 +80,20 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
   final Map<String, TextEditingController> _controllers = {};
 
   bool _isSaving = false;
+
+  bool get _single => widget.fields.length == 1;
+
+  @override
+  void initState()
+  {
+    super.initState();
+
+    if (_single)
+    {
+      _selectedFields.add(widget.fields.single);
+      _controllers[widget.fields.single] = TextEditingController();
+    }
+  }
 
   @override
   void dispose()
@@ -194,37 +209,38 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
         maxWidth: _footerWidth,
       ),
       children: [
-        AppDialogPill(
-          expand: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                tr('Quali dati sono sbagliati?', 'Which details are wrong?'),
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  height: 1.45,
-                  color: AppTheme.trialInk,
+        if (!_single)
+          AppDialogPill(
+            expand: true,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr('Quali dati sono sbagliati?', 'Which details are wrong?'),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 1.45,
+                    color: AppTheme.trialInk,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final field in widget.fields)
-                    AppSelectableChip(
-                      label: field,
-                      selected: _selectedFields.contains(field),
-                      onSelected: (selected) => _toggle(field, selected),
-                    ),
-                ],
-              ),
-            ],
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final field in widget.fields)
+                      AppSelectableChip(
+                        label: field,
+                        selected: _selectedFields.contains(field),
+                        onSelected: (selected) => _toggle(field, selected),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
         if (chosen.isNotEmpty)
           AppDialogPill(
             expand: true,

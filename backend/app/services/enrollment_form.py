@@ -145,8 +145,7 @@ def request_for_person(
     if member is not None:
         payload["member_data"] = {
             "memberships": [],
-            "payment_method": member.payment_method,
-            "payment_method_other": member.payment_method_other,
+            **_method_of(member.payment_method, member.payment_method_other, fees),
             "statute_acknowledged": member.statute_acknowledged,
             "regulation_acknowledged": member.regulation_acknowledged,
             "video_surveillance_acknowledged": member.video_surveillance_acknowledged,
@@ -233,6 +232,27 @@ def request_for_person(
 
 
 # The newest year's, when both fees are on record.
+# How the newest year's fees were paid, the membership fee first; while they are owed,
+# the method given with them at creation or re-enrolment.
+def _method_of(
+    method: PaymentMethodEnum | None,
+    other: str | None,
+    fees: Sequence[MembershipFee],
+) -> dict[str, Any]:
+    latest = max((fee.year for fee in fees), default=None)
+
+    if latest is not None:
+        paid = sorted(
+            (fee for fee in fees if fee.year == latest and fee.payment_method),
+            key=lambda fee: fee.kind != MembershipFeeKindEnum.MEMBERSHIP,
+        )
+        if paid:
+            method = paid[0].payment_method
+            other = paid[0].payment_method_other
+
+    return {"payment_method": method, "payment_method_other": other}
+
+
 def _fees_of(fees: Sequence[MembershipFee]) -> dict[str, Any] | None:
     latest = max((fee.year for fee in fees), default=None)
     found = {fee.kind: fee for fee in fees if fee.year == latest}

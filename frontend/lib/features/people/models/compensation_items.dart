@@ -68,6 +68,23 @@ class CompensationDay
   }
 }
 
+// The bank transfer that paid the month, once uploaded.
+class CompensationReceipt
+{
+  final String fileName;
+  final String contentType;
+
+  const CompensationReceipt({required this.fileName, required this.contentType});
+
+  factory CompensationReceipt.fromJson(Map<String, dynamic> json)
+  {
+    return CompensationReceipt(
+      fileName: json['file_name'] as String,
+      contentType: json['content_type'] as String,
+    );
+  }
+}
+
 class CompensationMonth
 {
   final String collaborationType;
@@ -102,6 +119,8 @@ class CompensationMonth
   // The month's set-up is still to do: no money yet.
   final bool openingPending;
 
+  final CompensationReceipt? receipt;
+
   const CompensationMonth({
     required this.collaborationType,
     required this.grossRate,
@@ -121,6 +140,7 @@ class CompensationMonth
     this.openingGross,
     this.openingNet,
     this.openingPending = false,
+    this.receipt,
   });
 
   bool get isPaid => collaborationType == 'PAID';
@@ -154,6 +174,9 @@ class CompensationMonth
       openingGross: _cents(json['opening_gross']),
       openingNet: _cents(json['opening_net']),
       openingPending: json['opening_pending'] as bool? ?? false,
+      receipt: json['receipt'] == null
+          ? null
+          : CompensationReceipt.fromJson(json['receipt'] as Map<String, dynamic>),
     );
   }
 }

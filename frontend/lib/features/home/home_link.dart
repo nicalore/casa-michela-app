@@ -29,6 +29,12 @@ final class HomeStatsLink extends HomeLink
   const HomeStatsLink({super.pupil});
 }
 
+// One's own Compensi, on the running month.
+final class HomePayLink extends HomeLink
+{
+  const HomePayLink();
+}
+
 HomeLink homeBandLink(TimeBucket band, {required bool isPublished, String? pupil})
 {
   return isPublished ? HomeCalendarLink(band, pupil: pupil) : HomeWeekLink(pupil: pupil);

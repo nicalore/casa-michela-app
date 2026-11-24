@@ -88,13 +88,6 @@ String _method(PaymentHistoryRow row)
   return method == null ? '—' : kPaymentMethodLabels[method] ?? row.paymentMethodOther ?? '—';
 }
 
-String _summaryMethod(StudentPaymentsItem payments)
-{
-  final String? method = payments.paymentMethod;
-
-  return method == null ? '—' : kPaymentMethodLabels[method] ?? payments.paymentMethodOther ?? '—';
-}
-
 // A pupil's payments between two days, as the Pagamenti tab shows them, each followed by its lessons.
 Future<Uint8List> buildStudentPaymentsPdf({
   required String name,
@@ -199,7 +192,6 @@ pw.Widget _figures(AccountingPdfStyles styles, StudentPaymentsItem payments, Lis
   final List<(pw.Widget, int)> figures = [
     (_figure(styles, kTariffFigure, tariff == null ? '—' : kTariffKindLabels[tariff.kind] ?? '—'), 4),
     (_figure(styles, kCostFigure, tariff == null ? '—' : tariffCost(tariff.kind, tariff.amountCents, tariff.packageHours)), 6),
-    (_figure(styles, kPaymentMethodFigure, _summaryMethod(payments)), 5),
   ];
 
   final List<(pw.Widget, int)> totals = [

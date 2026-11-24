@@ -89,8 +89,68 @@ class AppGradientButton extends StatefulWidget
   })  : gradient = gradient ?? AppTheme.brandGradient,
         accent = accent ?? AppTheme.trialTealDeepText;
 
+  // As wide as [label] needs on one line, with its icon, padding and border, where [context] sits.
+  static double oneLineWidth(
+    BuildContext context,
+    String label, {
+    double fontSize = 17,
+    bool icon = false,
+    double horizontalPadding = _horizontalPadding,
+  })
+  {
+    final bool page = AppPageDensity.of(context);
+    final bool dense = AppDialogDensity.of(context);
+    final double size = _fontSizeAt(fontSize, page: page, dense: dense);
+
+    final TextPainter painter = TextPainter(
+      text: TextSpan(text: label, style: _labelStyleOf(size, Colors.white)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+
+    final double glyph = icon ? size + 1 + 8 : 0;
+    final double side = _horizontalAt(horizontalPadding, page: page, dense: dense);
+    final double width = painter.width + glyph + 2 * side + 2 * _borderWidth;
+
+    painter.dispose();
+
+    return width.ceilToDouble() + 1;
+  }
+
   @override
   State<AppGradientButton> createState() => _AppGradientButtonState();
+}
+
+double _fontSizeAt(double fontSize, {required bool page, required bool dense})
+{
+  if (page)
+  {
+    return math.min(fontSize, _pageFontSize);
+  }
+
+  return dense ? math.min(fontSize, _denseFontSize) : fontSize;
+}
+
+double _horizontalAt(double padding, {required bool page, required bool dense})
+{
+  if (page)
+  {
+    return math.min(padding, _pageHorizontalPadding);
+  }
+
+  return dense ? math.min(padding, _denseHorizontalPadding) : padding;
+}
+
+TextStyle _labelStyleOf(double fontSize, Color color)
+{
+  return GoogleFonts.plusJakartaSans(
+    fontSize: fontSize,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 1.2,
+    height: 1.1,
+    color: color,
+  );
 }
 
 class _AppGradientButtonState extends State<AppGradientButton>
@@ -170,15 +230,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
     return height == null ? null : BoxConstraints(minHeight: height);
   }
 
-  double get _fontSize
-  {
-    if (_page)
-    {
-      return math.min(widget.fontSize, _pageFontSize);
-    }
-
-    return _dense ? math.min(widget.fontSize, _denseFontSize) : widget.fontSize;
-  }
+  double get _fontSize => _fontSizeAt(widget.fontSize, page: _page, dense: _dense);
 
   bool get _iconOnly => widget.iconOnlyTooltip != null && widget.icon != null;
 
@@ -189,26 +241,12 @@ class _AppGradientButtonState extends State<AppGradientButton>
       return 0;
     }
 
-    if (_page)
-    {
-      return math.min(widget.horizontalPadding, _pageHorizontalPadding);
-    }
-
-    return _dense ? math.min(widget.horizontalPadding, _denseHorizontalPadding) : widget.horizontalPadding;
+    return _horizontalAt(widget.horizontalPadding, page: _page, dense: _dense);
   }
 
   double get _vertical => _dense ? _denseVerticalPadding : _verticalPadding;
 
-  TextStyle _labelStyle(Color color)
-  {
-    return GoogleFonts.plusJakartaSans(
-      fontSize: _fontSize,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 1.2,
-      height: 1.1,
-      color: color,
-    );
-  }
+  TextStyle _labelStyle(Color color) => _labelStyleOf(_fontSize, color);
 
   Widget _buildFace(Color contentColor)
   {

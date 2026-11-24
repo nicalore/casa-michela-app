@@ -12,6 +12,7 @@ const String _availabilitySlug = 'availability';
 const String _bookingsSlug = 'bookings';
 const String _calendarSlug = 'calendar';
 const String _childrenSlug = 'children';
+const String _compensationSlug = 'compensation';
 
 // Where a band or a figure of the home leads on the desktop, the home being [role]'s.
 void followHomeLink(HomeLink link, {required String role})
@@ -33,6 +34,9 @@ void followHomeLink(HomeLink link, {required String role})
 
       (teacher ? WeekJumps.availability : WeekJumps.bookings).request(romeNow(), role: role);
       appRouter.go('$home/${teacher ? _availabilitySlug : _bookingsSlug}');
+    case HomePayLink():
+      CompensationJumps.request();
+      appRouter.go('$home/$_compensationSlug');
     case HomeStatsLink(:final pupil):
       if (pupil == null)
       {

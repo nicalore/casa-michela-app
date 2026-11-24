@@ -46,6 +46,10 @@ from app.services.student_payments import HistoryRow, student_payment_status
 router = APIRouter(prefix="/people", tags=["student-payments"])
 
 Admin = Annotated[IdentityContext, Depends(require_role("ADMIN"))]
+AdminOrTeacher = Annotated[
+    IdentityContext,
+    Depends(require_role("ADMIN", "TEACHER")),
+]
 
 # A database integer: anything larger would fail in the driver, not as a 404.
 RowId = Annotated[int, Path(ge=1, le=2**31 - 1)]
@@ -58,6 +62,11 @@ _STUDENT_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
 _MEMBER_NOT_FOUND_ERROR: Final[tuple[str, str]] = (
     "Socio non trovato",
     "Member not found",
+)
+
+_FORBIDDEN_ERROR: Final[tuple[str, str]] = (
+    "Non hai i permessi per accedere a questa risorsa",
+    "You don't have permission to access this resource",
 )
 
 _READ_ONLY_ERRORS: Final[dict[GenderEnum, tuple[str, str]]] = {
@@ -324,13 +333,71 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
     )
 
 
+# A teacher's own: their annual fees alone, read only.
+async def _fees_response(
+    db: AsyncSession,
+    member: Member,
+) -> StudentPaymentsResponse:
+    fees = await member_fees(db, member.tax_code)
+    owed = sum(fee.amount_cents for fee in fees if fee.paid_on is None)
+    last = max(
+        (fee for fee in fees if fee.paid_on is not None),
+        key=lambda fee: (fee.paid_on, fee.id),
+        default=None,
+    )
+    paid_by = last is not None and last.payment_method is not None
+
+    return StudentPaymentsResponse(
+        student=False,
+        opening=None,
+        opening_day=None,
+        read_only=True,
+        tariff=None,
+        school_level=None,
+        payment_method=last.payment_method if paid_by else member.payment_method,
+        payment_method_other=(
+            last.payment_method_other if paid_by else member.payment_method_other
+        ),
+        state=("DUE" if owed else "OK") if fees else None,
+        due_cents=owed,
+        package=None,
+        months=None,
+        ahead=None,
+        lines=[],
+        queued=None,
+        queued_starts_on=None,
+        history=_merged([], fees),
+    )
+
+
+# Under the admin hat, or reading someone else as an admin: everything.
+def _fees_only(identity: IdentityContext, tax_code: str) -> bool:
+    own = tax_code == identity.tax_code and "TEACHER" in identity.roles
+
+    if identity.reads_everything or (identity.is_admin and not own):
+        return False
+
+    if own:
+        return True
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=tr(*_FORBIDDEN_ERROR),
+    )
+
+
 @router.get("/{tax_code}/payments", response_model=StudentPaymentsResponse)
 async def student_payments(
     tax_code: str,
     db: DbSession,
-    _: Admin,
+    identity: AdminOrTeacher,
 ) -> StudentPaymentsResponse:
-    member = await _member_or_404(db, tax_code.upper())
+    code = tax_code.upper()
+    fees_only = _fees_only(identity, code)
+    member = await _member_or_404(db, code)
+
+    if fees_only:
+        return await _fees_response(db, member)
 
     return await _response(db, member)
 

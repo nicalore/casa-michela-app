@@ -18,6 +18,7 @@ const String _studentRole = 'STUDENT';
 const String _bookingsSlug = 'bookings';
 const String _teacherRole = 'TEACHER';
 const String _availabilitySlug = 'availability';
+const String _compensationSlug = 'compensation';
 
 // A published calendar leads to the person's own; availabilities and bookings to their page.
 // The administrator has no area here yet.
@@ -99,12 +100,18 @@ void followMobileNotification(NotificationItem item)
     case NotificationKind.administratorNoteAdded:
       OwnPageJumps.requestObservations();
       MobileShellRequests.open(me.activeRole, kMobileOwnPageSlug);
+    // One's own Compensi on the month it tells of.
     case NotificationKind.volunteeringChanged:
-      if (me.availableRoles.contains(_teacherRole))
+    case NotificationKind.paymentReceiptAvailable:
+      final DateTime? month = item.calendarDate;
+
+      if (!me.availableRoles.contains(_teacherRole))
       {
-        // The teacher's Compensi are not there yet: the home shows the month's pay.
-        MobileShellRequests.open(_teacherRole, kMobileHomeSlug);
+        return;
       }
+
+      CompensationJumps.request(month);
+      MobileShellRequests.open(_teacherRole, _compensationSlug);
     case NotificationKind.noticeReceived:
       final int? id = item.noticeId;
       final String? role = calendarRoleFor(

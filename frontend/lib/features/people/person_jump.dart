@@ -89,3 +89,27 @@ abstract final class ChildStatsJumps
     return pupil;
   }
 }
+
+// One's own Compensi asked for, by a link or a notification, maybe on a month: a page not built yet takes it on
+// start, a shown one listens and turns to its Compensi.
+abstract final class CompensationJumps
+{
+  static DateTime? _month;
+
+  // Bumped on every request.
+  static final ValueNotifier<int> asked = ValueNotifier<int>(0);
+
+  static void request([DateTime? month])
+  {
+    _month = month == null ? null : DateTime(month.year, month.month);
+    asked.value++;
+  }
+
+  static DateTime? take()
+  {
+    final DateTime? month = _month;
+    _month = null;
+
+    return month;
+  }
+}
