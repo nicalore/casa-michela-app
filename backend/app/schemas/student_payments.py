@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Final, Literal, Self
+from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -35,6 +35,21 @@ _QUARTER_HOUR: Final[int] = 15
 _PAID_TOO_EARLY_ERROR: Final[tuple[str, str]] = (
     "La data del pagamento non è valida.",
     "The payment date is not valid.",
+)
+
+# Lessons of one line a window may choose; fees of one member.
+_MAX_DAYS: Final[int] = 400
+
+_MAX_FEES: Final[int] = 50
+
+_NOTHING_CHOSEN_ERROR: Final[tuple[str, str]] = (
+    "Scegli almeno una voce da saldare.",
+    "Choose at least one item to settle.",
+)
+
+_CHOSEN_TWICE_ERROR: Final[tuple[str, str]] = (
+    "Una voce è stata scelta due volte.",
+    "An item was chosen twice.",
 )
 
 # The association's first day, as services.worked_hours.BEGINNING: no payment is
@@ -121,14 +136,46 @@ class AheadData(BaseModel):
     payment: PaymentData
 
 
-class SettlementData(BaseModel):
+# A line of hours, or the days of it that were chosen, paid by the hour.
+class HoursChoice(BaseModel):
     hours_kind: HoursKindEnum
     # Ignored online at the weekend, which has its own.
     cents_per_hour: int = Field(..., gt=0, le=_MAX_AMOUNT_CENTS)
-    payment: PaymentData
+    # The lessons' days to settle; the whole line when missing.
+    days: list[date] | None = Field(None, min_length=1, max_length=_MAX_DAYS)
     # The minutes the window showed: another band confirmed meanwhile adds to the
     # line, and what is settled must be what was read.
     expected_minutes: int | None = Field(None, ge=0)
+
+
+class SettlementData(HoursChoice):
+    payment: PaymentData
+
+
+# The settle window: lines of hours and annual fees, paid on one day in one way;
+# each line becomes a payment of its own.
+class SettlementsData(BaseModel):
+    hours: list[HoursChoice] = Field(
+        default_factory=list,
+        max_length=len(HoursKindEnum),
+    )
+    fee_ids: list[Annotated[int, Field(ge=1, le=2**31 - 1)]] = Field(
+        default_factory=list,
+        max_length=_MAX_FEES,
+    )
+    payment: PaymentData
+
+    @model_validator(mode="after")
+    def _something_once(self) -> Self:
+        if not self.hours and not self.fee_ids:
+            raise ValueError(tr(*_NOTHING_CHOSEN_ERROR))
+
+        kinds = [choice.hours_kind for choice in self.hours]
+
+        if len(set(kinds)) != len(kinds) or len(set(self.fee_ids)) != len(self.fee_ids):
+            raise ValueError(tr(*_CHOSEN_TWICE_ERROR))
+
+        return self
 
 
 class StudentTariffResponse(BaseModel):
@@ -147,6 +194,8 @@ class LessonPartResponse(BaseModel):
     current: bool
     # Owed before money_from, as the initial set-up says.
     opening: bool = False
+    # At the line's own rate, which settling keeps unless another is asked.
+    cents: int = 0
 
 
 class HoursLineResponse(BaseModel):
@@ -155,6 +204,8 @@ class HoursLineResponse(BaseModel):
     cents: int
     cents_per_hour: int
     parts: list[LessonPartResponse]
+    # A lesson of another row of its kind falls between its first and last day.
+    interleaved: bool = False
 
 
 class PackageStatusResponse(BaseModel):
@@ -223,6 +274,10 @@ class HistoryRowResponse(BaseModel):
     fee_id: int | None = None
     # A payment made, which can be cancelled.
     payment_id: int | None = None
+    # A lesson of another row of its kind falls between its first and last day.
+    interleaved: bool = False
+    # Annual fees: the day the fee was recorded.
+    recorded_on: date | None = None
 
 
 class StudentPaymentsResponse(BaseModel):

@@ -295,6 +295,11 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         path_params=("tax_code",),
         body_fields=("hours_kind", "cents_per_hour"),
     ),
+    ("POST", "/people/{tax_code}/payments/settlements"): AuditRule(
+        "Settlement of what is owed",
+        path_params=("tax_code",),
+        body_fields=("fee_ids",),
+    ),
     ("POST", "/people/{tax_code}/payments/fees/{fee_id}/settlement"): AuditRule(
         "Membership fee settlement",
         path_params=("tax_code", "fee_id"),

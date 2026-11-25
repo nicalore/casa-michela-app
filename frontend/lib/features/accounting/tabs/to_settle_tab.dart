@@ -9,18 +9,23 @@ import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
-import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/search_terms.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/hover_gold_frame.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/search_reveal.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../../association/tabs/tariffs/tariffs_strings.dart' show kInsuranceFee, kMembershipFee;
-import '../../people/utils/payments_strings.dart' show hoursText, kHoursTitles, kPaymentsSection;
+import '../../people/models/person_item.dart';
+import '../../people/models/student_payments_item.dart';
+import '../../people/utils/payments_strings.dart'
+    show atOpeningDay, feeDueSince, hoursText, kHoursTitles, kPaymentsSection, kSettleLabel, kSettled, lessonDaysText;
+import '../../people/widgets/student_payment_dialogs.dart' show showSettleDialog;
 import '../accounting_page.dart';
 import '../models/to_settle_items.dart';
 import '../utils/accounting_strings.dart';
@@ -32,19 +37,22 @@ import '../widgets/summary_search.dart';
 const double _radius = 24;
 const double _sideInset = 20;
 const double _headHeight = 46;
-const double _sinceWidth = 150;
-const double _amountWidth = 120;
+const double _periodWidth = 190;
+const double _itemAmountWidth = 104;
+const double _totalWidth = 120;
+const double _settleWidth = 128;
 const double _chevronWidth = 44;
 
 // Below this the fixed columns narrow and the person gives room to what is owed.
 const double _narrowTable = 900;
-const double _narrowSinceWidth = 136;
-const double _narrowAmountWidth = 92;
+const double _narrowPeriodWidth = 150;
+const double _narrowItemAmountWidth = 84;
+const double _narrowTotalWidth = 92;
+const double _narrowSettleWidth = 112;
 const double _narrowChevronWidth = 36;
-const double _itemGap = 4;
 const double _itemAmountGap = 12;
 
-// Minimal windows: a row on floors (name and total, what is owed, since when).
+// Minimal windows: blocks on floors (name and total, the items with their days, «SALDA»).
 const double _stackedInset = 16;
 const double _stackedChevron = 30;
 const double _stackedGap = 4;
@@ -61,6 +69,22 @@ String _itemLabel(OwedItem item)
   final String hours = hoursText(item.minutes ?? 0).replaceAll(' ', '\u00A0');
 
   return '${kHoursTitles[item.kind] ?? ''}: $hours';
+}
+
+// When an item ran: its lessons' days, or since when a fee is owed.
+String _itemPeriod(OwedItem item)
+{
+  if (item.isFee)
+  {
+    return feeDueSince(item.first);
+  }
+
+  if (item.opening)
+  {
+    return atOpeningDay(item.first);
+  }
+
+  return lessonDaysText(item.days.isEmpty ? [item.first, item.last] : item.days, interleaved: item.interleaved);
 }
 
 class ToSettleTab extends StatefulWidget
@@ -214,6 +238,48 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
     );
   }
 
+  // Everything the person owes, read afresh, in the one settle window; the list is read again after.
+  Future<void> _settle(Debtor row) async
+  {
+    final PersonItem person;
+    final StudentPaymentsItem payments;
+
+    try
+    {
+      (person, payments) = await (_api.getPerson(row.taxCode), _api.getStudentPayments(row.taxCode)).wait;
+    }
+    on ParallelWaitError<(PersonItem?, StudentPaymentsItem?), (AsyncError?, AsyncError?)> catch (failure)
+    {
+      if (mounted)
+      {
+        final Object error = failure.errors.$1?.error ?? failure.errors.$2?.error ?? failure;
+
+        CustomSnackBar.show(context: context, message: readableApiError(error), isError: true);
+      }
+
+      return;
+    }
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    final StudentPaymentsItem? saved = await showSettleDialog(context: context, person: person, payments: payments);
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    if (saved != null)
+    {
+      CustomSnackBar.show(context: context, message: kSettled);
+    }
+
+    unawaited(_load());
+  }
+
   Widget _filters()
   {
     return SummarySearchFilters(
@@ -292,6 +358,7 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
                     rows: rows,
                     dense: dense,
                     onOpen: _open,
+                    onSettle: _settle,
                     stacked: AppBreakpoints.of(context).isMinimal,
                     search: _search,
                   ),
@@ -333,14 +400,15 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
   }
 }
 
-// One row per person, what they owe line by line; a row opens their payments.
+// One block per person: the name once, a line between their items, the total and «SALDA» once.
 class _ToSettleTable extends StatelessWidget
 {
   final List<Debtor> rows;
   final bool dense;
   final ValueChanged<Debtor> onOpen;
+  final ValueChanged<Debtor> onSettle;
 
-  // Minimal windows: rows on floors, no columns.
+  // Minimal windows: blocks on floors, no columns.
   final bool stacked;
 
   // Who is looked for by name.
@@ -350,19 +418,42 @@ class _ToSettleTable extends StatelessWidget
     required this.rows,
     required this.dense,
     required this.onOpen,
+    required this.onSettle,
     required this.search,
     this.stacked = false,
   });
 
   double get _font => dense ? 13.5 : 14.5;
 
-  // The fixed columns and the shares of the two flexible ones.
-  static ({double since, double amount, double chevron, int name, int owed}) _columns(bool narrow)
+  double get _rowPad => dense ? 12 : 15;
+
+  static ({double period, double amount, double total, double settle, double chevron, int name, int owed}) _columns(
+    bool narrow,
+  )
   {
     return narrow
-        ? (since: _narrowSinceWidth, amount: _narrowAmountWidth, chevron: _narrowChevronWidth, name: 2, owed: 4)
-        : (since: _sinceWidth, amount: _amountWidth, chevron: _chevronWidth, name: 3, owed: 5);
+        ? (
+            period: _narrowPeriodWidth,
+            amount: _narrowItemAmountWidth,
+            total: _narrowTotalWidth,
+            settle: _narrowSettleWidth,
+            chevron: _narrowChevronWidth,
+            name: 2,
+            owed: 5,
+          )
+        : (
+            period: _periodWidth,
+            amount: _itemAmountWidth,
+            total: _totalWidth,
+            settle: _settleWidth,
+            chevron: _chevronWidth,
+            name: 3,
+            owed: 7,
+          );
   }
+
+  Widget _headText(String text, {bool right = false}) =>
+      Text(text, textAlign: right ? TextAlign.right : TextAlign.left, style: hoursHeadStyle);
 
   Widget _head(bool narrow)
   {
@@ -377,18 +468,30 @@ class _ToSettleTable extends StatelessWidget
       ),
       child: Row(
         children: [
-          Expanded(flex: c.name, child: Text(kDebtorColumn, style: hoursHeadStyle)),
-          Expanded(flex: c.owed, child: Text(kOwedColumn, style: hoursHeadStyle)),
-          SizedBox(width: c.since, child: Text(kSinceColumn, style: hoursHeadStyle)),
-          SizedBox(
-            width: c.amount,
-            child: Text(kOwedAmountColumn, textAlign: TextAlign.right, style: hoursHeadStyle),
+          Expanded(flex: c.name, child: _headText(kDebtorColumn)),
+          Expanded(
+            flex: c.owed,
+            child: Row(
+              children: [
+                Expanded(child: _headText(kOwedColumn)),
+                SizedBox(width: c.period, child: _headText(kPeriodColumn)),
+                SizedBox(width: c.amount, child: _headText(kOwedAmountColumn, right: true)),
+              ],
+            ),
           ),
+          SizedBox(width: c.total, child: _headText(kTotalColumn, right: true)),
+          SizedBox(width: c.settle),
           SizedBox(width: c.chevron),
         ],
       ),
     );
   }
+
+  TextStyle get _muted => GoogleFonts.plusJakartaSans(
+        fontSize: _font - 1.5,
+        fontWeight: FontWeight.w500,
+        color: AppTheme.trialMutedText,
+      );
 
   Widget _name(Debtor row)
   {
@@ -406,14 +509,7 @@ class _ToSettleTable extends StatelessWidget
         ),
         if (!row.enrolled) ...[
           const SizedBox(height: 3),
-          Text(
-            kNotEnrolledNow,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: _font - 1.5,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
+          Text(kNotEnrolledNow, style: _muted),
         ],
         if (row.openingPending) ...[
           const SizedBox(height: 5),
@@ -423,21 +519,109 @@ class _ToSettleTable extends StatelessWidget
     );
   }
 
+  bool _payable(Debtor row) => row.items.any((item) => item.cents != null);
+
   Widget _total(Debtor row)
   {
+    final bool payable = _payable(row);
+
     return Text(
-      formatAmount(row.totalCents),
+      payable ? formatAmount(row.totalCents) : '—',
       textAlign: TextAlign.right,
       style: GoogleFonts.plusJakartaSans(
         fontSize: _font + 0.5,
         fontWeight: FontWeight.w800,
-        color: AppTheme.modifiedAccent,
+        color: payable ? AppTheme.modifiedAccent : AppTheme.trialMutedText,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }
 
-  Widget _stackedRow(Debtor row, int thisYear, {required bool first})
+  Widget _itemAmount(OwedItem item)
+  {
+    return Text(
+      item.cents == null ? '—' : formatAmount(item.cents!),
+      textAlign: TextAlign.right,
+      style: hoursCellStyle(color: item.cents == null ? AppTheme.trialMutedText : null).copyWith(
+        fontSize: _font,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+  }
+
+  Widget _settleButton(Debtor row)
+  {
+    final double height = dense ? 32 : 34;
+
+    return AppGradientButton(
+      label: kSettleLabel,
+      icon: Icons.payments_outlined,
+      height: height,
+      radius: height / 2,
+      fontSize: dense ? 11 : 12,
+      horizontalPadding: 14,
+      onPressed: () => onSettle(row),
+    );
+  }
+
+  Widget _chevron(double width) =>
+      SizedBox(width: width, child: Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeepText));
+
+  // One item: what, when, how much; a line above it when it is not the first.
+  Widget _item(OwedItem item, bool first, ({double period, double amount, double total, double settle, double chevron, int name, int owed}) c)
+  {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: _rowPad),
+      decoration: BoxDecoration(
+        border: first ? null : Border(top: BorderSide(color: kHoursRowLine)),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text(_itemLabel(item), style: hoursCellStyle().copyWith(fontSize: _font))),
+          SizedBox(
+            width: c.period,
+            child: Text(_itemPeriod(item), style: hoursCellStyle().copyWith(fontSize: _font)),
+          ),
+          SizedBox(width: c.amount, child: _itemAmount(item)),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(Debtor row, {required bool first, required bool narrow})
+  {
+    final c = _columns(narrow);
+
+    return Container(
+      padding: const EdgeInsets.only(left: _sideInset),
+      decoration: BoxDecoration(
+        border: first ? null : Border(top: BorderSide(color: kHoursRowLine)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: c.name,
+            child: Padding(padding: EdgeInsets.symmetric(vertical: _rowPad), child: _name(row)),
+          ),
+          Expanded(
+            flex: c.owed,
+            child: Column(
+              children: [for (final (index, item) in row.items.indexed) _item(item, index == 0, c)],
+            ),
+          ),
+          SizedBox(width: c.total, child: _total(row)),
+          SizedBox(
+            width: c.settle,
+            child: _payable(row) ? Align(alignment: Alignment.centerRight, child: _settleButton(row)) : null,
+          ),
+          _chevron(c.chevron),
+        ],
+      ),
+    );
+  }
+
+  // Minimal windows: name and total, then the items between lines, then «SALDA».
+  Widget _stackedRow(Debtor row, {required bool first})
   {
     return Container(
       padding: const EdgeInsets.fromLTRB(_stackedInset, 12, 8, 12),
@@ -459,74 +643,38 @@ class _ToSettleTable extends StatelessWidget
               ),
             ],
           ),
-          const SizedBox(height: _stackedGap),
-          Padding(
-            padding: const EdgeInsets.only(right: _stackedChevron - _itemAmountGap),
-            child: _items(row, true),
-          ),
-          const SizedBox(height: _stackedGap),
-          Text(
-            '$kSinceColumn ${owedSince(row.since, thisYear)}',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: _font - 1.5,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _items(Debtor row, bool narrow)
-  {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final (index, item) in row.items.indexed) ...[
-          if (index > 0) const SizedBox(height: _itemGap),
-          Row(
-            children: [
-              Expanded(child: Text(_itemLabel(item), style: hoursCellStyle().copyWith(fontSize: _font))),
-              const SizedBox(width: _itemAmountGap),
-              Text(
-                item.cents == null ? '—' : formatAmount(item.cents!),
-                style: hoursCellStyle(color: AppTheme.trialMutedText).copyWith(
-                  fontSize: _font - 0.5,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+          const SizedBox(height: 6),
+          for (final (index, item) in row.items.indexed)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              margin: const EdgeInsets.only(right: _stackedChevron),
+              decoration: BoxDecoration(
+                border: index == 0 ? null : Border(top: BorderSide(color: kHoursRowLine)),
               ),
-              SizedBox(width: narrow ? _itemAmountGap : _itemAmountGap * 2),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _row(Debtor row, int thisYear, {required bool first, required bool narrow})
-  {
-    final c = _columns(narrow);
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(_sideInset, dense ? 12 : 15, 0, dense ? 12 : 15),
-      decoration: BoxDecoration(
-        border: first ? null : Border(top: BorderSide(color: kHoursRowLine)),
-      ),
-      child: Row(
-        children: [
-          Expanded(flex: c.name, child: _name(row)),
-          Expanded(flex: c.owed, child: _items(row, narrow)),
-          SizedBox(
-            width: c.since,
-            child: Text(owedSince(row.since, thisYear), style: hoursCellStyle().copyWith(fontSize: _font)),
-          ),
-          SizedBox(width: c.amount, child: _total(row)),
-          SizedBox(
-            width: c.chevron,
-            child: Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialTealDeepText),
-          ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_itemLabel(item), style: hoursCellStyle().copyWith(fontSize: _font)),
+                        const SizedBox(height: _stackedGap),
+                        Text(_itemPeriod(item), style: _muted),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: _itemAmountGap),
+                  _itemAmount(item),
+                ],
+              ),
+            ),
+          if (_payable(row)) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(right: _stackedChevron),
+              child: Align(alignment: Alignment.centerRight, child: _settleButton(row)),
+            ),
+          ],
         ],
       ),
     );
@@ -535,8 +683,6 @@ class _ToSettleTable extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final int thisYear = romeNow().year;
-
     return LayoutBuilder(
       builder: (context, constraints)
       {
@@ -567,8 +713,8 @@ class _ToSettleTable extends StatelessWidget
                     atBottom: index == rows.length - 1,
                     onTap: () => onOpen(row),
                     child: stacked
-                        ? _stackedRow(row, thisYear, first: index == 0)
-                        : _row(row, thisYear, first: index == 0, narrow: narrow),
+                        ? _stackedRow(row, first: index == 0)
+                        : _row(row, first: index == 0, narrow: narrow),
                   ),
                 ),
             ],

@@ -403,9 +403,9 @@ String? amountRange(int? least, int? most) => switch ((least, most))
 
 // Whoever owes something today.
 String get kToSettleEntry => tr('Da saldare', 'Due');
-String get kDebtorColumn => tr('Persona', 'Person');
+String get kDebtorColumn => tr('Nome', 'Name');
+String get kPeriodColumn => tr('Periodo', 'Period');
 String get kOwedColumn => tr('Da saldare', 'Due');
-String get kSinceColumn => tr('Dal', 'Since');
 String get kOwedAmountColumn => tr('Importo', 'Amount');
 String get kNotEnrolledNow => tr('Nessuna iscrizione in corso', 'No current enrolment');
 String get kNothingOwed => tr('Nessuno ha qualcosa da saldare', 'Nobody has anything due');
@@ -414,10 +414,6 @@ String get kNoDebtorsFiltered => tr('Nessuna persona con questi filtri', 'No peo
 String debtorsCount(int count) => count == 1 ? tr('1 persona', '1 person') : tr('$count persone', '$count people');
 
 String get kOwedInAll => tr('Totale', 'Total');
-
-// "3 novembre", with the year when it is not this one.
-String owedSince(DateTime day, int thisYear) =>
-    day.year == thisYear ? formatDayMonthFull(day) : '${formatDayMonthFull(day)} ${day.year}';
 
 // The statistics.
 String get kStatisticsEntry => tr('Statistiche', 'Statistics');

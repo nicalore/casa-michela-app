@@ -1,5 +1,7 @@
+from collections import defaultdict
 from datetime import date
 from typing import Annotated, Final, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy import select
@@ -28,6 +30,7 @@ from app.schemas.student_payments import (
     PaymentData,
     RenewalData,
     SettlementData,
+    SettlementsData,
     StudentPaymentsResponse,
     StudentTariffResponse,
     TariffChangeData,
@@ -41,7 +44,11 @@ from app.services.membership_fees import (
 )
 from app.services.opening_state import refuse_pending_pupil
 from app.services.role_service import RoleService
-from app.services.student_payments import HistoryRow, student_payment_status
+from app.services.student_payments import (
+    HistoryRow,
+    days_interleaved,
+    student_payment_status,
+)
 
 router = APIRouter(prefix="/people", tags=["student-payments"])
 
@@ -127,6 +134,9 @@ async def _writable(db: AsyncSession, member: Member) -> None:
         )
 
 
+_ROME: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
+
+
 def _fee_row(fee: MembershipFee) -> HistoryRowResponse:
     return HistoryRowResponse(
         kind=_FEE_KINDS[fee.kind],
@@ -142,7 +152,35 @@ def _fee_row(fee: MembershipFee) -> HistoryRowResponse:
         lessons=[],
         year=fee.year,
         fee_id=fee.id,
+        recorded_on=fee.created_at.astimezone(_ROME).date(),
     )
+
+
+# Every day of each kind of row: a row whose span holds another's lesson names
+# its days instead.
+def _kind_days(rows: list[HistoryRowResponse]) -> dict[str, set[date]]:
+    days: dict[str, set[date]] = defaultdict(set)
+
+    for row in rows:
+        days[row.kind].update(lesson.day for lesson in row.lessons)
+
+    return days
+
+
+def _interleaved(rows: list[HistoryRowResponse]) -> list[HistoryRowResponse]:
+    days = _kind_days(rows)
+
+    return [
+        row.model_copy(
+            update={
+                "interleaved": days_interleaved(
+                    [lesson.day for lesson in row.lessons],
+                    days[row.kind],
+                ),
+            },
+        )
+        for row in rows
+    ]
 
 
 # Fees owed first, then hours to settle, then everything paid, the newest first.
@@ -226,10 +264,13 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
         if last is not None and last.payment_method is not None
         else member.payment_method_other
     )
-    history = _merged(
-        [_history_row(row) for row in found.history] if found is not None else [],
-        fees,
+    history = _interleaved(
+        _merged(
+            [_history_row(row) for row in found.history] if found is not None else [],
+            fees,
+        ),
     )
+    kind_days = _kind_days(history)
     read_only = not RoleService.is_enrolled(member)
     level = found.level if found is not None else None
     opening = found.opening if found is not None else None
@@ -311,9 +352,14 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
                         minutes=part.minutes,
                         current=part.tariff_id == current_id,
                         opening=part.opening,
+                        cents=part.cents,
                     )
                     for part in line.parts
                 ],
+                interleaved=days_interleaved(
+                    [part.day for part in line.parts],
+                    kind_days[line.kind.value],
+                ),
             )
             for line in payment.lines
         ],
@@ -478,6 +524,41 @@ async def settle(
     member = await _member_or_404(db, tax_code.upper(), student=True)
     await refuse_pending_pupil(db, member.tax_code)
     await payments_service.settle(db, member.tax_code, payload, now_in_rome())
+    await db.commit()
+
+    return await _response(db, member)
+
+
+# The settle window: the lines of hours and the fees ticked, one day and one way.
+@router.post(
+    "/{tax_code}/payments/settlements",
+    response_model=StudentPaymentsResponse,
+)
+async def settle_items(
+    tax_code: str,
+    payload: SettlementsData,
+    db: DbSession,
+    _: Admin,
+) -> StudentPaymentsResponse:
+    await lock_account(db, tax_code.upper())
+    member = await _member_or_404(db, tax_code.upper(), student=bool(payload.hours))
+    now = now_in_rome()
+
+    # Fees are paid whatever the initial set-up; hours wait for it.
+    if payload.hours:
+        await refuse_pending_pupil(db, member.tax_code)
+
+    for choice in payload.hours:
+        await payments_service.settle(
+            db,
+            member.tax_code,
+            SettlementData(**choice.model_dump(), payment=payload.payment),
+            now,
+        )
+
+    for fee_id in payload.fee_ids:
+        await settle_fee(db, member.tax_code, fee_id, payload.payment, now.date())
+
     await db.commit()
 
     return await _response(db, member)

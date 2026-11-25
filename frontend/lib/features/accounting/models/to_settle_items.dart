@@ -14,7 +14,28 @@ class OwedItem
   // Fees only: the membership year.
   final int? year;
 
-  const OwedItem({required this.kind, required this.cents, this.minutes, this.year});
+  // Hours: the first and last lesson; fees: the day the fee was recorded.
+  final DateTime first;
+  final DateTime last;
+
+  // Hours: every lesson's day; a settled one of the kind between them makes the row name its days.
+  final List<DateTime> days;
+  final bool interleaved;
+
+  // Every minute comes from the initial set-up.
+  final bool opening;
+
+  const OwedItem({
+    required this.kind,
+    required this.cents,
+    this.minutes,
+    this.year,
+    required this.first,
+    required this.last,
+    this.days = const [],
+    this.interleaved = false,
+    this.opening = false,
+  });
 
   bool get isFee => kind == 'MEMBERSHIP_FEE' || kind == 'INSURANCE_FEE';
 
@@ -25,6 +46,11 @@ class OwedItem
       cents: json['cents'] as int?,
       minutes: json['minutes'] as int?,
       year: json['year'] as int?,
+      first: DateTime.parse(json['first_day'] as String),
+      last: DateTime.parse(json['last_day'] as String),
+      days: [for (final day in json['days'] as List<dynamic>? ?? const []) DateTime.parse(day as String)],
+      interleaved: json['interleaved'] as bool? ?? false,
+      opening: json['opening'] as bool? ?? false,
     );
   }
 }

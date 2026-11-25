@@ -7,7 +7,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_check_mark.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_segmented_switch.dart';
@@ -27,6 +29,9 @@ import '../utils/payments_strings.dart';
 import 'payment_dialog_parts.dart';
 
 const double _dialogWidth = kPaymentDialogWidth;
+
+// The settle window: room for a day, its hours and its amount beside the ticks.
+const double _settleWidth = kPaymentDialogWidth + 40;
 const double _gap = kPaymentDialogGap;
 const double _fieldGap = kPaymentFieldGap;
 const int _packageHoursDigits = kPackageHoursDigits;
@@ -1078,131 +1083,125 @@ class _ChangeRateDialogState extends State<_ChangeRateDialog>
 
 // ---------------------------------------------------------------- settle
 
-// A whole line of hours paid by the hour; online at the weekend keeps its rate.
-Future<StudentPaymentsItem?> showSettleDialog({
-  required BuildContext context,
-  required PersonItem person,
-  required StudentPaymentsItem payments,
-  required HoursLineItem line,
-})
+// The ticked lines: the tick, then the words; the total keeps their edges.
+const double _tickInset = 4;
+const double _tickGap = 14;
+const double _wordsInset = _tickInset + AppCheckMark.size + _tickGap;
+
+// Half a cent goes up, as the server works it out.
+int _hourCents(int minutes, int centsPerHour) => (minutes * centsPerHour * 2 + 60) ~/ 120;
+
+// One day of a line of hours: its lessons together.
+class _SettleDay
 {
-  return _show(context, 'Settlement', _SettleDialog(person: person, payments: payments, line: line));
+  final DateTime day;
+  final int minutes;
+  // At the line's own rate.
+  final int cents;
+  final bool opening;
+
+  const _SettleDay({required this.day, required this.minutes, required this.cents, required this.opening});
 }
 
-// An annual fee owed: its amount stands, only the day and the way are asked.
-Future<StudentPaymentsItem?> showFeeSettleDialog({
-  required BuildContext context,
-  required PersonItem person,
-  required StudentPaymentsItem payments,
-  required PaymentHistoryRow row,
-})
+// A line of hours with its days, or an annual fee owed.
+class _SettleItem
 {
-  return _show(context, 'Fee settlement', _FeeSettleDialog(person: person, payments: payments, row: row));
+  final String title;
+  final String? period;
+  final HoursLineItem? line;
+  final List<_SettleDay> days;
+  final PaymentHistoryRow? fee;
+
+  const _SettleItem({required this.title, this.period, this.line, this.days = const [], this.fee});
+
+  // Online at the weekend keeps its own rate.
+  bool get rateEditable => line != null && !line!.isWeekendOnline;
+
+  int get count => line == null ? 1 : days.length;
 }
 
-class _FeeSettleDialog extends StatefulWidget
+List<_SettleItem> _settleItems(StudentPaymentsItem payments)
 {
-  final PersonItem person;
-  final StudentPaymentsItem payments;
-  final PaymentHistoryRow row;
-
-  const _FeeSettleDialog({required this.person, required this.payments, required this.row});
-
-  @override
-  State<_FeeSettleDialog> createState() => _FeeSettleDialogState();
+  return [
+    // Hours wait for the initial set-up; fees are paid whatever it says.
+    if (!payments.openingPending)
+      for (final HoursLineItem line in payments.lines)
+        if (line.cents > 0 && line.parts.isNotEmpty)
+          _SettleItem(
+            title: '${kHoursTitles[line.kind] ?? ''}: ${hoursText(line.minutes).replaceAll(' ', ' ')}',
+            period: lessonDaysText([for (final part in line.parts) part.day], interleaved: line.interleaved),
+            line: line,
+            days: _daysOf(line),
+          ),
+    for (final PaymentHistoryRow row in payments.history)
+      if (row.isFee && !row.isPaid && row.feeId != null)
+        _SettleItem(
+          title: annualFeeTitle(row),
+          period: row.recordedOn == null ? null : feeDueSince(row.recordedOn!),
+          fee: row,
+        ),
+  ];
 }
 
-class _FeeSettleDialogState extends State<_FeeSettleDialog>
+List<_SettleDay> _daysOf(HoursLineItem line)
 {
-  late final TextEditingController _amount = TextEditingController(text: formatAmount(widget.row.amountCents));
-  late final _PaymentInput _payment = _PaymentInput(widget.payments);
+  final Map<DateTime, List<LessonPartItem>> byDay = {};
 
-  bool _saving = false;
-
-  @override
-  void dispose()
+  for (final LessonPartItem part in line.parts)
   {
-    _amount.dispose();
-    _payment.dispose();
-    super.dispose();
+    byDay.putIfAbsent(DateTime(part.day.year, part.day.month, part.day.day), () => []).add(part);
   }
 
-  Future<void> _save() async
-  {
-    final Map<String, dynamic>? payment = _payment.read();
-    final int? feeId = widget.row.feeId;
+  final List<DateTime> days = byDay.keys.toList()..sort();
 
-    setState(() {});
-
-    if (payment == null || feeId == null)
-    {
-      return;
-    }
-
-    setState(() => _saving = true);
-
-    final StudentPaymentsItem? saved = await _send(
-      context,
-      () => ApiService().settleMembershipFee(
-        taxCode: widget.person.fiscalCode,
-        feeId: feeId,
-        payment: payment,
+  return [
+    for (final DateTime day in days)
+      _SettleDay(
+        day: day,
+        minutes: byDay[day]!.fold(0, (sum, part) => sum + part.minutes),
+        cents: byDay[day]!.fold(0, (sum, part) => sum + part.cents),
+        opening: byDay[day]!.every((part) => part.opening),
       ),
-    );
+  ];
+}
 
-    if (!mounted)
-    {
-      return;
-    }
+// A ticked line: the whole of it answers the pointer, without a ripple.
+class _TickRow extends StatelessWidget
+{
+  final VoidCallback onTap;
+  final Widget child;
 
-    if (saved == null)
-    {
-      setState(() => _saving = false);
-
-      return;
-    }
-
-    Navigator.of(context).pop(saved);
-  }
+  const _TickRow({required this.onTap, required this.child});
 
   @override
   Widget build(BuildContext context)
   {
-    return AppDialogStack(
-      eyebrow: kPaymentEyebrow,
-      title: historyTitle(widget.row),
-      maxWidth: _dialogWidth,
-      footer: _footer(kSettleLabel, Icons.payments_outlined, _saving, _save),
-      children: [
-        AppDialogPill(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppTextField(
-                controller: _amount,
-                label: kAmountLabel,
-                hintText: '',
-                nothingAbove: true,
-                enabled: false,
-              ),
-              const SizedBox(height: _fieldGap),
-              _PaymentFields(input: _payment, onChanged: () => setState(() {})),
-            ],
-          ),
-        ),
-      ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: child),
     );
   }
+}
+
+// Something to settle: the status card shows «SALDA» only then.
+bool hasSomethingToSettle(StudentPaymentsItem payments) => _settleItems(payments).isNotEmpty;
+
+// Everything owed, ticked: lines of hours day by day, fees; one day and one way for all.
+Future<StudentPaymentsItem?> showSettleDialog({
+  required BuildContext context,
+  required PersonItem person,
+  required StudentPaymentsItem payments,
+})
+{
+  return _show(context, 'Settlement', _SettleDialog(person: person, payments: payments));
 }
 
 class _SettleDialog extends StatefulWidget
 {
   final PersonItem person;
   final StudentPaymentsItem payments;
-  final HoursLineItem line;
 
-  const _SettleDialog({required this.person, required this.payments, required this.line});
+  const _SettleDialog({required this.person, required this.payments});
 
   @override
   State<_SettleDialog> createState() => _SettleDialogState();
@@ -1210,57 +1209,154 @@ class _SettleDialog extends StatefulWidget
 
 class _SettleDialogState extends State<_SettleDialog>
 {
-  late final _Conditions _rate = _Conditions(amount: formatAmount(widget.line.centsPerHour));
-  late final TextEditingController _total = TextEditingController(text: formatAmount(widget.line.cents));
+  late final List<_SettleItem> _items = _settleItems(widget.payments);
+
+  // For each item the indices of its ticked days; a fee has one.
+  late final List<Set<int>> _ticked = [
+    for (final item in _items) {for (var i = 0; i < item.count; i++) i},
+  ];
+
   late final _PaymentInput _payment = _PaymentInput(widget.payments);
+
+  late final _SettleItem? _editable = _items.where((item) => item.rateEditable).firstOrNull;
+
+  // The rate shown; left as it is, every line keeps its own.
+  late final int? _shownRate = _editable?.line!.centsPerHour;
+  late final TextEditingController _rate = TextEditingController(
+    text: _shownRate == null ? '' : formatAmount(_shownRate),
+  );
+  String? _rateError;
 
   bool _saving = false;
 
   @override
   void dispose()
   {
-    _rate.dispose();
-    _total.dispose();
     _payment.dispose();
+    _rate.dispose();
     super.dispose();
   }
 
-  // The line's own sum while its rate stands, mixed rates included.
-  void _onRate()
+  // The rate a line is settled at: its own, unless another was written.
+  int _rateOf(_SettleItem item)
   {
-    final int? cents = parseAmountCents(_rate.amount.text);
-    final HoursLineItem line = widget.line;
+    final HoursLineItem line = item.line!;
+    final int? written = parseAmountCents(_rate.text);
 
+    if (!item.rateEditable || written == null || written <= 0 || written == _shownRate)
+    {
+      return line.centsPerHour;
+    }
+
+    return written;
+  }
+
+  int _dayCents(_SettleItem item, _SettleDay day)
+  {
+    final int rate = _rateOf(item);
+
+    return rate == item.line!.centsPerHour ? day.cents : _hourCents(day.minutes, rate);
+  }
+
+  // As the server prices it: the days' own sums at the line's rate, else the minutes at the one asked.
+  int _cents(_SettleItem item, Iterable<int> ticked)
+  {
+    if (item.fee != null)
+    {
+      return ticked.isEmpty ? 0 : item.fee!.amountCents;
+    }
+
+    final int rate = _rateOf(item);
+    final List<_SettleDay> days = [for (final i in ticked) item.days[i]];
+
+    return rate == item.line!.centsPerHour
+        ? days.fold(0, (sum, day) => sum + day.cents)
+        : _hourCents(days.fold(0, (sum, day) => sum + day.minutes), rate);
+  }
+
+  int get _total => [for (var i = 0; i < _items.length; i++) _cents(_items[i], _ticked[i])].fold(0, (a, b) => a + b);
+
+  void _toggleItem(int index)
+  {
     setState(()
     {
-      _total.text = cents == null
-          ? ''
-          : formatAmount(cents == line.centsPerHour ? line.cents : (line.minutes * cents / 60).round());
+      final bool all = _ticked[index].length == _items[index].count;
+
+      _ticked[index]
+        ..clear()
+        ..addAll(all ? const <int>[] : [for (var i = 0; i < _items[index].count; i++) i]);
     });
+  }
+
+  void _toggleDay(int index, int day)
+  {
+    setState(() => _ticked[index].contains(day) ? _ticked[index].remove(day) : _ticked[index].add(day));
+  }
+
+  // Null, with the error set, when the rate is needed and not valid.
+  bool _rateValid()
+  {
+    final bool needed = [
+      for (var i = 0; i < _items.length; i++)
+        if (_items[i].rateEditable && _ticked[i].isNotEmpty) i,
+    ].isNotEmpty;
+    final int? cents = parseAmountCents(_rate.text);
+
+    _rateError = !needed
+        ? null
+        : (_rate.text.trim().isEmpty ? kRequiredField : (cents == null || cents <= 0 ? kInvalidAmountMessage : null));
+
+    return _rateError == null;
   }
 
   Future<void> _save() async
   {
-    final (int, int?)? rate = _rate.read(package: false);
+    final bool chosen = _ticked.any((days) => days.isNotEmpty);
+
+    if (!chosen)
+    {
+      CustomSnackBar.show(context: context, message: kNothingChosen, isError: true);
+
+      return;
+    }
+
+    final bool rate = _rateValid();
     final Map<String, dynamic>? payment = _payment.read();
 
     setState(() {});
 
-    if (rate == null || payment == null)
+    if (!rate || payment == null)
     {
       return;
     }
+
+    final hours = [
+      for (final (index, item) in _items.indexed)
+        if (item.line != null && _ticked[index].isNotEmpty)
+          (
+            kind: item.line!.kind,
+            centsPerHour: _rateOf(item),
+            // Every day ticked: the whole line, whatever was confirmed since is refused by the minutes.
+            days: _ticked[index].length == item.count
+                ? null
+                : [for (final i in _ticked[index].toList()..sort()) item.days[i].day],
+            expectedMinutes: item.line!.minutes,
+          ),
+    ];
+    final List<int> fees = [
+      for (final (index, item) in _items.indexed)
+        if (item.fee != null && _ticked[index].isNotEmpty) item.fee!.feeId!,
+    ];
 
     setState(() => _saving = true);
 
     final StudentPaymentsItem? saved = await _send(
       context,
-      () => ApiService().settleStudentHours(
+      () => ApiService().settleStudentItems(
         taxCode: widget.person.fiscalCode,
-        hoursKind: widget.line.kind,
-        centsPerHour: rate.$1,
+        hours: hours,
+        feeIds: fees,
         payment: payment,
-        expectedMinutes: widget.line.minutes,
       ),
     );
 
@@ -1279,15 +1375,118 @@ class _SettleDialogState extends State<_SettleDialog>
     Navigator.of(context).pop(saved);
   }
 
+  TextStyle _text(double size, FontWeight weight, Color color)
+  {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+  }
+
+  Widget _item(int index)
+  {
+    final _SettleItem item = _items[index];
+    final int ticked = _ticked[index].length;
+    // Nothing ticked: its whole amount, grey.
+    final int cents = ticked == 0
+        ? _cents(item, [for (var i = 0; i < item.count; i++) i])
+        : _cents(item, _ticked[index]);
+    final String? period = item.period;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _TickRow(
+          onTap: () => _toggleItem(index),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: _tickInset),
+            child: Row(
+              children: [
+                AppCheckMark(selected: ticked == item.count, partial: ticked > 0 && ticked < item.count),
+                const SizedBox(width: _tickGap),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item.title, style: _text(15.5, FontWeight.w700, AppTheme.trialOceanText)),
+                      if (period != null) ...[
+                        const SizedBox(height: 2),
+                        Text(period, style: _text(13.5, FontWeight.w500, AppTheme.trialMutedText)),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  formatAmount(cents),
+                  style: _text(15.5, FontWeight.w800, ticked == 0 ? AppTheme.trialMutedText : AppTheme.modifiedAccent),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // One day alone is the item itself.
+        if (item.days.length > 1)
+          for (final (i, day) in item.days.indexed)
+            _TickRow(
+              onTap: () => _toggleDay(index, i),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(_wordsInset, 6, _tickInset, 6),
+                child: Row(
+                  children: [
+                    AppCheckMark(selected: _ticked[index].contains(i)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        day.opening ? atOpeningDay(day.day) : formatWeekdayColumnLabel(day.day),
+                        style: _text(14.5, FontWeight.w500, AppTheme.trialOceanText),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 70,
+                      child: Text(
+                        formatMinutes(day.minutes),
+                        textAlign: TextAlign.right,
+                        style: _text(14, FontWeight.w500, AppTheme.trialMutedText),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 96,
+                      child: Text(
+                        formatAmount(_dayCents(item, day)),
+                        textAlign: TextAlign.right,
+                        style: _text(
+                          14.5,
+                          FontWeight.w600,
+                          _ticked[index].contains(i) ? AppTheme.trialOceanText : AppTheme.trialMutedText,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
-    final HoursLineItem line = widget.line;
+    final TextStyle eyebrow = GoogleFonts.plusJakartaSans(
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 1.6,
+      color: AppTheme.trialMutedText,
+    );
+    final Color rule = ThemeColours.of(0xFFEDF2F1);
 
     return AppDialogStack(
       eyebrow: kPaymentEyebrow,
-      title: kSettleTitle,
-      maxWidth: _dialogWidth,
+      title: '${widget.person.firstName} ${widget.person.lastName}',
+      maxWidth: _settleWidth,
       footer: _footer(kSettleLabel, Icons.payments_outlined, _saving, _save),
       children: [
         AppDialogPill(
@@ -1295,39 +1494,45 @@ class _SettleDialogState extends State<_SettleDialog>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: AppTextField(
-                      controller: _rate.amount,
-                      label: kHourlyCostLabel,
-                      hintText: tr('Es. 10,00', 'E.g. 10.00'),
-                      keyboardType: TextInputType.number,
-                      nothingAbove: true,
-                      enabled: !line.isWeekendOnline,
-                      errorText: _rate.amountError,
-                      onChanged: (_)
-                      {
-                        _rate.amountError = null;
-                        _onRate();
-                      },
-                    ),
+              Text(kToSettleBlock.toUpperCase(), style: eyebrow),
+              const SizedBox(height: 6),
+              for (var i = 0; i < _items.length; i++) ...[
+                if (i > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Divider(height: 1, thickness: 1, color: rule),
                   ),
-                  const SizedBox(width: _fieldGap),
-                  Expanded(
-                    child: AppTextField(
-                      controller: _total,
-                      label: kAmountLabel,
-                      hintText: '',
-                      nothingAbove: true,
-                      enabled: false,
-                    ),
-                  ),
-                ],
+                _item(i),
+              ],
+              const SizedBox(height: 6),
+              Divider(height: 1, thickness: 1.5, color: rule),
+              // The word under the items' titles, the sum under their amounts, on one baseline.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(_wordsInset, 20, _tickInset, 0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(child: Text(kSettleTotal, style: _text(16.5, FontWeight.w800, AppTheme.trialOceanText))),
+                    Text(formatAmount(_total), style: _text(18, FontWeight.w800, AppTheme.modifiedAccent)),
+                  ],
+                ),
               ),
-              const SizedBox(height: _fieldGap),
-              _PaymentFields(input: _payment, onChanged: () => setState(() {})),
+              _PaymentFields(
+                input: _payment,
+                title: kPaymentBlock,
+                onChanged: () => setState(() {}),
+                beforeDate: _editable == null
+                    ? null
+                    : AppTextField(
+                        controller: _rate,
+                        label: kHourlyCostLabel,
+                        hintText: tr('Es. 10,00', 'E.g. 10.00'),
+                        keyboardType: TextInputType.number,
+                        errorText: _rateError,
+                        onChanged: (_) => setState(() => _rateError = null),
+                      ),
+              ),
             ],
           ),
         ),

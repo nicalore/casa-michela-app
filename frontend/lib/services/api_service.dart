@@ -2711,32 +2711,28 @@ class ApiService
     });
   }
 
-  // A whole line of hours, paid by the hour.
-  Future<StudentPaymentsItem> settleStudentHours({
+  // The settle window: lines of hours (the days ticked) and fees, paid on one day in one way.
+  // Each line carries the minutes shown: the server refuses one grown meanwhile.
+  Future<StudentPaymentsItem> settleStudentItems({
     required String taxCode,
-    required String hoursKind,
-    required int centsPerHour,
+    required List<({String kind, int centsPerHour, List<DateTime>? days, int expectedMinutes})> hours,
+    required List<int> feeIds,
     required Map<String, dynamic> payment,
-    required int expectedMinutes,
   })
   {
-    // The minutes shown go along: the server refuses if the line grew meanwhile.
-    return _postStudentPayments(taxCode, 'settlement', {
-      'hours_kind': hoursKind,
-      'cents_per_hour': centsPerHour,
+    return _postStudentPayments(taxCode, 'settlements', {
+      'hours': [
+        for (final line in hours)
+          {
+            'hours_kind': line.kind,
+            'cents_per_hour': line.centsPerHour,
+            'days': line.days == null ? null : [for (final day in line.days!) formatDateOnly(day)],
+            'expected_minutes': line.expectedMinutes,
+          },
+      ],
+      'fee_ids': feeIds,
       'payment': payment,
-      'expected_minutes': expectedMinutes,
     });
-  }
-
-  // An annual fee owed, paid now: the body is the payment itself.
-  Future<StudentPaymentsItem> settleMembershipFee({
-    required String taxCode,
-    required int feeId,
-    required Map<String, dynamic> payment,
-  })
-  {
-    return _postStudentPayments(taxCode, 'fees/$feeId/settlement', payment);
   }
 
   // The hours it covered or settled are to settle again.

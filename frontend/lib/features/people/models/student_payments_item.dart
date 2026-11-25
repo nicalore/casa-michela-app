@@ -120,7 +120,16 @@ class LessonPartItem
   // Owed before the app kept the accounts, as the initial set-up says.
   final bool opening;
 
-  const LessonPartItem({required this.day, required this.minutes, required this.current, this.opening = false});
+  // At the line's own rate, which settling keeps unless another is asked.
+  final int cents;
+
+  const LessonPartItem({
+    required this.day,
+    required this.minutes,
+    required this.current,
+    this.opening = false,
+    this.cents = 0,
+  });
 
   factory LessonPartItem.fromJson(Map<String, dynamic> json)
   {
@@ -129,6 +138,7 @@ class LessonPartItem
       minutes: json['minutes'] as int,
       current: json['current'] as bool? ?? false,
       opening: json['opening'] as bool? ?? false,
+      cents: json['cents'] as int? ?? 0,
     );
   }
 }
@@ -142,12 +152,16 @@ class HoursLineItem
   final int centsPerHour;
   final List<LessonPartItem> parts;
 
+  // A lesson of another row of its kind falls between its first and last day.
+  final bool interleaved;
+
   const HoursLineItem({
     required this.kind,
     required this.minutes,
     required this.cents,
     required this.centsPerHour,
     this.parts = const [],
+    this.interleaved = false,
   });
 
   bool get isWeekendOnline => kind == 'WEEKEND_ONLINE';
@@ -170,6 +184,7 @@ class HoursLineItem
       parts: (json['parts'] as List<dynamic>? ?? const [])
           .map((part) => LessonPartItem.fromJson(part as Map<String, dynamic>))
           .toList(),
+      interleaved: json['interleaved'] as bool? ?? false,
     );
   }
 }
@@ -257,6 +272,12 @@ class PaymentHistoryRow
   final int? year;
   final int? feeId;
 
+  // Annual fees: the day the fee was recorded.
+  final DateTime? recordedOn;
+
+  // A lesson of another row of its kind falls between its first and last day.
+  final bool interleaved;
+
   // A payment made, which can be cancelled.
   final int? paymentId;
 
@@ -274,6 +295,8 @@ class PaymentHistoryRow
     this.lessons = const [],
     this.year,
     this.feeId,
+    this.recordedOn,
+    this.interleaved = false,
     this.paymentId,
   });
 
@@ -326,6 +349,8 @@ class PaymentHistoryRow
           .toList(),
       year: json['year'] as int?,
       feeId: json['fee_id'] as int?,
+      recordedOn: json['recorded_on'] == null ? null : DateTime.parse(json['recorded_on'] as String),
+      interleaved: json['interleaved'] as bool? ?? false,
       paymentId: json['payment_id'] as int?,
     );
   }

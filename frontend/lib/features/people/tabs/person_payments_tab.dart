@@ -246,40 +246,19 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     _open(showPayAheadDialog(context: context, person: widget.person, payments: payments), kHoursPaidAhead);
   }
 
-  void _settle(StudentPaymentsItem payments, HoursLineItem line)
+  // Everything owed in one window, all ticked.
+  void _settle(StudentPaymentsItem payments)
   {
-    _open(
-      showSettleDialog(context: context, person: widget.person, payments: payments, line: line),
-      kHoursSettled,
-    );
+    _open(showSettleDialog(context: context, person: widget.person, payments: payments), kSettled);
   }
 
+  // Paid rows can be revoked there; those still to pay are only read.
   void _openRow(StudentPaymentsItem payments, PaymentHistoryRow row)
   {
     _open(
       showPaymentDetails(context: context, person: widget.person, payments: payments, row: row),
-      row.isPaid ? kPaymentCancelled : (row.isFee ? kFeeSettled : kHoursSettled),
+      kPaymentCancelled,
     );
-  }
-
-  void _settleRow(StudentPaymentsItem payments, PaymentHistoryRow row)
-  {
-    if (row.isFee)
-    {
-      _open(
-        showFeeSettleDialog(context: context, person: widget.person, payments: payments, row: row),
-        kFeeSettled,
-      );
-
-      return;
-    }
-
-    final HoursLineItem? line = payments.line(row.kind);
-
-    if (line != null)
-    {
-      _settle(payments, line);
-    }
   }
 
   void _export(StudentPaymentsItem payments)
@@ -387,7 +366,6 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           openingPending: payments.openingPending,
           stacked: AppBreakpoints.of(context).isMinimal,
           onOpen: (row) => _openRow(payments, row),
-          onSettle: (row) => _settleRow(payments, row),
           readOnly: widget.ownPage,
         ),
       ],
@@ -637,6 +615,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           lastDay: payments.openingDay,
           metrics: metrics,
           onConfigure: () => unawaited(_configure(payments)),
+          onSettle: hasSomethingToSettle(payments) ? () => _settle(payments) : null,
         ),
         ..._history(payments, gap),
       ]
@@ -644,7 +623,11 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
         SizedBox(height: gap),
         DesktopTourTarget(
           id: own ? kTourFeesStatus : null,
-          child: _StatusCard(payments: payments, metrics: metrics),
+          child: _StatusCard(
+            payments: payments,
+            metrics: metrics,
+            onSettle: own || !hasSomethingToSettle(payments) ? null : () => _settle(payments),
+          ),
         ),
         ..._history(payments, gap),
       ]
@@ -883,7 +866,10 @@ class _StatusCard extends StatelessWidget
   final StudentPaymentsItem payments;
   final _Metrics metrics;
 
-  const _StatusCard({required this.payments, required this.metrics});
+  // Set while something is owed: everything settled from here.
+  final VoidCallback? onSettle;
+
+  const _StatusCard({required this.payments, required this.metrics, this.onSettle});
 
   bool get _ok => payments.state == PaymentState.ok;
 
@@ -967,12 +953,19 @@ class _StatusCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final VoidCallback? onSettle = this.onSettle;
+
     return _Card(
       metrics: metrics,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _header(),
+          onSettle == null
+              ? _header()
+              : _WithActions(
+                  actions: [tabActionButton(label: kSettleLabel, icon: Icons.payments_outlined, onPressed: onSettle)],
+                  child: _header(),
+                ),
           ..._details(),
         ],
       ),
@@ -987,62 +980,120 @@ class _PendingCard extends StatelessWidget
   final _Metrics metrics;
   final VoidCallback onConfigure;
 
-  const _PendingCard({required this.lastDay, required this.metrics, required this.onConfigure});
+  // Fees owed are paid whatever the set-up says.
+  final VoidCallback? onSettle;
+
+  const _PendingCard({required this.lastDay, required this.metrics, required this.onConfigure, this.onSettle});
 
   @override
   Widget build(BuildContext context)
   {
     final DateTime? lastDay = this.lastDay;
 
+    final VoidCallback? onSettle = this.onSettle;
+
     return _Card(
       metrics: metrics,
-      child: Row(
-        children: [
-          Container(
-            width: metrics.badge,
-            height: metrics.badge,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppTheme.trialOcean, AppTheme.trialDeepWater],
-              ),
-            ),
-            child: Icon(Icons.pending_actions_rounded, size: metrics.badgeIcon, color: Colors.white),
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  kOpeningPending,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: metrics.titleText,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.trialOceanText,
-                  ),
-                ),
-                if (lastDay != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    pendingPaymentsNote(lastDay),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: metrics.subtitleText,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.trialMutedText,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 18),
+      child: _WithActions(
+        actions: [
+          if (onSettle != null)
+            tabActionButton(label: kSettleLabel, icon: Icons.payments_outlined, onPressed: onSettle),
           tabActionButton(label: kConfigureLabel, icon: Icons.tune_rounded, onPressed: onConfigure),
         ],
+        child: Row(
+          children: [
+            Container(
+              width: metrics.badge,
+              height: metrics.badge,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppTheme.trialOcean, AppTheme.trialDeepWater],
+                ),
+              ),
+              child: Icon(Icons.pending_actions_rounded, size: metrics.badgeIcon, color: Colors.white),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    kOpeningPending,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: metrics.titleText,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.trialOceanText,
+                    ),
+                  ),
+                  if (lastDay != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      pendingPaymentsNote(lastDay),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: metrics.subtitleText,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.trialMutedText,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+// A card's buttons beside its header, or under it, right-aligned, when the card is narrow.
+class _WithActions extends StatelessWidget
+{
+  static const double _besideWidth = 560;
+  static const double _gap = 12;
+
+  final Widget child;
+  final List<Widget> actions;
+
+  const _WithActions({required this.child, required this.actions});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final Widget buttons = Wrap(
+          spacing: _gap,
+          runSpacing: _gap,
+          alignment: WrapAlignment.end,
+          children: actions,
+        );
+
+        if (constraints.maxWidth < _besideWidth)
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              child,
+              const SizedBox(height: 14),
+              Align(alignment: Alignment.centerRight, child: buttons),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: child),
+            const SizedBox(width: 18),
+            buttons,
+          ],
+        );
+      },
     );
   }
 }

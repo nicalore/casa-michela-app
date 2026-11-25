@@ -76,7 +76,6 @@ class PaymentHistoryMetrics
   final double headHeight;
   final double rowPadding;
   final double flagHeight;
-  final double settleHeight;
 
   const PaymentHistoryMetrics._({
     required this.radius,
@@ -88,7 +87,6 @@ class PaymentHistoryMetrics
     required this.headHeight,
     required this.rowPadding,
     required this.flagHeight,
-    required this.settleHeight,
   });
 
   factory PaymentHistoryMetrics.of({required bool dense})
@@ -105,7 +103,6 @@ class PaymentHistoryMetrics
         headHeight: 50,
         rowPadding: 15,
         flagHeight: 30,
-        settleHeight: 36,
       );
     }
 
@@ -119,7 +116,6 @@ class PaymentHistoryMetrics
       headHeight: 40,
       rowPadding: 10,
       flagHeight: 26,
-      settleHeight: 30,
     );
   }
 }
@@ -163,13 +159,13 @@ class PaymentDueFlag extends StatelessWidget
 
 // ---------------------------------------------------------------- the table
 
-// One row per payment, those to pay first; a row opens its window, «SALDA» pays it.
+// One row per payment, those to pay first; a row opens its window. What is owed is settled
+// from the status card above, all of it in one window.
 class PaymentHistoryTable extends StatelessWidget
 {
   final List<PaymentHistoryRow> rows;
   final PaymentHistoryMetrics metrics;
   final ValueChanged<PaymentHistoryRow> onOpen;
-  final ValueChanged<PaymentHistoryRow> onSettle;
 
   // Without hours for a member who is not a pupil: fees have none.
   final bool showHours;
@@ -180,7 +176,7 @@ class PaymentHistoryTable extends StatelessWidget
   // Minimal windows: rows on floors, no columns.
   final bool stacked;
 
-  // The member's own page: rows open nothing, nothing to settle.
+  // The member's own page: rows open nothing.
   final bool readOnly;
 
   const PaymentHistoryTable({
@@ -188,7 +184,6 @@ class PaymentHistoryTable extends StatelessWidget
     required this.rows,
     required this.metrics,
     required this.onOpen,
-    required this.onSettle,
     this.showHours = true,
     this.openingPending = false,
     this.stacked = false,
@@ -301,21 +296,6 @@ class PaymentHistoryTable extends StatelessWidget
     );
   }
 
-  Widget _settle(PaymentHistoryRow row)
-  {
-    final double height = metrics.settleHeight;
-
-    return AppGradientButton(
-      label: kSettleLabel,
-      icon: Icons.payments_outlined,
-      height: height,
-      radius: height / 2,
-      fontSize: metrics.cell < 15 ? 11 : 12,
-      horizontalPadding: 14,
-      onPressed: () => onSettle(row),
-    );
-  }
-
   Widget _amount(PaymentHistoryRow row)
   {
     final bool waiting = _waiting(row);
@@ -347,16 +327,7 @@ class PaymentHistoryTable extends StatelessWidget
     final Widget state = waiting
         ? OpeningPendingPill(fontSize: metrics.cell - 2)
         : paidOn == null
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PaymentDueFlag(height: metrics.flagHeight, fontSize: metrics.cell - 2),
-              if (!readOnly) ...[
-                const SizedBox(width: 10),
-                _settle(row),
-              ],
-            ],
-          )
+        ? PaymentDueFlag(height: metrics.flagHeight, fontSize: metrics.cell - 2)
         : Text(paidOnLine(formatWeekdayColumnLabel(paidOn), paymentMethodPhrase(row.paymentMethod, row.paymentMethodOther)), style: small);
 
     final Widget cells = Container(
@@ -458,9 +429,10 @@ class PaymentHistoryTable extends StatelessWidget
           ),
           _left(
             _methodShare,
+            // Still to pay: no way yet.
             paid
                 ? Text(_method(row), style: _cell(color: ThemeColours.fixed(0xFF33495A)))
-                : (waiting || readOnly ? const SizedBox.shrink() : FittedBox(fit: BoxFit.scaleDown, child: _settle(row))),
+                : Text('—', style: _cell(color: AppTheme.trialMutedText)),
           ),
           SizedBox(
             width: _end,
@@ -561,7 +533,7 @@ class _Badge extends StatelessWidget
   }
 }
 
-// Shown on a row's tap: what was paid, when and how, then its lessons; "SALDA" or "REVOCA PAGAMENTO".
+// Shown on a row's tap: what was paid, when and how, then its lessons; "REVOCA PAGAMENTO" when paid.
 Future<StudentPaymentsItem?> showPaymentDetails({
   required BuildContext context,
   required PersonItem person,
@@ -625,25 +597,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
 
   Widget? _footer(BuildContext context)
   {
-    // Fees are paid whatever the set-up; the rest waits for it.
-    final String? blocked = widget.payments.openingPending && !row.isFee
-        ? pendingReason(feminine: person.gender == 'F')
-        : null;
-
-    if (!row.isPaid)
-    {
-      return AppDialogFooter.single(
-        AppGradientButton(
-          label: kSettleLabel,
-          icon: Icons.payments_outlined,
-          height: 52,
-          fontSize: 14,
-          disabledReason: blocked,
-          onPressed: () => unawaited(_settle(context)),
-        ),
-      );
-    }
-
+    // Still to pay: read here, settled from the status card.
     if (!row.canCancel)
     {
       return null;
@@ -665,30 +619,6 @@ class _PaymentDetailsState extends State<_PaymentDetails>
         onPressed: () => unawaited(_cancel()),
       ),
     );
-  }
-
-  Future<void> _settle(BuildContext context) async
-  {
-    final HoursLineItem? line = payments.line(row.kind);
-    final StudentPaymentsItem? saved;
-
-    if (row.isFee)
-    {
-      saved = await showFeeSettleDialog(context: context, person: person, payments: payments, row: row);
-    }
-    else if (line != null)
-    {
-      saved = await showSettleDialog(context: context, person: person, payments: payments, line: line);
-    }
-    else
-    {
-      return;
-    }
-
-    if (saved != null && context.mounted)
-    {
-      Navigator.of(context).pop(saved);
-    }
   }
 
   Widget _fact(String label, Widget value)

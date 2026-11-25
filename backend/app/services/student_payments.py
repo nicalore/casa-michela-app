@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
 from typing import Final, Literal
@@ -298,6 +298,19 @@ class PaymentStatus:
 
     def line(self, kind: HoursKindEnum) -> HoursLine | None:
         return next((line for line in self.lines if line.kind == kind), None)
+
+
+# A lesson of another row falls between the first and the last of these days:
+# the row then names its days rather than a span.
+def days_interleaved(days: Iterable[date], others: Iterable[date]) -> bool:
+    own = set(days)
+
+    if not own:
+        return False
+
+    first, last = min(own), max(own)
+
+    return any(first < day < last and day not in own for day in others)
 
 
 def band_unit(day: date, band: str) -> int:
@@ -1856,7 +1869,7 @@ async def settle(
     data: SettlementData,
     now: datetime,
 ) -> StudentPayment:
-    """A line of hours paid by the hour, whole: it leaves the card."""
+    """A line of hours paid by the hour, whole or the days chosen of it."""
     payments = await _running(db, tax_code, now)
     current = payments.status
     assert current is not None
@@ -1868,10 +1881,24 @@ async def settle(
     if data.expected_minutes is not None and data.expected_minutes != line.minutes:
         raise _conflict(_LINE_CHANGED_ERROR.for_request())
 
+    chosen = set(data.days) if data.days is not None else None
+    parts = [
+        part for part in line.parts if chosen is None or part.day in chosen
+    ]
+
+    # A day no longer in the line: the window read another state.
+    if chosen is not None and {part.day for part in parts} != chosen:
+        raise _conflict(_LINE_CHANGED_ERROR.for_request())
+
     weekend = data.hours_kind == HoursKindEnum.WEEKEND_ONLINE
     rate = payments.rates.weekend_online_cents if weekend else data.cents_per_hour
+    minutes_settled = sum(part.minutes for part in parts)
     # Mixed hourly rates keep their own sum unless another rate is asked.
-    amount = line.cents if rate == line.cents_per_hour else _cents(line.minutes, rate)
+    amount = (
+        sum(part.cents for part in parts)
+        if rate == line.cents_per_hour
+        else _cents(minutes_settled, rate)
+    )
     payment = _payment(
         tax_code,
         data.payment,
@@ -1886,7 +1913,7 @@ async def settle(
 
     minutes: dict[int, int] = defaultdict(int)
 
-    for part in line.parts:
+    for part in parts:
         minutes[part.lesson_id] += part.minutes
 
     for unit, total in minutes.items():

@@ -22,6 +22,17 @@ class OwedItemResponse(BaseModel):
     minutes: int | None
     # Fees only: the membership year.
     year: int | None
+    # Hours: the first and last lesson; fees: the day the fee was recorded.
+    first_day: date
+    last_day: date
+    # Hours: every lesson's day; a settled one of the kind between them makes
+    # the row name its days rather than a span.
+    days: list[date] = []
+    interleaved: bool = False
+    # Every minute comes from the initial set-up.
+    opening: bool = False
+    # Fees only.
+    fee_id: int | None = None
 
 
 class DebtorResponse(BaseModel):

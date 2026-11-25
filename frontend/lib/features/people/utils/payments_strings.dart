@@ -133,7 +133,10 @@ String get kRenewMonthTitle => tr('Rinnova quota', 'Renew fee');
 String get kChangeTariffTitle => tr('Cambia tariffa', 'Change rate');
 String get kGiveTariffTitle => tr('Assegna tariffa', 'Assign rate');
 String get kChangeRateTitle => tr('Cambia costo orario', 'Change hourly cost');
-String get kSettleTitle => tr('Salda le ore', 'Settle the hours');
+// The settle window: what is owed, ticked item by item and day by day.
+String get kToSettleBlock => tr('Da saldare', 'Due');
+String get kSettleTotal => tr('Totale', 'Total');
+String get kNothingChosen => tr('Scegli almeno una voce da saldare.', 'Choose at least one item to settle.');
 String get kPayAheadTitle => tr('Paga in anticipo', 'Pay in advance');
 
 String get kAheadHoursLabel => tr('Ore', 'Hours');
@@ -266,54 +269,15 @@ String coveredByFee(int minutes)
         );
 }
 
-// The question before a payment is cancelled.
+// The question before a payment is revoked: whatever it paid is owed again.
 String cancelPaymentMessage(PaymentHistoryRow row)
 {
   final String amount = formatAmount(row.amountCents);
-  final String lead = tr('Il pagamento di $amount verrà revocato', 'The payment of $amount will be revoked');
-  final int minutes = row.minutes;
 
-  if (row.isFee)
-  {
-    return tr('$lead e la quota tornerà da saldare.', '$lead and the fee will be due again.');
-  }
-
-  if (minutes == 0)
-  {
-    return '$lead.';
-  }
-
-  final String hours = formatMinutes(minutes);
-
-  if (row.isHours)
-  {
-    if (_onlyMinutes(minutes))
-    {
-      return tr('$lead e i $hours saldati torneranno da saldare.', '$lead and the $hours settled will be due again.');
-    }
-
-    return _one(minutes)
-        ? tr('$lead e la $hours saldata tornerà da saldare.', '$lead and the $hours settled will be due again.')
-        : tr('$lead e le $hours saldate torneranno da saldare.', '$lead and the $hours settled will be due again.');
-  }
-
-  if (_onlyMinutes(minutes))
-  {
-    return tr(
-      '$lead e i $hours che copriva torneranno da saldare come pagamento a ore.',
-      '$lead and the $hours it covered will be due again as an hourly payment.',
-    );
-  }
-
-  return _one(minutes)
-      ? tr(
-          '$lead e la $hours che copriva tornerà da saldare come pagamento a ore.',
-          '$lead and the $hours it covered will be due again as an hourly payment.',
-        )
-      : tr(
-          '$lead e le $hours che copriva torneranno da saldare come pagamento a ore.',
-          '$lead and the $hours it covered will be due again as an hourly payment.',
-        );
+  return tr(
+    'Il pagamento di $amount verrà revocato e dovrà essere nuovamente saldato.',
+    'The payment of $amount will be revoked and will have to be settled again.',
+  );
 }
 
 String get kDoneStillToSettle =>
@@ -467,6 +431,45 @@ String lessonsSpan(DateTime first, DateTime last)
   return sameDay ? formatWeekdayColumnLabel(first) : formatDateSpan(first, last);
 }
 
+// A span while no lesson of another row of its kind falls inside it, else the days themselves:
+// «16 e 20 novembre», «30 ottobre, 3 e 5 novembre», «16, 18, 19, 20 novembre e altri 2 giorni».
+const int _namedDays = 4;
+
+String lessonDaysText(List<DateTime> days, {required bool interleaved})
+{
+  final List<DateTime> sorted = [...{for (final day in days) DateTime(day.year, day.month, day.day)}]..sort();
+
+  if (sorted.length == 1 || !interleaved)
+  {
+    return lessonsSpan(sorted.first, sorted.last);
+  }
+
+  final List<DateTime> named = sorted.take(_namedDays).toList();
+  final int rest = sorted.length - named.length;
+
+  // The month once per run of its days, held to its day.
+  final List<String> words = [
+    for (final (index, day) in named.indexed)
+      index == named.length - 1 || named[index + 1].month != day.month
+          ? formatDayMonthFull(day).replaceAll(' ', '\u00A0')
+          : '${day.day}',
+  ];
+
+  if (rest > 0)
+  {
+    final String more = rest == 1
+        ? tr('e un altro giorno', 'and 1 more day')
+        : tr('e altri $rest giorni', 'and $rest more days');
+
+    return '${words.join(', ')} ${more.replaceAll(' ', '\u00A0')}';
+  }
+
+  return '${words.sublist(0, words.length - 1).join(', ')} ${tr('e', 'and')} ${words.last}';
+}
+
+// An annual fee owed: since the day it was recorded.
+String feeDueSince(DateTime day) => tr('Dovuta ${fromDayInSentence(day)}', 'Due since ${formatDayMonthFull(day)}');
+
 // An annual fee and its membership year, as the creation wizard names it.
 String annualFeeTitle(PaymentHistoryRow row)
 {
@@ -526,7 +529,12 @@ String? historyLine(PaymentHistoryRow row)
     return null;
   }
 
-  return row.state == PaymentHistoryState.running ? runningSince(first) : lessonsSpan(first, last);
+  if (row.state == PaymentHistoryState.running)
+  {
+    return runningSince(first);
+  }
+
+  return lessonDaysText([for (final lesson in row.lessons) lesson.day], interleaved: row.interleaved);
 }
 
 // The status card's title and the line under it; the PDF repeats them.
@@ -633,9 +641,8 @@ String get kFeeRenewed => tr('Quota rinnovata.', 'Fee renewed.');
 String get kTariffChanged => tr('Tariffa cambiata.', 'Rate changed.');
 String get kTariffGiven => tr('Tariffa assegnata.', 'Rate assigned.');
 String get kRateChanged => tr('Costo orario cambiato.', 'Hourly cost changed.');
-String get kHoursSettled => tr('Ore saldate.', 'Hours settled.');
+String get kSettled => tr('Pagamento registrato.', 'Payment recorded.');
 String get kHoursPaidAhead => tr('Ore pagate in anticipo.', 'Hours paid in advance.');
-String get kFeeSettled => tr('Quota saldata.', 'Fee settled.');
 String get kPaymentCancelled => tr('Pagamento revocato.', 'Payment revoked.');
 
 String get kRequiredField => tr('Campo obbligatorio', 'Required field');

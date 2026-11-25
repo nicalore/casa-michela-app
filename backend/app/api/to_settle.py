@@ -38,6 +38,12 @@ async def to_settle(db: DbSession, _: Admin) -> ToSettleResponse:
                             "cents": item.cents,
                             "minutes": item.minutes,
                             "year": item.year,
+                            "first_day": item.first_day,
+                            "last_day": item.last_day,
+                            "days": list(item.days),
+                            "interleaved": item.interleaved,
+                            "opening": item.opening,
+                            "fee_id": item.fee_id,
                         }
                     )
                     for item in row.items

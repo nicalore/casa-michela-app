@@ -201,7 +201,27 @@ class PaymentFields extends StatelessWidget
   final String? title;
   final VoidCallback onChanged;
 
-  const PaymentFields({super.key, required this.input, this.title, required this.onChanged});
+  // A field sharing the date's line, at its left.
+  final Widget? beforeDate;
+
+  const PaymentFields({super.key, required this.input, this.title, required this.onChanged, this.beforeDate});
+
+  Widget _date()
+  {
+    return AppTextField(
+      controller: input.date,
+      label: kPaidOnLabel,
+      hintText: kDateHint,
+      keyboardType: TextInputType.number,
+      inputFormatters: [DateInputFormatter()],
+      errorText: input.dateError,
+      onChanged: (_)
+      {
+        input.dateError = null;
+        onChanged();
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context)
@@ -212,19 +232,17 @@ class PaymentFields extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (title != null) PaymentBlockTitle(title),
-        AppTextField(
-          controller: input.date,
-          label: kPaidOnLabel,
-          hintText: kDateHint,
-          keyboardType: TextInputType.number,
-          inputFormatters: [DateInputFormatter()],
-          errorText: input.dateError,
-          onChanged: (_)
-          {
-            input.dateError = null;
-            onChanged();
-          },
-        ),
+        if (beforeDate == null)
+          _date()
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: beforeDate!),
+              const SizedBox(width: kPaymentFieldGap),
+              Expanded(child: _date()),
+            ],
+          ),
         const SizedBox(height: kPaymentFieldGap),
         PersonChipGroupField(
           label: kPaymentMethodLabel,
