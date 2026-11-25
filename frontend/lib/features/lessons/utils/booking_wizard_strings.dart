@@ -383,7 +383,7 @@ enum SubjectRequestStep
       ),
       SubjectRequestStep.notes => tr(
         'Se lo desideri, puoi inserire qui sotto altre informazioni che ritieni '
-            'utili. Le indicazioni saranno lette dal docente che ${isSelf ? 'ti seguirà' : 'seguirà $who'}.',
+            'utili per lo svolgimento della lezione. Le indicazioni saranno lette dal docente che ${isSelf ? 'ti seguirà' : 'seguirà $who'}.',
         'If you wish, you can add any other information you find useful below. '
             'It will be read by the teacher who will ${isSelf ? 'teach you' : 'teach $who'}.',
       ),
@@ -426,14 +426,16 @@ String get kDurationLabel => tr('Durata', 'Duration');
 // Nothing chosen yet reads «0», never «0m».
 String durationText(int minutes) => minutes == 0 ? '0' : formatMinutes(minutes);
 String get kTeacherNotesLabel => tr('Note per il docente', 'Notes for the teacher');
+String get kTeacherNotesExample => tr('Es. Guardare gli esercizi su Classroom', 'E.g. Look at the exercises on Classroom');
 
 String get kBandNotesLabel => tr('Note sulla prenotazione', 'Booking notes');
-String get kBandNotesQuestion => tr('Vuoi aggiungere una nota sulla prenotazione?', 'Would you like to add a note to the booking?');
 String get kBandNotesHint => tr(
-  'Se lo desideri, puoi aggiungere delle note che verranno lette dal Direttivo e da chi preparerà il calendario delle '
-      'lezioni.',
-  'If you wish, you can add notes that will be read by the Board and by whoever prepares the lesson calendar.',
+  "Puoi indicare esigenze organizzative, come l'orario preciso di arrivo o altre richieste particolari. La nota sarà "
+      'letta dal Direttivo e da chi preparerà il calendario delle lezioni.',
+  'You can mention organisational needs, such as the exact arrival time, or other special requests. The note will be '
+      'read by the Board and by whoever prepares the lesson calendar.',
 );
+String get kBandNotesExample => tr('Es. Arrivo alle 13:15 con pranzo', 'E.g. Arriving at 13:15 with lunch');
 
 String bandNoteAction(String? note) => note == null ? tr('Aggiungi una nota', 'Add a note') : tr('Modifica la nota', 'Edit the note');
 
@@ -461,7 +463,7 @@ String bookingFinishTourText(String verb, {required bool editing})
   );
 }
 
-// The tours' step on the note's field.
+// The tours' step on the note's field, in the window off the band's button.
 String get kBandNoteTourText => tr(
   'Qui puoi aggiungere altre informazioni o effettuare richieste organizzative. Ciò che '
       'scriverai sarà letto dal Direttivo e da chi preparerà il calendario delle lezioni.',

@@ -705,6 +705,7 @@ class _MobileBookingsPageState extends State<MobileBookingsPage>
       subtitleIcon: lessonModeIcon(mode.mode),
       note: mode.note,
       onSave: (notes) => _writeNote(day, pupil, mode, notes),
+      tourFor: _tourFor,
     );
   }
 

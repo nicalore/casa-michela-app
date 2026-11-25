@@ -336,6 +336,7 @@ String monthlyStudentsPdfFile(DateTime month) => tr(
 String get kPaymentsEntry => tr('Pagamenti', 'Payments');
 String get kRoleFilterPrefix => tr('Ruolo', 'Role');
 String get kAllRolesHint => tr('Tutti i ruoli', 'All roles');
+String get kPersonHint => tr('Cerca persona...', 'Search person...');
 String get kPaymentDayColumn => tr('Giorno', 'Day');
 String get kPaymentWhatColumn => tr('Pagamento', 'Payment');
 String get kPaymentMethodColumn => tr('Modalità', 'Method');

@@ -45,7 +45,6 @@ import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_choice_sheet.dart';
 import '../../../shared/widgets/mobile_filter_chip.dart';
-import '../../../shared/widgets/mobile_load_switcher.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import 'mobile_card_grid.dart';
 import 'mobile_detail_card.dart';
@@ -312,44 +311,6 @@ class _StatsBlock<T> extends StatefulWidget
 
 class _StatsBlockState<T> extends State<_StatsBlock<T>>
 {
-  // Rankings arriving while the block shows rise in; on a return to the tab they are simply there.
-  late bool _waited = widget.controller.statistics == null;
-
-  @override
-  void initState()
-  {
-    super.initState();
-    widget.controller.addListener(_note);
-  }
-
-  @override
-  void didUpdateWidget(_StatsBlock<T> oldWidget)
-  {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.controller != widget.controller)
-    {
-      oldWidget.controller.removeListener(_note);
-      widget.controller.addListener(_note);
-      _note();
-    }
-  }
-
-  @override
-  void dispose()
-  {
-    widget.controller.removeListener(_note);
-    super.dispose();
-  }
-
-  void _note()
-  {
-    if (widget.controller.statistics == null)
-    {
-      _waited = true;
-    }
-  }
-
   Future<void> _pickMode(BuildContext context) async
   {
     final MobileChoice<String>? picked = await showMobileChoiceSheet(
@@ -447,7 +408,7 @@ class _StatsBlockState<T> extends State<_StatsBlock<T>>
           padding: EdgeInsets.symmetric(horizontal: margin),
           child: _buildCard(statistics),
         ),
-        if (rankings != null) _waited ? MobileRiseIn(child: rankings) : rankings,
+        ?rankings,
       ],
     );
   }

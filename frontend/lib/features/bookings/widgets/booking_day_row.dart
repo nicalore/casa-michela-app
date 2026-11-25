@@ -58,9 +58,9 @@ const double _rowGap = 8;
 const EdgeInsets _rowPadding = EdgeInsets.fromLTRB(14, 10, 12, 10);
 const double _rowRadius = 16;
 
-const double _disciplinesFontSize = 14;
-const double _disciplinesLineHeight = 1.35;
-const double _disciplinesGap = 2;
+const double _subjectFontSize = 14;
+const double _subjectLineHeight = 1.35;
+const double _subjectGap = 2;
 
 const double _actionSize = 30;
 const double _actionIconSize = 21;
@@ -1623,9 +1623,7 @@ class _LessonRowState extends State<_LessonRow>
 
   BookingSummaryItem get _booking => widget.booking;
 
-  String get _title => bookingTitle(_booking, widget.ministrySubjects);
-
-  List<String> get _disciplines => bookingDisciplineNames(_booking, widget.ministrySubjects);
+  ({String heading, String? subject}) get _named => bookingHeading(_booking, widget.ministrySubjects);
 
   List<PersonItem> get _preferredTeachers
   {
@@ -1636,14 +1634,18 @@ class _LessonRowState extends State<_LessonRow>
     ];
   }
 
+  // The discipline leads and its subject goes under it, as on the calendar's cards.
   Widget _buildName()
   {
+    final named = _named;
+    final String? subject = named.subject;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _title,
+          named.heading,
           style: GoogleFonts.plusJakartaSans(
             fontSize: 17,
             fontWeight: FontWeight.w700,
@@ -1651,19 +1653,19 @@ class _LessonRowState extends State<_LessonRow>
             color: AppTheme.trialOceanText,
           ),
         ),
-        if (_disciplines.isEmpty)
-          const SizedBox(height: _disciplinesGap + _disciplinesFontSize * _disciplinesLineHeight)
+        if (subject == null)
+          const SizedBox(height: _subjectGap + _subjectFontSize * _subjectLineHeight)
         else ...[
-          const SizedBox(height: _disciplinesGap),
+          const SizedBox(height: _subjectGap),
           DescenderRoom(
             child: Text(
-              _disciplines.join(', '),
+              subject,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: _disciplinesFontSize,
+                fontSize: _subjectFontSize,
                 fontWeight: FontWeight.w600,
-                height: _disciplinesLineHeight,
+                height: _subjectLineHeight,
                 color: AppTheme.trialMutedText,
               ),
             ),
@@ -1877,7 +1879,7 @@ class _LessonRowState extends State<_LessonRow>
     color: AppTheme.trialOceanText,
   );
 
-  TextStyle get _denseDisciplinesStyle => GoogleFonts.plusJakartaSans(
+  TextStyle get _denseSubjectStyle => GoogleFonts.plusJakartaSans(
     fontSize: 12,
     fontWeight: FontWeight.w600,
     color: AppTheme.trialMutedText,
@@ -1890,15 +1892,15 @@ class _LessonRowState extends State<_LessonRow>
     color: AppTheme.trialInk,
   );
 
-  // The subject with its disciplines after it in grey.
+  // The discipline with its subject after it in grey.
   TextSpan get _denseNameSpan
   {
-    final List<String> disciplines = _disciplines;
+    final named = _named;
 
     return TextSpan(
       children: [
-        TextSpan(text: _title, style: _denseTitleStyle),
-        if (disciplines.isNotEmpty) TextSpan(text: '  ${disciplines.join(', ')}', style: _denseDisciplinesStyle),
+        TextSpan(text: named.heading, style: _denseTitleStyle),
+        if (named.subject case final String subject) TextSpan(text: '  $subject', style: _denseSubjectStyle),
       ],
     );
   }

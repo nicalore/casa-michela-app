@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,6 +10,7 @@ import '../../../core/platform/visual_effects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/utils/search_terms.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dropdown_field.dart';
@@ -21,7 +23,9 @@ import '../models/teacher_month_items.dart';
 import '../utils/accounting_strings.dart';
 import 'receipt_cell.dart';
 import '../utils/opening_strings.dart' show kOpeningPending;
+import 'hours_table_parts.dart' show HoursPart;
 import 'opening_pending_pill.dart';
+import 'summary_search.dart';
 
 const double _nameInset = 20;
 const double _rowHeight = 50;
@@ -108,6 +112,9 @@ class TeacherMonthTable extends StatelessWidget
   final void Function(TeacherMonthRow row, DropItem file) onDropReceipt;
   final void Function(TeacherMonthRow row, bool over) onDragReceipt;
 
+  // Who is looked for by name.
+  final ValueListenable<SearchTerms?>? search;
+
   const TeacherMonthTable({
     super.key,
     required this.month,
@@ -124,6 +131,7 @@ class TeacherMonthTable extends StatelessWidget
     required this.onDeleteReceipt,
     required this.onDropReceipt,
     required this.onDragReceipt,
+    this.search,
   });
 
   Widget _part(_Columns columns, _Part part)
@@ -152,6 +160,7 @@ class TeacherMonthTable extends StatelessWidget
             onDeleteReceipt: onDeleteReceipt,
             onDropReceipt: onDropReceipt,
             onDragReceipt: onDragReceipt,
+            search: search,
           ),
         _Totals(rows: month.rows, chosen: chosen, columns: columns, part: part),
         if (columns.scrolls) const SizedBox(height: _scrollBarRoom),
@@ -274,7 +283,7 @@ class _DropLabel extends StatelessWidget
 }
 
 // What a row shows of its cells: all of them, or the name alone and the rest beside it.
-enum _Part { whole, pinned, scrolled }
+typedef _Part = HoursPart;
 
 Widget _cellsOf(List<Widget> cells, _Part part)
 {
@@ -846,6 +855,7 @@ class _Row extends StatelessWidget
   final ValueChanged<TeacherMonthRow> onDeleteReceipt;
   final void Function(TeacherMonthRow row, DropItem file) onDropReceipt;
   final void Function(TeacherMonthRow row, bool over) onDragReceipt;
+  final ValueListenable<SearchTerms?>? search;
 
   const _Row({
     required this.row,
@@ -866,6 +876,7 @@ class _Row extends StatelessWidget
     required this.onDeleteReceipt,
     required this.onDropReceipt,
     required this.onDragReceipt,
+    required this.search,
   });
 
   // A paid month takes a receipt; one left from before stays reachable to remove.
@@ -1048,7 +1059,7 @@ class _Row extends StatelessWidget
       ),
     ];
 
-    final Widget line = AnimatedContainer(
+    final Widget box = AnimatedContainer(
       duration: _dropFade,
       height: _rowHeight + (first ? 0 : 1),
       decoration: BoxDecoration(
@@ -1060,6 +1071,8 @@ class _Row extends StatelessWidget
           : null,
       child: _cellsOf(cells, part),
     );
+
+    final Widget line = SummarySearchRow(search: search, name: row.fullName, part: part, child: box);
 
     // A file dropped on a paid teacher's row is their receipt for the month.
     if (!_takesReceipt)

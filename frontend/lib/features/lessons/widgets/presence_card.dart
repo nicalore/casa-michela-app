@@ -209,7 +209,9 @@ class _PresenceCardState extends State<PresenceCard>
 
     final bool dense = AppBreakpoints.of(context).isDense;
 
+    // Passthrough: the card takes the cell's width as without a note, the sign stays inside it.
     return Stack(
+      fit: StackFit.passthrough,
       children: [
         card,
         Positioned(

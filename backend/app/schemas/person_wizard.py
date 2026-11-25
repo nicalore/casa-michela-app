@@ -195,7 +195,7 @@ class WizardSchoolEnrollmentData(SchoolOrHomeschooling):
     school_class: str
 
 
-class WizardStudentData(
+class WizardStudentDataBase(
     StudentCertificationData,
     StudentEarlyExitData,
     StudentTariffChoice,
@@ -204,6 +204,9 @@ class WizardStudentData(
     mandatory_psych_meetings_acknowledged: bool
     school_enrollments: list[WizardSchoolEnrollmentData] = Field(default_factory=list)
 
+
+# Only on entry: a psychologist may record certifications the family never saw.
+class WizardStudentData(WizardStudentDataBase):
     @model_validator(mode="after")
     def _check_mandatory_psych_meetings(self) -> Self:
         if self.certification_types and not self.mandatory_psych_meetings_acknowledged:
@@ -226,12 +229,13 @@ class PersonWizardPayloadBase(BaseModel):
     teacher_data: WizardTeacherData | None = None
     course_participant_data: WizardCourseParticipantData | None = None
     psychological_support_data: WizardPsychologicalSupportData | None = None
-    student_data: WizardStudentData | None = None
+    student_data: WizardStudentDataBase | None = None
     relationships: WizardRelationships
 
 
 class PersonWizardPayload(PersonWizardPayloadBase):
     member_data: WizardMemberData | None = None
+    student_data: WizardStudentData | None = None
 
     @model_validator(mode="after")
     def _health_data_needs_consent(self) -> Self:

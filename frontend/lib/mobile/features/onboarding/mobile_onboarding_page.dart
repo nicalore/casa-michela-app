@@ -660,7 +660,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
         _termsUpdate == null &&
         MediaQuery.orientationOf(context) == Orientation.landscape;
 
-    // One scaffold across loading so the buttons rise into place instead of jumping.
+    // One scaffold across loading: only its body swaps.
     final Widget body = MobileLoadSwitcher(
       waiting: _loading,
       child: ready

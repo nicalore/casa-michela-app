@@ -34,6 +34,9 @@ class AvailabilityTab extends StatefulWidget
   // A day outside the booking window: shown, never changed.
   final bool readOnly;
 
+  // False once the day has no band left to add to: the new button goes.
+  final bool canAdd;
+
   final LessonsDayView view;
   final ValueChanged<LessonsDayView> onViewSelected;
 
@@ -51,6 +54,7 @@ class AvailabilityTab extends StatefulWidget
     required this.selectedDay,
     required this.openingDays,
     this.readOnly = false,
+    this.canAdd = true,
     required this.view,
     required this.onViewSelected,
     required this.onCreate,
@@ -295,7 +299,7 @@ class _AvailabilityTabState extends State<AvailabilityTab>
           onSearchChanged: (value) => setState(() => _searchText = value),
           searchHint: tr('Cerca docente...', 'Search teachers...'),
           actionLabel: tr('NUOVA DISPONIBILITÀ', 'NEW AVAILABILITY'),
-          onAction: widget.readOnly ? null : _showWizard,
+          onAction: widget.readOnly || !widget.canAdd ? null : _showWizard,
         ),
         const TabHeaderGap(wide: 20, dense: 10),
         _buildFilters(),

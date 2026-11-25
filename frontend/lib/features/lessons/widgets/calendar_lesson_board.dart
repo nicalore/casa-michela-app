@@ -410,7 +410,7 @@ class CalendarLessonBoard extends StatelessWidget
         final cardWidth = dense ? available : math.min(available, math.max(_boardCardWidth(available), _widestCard(context)));
 
         // Every lane built, not a lazy list: the search has to reach those out of sight.
-        return CalendarSearchReveal(
+        return SearchReveal(
           search: search,
           child: ScrollEdgeFade(
             child: SingleChildScrollView(

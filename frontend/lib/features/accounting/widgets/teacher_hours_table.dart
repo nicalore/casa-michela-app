@@ -1,15 +1,18 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/utils/search_terms.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_text_link.dart';
 import '../models/teacher_hours_items.dart';
 import '../utils/accounting_strings.dart';
 import 'hours_table_parts.dart';
+import 'summary_search.dart';
 
 // Shares of the width left once the action column is taken: names, times, hours, money.
 const double _nameShare = 18;
@@ -45,6 +48,9 @@ class TeacherHoursTable extends StatelessWidget
   // A teacher's name leads to their pay.
   final ValueChanged<TeacherHoursRow> onOpenTeacher;
 
+  // Who is looked for by name.
+  final ValueListenable<SearchTerms?>? search;
+
   const TeacherHoursTable({
     super.key,
     required this.band,
@@ -56,6 +62,7 @@ class TeacherHoursTable extends StatelessWidget
     required this.onAction,
     required this.onAddTeacher,
     required this.onOpenTeacher,
+    this.search,
   });
 
   @override
@@ -82,6 +89,7 @@ class TeacherHoursTable extends StatelessWidget
             onVolunteer: onVolunteer,
             onAction: onAction,
             onOpen: onOpenTeacher,
+            search: search,
           );
         }
 
@@ -231,6 +239,7 @@ class _Row extends StatelessWidget
   final VolunteerEdit onVolunteer;
   final void Function(TeacherHoursRow row, TeacherHoursAction action) onAction;
   final ValueChanged<TeacherHoursRow> onOpen;
+  final ValueListenable<SearchTerms?>? search;
 
   const _Row({
     required this.row,
@@ -244,6 +253,7 @@ class _Row extends StatelessWidget
     required this.onVolunteer,
     required this.onAction,
     required this.onOpen,
+    required this.search,
   });
 
   // The calendar's stretches stand struck for an absent teacher.
@@ -418,7 +428,7 @@ class _Row extends StatelessWidget
 
     final double height = hoursRowHeight(_shownWork.length, first: first);
 
-    return Container(
+    final Widget line = Container(
       height: height,
       decoration: first ? null : BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
       child: hoursCellsOf([
@@ -437,6 +447,8 @@ class _Row extends StatelessWidget
         ),
       ], part),
     );
+
+    return SummarySearchRow(search: search, name: row.fullName, part: part, child: line);
   }
 }
 

@@ -441,34 +441,21 @@ class _MobileOwnPageState extends State<MobileOwnPage>
           padding: EdgeInsets.fromLTRB(margin, 4, margin, 0),
           child: _buildTitle(person, tablet: tablet),
         ),
-        AnimatedSize(
-          duration: mobileRiseDurationOf(context),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          clipBehavior: Clip.none,
-          child: sections.isEmpty
-              ? const SizedBox(width: double.infinity)
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: _stripGap),
-                    MobileRiseIn(
-                      child: MobilePageStrip(
-                        labels: [for (final section in sections) section.label],
-                        controller: _pages,
-                        scrollMargin: margin,
-                        tourTargets: [for (final section in sections) ownTourTab(section.name)],
-                      ),
-                    ),
-                  ],
-                ),
-        ),
+        if (sections.isNotEmpty) ...[
+          const SizedBox(height: _stripGap),
+          MobilePageStrip(
+            labels: [for (final section in sections) section.label],
+            controller: _pages,
+            scrollMargin: margin,
+            tourTargets: [for (final section in sections) ownTourTab(section.name)],
+          ),
+        ],
       ],
     );
 
     final double bottom = bar + _reportLift + _reportHeight + _handleClearance;
 
-    // Same layout while loading so the name stays put as the rest rises in.
+    // Same layout while loading so the name stays put as the rest comes in.
     final Widget body = person == null
         ? _scrollable(
             bottom: bar + _handleClearance,
@@ -530,15 +517,13 @@ class _MobileOwnPageState extends State<MobileOwnPage>
             left: margin,
             right: margin,
             bottom: bar + _reportLift,
-            child: MobileRiseIn(
-              child: _ReportButton(
-                tablet: tablet,
-                tourId: kOwnTourReport,
-                onTap: () => showMobileReportSheet(
-                  context: context,
-                  person: person,
-                  fields: ownReportableFields(person),
-                ),
+            child: _ReportButton(
+              tablet: tablet,
+              tourId: kOwnTourReport,
+              onTap: () => showMobileReportSheet(
+                context: context,
+                person: person,
+                fields: ownReportableFields(person),
               ),
             ),
           ),
@@ -567,27 +552,14 @@ class _MobileOwnPageState extends State<MobileOwnPage>
                   color: Colors.white,
                 ),
               ),
-              AnimatedSize(
-                duration: mobileRiseDurationOf(context),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topLeft,
-                clipBehavior: Clip.none,
-                child: roles.isEmpty
-                    ? const SizedBox(width: double.infinity)
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 9),
-                          MobileRiseIn(
-                            child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [for (final role in roles) _RolePill(role)],
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
+              if (roles.isNotEmpty) ...[
+                const SizedBox(height: 9),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [for (final role in roles) _RolePill(role)],
+                ),
+              ],
             ],
           ),
         ),

@@ -1,4 +1,3 @@
-from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -15,11 +14,7 @@ from app.core.availability_thresholds import (
 )
 from app.core.booking_window import now_in_rome
 from app.models.availability import Availability
-from app.models.booking import Booking
-from app.models.lesson import Lesson
-from app.models.lesson_booking import LessonBooking
 from app.models.parental_responsibility import ParentalResponsibility
-from app.models.presence import Presence
 from app.models.student import Student
 from app.repositories.person_repository import PersonRepository
 from app.schemas.home import (
@@ -31,6 +26,11 @@ from app.schemas.home import (
     WeekFigures,
 )
 from app.schemas.person import PersonOption
+from app.services.attendance import (
+    pupil_days_stmt,
+    pupil_lesson_time,
+    teacher_lesson_time,
+)
 from app.services.availability_weeks import (
     AvailabilityWeek,
     teacher_weeks,
@@ -38,7 +38,6 @@ from app.services.availability_weeks import (
 )
 from app.services.compensation import (
     TermsTimeline,
-    done_bands,
     load_terms,
     month_compensation,
 )
@@ -49,12 +48,7 @@ from app.services.enrollment_spans import (
     enrolled_throughout,
 )
 from app.services.student_payments import current_tariff_kinds
-from app.services.worked_hours import (
-    days_of,
-    minutes_of,
-    published_pairs,
-    span_minutes,
-)
+from app.services.worked_hours import span_minutes
 
 router = APIRouter(prefix="/home", tags=["home"])
 
@@ -109,7 +103,6 @@ async def _pupil_figures(
     db: AsyncSession,
     tax_codes: Sequence[str],
     month: _Month,
-    published: set[tuple[date, str]],
 ) -> dict[str, PupilMonthFigures]:
     if not tax_codes:
         return {}
@@ -124,19 +117,15 @@ async def _pupil_figures(
     people = await PersonRepository(db).get_options(pupils)
 
     async def presence_days(since: date, before: date) -> dict[str, int]:
+        days = pupil_days_stmt(since, before, tax_codes=pupils).subquery()
+
         return {
             row.student_tax_code: row.days
             for row in await db.execute(
                 select(
-                    Presence.student_tax_code,
-                    func.count(func.distinct(Presence.date)).label("days"),
-                )
-                .where(
-                    Presence.student_tax_code.in_(pupils),
-                    Presence.date >= since,
-                    Presence.date < before,
-                )
-                .group_by(Presence.student_tax_code),
+                    days.c.student_tax_code,
+                    func.count().label("days"),
+                ).group_by(days.c.student_tax_code),
             )
         }
 
@@ -150,40 +139,17 @@ async def _pupil_figures(
 
     booked = await presence_days(month.until, month.end)
 
-    lessons = await db.execute(
-        select(
-            Presence.student_tax_code,
-            Lesson.id,
-            Lesson.date,
-            Lesson.band,
-            Lesson.start_time,
-            Lesson.end_time,
-        )
-        .join(LessonBooking, LessonBooking.lesson_id == Lesson.id)
-        .join(Booking, Booking.id == LessonBooking.booking_id)
-        .join(Presence, Presence.id == Booking.presence_id)
-        .where(
-            Presence.student_tax_code.in_(pupils),
-            Lesson.date >= month.start,
-            Lesson.date <= month.today,
-        ),
+    by_pupil = await pupil_lesson_time(
+        db,
+        month.start,
+        month.until,
+        month.is_over,
+        tax_codes=pupils,
     )
-
-    # Two subjects of one pupil can share a lesson: it is one hour, not two.
-    counted: set[tuple[str, int]] = set()
-    minutes: dict[str, int] = defaultdict(int)
-
-    for row in lessons:
-        key = (row.student_tax_code, row.id)
-
-        if key in counted or (row.date, row.band) not in published:
-            continue
-
-        if month.is_over(row.date, row.end_time):
-            counted.add(key)
-            minutes[row.student_tax_code] += (
-                minutes_of(row.end_time) - minutes_of(row.start_time)
-            )
+    minutes = {
+        tax_code: sum(span_minutes(spans) for spans in days.values())
+        for tax_code, days in by_pupil.items()
+    }
 
     return {
         tax_code: PupilMonthFigures(
@@ -214,11 +180,18 @@ async def _teacher_weeks(
     )
 
 
-# Confirmed where the band is, the calendar elsewhere; both modes together.
+# Lesson time as the statistics count it, both modes together.
 async def _worked_minutes(db: AsyncSession, tax_code: str, month: _Month) -> int:
-    done = await done_bands(db, tax_code, month.start, month.end, month.is_over)
+    found = await teacher_lesson_time(
+        db,
+        month.start,
+        month.end,
+        month.is_over,
+        tax_codes=[tax_code],
+    )
+    days = found.get(tax_code, {})
 
-    return sum(span_minutes(spans) for spans in days_of(done).values())
+    return sum(span_minutes(spans) for spans in days.values())
 
 
 async def _teacher_figures(
@@ -314,7 +287,6 @@ async def get_student_month(
         db,
         [identity.tax_code],
         month,
-        await published_pairs(db, month.start, month.until),
     )
 
     guardian = await db.scalar(
@@ -351,7 +323,6 @@ async def get_parent_month(
         db,
         sorted(identity.child_tax_codes),
         month,
-        await published_pairs(db, month.start, month.until),
     )
 
     return ParentMonthSummaryResponse(

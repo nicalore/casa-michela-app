@@ -2637,7 +2637,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
   @override
   Widget build(BuildContext context)
   {
-    return CalendarSearchReveal(
+    return SearchReveal(
       search: widget.search,
       head: kTimelineAxisHeight + 1,
       child: _buildBody(),

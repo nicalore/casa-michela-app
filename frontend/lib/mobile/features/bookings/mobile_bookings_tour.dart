@@ -570,7 +570,7 @@ const int _modeSheetVersion = 2;
 const String kBookingsTourModeActions = 'bookings.mode.actions';
 
 String get _modeActions => tr(
-  'Puoi modificare gli orari delle prenotazioni, aggiungere o modificare la nota sulla prenotazione, spostare tutte '
+  'Puoi modificare gli orari delle prenotazioni, aggiungere o modificare una nota sulla prenotazione, spostare tutte '
       'le lezioni della fascia oraria selezionata (mattina, pomeriggio o sera), eliminare tutte le materie prenotate in '
       "quella fascia oppure cancellare le prenotazioni dell'intera giornata.",
   'You can change the times of the bookings, add or edit the booking note, move all the lessons of the selected '
@@ -588,6 +588,27 @@ Future<void> startModeSheetTour({required String taxCode})
       title: _title,
       version: _modeSheetVersion,
       steps: [MobileTourStep(text: _modeActions, shown: const [kBookingsTourModeActions])],
+      leave: MobileNavSheet.hidden,
+      left: () => !MobileNavSheet.hidden.value,
+    ),
+  );
+}
+
+// The band's note sheet, turned from the band's sheet: its field, the first time.
+const String _bandNoteSlug = '$_slug.note';
+const int _bandNoteVersion = 1;
+
+const String kBookingsTourBandNote = 'bookings.band.note';
+
+Future<void> startBandNoteSheetTour({required String taxCode})
+{
+  return startMobileTourOnce(
+    taxCode: taxCode,
+    tour: MobileTour(
+      slug: _bandNoteSlug,
+      title: _title,
+      version: _bandNoteVersion,
+      steps: [MobileTourStep(text: kBandNoteTourText, touched: const [kBookingsTourBandNote], reveal: kBookingsTourBandNote)],
       leave: MobileNavSheet.hidden,
       left: () => !MobileNavSheet.hidden.value,
     ),
@@ -749,13 +770,12 @@ enum BookingWizardMark
   left,
   list,
   open,
-  note,
   create,
   save,
   saveHours,
 }
 
-enum BookingWizardPage { days, hours, subjects, notes }
+enum BookingWizardPage { days, hours, subjects }
 
 const Map<BookingWizardMark, int> _wizardVersions = {
   BookingWizardMark.days: 3,
@@ -767,7 +787,6 @@ const Map<BookingWizardMark, int> _wizardVersions = {
   BookingWizardMark.left: 2,
   BookingWizardMark.list: 5,
   BookingWizardMark.open: 3,
-  BookingWizardMark.note: 3,
   BookingWizardMark.create: 7,
   BookingWizardMark.save: 8,
   BookingWizardMark.saveHours: 3,
@@ -878,7 +897,6 @@ String _wizardText(BookingWizardMark mark, {required bool online, required Booki
       'This subject is divided into several disciplinary areas. Choose the area you want to book a lesson for. If '
           'you need to book lessons for more than one area, you can do so separately, one at a time.',
     ),
-    BookingWizardMark.note => kBandNoteTourText,
     BookingWizardMark.create => tr(
       bookingFinishTourText('tocca', editing: false),
       'When you have finished, tap “Create” to complete and save the booking.',
@@ -963,8 +981,6 @@ Future<void> startBookingWizardTour({
         BookingWizardMark.create,
         BookingWizardMark.save,
       ],
-    // The band's note, before its subjects.
-    BookingWizardPage.notes => const [BookingWizardMark.note],
   };
 
   final bool asksYesNo = !await isMobileTourSeen(taxCode: taxCode, tour: _seenMarker(_wizardSeen(BookingWizardMark.yesNo)));
@@ -1034,14 +1050,6 @@ Future<void> startBookingWizardTour({
           reveal: target,
           enter: toSubjects,
           tapEnds: true,
-          seen: seen,
-        ),
-      // The band's note: a field, touched to write in it.
-      BookingWizardMark.note => MobileTourStep(
-          text: text,
-          touched: [target],
-          reveal: target,
-          present: () => isMobileTourTargetShown(target),
           seen: seen,
         ),
       // A subject divided in disciplines, once its list is open under it.

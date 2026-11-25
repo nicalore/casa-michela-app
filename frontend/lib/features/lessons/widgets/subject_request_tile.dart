@@ -197,17 +197,48 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
   // The discipline leads and its subject goes under it, as on the calendar's cards.
   String get _heading => _discipline ?? _title;
 
-  String get _summary
+  // The subject under its discipline; none when the heading already names it.
+  String? get _subject => _discipline == null ? null : _title;
+
+  String? get _length
   {
     final int? duration = widget.draft.duration;
-    final String? length = duration == null ? null : formatMinutes(duration);
 
-    if (_discipline == null)
+    return duration == null ? null : formatMinutes(duration);
+  }
+
+  // Only the subject gives way: the length of the lesson is always shown whole.
+  Widget? _buildSummary()
+  {
+    final String? subject = _subject;
+    final String? length = _length;
+
+    if (subject == null && length == null)
     {
-      return length ?? '';
+      return null;
     }
 
-    return length == null ? _title : '$_title$kShortSeparator$length';
+    final TextStyle style = GoogleFonts.plusJakartaSans(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: AppTheme.trialMutedText,
+    );
+
+    return Row(
+      children: [
+        if (subject != null)
+          Flexible(
+            child: OverflowTooltipText(text: subject, maxLines: 1, style: style),
+          ),
+        if (length != null)
+          Text(
+            subject == null ? length : '$kShortSeparator$length',
+            maxLines: 1,
+            softWrap: false,
+            style: style,
+          ),
+      ],
+    );
   }
 
   // A refused delete says why and leaves everything open.
@@ -261,6 +292,8 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
 
   Widget _buildHeader()
   {
+    final Widget? summary = _buildSummary();
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
@@ -284,17 +317,9 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
                       color: AppTheme.trialOceanText,
                     ),
                   ),
-                  if (_summary.isNotEmpty) ...[
+                  if (summary != null) ...[
                     const SizedBox(height: 2),
-                    OverflowTooltipText(
-                      text: _summary,
-                      maxLines: 1,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.trialMutedText,
-                      ),
-                    ),
+                    summary,
                   ],
                 ],
               ),

@@ -358,27 +358,21 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
           child: _buildTitle(child, tablet: tablet),
         ),
         // Edge to edge: the row scrolls past the margin. Phones show the child as a chip.
-        _grow(
-          several && !rail
-              ? Padding(
-                  padding: EdgeInsets.only(top: tablet ? _tilesGap : _chipsGap),
-                  child: tablet
-                      ? MobileChildTiles(children: _children, shown: child, onShow: _show, margin: margin)
-                      : MobileFilterChips(
-                          margin: margin,
-                          chips: [MobileChildChip(children: _children, shown: child, onShow: _show, eyebrow: _title)],
-                        ),
-                )
-              : null,
-        ),
-        _grow(
-          child == null || rail
-              ? null
-              : Padding(
-                  padding: EdgeInsets.only(top: several ? (tablet ? _tilesStripGap : _chipsStripGap) : _stripGap),
-                  child: strip,
-                ),
-        ),
+        if (several && !rail)
+          Padding(
+            padding: EdgeInsets.only(top: tablet ? _tilesGap : _chipsGap),
+            child: tablet
+                ? MobileChildTiles(children: _children, shown: child, onShow: _show, margin: margin)
+                : MobileFilterChips(
+                    margin: margin,
+                    chips: [MobileChildChip(children: _children, shown: child, onShow: _show, eyebrow: _title)],
+                  ),
+          ),
+        if (child != null && !rail)
+          Padding(
+            padding: EdgeInsets.only(top: several ? (tablet ? _tilesStripGap : _chipsStripGap) : _stripGap),
+            child: strip,
+          ),
         if (rail) const SizedBox(height: _stripGap),
       ],
     );
@@ -480,30 +474,17 @@ class _MobileChildrenPageState extends State<MobileChildrenPage>
             left: rail ? railRoom + margin : margin,
             right: margin,
             bottom: bar + _reportLift,
-            child: MobileRiseIn(
-              child: _ReportButton(
-                tablet: tablet,
-                onTap: () => showMobileReportSheet(
-                  context: context,
-                  person: child,
-                  fields: childReportableFields(child),
-                  eyebrow: childReportEyebrow(child),
-                ),
+            child: _ReportButton(
+              tablet: tablet,
+              onTap: () => showMobileReportSheet(
+                context: context,
+                person: child,
+                fields: childReportableFields(child),
+                eyebrow: childReportEyebrow(child),
               ),
             ),
           ),
       ],
-    );
-  }
-
-  Widget _grow(Widget? child)
-  {
-    return AnimatedSize(
-      duration: mobileRiseDurationOf(context),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      clipBehavior: Clip.none,
-      child: child == null ? const SizedBox(width: double.infinity) : MobileRiseIn(child: child),
     );
   }
 

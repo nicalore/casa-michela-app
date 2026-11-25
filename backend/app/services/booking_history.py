@@ -125,13 +125,16 @@ def _naming(
         return "DISCIPLINE", association_name, None
 
     subjects, disciplines = requests or (set(), set())
-    name = ", ".join(_sorted_names(disciplines)) or ", ".join(_sorted_names(subjects))
-    subject = ", ".join(_sorted_names(subjects)) or None
+    subject = ", ".join(_sorted_names(subjects))
 
-    return "SUBJECT", name, None if subject == name else subject
+    if not disciplines:
+        return "SUBJECT", subject, None
+
+    # The subject always goes under its disciplines, even with the same name.
+    return "SUBJECT", ", ".join(_sorted_names(disciplines)), subject or None
 
 
-# A pupil's bookings in a month, up to today: what was asked and who taught it.
+# A pupil's bookings in a month, up to today, the latest day first.
 async def month_history(
     db: AsyncSession,
     student_tax_code: str,
@@ -148,7 +151,7 @@ async def month_history(
                 Presence.date >= first,
                 Presence.date < end,
             )
-            .order_by(Presence.date, Presence.start_time, Presence.id),
+            .order_by(Presence.date.desc(), Presence.start_time, Presence.id),
         )
     ).all()
 

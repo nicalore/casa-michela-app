@@ -476,7 +476,7 @@ class MobileSubjectFlow
         MobileTextField(
           controller: notes,
           label: kTeacherNotesLabel,
-          hintText: kTeacherNotesHint,
+          hintText: kTeacherNotesExample,
           maxLength: FieldLimits.notes,
           minLines: 3,
           maxLines: 4,

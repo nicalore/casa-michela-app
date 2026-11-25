@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/constants/field_limits.dart';
 import '../../../../core/language/app_language.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/time_bucket.dart';
@@ -34,7 +33,6 @@ import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
 import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
-import '../../../shared/widgets/mobile_text_field.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import '../../../shared/widgets/mobile_wizard_parts.dart';
 import '../mobile_booking_draft.dart';
@@ -62,8 +60,6 @@ const double _tourListRadius = 18;
 const EdgeInsets _tourOpenInflate = EdgeInsets.all(4);
 const double _tourOpenRadius = 22;
 const EdgeInsets _tourFooterInflate = EdgeInsets.all(4);
-const EdgeInsets _tourNoteInflate = EdgeInsets.all(5);
-const double _tourNoteRadius = 20;
 const double _tourFooterRadius = 22;
 
 class MobileBookingCatalogue
@@ -173,11 +169,6 @@ class _WizardState extends State<_Wizard>
       search.dispose();
     }
 
-    for (final note in _bandNotes.values)
-    {
-      note.dispose();
-    }
-
     // Not while the tree is locked: a tour ends, and redraws, on hearing it.
     final BookingWizardTourPulse pulse = _tourPulse;
 
@@ -263,7 +254,6 @@ class _WizardState extends State<_Wizard>
         MobileBookingStepKind.days => BookingWizardPage.days,
         MobileBookingStepKind.hours => BookingWizardPage.hours,
         MobileBookingStepKind.subjects => BookingWizardPage.subjects,
-        MobileBookingStepKind.notes => BookingWizardPage.notes,
       },
       page: key,
       online: _draft.mode == kOnlineMode,
@@ -366,7 +356,7 @@ class _WizardState extends State<_Wizard>
     {
       MobileBookingStepKind.subjects => _draft.isEditing ? BookingWizardMark.save : BookingWizardMark.create,
       MobileBookingStepKind.hours => BookingWizardMark.saveHours,
-      MobileBookingStepKind.days || MobileBookingStepKind.notes => null,
+      MobileBookingStepKind.days => null,
     };
   }
 
@@ -977,44 +967,6 @@ class _WizardState extends State<_Wizard>
     ];
   }
 
-  // Per day group and band; the draft keeps what is typed.
-  final Map<String, TextEditingController> _bandNotes = {};
-
-  List<Widget> _buildBandNote(MobileBookingGroup group, TimeBucket band, String page)
-  {
-    final BandOffer? offer = _draft.bandOffers(group).where((offer) => offer.band == band).firstOrNull;
-    final TextEditingController note = _bandNotes.putIfAbsent('${group.key}/${band.name}', ()
-    {
-      final TextEditingController typed = TextEditingController(text: _draft.bandNoteOf(group, band));
-
-      typed.addListener(() => _draft.setBandNote(group, band, typed.text));
-
-      return typed;
-    });
-
-    return [
-      MobileWizardGuide(question: kBandNotesQuestion, hint: kBandNotesHint),
-      if (_draft.groups.length > 1) MobileDaysTag(days: group.days),
-      if (offer != null) MobileBandTag(offer: offer, mode: _draft.mode, showsLeft: false),
-      const SizedBox(height: 16),
-      MobileTourTarget(
-        id: bookingWizardTourTarget(BookingWizardMark.note, page),
-        inflate: _tourNoteInflate,
-        radius: _tourNoteRadius,
-        child: MobileTextField(
-          controller: note,
-          label: kBandNotesLabel,
-          hintText: kTeacherNotesHint,
-          maxLength: FieldLimits.notes,
-          minLines: 3,
-          maxLines: 4,
-          textCapitalization: TextCapitalization.sentences,
-          textInputAction: TextInputAction.newline,
-        ),
-      ),
-    ];
-  }
-
   List<Widget> _buildPage(List<MobileBookingStep> steps, int index)
   {
     final MobileBookingStep step = steps[index];
@@ -1026,7 +978,6 @@ class _WizardState extends State<_Wizard>
       MobileBookingStepKind.days => _buildDays(page),
       MobileBookingStepKind.hours => _buildHours(group!, page, named: _named(steps, index)),
       MobileBookingStepKind.subjects => _buildSubjects(group!, step.band!, page, named: _named(steps, index)),
-      MobileBookingStepKind.notes => _buildBandNote(group!, step.band!, page),
     };
   }
 

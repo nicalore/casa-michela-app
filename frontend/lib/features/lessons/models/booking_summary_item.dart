@@ -56,6 +56,20 @@ String? subjectDisciplineName(List<MinistrySubjectItem> subjects, int? ministryS
 
 bool _sameName(String a, String b) => a.trim().toLowerCase() == b.trim().toLowerCase();
 
+// The discipline leads and its subject always follows, even with the same name; a discipline booked
+// alone or a service has no subject.
+({String heading, String? subject}) bookingHeading(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects)
+{
+  final String title = bookingTitle(booking, ministrySubjects);
+
+  if (booking.kind != BookingRequestKind.ministrySubject || booking.associationSubjects.isEmpty)
+  {
+    return (heading: title, subject: null);
+  }
+
+  return (heading: booking.associationSubjects.map((discipline) => discipline.name).join(', '), subject: title);
+}
+
 // From the booking itself, so a discipline later unlinked from its subject still shows; older bookings may
 // hold several. A name that repeats the subject's is dropped: the subject already says it.
 List<String> bookingDisciplineNames(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects)

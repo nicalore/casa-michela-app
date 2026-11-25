@@ -4,7 +4,6 @@ import 'mobile_entrance_motion.dart';
 import 'mobile_handover.dart';
 
 const Duration kMobileRiseDuration = Duration(milliseconds: 520);
-const Duration _dropDuration = Duration(milliseconds: 260);
 
 // Loading out of sight before its page comes in: nothing to animate.
 bool mobileUnseen(BuildContext context)
@@ -39,6 +38,7 @@ class MobileWaiting extends StatelessWidget
   }
 }
 
+// Loading and content swap in place: no rise, no drop.
 class MobileLoadSwitcher extends StatelessWidget
 {
   final Widget? child;
@@ -46,62 +46,19 @@ class MobileLoadSwitcher extends StatelessWidget
   // Defaults to whether child is a MobileWaiting.
   final bool? waiting;
 
-  // Rises from the card's own bottom edge instead of the screen's.
-  final bool contained;
-
-  const MobileLoadSwitcher({super.key, required this.child, this.waiting, this.contained = false});
+  const MobileLoadSwitcher({super.key, required this.child, this.waiting});
 
   @override
   Widget build(BuildContext context)
   {
     final Widget? child = this.child;
-    final double height = MediaQuery.sizeOf(context).height;
 
-    final bool unseen = mobileUnseen(context);
+    if (child == null)
+    {
+      return const SizedBox.shrink();
+    }
 
-    final Widget switcher = AnimatedSwitcher(
-      duration: unseen ? Duration.zero : kMobileRiseDuration,
-      reverseDuration: unseen ? Duration.zero : _dropDuration,
-      switchInCurve: Curves.easeOutCubic,
-      // Runs in reverse on the way out, so the leaving child speeds up.
-      switchOutCurve: Curves.easeOutCubic,
-      layoutBuilder: (current, previous) => Stack(
-        fit: StackFit.passthrough,
-        alignment: Alignment.topCenter,
-        children: [...previous, ?current],
-      ),
-      transitionBuilder: (child, animation) => contained
-          ? ClipRect(
-              child: AnimatedBuilder(
-                animation: animation,
-                builder: (context, child) => FractionalTranslation(
-                  translation: Offset(0, 1 - animation.value),
-                  child: child,
-                ),
-                child: child,
-              ),
-            )
-          : AnimatedBuilder(
-              animation: animation,
-              builder: (context, child) => Transform.translate(
-                offset: Offset(0, (1 - animation.value) * height),
-                child: child,
-              ),
-              child: child,
-            ),
-      child: child == null
-          ? null
-          : KeyedSubtree(key: ValueKey(waiting ?? child is MobileWaiting), child: child),
-    );
-
-    return contained
-        ? AnimatedSize(
-            duration: mobileRiseDurationOf(context),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: switcher,
-          )
-        : switcher;
+    return KeyedSubtree(key: ValueKey(waiting ?? child is MobileWaiting), child: child);
   }
 }
 
@@ -168,69 +125,5 @@ class MobileHoldScope extends InheritedWidget
   bool updateShouldNotify(MobileHoldScope oldWidget)
   {
     return waiting != oldWidget.waiting || holds != oldWidget.holds;
-  }
-}
-
-// For content built anew once data arrives, where no switcher held the wait.
-class MobileRiseIn extends StatefulWidget
-{
-  final Widget child;
-
-  const MobileRiseIn({super.key, required this.child});
-
-  @override
-  State<MobileRiseIn> createState() => _MobileRiseInState();
-}
-
-class _MobileRiseInState extends State<MobileRiseIn> with SingleTickerProviderStateMixin
-{
-  late final AnimationController _rise = AnimationController(vsync: this, duration: kMobileRiseDuration);
-
-  late final Animation<double> _curve = CurvedAnimation(parent: _rise, curve: Curves.easeOutCubic);
-
-  bool _started = false;
-
-  @override
-  void didChangeDependencies()
-  {
-    super.didChangeDependencies();
-
-    if (_started)
-    {
-      return;
-    }
-
-    _started = true;
-
-    if (mobileUnseen(context))
-    {
-      _rise.value = 1;
-    }
-    else
-    {
-      _rise.forward();
-    }
-  }
-
-  @override
-  void dispose()
-  {
-    _rise.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final double height = MediaQuery.sizeOf(context).height;
-
-    return AnimatedBuilder(
-      animation: _curve,
-      builder: (context, child) => Transform.translate(
-        offset: Offset(0, (1 - _curve.value) * height),
-        child: child,
-      ),
-      child: widget.child,
-    );
   }
 }

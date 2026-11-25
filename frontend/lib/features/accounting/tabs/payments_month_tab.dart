@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
+import '../../../core/utils/search_terms.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
@@ -16,11 +18,13 @@ import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_month_button.dart';
+import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/hover_gold_frame.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/search_reveal.dart';
 import '../../people/utils/payments_strings.dart' show kPaymentsSection, paidOnLine, paymentMethodPhrase;
 import '../accounting_page.dart';
 import '../export/accounting_pdf_export.dart';
@@ -30,6 +34,7 @@ import '../utils/accounting_strings.dart';
 import '../utils/payments_month_words.dart';
 import '../widgets/hours_table_parts.dart';
 import '../widgets/people_filters.dart';
+import '../widgets/summary_search.dart';
 
 const double _monthLabelWidth = 200;
 const double _denseMonthLabelWidth = 160;
@@ -104,11 +109,23 @@ class _PaymentsMonthTabState extends State<PaymentsMonthTab> with DestinationRef
   // A later answer for another month drops an earlier one.
   int _request = 0;
 
+  // Who is looked for by name: kept across months and filters.
+  final TextEditingController _searchText = TextEditingController();
+  final ValueNotifier<SearchTerms?> _search = ValueNotifier(null);
+
   @override
   void initState()
   {
     super.initState();
     unawaited(_load());
+  }
+
+  @override
+  void dispose()
+  {
+    _searchText.dispose();
+    _search.dispose();
+    super.dispose();
   }
 
   @override
@@ -327,26 +344,22 @@ class _PaymentsMonthTabState extends State<PaymentsMonthTab> with DestinationRef
       ],
     );
 
-    // Minimal windows: the month alone at the right, the filters under it.
-    if (AppBreakpoints.of(context).isMinimal)
-    {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(alignment: Alignment.centerRight, child: month),
-          const SizedBox(height: kFilterGap + 2),
-          filters,
-        ],
-      );
-    }
-
-    // The filters wrap on a second line before they crowd the month.
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // The search and the month as on the other summaries, the filters under them.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(child: filters),
-        SizedBox(width: dense ? 12 : 16),
-        month,
+        SummaryToolbar(
+          gap: dense ? 16 : 24,
+          runGap: dense ? 10 : 14,
+          search: AppSearchField(
+            controller: _searchText,
+            hintText: kPersonHint,
+            onChanged: (text) => _search.value = SearchTerms.of(text),
+          ),
+          controls: month,
+        ),
+        const SizedBox(height: kFilterGap + 2),
+        filters,
       ],
     );
   }
@@ -411,11 +424,15 @@ class _PaymentsMonthTabState extends State<PaymentsMonthTab> with DestinationRef
                 children: [
                   PageTransitionItem(
                     slot: PageTransitionItem.list,
-                    child: _PaymentsTable(
-                      rows: rows,
-                      dense: dense,
-                      onOpen: _open,
-                      stacked: AppBreakpoints.of(context).isMinimal,
+                    child: SearchReveal(
+                      search: _search,
+                      child: _PaymentsTable(
+                        rows: rows,
+                        dense: dense,
+                        onOpen: _open,
+                        stacked: AppBreakpoints.of(context).isMinimal,
+                        search: _search,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -481,7 +498,16 @@ class _PaymentsTable extends StatelessWidget
   // Minimal windows: rows on floors, no columns.
   final bool stacked;
 
-  const _PaymentsTable({required this.rows, required this.dense, required this.onOpen, this.stacked = false});
+  // Who is looked for by name.
+  final ValueListenable<SearchTerms?> search;
+
+  const _PaymentsTable({
+    required this.rows,
+    required this.dense,
+    required this.onOpen,
+    required this.search,
+    this.stacked = false,
+  });
 
   double get _font => dense ? 13.5 : 14.5;
 
@@ -654,12 +680,19 @@ class _PaymentsTable extends StatelessWidget
             children: [
               if (!stacked) _head(narrow),
               for (final (index, row) in rows.indexed)
-                HoverGoldFrame(
+                SummarySearchRow(
+                  search: search,
+                  name: row.fullName,
                   cardRadius: _radius,
                   atTop: stacked && index == 0,
                   atBottom: index == rows.length - 1,
-                  onTap: () => onOpen(row),
-                  child: stacked ? _stackedRow(row, first: index == 0) : _row(row, first: index == 0, narrow: narrow),
+                  child: HoverGoldFrame(
+                    cardRadius: _radius,
+                    atTop: stacked && index == 0,
+                    atBottom: index == rows.length - 1,
+                    onTap: () => onOpen(row),
+                    child: stacked ? _stackedRow(row, first: index == 0) : _row(row, first: index == 0, narrow: narrow),
+                  ),
                 ),
             ],
           ),

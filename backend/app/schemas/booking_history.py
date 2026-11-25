@@ -23,7 +23,7 @@ class BookingHistoryBookingResponse(BaseModel):
     id: int
     kind: BookingKind
 
-    # The disciplines, or the service; the subject only where it says more.
+    # The disciplines, or the service; a subject's name always goes with them.
     name: str
     subject: str | None
     duration: int

@@ -36,8 +36,9 @@ class CalendarPublication(Base):
         nullable=False,
     )
 
+    # None must be SQL NULL, not JSON null: queries test it with IS NULL.
     draft_snapshot: Mapped[dict | None] = mapped_column(
-        JSONB,
+        JSONB(none_as_null=True),
         nullable=True,
     )
 

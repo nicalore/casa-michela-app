@@ -172,6 +172,13 @@ bool isOpenOn(List<OpeningDayItem> openingDays, DateTime day, String mode)
   return TimeBucket.values.any((bucket) => openingWindowFor(openingDays, day, mode, bucket) != null);
 }
 
+// Some band of [day] still takes new hours after [now], in either mode, as the wizards offer it.
+bool hasBandAhead(List<OpeningDayItem> openingDays, DateTime day, DateTime now)
+{
+  return [kPresenceMode, kOnlineMode].any((mode) => TimeBucket.values.any((bucket) =>
+      openingWindowFor(openingDays, day, mode, bucket, from: now) != null));
+}
+
 String get kInBuilding => tr('in presenza', 'in person');
 const String kOnScreen = 'online';
 String get kBothWays => tr('in presenza e online', 'in person and online');

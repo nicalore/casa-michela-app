@@ -61,6 +61,11 @@ const double _cutTolerance = 8;
 
 const double _dimAlpha = 0.62;
 
+// The deep water darkens the light page; on the night sea it would lift it, so the dark takes near black.
+Color get _veil => ThemeColours.isDark
+    ? const Color(0xFF02070D).withValues(alpha: 0.7)
+    : AppTheme.trialDeepWater.withValues(alpha: _dimAlpha);
+
 const Duration _fadeDuration = Duration(milliseconds: 260);
 
 const Duration _pageTurn = Duration(milliseconds: 320);
@@ -2260,8 +2265,7 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
                       touch: () => _litTouch,
                       glow: () => _breath.glow,
                       repaint: Listenable.merge([_repaint, _breath.listenable]),
-                      // A veil, not text: the deep water itself darkens the page in either mode.
-                      color: AppTheme.trialDeepWater.withValues(alpha: _dimAlpha),
+                      color: _veil,
                     ),
                   ),
                 ),
@@ -2792,7 +2796,7 @@ class _TourBanner extends StatelessWidget
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 10, 13),
         decoration: BoxDecoration(
-          color: AppTheme.trialDeepWater,
+          color: AppTheme.deepWaterFill,
           borderRadius: BorderRadius.circular(_bannerRadius),
           border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
           boxShadow: const [BoxShadow(color: Color(0x59000000), offset: Offset(0, 12), blurRadius: 32)],

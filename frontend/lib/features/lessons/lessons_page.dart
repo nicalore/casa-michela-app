@@ -102,6 +102,11 @@ class _LessonsPageState extends State<LessonsPage>
 
   late DateTime _day = _availableDays.first;
 
+  // Today's bands lapse on quarter hours: one look at each, a rebuild only when the new buttons go.
+  Timer? _quarterTimer;
+
+  bool _addShown = true;
+
   // Set while the band's calendar screen is open over the page.
   TimeBucket? _calendarBand;
 
@@ -212,6 +217,7 @@ class _LessonsPageState extends State<LessonsPage>
     super.initState();
 
     _watch.start();
+    _lookEachQuarterHour();
     _loadAllData();
 
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -226,6 +232,7 @@ class _LessonsPageState extends State<LessonsPage>
   @override
   void dispose()
   {
+    _quarterTimer?.cancel();
     _watch.dispose();
     _changes.dispose();
 
@@ -245,6 +252,24 @@ class _LessonsPageState extends State<LessonsPage>
   {
     super.setState(fn);
     _changes.value++;
+  }
+
+  bool get _canAdd => hasBandAhead(_openingDays, _day, romeNow());
+
+  void _lookEachQuarterHour()
+  {
+    final DateTime now = romeNow();
+    final DateTime next = DateTime(now.year, now.month, now.day, now.hour, (now.minute ~/ kQuarterHour + 1) * kQuarterHour);
+
+    _quarterTimer = Timer(next.difference(now), ()
+    {
+      if (_canAdd != _addShown)
+      {
+        setState(() {});
+      }
+
+      _lookEachQuarterHour();
+    });
   }
 
   static String _keyOf(DateTime day) => '${day.year}-${day.month}-${day.day}';
@@ -2182,6 +2207,9 @@ class _LessonsPageState extends State<LessonsPage>
   Widget _buildLists()
   {
     final bool readOnly = !_isDayEditable;
+    final bool canAdd = _canAdd;
+
+    _addShown = canAdd;
 
     return IndexedStack(
       index: _dayView.index,
@@ -2194,6 +2222,7 @@ class _LessonsPageState extends State<LessonsPage>
           selectedDay: _selectedDay,
           openingDays: _openingDays,
           readOnly: readOnly,
+          canAdd: canAdd,
           onViewSelected: _selectView,
           onCreate: _executeCreateAvailability,
           onEdit: _executeEditAvailability,
@@ -2213,6 +2242,7 @@ class _LessonsPageState extends State<LessonsPage>
           selectedDay: _selectedDay,
           openingDays: _openingDays,
           readOnly: readOnly,
+          canAdd: canAdd,
           begunBookingIds: _begunBookingIds,
           onViewSelected: _selectView,
           onCreateLessonRequest: _executeCreateLessonRequest,

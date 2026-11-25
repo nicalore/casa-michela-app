@@ -36,11 +36,11 @@ const String kTourBookingsWizardDisciplines = 'bookings.wizard.disciplines';
 const String kTourBookingsWizardServices = 'bookings.wizard.services';
 const String kTourBookingsWizardList = 'bookings.wizard.list';
 const String kTourBookingsWizardOpen = 'bookings.wizard.open';
-const String kTourBookingsWizardNote = 'bookings.wizard.note';
 
 const String kTourBookingsSubjectKinds = 'bookings.subject.kinds';
 const String kTourBookingsSubjectTopic = 'bookings.subject.topic';
 const String kTourBookingsSubjectForward = 'bookings.subject.forward';
+const String kTourBookingsBandNote = 'bookings.band.note';
 const String kTourBookingsSubjectDurations = 'bookings.subject.durations';
 const String kTourBookingsSubjectCount = 'bookings.subject.count';
 const String kTourBookingsSubjectTeachers = 'bookings.subject.teachers';
@@ -127,8 +127,7 @@ const (String, int) _listSeen = ('bookings.wizard.list', 2);
 const (String, int) _openSeen = ('bookings.wizard.open', 3);
 const (String, int) _createSeen = ('bookings.wizard.create', 5);
 const (String, int) _saveSeen = ('bookings.wizard.save', 5);
-const (String, int) _noteSeen = ('bookings.wizard.note', 3);
-const (String, int) _noteForwardSeen = ('bookings.wizard.note.forward', 1);
+const (String, int) _bandNoteSeen = ('bookings.band.note', 1);
 
 const List<DesktopTourSide> _over = [DesktopTourSide.above, DesktopTourSide.below];
 const List<DesktopTourSide> _below = [DesktopTourSide.below, DesktopTourSide.right, DesktopTourSide.above];
@@ -530,7 +529,7 @@ DesktopTourStep get _binStep => DesktopTourStep(
   seen: _binSeen,
 );
 
-// The hours card: a "Sì" brings the cursors in; then the band's note, or the hours saved alone.
+// The hours card: a "Sì" brings the cursors in; then the arrow to the subjects, or the hours saved alone.
 Future<DesktopTour?> bookingsWizardHoursTour({
   required BookingsTourPupil pupil,
   required bool online,
@@ -741,28 +740,19 @@ Future<DesktopTour?> bookingsWizardSubjectsTour({
   ]);
 }
 
-// The band's note card, before its subjects: the field, then the arrow to them.
-Future<DesktopTour?> bookingsWizardNoteTour()
+// The band's note window, opened from its button: the field, the first time.
+Future<DesktopTour?> bookingsBandNoteTour()
 {
   return _freshTour([
     DesktopTourStep(
-      targets: const [kTourBookingsWizardNote],
+      targets: const [kTourBookingsBandNote],
       text: kBandNoteTourText,
       sides: _beside,
       pad: 6,
       radius: 17,
       interactive: true,
-      present: () => _shown(kTourBookingsWizardNote),
-      seen: _noteSeen,
-    ),
-    DesktopTourStep(
-      targets: const [kTourBookingsWizardForward],
-      text: tr('Quando hai finito, clicca la freccia per scegliere le materie.', "When you're done, click the arrow to choose the subjects."),
-      sides: _leftFirst,
-      pad: 6,
-      radius: 35,
-      present: () => _shown(kTourBookingsWizardForward),
-      seen: _noteForwardSeen,
+      present: () => _shown(kTourBookingsBandNote),
+      seen: _bandNoteSeen,
     ),
   ]);
 }

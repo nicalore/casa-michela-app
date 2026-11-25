@@ -11,7 +11,9 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
+import '../../bookings/bookings_tour.dart';
 import '../models/presence_item.dart';
 import '../utils/booking_wizard_strings.dart';
 
@@ -278,10 +280,42 @@ class _BandNoteDialogState extends State<_BandNoteDialog>
   bool _busy = false;
 
   @override
+  void initState()
+  {
+    super.initState();
+
+    // Families only: an administrator's window has no hint and no tour.
+    if (widget.hinted)
+    {
+      _startTour();
+    }
+  }
+
+  @override
   void dispose()
   {
     _text.dispose();
     super.dispose();
+  }
+
+  void _startTour()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_) async
+    {
+      if (!mounted || isDesktopTourShown)
+      {
+        return;
+      }
+
+      final DesktopTour? tour = await bookingsBandNoteTour();
+
+      if (tour != null && mounted)
+      {
+        startBookingsTour(context, tour, still: () => mounted && !_busy);
+      }
+    });
+
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   Future<void> _save() async
@@ -352,10 +386,11 @@ class _BandNoteDialogState extends State<_BandNoteDialog>
                 controller: _text,
                 label: kBandNotesLabel,
                 showLabel: false,
-                hintText: kTeacherNotesHint,
+                hintText: kBandNotesExample,
                 maxLength: FieldLimits.notes,
                 maxLines: 4,
                 minLines: 3,
+                tourId: widget.hinted ? kTourBookingsBandNote : null,
               ),
             ],
           ),

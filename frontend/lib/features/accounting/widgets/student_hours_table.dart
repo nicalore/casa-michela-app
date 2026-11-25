@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/utils/search_terms.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_text_link.dart';
 import '../../people/utils/payments_strings.dart'
@@ -11,6 +13,7 @@ import '../models/student_hours_items.dart';
 import '../models/teacher_hours_items.dart';
 import '../utils/accounting_strings.dart';
 import 'hours_table_parts.dart';
+import 'summary_search.dart';
 import '../utils/opening_strings.dart' show kOpeningPending;
 
 // Shares of the width left once the action column is taken.
@@ -51,6 +54,9 @@ class StudentHoursTable extends StatelessWidget
   // A pupil's name leads to their payments.
   final ValueChanged<StudentHoursRow> onOpenStudent;
 
+  // Who is looked for by name.
+  final ValueListenable<SearchTerms?>? search;
+
   const StudentHoursTable({
     super.key,
     required this.band,
@@ -61,6 +67,7 @@ class StudentHoursTable extends StatelessWidget
     required this.onAction,
     required this.onAddStudent,
     required this.onOpenStudent,
+    this.search,
   });
 
   @override
@@ -87,6 +94,7 @@ class StudentHoursTable extends StatelessWidget
             onWork: onWork,
             onAction: onAction,
             onOpen: onOpenStudent,
+            search: search,
           );
         }
 
@@ -245,6 +253,7 @@ class _Row extends StatelessWidget
   final StudentWorkEdit onWork;
   final void Function(StudentHoursRow row, StudentHoursAction action) onAction;
   final ValueChanged<StudentHoursRow> onOpen;
+  final ValueListenable<SearchTerms?>? search;
 
   const _Row({
     required this.row,
@@ -258,6 +267,7 @@ class _Row extends StatelessWidget
     required this.onWork,
     required this.onAction,
     required this.onOpen,
+    required this.search,
   });
 
   // The calendar's stretches stand struck for an absent pupil.
@@ -332,7 +342,7 @@ class _Row extends StatelessWidget
     final String hours = row.absent ? '—' : formatMinutes(row.minutes);
     final int cost = row.situation.costCents;
 
-    return Container(
+    final Widget line = Container(
       height: hoursRowHeight(_shownWork.length, first: first),
       decoration: first ? null : BoxDecoration(border: Border(top: BorderSide(color: kHoursRowLine))),
       child: hoursCellsOf([
@@ -377,6 +387,8 @@ class _Row extends StatelessWidget
         ),
       ], part),
     );
+
+    return SummarySearchRow(search: search, name: row.fullName, part: part, child: line);
   }
 }
 

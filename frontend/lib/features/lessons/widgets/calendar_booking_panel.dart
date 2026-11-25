@@ -493,7 +493,7 @@ class CalendarBookingPanel extends StatelessWidget
       return ScrollEdgeFade(child: SingleChildScrollView(child: _buildEmpty()));
     }
 
-    return CalendarSearchReveal(
+    return SearchReveal(
       search: search,
       child: ScrollEdgeFade(
         child: SingleChildScrollView(

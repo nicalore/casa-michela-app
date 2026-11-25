@@ -1,15 +1,19 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_colours.dart';
+import '../../../core/utils/search_terms.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_text_link.dart';
 import '../../people/utils/payments_strings.dart' show kTariffKindLabels, tariffCost;
 import '../models/student_month_items.dart';
 import '../utils/accounting_strings.dart';
+import 'hours_table_parts.dart' show HoursPart;
+import 'summary_search.dart';
 import 'teacher_month_table.dart' show PendingBandsNote;
 
 const double _nameInset = 20;
@@ -62,11 +66,15 @@ class StudentMonthTable extends StatelessWidget
   final ValueChanged<StudentMonthRow> onOpenStudent;
   final ValueChanged<PendingBand> onOpenBand;
 
+  // Who is looked for by name.
+  final ValueListenable<SearchTerms?>? search;
+
   const StudentMonthTable({
     super.key,
     required this.month,
     required this.onOpenStudent,
     required this.onOpenBand,
+    this.search,
   });
 
   Widget _part(_Columns columns, _Part part)
@@ -83,6 +91,7 @@ class StudentMonthTable extends StatelessWidget
             part: part,
             first: index == 0,
             onOpen: onOpenStudent,
+            search: search,
           ),
         _Totals(rows: month.rows, columns: columns, part: part),
         if (columns.scrolls) const SizedBox(height: _scrollBarRoom),
@@ -155,7 +164,7 @@ String _situationTitle(StudentMonth month)
 }
 
 // What a row shows of its cells: all of them, or the name alone and the rest beside it.
-enum _Part { whole, pinned, scrolled }
+typedef _Part = HoursPart;
 
 Widget _cellsOf(List<Widget> cells, _Part part)
 {
@@ -804,6 +813,7 @@ class _Row extends StatelessWidget
   final _Part part;
   final bool first;
   final ValueChanged<StudentMonthRow> onOpen;
+  final ValueListenable<SearchTerms?>? search;
 
   const _Row({
     required this.row,
@@ -812,6 +822,7 @@ class _Row extends StatelessWidget
     required this.part,
     required this.first,
     required this.onOpen,
+    required this.search,
   });
 
   Widget _line(TariffPart tariff, {required bool firstPart})
@@ -877,10 +888,15 @@ class _Row extends StatelessWidget
         ),
     ];
 
-    return Container(
-      height: _partHeight * row.parts.length + (first ? 0 : 1),
-      decoration: first ? null : BoxDecoration(border: Border(top: BorderSide(color: _rowLine))),
-      child: _cellsOf(cells, part),
+    return SummarySearchRow(
+      search: search,
+      name: row.fullName,
+      part: part,
+      child: Container(
+        height: _partHeight * row.parts.length + (first ? 0 : 1),
+        decoration: first ? null : BoxDecoration(border: Border(top: BorderSide(color: _rowLine))),
+        child: _cellsOf(cells, part),
+      ),
     );
   }
 }

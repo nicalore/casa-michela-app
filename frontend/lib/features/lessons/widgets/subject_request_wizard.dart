@@ -543,7 +543,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
           controller: _notesController,
           label: tr('Note', 'Notes'),
           showLabel: false,
-          hintText: kTeacherNotesHint,
+          hintText: kTeacherNotesExample,
           maxLength: FieldLimits.notes,
           maxLines: 4,
           minLines: 3,

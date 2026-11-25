@@ -52,6 +52,9 @@ class BookingsTab extends StatefulWidget
   // A day outside the booking window: shown, never changed.
   final bool readOnly;
 
+  // False once the day has no band left to add to: the new button goes.
+  final bool canAdd;
+
   // Subjects whose lesson has begun: shown, never changed.
   final Set<int> begunBookingIds;
 
@@ -78,6 +81,7 @@ class BookingsTab extends StatefulWidget
     required this.selectedDay,
     required this.openingDays,
     this.readOnly = false,
+    this.canAdd = true,
     this.begunBookingIds = const {},
     required this.view,
     required this.onViewSelected,
@@ -384,7 +388,7 @@ class _BookingsTabState extends State<BookingsTab>
           onSearchChanged: (value) => setState(() => _searchText = value),
           searchHint: tr('Cerca studente o prenotante...', 'Search student or booker...'),
           actionLabel: tr('NUOVA RICHIESTA', 'NEW REQUEST'),
-          onAction: widget.readOnly ? null : _showPresenceWizard,
+          onAction: widget.readOnly || !widget.canAdd ? null : _showPresenceWizard,
         ),
         const TabHeaderGap(wide: 20, dense: 10),
         _buildFilters(),

@@ -632,6 +632,10 @@ async def close_opening(
         if await collaborating(db, list(waiting)):
             raise _conflict(_STILL_PENDING_ERROR.for_request())
 
+    # Whoever comes back after the closing is never waited for.
+    for table in (TeacherOpening, PupilOpening):
+        await db.execute(delete(table).where(table.confirmed_at.is_(None)))
+
     opening.closed_at = func.now()
     opening.closed_by_tax_code = admin_tax_code
     await db.flush()

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/constants/field_limits.dart';
 import '../../../core/language/app_language.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/json_parsing.dart';
@@ -13,12 +12,10 @@ import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
-import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
-import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
@@ -35,7 +32,6 @@ import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
 import '../models/band_offer.dart';
 import '../models/booking_summary_item.dart';
-import '../models/lesson_item.dart';
 import '../models/presence_item.dart';
 import '../models/subject_request.dart';
 import '../utils/booking_window.dart';
@@ -43,7 +39,6 @@ import '../utils/booking_wizard_strings.dart';
 import '../utils/opening_window.dart';
 import '../utils/study_program_lookup.dart';
 import '../utils/subject_search.dart';
-import 'band_note_parts.dart';
 import 'band_schedule.dart';
 import 'lesson_day_field.dart';
 import 'lessons_form_fields.dart';
@@ -88,7 +83,7 @@ class _Answers
   final Set<String> modes = {};
 }
 
-enum _Step { who, modes, hours, subjects, notes }
+enum _Step { who, modes, hours, subjects }
 
 typedef _Card = ({_Step step, _DayGroup? group, String? mode, TimeBucket? band});
 
@@ -226,9 +221,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   final Map<SubjectRequestDraft, TextEditingController> _topicControllers = {};
   final Map<SubjectRequestDraft, TextEditingController> _notesControllers = {};
-
-  // Per day group, mode and band; filled with the band's stored note.
-  final Map<String, TextEditingController> _bandNoteControllers = {};
 
   bool get _isEditing => widget.existingPresence != null;
 
@@ -613,11 +605,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       }
     }
 
-    for (final controller in _bandNoteControllers.values)
-    {
-      controller.dispose();
-    }
-
     super.dispose();
   }
 
@@ -817,7 +804,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
               chosen: () => _hasChosen(card),
             ) ??
             await bookingsLateSubjectsTour(editing: _isEditing, chosen: _hasChosen(card)),
-        _Step.notes => await bookingsWizardNoteTour(),
         _Step.modes => null,
       };
 
@@ -918,9 +904,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         {
           return kPickSubjectToGoOn;
         }
-
-      case _Step.notes:
-        return null;
     }
 
     return null;
@@ -972,18 +955,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       _days = {_firstOfferedDay()};
 
       _answersByGroup.clear();
-
-      // Their fields leave with this frame: disposed after it.
-      final List<TextEditingController> notes = [..._bandNoteControllers.values];
-
-      _bandNoteControllers.clear();
-      WidgetsBinding.instance.addPostFrameCallback((_)
-      {
-        for (final controller in notes)
-        {
-          controller.dispose();
-        }
-      });
 
       for (final mode in _modes)
       {
@@ -1269,48 +1240,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     }
   }
 
-  String? _storedBandNote(_DayGroup group, TimeBucket band)
-  {
-    final String? pupil = _selectedStudentTaxCode;
-
-    if (pupil == null)
-    {
-      return null;
-    }
-
-    for (final day in group.days)
-    {
-      final String? note = bandNoteIn(_seenRows, studentTaxCode: pupil, day: day, band: band);
-
-      if (note != null)
-      {
-        return note;
-      }
-    }
-
-    return null;
-  }
-
-  TextEditingController _bandNoteController(_DayGroup group, String mode, TimeBucket band)
-  {
-    return _bandNoteControllers.putIfAbsent(
-      '${group.key}/$mode/${band.name}',
-      () => TextEditingController(text: _storedBandNote(group, band)),
-    );
-  }
-
-  // The bands this wizard asks a note for; a card never shown sends the stored note back.
-  List<Map<String, dynamic>> _bandNotesOf(_DayGroup group, String mode, {required bool blanks})
-  {
-    return [
-      for (final band in _answersOf(group).hours[mode]!.bands)
-        if (!_isOver(group, mode, band))
-          if ((_bandNoteControllers['${group.key}/$mode/${band.name}']?.text ?? _storedBandNote(group, band) ?? '').trim()
-              case final String said when blanks || said.isNotEmpty)
-            {'band': LessonItem.formatBand(band), 'notes': said.isEmpty ? null : said},
-    ];
-  }
-
   List<Map<String, dynamic>> _modePayloads(_DayGroup group)
   {
     final _Answers answers = _answersOf(group);
@@ -1331,7 +1260,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
             'subjects': [
               for (final request in answers.requests[mode]!) request.toRequestJson(),
             ],
-            'notes': _bandNotesOf(group, mode, blanks: false),
           },
     ];
   }
@@ -1375,8 +1303,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
                   for (final booking in row.bookings)
                     SubjectRequestDraft.fromBooking(booking, band: bucketFor(row.startTime)).toRequestJson(),
             ],
-            // The hours alone leave the notes to the server, which keeps them.
-            if (!widget.hoursOnly && chosen.contains(mode)) 'notes': _bandNotesOf(group, mode, blanks: true),
           },
     ];
   }
@@ -1586,41 +1512,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBandNoteCard(_DayGroup group, String mode, TimeBucket band)
-  {
-    final BandOffer? offer = _bandOffers(group, mode).where((offer) => offer.band == band).firstOrNull;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (offer != null) ...[
-          Text(
-            '${bandLabel(band)}: ${offer.hours}',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(height: 18),
-        ],
-        Padding(padding: const EdgeInsets.only(bottom: 8), child: AppFieldLabel(kBandNotesLabel)),
-        AppTextField(
-          controller: _bandNoteController(group, mode, band),
-          label: kBandNotesLabel,
-          showLabel: false,
-          hintText: kTeacherNotesHint,
-          maxLength: FieldLimits.notes,
-          maxLines: 4,
-          minLines: 3,
-          tourId: _toured ? kTourBookingsWizardNote : null,
         ),
       ],
     );
@@ -2157,12 +2048,9 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           if (_effectiveModes(group).contains(mode)) ...[
             if (!widget.openOnSubjects) (step: _Step.hours, group: group, mode: mode, band: null),
             if (!widget.hoursOnly)
-              // The band's note before its subjects; a lesson added to a band keeps its own note button.
+              // Band notes live on the band's own button, never in this wizard.
               for (final band in _answersOf(group).hours[mode]!.bands)
-                if (!_isOver(group, mode, band)) ...[
-                  if (!widget.openOnSubjects) (step: _Step.notes, group: group, mode: mode, band: band),
-                  (step: _Step.subjects, group: group, mode: mode, band: band),
-                ],
+                if (!_isOver(group, mode, band)) (step: _Step.subjects, group: group, mode: mode, band: band),
           ],
       ],
     ];
@@ -2244,7 +2132,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       _Step.modes => presenceModesGuide(isSelf: _isSelf, name: name, named: named),
       _Step.hours => presenceHoursGuide(card.mode!, isSelf: _isSelf, name: name, named: named, female: female),
       _Step.subjects => presenceSubjectsGuide(card.mode!, isSelf: _isSelf, name: name, named: named),
-      _Step.notes => (question: kBandNotesQuestion, hint: kBandNotesHint),
     };
   }
 
@@ -2268,7 +2155,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       _Step.modes => _buildModesCard(card.group!),
       _Step.hours => _buildHours(card.group!, card.mode!),
       _Step.subjects => _buildSubjectsCard(card.group!, card.mode!, card.band!),
-      _Step.notes => _buildBandNoteCard(card.group!, card.mode!, card.band!),
     };
   }
 

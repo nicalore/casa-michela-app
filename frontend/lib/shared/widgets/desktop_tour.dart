@@ -13,6 +13,7 @@ import '../../core/language/app_language.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_colours.dart';
 import '../../features/settings/utils/settings_strings.dart';
 import '../../services/seen_tours.dart';
 import 'app_gradient_button.dart';
@@ -26,8 +27,8 @@ String get _backLabel => tr('INDIETRO', 'BACK');
 String get _nextLabel => tr('AVANTI', 'NEXT');
 String get _endLabel => tr('FINE', 'DONE');
 
-// As a dialog without blur: the page stays readable.
-const double _dimOpacity = 0.32;
+// As a dialog without blur; the dark page is near black, so its veil is deeper to set the part apart.
+double get _dimOpacity => ThemeColours.isDark ? 0.7 : 0.32;
 
 const double _bubbleWidth = 410;
 // Narrower, "INDIETRO" and "AVANTI" side by side would break their words.
@@ -42,7 +43,7 @@ Color get _closeHover => Color.alphaBlend(Colors.white.withValues(alpha: 0.14), 
 // Above or below a part, the bubble needs at least this much height.
 const double _shortestRoom = 170;
 
-// Only clickable parts get a rim: read ones are just left undimmed.
+// Every lit part gets a gold rim, as on the phone; clickable ones also breathe a halo.
 const double _rimWidth = 3;
 
 // Past a scroll view's bottom fade.
@@ -1386,7 +1387,7 @@ class _DimPainter extends CustomPainter
 
   final List<double> radii;
 
-  // Clickable parts, and only they, get a rim and its glow.
+  // Clickable parts, and only they, breathe a halo around their rim.
   final double clickable;
   final double glow;
 
@@ -1420,15 +1421,10 @@ class _DimPainter extends CustomPainter
 
     canvas.drawPath(dim, Paint()..color = Colors.black.withValues(alpha: _dimOpacity));
 
-    if (clickable <= 0)
-    {
-      return;
-    }
-
     final Paint rim = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = _rimWidth
-      ..color = AppTheme.trialGold.withValues(alpha: clickable);
+      ..color = AppTheme.trialGold;
 
     for (final RRect shape in shapes)
     {

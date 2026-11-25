@@ -50,7 +50,7 @@ class BookingHistoryBooking
   final int id;
   final BookingHistoryKind kind;
 
-  // The disciplines or the service; the subject only where it says more.
+  // The disciplines or the service; a subject's name always goes with them.
   final String name;
   final String? subject;
 

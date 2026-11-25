@@ -8,6 +8,7 @@ import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
+import '../../../core/utils/search_terms.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
@@ -16,10 +17,12 @@ import '../../../shared/widgets/app_calendar_button.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_load_failed.dart';
+import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/search_reveal.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../association/tabs/opening_hours/calendar_bounds.dart';
@@ -36,6 +39,7 @@ import '../utils/accounting_jump.dart';
 import '../utils/accounting_strings.dart';
 import '../widgets/add_teacher_dialog.dart';
 import '../widgets/hours_table_parts.dart' show hoursDayLabelWidth;
+import '../widgets/summary_search.dart';
 import '../widgets/teacher_hours_table.dart';
 
 const double _dayLabelWidth = 250;
@@ -85,6 +89,10 @@ class _TeacherHoursTabState extends State<TeacherHoursTab> with DestinationRefre
 
   Timer? _arrival;
 
+  // Who is looked for by name: kept across days and bands.
+  final TextEditingController _searchText = TextEditingController();
+  final ValueNotifier<SearchTerms?> _search = ValueNotifier(null);
+
   static DateTime _dateOf(DateTime moment) => DateTime(moment.year, moment.month, moment.day);
 
   @override
@@ -120,6 +128,8 @@ class _TeacherHoursTabState extends State<TeacherHoursTab> with DestinationRefre
   {
     AccountingJumps.teacherHours.asked.removeListener(_jump);
     _arrival?.cancel();
+    _searchText.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -489,12 +499,18 @@ class _TeacherHoursTabState extends State<TeacherHoursTab> with DestinationRefre
     );
   }
 
-  // The bands to the left of the days, both on the right.
+  // The search at the left; the bands to the left of the days, both on the right.
   Widget _buildNav(bool dense)
   {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Wrap(
+    return SummaryToolbar(
+      gap: dense ? 16 : 24,
+      runGap: dense ? 10 : 14,
+      search: AppSearchField(
+        controller: _searchText,
+        hintText: kTeacherHint,
+        onChanged: (text) => _search.value = SearchTerms.of(text),
+      ),
+      controls: Wrap(
         alignment: WrapAlignment.end,
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: dense ? 16 : 24,
@@ -675,16 +691,20 @@ class _TeacherHoursTabState extends State<TeacherHoursTab> with DestinationRefre
                     child: IgnorePointer(
                       // A change made while another is being saved would be lost: none is taken meanwhile.
                       ignoring: _busy,
-                      child: TeacherHoursTable(
-                        band: data,
-                        editable: !data.isConfirmed,
-                        firstMinute: bandStartMinutes(_band),
-                        lastMinute: bandEndMinutes(_band),
-                        onWork: _editWork,
-                        onVolunteer: _editVolunteer,
-                        onAction: _act,
-                        onAddTeacher: () => unawaited(_addTeacher()),
-                        onOpenTeacher: _openTeacher,
+                      child: SearchReveal(
+                        search: _search,
+                        child: TeacherHoursTable(
+                          band: data,
+                          editable: !data.isConfirmed,
+                          firstMinute: bandStartMinutes(_band),
+                          lastMinute: bandEndMinutes(_band),
+                          onWork: _editWork,
+                          onVolunteer: _editVolunteer,
+                          onAction: _act,
+                          onAddTeacher: () => unawaited(_addTeacher()),
+                          onOpenTeacher: _openTeacher,
+                          search: _search,
+                        ),
                       ),
                     ),
                   ),

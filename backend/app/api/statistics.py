@@ -7,7 +7,16 @@ from typing import Annotated, Any, Final
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    CompoundSelect,
+    Select,
+    and_,
+    exists,
+    func,
+    or_,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -35,10 +44,8 @@ from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_publication import CalendarPublication
 from app.models.collaboration_change import CollaborationChange
-from app.models.confirmed_hours import ConfirmedHours
 from app.models.course_participant import CourseParticipant
 from app.models.lesson import Lesson
-from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
 from app.models.member import Member
 from app.models.membership import Membership
@@ -48,7 +55,6 @@ from app.models.opening_day import OpeningDay
 from app.models.person import Person
 from app.models.presence import Presence
 from app.models.psychologist import Psychologist
-from app.models.room_supervision import RoomSupervision
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.staff import Staff
@@ -98,6 +104,14 @@ from app.schemas.statistics import (
     TeacherPersonalStatisticsResponse,
     TeacherSubjectsStatisticsResponse,
 )
+from app.services.attendance import (
+    done_lessons,
+    lesson_rows,
+    pupil_days_stmt,
+    pupil_lesson_time,
+    teacher_lesson_time,
+    teacher_times,
+)
 from app.services.availability_weeks import (
     AvailabilityWeek,
     days_given,
@@ -108,18 +122,17 @@ from app.services.availability_weeks import (
 )
 from app.services.compensation import (
     CompensationMonth,
-    done_bands,
     load_terms,
     months_compensation,
 )
-from app.services.confirmed_hours import confirmed_bands
 from app.services.enrollment_spans import (
     enrolled_days,
     enrolled_spans,
     enrolled_throughout,
 )
 from app.services.teaching_competence import lacks_competence
-from app.services.worked_hours import days_of, span_minutes
+from app.services.worked_hours import Span as TimeSpan
+from app.services.worked_hours import merge, span_minutes
 
 # Admin-only figures about everybody; a person's own month is served by api/home.py.
 router = APIRouter(
@@ -1731,27 +1744,8 @@ async def get_first_open_day(
     )
 
 
-def _union_minutes(spans: Iterable[tuple[time, time]]) -> int:
-    total = 0
-    current: tuple[time, time] | None = None
-
-    for start, end in sorted(spans):
-        if current is not None and start <= current[1]:
-            current = (current[0], max(current[1], end))
-            continue
-
-        if current is not None:
-            total += minutes_between(*current)
-
-        current = (start, end)
-
-    if current is not None:
-        total += minutes_between(*current)
-
-    return total
-
-
-# One point per open day; convened = lessons or activities in a published band.
+# One point per open day; convened = lessons or activities in a published band,
+# unless the teacher was absent there in a confirmed band.
 @router.get(
     "/teachers/activity-trend",
     response_model=list[TeacherActivityDayItem],
@@ -1763,8 +1757,8 @@ async def get_teacher_activity_trend(
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
     mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
 ) -> list[TeacherActivityDayItem]:
-    start, end = _elapsed_window(_stats_window(months, year, month))
-    now = now_in_rome()
+    window = _stats_window(months, year, month)
+    start, end = _elapsed_window(window)
     published = await _published_bands(db, start, end)
 
     available = {
@@ -1786,16 +1780,12 @@ async def get_teacher_activity_trend(
     }
 
     convened: dict[date, set[str]] = defaultdict(set)
-
-    # Per teacher and day: two lessons at once are one stretch of their time.
-    taught: dict[tuple[date, str], list[tuple[time, time]]] = defaultdict(list)
+    confirmed = await teacher_times(db, start, end)
 
     for row in await db.execute(
         select(
             Lesson.date,
             Lesson.band,
-            Lesson.start_time,
-            Lesson.end_time,
             Availability.teacher_tax_code,
         )
         .join(Availability, Availability.id == Lesson.availability_id)
@@ -1805,15 +1795,12 @@ async def get_teacher_activity_trend(
             Lesson.date < end,
         ),
     ):
-        if (row.date, row.band) not in published:
-            continue
-
-        convened[row.date].add(row.teacher_tax_code)
-
-        if _is_over(row.date, row.end_time, now):
-            taught[(row.date, row.teacher_tax_code)].append(
-                (row.start_time, row.end_time),
-            )
+        if (row.date, row.band) in published and not confirmed.absent(
+            row.teacher_tax_code,
+            row.date,
+            row.band,
+        ):
+            convened[row.date].add(row.teacher_tax_code)
 
     for row in await db.execute(
         select(
@@ -1828,13 +1815,17 @@ async def get_teacher_activity_trend(
             CalendarActivity.date < end,
         ),
     ):
-        if (row.date, row.band) in published:
+        if (row.date, row.band) in published and not confirmed.absent(
+            row.teacher_tax_code,
+            row.date,
+            row.band,
+        ):
             convened[row.date].add(row.teacher_tax_code)
 
     lesson_minutes: Counter[date] = Counter()
 
-    for (day, _teacher), spans in taught.items():
-        lesson_minutes[day] += _union_minutes(spans)
+    for days in (await _teacher_lesson_days(db, window, mode.value)).values():
+        lesson_minutes.update(_minutes_per_day(days))
 
     days = (
         await _open_days(db, start, end, mode.value)
@@ -1950,7 +1941,7 @@ async def get_teacher_personal_statistics(
         mode.value,
     )
     lesson_minutes, monthly_lesson_minutes = _minutes_summary(
-        await _done_minutes_by_day(db, tax_code, mode),
+        await _teacher_minutes_by_day(db, tax_code, mode.value),
         start,
         end,
     )
@@ -2073,15 +2064,9 @@ async def get_teacher_appreciation_students(
     )
 
 
-# One row per (student, day): two presences on the same day count once.
-def _presence_days_stmt(window: tuple[date, date], mode: str) -> Select[Any]:
-    start, end = _elapsed_window(window)
-
-    return (
-        select(Presence.student_tax_code, Presence.date)
-        .where(Presence.mode == mode, Presence.date >= start, Presence.date < end)
-        .distinct()
-    )
+# One row per (student, day) the pupil came: two presences on one day count once.
+def _presence_days_stmt(window: tuple[date, date], mode: str) -> CompoundSelect:
+    return pupil_days_stmt(*_elapsed_window(window), mode)
 
 
 def _pad_monthly(counts_by_month: dict[tuple[int, int], int]) -> list[MonthlyCountItem]:
@@ -2268,26 +2253,70 @@ def _is_over(day: date, end_time: time, now: datetime) -> bool:
     return day < now.date() or (day == now.date() and end_time <= now.time())
 
 
-# Lessons over in the published calendar, as the home month counts them.
-async def _lessons_over(
+# Lessons already over in the published calendar, whole: who taught whom.
+async def _done_lessons(
     db: AsyncSession,
     stmt: Select[Any],
     window: tuple[date, date],
-) -> list[Any]:
-    start, end = _elapsed_window(window)
+) -> list[tuple[Any, list[TimeSpan]]]:
     now = now_in_rome()
 
-    rows = (
-        await db.execute(stmt.where(Lesson.date >= start, Lesson.date < end))
-    ).all()
+    return await done_lessons(
+        db,
+        stmt,
+        *_elapsed_window(window),
+        lambda day, end_time: _is_over(day, end_time, now),
+    )
 
-    published = await _published_bands(db, start, end)
 
-    return [
-        row
-        for row in rows
-        if (row.date, row.band) in published and _is_over(row.date, row.end_time, now)
-    ]
+# Each person's own lessons, but for the bands they were absent in.
+async def _teacher_lesson_days(
+    db: AsyncSession,
+    window: tuple[date, date],
+    mode: str,
+    tax_code: str | None = None,
+) -> dict[str, dict[date, list[TimeSpan]]]:
+    now = now_in_rome()
+
+    return await teacher_lesson_time(
+        db,
+        *_elapsed_window(window),
+        lambda day, end_time: _is_over(day, end_time, now),
+        mode,
+        None if tax_code is None else [tax_code],
+    )
+
+
+async def _pupil_lesson_days(
+    db: AsyncSession,
+    window: tuple[date, date],
+    mode: str,
+    tax_code: str | None = None,
+) -> dict[str, dict[date, list[TimeSpan]]]:
+    now = now_in_rome()
+
+    return await pupil_lesson_time(
+        db,
+        *_elapsed_window(window),
+        lambda day, end_time: _is_over(day, end_time, now),
+        mode,
+        None if tax_code is None else [tax_code],
+    )
+
+
+def _minutes_per_day(days: Mapping[date, list[TimeSpan]]) -> dict[date, int]:
+    return {day: span_minutes(spans) for day, spans in days.items()}
+
+
+def _minutes_per_person(
+    found: Mapping[str, Mapping[date, list[TimeSpan]]],
+) -> dict[str, int]:
+    minutes = {
+        person: sum(span_minutes(spans) for spans in days.values())
+        for person, days in found.items()
+    }
+
+    return {person: spent for person, spent in minutes.items() if spent > 0}
 
 
 async def _lesson_disciplines(
@@ -2313,27 +2342,6 @@ async def _lesson_disciplines(
     return covered
 
 
-def _lesson_rows() -> Select[Any]:
-    return (
-        select(
-            Lesson.id,
-            Lesson.date,
-            Lesson.band,
-            Lesson.start_time,
-            Lesson.end_time,
-            Availability.teacher_tax_code,
-            Presence.student_tax_code,
-            Booking.id.label("booking_id"),
-            Booking.association_subject_id,
-            Booking.service_name,
-        )
-        .join(Availability, Availability.id == Lesson.availability_id)
-        .join(LessonBooking, LessonBooking.lesson_id == Lesson.id)
-        .join(Booking, Booking.id == LessonBooking.booking_id)
-        .join(Presence, Presence.id == Booking.presence_id)
-    )
-
-
 # A lesson covering several of the pupil's subjects is a full hour of each.
 async def _lesson_hours(
     db: AsyncSession,
@@ -2341,20 +2349,23 @@ async def _lesson_hours(
     window: tuple[date, date],
     mode: str,
 ) -> tuple[SubjectHoursRankings, list[PersonHoursItem]]:
-    rows = await _lessons_over(
+    done = await _done_lessons(
         db,
-        _lesson_rows().where(
+        lesson_rows().where(
             Presence.student_tax_code == tax_code,
             Lesson.mode == mode,
         ),
         window,
     )
+    rows = [row for row, _ in done]
 
     # Two of the pupil's bookings may share a lesson: one row each.
     bookings_of: dict[int, list[Any]] = defaultdict(list)
+    spent: dict[int, int] = {}
 
-    for row in rows:
+    for row, pieces in done:
         bookings_of[row.id].append(row)
+        spent[row.id] = span_minutes(pieces)
 
     covered = await _lesson_disciplines(db, bookings_of)
 
@@ -2381,7 +2392,7 @@ async def _lesson_hours(
 
     for lesson_id, group in bookings_of.items():
         lesson = group[0]
-        minutes = minutes_between(lesson.start_time, lesson.end_time)
+        minutes = spent[lesson_id]
         taught = covered[lesson_id]
 
         # Only what this pupil asked for: a shared lesson covers others' subjects too.
@@ -2416,23 +2427,34 @@ async def _lesson_hours(
     )
 
 
-# A lesson counts in full for every discipline it covers and every pupil in it.
+# A lesson's time done counts for every discipline it covers and every pupil in it.
 async def _teaching_hours(
     db: AsyncSession,
     tax_code: str,
     window: tuple[date, date],
     mode: str,
 ) -> tuple[list[SubjectHoursItem], list[PersonHoursItem]]:
-    rows = await _lessons_over(
+    done = await _done_lessons(
         db,
-        _lesson_rows().where(
+        lesson_rows().where(
             Availability.teacher_tax_code == tax_code,
             Lesson.teacher_mode == mode,
         ),
         window,
     )
 
-    minutes = {row.id: minutes_between(row.start_time, row.end_time) for row in rows}
+    # A lesson counts whole once any pupil was there; two bookings count once.
+    pieces_of: dict[int, list[TimeSpan]] = defaultdict(list)
+    followed: dict[tuple[int, str], int] = {}
+
+    for row, pieces in done:
+        pieces_of[row.id].extend(pieces)
+        followed[(row.id, row.student_tax_code)] = span_minutes(pieces)
+
+    minutes = {
+        lesson_id: span_minutes(merge(pieces))
+        for lesson_id, pieces in pieces_of.items()
+    }
 
     disciplines: Counter[str] = Counter()
 
@@ -2441,91 +2463,42 @@ async def _teaching_hours(
 
     students: Counter[str] = Counter()
 
-    for lesson_id, student in {(row.id, row.student_tax_code) for row in rows}:
-        students[student] += minutes[lesson_id]
+    for (_lesson_id, student), spent in followed.items():
+        students[student] += spent
 
     return _ranked_minutes(disciplines), await _ranked_people(db, students)
 
 
-# Lessons over in the chart's twelve months; per day, overlaps are one stretch.
-async def _lesson_minutes_by_day(
-    db: AsyncSession,
-    *conditions: ColumnElement[bool],
-) -> dict[date, int]:
-    rows = await _lessons_over(
-        db,
-        _lesson_rows().where(*conditions),
-        _stats_window(None, None, None),
-    )
-    spans: dict[date, set[tuple[time, time]]] = defaultdict(set)
-
-    for row in rows:
-        spans[row.date].add((row.start_time, row.end_time))
-
-    return {day: _union_minutes(day_spans) for day, day_spans in spans.items()}
-
-
-# A teacher's hours done in the chart's twelve months, as the home counts them
-# but one mode at a time.
-async def _done_minutes_by_day(
+# The chart's twelve months of a pupil's lesson time, one mode at a time.
+async def _pupil_minutes_by_day(
     db: AsyncSession,
     tax_code: str,
-    mode: OpeningModeEnum,
-) -> dict[date, int]:
-    now = now_in_rome()
-    bands = await done_bands(
-        db,
-        tax_code,
-        *_elapsed_window(_stats_window(None, None, None)),
-        lambda day, end_time: _is_over(day, end_time, now),
-    )
-    presence = mode is OpeningModeEnum.PRESENCE
-
-    return {
-        day: span_minutes(spans)
-        for day, spans in days_of(
-            work for work in bands if work.presence == presence
-        ).items()
-    }
-
-
-# Lessons over per pupil; per day, the pupil's overlapping lessons are one stretch.
-async def _lesson_minutes_by_student(
-    db: AsyncSession,
-    window: tuple[date, date],
     mode: str,
-) -> dict[str, int]:
-    rows = await _lessons_over(db, _lesson_rows().where(Lesson.mode == mode), window)
-    spans: dict[tuple[str, date], set[tuple[time, time]]] = defaultdict(set)
+) -> dict[date, int]:
+    found = await _pupil_lesson_days(
+        db,
+        _stats_window(None, None, None),
+        mode,
+        tax_code,
+    )
 
-    for row in rows:
-        spans[(row.student_tax_code, row.date)].add((row.start_time, row.end_time))
-
-    minutes: Counter[str] = Counter()
-
-    for (student, _day), day_spans in spans.items():
-        minutes[student] += _union_minutes(day_spans)
-
-    return minutes
+    return _minutes_per_day(found.get(tax_code, {}))
 
 
-# Everyone who may have done hours in [start, end): lessons and activities hang
-# on availabilities, shifts and hours written by hand do not.
-async def _teachers_at_work(db: AsyncSession, start: date, end: date) -> set[str]:
-    found: set[str] = set()
+# The chart's twelve months of a teacher's lesson time, one mode at a time.
+async def _teacher_minutes_by_day(
+    db: AsyncSession,
+    tax_code: str,
+    mode: str,
+) -> dict[date, int]:
+    found = await _teacher_lesson_days(
+        db,
+        _stats_window(None, None, None),
+        mode,
+        tax_code,
+    )
 
-    for column, day in (
-        (Availability.teacher_tax_code, Availability.date),
-        (RoomSupervision.teacher_tax_code, RoomSupervision.date),
-        (ConfirmedHours.teacher_tax_code, ConfirmedHours.date),
-    ):
-        found.update(
-            await db.scalars(
-                select(column).where(day >= start, day < end).distinct(),
-            ),
-        )
-
-    return found
+    return _minutes_per_day(found.get(tax_code, {}))
 
 
 # The period's total and the twelve months of the chart.
@@ -2566,7 +2539,7 @@ async def _monthly_pay(
     return list(zip(months, priced, strict=True))
 
 
-# Hours done per teacher, as each one's home and personal statistics count them.
+# Lesson time per teacher, as each one's home and personal statistics count it.
 @router.get("/teachers/lesson-hours", response_model=list[PersonHoursItem])
 async def get_teacher_lesson_hours(
     db: DbSession,
@@ -2575,28 +2548,13 @@ async def get_teacher_lesson_hours(
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
     mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
 ) -> list[PersonHoursItem]:
-    start, end = _elapsed_window(_stats_window(months, year, month))
-    now = now_in_rome()
-    presence = mode is OpeningModeEnum.PRESENCE
-    confirmed = await confirmed_bands(db, start, end)
-    minutes: dict[str, int] = {}
+    found = await _teacher_lesson_days(
+        db,
+        _stats_window(months, year, month),
+        mode.value,
+    )
 
-    for tax_code in await _teachers_at_work(db, start, end):
-        bands = await done_bands(
-            db,
-            tax_code,
-            start,
-            end,
-            lambda day, end_time: _is_over(day, end_time, now),
-            confirmed,
-        )
-        days = days_of(work for work in bands if work.presence == presence)
-        done = sum(span_minutes(spans) for spans in days.values())
-
-        if done > 0:
-            minutes[tax_code] = done
-
-    return await _ranked_people(db, minutes)
+    return await _ranked_people(db, _minutes_per_person(found))
 
 
 @router.get(
@@ -2662,7 +2620,9 @@ async def get_student_presence_statistics(
         ],
         top_students_by_hours=await _ranked_people(
             db,
-            await _lesson_minutes_by_student(db, window, mode.value),
+            _minutes_per_person(
+                await _pupil_lesson_days(db, window, mode.value),
+            ),
         ),
         requested=await _requested_subjects(
             db,
@@ -2782,47 +2742,33 @@ async def get_student_personal_statistics(
     window = _stats_window(months, year, month)
     start, end = _elapsed_window(window)
 
-    total_days = (
-        await db.scalar(
-            select(func.count(func.distinct(Presence.date))).where(
-                Presence.student_tax_code == tax_code,
-                Presence.mode == mode.value,
-                Presence.date >= start,
-                Presence.date < end,
-            ),
-        )
-        or 0
-    )
+    own_days = pupil_days_stmt(start, end, mode.value, [tax_code]).subquery()
+    total_days = await db.scalar(select(func.count()).select_from(own_days)) or 0
     weeks = await _enrolled_weeks_of(db, tax_code, window)
 
     trend_start, trend_end = _elapsed_window(_stats_window(None, None, None))
+    trend_days = pupil_days_stmt(
+        trend_start,
+        trend_end,
+        mode.value,
+        [tax_code],
+    ).subquery()
     trend_rows = (
         await db.execute(
             select(
-                func.extract("year", Presence.date).label("year"),
-                _month_of(Presence.date).label("month"),
-                func.count(func.distinct(Presence.date)).label("presence_days"),
-            )
-            .where(
-                Presence.student_tax_code == tax_code,
-                Presence.mode == mode.value,
-                Presence.date >= trend_start,
-                Presence.date < trend_end,
-            )
-            .group_by(
-                func.extract("year", Presence.date),
-                _month_of(Presence.date),
+                func.extract("year", trend_days.c.date).label("year"),
+                _month_of(trend_days.c.date).label("month"),
+                func.count().label("presence_days"),
+            ).group_by(
+                func.extract("year", trend_days.c.date),
+                _month_of(trend_days.c.date),
             ),
         )
     ).all()
 
     lesson_hours, top_teachers = await _lesson_hours(db, tax_code, window, mode.value)
     lesson_minutes, monthly_lesson_minutes = _minutes_summary(
-        await _lesson_minutes_by_day(
-            db,
-            Presence.student_tax_code == tax_code,
-            Lesson.mode == mode.value,
-        ),
+        await _pupil_minutes_by_day(db, tax_code, mode.value),
         start,
         end,
     )

@@ -155,7 +155,7 @@ class _NoticeBannerState extends State<_NoticeBanner> with SingleTickerProviderS
                   _verticalPadding + _inkShift * em,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.trialDeepWater.withValues(alpha: 0.94),
+                  color: AppTheme.deepWaterFill.withValues(alpha: 0.94),
                   borderRadius: BorderRadius.circular(_radius),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
                   boxShadow: const [

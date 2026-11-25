@@ -7,12 +7,10 @@ from typing import Final
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.time_band import TimeBandEnum, band_bounds, band_of
 from app.models.availability import Availability
 from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_publication import CalendarPublication
 from app.models.lesson import Lesson
-from app.models.room_supervision import RoomSupervision
 from app.services.enrollment_spans import hours_spans, is_enrolled_on
 
 MINUTES_PER_HOUR: Final[int] = 60
@@ -22,7 +20,7 @@ BEGINNING: Final[date] = date(2023, 1, 1)
 
 Stretch = tuple[date, time, time]
 
-# Teacher, day, band, mode and times of one published lesson, activity or shift.
+# Teacher, day, band, mode and times of one published lesson or activity.
 CalendarRow = tuple[str, date, str, str, time, time]
 
 # Minutes from midnight, end excluded.
@@ -66,7 +64,7 @@ def month_after(month: date) -> date:
     return (month + timedelta(days=32)).replace(day=1)
 
 
-# Lessons may overlap and a shift spans them: a union, not a sum.
+# Lessons may overlap: a union, not a sum.
 def merge(spans: Iterable[Span]) -> list[Span]:
     kept: list[Span] = []
 
@@ -88,7 +86,7 @@ def merged_spans(stretches: Iterable[Stretch]) -> dict[date, list[Span]]:
     return {day: merge(spans) for day, spans in by_day.items()}
 
 
-# One mode per teacher per band; a shift or an activity in person makes it so.
+# One mode per teacher per band; an activity in person makes it so.
 def work_of(rows: Iterable[tuple[str, time, time]]) -> tuple[bool, list[Span]]:
     listed = list(rows)
     spans = [(minutes_of(start), minutes_of(end)) for _, start, end in listed]
@@ -143,44 +141,8 @@ async def published_pairs(
     return {(row.date, row.band) for row in rows}
 
 
-# A shift has no band of its own: each published band it crosses takes its part,
-# the band before it what falls in one not published; never a minute in two bands.
-def _shift_rows(
-    teacher: str,
-    day: date,
-    start: time,
-    end: time,
-    published: set[tuple[date, str]],
-) -> list[CalendarRow]:
-    home = str(band_of(start))
-    name = home
-    parts: dict[str, list[tuple[time, time]]] = defaultdict(list)
-
-    for band in TimeBandEnum:
-        low, high = band_bounds(band)
-        first, last = max(start, low), min(end, high)
-
-        if first < last:
-            name = str(band) if (day, str(band)) in published else name
-            parts[name].append((first, last))
-
-    if not parts:
-        return [(teacher, day, home, PRESENCE, start, end)]
-
-    return [
-        (
-            teacher,
-            day,
-            band,
-            PRESENCE,
-            min(first for first, _ in listed),
-            max(last for _, last in listed),
-        )
-        for band, listed in parts.items()
-    ]
-
-
-# Published ones; one teacher's, or everybody's without a tax code.
+# Published ones; one teacher's, or everybody's without a tax code. Room shifts
+# are left out: they may lag behind the lessons they cover.
 async def _published_rows(
     db: AsyncSession,
     start: date,
@@ -191,11 +153,6 @@ async def _published_rows(
         []
         if tax_code is None
         else [Availability.teacher_tax_code == tax_code]
-    )
-    supervised = (
-        []
-        if tax_code is None
-        else [RoomSupervision.teacher_tax_code == tax_code]
     )
 
     lessons = await db.execute(
@@ -224,29 +181,8 @@ async def _published_rows(
         .where(*taught, CalendarActivity.date >= start, CalendarActivity.date < end),
     )
 
-    shifts = await db.execute(
-        select(
-            RoomSupervision.teacher_tax_code,
-            RoomSupervision.date,
-            RoomSupervision.start_time,
-            RoomSupervision.end_time,
-        ).where(
-            *supervised,
-            RoomSupervision.date >= start,
-            RoomSupervision.date < end,
-        ),
-    )
-
     published = await published_pairs(db, start, end)
-    rows = [
-        *lessons.tuples(),
-        *activities.tuples(),
-        *(
-            row
-            for teacher, day, start_time, end_time in shifts.tuples()
-            for row in _shift_rows(teacher, day, start_time, end_time, published)
-        ),
-    ]
+    rows = [*lessons.tuples(), *activities.tuples()]
 
     return [row for row in rows if (row[1], row[2]) in published]
 
@@ -265,7 +201,7 @@ async def teacher_rows(
     return [row for row in rows if is_over(row[1], row[5])]
 
 
-# When each published band's last lesson, activity or shift ends, over [start, end).
+# When each published band's last lesson or activity ends, over [start, end).
 async def band_last_ends(
     db: AsyncSession,
     start: date,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,12 +10,15 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/utils/rome_clock.dart';
+import '../../../core/utils/search_terms.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_load_failed.dart';
+import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/hover_gold_frame.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/search_reveal.dart';
 import '../../association/tabs/tariffs/tariffs_strings.dart' show kInsuranceFee, kMembershipFee;
 import '../../people/utils/payments_strings.dart' show hoursText, kHoursTitles, kPaymentsSection;
 import '../accounting_page.dart';
@@ -23,6 +27,7 @@ import '../utils/accounting_strings.dart';
 import '../widgets/hours_table_parts.dart';
 import '../widgets/opening_pending_pill.dart';
 import '../widgets/people_filters.dart';
+import '../widgets/summary_search.dart';
 
 const double _radius = 24;
 const double _sideInset = 20;
@@ -101,11 +106,23 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
   // A later answer drops an earlier one.
   int _request = 0;
 
+  // Who is looked for by name: kept across filters.
+  final TextEditingController _searchText = TextEditingController();
+  final ValueNotifier<SearchTerms?> _search = ValueNotifier(null);
+
   @override
   void initState()
   {
     super.initState();
     unawaited(_load());
+  }
+
+  @override
+  void dispose()
+  {
+    _searchText.dispose();
+    _search.dispose();
+    super.dispose();
   }
 
   @override
@@ -199,10 +216,14 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
 
   Widget _filters()
   {
-    return Wrap(
-      spacing: kFilterGap,
-      runSpacing: kFilterGap,
-      children: [
+    return SummarySearchFilters(
+      gap: kFilterGap,
+      search: AppSearchField(
+        controller: _searchText,
+        hintText: kPersonHint,
+        onChanged: (text) => _search.value = SearchTerms.of(text),
+      ),
+      filters: [
         RoleFilterPill(value: _role, onPicked: _pickRole),
         AmountFilterPill(least: _least, most: _most, onApply: _pickAmount),
       ],
@@ -265,11 +286,15 @@ class _ToSettleTabState extends State<ToSettleTab> with DestinationRefresh
               padding: const EdgeInsets.only(bottom: 24),
               child: PageTransitionItem(
                 slot: PageTransitionItem.list,
-                child: _ToSettleTable(
-                  rows: rows,
-                  dense: dense,
-                  onOpen: _open,
-                  stacked: AppBreakpoints.of(context).isMinimal,
+                child: SearchReveal(
+                  search: _search,
+                  child: _ToSettleTable(
+                    rows: rows,
+                    dense: dense,
+                    onOpen: _open,
+                    stacked: AppBreakpoints.of(context).isMinimal,
+                    search: _search,
+                  ),
                 ),
               ),
             ),
@@ -318,7 +343,16 @@ class _ToSettleTable extends StatelessWidget
   // Minimal windows: rows on floors, no columns.
   final bool stacked;
 
-  const _ToSettleTable({required this.rows, required this.dense, required this.onOpen, this.stacked = false});
+  // Who is looked for by name.
+  final ValueListenable<SearchTerms?> search;
+
+  const _ToSettleTable({
+    required this.rows,
+    required this.dense,
+    required this.onOpen,
+    required this.search,
+    this.stacked = false,
+  });
 
   double get _font => dense ? 13.5 : 14.5;
 
@@ -521,14 +555,21 @@ class _ToSettleTable extends StatelessWidget
             children: [
               if (!stacked) _head(narrow),
               for (final (index, row) in rows.indexed)
-                HoverGoldFrame(
+                SummarySearchRow(
+                  search: search,
+                  name: row.fullName,
                   cardRadius: _radius,
                   atTop: stacked && index == 0,
                   atBottom: index == rows.length - 1,
-                  onTap: () => onOpen(row),
-                  child: stacked
-                      ? _stackedRow(row, thisYear, first: index == 0)
-                      : _row(row, thisYear, first: index == 0, narrow: narrow),
+                  child: HoverGoldFrame(
+                    cardRadius: _radius,
+                    atTop: stacked && index == 0,
+                    atBottom: index == rows.length - 1,
+                    onTap: () => onOpen(row),
+                    child: stacked
+                        ? _stackedRow(row, thisYear, first: index == 0)
+                        : _row(row, thisYear, first: index == 0, narrow: narrow),
+                  ),
                 ),
             ],
           ),

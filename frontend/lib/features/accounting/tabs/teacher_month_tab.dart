@@ -11,6 +11,7 @@ import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/rome_clock.dart';
+import '../../../core/utils/search_terms.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/export/file_download.dart';
@@ -18,9 +19,11 @@ import '../../../shared/export/pdf_tab.dart';
 import '../../../shared/widgets/app_empty_card.dart';
 import '../../../shared/widgets/app_load_failed.dart';
 import '../../../shared/widgets/app_month_button.dart';
+import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/page_heading.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/search_reveal.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../lessons/widgets/lessons_day_bar.dart';
 import '../../people/utils/compensation_strings.dart';
@@ -32,6 +35,7 @@ import '../models/teacher_month_items.dart';
 import '../utils/accounting_jump.dart';
 import '../utils/accounting_strings.dart';
 import '../widgets/receipt_cell.dart';
+import '../widgets/summary_search.dart';
 import '../widgets/teacher_month_table.dart';
 
 const double _monthLabelWidth = 200;
@@ -80,11 +84,23 @@ class _TeacherMonthTabState extends State<TeacherMonthTab> with DestinationRefre
   final Set<String> _receiptBusy = {};
   String? _dropOver;
 
+  // Who is looked for by name: kept across months.
+  final TextEditingController _searchText = TextEditingController();
+  final ValueNotifier<SearchTerms?> _search = ValueNotifier(null);
+
   @override
   void initState()
   {
     super.initState();
     unawaited(_load());
+  }
+
+  @override
+  void dispose()
+  {
+    _searchText.dispose();
+    _search.dispose();
+    super.dispose();
   }
 
   @override
@@ -438,9 +454,16 @@ class _TeacherMonthTabState extends State<TeacherMonthTab> with DestinationRefre
       ),
     );
 
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Row(
+    // The search at the left, the month on the right.
+    return SummaryToolbar(
+      gap: dense ? 16 : 24,
+      runGap: dense ? 10 : 14,
+      search: AppSearchField(
+        controller: _searchText,
+        hintText: kTeacherHint,
+        onChanged: (text) => _search.value = SearchTerms.of(text),
+      ),
+      controls: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           AppMonthButton(
@@ -557,21 +580,25 @@ class _TeacherMonthTabState extends State<TeacherMonthTab> with DestinationRefre
                 children: [
                   PageTransitionItem(
                     slot: PageTransitionItem.list,
-                    child: TeacherMonthTable(
-                      month: data,
-                      chosen: _chosen,
-                      saving: _saving,
-                      onRule: _chooseRule,
-                      onConfirmRule: (row) => unawaited(_confirmRule(row)),
-                      onOpenTeacher: _openTeacher,
-                      onOpenBand: _openBand,
-                      receiptBusy: _receiptBusy,
-                      dropOver: _dropOver,
-                      onUploadReceipt: (row) => unawaited(_pickReceipt(row)),
-                      onOpenReceipt: (row) => unawaited(_openReceipt(row)),
-                      onDeleteReceipt: (row) => unawaited(_deleteReceipt(row)),
-                      onDropReceipt: (row, file) => unawaited(_dropReceipt(row, file)),
-                      onDragReceipt: _dragReceipt,
+                    child: SearchReveal(
+                      search: _search,
+                      child: TeacherMonthTable(
+                        month: data,
+                        chosen: _chosen,
+                        saving: _saving,
+                        onRule: _chooseRule,
+                        onConfirmRule: (row) => unawaited(_confirmRule(row)),
+                        onOpenTeacher: _openTeacher,
+                        onOpenBand: _openBand,
+                        receiptBusy: _receiptBusy,
+                        dropOver: _dropOver,
+                        onUploadReceipt: (row) => unawaited(_pickReceipt(row)),
+                        onOpenReceipt: (row) => unawaited(_openReceipt(row)),
+                        onDeleteReceipt: (row) => unawaited(_deleteReceipt(row)),
+                        onDropReceipt: (row, file) => unawaited(_dropReceipt(row, file)),
+                        onDragReceipt: _dragReceipt,
+                        search: _search,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 18),

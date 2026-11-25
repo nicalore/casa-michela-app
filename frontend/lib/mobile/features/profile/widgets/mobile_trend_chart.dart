@@ -476,7 +476,7 @@ class _TrendPainter extends CustomPainter
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(left, top, width, height), Radius.circular(height / 2)),
-      Paint()..color = AppTheme.trialDeepWater.withValues(alpha: alpha),
+      Paint()..color = AppTheme.deepWaterFill.withValues(alpha: alpha),
     );
     text.paint(canvas, Offset(left + 8, top + 4));
 

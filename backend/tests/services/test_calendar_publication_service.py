@@ -33,6 +33,7 @@ from app.schemas.teacher_room_assignment import TeacherRoomAssignmentCreate
 from app.services import calendar_freeze
 from app.services.booking_service import BookingService
 from app.services.calendar_publication_service import CalendarPublicationService
+from app.services.lesson_guard import find_settled_bands
 from app.services.room_supervision_service import RoomSupervisionService
 from app.services.teacher_room_assignment_service import (
     TeacherRoomAssignmentService,
@@ -437,6 +438,21 @@ async def test_moving_a_supervisors_hour_leaves_the_bozza_publishable(
     _, _, resent = await publications(db).settle(ADMIN_IDENTITY, DAY, "AFTERNOON")
 
     assert resent is True
+
+
+# A closed bozza used to leave JSON null, which IS NULL reads as a bozza open.
+async def test_a_band_published_again_is_shut_like_before(
+    db: AsyncSession,
+) -> None:
+    await _settled_afternoon(db)
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+    await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    assert await find_settled_bands(db, DAY) == set()
+
+    await publications(db).settle(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    assert await find_settled_bands(db, DAY) == {"AFTERNOON"}
 
 
 async def test_an_overfull_room_publishes_with_a_warning(
