@@ -27,6 +27,8 @@ class StudentPaymentKindEnum(StrEnum):
     HOURS = "HOURS"
     # Hours paid before they are done, under an hourly tariff.
     AHEAD = "AHEAD"
+    # Online hours at the weekend paid before they are done, under any tariff.
+    WEEKEND_AHEAD = "WEEKEND_AHEAD"
 
 
 # Which line of hours to settle a payment of hours came from.
@@ -54,7 +56,7 @@ class StudentPayment(CreatedAtMixin, Base):
             name="student_payment_package_hours_positive",
         ),
         CheckConstraint(
-            "kind = 'HOURS' OR tariff_id IS NOT NULL",
+            "kind IN ('HOURS', 'WEEKEND_AHEAD') OR tariff_id IS NOT NULL",
             name="student_payment_package_or_month_has_tariff",
         ),
         CheckConstraint(
@@ -70,7 +72,7 @@ class StudentPayment(CreatedAtMixin, Base):
             name="student_payment_other_requires_other_method",
         ),
         CheckConstraint(
-            "(kind = 'AHEAD') = (ahead_minutes IS NOT NULL)",
+            "(kind IN ('AHEAD', 'WEEKEND_AHEAD')) = (ahead_minutes IS NOT NULL)",
             name="student_payment_ahead_minutes_only_for_ahead",
         ),
         CheckConstraint(
@@ -78,7 +80,7 @@ class StudentPayment(CreatedAtMixin, Base):
             name="student_payment_ahead_minutes_positive",
         ),
         CheckConstraint(
-            "kind <> 'AHEAD' OR cents_per_hour IS NOT NULL",
+            "kind NOT IN ('AHEAD', 'WEEKEND_AHEAD') OR cents_per_hour IS NOT NULL",
             name="student_payment_ahead_has_rate",
         ),
     )
@@ -97,7 +99,8 @@ class StudentPayment(CreatedAtMixin, Base):
         nullable=False,
     )
 
-    # The package, monthly fee or hourly rate it was bought under.
+    # The package, monthly fee or hourly rate it was bought under; none for hours
+    # settled or online at the weekend paid ahead, which no tariff covers.
     tariff_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("student_tariffs.id", ondelete="CASCADE"),

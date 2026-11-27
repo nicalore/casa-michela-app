@@ -19,7 +19,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/tabs/opening_hours/hours_date_field.dart';
 import '../../association/models/standard_tariffs_item.dart';
-import '../../association/tabs/tariffs/tariffs_strings.dart' show tariffOffFor;
+import '../../association/tabs/tariffs/tariffs_strings.dart' show kWeekendColumn, tariffOffFor;
 import '../edit/homework_tariffs.dart';
 import '../edit/widgets/person_chip_group_field.dart';
 import '../models/person_item.dart';
@@ -27,6 +27,9 @@ import '../models/student_payments_item.dart';
 import '../tabs/person_account_shared.dart' show askPersonConfirmation;
 import '../utils/payments_strings.dart';
 import 'payment_dialog_parts.dart';
+import 'settle_items.dart';
+
+export 'settle_items.dart' show hasSomethingToSettle;
 
 const double _dialogWidth = kPaymentDialogWidth;
 
@@ -1088,83 +1091,6 @@ const double _tickInset = 4;
 const double _tickGap = 14;
 const double _wordsInset = _tickInset + AppCheckMark.size + _tickGap;
 
-// Half a cent goes up, as the server works it out.
-int _hourCents(int minutes, int centsPerHour) => (minutes * centsPerHour * 2 + 60) ~/ 120;
-
-// One day of a line of hours: its lessons together.
-class _SettleDay
-{
-  final DateTime day;
-  final int minutes;
-  // At the line's own rate.
-  final int cents;
-  final bool opening;
-
-  const _SettleDay({required this.day, required this.minutes, required this.cents, required this.opening});
-}
-
-// A line of hours with its days, or an annual fee owed.
-class _SettleItem
-{
-  final String title;
-  final String? period;
-  final HoursLineItem? line;
-  final List<_SettleDay> days;
-  final PaymentHistoryRow? fee;
-
-  const _SettleItem({required this.title, this.period, this.line, this.days = const [], this.fee});
-
-  // Online at the weekend keeps its own rate.
-  bool get rateEditable => line != null && !line!.isWeekendOnline;
-
-  int get count => line == null ? 1 : days.length;
-}
-
-List<_SettleItem> _settleItems(StudentPaymentsItem payments)
-{
-  return [
-    // Hours wait for the initial set-up; fees are paid whatever it says.
-    if (!payments.openingPending)
-      for (final HoursLineItem line in payments.lines)
-        if (line.cents > 0 && line.parts.isNotEmpty)
-          _SettleItem(
-            title: '${kHoursTitles[line.kind] ?? ''}: ${hoursText(line.minutes).replaceAll(' ', ' ')}',
-            period: lessonDaysText([for (final part in line.parts) part.day], interleaved: line.interleaved),
-            line: line,
-            days: _daysOf(line),
-          ),
-    for (final PaymentHistoryRow row in payments.history)
-      if (row.isFee && !row.isPaid && row.feeId != null)
-        _SettleItem(
-          title: annualFeeTitle(row),
-          period: row.recordedOn == null ? null : feeDueSince(row.recordedOn!),
-          fee: row,
-        ),
-  ];
-}
-
-List<_SettleDay> _daysOf(HoursLineItem line)
-{
-  final Map<DateTime, List<LessonPartItem>> byDay = {};
-
-  for (final LessonPartItem part in line.parts)
-  {
-    byDay.putIfAbsent(DateTime(part.day.year, part.day.month, part.day.day), () => []).add(part);
-  }
-
-  final List<DateTime> days = byDay.keys.toList()..sort();
-
-  return [
-    for (final DateTime day in days)
-      _SettleDay(
-        day: day,
-        minutes: byDay[day]!.fold(0, (sum, part) => sum + part.minutes),
-        cents: byDay[day]!.fold(0, (sum, part) => sum + part.cents),
-        opening: byDay[day]!.every((part) => part.opening),
-      ),
-  ];
-}
-
 // A ticked line: the whole of it answers the pointer, without a ripple.
 class _TickRow extends StatelessWidget
 {
@@ -1182,9 +1108,6 @@ class _TickRow extends StatelessWidget
     );
   }
 }
-
-// Something to settle: the status card shows «SALDA» only then.
-bool hasSomethingToSettle(StudentPaymentsItem payments) => _settleItems(payments).isNotEmpty;
 
 // Everything owed, ticked: lines of hours day by day, fees; one day and one way for all.
 Future<StudentPaymentsItem?> showSettleDialog({
@@ -1209,7 +1132,7 @@ class _SettleDialog extends StatefulWidget
 
 class _SettleDialogState extends State<_SettleDialog>
 {
-  late final List<_SettleItem> _items = _settleItems(widget.payments);
+  late final List<SettleItem> _items = settleItemsOf(widget.payments);
 
   // For each item the indices of its ticked days; a fee has one.
   late final List<Set<int>> _ticked = [
@@ -1218,7 +1141,7 @@ class _SettleDialogState extends State<_SettleDialog>
 
   late final _PaymentInput _payment = _PaymentInput(widget.payments);
 
-  late final _SettleItem? _editable = _items.where((item) => item.rateEditable).firstOrNull;
+  late final SettleItem? _editable = _items.where((item) => item.rateEditable).firstOrNull;
 
   // The rate shown; left as it is, every line keeps its own.
   late final int? _shownRate = _editable?.line!.centsPerHour;
@@ -1238,7 +1161,7 @@ class _SettleDialogState extends State<_SettleDialog>
   }
 
   // The rate a line is settled at: its own, unless another was written.
-  int _rateOf(_SettleItem item)
+  int _rateOf(SettleItem item)
   {
     final HoursLineItem line = item.line!;
     final int? written = parseAmountCents(_rate.text);
@@ -1251,15 +1174,15 @@ class _SettleDialogState extends State<_SettleDialog>
     return written;
   }
 
-  int _dayCents(_SettleItem item, _SettleDay day)
+  int _dayCents(SettleItem item, SettleDay day)
   {
     final int rate = _rateOf(item);
 
-    return rate == item.line!.centsPerHour ? day.cents : _hourCents(day.minutes, rate);
+    return rate == item.line!.centsPerHour ? day.cents : settleHourCents(day.minutes, rate);
   }
 
   // As the server prices it: the days' own sums at the line's rate, else the minutes at the one asked.
-  int _cents(_SettleItem item, Iterable<int> ticked)
+  int _cents(SettleItem item, Iterable<int> ticked)
   {
     if (item.fee != null)
     {
@@ -1267,11 +1190,11 @@ class _SettleDialogState extends State<_SettleDialog>
     }
 
     final int rate = _rateOf(item);
-    final List<_SettleDay> days = [for (final i in ticked) item.days[i]];
+    final List<SettleDay> days = [for (final i in ticked) item.days[i]];
 
     return rate == item.line!.centsPerHour
         ? days.fold(0, (sum, day) => sum + day.cents)
-        : _hourCents(days.fold(0, (sum, day) => sum + day.minutes), rate);
+        : settleHourCents(days.fold(0, (sum, day) => sum + day.minutes), rate);
   }
 
   int get _total => [for (var i = 0; i < _items.length; i++) _cents(_items[i], _ticked[i])].fold(0, (a, b) => a + b);
@@ -1387,7 +1310,7 @@ class _SettleDialogState extends State<_SettleDialog>
 
   Widget _item(int index)
   {
-    final _SettleItem item = _items[index];
+    final SettleItem item = _items[index];
     final int ticked = _ticked[index].length;
     // Nothing ticked: its whole amount, grey.
     final int cents = ticked == 0
@@ -1543,7 +1466,8 @@ class _SettleDialogState extends State<_SettleDialog>
 
 // ---------------------------------------------------------------- hours paid ahead
 
-// Hourly tariff only; added to any still left, lessons draw on them before anything is due.
+// Lessons by the hour under an hourly tariff, online at the weekend under any; added to any still left,
+// lessons draw on them before anything is due.
 Future<StudentPaymentsItem?> showPayAheadDialog({
   required BuildContext context,
   required PersonItem person,
@@ -1571,18 +1495,34 @@ class _PayAheadDialogState extends State<_PayAheadDialog>
   late final StudentTariffItem _tariff = widget.payments.tariff!;
   final TextEditingController _hours = TextEditingController();
   late final _Conditions _rate = _Conditions(amount: formatAmount(_tariff.amountCents));
+  late final TextEditingController _weekendRate = TextEditingController(
+    text: _weekendCents == null ? '' : formatAmount(_weekendCents!),
+  );
   final TextEditingController _total = TextEditingController();
   late final _PaymentInput _payment = _PaymentInput(widget.payments);
+
+  // Online at the weekend: the only hours ahead outside an hourly tariff, and those left while a change waits.
+  late bool _weekend = !_tariff.isHourly || _hourlyOff != null;
 
   int _minutes = 0;
   String? _hoursError;
   bool _saving = false;
+
+  int? get _weekendCents => widget.payments.weekendOnlineCents;
+
+  // A change waiting for the hours ahead to end: no more of them.
+  String? get _hourlyOff => widget.payments.queued == QueuedPayment.change
+      ? changeQueuedReason(widget.payments.queuedStartsOn, ahead: true)
+      : null;
+
+  String get _hourlyChoice => kWeekdaysChoice;
 
   @override
   void dispose()
   {
     _hours.dispose();
     _rate.dispose();
+    _weekendRate.dispose();
     _total.dispose();
     _payment.dispose();
     super.dispose();
@@ -1607,14 +1547,29 @@ class _PayAheadDialogState extends State<_PayAheadDialog>
   void _refresh()
   {
     final int? minutes = _bought;
-    final int? cents = parseAmountCents(_rate.amount.text);
+    final int? cents = _weekend ? _weekendCents : parseAmountCents(_rate.amount.text);
 
     _total.text = minutes == null || cents == null || cents <= 0 ? '' : formatAmount((minutes * cents / 60).round());
   }
 
+  void _choose(String? choice)
+  {
+    if (choice == null)
+    {
+      return;
+    }
+
+    setState(()
+    {
+      _weekend = choice != _hourlyChoice;
+      _refresh();
+    });
+  }
+
   Future<void> _save() async
   {
-    final (int, int?)? rate = _rate.read(package: false);
+    final int? weekendCents = _weekendCents;
+    final (int, int?)? rate = _weekend ? (weekendCents == null ? null : (weekendCents, null)) : _rate.read(package: false);
     final Map<String, dynamic>? payment = _payment.read();
     final int? minutes = _bought;
 
@@ -1636,6 +1591,7 @@ class _PayAheadDialogState extends State<_PayAheadDialog>
         minutes: minutes,
         centsPerHour: rate.$1,
         payment: payment,
+        weekendOnline: _weekend,
       ),
     );
 
@@ -1654,11 +1610,34 @@ class _PayAheadDialogState extends State<_PayAheadDialog>
     Navigator.of(context).pop(saved);
   }
 
+  // An hourly tariff chooses which hours; the others pay online at the weekend alone.
+  List<Widget> _kind()
+  {
+    final String? hourlyOff = _hourlyOff;
+
+    if (!_tariff.isHourly)
+    {
+      return [PaymentFactBox(eyebrow: kAheadKindLabel, text: kWeekendColumn)];
+    }
+
+    return [
+      _CurrentTariffBox(payments: widget.payments),
+      const SizedBox(height: _gap),
+      PersonChipGroupField(
+        label: kAheadKindLabel,
+        options: [_hourlyChoice, kWeekendColumn],
+        struck: {_hourlyChoice: ?hourlyOff},
+        value: _weekend ? kWeekendColumn : _hourlyChoice,
+        onChanged: _choose,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context)
   {
-    final AheadStatusItem? ahead = widget.payments.ahead;
-    final int unsettled = widget.payments.line('HOURLY')?.minutes ?? 0;
+    final AheadStatusItem? ahead = _weekend ? widget.payments.weekendAhead : widget.payments.ahead;
+    final int unsettled = widget.payments.line(_weekend ? 'WEEKEND_ONLINE' : 'HOURLY')?.minutes ?? 0;
 
     return AppDialogStack(
       eyebrow: kPaymentEyebrow,
@@ -1671,7 +1650,7 @@ class _PayAheadDialogState extends State<_PayAheadDialog>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _CurrentTariffBox(payments: widget.payments),
+              ..._kind(),
               if (ahead != null) _WhenBox(title: kAtAheadEnd, note: stillLeft(ahead.leftMinutes), later: true),
               const SizedBox(height: 4),
               Row(
@@ -1710,19 +1689,27 @@ class _PayAheadDialogState extends State<_PayAheadDialog>
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Online at the weekend keeps its own rate.
                   Expanded(
-                    child: AppTextField(
-                      controller: _rate.amount,
-                      label: kHourlyCostLabel,
-                      hintText: tr('Es. 10,00', 'E.g. 10.00'),
-                      keyboardType: TextInputType.number,
-                      errorText: _rate.amountError,
-                      onChanged: (_)
-                      {
-                        _rate.amountError = null;
-                        setState(_refresh);
-                      },
-                    ),
+                    child: _weekend
+                        ? AppTextField(
+                            controller: _weekendRate,
+                            label: kHourlyCostLabel,
+                            hintText: '',
+                            enabled: false,
+                          )
+                        : AppTextField(
+                            controller: _rate.amount,
+                            label: kHourlyCostLabel,
+                            hintText: tr('Es. 10,00', 'E.g. 10.00'),
+                            keyboardType: TextInputType.number,
+                            errorText: _rate.amountError,
+                            onChanged: (_)
+                            {
+                              _rate.amountError = null;
+                              setState(_refresh);
+                            },
+                          ),
                   ),
                   const SizedBox(width: _fieldGap),
                   Expanded(

@@ -36,6 +36,7 @@ import '../compensation/mobile_compensation_page.dart';
 import '../home/mobile_admin_home_page.dart';
 import '../home/mobile_pupil_home_page.dart';
 import '../home/mobile_teacher_home_page.dart';
+import '../payments/mobile_family_payments_page.dart';
 import '../profile/mobile_own_page.dart';
 import '../reports/mobile_report_details_sheet.dart';
 import '../reports/mobile_reports_page.dart';
@@ -56,6 +57,7 @@ const String _calendarSlug = 'calendar';
 const String _associationSlug = 'association';
 const String _childrenSlug = 'children';
 const String _bookingsSlug = 'bookings';
+const String _paymentsSlug = 'payments';
 
 // How far a section chosen from the open menu sinks with it as it closes.
 const double _curtainDrop = 20;
@@ -525,6 +527,11 @@ class _MobileRoleShellState extends State<MobileRoleShell> with TickerProviderSt
     if (current.slug == _bookingsSlug && _pupilRoles.contains(role))
     {
       return MobileBookingsPage(user: user, role: role);
+    }
+
+    if (current.slug == _paymentsSlug && _pupilRoles.contains(role))
+    {
+      return MobileFamilyPaymentsPage(user: user);
     }
 
     return MobilePlaceholderPage(title: current.label);

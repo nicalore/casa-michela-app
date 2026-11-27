@@ -417,8 +417,8 @@ const Set<String> kDesktopTourRoles = {'TEACHER', 'PARENT', 'STUDENT', 'PSYCHOLO
 // Bar sections with tours, by role and slug; a section's tours are slugged after it.
 const Map<String, Set<String>> kDesktopTourSections = {
   'TEACHER': {'subjects', 'availability', 'calendar', 'compensation', 'association'},
-  'PARENT': {'bookings', 'calendar', 'children', 'association'},
-  'STUDENT': {'bookings', 'calendar', 'association'},
+  'PARENT': {'bookings', 'calendar', 'payments', 'children', 'association'},
+  'STUDENT': {'bookings', 'calendar', 'payments', 'association'},
   'PSYCHOLOGIST': {'students'},
 };
 

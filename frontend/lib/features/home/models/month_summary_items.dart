@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../core/utils/json_parsing.dart';
 import '../../lessons/models/person_option_item.dart';
 
@@ -105,6 +107,9 @@ class PupilMonthFiguresItem
   // HOURLY, PACKAGE or MONTHLY; null when there is none or a parent pays it.
   final String? tariffKind;
 
+  // Null also while the initial set-up waits.
+  final PupilPaymentFiguresItem? payment;
+
   const PupilMonthFiguresItem({
     required this.student,
     required this.totalPresences,
@@ -112,6 +117,7 @@ class PupilMonthFiguresItem
     required this.bookedPresences,
     required this.lessonMinutes,
     this.tariffKind,
+    this.payment,
   });
 
   bool get hasPackage => tariffKind == 'PACKAGE';
@@ -129,6 +135,63 @@ class PupilMonthFiguresItem
       bookedPresences: json['booked_presences'] as int,
       lessonMinutes: json['lesson_minutes'] as int,
       tariffKind: json['tariff_kind'] as String?,
+      payment: json['payment'] == null
+          ? null
+          : PupilPaymentFiguresItem.fromJson(json['payment'] as Map<String, dynamic>),
+    );
+  }
+}
+
+class PupilPaymentFiguresItem
+{
+  final String kind;
+
+  // The package running, else the last one, else the tariff's; nothing used (null) before any was bought.
+  final int? packageMinutes;
+  final int? usedMinutes;
+
+  final bool monthPaid;
+
+  // Owed this month, not just unpaid.
+  final bool monthDue;
+
+  // This month's hours by the hour.
+  final int paidMinutes;
+  final int dueMinutes;
+
+  const PupilPaymentFiguresItem({
+    required this.kind,
+    this.packageMinutes,
+    this.usedMinutes,
+    this.monthPaid = false,
+    this.monthDue = false,
+    this.paidMinutes = 0,
+    this.dueMinutes = 0,
+  });
+
+  bool get isPackage => kind == 'PACKAGE';
+
+  bool get isMonthly => kind == 'MONTHLY';
+
+  // Null before any package was bought.
+  int? get leftMinutes
+  {
+    final int? total = packageMinutes;
+    final int? used = usedMinutes;
+
+    return total == null || used == null ? null : math.max(total - used, 0);
+  }
+
+  factory PupilPaymentFiguresItem.fromJson(Map<String, dynamic> json)
+  {
+    return PupilPaymentFiguresItem(
+      kind: json['kind'] as String,
+      packageMinutes: json['package_minutes'] as int?,
+      usedMinutes: json['used_minutes'] as int?,
+      monthPaid: json['month_paid'] as bool? ?? false,
+      monthDue: json['month_due'] as bool? ?? false,
+      paidMinutes: json['paid_minutes'] as int? ?? 0,
+      dueMinutes: json['due_minutes'] as int? ?? 0,
     );
   }
 }

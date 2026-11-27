@@ -131,7 +131,7 @@ String atLastDay(DateTime lastDay) => tr(
 String get kPackageState => tr('Situazione del pacchetto', 'Package status');
 String get kHoursLeftChoice => tr('Ore rimaste', 'Hours left');
 String get kPackageEndedChoice => tr('Pacchetto esaurito', 'Package used up');
-String get kOverPackageLabel => tr('Ore oltre il pacchetto da saldare', 'Hours beyond the package due');
+String get kOverPackageLabel => tr('Ore oltre il pacchetto da pagare', 'Hours beyond the package due');
 
 // «11h 30m usate su 18h».
 String usedOf(int used, int hours) => tr(
@@ -141,7 +141,7 @@ String usedOf(int used, int hours) => tr(
 
 String get kHoursState => tr('Situazione delle ore', 'Hours status');
 String get kNoHoursChoice => tr('Nessuna', 'None');
-String get kDueChoice => tr('Da saldare', 'Due');
+String get kDueChoice => tr('Da pagare', 'Due');
 String get kAheadChoice => tr('Pagate in anticipo', 'Paid in advance');
 String get kAheadLeftLabel => tr('Ore pagate in anticipo rimaste', 'Hours paid in advance left');
 String get kAheadRateLabel => tr('Costo orario pagato', 'Hourly cost paid');
@@ -149,15 +149,15 @@ String get kAheadRateLabel => tr('Costo orario pagato', 'Hourly cost paid');
 // «€ 91,00 già pagati».
 String alreadyPaid(int cents) => tr('${formatAmount(cents)} già pagati', '${formatAmount(cents)} already paid');
 
-// «Da saldare € 42,00 (€ 14,00 l’ora)».
+// «Da pagare € 42,00 (€ 14,00 l’ora)».
 String toSettleAt(int cents, int centsPerHour) => tr(
-  'Da saldare ${formatAmount(cents)} (${formatAmount(centsPerHour)} l’ora)',
+  'Da pagare ${formatAmount(cents)} (${formatAmount(centsPerHour)} l’ora)',
   'Due ${formatAmount(cents)} (${formatAmount(centsPerHour)} an hour)',
 );
 
-String toSettle(int cents) => tr('Da saldare ${formatAmount(cents)}', 'Due ${formatAmount(cents)}');
+String toSettle(int cents) => tr('Da pagare ${formatAmount(cents)}', 'Due ${formatAmount(cents)}');
 
-String get kWeekendDueLabel => tr('Ore online nel weekend da saldare', 'Weekend online hours due');
+String get kWeekendDueLabel => tr('Ore online nel weekend da pagare', 'Weekend online hours due');
 String get kYesChoice => tr('Sì', 'Yes');
 const String kNoChoice = 'No';
 

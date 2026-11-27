@@ -148,6 +148,10 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Lesson request replacement over days",
         body_fields=("student_tax_code",),
     ),
+    ("PUT", "/lesson-requests/notes"): AuditRule(
+        "Booking note change",
+        body_fields=("date", "band", "student_tax_code"),
+    ),
     ("POST", "/teacher-room-assignments/"): AuditRule(
         "Teacher room assignment creation",
         body_fields=("date", "teacher_tax_code"),
@@ -190,6 +194,10 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     ): AuditRule(
         "Teacher readmission",
         path_params=("exclusion_date", "band", "teacher_tax_code"),
+    ),
+    ("PUT", "/calendar-teacher-notes/"): AuditRule(
+        "Notes for teachers change",
+        body_fields=("date", "band"),
     ),
     ("POST", "/people/wizard/"): AuditRule(
         "Person creation",
@@ -574,6 +582,7 @@ IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
         ("DELETE", "/notifications/{notification_id}"),
         ("PUT", "/notifications/kinds"),
         ("PUT", "/auth/colour-theme"),
+        ("PUT", "/auth/theme-mode"),
         ("PUT", "/auth/language"),
         ("PUT", "/notifications/calendar/{calendar_date}/{band}/seen"),
         ("PUT", "/notifications/bookings/{pupil_tax_code}/seen"),

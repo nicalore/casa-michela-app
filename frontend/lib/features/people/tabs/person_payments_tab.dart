@@ -32,6 +32,9 @@ import '../models/student_payments_item.dart';
 import '../utils/payments_strings.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/student_payment_dialogs.dart';
+import '../widgets/family_pay_choice.dart';
+import '../widgets/family_pay_dialog.dart';
+import '../family_payments_tour.dart';
 import '../widgets/student_payment_history.dart';
 
 const double _contentWidth = 1600;
@@ -68,11 +71,30 @@ class PersonPaymentsTab extends StatefulWidget
   // False while another section of the page is on show: no tour then.
   final bool shown;
 
-  const PersonPaymentsTab({super.key, required this.person, this.ownPage = false, this.shown = true});
+  // A parent reading a child, or a pupil nobody answers for: everything, nothing to change.
+  final bool family;
+
+  // The family page's tour: the person it follows, or the parent's own fees; none for the others.
+  final FamilyTabTour tour;
+
+  // The payments read, for the family page's tour.
+  final ValueChanged<StudentPaymentsItem>? onLoaded;
+
+  const PersonPaymentsTab({
+    super.key,
+    required this.person,
+    this.ownPage = false,
+    this.shown = true,
+    this.family = false,
+    this.tour = FamilyTabTour.none,
+    this.onLoaded,
+  });
 
   @override
   State<PersonPaymentsTab> createState() => _PersonPaymentsTabState();
 }
+
+enum FamilyTabTour { none, child, own }
 
 class _PersonPaymentsTabState extends State<PersonPaymentsTab>
 {
@@ -137,7 +159,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     try
     {
       // Both under way at once; the payments' own failure is what the tab reports. The own page changes nothing.
-      final Future<StandardTariffsItem?> tariffs = widget.ownPage
+      final Future<StandardTariffsItem?> tariffs = widget.ownPage || widget.family
           ? Future<StandardTariffsItem?>.value()
           : ApiService().getStandardTariffs().then<StandardTariffsItem?>((tariffs) => tariffs, onError: (_) => null);
       final StudentPaymentsItem payments = await ApiService().getStudentPayments(widget.person.fiscalCode);
@@ -152,6 +174,20 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           _error = null;
         });
         unawaited(_startOwnTours());
+
+        // After the frame: the tour looks for the parts this build lays out.
+        final ValueChanged<StudentPaymentsItem>? loaded = widget.onLoaded;
+
+        if (loaded != null)
+        {
+          WidgetsBinding.instance.addPostFrameCallback((_)
+          {
+            if (mounted)
+            {
+              loaded(payments);
+            }
+          });
+        }
       }
     }
     catch (error)
@@ -249,12 +285,27 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
   // Everything owed in one window, all ticked.
   void _settle(StudentPaymentsItem payments)
   {
+    // A family pays on Stripe: nothing is written here.
+    if (widget.family)
+    {
+      unawaited(showFamilyPayDialog(context: context, person: widget.person, payments: payments));
+
+      return;
+    }
+
     _open(showSettleDialog(context: context, person: widget.person, payments: payments), kSettled);
   }
 
   // Paid rows can be revoked there; those still to pay are only read.
   void _openRow(StudentPaymentsItem payments, PaymentHistoryRow row)
   {
+    if (widget.family)
+    {
+      showPaymentDetails(context: context, person: widget.person, payments: payments, row: row, readOnly: true);
+
+      return;
+    }
+
     _open(
       showPaymentDetails(context: context, person: widget.person, payments: payments, row: row),
       kPaymentCancelled,
@@ -332,6 +383,9 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     final int thisYear = romeNow().year;
     final Map<int, List<PaymentHistoryRow>> years = paymentsByYear(payments.history, thisYear);
 
+    // The payment the family tour opens: the child's.
+    final PaymentHistoryRow? toured = widget.tour == FamilyTabTour.child ? familyTouredRow(payments.history) : null;
+
     if (years.isEmpty)
     {
       return [
@@ -340,7 +394,12 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
         const SizedBox(height: 12),
         Center(
           child: DesktopTourTarget(
-            id: widget.ownPage ? kTourFeesEmpty : null,
+            id: switch (widget.tour)
+            {
+              FamilyTabTour.child => kTourFamilyEmpty,
+              FamilyTabTour.own => kTourFamilyOwnEmpty,
+              FamilyTabTour.none => widget.ownPage ? kTourFeesEmpty : null,
+            },
             child: AppEmptyCard(icon: Icons.receipt_long_rounded, message: kNoPayments),
           ),
         ),
@@ -367,20 +426,28 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           stacked: AppBreakpoints.of(context).isMinimal,
           onOpen: (row) => _openRow(payments, row),
           readOnly: widget.ownPage,
+          tourRow: toured == null ? null : (toured, kTourFamilyRow),
         ),
       ],
     ];
 
-    if (!widget.ownPage)
+    final String? history = switch (widget.tour)
+    {
+      FamilyTabTour.child => kTourFamilyHistory,
+      FamilyTabTour.own => kTourFamilyOwnHistory,
+      FamilyTabTour.none => widget.ownPage ? kTourFeesHistory : null,
+    };
+
+    if (history == null)
     {
       return blocks;
     }
 
-    // The teacher's own: every year lit as one by the tour, the gap above it left out.
+    // Every year lit as one by the tour, the gap above it left out.
     return [
       blocks.first,
       DesktopTourTarget(
-        id: kTourFeesHistory,
+        id: history,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: blocks.sublist(1)),
       ),
     ];
@@ -483,10 +550,11 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     final bool changeable = standard == null ||
         ['HOURLY', 'PACKAGE', 'MONTHLY'].any((kind) => kind != tariff.kind && standard.enabled(kind));
 
+    final String? pending = payments.openingPending ? pendingReason(feminine: widget.person.gender == 'F') : null;
+
     // One paid ahead at a time: the buttons wait for it to start. Nothing before the set-up.
-    final String? off = payments.openingPending
-        ? pendingReason(feminine: widget.person.gender == 'F')
-        : switch (payments.queued)
+    final String? off = pending ??
+        switch (payments.queued)
         {
           QueuedPayment.package => kPackageQueuedReason,
           QueuedPayment.month => kMonthQueuedReason,
@@ -494,6 +562,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
           null => null,
         };
 
+    // Online at the weekend is paid ahead under any tariff, whatever waits; its window says what is left.
     final List<(String, IconData, VoidCallback)> tariffSpecs = tariff.isHourly
         ? [
             if (changeable) (kChangeTariffLabel, Icons.swap_horiz_rounded, () => _changeTariff(payments)),
@@ -503,13 +572,20 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
         : [
             if (changeable) (kChangeTariffLabel, Icons.swap_horiz_rounded, () => _changeTariff(payments)),
             (kRenewLabel, Icons.autorenew_rounded, () => _renew(payments)),
+            (kPayAheadLabel, Icons.more_time_rounded, () => _payAhead(payments)),
           ];
 
     Widget button((String, IconData, VoidCallback) spec, {double? width})
     {
       final (label, icon, onPressed) = spec;
 
-      return tabActionButton(label: label, icon: icon, width: width, disabledReason: off, onPressed: onPressed);
+      return tabActionButton(
+        label: label,
+        icon: icon,
+        width: width,
+        disabledReason: label == kPayAheadLabel ? pending : off,
+        onPressed: onPressed,
+      );
     }
 
     // Nothing to export without a payment.
@@ -580,7 +656,7 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
     }
 
     final bool dense = AppBreakpoints.of(context).isDense;
-    final bool own = widget.ownPage;
+    final bool own = widget.ownPage || widget.family;
     final bool floating = !own && !dense && payments.history.isNotEmpty;
 
     // A member's tariff buttons; none for fees alone, none for whoever is not enrolled (what is owed is still
@@ -590,7 +666,11 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
 
     final List<Widget> blocks = [
       // The pupil's tariff; each payment says its own method.
-      if (payments.student) _SummaryCard(payments: payments, metrics: metrics),
+      if (payments.student)
+        DesktopTourTarget(
+          id: widget.tour == FamilyTabTour.child ? kTourFamilyTariff : null,
+          child: _SummaryCard(payments: payments, metrics: metrics),
+        ),
       if (tariffActions) ...[
         SizedBox(height: gap),
         // Minimal windows: two to a line, all as wide, rather than steps down the right.
@@ -614,19 +694,26 @@ class _PersonPaymentsTabState extends State<PersonPaymentsTab>
         _PendingCard(
           lastDay: payments.openingDay,
           metrics: metrics,
-          onConfigure: () => unawaited(_configure(payments)),
-          onSettle: hasSomethingToSettle(payments) ? () => _settle(payments) : null,
+          onConfigure: own ? null : () => unawaited(_configure(payments)),
+          onSettle: (widget.family ? familyCanPay(payments) : !widget.ownPage && hasSomethingToSettle(payments))
+              ? () => _settle(payments)
+              : null,
+          settleLabel: widget.family ? kPayLabel : kSettleLabel,
         ),
         ..._history(payments, gap),
       ]
       else if (payments.state != null) ...[
         SizedBox(height: gap),
         DesktopTourTarget(
-          id: own ? kTourFeesStatus : null,
+          id: widget.tour == FamilyTabTour.child ? kTourFamilyStatus : (widget.ownPage ? kTourFeesStatus : null),
           child: _StatusCard(
             payments: payments,
             metrics: metrics,
-            onSettle: own || !hasSomethingToSettle(payments) ? null : () => _settle(payments),
+            onSettle: (widget.family ? familyCanPay(payments) : !own && hasSomethingToSettle(payments))
+                ? () => _settle(payments)
+                : null,
+            settleLabel: widget.family ? kPayLabel : kSettleLabel,
+            settleTour: widget.tour == FamilyTabTour.child ? kTourFamilyPay : null,
           ),
         ),
         ..._history(payments, gap),
@@ -868,8 +955,18 @@ class _StatusCard extends StatelessWidget
 
   // Set while something is owed: everything settled from here.
   final VoidCallback? onSettle;
+  final String settleLabel;
 
-  const _StatusCard({required this.payments, required this.metrics, this.onSettle});
+  // The family tour lights the button.
+  final String? settleTour;
+
+  const _StatusCard({
+    required this.payments,
+    required this.metrics,
+    this.onSettle,
+    required this.settleLabel,
+    this.settleTour,
+  });
 
   bool get _ok => payments.state == PaymentState.ok;
 
@@ -932,6 +1029,7 @@ class _StatusCard extends StatelessWidget
   {
     final PackageStatusItem? package = payments.package;
     final AheadStatusItem? ahead = payments.ahead;
+    final AheadStatusItem? weekend = payments.weekendAhead;
     final List<MonthStateItem>? months = payments.months;
 
     return [
@@ -946,6 +1044,20 @@ class _StatusCard extends StatelessWidget
       if (months != null) ...[
         _Rule(metrics: metrics),
         _MonthStrip(months: months, metrics: metrics),
+      ],
+      // Under any tariff: its own line names it.
+      if (weekend != null) ...[
+        _Rule(metrics: metrics),
+        Text(
+          weekendAheadPaidLine(weekend.totalMinutes),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: metrics.subtitleText,
+            fontWeight: FontWeight.w500,
+            color: AppTheme.trialMutedText,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _HoursBar(used: weekend.usedMinutes, total: weekend.totalMinutes, metrics: metrics),
       ],
     ];
   }
@@ -963,7 +1075,12 @@ class _StatusCard extends StatelessWidget
           onSettle == null
               ? _header()
               : _WithActions(
-                  actions: [tabActionButton(label: kSettleLabel, icon: Icons.payments_outlined, onPressed: onSettle)],
+                  actions: [
+                    DesktopTourTarget(
+                      id: settleTour,
+                      child: tabActionButton(label: settleLabel, icon: Icons.payments_outlined, onPressed: onSettle),
+                    ),
+                  ],
                   child: _header(),
                 ),
           ..._details(),
@@ -978,12 +1095,21 @@ class _PendingCard extends StatelessWidget
 {
   final DateTime? lastDay;
   final _Metrics metrics;
-  final VoidCallback onConfigure;
+
+  // Admins only: families read the card.
+  final VoidCallback? onConfigure;
 
   // Fees owed are paid whatever the set-up says.
   final VoidCallback? onSettle;
+  final String settleLabel;
 
-  const _PendingCard({required this.lastDay, required this.metrics, required this.onConfigure, this.onSettle});
+  const _PendingCard({
+    required this.lastDay,
+    required this.metrics,
+    this.onConfigure,
+    this.onSettle,
+    required this.settleLabel,
+  });
 
   @override
   Widget build(BuildContext context)
@@ -991,14 +1117,16 @@ class _PendingCard extends StatelessWidget
     final DateTime? lastDay = this.lastDay;
 
     final VoidCallback? onSettle = this.onSettle;
+    final VoidCallback? onConfigure = this.onConfigure;
 
     return _Card(
       metrics: metrics,
       child: _WithActions(
         actions: [
           if (onSettle != null)
-            tabActionButton(label: kSettleLabel, icon: Icons.payments_outlined, onPressed: onSettle),
-          tabActionButton(label: kConfigureLabel, icon: Icons.tune_rounded, onPressed: onConfigure),
+            tabActionButton(label: settleLabel, icon: Icons.payments_outlined, onPressed: onSettle),
+          if (onConfigure != null)
+            tabActionButton(label: kConfigureLabel, icon: Icons.tune_rounded, onPressed: onConfigure),
         ],
         child: Row(
           children: [
@@ -1064,6 +1192,12 @@ class _WithActions extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    // A family's card with nothing to pay: the words alone.
+    if (actions.isEmpty)
+    {
+      return child;
+    }
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
@@ -1167,7 +1301,7 @@ class _HoursBar extends StatelessWidget
   }
 }
 
-// The school year's months: paid in teal, this one to renew in gold, the others plain.
+// The school year's months: paid in teal, this one unpaid in gold, the others plain.
 class _MonthStrip extends StatelessWidget
 {
   final List<MonthStateItem> months;
@@ -1252,7 +1386,7 @@ class _MonthCell extends StatelessWidget
             if (words) ...[
               const SizedBox(height: 2),
               Text(
-                state == MonthState.paid ? kMonthPaid : kMonthDue,
+                state == MonthState.paid ? kMonthPaid : kFeeNotPaid,
                 maxLines: 1,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: metrics.monthWord,

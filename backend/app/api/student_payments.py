@@ -53,9 +53,9 @@ from app.services.student_payments import (
 router = APIRouter(prefix="/people", tags=["student-payments"])
 
 Admin = Annotated[IdentityContext, Depends(require_role("ADMIN"))]
-AdminOrTeacher = Annotated[
+Reader = Annotated[
     IdentityContext,
-    Depends(require_role("ADMIN", "TEACHER")),
+    Depends(require_role("ADMIN", "TEACHER", "PARENT", "STUDENT")),
 ]
 
 # A database integer: anything larger would fail in the driver, not as a 404.
@@ -275,6 +275,7 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
     level = found.level if found is not None else None
     opening = found.opening if found is not None else None
     opening_day = found.opening_day if found is not None else None
+    weekend_rate = found.rates.weekend_online_cents if found is not None else None
 
     if payment is None:
         return StudentPaymentsResponse(
@@ -291,6 +292,7 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
             package=None,
             months=None,
             ahead=None,
+            weekend_online_cents=weekend_rate,
             lines=[],
             queued=None,
             queued_starts_on=None,
@@ -340,6 +342,15 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
             if payment.ahead is not None
             else None
         ),
+        weekend_ahead=(
+            AheadStatusResponse(
+                total_minutes=payment.weekend_ahead.total_minutes,
+                used_minutes=payment.weekend_ahead.used_minutes,
+            )
+            if payment.weekend_ahead is not None
+            else None
+        ),
+        weekend_online_cents=weekend_rate,
         lines=[
             HoursLineResponse(
                 kind=line.kind,
@@ -379,7 +390,7 @@ async def _response(db: AsyncSession, member: Member) -> StudentPaymentsResponse
     )
 
 
-# A teacher's own: their annual fees alone, read only.
+# A teacher's or a parent's own: their annual fees alone, read only.
 async def _fees_response(
     db: AsyncSession,
     member: Member,
@@ -416,15 +427,35 @@ async def _fees_response(
     )
 
 
+# A parent reading a child, or a pupil nobody answers for reading their own.
+def _family(identity: IdentityContext, tax_code: str) -> bool:
+    if "PARENT" in identity.roles and tax_code in identity.child_tax_codes:
+        return True
+
+    return (
+        tax_code == identity.tax_code
+        and "STUDENT" in identity.roles
+        and not identity.answered_for
+    )
+
+
+ReaderView = Literal["ALL", "FEES"]
+
+
 # Under the admin hat, or reading someone else as an admin: everything.
-def _fees_only(identity: IdentityContext, tax_code: str) -> bool:
-    own = tax_code == identity.tax_code and "TEACHER" in identity.roles
+def _view_of(identity: IdentityContext, tax_code: str) -> ReaderView:
+    own = tax_code == identity.tax_code
 
     if identity.reads_everything or (identity.is_admin and not own):
-        return False
+        return "ALL"
 
-    if own:
-        return True
+    # A family reads what an admin reads: what is owed, renewals, hours ahead.
+    if _family(identity, tax_code):
+        return "ALL"
+
+    # A teacher's or a parent's own: their annual fees.
+    if own and not identity.roles.isdisjoint({"TEACHER", "PARENT"}):
+        return "FEES"
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -436,13 +467,13 @@ def _fees_only(identity: IdentityContext, tax_code: str) -> bool:
 async def student_payments(
     tax_code: str,
     db: DbSession,
-    identity: AdminOrTeacher,
+    identity: Reader,
 ) -> StudentPaymentsResponse:
     code = tax_code.upper()
-    fees_only = _fees_only(identity, code)
+    view = _view_of(identity, code)
     member = await _member_or_404(db, code)
 
-    if fees_only:
+    if view == "FEES":
         return await _fees_response(db, member)
 
     return await _response(db, member)
@@ -489,7 +520,8 @@ async def change_tariff(
     return await _response(db, member)
 
 
-# Hours paid before they are done: lessons by the hour draw on them first.
+# Hours paid before they are done: lessons by the hour, or online at the weekend,
+# draw on them first.
 @router.post(
     "/{tax_code}/payments/ahead",
     response_model=StudentPaymentsResponse,

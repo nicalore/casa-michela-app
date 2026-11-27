@@ -17,6 +17,7 @@ class MonthPaymentResponse(BaseModel):
         "PACKAGE",
         "MONTH",
         "AHEAD",
+        "WEEKEND_AHEAD",
         "HOURLY",
         "OVER_PACKAGE",
         "OVER_FEE",

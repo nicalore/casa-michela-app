@@ -90,6 +90,29 @@ abstract final class ChildStatsJumps
   }
 }
 
+// A child's payments asked for by the home: a page not built yet takes them on start, a shown one listens.
+abstract final class ChildPaymentsJumps
+{
+  static String? _pupil;
+
+  // Bumped on every request.
+  static final ValueNotifier<int> asked = ValueNotifier<int>(0);
+
+  static void request(String taxCode)
+  {
+    _pupil = taxCode;
+    asked.value++;
+  }
+
+  static String? take()
+  {
+    final String? pupil = _pupil;
+    _pupil = null;
+
+    return pupil;
+  }
+}
+
 // One's own Compensi asked for, by a link or a notification, maybe on a month: a page not built yet takes it on
 // start, a shown one listens and turns to its Compensi.
 abstract final class CompensationJumps

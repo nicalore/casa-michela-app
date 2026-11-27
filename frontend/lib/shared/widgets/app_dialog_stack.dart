@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import 'app_step_count.dart';
 import 'app_text_link.dart';
 import 'carousel_arrow_button.dart';
+import 'desktop_tour.dart';
 import 'dialog_density.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
@@ -81,6 +82,9 @@ class AppDialogStack extends StatelessWidget
   // Makes the title a link: a person's name leading to their record.
   final VoidCallback? onTitleTap;
 
+  // The ×'s part in a tour.
+  final String? closeTourId;
+
   const AppDialogStack({
     super.key,
     this.eyebrow = '',
@@ -98,6 +102,7 @@ class AppDialogStack extends StatelessWidget
     this.fillLast = false,
     this.shrinkTitle = false,
     this.onTitleTap,
+    this.closeTourId,
   });
 
   Widget _buildTitle(bool dense)
@@ -231,14 +236,17 @@ class AppDialogStack extends StatelessWidget
         ),
         Positioned(
           right: 0,
-          child: CarouselArrowButton(
-            size: close,
-            iconSize: dense ? 18 : CarouselArrowButton.defaultIconSize,
-            icon: Icons.close_rounded,
-            hoverColor: AppTheme.trialGoldSurface,
-            hoverIconColor: AppTheme.trialTealDeepText,
-            hoverBorderColor: AppTheme.trialGold,
-            onTap: onClose ?? () => Navigator.of(context).pop(),
+          child: DesktopTourTarget(
+            id: closeTourId,
+            child: CarouselArrowButton(
+              size: close,
+              iconSize: dense ? 18 : CarouselArrowButton.defaultIconSize,
+              icon: Icons.close_rounded,
+              hoverColor: AppTheme.trialGoldSurface,
+              hoverIconColor: AppTheme.trialTealDeepText,
+              hoverBorderColor: AppTheme.trialGold,
+              onTap: onClose ?? () => Navigator.of(context).pop(),
+            ),
           ),
         ),
       ],

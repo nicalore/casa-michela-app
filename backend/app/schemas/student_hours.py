@@ -14,6 +14,7 @@ class StudentSituationResponse(BaseModel):
         "MONTH_PAID",
         "MONTH_UNPAID",
         "SETTLE",
+        "PAID",
         "AHEAD_LEFT",
         "AHEAD_ENDED",
         "PENDING",

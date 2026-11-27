@@ -234,7 +234,7 @@ void _backToPay() => walletSection.value = kWalletPay;
 DesktopTourStep get _feesStatusStep => DesktopTourStep(
   targets: const [kTourFeesStatus],
   text: tr(
-    'Qui vedi se sei in regola con i pagamenti o se hai qualcosa da saldare.',
+    'Qui vedi se sei in regola con i pagamenti o se hai qualcosa da pagare.',
     'Here you can see whether your payments are up to date or you have something to pay.',
   ),
   sides: _below,

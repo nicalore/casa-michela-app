@@ -105,7 +105,7 @@ String get _receipt => tr(
 );
 String get _toFees => tr('Tocca «Pagamenti».', 'Tap “Payments”.');
 String get _feesStatus => tr(
-  'Qui vedi se sei in regola con i pagamenti o se hai qualcosa da saldare.',
+  'Qui vedi se sei in regola con i pagamenti o se hai qualcosa da pagare.',
   'Here you can see whether your payments are up to date or you have something to pay.',
 );
 String get _feesList => tr(

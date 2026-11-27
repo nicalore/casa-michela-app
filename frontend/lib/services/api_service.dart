@@ -2748,16 +2748,19 @@ class ApiService
   }
 
   // Hourly tariff only: lessons draw on them before anything is due.
+  // [weekendOnline]: online hours at the weekend, at their own rate whatever is sent.
   Future<StudentPaymentsItem> payStudentHoursAhead({
     required String taxCode,
     required int minutes,
     required int centsPerHour,
     required Map<String, dynamic> payment,
+    bool weekendOnline = false,
   })
   {
     return _postStudentPayments(taxCode, 'ahead', {
       'minutes': minutes,
       'cents_per_hour': centsPerHour,
+      'weekend_online': weekendOnline,
       'payment': payment,
     });
   }

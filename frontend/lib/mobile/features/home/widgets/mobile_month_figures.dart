@@ -9,6 +9,7 @@ import '../../../../features/home/models/month_summary_items.dart';
 import '../../../../features/home/widgets/home_month_section.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
+import 'mobile_equal_grid.dart';
 import 'mobile_link.dart';
 
 const int _monthlyThreshold = 9;
@@ -90,10 +91,19 @@ class MobilePupilMonthFigures extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return _Rows([
-      for (final (i, figure) in figures.indexed)
-        _FigureRow(lead: _LeadIcon(_pupilIcons[i % _pupilIcons.length]), figure: figure, onLink: onLink),
-    ]);
+    // Every row as tall as the tallest, its text centred.
+    return MobileEqualGrid(
+      columns: 1,
+      runGap: _rowGap,
+      children: [
+        for (final (i, figure) in figures.indexed)
+          _FigureRow(
+            lead: _LeadIcon(figure.payment != null ? Icons.payments_rounded : _pupilIcons[i % _pupilIcons.length]),
+            figure: figure,
+            onLink: onLink,
+          ),
+      ],
+    );
   }
 }
 
@@ -230,10 +240,12 @@ class _FigureText extends StatelessWidget
 
   const _FigureText({required this.figure, this.compact = false});
 
+  // As tall as its lines: the row, stretched to the tallest, centres it.
   @override
   Widget build(BuildContext context)
   {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text.rich(
@@ -263,6 +275,7 @@ class _FigureText extends StatelessWidget
               HomeFigureTone.plain => AppTheme.trialInk,
               HomeFigureTone.pending => AppTheme.trialTealDeepText,
               HomeFigureTone.absent => MobilePalette.mutedText,
+              HomeFigureTone.owed => AppTheme.modifiedAccent,
             },
           ),
         ),
@@ -276,7 +289,7 @@ class _FigureText extends StatelessWidget
             color: AppTheme.trialInk.withValues(alpha: 0.62),
           ),
         ),
-        if (!compact) ...[
+        if (!compact && figure.hasAside) ...[
           const SizedBox(height: 4),
           _asideOf(figure),
         ],

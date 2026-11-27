@@ -463,6 +463,7 @@ class _Situation extends StatelessWidget
       StudentSituationKind.monthPaid => (text: monthPaidSituation(day), below: null, badge: null, ahead: false),
       StudentSituationKind.monthUnpaid => (text: monthUnpaidSituation(day), below: null, badge: null, ahead: false),
       StudentSituationKind.settle => (text: kToSettleSituation, below: null, badge: null, ahead: false),
+      StudentSituationKind.paid => (text: kPaidSituation, below: null, badge: null, ahead: false),
       StudentSituationKind.aheadLeft => (text: leftLabel(minutes), below: null, badge: kAheadBadge, ahead: true),
       StudentSituationKind.aheadEnded => (
           text: kAheadExhaustedBadge,

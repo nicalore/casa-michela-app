@@ -36,7 +36,7 @@ class RoleSection
 
 const RoleSection _calendar = RoleSection.named('calendar', available: true);
 const RoleSection _bookings = RoleSection.named('bookings', available: true);
-const RoleSection _payments = RoleSection.named('payments');
+const RoleSection _payments = RoleSection.named('payments', available: true);
 const RoleSection _association = RoleSection.named('association', available: true);
 
 const Map<String, List<RoleSection>> _sectionsByRole = {

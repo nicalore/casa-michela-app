@@ -43,7 +43,8 @@ String get kAlignToCalendar => tr('Allinea al calendario', 'Align with the calen
 String get kTakeOut => tr('Togli dal riepilogo', 'Remove from the summary');
 
 String get kNothingPlanned => tr('Nessuna lezione pianificata', 'No lessons planned');
-String get kNothingOver => tr('Nessuna lezione è ancora finita', 'No lesson has ended yet');
+String get kNoTeacherFinished => tr('Nessun docente ha ancora finito', 'No teacher has finished yet');
+String get kNoStudentFinished => tr('Nessuno studente ha ancora finito', 'No student has finished yet');
 
 String get kAddTeacherTitle => tr('Aggiungi docente', 'Add teacher');
 String get kTeacherLabel => tr('Docente', 'Teacher');
@@ -63,7 +64,7 @@ String get kNoRoomForStretch => tr(
 
 String teachersCount(int count) => count == 1 ? tr('1 docente', '1 teacher') : tr('$count docenti', '$count teachers');
 
-String firstEndsAt(int minutes) => tr('La prima finisce alle ${clockOf(minutes)}.', 'The first one ends at ${clockOf(minutes)}.');
+String firstFinishesAt(int minutes) => tr('Il primo finisce alle ${clockOf(minutes)}.', 'The first one finishes at ${clockOf(minutes)}.');
 
 String confirmFrom(int minutes) => tr(
   'Si potrà confermare dalle ${clockOf(minutes)}, quando finirà l\'ultima lezione.',
@@ -78,8 +79,10 @@ String stillToCome(List<String> names, int lastEnd)
       ? names.single
       : '${names.sublist(0, names.length - 1).join(', ')} $and ${names.last}';
 
+  final String verb = names.length == 1 ? 'Manca' : 'Mancano';
+
   return tr(
-    'Mancano ancora $joined: l\'ultima lezione finisce alle ${clockOf(lastEnd)}.',
+    '$verb ancora $joined: l\'ultima lezione finisce alle ${clockOf(lastEnd)}.',
     'Still waiting for $joined: the last lesson ends at ${clockOf(lastEnd)}.',
   );
 }
@@ -253,7 +256,8 @@ String monthUnpaidSituation(DateTime month) => tr(
   'Quota di ${formatMonthName(month)} non pagata',
   '${formatMonthName(month)} fee not paid',
 );
-String get kToSettleSituation => tr('Da saldare', 'Due');
+String get kToSettleSituation => tr('Da pagare', 'Due');
+String get kPaidSituation => tr('Pagata', 'Paid');
 String get kRenewalBadge => tr('Rinnovo', 'Renewal');
 String get kAheadBadge => tr('Anticipo', 'Advance');
 
@@ -270,7 +274,7 @@ String dailyStudentsPdfFile(DateTime day) => tr(
 
 // The monthly summary of pupils.
 String get kSituationNow => tr('Situazione attuale', 'Current status');
-String get kNothingToSettle => tr('Nulla da saldare', 'Nothing due');
+String get kNothingToSettle => tr('Nulla da pagare', 'Nothing due');
 
 // "Situazione al 31 ottobre": the month is over, the situation stands at its last day.
 // The day keeps its month on its line.
@@ -284,7 +288,7 @@ String situationAt(DateTime day)
   return 'Situazione ${toDayInSentence(day).replaceFirst(' ${formatMonthName(day)}', ' ${formatMonthName(day)}')}';
 }
 
-// "Da saldare € 78,00".
+// "Da pagare € 78,00".
 String toSettleAmount(int cents) => '$kToSettleSituation ${formatAmount(cents)}';
 
 // Beside one of a month's tariffs: "fino all'11", "dal 12", "dall'1 dicembre" past the month.
@@ -408,7 +412,7 @@ String get kPeriodColumn => tr('Periodo', 'Period');
 String get kOwedColumn => tr('Da saldare', 'Due');
 String get kOwedAmountColumn => tr('Importo', 'Amount');
 String get kNotEnrolledNow => tr('Nessuna iscrizione in corso', 'No current enrolment');
-String get kNothingOwed => tr('Nessuno ha qualcosa da saldare', 'Nobody has anything due');
+String get kNothingOwed => tr('Nessuno deve pagare', 'Nobody has to pay');
 String get kNoDebtorsFiltered => tr('Nessuna persona con questi filtri', 'No people with these filters');
 
 String debtorsCount(int count) => count == 1 ? tr('1 persona', '1 person') : tr('$count persone', '$count people');

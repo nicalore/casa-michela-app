@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+from typing import Final
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
@@ -16,10 +17,13 @@ from app.core.booking_window import now_in_rome
 from app.models.availability import Availability
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.student import Student
+from app.models.student_payment import HoursKindEnum
+from app.models.student_tariff import TariffKindEnum
 from app.repositories.person_repository import PersonRepository
 from app.schemas.home import (
     ParentMonthSummaryResponse,
     PupilMonthFigures,
+    PupilPaymentFigures,
     StudentMonthSummaryResponse,
     TeacherMonthFigures,
     TeacherMonthSummaryResponse,
@@ -47,7 +51,12 @@ from app.services.enrollment_spans import (
     enrolled_spans,
     enrolled_throughout,
 )
-from app.services.student_payments import current_tariff_kinds
+from app.services.student_payments import (
+    PaymentStatus,
+    PupilLesson,
+    current_tariff_kinds,
+    pupil_books,
+)
 from app.services.worked_hours import span_minutes
 
 router = APIRouter(prefix="/home", tags=["home"])
@@ -99,6 +108,74 @@ class _Month:
         return day < self.today or (day == self.today and end_time <= self.now.time())
 
 
+_OWED_LINES: Final[dict[TariffKindEnum, HoursKindEnum]] = {
+    TariffKindEnum.HOURLY: HoursKindEnum.HOURLY,
+    TariffKindEnum.PACKAGE: HoursKindEnum.OVER_PACKAGE,
+    TariffKindEnum.MONTHLY: HoursKindEnum.OVER_FEE,
+}
+
+
+def _payment_figures(
+    status: PaymentStatus,
+    lessons: Sequence[PupilLesson],
+    month: _Month,
+) -> PupilPaymentFigures:
+    kind = status.tariff.kind
+    package = status.package
+    states = dict(status.months or [])
+    # Before any package was bought, the tariff's hours.
+    hours = package.hours if package is not None else status.package_hours
+    # Hours to settle: by the hour, past the package, or in a month without its fee.
+    owed = status.line(_OWED_LINES[kind])
+
+    # This month's, under the tariff in force.
+    def counted(day: date, opening: bool) -> bool:
+        return not opening and status.started_on <= day and month.start <= day
+
+    due = 0
+    done = 0
+
+    if owed is not None:
+        due = sum(
+            part.minutes for part in owed.parts if counted(part.day, part.opening)
+        )
+
+    if kind == TariffKindEnum.HOURLY:
+        done = sum(
+            lesson.minutes
+            for lesson in lessons
+            if counted(lesson.day, lesson.opening) and not lesson.weekend_online
+        )
+
+    return PupilPaymentFigures(
+        kind=kind,
+        package_minutes=(
+            hours * 60 if kind == TariffKindEnum.PACKAGE and hours is not None else None
+        ),
+        used_minutes=None if package is None else package.used_minutes,
+        month_paid=status.month_paid,
+        month_due=states.get(month.start) == "DUE",
+        paid_minutes=max(done - due, 0),
+        due_minutes=due,
+    )
+
+
+async def _payments(
+    db: AsyncSession,
+    tax_codes: Sequence[str],
+    month: _Month,
+) -> dict[str, PupilPaymentFigures]:
+    figures: dict[str, PupilPaymentFigures] = {}
+
+    for tax_code, books in (await pupil_books(db, tax_codes, month.now)).items():
+        status = None if books.pending else books.status(month.today)
+
+        if status is not None:
+            figures[tax_code] = _payment_figures(status, books.lessons, month)
+
+    return figures
+
+
 async def _pupil_figures(
     db: AsyncSession,
     tax_codes: Sequence[str],
@@ -113,6 +190,7 @@ async def _pupil_figures(
         )
     )
     tariffs = await current_tariff_kinds(db, pupils, month.today)
+    payments = await _payments(db, pupils, month)
 
     people = await PersonRepository(db).get_options(pupils)
 
@@ -159,6 +237,7 @@ async def _pupil_figures(
             booked_presences=booked.get(tax_code, 0),
             lesson_minutes=minutes.get(tax_code, 0),
             tariff_kind=tariffs.get(tax_code),
+            payment=payments.get(tax_code),
         )
         for tax_code in pupils
     }
@@ -299,7 +378,7 @@ async def get_student_month(
 
     # Paid for by whoever answers for the pupil, who never reads the tariff.
     if guardian is not None:
-        own = own.model_copy(update={"tariff_kind": None})
+        own = own.model_copy(update={"tariff_kind": None, "payment": None})
 
     return StudentMonthSummaryResponse(
         figures=own,

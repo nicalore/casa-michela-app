@@ -1,6 +1,14 @@
 import '../../association/tabs/tariffs/tariffs_strings.dart' show kInsuranceFee, kMembershipFee;
 import '../../people/utils/payments_strings.dart'
-    show aheadTitle, feeTitle, hoursText, kHoursTitles, kPaymentMethodLabels, kWaitingFeeTitle, packageTitle;
+    show
+        aheadTitle,
+        feeTitle,
+        hoursText,
+        kHoursTitles,
+        kPaymentMethodLabels,
+        kWaitingFeeTitle,
+        packageTitle,
+        weekendAheadTitle;
 import '../models/payments_month_items.dart';
 import 'accounting_strings.dart';
 
@@ -21,6 +29,7 @@ String paymentWhat(MonthPayment row)
     'PACKAGE' => packageTitle(row.packageHours ?? 0),
     'MONTH' => month == null ? kWaitingFeeTitle : feeTitle(month),
     'AHEAD' => aheadTitle(row.aheadMinutes ?? 0),
+    'WEEKEND_AHEAD' => weekendAheadTitle(row.aheadMinutes ?? 0),
     _ => row.minutes == null
         ? kHoursTitles[row.kind] ?? ''
         : '${kHoursTitles[row.kind] ?? ''}: ${hoursText(row.minutes!).replaceAll(' ', ' ')}',

@@ -11,9 +11,8 @@ String get kCostFigure => tr('Costo', 'Cost');
 String get kPaymentMethodFigure => tr('Modalità di pagamento', 'Payment method');
 
 String get kInOrder => tr('In regola', 'Up to date');
-String get kToRenew => tr('Da rinnovare', 'To renew');
 
-String toPay(int cents) => tr('Da pagare ${formatAmount(cents)}', 'To pay ${formatAmount(cents)}');
+String toPay(int cents) => tr('Da pagare ${formatAmount(cents)}', 'Due ${formatAmount(cents)}');
 
 // "venerdì 6 novembre", inside a sentence.
 String dayInSentence(DateTime day)
@@ -65,7 +64,33 @@ String usedLabel(int minutes) =>
     '${hoursText(minutes)} ${tr(_onlyMinutes(minutes) ? 'usati' : 'usate', 'used')}';
 
 String leftLabel(int minutes) =>
-    '${hoursText(minutes)} ${tr(_onlyMinutes(minutes) ? 'rimasti' : 'rimaste', 'left')}';
+    '${hoursText(minutes)} ${leftWord(minutes)}';
+
+// The word after the hours alone, for figures setting the hours larger.
+String leftWord(int minutes) => tr(_onlyMinutes(minutes) ? 'rimasti' : 'rimaste', 'left');
+
+String paidWord(int minutes) => tr(_onlyMinutes(minutes) ? 'pagati' : 'pagate', 'paid');
+
+String get kToPayUnit => tr('da pagare', 'due');
+
+// The home's payments figure: "Pacchetto da 20 ore"; packages hold whole hours.
+String packageOfHours(int minutes)
+{
+  final int hours = minutes ~/ 60;
+
+  return hours == 1
+      ? tr('Pacchetto da 1 ora', '1-hour package')
+      : tr('Pacchetto da $hours ore', '$hours-hour package');
+}
+
+String get kFeeNotPaid => tr('Non pagata', 'Not paid');
+String get kPackageUsedUp => tr('Esaurito', 'Used up');
+
+// The children's table, where no label says what the value is about; the status card says the last too.
+String get kFeePaidCell => tr('Quota pagata', 'Fee paid');
+String get kFeeNotPaidCell => tr('Quota non pagata', 'Fee not paid');
+
+String get kNoActivePackage => tr('Nessun pacchetto attivo', 'No active package');
 
 // After the hours of each line to settle.
 String hoursLineUnit(String kind, int minutes)
@@ -75,12 +100,11 @@ String hoursLineUnit(String kind, int minutes)
     'HOURLY' => tr(_onlyMinutes(minutes) ? 'svolti' : 'svolte', 'done'),
     'OVER_PACKAGE' => tr('oltre il pacchetto', 'over the package'),
     'OVER_FEE' => tr('oltre la quota', 'over the fee'),
-    _ => tr('online nel weekend da pagare', 'online at the weekend to pay'),
+    _ => tr('online nel weekend da pagare', 'online at the weekend due'),
   };
 }
 
 String get kMonthPaid => tr('Pagata', 'Paid');
-String get kMonthDue => tr('Da rinnovare', 'To renew');
 
 // The buttons between the summary and the status.
 String get kRenewLabel => tr('RINNOVA', 'RENEW');
@@ -134,9 +158,9 @@ String get kChangeTariffTitle => tr('Cambia tariffa', 'Change rate');
 String get kGiveTariffTitle => tr('Assegna tariffa', 'Assign rate');
 String get kChangeRateTitle => tr('Cambia costo orario', 'Change hourly cost');
 // The settle window: what is owed, ticked item by item and day by day.
-String get kToSettleBlock => tr('Da saldare', 'Due');
+String get kToSettleBlock => tr('Da pagare', 'Due');
 String get kSettleTotal => tr('Totale', 'Total');
-String get kNothingChosen => tr('Scegli almeno una voce da saldare.', 'Choose at least one item to settle.');
+String get kNothingChosen => tr('Scegli almeno una voce da pagare.', 'Choose at least one item to settle.');
 String get kPayAheadTitle => tr('Paga in anticipo', 'Pay in advance');
 
 String get kAheadHoursLabel => tr('Ore', 'Hours');
@@ -253,18 +277,18 @@ String coveredByFee(int minutes)
   if (_onlyMinutes(minutes))
   {
     return tr(
-      'I $hours ancora da saldare verranno coperti dalla quota mensile.',
+      'I $hours ancora da pagare verranno coperti dalla quota mensile.',
       'The $hours still due will be covered by the monthly fee.',
     );
   }
 
   return _one(minutes)
       ? tr(
-          'La $hours ancora da saldare verrà coperta dalla quota mensile.',
+          'La $hours ancora da pagare verrà coperta dalla quota mensile.',
           'The $hours still due will be covered by the monthly fee.',
         )
       : tr(
-          'Le $hours ancora da saldare verranno coperte dalla quota mensile.',
+          'Le $hours ancora da pagare verranno coperte dalla quota mensile.',
           'The $hours still due will be covered by the monthly fee.',
         );
 }
@@ -281,13 +305,13 @@ String cancelPaymentMessage(PaymentHistoryRow row)
 }
 
 String get kDoneStillToSettle =>
-    tr('Le ore già svolte sono ancora da saldare.', 'The hours already done are still due.');
+    tr('Le ore già svolte sono ancora da pagare.', 'The hours already done are still due.');
 String get kDoneTakenByPackage => tr(
   'Le ore già svolte verranno scalate dal pacchetto.',
   'The hours already done will be deducted from the package.',
 );
 String get kUnsettledTakenNow =>
-    tr('Le ore non saldate verranno scalate immediatamente.', 'The unsettled hours will be deducted straight away.');
+    tr('Le ore non pagate verranno scalate immediatamente.', 'The unpaid hours will be deducted straight away.');
 
 String aheadKeepsItsPrice(int minutes)
 {
@@ -408,6 +432,34 @@ String aheadPaidLine(int minutes)
       : tr('$said pagate in anticipo', '$said paid in advance');
 }
 
+String weekendAheadTitle(int minutes) => tr(
+  'Anticipo di ${aheadHours(minutes)} online nel weekend',
+  'Advance of ${aheadHours(minutes)} online at the weekend',
+);
+
+// Over the bar of the online hours at the weekend paid ahead.
+String weekendAheadPaidLine(int minutes)
+{
+  final String said = aheadHours(minutes);
+
+  if (_onlyMinutes(minutes))
+  {
+    return tr('$said online nel weekend pagati in anticipo', '$said online at the weekend paid in advance');
+  }
+
+  return minutes ~/ 60 == 1
+      ? tr('$said online nel weekend pagata in anticipo', '$said online at the weekend paid in advance')
+      : tr('$said online nel weekend pagate in anticipo', '$said online at the weekend paid in advance');
+}
+
+// The hours window: lessons by the hour or online at the weekend.
+String get kAheadKindLabel => tr('Tipo di ore', 'Type of hours');
+String get kWeekdaysChoice => tr('In settimana', 'During the week');
+
+// A family's «Altri pagamenti»: online at the weekend beside hours by the hour.
+String get kPayWeekendAheadTitle =>
+    tr('Paga in anticipo le ore online nel weekend', 'Pay online hours at the weekend in advance');
+
 String feeTitle(DateTime month) => tr('Quota di ${formatMonthName(month)}', '${formatMonthName(month)} fee');
 
 // A fee that waits for a package to end, its month not known yet.
@@ -492,6 +544,11 @@ String historyTitle(PaymentHistoryRow row)
     return packageTitle(row.packageHours ?? 0);
   }
 
+  if (row.isWeekendAhead)
+  {
+    return weekendAheadTitle(row.aheadMinutes ?? 0);
+  }
+
   if (row.isAhead)
   {
     return aheadTitle(row.aheadMinutes ?? 0);
@@ -542,10 +599,21 @@ String paymentStateTitle(StudentPaymentsItem payments)
 {
   return switch (payments.state)
   {
-    PaymentState.renew => kToRenew,
+    PaymentState.renew => renewTitle(payments),
     PaymentState.due => toPay(payments.dueCents),
     _ => kInOrder,
   };
+}
+
+// Nothing renewed: what lapsed, which renewing is not owed for.
+String renewTitle(StudentPaymentsItem payments)
+{
+  if (payments.tariff?.isMonthly == true)
+  {
+    return kFeeNotPaidCell;
+  }
+
+  return payments.package == null ? kNoActivePackage : kExhaustedBadge;
 }
 
 String? paymentStateLine(StudentPaymentsItem payments, DateTime today)
@@ -572,7 +640,7 @@ String? paymentStateLine(StudentPaymentsItem payments, DateTime today)
   return ended == null ? null : packageEnded(ended);
 }
 
-String get kToPayFlag => tr('Da pagare', 'To pay');
+String get kToPayFlag => tr('Da pagare', 'Due');
 String get kExhaustedBadge => tr('Pacchetto esaurito', 'Package used up');
 String get kTakenBadge => tr('Scalate al rinnovo', 'Deducted at renewal');
 String get kAheadExhaustedBadge => tr('Anticipo esaurito', 'Advance used up');
@@ -585,15 +653,19 @@ String takenBadge(PaymentHistoryRow row) => row.isAhead ? kTakenAtPaymentBadge :
 // Under the hours of a lesson another payment shares.
 String ofLesson(int minutes) => tr('di ${formatMinutes(minutes)}', 'of ${formatMinutes(minutes)}');
 
-// "30m di 18h".
-String hoursOfPackage(int used, int hours) => tr('${hoursText(used)} di ${hours}h', '${hoursText(used)} of ${hours}h');
-
-// "8h di 10h", "45m di 7h 30m".
-String hoursOfAhead(int used, int minutes) =>
-    tr('${hoursText(used)} di ${hoursText(minutes)}', '${hoursText(used)} of ${hoursText(minutes)}');
-
 String get kNoPayments => tr('Ancora nessun pagamento.', 'No payments yet.');
 String get kPaymentsLoadFailed => tr('Non è stato possibile caricare i pagamenti.', "Couldn't load your payments.");
+
+// A family's payments: what is not owed yet, and the way to Stripe.
+String get kOtherPayments => tr('Altri pagamenti', 'Other payments');
+String get kProceedToPayment => tr('PROCEDI AL PAGAMENTO', 'PROCEED TO PAYMENT');
+
+// A payment's window and sheet: the lessons it covers.
+String get kLessonsCard => tr('Lezioni', 'Lessons');
+
+// A member parent's two tabs in Pagamenti.
+String get kChildrenPaymentsTab => tr('Figli', 'Children');
+String get kOwnPaymentsTab => tr('Personali', 'Personal');
 
 // The PDF.
 String get kPaymentsEyebrow => tr('Pagamenti', 'Payments');
@@ -603,7 +675,7 @@ String get kFromStartLabel => tr('Dall’inizio', 'From the start');
 String get kExportLabel => tr('ESPORTA', 'EXPORT');
 
 String get kPaidInSpanLabel => tr('Pagato nel periodo', 'Paid in the period');
-String get kToPayLabel => tr('Da pagare', 'To pay');
+String get kToPayLabel => tr('Da pagare', 'Due');
 String get kPdfPaymentsSection => tr('Pagamenti', 'Payments');
 String get kPdfDetailSection => tr('Dettaglio', 'Details');
 

@@ -10,7 +10,7 @@ class MonthPayment
   // STUDENTE, DOCENTE, CORSISTA, GENITORE, AMMINISTRATORE, PSICOLOGO: what the filter reads.
   final List<String> roles;
 
-  // PACKAGE, MONTH, AHEAD, the hours settled (HOURLY, OVER_PACKAGE, OVER_FEE, WEEKEND_ONLINE),
+  // PACKAGE, MONTH, AHEAD, WEEKEND_AHEAD, the hours settled (HOURLY, OVER_PACKAGE, OVER_FEE, WEEKEND_ONLINE),
   // or an annual fee (MEMBERSHIP_FEE, INSURANCE_FEE).
   final String kind;
 
@@ -58,6 +58,7 @@ class MonthPayment
     'PACKAGE' || 'OVER_PACKAGE' => 'PACKAGE',
     'MONTH' || 'OVER_FEE' => 'MONTHLY',
     'HOURLY' || 'AHEAD' => 'HOURLY',
+    'WEEKEND_AHEAD' => 'WEEKEND_ONLINE',
     _ => kind,
   };
 

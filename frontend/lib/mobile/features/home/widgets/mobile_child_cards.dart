@@ -16,6 +16,7 @@ import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
 import '../../../shared/widgets/mobile_tour.dart';
 import '../mobile_pupil_day.dart';
+import 'mobile_equal_grid.dart';
 import 'mobile_link.dart';
 
 const double _iconColumn = 44;
@@ -150,21 +151,12 @@ class _Figures extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Column(
-      children: [
-        for (var row = 0; row < figures.length; row += 2) ...[
-          if (row > 0) const SizedBox(height: _cellGap),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = row; i < row + 2; i++) ...[
-                if (i > row) const SizedBox(width: _cellGap),
-                Expanded(child: i < figures.length ? _Cell(figures[i], onLink: onLink) : const SizedBox()),
-              ],
-            ],
-          ),
-        ],
-      ],
+    // All four as tall as the tallest.
+    return MobileEqualGrid(
+      columns: 2,
+      gap: _cellGap,
+      runGap: _cellGap,
+      children: [for (final figure in figures) _Cell(figure, onLink: onLink)],
     );
   }
 }
@@ -485,31 +477,41 @@ class _Cell extends StatelessWidget
     final Widget cell = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(
-          TextSpan(
-            children: [
-              for (final part in figure.parts)
-                TextSpan(
-                  text: part.text,
-                  style: part.isUnit
-                      ? GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0,
-                          color: MobilePalette.mutedText,
-                        )
-                      : null,
-                ),
-            ],
-          ),
-          // A word is set smaller on the numbers' line, so baselines and labels stay level.
-          strutStyle: const StrutStyle(fontSize: _valueSize, height: 1.1, forceStrutHeight: true),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: figure.isWord ? 19 : _valueSize,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.4,
-            height: 1.1,
-            color: figure.tone == HomeFigureTone.absent ? MobilePalette.mutedText : AppTheme.trialInk,
+        // One line, shrunk where it would wrap ("8h 30m rimaste" on a narrow phone).
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                for (final part in figure.parts)
+                  TextSpan(
+                    text: part.text,
+                    style: part.isUnit
+                        ? GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
+                            color: MobilePalette.mutedText,
+                          )
+                        : null,
+                  ),
+              ],
+            ),
+            // A word is set smaller on the numbers' line, so baselines and labels stay level.
+            strutStyle: const StrutStyle(fontSize: _valueSize, height: 1.1, forceStrutHeight: true),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: figure.isWord ? 19 : _valueSize,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              height: 1.1,
+              color: switch (figure.tone)
+              {
+                HomeFigureTone.absent => MobilePalette.mutedText,
+                HomeFigureTone.owed => AppTheme.modifiedAccent,
+                _ => AppTheme.trialInk,
+              },
+            ),
           ),
         ),
         const SizedBox(height: 2),

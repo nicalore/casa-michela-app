@@ -666,8 +666,8 @@ class _TeacherHoursTabState extends State<TeacherHoursTab> with DestinationRefre
       return AppEmptyRoom(
         card: AppEmptyCard(
           icon: Icons.schedule_rounded,
-          message: kNothingOver,
-          detail: firstEnd == null ? null : firstEndsAt(firstEnd),
+          message: kNoTeacherFinished,
+          detail: firstEnd == null ? null : firstFinishesAt(firstEnd),
         ),
         below: [if (_bandBegun) _buildAddButton()],
       );

@@ -117,12 +117,12 @@ _PAID_IN_FUTURE_ERROR: Final[Bilingual] = Bilingual(
     "The payment date is in the future.",
 )
 _NOTHING_TO_SETTLE_ERROR: Final[Bilingual] = Bilingual(
-    "Non ci sono ore da saldare.",
-    "There are no hours to settle.",
+    "Non ci sono ore da pagare.",
+    "There are no hours due.",
 )
 _LINE_CHANGED_ERROR: Final[Bilingual] = Bilingual(
-    "Le ore da saldare sono cambiate: chiudi la finestra e riaprila.",
-    "The hours to settle have changed: close the window and open it again.",
+    "Le ore da pagare sono cambiate: chiudi la finestra e riaprila.",
+    "The hours due have changed: close the window and open it again.",
 )
 _AHEAD_HOURLY_ONLY_ERROR: Final[Bilingual] = Bilingual(
     "Le ore in anticipo si pagano solo con la tariffa a ore.",
@@ -156,6 +156,7 @@ HistoryKind = Literal[
     "PACKAGE",
     "MONTH",
     "AHEAD",
+    "WEEKEND_AHEAD",
     "HOURLY",
     "OVER_PACKAGE",
     "OVER_FEE",
@@ -169,6 +170,11 @@ _HISTORY_KINDS: Final[dict[HoursKindEnum, HistoryKind]] = {
     HoursKindEnum.OVER_PACKAGE: "OVER_PACKAGE",
     HoursKindEnum.OVER_FEE: "OVER_FEE",
     HoursKindEnum.WEEKEND_ONLINE: "WEEKEND_ONLINE",
+}
+
+_AHEAD_KINDS: Final[dict[StudentPaymentKindEnum, HistoryKind]] = {
+    StudentPaymentKindEnum.AHEAD: "AHEAD",
+    StudentPaymentKindEnum.WEEKEND_AHEAD: "WEEKEND_AHEAD",
 }
 
 _LINE_ORDER: Final[tuple[HoursKindEnum, ...]] = (
@@ -291,6 +297,8 @@ class PaymentStatus:
     ahead: AheadStatus | None = None
     # The row a queued change brings in.
     queued_tariff: StudentTariff | None = None
+    # Online hours at the weekend paid ahead, under any tariff.
+    weekend_ahead: AheadStatus | None = None
 
     @property
     def due_cents(self) -> int:
@@ -346,9 +354,11 @@ class _Walk:
         tariffs: Sequence[StudentTariff],
         payments: Sequence[StudentPayment],
         settle_rate: int,
+        weekend_rate: int,
     ) -> None:
         self.rows = sorted(tariffs, key=lambda row: (row.starts_on, row.id))
         self.settle_rate = settle_rate
+        self.weekend_rate = weekend_rate
         self.current = 0
         self.started_on: dict[int, date] = {0: self.rows[0].starts_on}
         # The day the last minute of a package row's packages went.
@@ -364,11 +374,13 @@ class _Walk:
         self.covered: dict[int, list[HistoryLesson]] = defaultdict(list)
         self.index_of = {row.id: index for index, row in enumerate(self.rows)}
         # Any lesson by the hour draws on them, those paid first first.
-        self.ahead = sorted(
-            (item for item in payments if item.kind == StudentPaymentKindEnum.AHEAD),
-            key=lambda item: (item.paid_on, item.id),
-        )
+        self.ahead = _paid_ahead(payments, StudentPaymentKindEnum.AHEAD)
         self.ahead_left = {item.id: item.ahead_minutes or 0 for item in self.ahead}
+        # Online at the weekend the same, whatever the tariff.
+        self.weekend_ahead = _paid_ahead(payments, StudentPaymentKindEnum.WEEKEND_AHEAD)
+        self.weekend_left = {
+            item.id: item.ahead_minutes or 0 for item in self.weekend_ahead
+        }
 
         for payment in sorted(payments, key=lambda row: row.id):
             if payment.kind == StudentPaymentKindEnum.PACKAGE:
@@ -583,15 +595,23 @@ class _Walk:
         return minutes
 
 
-    def _from_ahead(self, lesson: PupilLesson, minutes: int) -> int:
-        for payment in self.ahead:
-            left = self.ahead_left[payment.id]
+    def _from_ahead(
+        self,
+        lesson: PupilLesson,
+        minutes: int,
+        weekend: bool = False,
+    ) -> int:
+        bought = self.weekend_ahead if weekend else self.ahead
+        lefts = self.weekend_left if weekend else self.ahead_left
+
+        for payment in bought:
+            left = lefts[payment.id]
 
             if left == 0:
                 continue
 
             used = min(left, minutes)
-            self.ahead_left[payment.id] = left - used
+            lefts[payment.id] = left - used
             minutes -= used
             self.covered[payment.id].append(
                 HistoryLesson(
@@ -605,13 +625,36 @@ class _Walk:
                 )
             )
 
-            if left == used:
+            # Online at the weekend holds no tariff change back.
+            if left == used and not weekend:
                 self.ran_out_on[self.current] = lesson.day
 
             if minutes == 0:
                 break
 
         return minutes
+
+    def take_weekend(self, lesson: PupilLesson, minutes: int) -> None:
+        minutes = self._from_ahead(lesson, minutes, weekend=True)
+
+        if minutes > 0:
+            self.add(
+                HoursKindEnum.WEEKEND_ONLINE,
+                lesson,
+                minutes,
+                self.weekend_rate,
+                None,
+            )
+
+
+def _paid_ahead(
+    payments: Sequence[StudentPayment],
+    kind: StudentPaymentKindEnum,
+) -> list[StudentPayment]:
+    return sorted(
+        (item for item in payments if item.kind == kind),
+        key=lambda item: (item.paid_on, item.id),
+    )
 
 
 def _walked(
@@ -622,7 +665,7 @@ def _walked(
     today: date,
     rates: PaymentRates,
 ) -> _Walk:
-    walk = _Walk(tariffs, payments, rates.settle_cents)
+    walk = _Walk(tariffs, payments, rates.settle_cents, rates.weekend_online_cents)
     first_day = walk.rows[0].starts_on
 
     for lesson in sorted(lessons, key=lambda row: (row.day, row.start, row.id)):
@@ -632,13 +675,7 @@ def _walked(
             continue
 
         if lesson.weekend_online:
-            walk.add(
-                HoursKindEnum.WEEKEND_ONLINE,
-                lesson,
-                minutes,
-                rates.weekend_online_cents,
-                None,
-            )
+            walk.take_weekend(lesson, minutes)
             continue
 
         walk.advance(lesson.day)
@@ -752,12 +789,15 @@ def _package_states(walk: _Walk) -> dict[int, PackageState]:
     return states
 
 
-def _ahead_states(walk: _Walk) -> dict[int, PackageState]:
+def _ahead_states(
+    bought: Sequence[StudentPayment],
+    lefts: dict[int, int],
+) -> dict[int, PackageState]:
     states: dict[int, PackageState] = {}
     open_before = False
 
-    for payment in walk.ahead:
-        left = walk.ahead_left[payment.id]
+    for payment in bought:
+        left = lefts[payment.id]
 
         if left == 0:
             states[payment.id] = "ENDED"
@@ -801,7 +841,11 @@ def payment_history(
         minutes[item.lesson.id] += item.minutes
 
     walk = _walked(tariffs, payments, minutes, lessons, today, rates)
-    states = _package_states(walk) | _ahead_states(walk)
+    states = (
+        _package_states(walk)
+        | _ahead_states(walk.ahead, walk.ahead_left)
+        | _ahead_states(walk.weekend_ahead, walk.weekend_left)
+    )
     paid: list[HistoryRow] = []
 
     newest = sorted(payments, key=lambda row: (row.paid_on, row.id), reverse=True)
@@ -822,10 +866,10 @@ def payment_history(
                     )
                 )
 
-        elif payment.kind == StudentPaymentKindEnum.AHEAD:
+        elif payment.kind in _AHEAD_KINDS:
             paid.append(
                 HistoryRow(
-                    "AHEAD",
+                    _AHEAD_KINDS[payment.kind],
                     payment,
                     payment.amount_cents,
                     covered,
@@ -967,12 +1011,7 @@ def _status(
     ahead: AheadStatus | None = None
 
     if row.kind == TariffKindEnum.HOURLY:
-        bought = [item for item in walk.ahead if walk.ahead_left[item.id] > 0]
-        total = sum(item.ahead_minutes or 0 for item in bought)
-
-        if bought:
-            left = sum(walk.ahead_left[item.id] for item in bought)
-            ahead = AheadStatus(total_minutes=total, used_minutes=total - left)
+        ahead = _ahead_left(walk.ahead, walk.ahead_left)
 
     queued_tariff: StudentTariff | None = None
 
@@ -999,7 +1038,24 @@ def _status(
         queued_starts_on=queued_starts_on,
         ahead=ahead,
         queued_tariff=queued_tariff,
+        weekend_ahead=_ahead_left(walk.weekend_ahead, walk.weekend_left),
     )
+
+
+# The payments ahead with hours left, as one: a new one waits for the earlier.
+def _ahead_left(
+    bought: Sequence[StudentPayment],
+    lefts: dict[int, int],
+) -> AheadStatus | None:
+    open_ones = [item for item in bought if lefts[item.id] > 0]
+
+    if not open_ones:
+        return None
+
+    total = sum(item.ahead_minutes or 0 for item in open_ones)
+    left = sum(lefts[item.id] for item in open_ones)
+
+    return AheadStatus(total_minutes=total, used_minutes=total - left)
 
 
 def _opening_lesson(day: date, band: str, minutes: int, online: bool) -> PupilLesson:
@@ -1419,6 +1475,7 @@ SituationKind = Literal[
     "MONTH_PAID",
     "MONTH_UNPAID",
     "SETTLE",
+    "PAID",
     "AHEAD_LEFT",
     "AHEAD_ENDED",
     "PENDING",
@@ -1542,6 +1599,8 @@ def band_situation(
         if part.lesson_id == unit
     ]
     cost = sum(part.cents for _, part in mine)
+    # Hours to settle, all of them paid: the band is paid.
+    paid = here is not None and not any(part.minutes for _, part in mine)
 
     def uncovered(kind: HoursKindEnum) -> int:
         return sum(part.minutes for line_kind, part in mine if line_kind == kind)
@@ -1555,7 +1614,20 @@ def band_situation(
     )
 
     if here is not None and here.weekend_online:
-        return base
+        weekend_before = sum(prior.weekend_left.values())
+        weekend_after = sum(after.weekend_left.values())
+
+        if weekend_after > 0:
+            return replace(base, kind="AHEAD_LEFT", minutes=weekend_after)
+
+        if weekend_before > 0:
+            return replace(
+                base,
+                kind="AHEAD_ENDED",
+                minutes=uncovered(HoursKindEnum.WEEKEND_ONLINE),
+            )
+
+        return replace(base, kind="PAID") if paid else base
 
     if row.kind == TariffKindEnum.PACKAGE:
         running = _running_package(after, row)
@@ -1610,7 +1682,7 @@ def band_situation(
             minutes=uncovered(HoursKindEnum.HOURLY),
         )
 
-    return base
+    return replace(base, kind="PAID") if paid else base
 
 
 def _bad_request(detail: str) -> HTTPException:
@@ -1939,9 +2011,27 @@ async def pay_ahead(
     now: datetime,
 ) -> StudentPayment:
     """Hours paid before they are done; added to any still left."""
-    current = (await _running(db, tax_code, now)).status
+    payments = await _running(db, tax_code, now)
+    current = payments.status
     assert current is not None
     row = current.tariff
+
+    # Outside every tariff: no change waits for them.
+    if data.weekend_online:
+        rate = payments.rates.weekend_online_cents
+        payment = _payment(
+            tax_code,
+            data.payment,
+            now.date(),
+            kind=StudentPaymentKindEnum.WEEKEND_AHEAD,
+            ahead_minutes=data.minutes,
+            cents_per_hour=rate,
+            amount_cents=max(_cents(data.minutes, rate), 1),
+        )
+        db.add(payment)
+        await db.flush()
+
+        return payment
 
     if row.kind != TariffKindEnum.HOURLY:
         raise _bad_request(_AHEAD_HOURLY_ONLY_ERROR.for_request())

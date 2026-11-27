@@ -173,7 +173,10 @@ def _income_kind(payment: StudentPayment) -> IncomeKind:
     if payment.kind == StudentPaymentKindEnum.AHEAD:
         return "AHEAD"
 
-    if payment.hours_kind == HoursKindEnum.WEEKEND_ONLINE:
+    if (
+        payment.kind == StudentPaymentKindEnum.WEEKEND_AHEAD
+        or payment.hours_kind == HoursKindEnum.WEEKEND_ONLINE
+    ):
         return "WEEKEND_ONLINE"
 
     return "HOURLY"

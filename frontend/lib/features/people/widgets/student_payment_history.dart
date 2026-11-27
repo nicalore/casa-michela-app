@@ -15,6 +15,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_check_mark.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/date_input_formatters.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/hover_gold_frame.dart';
 import '../../../shared/widgets/page_heading.dart';
@@ -24,6 +25,7 @@ import '../../accounting/widgets/opening_pending_pill.dart';
 import '../../association/tabs/opening_hours/hours_date_field.dart'
     show formatDateString, isValidDateString, parseDateString;
 import '../export/student_payments_pdf.dart';
+import '../family_payments_tour.dart';
 import '../models/person_item.dart';
 import '../models/student_payments_item.dart';
 import '../utils/payments_strings.dart';
@@ -40,6 +42,91 @@ const double _chevron = 54;
 
 Color get _headSurface => ThemeColours.of(0xFFF5F8F8);
 Color get _rowRule => ThemeColours.of(0xFFEDF2F1);
+
+// Closes the lessons before their total, as on the phone.
+Color get _closingRule => AppTheme.trialInk.withValues(alpha: 0.28);
+
+// A package's or the hours ahead's use, in minutes: (used, bought); null for the others.
+(int, int)? hoursUse(PaymentHistoryRow row)
+{
+  final int? hours = row.packageHours;
+  final int? ahead = row.aheadMinutes;
+
+  if (row.isPackage && hours != null)
+  {
+    return (row.minutes, hours * 60);
+  }
+
+  if (row.isAhead && ahead != null)
+  {
+    return (row.minutes, ahead);
+  }
+
+  return null;
+}
+
+// As the status card's: used on the left, left on the right, the bar under them; gold once used up.
+class PaymentHoursBar extends StatelessWidget
+{
+  final int used;
+  final int total;
+  final double fontSize;
+  final double height;
+
+  const PaymentHoursBar({super.key, required this.used, required this.total, required this.fontSize, required this.height});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final bool usedUp = used >= total;
+    final double share = total == 0 ? 1 : (used / total).clamp(0, 1).toDouble();
+    final TextStyle label = GoogleFonts.plusJakartaSans(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w700,
+      color: AppTheme.trialOceanText,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text(usedLabel(used), style: label)),
+            const SizedBox(width: 16),
+            Text(
+              leftLabel(usedUp ? 0 : total - used),
+              style: usedUp ? label.copyWith(color: AppTheme.modifiedAccent) : label,
+            ),
+          ],
+        ),
+        SizedBox(height: height - 1),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(height / 2),
+          child: SizedBox(
+            height: height,
+            child: Stack(
+              children: [
+                Positioned.fill(child: ColoredBox(color: ThemeColours.of(0xFFE6EEEE))),
+                FractionallySizedBox(
+                  widthFactor: share,
+                  heightFactor: 1,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(height / 2),
+                      gradient: LinearGradient(
+                        colors: usedUp ? AppTheme.goldGradient.colors : [AppTheme.trialTurquoise, AppTheme.trialTealDeep],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 Color get _greyBadge => ThemeColours.of(0xFFEEF3F3);
 Color get _greyBadgeText => ThemeColours.fixed(0xFF33495A);
 
@@ -179,6 +266,9 @@ class PaymentHistoryTable extends StatelessWidget
   // The member's own page: rows open nothing.
   final bool readOnly;
 
+  // The row a family tour opens, and its id.
+  final (PaymentHistoryRow, String)? tourRow;
+
   const PaymentHistoryTable({
     super.key,
     required this.rows,
@@ -188,6 +278,7 @@ class PaymentHistoryTable extends StatelessWidget
     this.openingPending = false,
     this.stacked = false,
     this.readOnly = false,
+    this.tourRow,
   });
 
   // The chevron's room, or only the side padding when rows open nothing.
@@ -471,13 +562,18 @@ class PaymentHistoryTable extends StatelessWidget
       return shown;
     }
 
-    return HoverGoldFrame(
-      cardRadius: metrics.radius,
-      atTop: stacked && index == 0,
-      atBottom: index == rows.length - 1,
-      onTap: () => onOpen(row),
-      leadingInset: row.isPaid || _waiting(row) ? 0 : _stripe,
-      child: shown,
+    final (PaymentHistoryRow, String)? tour = tourRow;
+
+    return DesktopTourTarget(
+      id: tour != null && identical(tour.$1, row) ? tour.$2 : null,
+      child: HoverGoldFrame(
+        cardRadius: metrics.radius,
+        atTop: stacked && index == 0,
+        atBottom: index == rows.length - 1,
+        onTap: () => onOpen(row),
+        leadingInset: row.isPaid || _waiting(row) ? 0 : _stripe,
+        child: shown,
+      ),
     );
   }
 
@@ -539,12 +635,13 @@ Future<StudentPaymentsItem?> showPaymentDetails({
   required PersonItem person,
   required StudentPaymentsItem payments,
   required PaymentHistoryRow row,
+  bool readOnly = false,
 })
 {
   return showBlurredDialog<StudentPaymentsItem>(
     context: context,
     barrierLabel: 'Payment',
-    builder: (_) => _PaymentDetails(person: person, payments: payments, row: row),
+    builder: (_) => _PaymentDetails(person: person, payments: payments, row: row, readOnly: readOnly),
   );
 }
 
@@ -554,7 +651,10 @@ class _PaymentDetails extends StatefulWidget
   final StudentPaymentsItem payments;
   final PaymentHistoryRow row;
 
-  const _PaymentDetails({required this.person, required this.payments, required this.row});
+  // A family reading: nothing to revoke.
+  final bool readOnly;
+
+  const _PaymentDetails({required this.person, required this.payments, required this.row, this.readOnly = false});
 
   @override
   State<_PaymentDetails> createState() => _PaymentDetailsState();
@@ -570,6 +670,63 @@ class _PaymentDetailsState extends State<_PaymentDetails>
   PersonItem get person => widget.person;
   StudentPaymentsItem get payments => widget.payments;
   PaymentHistoryRow get row => widget.row;
+
+  // A family's window: told by the page's tour, or by its own the first time.
+  @override
+  void initState()
+  {
+    super.initState();
+
+    if (!widget.readOnly)
+    {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async
+    {
+      if (!mounted)
+      {
+        return;
+      }
+
+      familyPaymentWindowCloser = _close;
+
+      final bool touring = isDesktopTourShown;
+
+      familyPaymentWindow.value = row;
+
+      final DesktopTour? tour = touring ? null : await familyPaymentWindowTour(row);
+
+      if (tour != null && mounted)
+      {
+        startFamilyPaymentsTour(context, tour);
+      }
+    });
+  }
+
+  @override
+  void dispose()
+  {
+    if (familyPaymentWindowCloser == _close)
+    {
+      familyPaymentWindowCloser = null;
+    }
+
+    if (widget.readOnly)
+    {
+      WidgetsBinding.instance.addPostFrameCallback((_) => familyPaymentWindow.value = null);
+    }
+
+    super.dispose();
+  }
+
+  void _close()
+  {
+    if (mounted)
+    {
+      Navigator.of(context).pop();
+    }
+  }
 
   Future<void> _cancel() async
   {
@@ -598,7 +755,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
   Widget? _footer(BuildContext context)
   {
     // Still to pay: read here, settled from the status card.
-    if (!row.canCancel)
+    if (widget.readOnly || !row.canCancel)
     {
       return null;
     }
@@ -645,8 +802,6 @@ class _PaymentDetailsState extends State<_PaymentDetails>
   Widget _facts()
   {
     final DateTime? paidOn = row.paidOn;
-    final int? hours = row.packageHours;
-    final int? ahead = row.aheadMinutes;
 
     // The pill reaches left past its column, so its mark starts where the label does.
     final Widget paid = paidOn == null
@@ -656,31 +811,60 @@ class _PaymentDetailsState extends State<_PaymentDetails>
           )
         : _figure(formatWeekdayColumnLabel(paidOn));
 
-    // Each as wide as its value, the room left shared between them; a line of its own when it runs out.
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      spacing: _factGap,
-      runSpacing: _factGap / 2,
-      children: [
-        _fact(
-          kAmountColumn,
-          _figure(
-            formatAmount(row.amountCents),
-            color: row.isPaid ? AppTheme.trialTealDeepText : AppTheme.modifiedAccent,
-          ),
-        ),
-        _fact(kPaidOnColumn, paid),
-        _fact(kMethodColumn, _figure(_method(row))),
-        if (!row.isFee)
+    // Each as wide as its value, the room left shared between them across the card; a line of its own when it
+    // runs out.
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        spacing: _factGap,
+        runSpacing: _factGap / 2,
+        children: [
           _fact(
-            kHoursColumn,
+            kAmountColumn,
             _figure(
-              row.isPackage && hours != null
-                  ? hoursOfPackage(row.minutes, hours)
-                  : (row.isAhead && ahead != null ? hoursOfAhead(row.minutes, ahead) : _hours(row)),
+              formatAmount(row.amountCents),
+              color: row.isPaid ? AppTheme.trialTealDeepText : AppTheme.modifiedAccent,
             ),
           ),
-      ],
+          _fact(kPaidOnColumn, paid),
+          _fact(kMethodColumn, _figure(_method(row))),
+        ],
+      ),
+    );
+  }
+
+  // «LEZIONI», as the facts' labels.
+  Widget _lessonsTitle()
+  {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Text(kLessonsCard.toUpperCase(), style: PageHeading.style().copyWith(fontSize: 11, letterSpacing: 1.6)),
+    );
+  }
+
+  // Ore, weekend and months: what the lessons add up to.
+  Widget _totalRow(bool third)
+  {
+    final TextStyle total = GoogleFonts.plusJakartaSans(
+      fontSize: 15,
+      fontWeight: FontWeight.w800,
+      color: AppTheme.trialOceanText,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+    Widget centred(Widget child) => Expanded(flex: 2, child: Center(child: child));
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: _closingRule, width: 1.5))),
+      child: Row(
+        children: [
+          Expanded(flex: 6, child: Text(kSettleTotal, style: total)),
+          centred(Text(hoursText(row.minutes), style: total)),
+          if (third) centred(Text(formatAmount(row.amountCents), style: total)),
+        ],
+      ),
     );
   }
 
@@ -707,7 +891,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             children: [
               Expanded(flex: 6, child: Text(kDayColumn, style: head)),
@@ -718,7 +902,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
         ),
         for (final PaymentHistoryLesson lesson in row.lessons)
           Container(
-            padding: const EdgeInsets.fromLTRB(4, 9, 0, 9),
+            padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(border: Border(top: BorderSide(color: _rowRule))),
             child: Row(
               children: [
@@ -767,6 +951,7 @@ class _PaymentDetailsState extends State<_PaymentDetails>
               ],
             ),
           ),
+        if (!row.countsDown) _totalRow(third),
       ],
     );
   }
@@ -779,23 +964,28 @@ class _PaymentDetailsState extends State<_PaymentDetails>
       title: historyTitle(row),
       maxWidth: _detailsWidth,
       footer: _footer(context),
+      closeTourId: widget.readOnly ? kTourPaymentClose : null,
+      // What was paid, then the lessons it covers: a package's hours as the status card's bar over them.
       children: [
-        AppDialogPill(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _facts(),
-              if (row.lessons.isNotEmpty) ...[
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 18),
-                  child: Divider(height: 1, thickness: 1, color: _rowRule),
-                ),
-                _lessons(),
-              ],
-            ],
+        DesktopTourTarget(id: widget.readOnly ? kTourPaymentFacts : null, child: AppDialogPill(child: _facts())),
+        if (row.lessons.isNotEmpty)
+          DesktopTourTarget(
+            id: widget.readOnly ? kTourPaymentLessons : null,
+            child: AppDialogPill(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _lessonsTitle(),
+                  if (hoursUse(row) case (final int used, final int total)) ...[
+                    PaymentHoursBar(used: used, total: total, fontSize: 15, height: 10),
+                    const SizedBox(height: 20),
+                  ],
+                  _lessons(),
+                ],
+              ),
+            ),
           ),
-        ),
       ],
     );
   }

@@ -11,11 +11,12 @@ import '../../../core/utils/week_range.dart' show formatMinutes, formatMonthYear
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/whole_words.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
+import '../../people/utils/payments_strings.dart';
 import '../home_link.dart';
 import '../models/month_summary_items.dart';
 import 'home_link_frame.dart';
 
-enum HomeFigureTone { plain, pending, absent }
+enum HomeFigureTone { plain, pending, absent, owed }
 
 class HomeDelta
 {
@@ -47,6 +48,12 @@ class HomeFigure
   // The page that details it; none while that page is yet to come.
   final HomeLink? link;
 
+  // The children's table heads the column with it rather than the label, and shows the cell's own words.
+  final String? column;
+  final String? cell;
+
+  final PupilPaymentFiguresItem? payment;
+
   const HomeFigure({
     required this.label,
     required this.value,
@@ -55,13 +62,20 @@ class HomeFigure
     this.delta,
     this.tone = HomeFigureTone.plain,
     this.link,
-  }) : isTime = false;
+    this.column,
+    this.cell,
+    this.payment,
+    this.isTime = false,
+  });
 
   HomeFigure.time({required this.label, required int minutes, this.delta, this.link})
       : value = formatMinutes(minutes),
         unit = '',
         warning = null,
         tone = HomeFigureTone.plain,
+        column = null,
+        cell = null,
+        payment = null,
         isTime = true;
 
   bool get hasAside => warning != null || delta != null;
@@ -90,6 +104,7 @@ class HomeFigure
         (text: '${index == 0 ? '' : ' '}${matches[index][1]}', isUnit: false),
         (text: matches[index][2]!, isUnit: true),
       ],
+      if (unit.isNotEmpty) (text: ' $unit', isUnit: true),
     ];
   }
 }
@@ -208,9 +223,87 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
   ];
 }
 
-// Package hours left await backend support.
-HomeFigure _tariffFigure(PupilMonthFiguresItem figures)
+// Two lines like the others: what matters in large, in gold when owed; the label is the tariff's, always the same.
+HomeFigure _paymentFigure(PupilPaymentFiguresItem pay, HomeLink link)
 {
+  final String kind = kTariffKindLabels[pay.kind] ?? '';
+
+  // [cell]: the table's words, where the value alone would not say what it is about.
+  HomeFigure figure(
+    String label,
+    String value, {
+    String unit = '',
+    bool time = false,
+    bool owed = false,
+    bool absent = false,
+    String? cell,
+  })
+  {
+    return HomeFigure(
+      label: label,
+      column: kPaymentsSection,
+      cell: cell,
+      value: value,
+      unit: unit,
+      isTime: time,
+      tone: owed ? HomeFigureTone.owed : (absent ? HomeFigureTone.absent : HomeFigureTone.plain),
+      payment: pay,
+      link: link,
+    );
+  }
+
+  final int due = pay.dueMinutes;
+
+  // Lessons not covered come first: by the hour, past the package, or in a month without its fee.
+  HomeFigure owing(String label) => figure(label, hoursText(due), unit: kToPayUnit, time: true, owed: true);
+
+  if (pay.isMonthly)
+  {
+    if (pay.monthPaid)
+    {
+      return figure(kind, kMonthPaid, cell: kFeePaidCell);
+    }
+
+    return due > 0 ? owing(kind) : figure(kind, kFeeNotPaid, owed: pay.monthDue, cell: kFeeNotPaidCell);
+  }
+
+  if (pay.isPackage)
+  {
+    final int? total = pay.packageMinutes;
+    final String label = total == null ? kind : packageOfHours(total);
+    final int? left = pay.leftMinutes;
+
+    if (left != null && left > 0)
+    {
+      return figure(label, hoursText(left), unit: leftWord(left), time: true);
+    }
+
+    if (due > 0)
+    {
+      return owing(label);
+    }
+
+    // Used up, or none bought yet.
+    return left == null
+        ? figure(label, '—', absent: true)
+        : figure(label, kPackageUsedUp, owed: true, cell: kExhaustedBadge);
+  }
+
+  final int paid = pay.paidMinutes;
+
+  return due == 0 ? figure(kind, hoursText(paid), unit: paidWord(paid), time: true) : owing(kind);
+}
+
+// [pupil]: the child they are of, on a parent's home.
+HomeFigure _tariffFigure(PupilMonthFiguresItem figures, {String? pupil})
+{
+  final PupilPaymentFiguresItem? pay = figures.payment;
+
+  if (pay != null)
+  {
+    return _paymentFigure(pay, HomePaymentsLink(pupil: pupil));
+  }
+
   if (figures.hasPackage)
   {
     return HomeFigure(
@@ -264,7 +357,7 @@ List<HomeFigure> pupilFigures(
       link: HomeWeekLink(pupil: pupil),
     ),
     HomeFigure.time(label: tr('Lezioni', 'Lessons'), minutes: figures.lessonMinutes, link: stats),
-    if (withTariff) _tariffFigure(figures),
+    if (withTariff) _tariffFigure(figures, pupil: pupil),
   ];
 }
 
@@ -600,7 +693,7 @@ class HomeMonthSection extends StatelessWidget
                 flex: flexes?[index - start] ?? 1,
                 child: index < labels.length
                     ? Text(
-                        labels[index].label.toUpperCase(),
+                        (labels[index].column ?? labels[index].label).toUpperCase(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: _headStyle(dense: dense),
@@ -824,14 +917,18 @@ class _TableValue extends StatelessWidget
   // Also measured by the table, to tell whether its columns fit.
   static TextSpan spanOf(HomeFigure figure, {required bool dense})
   {
+    final String? cell = figure.cell;
+    final bool word = cell != null || figure.isWord;
+
     final Color color = switch (figure.tone)
     {
       HomeFigureTone.absent => AppTheme.trialMutedText,
-      _ => figure.isWord ? AppTheme.trialInk : AppTheme.trialOceanText,
+      HomeFigureTone.owed => AppTheme.modifiedAccent,
+      _ => word ? AppTheme.trialInk : AppTheme.trialOceanText,
     };
 
     final TextStyle number = GoogleFonts.plusJakartaSans(
-      fontSize: dense ? (figure.isWord ? 14 : denseNumberSize) : (figure.isWord ? 16 : 20),
+      fontSize: dense ? (word ? 14 : denseNumberSize) : (word ? 16 : 20),
       fontWeight: FontWeight.w700,
       height: 1,
       color: color,
@@ -846,7 +943,10 @@ class _TableValue extends StatelessWidget
 
     return TextSpan(
       children: [
-        for (final part in figure.parts) TextSpan(text: part.text, style: part.isUnit ? unit : number),
+        if (cell != null)
+          TextSpan(text: cell, style: number)
+        else
+          for (final part in figure.parts) TextSpan(text: part.text, style: part.isUnit ? unit : number),
       ],
     );
   }
@@ -938,8 +1038,12 @@ class _FigureTile extends StatelessWidget
     final Color valueColor = switch (figure.tone)
     {
       HomeFigureTone.absent => AppTheme.trialMutedText,
+      HomeFigureTone.owed => AppTheme.modifiedAccent,
       _ => figure.isWord ? AppTheme.trialInk : AppTheme.trialOceanText,
     };
+
+    // Owed or warned: the tile turns gold.
+    final bool gold = warned || figure.tone == HomeFigureTone.owed;
 
     Widget line(Widget text) => Align(
           alignment: Alignment.centerLeft,
@@ -1057,10 +1161,10 @@ class _FigureTile extends StatelessWidget
     final Widget tile = Container(
       padding: EdgeInsets.symmetric(horizontal: scale.side, vertical: scale.padding),
       decoration: BoxDecoration(
-        color: warned ? AppTheme.modifiedAccentSurface : AppTheme.trialPaper,
+        color: gold ? AppTheme.modifiedAccentSurface : AppTheme.trialPaper,
         borderRadius: BorderRadius.circular(scale.radius),
         border: Border.all(
-          color: warned ? AppTheme.modifiedAccent.withValues(alpha: 0.28) : AppTheme.trialLine,
+          color: gold ? AppTheme.modifiedAccent.withValues(alpha: 0.28) : AppTheme.trialLine,
           width: _TileScale.border,
         ),
       ),

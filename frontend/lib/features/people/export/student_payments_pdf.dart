@@ -176,7 +176,7 @@ pw.Widget _figure(AccountingPdfStyles styles, String label, String value, {pw.Te
   final bool renew = today && payments.state == PaymentState.renew;
 
   return (
-    title: renew ? kToRenew : (due > 0 ? toPay(due) : kInOrder),
+    title: renew ? renewTitle(payments) : (due > 0 ? toPay(due) : kInOrder),
     line: today ? paymentStateLine(payments, now) : null,
     ok: !renew && due == 0,
   );

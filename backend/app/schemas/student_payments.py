@@ -43,7 +43,7 @@ _MAX_DAYS: Final[int] = 400
 _MAX_FEES: Final[int] = 50
 
 _NOTHING_CHOSEN_ERROR: Final[tuple[str, str]] = (
-    "Scegli almeno una voce da saldare.",
+    "Scegli almeno una voce da pagare.",
     "Choose at least one item to settle.",
 )
 
@@ -132,7 +132,10 @@ class AheadData(BaseModel):
         le=_MAX_PACKAGE_HOURS * 60,
         multiple_of=_QUARTER_HOUR,
     )
+    # Ignored online at the weekend, which has its own.
     cents_per_hour: int = Field(..., gt=0, le=_MAX_AMOUNT_CENTS)
+    # Online hours at the weekend rather than lessons by the hour.
+    weekend_online: bool = False
     payment: PaymentData
 
 
@@ -248,6 +251,7 @@ class HistoryRowResponse(BaseModel):
         "PACKAGE",
         "MONTH",
         "AHEAD",
+        "WEEKEND_AHEAD",
         "HOURLY",
         "OVER_PACKAGE",
         "OVER_FEE",
@@ -304,6 +308,10 @@ class StudentPaymentsResponse(BaseModel):
     months: list[MonthStateResponse] | None
     # Hours paid ahead and not used up, under an hourly tariff.
     ahead: AheadStatusResponse | None
+    # Online hours at the weekend paid ahead and not used up, under any tariff.
+    weekend_ahead: AheadStatusResponse | None = None
+    # What an online hour at the weekend costs at the pupil's level.
+    weekend_online_cents: int | None = None
     lines: list[HoursLineResponse]
     # Paid ahead and not started yet: one at a time.
     queued: Literal["PACKAGE", "MONTH", "CHANGE"] | None

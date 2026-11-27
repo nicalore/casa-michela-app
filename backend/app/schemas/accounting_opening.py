@@ -36,7 +36,7 @@ _LEFT_TOO_MANY_ERROR: Final[tuple[str, str]] = (
     "The hours left are more than the package's.",
 )
 _DUE_AND_AHEAD_ERROR: Final[tuple[str, str]] = (
-    "Ore da saldare e in anticipo insieme non si danno.",
+    "Ore da pagare e in anticipo insieme non si danno.",
     "Hours due and hours ahead can't both be given.",
 )
 _DUE_WITHOUT_END_ERROR: Final[tuple[str, str]] = (
@@ -44,7 +44,7 @@ _DUE_WITHOUT_END_ERROR: Final[tuple[str, str]] = (
     "Hours beyond the package apply only once the package is used up.",
 )
 _MONTH_DUE_ERROR: Final[tuple[str, str]] = (
-    "Con la quota mensile non ci sono ore da saldare.",
+    "Con la quota mensile non ci sono ore da pagare.",
     "With the monthly fee there are no hours due.",
 )
 _LEFT_OF_ENDED_ERROR: Final[tuple[str, str]] = (

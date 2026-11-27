@@ -318,18 +318,23 @@ class MobileSelectLine extends StatelessWidget
   final bool selected;
   final VoidCallback onTap;
 
+  // A price, on its own line under the title.
+  final String? amount;
+
   const MobileSelectLine({
     super.key,
     required this.title,
     this.subtitle,
     required this.selected,
     required this.onTap,
+    this.amount,
   });
 
   @override
   Widget build(BuildContext context)
   {
     final String? subtitle = this.subtitle;
+    final String? amount = this.amount;
 
     return Semantics(
       button: true,
@@ -370,6 +375,14 @@ class MobileSelectLine extends StatelessWidget
                           color: Color.lerp(AppTheme.trialInk, Colors.white, t),
                         ),
                       ),
+                      if (amount != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1),
+                          child: Text(
+                            amount,
+                            style: mobileSelectAmountStyle(Color.lerp(AppTheme.modifiedAccent, Colors.white, t)!),
+                          ),
+                        ),
                       if (subtitle != null && subtitle.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
@@ -396,6 +409,19 @@ class MobileSelectLine extends StatelessWidget
     );
   }
 }
+
+// What a line costs, gold as the total it adds to.
+TextStyle mobileSelectAmountStyle(Color color)
+{
+  return GoogleFonts.plusJakartaSans(
+    fontSize: 17,
+    fontWeight: FontWeight.w800,
+    height: 1.3,
+    color: color,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
+}
+
 
 class _Ring extends StatelessWidget
 {

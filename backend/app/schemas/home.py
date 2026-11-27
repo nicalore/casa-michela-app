@@ -40,6 +40,25 @@ class TeacherMonthSummaryResponse(TeacherMonthFigures):
     last_month: TeacherMonthFigures
 
 
+# Where a pupil's payments stand, as the Pagamenti page reads them.
+class PupilPaymentFigures(BaseModel):
+    kind: TariffKindEnum
+
+    # The package running, else the last one, else the tariff's; nothing used
+    # (None) before any was bought.
+    package_minutes: int | None
+    used_minutes: int | None
+
+    # This month's fee; due only when it is owed.
+    month_paid: bool
+    month_due: bool
+
+    # This month's confirmed hours, weekend online ones aside: paid by the hour, and
+    # to settle (by the hour, past the package, or in a month without its fee).
+    paid_minutes: int
+    due_minutes: int
+
+
 class PupilMonthFigures(BaseModel):
     student: PersonOption
 
@@ -51,8 +70,12 @@ class PupilMonthFigures(BaseModel):
 
     lesson_minutes: int
 
-    # How the hours are paid for; a package's balance is not tracked yet.
+    # How the hours are paid for.
     tariff_kind: TariffKindEnum | None
+
+    # None without a tariff, while the initial set-up waits, or for a parent's child
+    # reading their own month.
+    payment: PupilPaymentFigures | None = None
 
 
 class StudentMonthSummaryResponse(BaseModel):

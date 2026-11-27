@@ -275,6 +275,7 @@ const Set<String> kMobileTourSections = {
   'subjects',
   'calendar',
   'compensation',
+  'payments',
   'association',
   'profile',
   'settings',
@@ -966,6 +967,14 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
     {
       _endExtent = extent;
       _endStill = 0;
+
+      // Grown after the step's scroll was planned, as a sheet reaching its top while rows unfold: the part
+      // revealed is brought in again once it stands.
+      if (_planned && !_awaitingEnd && step.reveal != null && !(step.scrolls && step.shown.isNotEmpty))
+      {
+        _awaitingEnd = true;
+        _endFrames = 0;
+      }
 
       // Frames keep coming until the end has stood still.
       if (_awaitingEnd)
@@ -1951,8 +1960,18 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     final List<RRect> read = [for (final String id in step.shown) ..._holes(id, layer)];
 
-    bool cutBelow(double floor) => read.any((hole) => hole.outerRect.bottom > floor + _cutTolerance);
-    bool cutAbove(double ceiling) => read.any((hole) => hole.outerRect.top < ceiling);
+    // On a tablet the banner is narrower than the screen: a part wholly beside it is never under it.
+    final double bannerWidth = MobileBreakpoints.of(context).isTablet
+        ? MobileNavSheet.tabletWidth
+        : layer.size.width - _sideMargin * 2;
+    final double bannerLeft = (layer.size.width - bannerWidth) / 2;
+
+    bool under(RRect hole) => hole.right > bannerLeft && hole.left < bannerLeft + bannerWidth;
+
+    final List<RRect> covered = read.where(under).toList();
+
+    bool cutBelow(double floor) => covered.any((hole) => hole.outerRect.bottom > floor + _cutTolerance);
+    bool cutAbove(double ceiling) => covered.any((hole) => hole.outerRect.top < ceiling);
 
     // Scrolled out from under the banner by the step, so the banner does not bounce midway.
     // Not by a view too short and without runway: there the banner rises at once.
@@ -2004,7 +2023,9 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
         : step.high ||
             surface == null ||
             low < safeTop ||
-            touched.any((hole) => hole.outerRect.top < surface.top - _surfaceGap && hole.outerRect.bottom > low) ||
+            touched.any(
+              (hole) => under(hole) && hole.outerRect.top < surface.top - _surfaceGap && hole.outerRect.bottom > low,
+            ) ||
             (cutBelow(low - _surfaceGap) &&
                 !scrollsOut &&
                 !cutAbove(safeTop + height + _surfaceGap) &&
@@ -2040,7 +2061,10 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
 
     final List<RRect> cut = [
       for (final RRect hole in read)
-        if (_cut(hole, ceiling, floor) case final RRect kept) kept,
+        if (!under(hole))
+          hole
+        else if (_cut(hole, ceiling, floor) case final RRect kept)
+          kept,
     ];
 
     List<RRect> drawn(List<RRect> holes) => [
@@ -2062,7 +2086,9 @@ class _MobileTourLayerState extends State<MobileTourLayer> with TickerProviderSt
         landing == null ? now : [for (final String id in ids) ..._holes(id, layer, shift: rest, view: _landingView)];
 
     _aim = [
-      ...drawn([for (final RRect hole in landed(step.shown, read)) _cut(hole, ceiling, floor) ?? hole]),
+      ...drawn([
+        for (final RRect hole in landed(step.shown, read)) under(hole) ? _cut(hole, ceiling, floor) ?? hole : hole,
+      ]),
       ...landed(step.touched, touched),
     ];
 

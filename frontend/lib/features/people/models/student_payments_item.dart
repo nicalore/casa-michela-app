@@ -246,7 +246,8 @@ enum PaymentHistoryState { running, ended, waiting, unused }
 // One payment, or what is still to pay, with the lessons it covers.
 class PaymentHistoryRow
 {
-  // PACKAGE, MONTH, AHEAD (hours paid ahead), the hours: HOURLY, OVER_PACKAGE, OVER_FEE, WEEKEND_ONLINE,
+  // PACKAGE, MONTH, AHEAD (hours paid ahead), WEEKEND_AHEAD (online at the weekend paid ahead), the hours:
+  // HOURLY, OVER_PACKAGE, OVER_FEE, WEEKEND_ONLINE,
   // or an annual fee: MEMBERSHIP_FEE, INSURANCE_FEE.
   final String kind;
 
@@ -305,7 +306,9 @@ class PaymentHistoryRow
   bool get isFee => kind == 'MEMBERSHIP_FEE' || kind == 'INSURANCE_FEE';
   bool get isPackage => kind == 'PACKAGE';
   bool get isMonth => kind == 'MONTH';
-  bool get isAhead => kind == 'AHEAD';
+  // By the hour or online at the weekend: both count down what was bought.
+  bool get isAhead => kind == 'AHEAD' || isWeekendAhead;
+  bool get isWeekendAhead => kind == 'WEEKEND_AHEAD';
 
   // Hours bought in a block, each lesson saying what is left.
   bool get countsDown => isPackage || isAhead;
@@ -389,6 +392,12 @@ class StudentPaymentsItem
   // Hourly tariff only: what was paid ahead and is not used up.
   final AheadStatusItem? ahead;
 
+  // Any tariff: online at the weekend paid ahead and not used up.
+  final AheadStatusItem? weekendAhead;
+
+  // What an online hour at the weekend costs at the pupil's level.
+  final int? weekendOnlineCents;
+
   final List<HoursLineItem> lines;
 
   final QueuedPayment? queued;
@@ -420,6 +429,8 @@ class StudentPaymentsItem
     this.package,
     this.months,
     this.ahead,
+    this.weekendAhead,
+    this.weekendOnlineCents,
     this.lines = const [],
     this.queued,
     this.queuedStartsOn,
@@ -487,6 +498,7 @@ class StudentPaymentsItem
     final Map<String, dynamic>? package = json['package'] as Map<String, dynamic>?;
     final List<dynamic>? months = json['months'] as List<dynamic>?;
     final Map<String, dynamic>? ahead = json['ahead'] as Map<String, dynamic>?;
+    final Map<String, dynamic>? weekendAhead = json['weekend_ahead'] as Map<String, dynamic>?;
     final String? queuedStartsOn = json['queued_starts_on'] as String?;
     final Map<String, dynamic>? queuedTariff = json['queued_tariff'] as Map<String, dynamic>?;
 
@@ -504,6 +516,8 @@ class StudentPaymentsItem
           ?.map((month) => MonthStateItem.fromJson(month as Map<String, dynamic>))
           .toList(),
       ahead: ahead == null ? null : AheadStatusItem.fromJson(ahead),
+      weekendAhead: weekendAhead == null ? null : AheadStatusItem.fromJson(weekendAhead),
+      weekendOnlineCents: json['weekend_online_cents'] as int?,
       lines: (json['lines'] as List<dynamic>? ?? const [])
           .map((line) => HoursLineItem.fromJson(line as Map<String, dynamic>))
           .toList(),
