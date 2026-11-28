@@ -748,15 +748,16 @@ class ApiService
     }
   }
 
+  // Stored before use: once a request carries the new pair, the server refuses the old one.
   Future<void> _adoptTokens(LoginResponse loginResponse) async
   {
-    _accessToken = loginResponse.accessToken;
-    _refreshToken = loginResponse.refreshToken;
-
     await SessionService.saveTokens(
       accessToken: loginResponse.accessToken,
       refreshToken: loginResponse.refreshToken,
     );
+
+    _accessToken = loginResponse.accessToken;
+    _refreshToken = loginResponse.refreshToken;
 
     if (loginResponse.passwordResetRequired)
     {

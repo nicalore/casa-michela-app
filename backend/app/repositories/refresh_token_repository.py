@@ -116,6 +116,35 @@ class RefreshTokenRepository:
 
         return bool(live)
 
+    # Only the first use is kept.
+    async def mark_used(self, token_id: str, now: datetime) -> None:
+        await self.session.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.token_id == token_id,
+                RefreshToken.used_at.is_(None),
+            )
+            .values(used_at=now)
+        )
+
+        await self.session.flush()
+
+    # Rotation hands out tokens in id order, one session at a time.
+    async def used_after(self, refresh_token: RefreshToken) -> bool:
+        used = await self.session.scalar(
+            select(
+                exists().where(
+                    RefreshToken.account_tax_code == refresh_token.account_tax_code,
+                    RefreshToken.session_id == refresh_token.session_id,
+                    RefreshToken.token_type == TokenTypeEnum.REFRESH,
+                    RefreshToken.id > refresh_token.id,
+                    RefreshToken.used_at.is_not(None),
+                )
+            )
+        )
+
+        return bool(used)
+
     async def revoke_session(self, account_tax_code: str, session_id: str) -> int:
         result = await self.session.execute(
             update(RefreshToken)

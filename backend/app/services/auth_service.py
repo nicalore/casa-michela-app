@@ -340,13 +340,14 @@ class AuthService:
         logged_in_at: datetime,
         device: ClientDevice,
     ) -> AuthResult:
+        refresh_token_id = str(uuid4())
+
         access_token = create_access_token(
             subject=account.tax_code,
             username=account.username,
             session_id=session_id,
+            refresh_token_id=refresh_token_id,
         )
-
-        refresh_token_id = str(uuid4())
 
         refresh_token = create_refresh_token(
             subject=account.tax_code,
@@ -401,7 +402,7 @@ class AuthService:
             raise InvalidRefreshTokenError()
 
         if stored_token.revoked_at is not None and not (
-            rotating and await self._replaced_moments_ago(stored_token)
+            rotating and await self._replaced_but_honoured(stored_token)
         ):
             raise InvalidRefreshTokenError()
 
@@ -418,19 +419,25 @@ class AuthService:
 
         return payload, stored_token
 
-    # A just-replaced token is honoured briefly, unless its session has ended.
-    async def _replaced_moments_ago(self, stored_token: RefreshToken) -> bool:
+    # Live sessions only: renews while no later token was used, or just after rotation.
+    async def _replaced_but_honoured(self, stored_token: RefreshToken) -> bool:
         now = datetime.now(UTC)
-        grace = timedelta(seconds=settings.refresh_token_grace_seconds)
+        repository = self.refresh_token_repository
 
-        if stored_token.revoked_at is None or now - stored_token.revoked_at > grace:
-            return False
-
-        return await self.refresh_token_repository.session_is_live(
+        if not await repository.session_is_live(
             stored_token.account_tax_code,
             stored_token.session_id,
             now,
-        )
+        ):
+            return False
+
+        grace = timedelta(seconds=settings.refresh_token_grace_seconds)
+        revoked_at = stored_token.revoked_at
+
+        if revoked_at is not None and now - revoked_at <= grace:
+            return True
+
+        return not await repository.used_after(stored_token)
 
     async def _load_valid_reset_token(
         self,
@@ -567,6 +574,8 @@ class AuthService:
 
         if self._pending_change_expired(account, stored_token, now):
             raise PasswordChangeExpiredError()
+
+        await self.refresh_token_repository.mark_used(stored_token.token_id, now)
 
         # Whole session revoked: on a replay the live token is the unseen successor.
         await self.refresh_token_repository.revoke_session(

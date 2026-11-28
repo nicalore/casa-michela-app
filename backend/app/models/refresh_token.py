@@ -105,4 +105,10 @@ class RefreshToken(CreatedAtMixin, UpdatedAtMixin, Base):
         nullable=True,
     )
 
+    # First refresh or request made with this pair: the client holds it.
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     account: Mapped[Account] = relationship(back_populates="refresh_tokens")

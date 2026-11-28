@@ -62,13 +62,20 @@ def _encode_token(
     )
 
 
-def create_access_token(subject: str, username: str, session_id: str) -> str:
+# The rid names the refresh token issued with it: its first use marks the pair.
+def create_access_token(
+    subject: str,
+    username: str,
+    session_id: str,
+    refresh_token_id: str,
+) -> str:
     return _encode_token(
         {
             "sub": subject,
             "username": username,
             "type": _ACCESS_TOKEN_TYPE,
             "sid": session_id,
+            "rid": refresh_token_id,
         },
         settings.jwt_access_secret,
         timedelta(minutes=settings.access_token_expire_minutes),
